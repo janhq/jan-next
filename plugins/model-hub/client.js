@@ -3,7 +3,11 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    const { Button, Input, Menu, MenuItemButton, RiskConfirmation, IconSearchOutlineRegular, IconAppsAddOutlineRegular, IconChevronDownOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const {
+      Button, Input, Menu, MenuItemButton, Modal, RiskConfirmation, SegmentedTabs, Tag, IconSearchOutlineRegular, IconAppsAddOutlineRegular,
+      IconChevronDownOutlineRegular, IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular, IconSparkleRegular,
+      IconToolOutlineRegular, IconImageOutlineRegular, IconCheckCircleFillRegular,
+    } = require('@janhq/jan-client-ui-primitives')
 
     const PANEL = 'jan-model-hub'
     // The catalog the earlier Jan app's Hub reads: GGUF repositories with their quantized files.
@@ -31,6 +35,11 @@ window.__ModuleLoader__.load({
         use: 'Use', using: 'Starting...', more: 'Show more',
         failed: 'Could not finish: {error}',
         startFailed: 'The local model could not start: {error}', settings: 'Open Settings -> Models',
+        explore: 'Explore', allModels: 'All models', views: 'Hub views', featured: 'Featured', details: 'See details',
+        position: '{index} of {total}', previous: 'Previous', next: 'Next', seeAll: 'See all', close: 'Close',
+        scrollBack: 'Scroll {name} back', scrollForward: 'Scroll {name} forward',
+        'shelf.library': 'Your models', 'shelf.fits': 'Runs well on this computer', 'shelf.tools': 'Can use tools',
+        'shelf.vision': 'Understands images', 'shelf.fresh': 'New in the catalog', 'shelf.small': 'Small and quick',
       },
       zh: {
         title: '模型中心',
@@ -52,6 +61,11 @@ window.__ModuleLoader__.load({
         use: '使用', using: '正在启动...', more: '显示更多',
         failed: '未能完成：{error}',
         startFailed: '本地模型无法启动：{error}', settings: '打开设置 -> 模型',
+        explore: '探索', allModels: '全部模型', views: '模型中心视图', featured: '精选', details: '查看详情',
+        position: '第 {index} 个，共 {total} 个', previous: '上一个', next: '下一个', seeAll: '查看全部', close: '关闭',
+        scrollBack: '向后滚动{name}', scrollForward: '向前滚动{name}',
+        'shelf.library': '你的模型', 'shelf.fits': '可在这台电脑上流畅运行', 'shelf.tools': '可使用工具',
+        'shelf.vision': '能理解图片', 'shelf.fresh': '目录新增', 'shelf.small': '小巧快速',
       },
       ja: {
         title: 'ハブ',
@@ -73,6 +87,11 @@ window.__ModuleLoader__.load({
         use: '使用', using: '起動しています...', more: 'さらに表示',
         failed: '完了できませんでした: {error}',
         startFailed: 'ローカルモデルを起動できませんでした: {error}', settings: '設定 -> モデルを開く',
+        explore: '探索', allModels: 'すべてのモデル', views: 'Hub の表示', featured: 'おすすめ', details: '詳細を見る',
+        position: '{total} 件中 {index} 件目', previous: '前へ', next: '次へ', seeAll: 'すべて表示', close: '閉じる',
+        scrollBack: '{name}を戻る', scrollForward: '{name}を進む',
+        'shelf.library': 'あなたのモデル', 'shelf.fits': 'このコンピューターで快適に動作', 'shelf.tools': 'ツールを使える',
+        'shelf.vision': '画像を理解できる', 'shelf.fresh': 'カタログの新着', 'shelf.small': '小さくて速い',
       },
       es: {
         title: 'Hub',
@@ -94,6 +113,11 @@ window.__ModuleLoader__.load({
         use: 'Usar', using: 'Iniciando...', more: 'Mostrar más',
         failed: 'No se pudo completar: {error}',
         startFailed: 'No se pudo iniciar el modelo local: {error}', settings: 'Abrir Configuración -> Modelos',
+        explore: 'Explorar', allModels: 'Todos los modelos', views: 'Vistas del Hub', featured: 'Destacado', details: 'Ver detalles',
+        position: '{index} de {total}', previous: 'Anterior', next: 'Siguiente', seeAll: 'Ver todo', close: 'Cerrar',
+        scrollBack: 'Desplazar {name} hacia atrás', scrollForward: 'Desplazar {name} hacia delante',
+        'shelf.library': 'Tus modelos', 'shelf.fits': 'Funcionan bien en este equipo', 'shelf.tools': 'Pueden usar herramientas',
+        'shelf.vision': 'Entienden imágenes', 'shelf.fresh': 'Novedades del catálogo', 'shelf.small': 'Pequeños y rápidos',
       },
       fr: {
         title: 'Hub',
@@ -115,6 +139,11 @@ window.__ModuleLoader__.load({
         use: 'Utiliser', using: 'Démarrage...', more: 'Afficher plus',
         failed: 'Impossible de terminer : {error}',
         startFailed: 'Impossible de démarrer le modèle local : {error}', settings: 'Ouvrir Paramètres -> Modèles',
+        explore: 'Explorer', allModels: 'Tous les modèles', views: 'Vues du Hub', featured: 'À la une', details: 'Voir les détails',
+        position: '{index} sur {total}', previous: 'Précédent', next: 'Suivant', seeAll: 'Tout voir', close: 'Fermer',
+        scrollBack: 'Faire défiler {name} vers l’arrière', scrollForward: 'Faire défiler {name} vers l’avant',
+        'shelf.library': 'Vos modèles', 'shelf.fits': 'Fonctionnent bien sur cet ordinateur', 'shelf.tools': 'Utilisent des outils',
+        'shelf.vision': 'Comprennent les images', 'shelf.fresh': 'Nouveautés du catalogue', 'shelf.small': 'Petits et rapides',
       },
       de: {
         title: 'Hub',
@@ -136,6 +165,11 @@ window.__ModuleLoader__.load({
         use: 'Verwenden', using: 'Wird gestartet...', more: 'Mehr anzeigen',
         failed: 'Konnte nicht abgeschlossen werden: {error}',
         startFailed: 'Das lokale Modell konnte nicht starten: {error}', settings: 'Einstellungen -> Modelle öffnen',
+        explore: 'Entdecken', allModels: 'Alle Modelle', views: 'Hub-Ansichten', featured: 'Empfohlen', details: 'Details ansehen',
+        position: '{index} von {total}', previous: 'Zurück', next: 'Weiter', seeAll: 'Alle anzeigen', close: 'Schließen',
+        scrollBack: '{name} zurückblättern', scrollForward: '{name} weiterblättern',
+        'shelf.library': 'Deine Modelle', 'shelf.fits': 'Laufen gut auf diesem Computer', 'shelf.tools': 'Können Werkzeuge nutzen',
+        'shelf.vision': 'Verstehen Bilder', 'shelf.fresh': 'Neu im Katalog', 'shelf.small': 'Klein und schnell',
       },
       ru: {
         title: 'Хаб',
@@ -157,6 +191,11 @@ window.__ModuleLoader__.load({
         use: 'Использовать', using: 'Запуск...', more: 'Показать ещё',
         failed: 'Не удалось завершить: {error}',
         startFailed: 'Не удалось запустить локальную модель: {error}', settings: 'Открыть Настройки -> Модели',
+        explore: 'Обзор', allModels: 'Все модели', views: 'Режимы хаба', featured: 'Рекомендуем', details: 'Подробнее',
+        position: '{index} из {total}', previous: 'Назад', next: 'Вперёд', seeAll: 'Показать все', close: 'Закрыть',
+        scrollBack: 'Прокрутить «{name}» назад', scrollForward: 'Прокрутить «{name}» вперёд',
+        'shelf.library': 'Ваши модели', 'shelf.fits': 'Хорошо работают на этом компьютере', 'shelf.tools': 'Умеют использовать инструменты',
+        'shelf.vision': 'Понимают изображения', 'shelf.fresh': 'Новое в каталоге', 'shelf.small': 'Маленькие и быстрые',
       },
       pt: {
         title: 'Hub',
@@ -178,6 +217,11 @@ window.__ModuleLoader__.load({
         use: 'Usar', using: 'Iniciando...', more: 'Mostrar mais',
         failed: 'Não foi possível concluir: {error}',
         startFailed: 'Não foi possível iniciar o modelo local: {error}', settings: 'Abrir Configurações -> Modelos',
+        explore: 'Explorar', allModels: 'Todos os modelos', views: 'Visualizações do Hub', featured: 'Destaque', details: 'Ver detalhes',
+        position: '{index} de {total}', previous: 'Anterior', next: 'Próximo', seeAll: 'Ver tudo', close: 'Fechar',
+        scrollBack: 'Rolar {name} para trás', scrollForward: 'Rolar {name} para frente',
+        'shelf.library': 'Seus modelos', 'shelf.fits': 'Rodam bem neste computador', 'shelf.tools': 'Usam ferramentas',
+        'shelf.vision': 'Entendem imagens', 'shelf.fresh': 'Novidades do catálogo', 'shelf.small': 'Pequenos e rápidos',
       },
     }
 
@@ -369,8 +413,8 @@ window.__ModuleLoader__.load({
       else if (cards.some(item => item.created)) sorts.push('added')
       return h('div', { className: 'jan-hub-toolbar' },
         h('div', { className: 'jan-hub-filters', role: 'group', 'aria-label': t('filters') }, FILTERS.map(filter =>
-          filter === 'fits' && !canAssessFit ? null : h(Button, {
-            key: filter, variant: 'outline', size: 'sm', 'aria-pressed': filters.includes(filter),
+          filter === 'fits' && !canAssessFit ? null : h('button', {
+            key: filter, type: 'button', className: 'jan-hub-chip', 'aria-pressed': filters.includes(filter),
             onClick: () => toggleFilter(filter), title: filter === 'fits' ? t('fitHint') : undefined,
           }, t(filter)))),
         h(Menu, {
@@ -411,7 +455,7 @@ window.__ModuleLoader__.load({
         ?? (index === item.recommended ? installed.curated.get(quant.repo.toLowerCase()) : undefined)
     }
 
-    function ModelCard({ item, jobs, inventory, act, cancel, busy, failure, engineError, openSettings, fits, installedOnly, smallestFirst, t, locale }) {
+    function ModelCard({ item, jobs, inventory, act, cancel, busy, failure, engineError, openSettings, fits, installedOnly, smallestFirst, detail = false, t, locale }) {
       const [requested, setChoice] = React.useState(null)
       const variants = item.quants.map((quant, index) => ({
         quant, index, job: jobs.get(quant.name), installed: installedVariant(item, quant, index, inventory),
@@ -428,17 +472,14 @@ window.__ModuleLoader__.load({
       const engineFailed = installed?.active === true && engineError !== undefined
       const run = (kind, target) => act(kind, item.key, target)
       const size = Number.isFinite(quant.bytes) ? formatBytes(quant.bytes, locale) : quant.size
-      return h('li', { className: 'jan-hub-card', 'aria-busy': working },
-        h('h2', null, item.name),
+      return h(detail ? 'div' : 'li', { className: 'jan-hub-card', 'aria-busy': working, 'data-detail': detail ? '' : undefined },
+        !detail && h('h2', null, item.name),
         h('p', { className: 'jan-hub-meta' }, [
           item.developer && t('by', { developer: item.developer }),
           t('downloads', { count: item.downloads.toLocaleString(locale) }),
         ].filter(Boolean).join(' - ')),
         item.description && h('p', { className: 'jan-hub-description' }, item.description),
-        (item.tools || item.vision || installed) && h('div', { className: 'jan-hub-tags' },
-          item.tools && h('span', { className: 'jan-hub-tag' }, t('tools')),
-          item.vision && h('span', { className: 'jan-hub-tag' }, t('vision')),
-          installed && h('span', { className: 'jan-hub-tag', 'data-installed': '' }, t('installed'))),
+        h(Chips, { item, installed: installed !== undefined, t }),
         h('div', { className: 'jan-hub-footer' },
           h('div', { className: 'jan-hub-quant' },
             h('select', {
@@ -459,6 +500,119 @@ window.__ModuleLoader__.load({
           : failure && h('p', { role: 'alert', className: 'jan-hub-error' }, t('failed', { error: failure })))
     }
 
+    const SHELF_SIZE = 12
+    const hue = text => [...text].reduce((sum, char) => (sum * 31 + char.codePointAt(0)) % 360, 7)
+    // Each developer keeps one hue, so a model's art and its glow read as the same family everywhere.
+    const art = item => ({ '--jan-hub-hue': hue(item.developer || item.name) })
+    const initial = item => (item.developer || item.name).trim().charAt(0).toUpperCase()
+    const owns = (item, inventory) => item.quants.some((quant, index) => installedVariant(item, quant, index, inventory) !== undefined)
+    const transferOf = (item, jobs) => item.quants.map(quant => jobs.get(quant.name)).find(Boolean)
+    const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+
+    // Tags read the same on tiles, the spotlight and full cards.
+    function Chips({ item, installed, t }) {
+      if (!item.tools && !item.vision && !installed) return null
+      return h('span', { className: 'jan-hub-tags' },
+        item.tools && h(Tag, { className: 'jan-hub-tag' }, h(IconToolOutlineRegular, { size: 12 }), t('tools')),
+        item.vision && h(Tag, { className: 'jan-hub-tag' }, h(IconImageOutlineRegular, { size: 12 }), t('vision')),
+        installed && h(Tag, { tone: 'success', className: 'jan-hub-tag' }, h(IconCheckCircleFillRegular, { size: 12 }), t('installed')))
+    }
+
+    function Tile({ item, inventory, jobs, open, t, locale }) {
+      const quant = item.quants[item.recommended]
+      const job = transferOf(item, jobs)
+      const progress = job?.progress
+      const percent = progress?.totalBytes > 0 ? Math.min(100, Math.floor(progress.receivedBytes / progress.totalBytes * 100)) : undefined
+      const size = Number.isFinite(quant.bytes) ? formatBytes(quant.bytes + item.projectorBytes, locale) : quant.size
+      return h('li', { className: 'jan-hub-tile' },
+        h('button', { type: 'button', className: 'jan-hub-tile-button', style: art(item), onClick: () => open(item.key) },
+          h('span', { className: 'jan-hub-art', 'aria-hidden': true }, initial(item)),
+          h('span', { className: 'jan-hub-tile-name' }, item.name),
+          h('span', { className: 'jan-hub-tile-meta' }, [item.developer, size].filter(Boolean).join(' - ')),
+          h(Chips, { item, installed: owns(item, inventory), t }),
+          job && h('progress', { className: 'jan-hub-tile-progress', max: 100, value: percent, 'aria-label': t('progressLabel', { name: job.name }) })))
+    }
+
+    // One themed row of tiles that scrolls sideways; "See all" opens the matching full list.
+    function Shelf({ id, items, seeAll, t, ...tile }) {
+      const row = React.useRef(null)
+      if (items.length === 0) return null
+      const title = t(`shelf.${id}`)
+      const scroll = (direction) => {
+        const list = row.current
+        list?.scrollBy?.({ left: direction * list.clientWidth * 0.8, behavior: reducedMotion() ? 'auto' : 'smooth' })
+      }
+      return h('section', { className: 'jan-hub-shelf', 'aria-labelledby': `jan-hub-shelf-${id}` },
+        h('div', { className: 'jan-hub-shelf-head' },
+          h('h2', { id: `jan-hub-shelf-${id}` }, title),
+          h('div', { className: 'jan-hub-shelf-actions' },
+            h(Button, { variant: 'ghost', size: 'sm', onClick: seeAll }, t('seeAll')),
+            h(Button, {
+              variant: 'ghost', size: 'sm', 'aria-label': t('scrollBack', { name: title }),
+              icon: h(IconChevronLeftOutlineRegular, { size: 16 }), onClick: () => scroll(-1),
+            }),
+            h(Button, {
+              variant: 'ghost', size: 'sm', 'aria-label': t('scrollForward', { name: title }),
+              icon: h(IconChevronRightOutlineRegular, { size: 16 }), onClick: () => scroll(1),
+            }))),
+        h('ul', { ref: row, className: 'jan-hub-shelf-row' }, items.map(item => h(Tile, { key: item.key, item, t, ...tile }))))
+    }
+
+    function Spotlight({ items, inventory, open, t, locale }) {
+      const [at, setAt] = React.useState(0)
+      const index = at % items.length
+      const item = items[index]
+      const step = delta => setAt(value => (value % items.length + delta + items.length) % items.length)
+      return h('section', { className: 'jan-hub-spotlight', style: art(item), 'aria-roledescription': 'carousel', 'aria-label': t('featured') },
+        h('div', { className: 'jan-hub-spotlight-body', key: item.key },
+          h('p', { className: 'jan-hub-eyebrow' }, h(IconSparkleRegular, { size: 14 }), t('featured')),
+          h('h2', null, item.name),
+          h('p', { className: 'jan-hub-meta' }, [
+            item.developer && t('by', { developer: item.developer }),
+            t('downloads', { count: item.downloads.toLocaleString(locale) }),
+          ].filter(Boolean).join(' - ')),
+          item.description && h('p', { className: 'jan-hub-description' }, item.description),
+          h(Chips, { item, installed: owns(item, inventory), t }),
+          h('div', { className: 'jan-hub-spotlight-actions' },
+            h(Button, { variant: 'primary', size: 'sm', onClick: () => open(item.key) }, t('details')))),
+        h('span', { className: 'jan-hub-spotlight-art', 'aria-hidden': true }, initial(item)),
+        items.length > 1 && h('div', { className: 'jan-hub-spotlight-nav' },
+          h(Button, { variant: 'ghost', size: 'sm', 'aria-label': t('previous'), icon: h(IconChevronLeftOutlineRegular, { size: 16 }), onClick: () => step(-1) }),
+          h('span', null, t('position', { index: (index + 1).toLocaleString(locale), total: items.length.toLocaleString(locale) })),
+          h(Button, { variant: 'ghost', size: 'sm', 'aria-label': t('next'), icon: h(IconChevronRightOutlineRegular, { size: 16 }), onClick: () => step(1) })))
+    }
+
+    /**
+     * The Hub's front page: a featured model and themed shelves, each leading into the full list.
+     * @param props.seeAll - open the full list with `{ filters?, sort? }` applied.
+     * @param props.open - show one model's details by card key.
+     */
+    function Explore({ cards, budget, inventory, jobs, open, seeAll, t, locale }) {
+      const { spotlight, shelves } = React.useMemo(() => {
+        const popular = sortCatalog(cards, '', 'downloads', locale)
+        const fits = budget > 0 ? popular.filter(item => item.bytes <= budget) : []
+        const fresh = cards.some(item => item.updated) ? 'updated' : cards.some(item => item.created) ? 'added' : undefined
+        const pool = (fits.length ? fits : popular).filter(item => !owns(item, inventory))
+        return {
+          spotlight: (pool.length ? pool : popular).slice(0, 5),
+          shelves: [
+            { id: 'library', items: popular.filter(item => owns(item, inventory) || transferOf(item, jobs)), filters: ['installed'] },
+            { id: 'fits', items: fits, filters: ['fits'] },
+            { id: 'tools', items: popular.filter(item => item.tools), filters: ['tools'] },
+            { id: 'vision', items: popular.filter(item => item.vision), filters: ['vision'] },
+            fresh && { id: 'fresh', items: sortCatalog(cards, '', fresh, locale), sort: fresh },
+            { id: 'small', items: popular.filter(item => item.bytes <= 3e9).sort((a, b) => a.bytes - b.bytes), sort: 'size' },
+          ].filter(Boolean),
+        }
+      }, [cards, budget, inventory, jobs, locale])
+      return h('div', { className: 'jan-hub-explore' },
+        spotlight.length > 0 && h(Spotlight, { items: spotlight, inventory, open, t, locale }),
+        shelves.map(shelf => h(Shelf, {
+          key: shelf.id, id: shelf.id, items: shelf.items.slice(0, SHELF_SIZE), inventory, jobs, open, t, locale,
+          seeAll: () => seeAll({ filters: shelf.filters ?? [], sort: shelf.sort }),
+        })))
+    }
+
     function HubPanel({ useLocal, runAction, openSettings, t }) {
       const locale = document.documentElement.lang || undefined
       const local = useLocal(value => value)
@@ -471,6 +625,8 @@ window.__ModuleLoader__.load({
       const [failure, setFailure] = React.useState(null)
       const [confirm, setConfirm] = React.useState(null)
       const [acknowledged, setAcknowledged] = React.useState(false)
+      const [view, setView] = React.useState('explore')
+      const [detail, setDetail] = React.useState(null)
       const budget = memoryBudget(local.hardware)
       const inventory = React.useMemo(() => {
         const byId = new Map(local.models.map(model => [model.id, model]))
@@ -498,28 +654,56 @@ window.__ModuleLoader__.load({
         finally { setBusy(null) }
       }
       const count = matches.length === 1 ? t('oneResult') : t('results', { count: matches.length.toLocaleString(locale) })
+      const seeAll = ({ filters: next, sort: order }) => {
+        setFilters(next)
+        if (order) setSort(order)
+        setShown(PAGE)
+        setView('all')
+      }
+      const opened = detail === null || cards === null ? undefined : cards.find(item => item.key === detail)
+      const cardProps = item => ({
+        item, jobs, inventory, busy, t, locale, fits, installedOnly, smallestFirst: sort === 'size', openSettings,
+        engineError: local.phase === 'failed' ? local.error ?? '' : undefined,
+        failure: failure?.key === item.key ? failure.message : '',
+        act: (kind, key, target) => { void act(kind, key, target) },
+        cancel: target => { setAcknowledged(false); setConfirm(target) },
+      })
       return h('section', { className: 'jan-hub', 'aria-labelledby': 'jan-hub-heading' },
-        h('header', { className: 'jan-hub-head' },
+        h('header', { className: 'jan-hub-head', 'data-window-drag': '' },
           h('h1', { id: 'jan-hub-heading' }, t('title')),
-          h('p', null, t('lede')),
+          h('p', null, t('lede'))),
+        h('div', { className: 'jan-hub-scroll' }, h('div', { className: 'jan-hub-column' },
+          h(SegmentedTabs, {
+            className: 'jan-hub-views', size: 'sm', label: t('views'), value: view, onChange: setView,
+            items: [
+              { value: 'explore', label: t('explore'), id: 'jan-hub-tab-explore', panelId: 'jan-hub-panel' },
+              { value: 'all', label: t('allModels'), id: 'jan-hub-tab-all', panelId: 'jan-hub-panel' },
+            ],
+          }),
           h(Input, {
             className: 'jan-hub-search', type: 'search', value: query, placeholder: t('search'), 'aria-label': t('search'),
             icon: h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }),
-            onChange: event => { setQuery(event.target.value); setShown(PAGE) },
+            onChange: (event) => {
+              setQuery(event.target.value)
+              setShown(PAGE)
+              if (event.target.value.trim()) setView('all')
+            },
           }),
-          cards !== null && h(CatalogControls, {
+          view === 'all' && cards !== null && h(CatalogControls, {
             t, cards, sort, count, filters, canAssessFit: budget > 0,
             setSort: value => { setSort(value); setShown(PAGE) },
             toggleFilter: filter => {
               setFilters(current => current.includes(filter) ? current.filter(value => value !== filter) : [...current, filter]); setShown(PAGE)
             },
-          })),
-        error
+          }),
+        h('div', { id: 'jan-hub-panel', role: 'tabpanel', className: 'jan-hub-body', 'aria-labelledby': `jan-hub-tab-${view}` }, error
           ? h('div', { className: 'jan-hub-status' },
             h('p', { role: 'alert', className: 'jan-hub-error' }, t('error', { error })),
             h(Button, { variant: 'outline', size: 'sm', onClick: retry }, t('retry')))
           : cards === null
             ? h('p', { role: 'status', className: 'jan-hub-status' }, t('loading'))
+            : view === 'explore'
+              ? h(Explore, { cards, budget, inventory, jobs, open: setDetail, seeAll, t, locale })
             : !matches.length
               ? h('div', { className: 'jan-hub-empty' },
                 h(IconSearchOutlineRegular, { size: 24, 'aria-hidden': true }),
@@ -527,15 +711,13 @@ window.__ModuleLoader__.load({
                 h('p', null, t('emptyHint')),
                 h(Button, { variant: 'outline', size: 'sm', onClick: clear }, t('clear')))
               : h(React.Fragment, null,
-                h('ul', { className: 'jan-hub-list' }, matches.slice(0, shown).map(item => h(ModelCard, {
-                  key: item.key, item, jobs, inventory, busy, t, locale, fits, installedOnly, smallestFirst: sort === 'size', openSettings,
-                  engineError: local.phase === 'failed' ? local.error ?? '' : undefined,
-                  failure: failure?.key === item.key ? failure.message : '',
-                  act: (kind, key, target) => { void act(kind, key, target) },
-                  cancel: target => { setAcknowledged(false); setConfirm(target) },
-                }))),
+                h('ul', { className: 'jan-hub-list' }, matches.slice(0, shown).map(item => h(ModelCard, { key: item.key, ...cardProps(item) }))),
                 matches.length > shown && h('div', { className: 'jan-hub-more' },
-                  h(Button, { variant: 'outline', size: 'sm', onClick: () => { setShown(value => value + PAGE) } }, t('more')))),
+                  h(Button, { variant: 'outline', size: 'sm', onClick: () => { setShown(value => value + PAGE) } }, t('more'))))))),
+        h(Modal, {
+          open: opened !== undefined, onClose: () => setDetail(null), title: opened?.name ?? '', closeLabel: t('close'),
+          contentClassName: 'jan-hub-detail',
+        }, opened && h(ModelCard, { ...cardProps(opened), fits: 0, installedOnly: false, detail: true })),
         h(RiskConfirmation, {
           open: confirm !== null, title: t('cancelTitle'),
           description: confirm ? t('cancelDescription', { name: confirm.job.name }) : '',
@@ -546,30 +728,37 @@ window.__ModuleLoader__.load({
     }
 
     const CSS = `
-      .jan-hub{box-sizing:border-box;overflow:auto;height:100%;padding:32px;max-width:100%;color:var(--dsw-alias-label-primary)}
-      .jan-hub-head,.jan-hub-list,.jan-hub-status,.jan-hub-more,.jan-hub-empty{max-width:880px;margin-inline:auto}
-      .jan-hub h1{font-size:24px;font-weight:500;margin:0 0 8px;text-wrap:balance}
-      .jan-hub-head>p{font-size:14px;line-height:1.5;color:var(--dsw-alias-label-secondary);margin:0 0 16px;text-wrap:pretty}
+      .jan-hub{--jan-hub-inset:clamp(24px,4vw,48px);box-sizing:border-box;display:flex;flex-direction:column;height:100%;color:var(--dsw-alias-label-primary)}
+      @media(max-width:767px){.jan-hub{--jan-hub-inset:20px}}
+      .jan-hub-head,.jan-hub-column{box-sizing:border-box;width:100%;max-width:calc(960px + 2 * var(--jan-hub-inset));margin:0 auto;padding-inline:var(--jan-hub-inset)}
+      .jan-hub-head{flex:none;padding-top:28px}
+      .jan-hub h1{margin:0;font-size:20px;font-weight:500;line-height:28px}
+      .jan-hub-head>p{margin:4px 0 0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);text-wrap:pretty}
+      .jan-hub-scroll{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto}
+      .jan-hub-column{display:flex;flex-direction:column;gap:16px;padding-top:24px;padding-bottom:48px}
+      .jan-hub-views{align-self:flex-start;min-width:220px}
       .jan-hub-search{box-sizing:border-box;width:100%}
-      .jan-hub-toolbar{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:8px 12px;margin-top:12px}
+      .jan-hub-search input::placeholder{color:var(--dsw-alias-label-tertiary)}
+      .jan-hub-toolbar{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:8px 12px}
       .jan-hub-filters,.jan-hub-tags,.jan-hub-transfer-actions{display:flex;flex-wrap:wrap;gap:6px}
-      .jan-hub-filters [aria-pressed=true]{background:var(--dsw-alias-bg-selected);--jan-button-outline-color:var(--dsw-alias-border-l4)}
-      .jan-hub-count{flex-basis:100%;margin:4px 0 0;font-size:13px;color:var(--dsw-alias-label-secondary)}
-      .jan-hub-list{list-style:none;padding:0;margin-top:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}
-      .jan-hub-card{background:var(--dsw-alias-settings-card-fill);border:1px solid var(--dsw-alias-border-l2);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0}
-      .jan-hub-card h2,.jan-hub-empty h2{font-size:16px;font-weight:500;margin:0;overflow-wrap:anywhere;min-width:0}
-      .jan-hub-tag{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary)}
-      .jan-hub-tag[data-installed]{background:var(--dsw-alias-bg-selected);color:var(--dsw-alias-label-primary)}
-      .jan-hub-meta,.jan-hub-description{margin:0;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}
+      .jan-hub-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 12px;border:0;border-radius:999px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;font:inherit;font-size:13px;line-height:22px}
+      .jan-hub-chip[aria-pressed=true]{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);font-weight:500}
+      @media(hover:hover){.jan-hub-chip:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}}
+      .jan-hub-count{flex-basis:100%;margin:0;font-size:12px;line-height:20px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}
+      .jan-hub-list{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}
+      .jan-hub-card{background:var(--dsw-alias-settings-card-fill);border:0.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg,12px);padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+      .jan-hub-card h2,.jan-hub-empty h2{font-size:14px;font-weight:500;line-height:20px;margin:0;overflow-wrap:anywhere;min-width:0}
+      .jan-hub-tag{display:inline-flex;align-items:center;gap:4px}
+      .jan-hub-meta,.jan-hub-description{margin:0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}
       .jan-hub-description{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
       .jan-hub-footer{margin-top:auto;padding-top:4px;display:grid;gap:8px}
       .jan-hub-quant{display:flex;gap:8px;align-items:center}
       .jan-hub-size,.jan-hub-transfer-details{font-size:13px;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary)}
       .jan-hub-size{white-space:nowrap}
-      .jan-hub-variant{flex:1;width:0;min-width:0;font:inherit;font-size:13px;padding:5px 8px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:inherit;text-overflow:ellipsis}
-      .jan-hub-variant:focus-visible,.jan-hub button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
+      .jan-hub-variant{flex:1;width:0;min-width:0;font:inherit;font-size:13px;padding:5px 8px;border-radius:8px;border:0.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:inherit;text-overflow:ellipsis}
+      .jan-hub-variant:focus-visible,.jan-hub-chip:focus-visible,.jan-hub-tile-button:focus-visible{outline:none;box-shadow:0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}
       .jan-hub-card-action{display:flex;justify-content:flex-end}
-      .jan-hub-transfer{display:grid;gap:6px;padding:10px 12px;background:var(--dsw-alias-bg-subtle);border:1px solid var(--dsw-alias-border-l2);border-radius:8px}
+      .jan-hub-transfer{display:grid;gap:6px;padding:10px 12px;background:var(--dsw-alias-bg-subtle);border:0.5px solid var(--dsw-alias-border-l2);border-radius:8px}
       .jan-hub-transfer-head,.jan-hub-transfer-details{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 8px}
       .jan-hub-transfer-head{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
       .jan-hub-transfer progress{display:block;width:100%;height:8px;accent-color:var(--dsw-alias-button-primary-fill)}
@@ -578,14 +767,40 @@ window.__ModuleLoader__.load({
       .jan-hub-transfer progress[value]::-webkit-progress-value{background:var(--dsw-alias-button-primary-fill);border-radius:999px}
       .jan-hub-transfer progress[value]::-moz-progress-bar{background:var(--dsw-alias-button-primary-fill);border-radius:999px}
       .jan-hub-transfer-actions{margin-top:2px}
-      .jan-hub-status{margin-top:24px;font-size:14px;color:var(--dsw-alias-label-secondary);display:flex;flex-direction:column;align-items:flex-start;gap:8px}
-      .jan-hub-empty{box-sizing:border-box;margin-top:12px;padding:44px 12px;text-align:center;display:grid;justify-items:center;gap:8px;border:1px dashed var(--dsw-alias-border-l2);border-radius:12px;color:var(--dsw-alias-label-secondary)}
+      .jan-hub-status{font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+      .jan-hub-empty{box-sizing:border-box;padding:64px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;border:0.5px dashed var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg,12px);color:var(--dsw-alias-label-secondary);font-size:13px;line-height:20px}
       .jan-hub-empty h2{color:var(--dsw-alias-label-primary)}
-      .jan-hub-empty p{font-size:13px;margin:0 0 4px}
+      .jan-hub-empty p{margin:0}
       .jan-hub .jan-hub-error{color:var(--dsw-alias-label-danger,var(--dsw-alias-state-error-primary));overflow-wrap:anywhere;font-size:13px;margin:0;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
       .jan-hub .jan-hub-error p{margin:0}
-      .jan-hub-more{display:flex;justify-content:center;margin-top:16px}
-      @media(max-width:600px){.jan-hub{padding:20px}}
+      .jan-hub-more{display:flex;justify-content:center}
+      .jan-hub-explore{display:grid;gap:28px}
+      .jan-hub-spotlight{--jan-hub-a:hsl(var(--jan-hub-hue) 70% 55%);--jan-hub-b:hsl(calc(var(--jan-hub-hue) + 60) 70% 45%);position:relative;overflow:hidden;border-radius:var(--dsw-radius-lg,12px);padding:24px;min-height:200px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;border:0.5px solid var(--dsw-alias-border-l2);background:linear-gradient(135deg,color-mix(in oklab,var(--jan-hub-a) 22%,var(--dsw-alias-settings-card-fill)),color-mix(in oklab,var(--jan-hub-b) 8%,var(--dsw-alias-settings-card-fill)))}
+      .jan-hub-spotlight-body{position:relative;z-index:1;display:grid;justify-items:start;gap:8px;max-width:min(520px,100%);animation:jan-hub-rise .32s cubic-bezier(.2,.8,.2,1)}
+      .jan-hub-spotlight h2{font-size:20px;font-weight:500;line-height:28px;margin:0;text-wrap:balance;overflow-wrap:anywhere}
+      .jan-hub-eyebrow{display:flex;align-items:center;gap:6px;margin:0;font-size:12px;line-height:18px;font-weight:500;color:var(--dsw-alias-label-secondary)}
+      .jan-hub-spotlight-art{position:absolute;right:-8px;bottom:-48px;font-size:220px;font-weight:700;line-height:1;color:color-mix(in oklab,var(--jan-hub-a) 30%,transparent);user-select:none;pointer-events:none}
+      .jan-hub-spotlight-actions{display:flex;gap:8px;margin-top:4px}
+      .jan-hub-spotlight-nav{position:relative;z-index:1;display:flex;align-items:center;gap:4px;font-size:12px;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-secondary)}
+      .jan-hub-shelf{display:grid;gap:8px;min-width:0}
+      .jan-hub-shelf-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+      .jan-hub-shelf h2{font-size:14px;font-weight:500;line-height:20px;margin:0}
+      .jan-hub-shelf-actions{display:flex;align-items:center;gap:2px}
+      .jan-hub-shelf-row{list-style:none;margin:0;padding:4px 2px 10px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(180px,200px);gap:12px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:thin}
+      .jan-hub-tile{scroll-snap-align:start;min-width:0}
+      .jan-hub-tile-button{all:unset;box-sizing:border-box;width:100%;height:100%;display:grid;align-content:start;gap:6px;padding:12px;border-radius:var(--dsw-radius-lg,12px);cursor:pointer;background:var(--dsw-alias-settings-card-fill);border:0.5px solid var(--dsw-alias-border-l2);transition:transform .18s cubic-bezier(.2,.8,.2,1),border-color .18s,box-shadow .18s}
+      .jan-hub-tile-button:hover{transform:translateY(-2px);border-color:var(--dsw-alias-border-l4);box-shadow:0 8px 20px color-mix(in oklab,hsl(var(--jan-hub-hue) 60% 45%) 20%,transparent)}
+      .jan-hub-tile-button:active{transform:scale(.98)}
+      .jan-hub-art{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:18px;font-weight:600;color:#fff;background:linear-gradient(135deg,hsl(var(--jan-hub-hue) 70% 55%),hsl(calc(var(--jan-hub-hue) + 60) 70% 42%))}
+      .jan-hub-tile-name{font-size:14px;font-weight:500;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .jan-hub-tile-meta{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+      .jan-hub-tile-progress{appearance:none;display:block;width:100%;height:4px;border:0;border-radius:999px;background:var(--dsw-alias-border-l3);overflow:hidden}
+      .jan-hub-tile-progress::-webkit-progress-bar{background:var(--dsw-alias-border-l3)}
+      .jan-hub-tile-progress::-webkit-progress-value{background:var(--dsw-alias-button-primary-fill)}
+      .jan-hub-card[data-detail]{background:none;border:0;padding:0}
+      .jan-hub-card[data-detail] .jan-hub-description{display:block;-webkit-line-clamp:unset}
+      @keyframes jan-hub-rise{from{opacity:0;transform:translateY(6px)}}
+      @media(prefers-reduced-motion:reduce){.jan-hub-spotlight-body{animation:none}.jan-hub-tile-button{transition:none}.jan-hub-tile-button:hover,.jan-hub-tile-button:active{transform:none}}
     `
     return {
       name: 'jan-model-hub',
