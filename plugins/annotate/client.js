@@ -14,6 +14,9 @@ window.__ModuleLoader__.load({
       'deliverables.live.actions']
     // A composer thumbnail is already a draft image: it offers Draw alone, as a badge like its remove control.
     const BADGE_SLOTS = ['conversation.input.attachment.actions']
+    // A reply that embeds a live surface (a generated widget) carries the strip among its own actions.
+    const EMBED_SLOT = 'conversation.chat.assistant-actions'
+    const EMBED = '[data-chat-embed]'
     // Pick and grab hand the agent a selector and HTML, which only mean something for a web page or code;
     // slides, CAD, images and PDFs offer just the whole-surface actions.
     const ACTIONS = [
@@ -41,7 +44,7 @@ window.__ModuleLoader__.load({
     function hasElements(element) {
       const target = targetOf(element)
       if (!target) return false
-      if (target.localName === 'iframe' || target.localName === 'webview') return true
+      if (target.localName === 'iframe' || target.localName === 'webview' || target.matches(EMBED)) return true
       return target.matches(CODE) || target.querySelector(CODE) !== null
     }
 
@@ -151,6 +154,25 @@ window.__ModuleLoader__.load({
         Overlay !== undefined && h(Overlay, view.props))
     }
 
+    /** The strip for a reply's embed, shown once the embed exists: a card mounts after the actions row renders. */
+    function EmbedLauncher({ getEmbed, ...props }) {
+      const [present, setPresent] = useState(() => getEmbed() !== null)
+      useEffect(() => {
+        if (present) return undefined
+        let frame = 0
+        const observer = new MutationObserver(() => {
+          if (frame !== 0) return
+          frame = requestAnimationFrame(() => {
+            frame = 0
+            if (getEmbed() !== null) setPresent(true)
+          })
+        })
+        observer.observe(document.body, { childList: true, subtree: true })
+        return () => { observer.disconnect(); cancelAnimationFrame(frame) }
+      }, [present, getEmbed])
+      return present ? h(Launcher, { ...props, getSurface: getEmbed }) : null
+    }
+
     return {
       name: id,
       inject: ['slots', 'locale', 'conversation', 'shortcuts', 'uiConversation'],
@@ -233,6 +255,10 @@ window.__ModuleLoader__.load({
               }, Launcher))
             }
           }
+          ctx.slots.inject(EMBED_SLOT, () => ctx.slots.register({
+            name: EMBED_SLOT, id, locale: id, order: 20,
+            inject: () => ({ watch, activate, setGrab, getKeys, append, compact: true, badge: false, loadOverlay }),
+          }, EmbedLauncher))
           // A sent grab shows as one chip; its selector and HTML open on click.
           void element.then(({ pageElementRule, PageElement }) => {
             if (!live) return
