@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useCallback, useRef } from 'react'
 import type { InjectFace, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { ChatNodeViewProps, PerformanceUsageInjected, TurnTailOwnerProps } from '../contract/slots.ts'
 import { MessageIconActions } from './MessageIconActions.tsx'
@@ -29,6 +29,13 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
   node, openFile, forkAt, renderSlot, t, useAccess, useChat, usePerformanceUsage,
 }: TurnTailNodeViewProps) {
   const detailed = usePerformanceUsage(mode => mode) === 'detailed'
+  const root = useRef<HTMLDivElement>(null)
+  // The reply's nodes are this tail's siblings in the flow, keyed by turn; the last embed is the one its actions mean.
+  const getEmbed = useCallback((): HTMLElement | null => {
+    const flow = root.current?.closest('[data-chat-flow]')
+    const embeds = flow?.querySelectorAll<HTMLElement>(`[data-chat-turn="${node.data.turn}"] [data-chat-embed]`)
+    return embeds === undefined || embeds.length === 0 ? null : embeds[embeds.length - 1] ?? null
+  }, [node.data.turn])
   const forkAllowed = useAccess('session/fork')
   const data = node.data
   const hasLaterChatNode = useChat(snapshot =>
@@ -54,9 +61,10 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
   const text = assistantText(closing.blocks)
   const assistantActions = messageId === undefined
     ? null
-    : renderSlot('conversation.chat.assistant-actions', { messageId, text })
+    : renderSlot('conversation.chat.assistant-actions', { messageId, text, getEmbed })
   return (
     <div
+      ref={root}
       className={css.root}
       data-turn-tail={data.turn}
       data-actions-reveal={endsWithResponse ? 'always' : 'hover'}

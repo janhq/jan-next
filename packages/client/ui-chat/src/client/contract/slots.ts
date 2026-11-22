@@ -88,6 +88,11 @@ export interface AssistantActionOwnerProps {
   messageId: MessageId
   /** Plain text of the finalized reply, as Copy takes it; empty for a reply with no text. */
   text: string
+  /**
+   * The reply's last embedded live surface: an element that whatever rendered it into the reply
+   * marked `data-chat-embed` (a generated widget, say). Read live; null while there is none.
+   */
+  getEmbed: () => HTMLElement | null
 }
 
 /** Owner currency of actions on a terminal turn failure. */
