@@ -6,6 +6,7 @@ import { registerApi } from '@janhq/jan-plugin-api'
 import yaml from 'js-yaml'
 import { clearFailure, recordFailure, takeLaunchAudit, trackStart } from './startup-health.mjs'
 import { createMcpRegistry } from './mcp-registry.mjs'
+import { iconSources } from './registry-icons.mjs'
 import { RECOMMENDED_CONNECTORS, installRecommended } from './recommended-connectors.mjs'
 
 // One registry client per Host process, so its short cache survives settings reloads.
@@ -202,6 +203,12 @@ export async function mountAgentSettings(ctx, config) {
       recommended: RECOMMENDED_CONNECTORS.map(item => ({ ...item, installed: servers.some(row => row.name === item.serverName) })),
     }),
     searchRegistry: ({ query, cursor } = {}) => mcpRegistry.search({ query: typeof query === 'string' ? query.slice(0, 200) : '', cursor: typeof cursor === 'string' ? cursor : undefined }),
+    registryIcon: async ({ id } = {}) => {
+      if (typeof id !== 'string' || id.length > 200) return null
+      const recommended = RECOMMENDED_CONNECTORS.find(item => item.id === id)
+      const fallback = recommended && iconSources({ websiteUrl: recommended.homepage })
+      return await mcpRegistry.icon(recommended ? `recommended:${id}` : id, fallback) ?? null
+    },
     async installRecommended({ id, confirmed }) {
       if (confirmed !== true) throw new Error('Review and confirm the installation first.')
       const item = RECOMMENDED_CONNECTORS.find(row => row.id === id)
