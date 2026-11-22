@@ -47,7 +47,7 @@ type ComposerAttachmentsInput = Pick<ComposerAttachmentsProps,
 export function ComposerAttachments({
   attachments, canAcceptDrop, onAddFiles, onRemoveAttachment, uploads, onRetryFile, uploadFailureText, dropLimits, t, readFileDrag,
   renderSlot,
-}: ComposerAttachmentsInput & InjectFace<ComposerAttachmentsInjected> & ThumbnailActionsSlot) {
+}: ComposerAttachmentsInput & InjectFace<ComposerAttachmentsInjected> & Pick<ThumbnailActionsSlot, 'renderSlot'>) {
   const [preview, setPreview] = useState<ComposerImageAttachment | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const dragDepth = useRef(0)
