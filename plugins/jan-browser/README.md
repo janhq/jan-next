@@ -4,6 +4,8 @@ Jan Desktop controls the Chrome profile connected by the published [Jan Browser 
 
 ## Connect Chrome
 
+Jan Desktop ships with the Jan Browser row disabled. Enable it on the **Plugins** page first; until then Sessions have no browser tools.
+
 1. Install Jan Browser MCP in the Chrome profile you want to use. Pin it if you want its toolbar button visible.
 2. In a Jan Desktop Session, ask Jan to open a page using Chrome and approve the browser tool. Jan starts the bridge on this first approved call. If Chrome has not connected yet, the call gives you the install link and connection instructions.
 3. Open the Chrome extension popup. If it does not connect automatically, choose **Connect**. The default bridge port is `17389`. If a legacy Jan MCP server is already running, quit it or set the same unused port in the Jan Browser plugin and the Chrome extension.
@@ -11,7 +13,7 @@ Jan Desktop controls the Chrome profile connected by the published [Jan Browser 
 
 The extension owns its automation group. Chrome stays open when Jan disconnects. One live Session can own the attached profile at a time. Jan will not silently move that Session to a different extension connection after a reconnect or profile change: end the previous Session activation and start a new one. Stop a Session before moving ownership to another. After an interrupted action, inspect Chrome before retrying; the published extension cannot cancel actions it already received.
 
-Use the **Plugins** page to disable the Jan Browser row or edit its host configuration. `proactiveCapture` is off by default. When enabled, and only after the same live Session received a successful screenshot-bearing browser result, Jan can capture the registered page before a new turn using a model that accepts image input. The capture is recorded as Session context and can be sent to the selected model. The extension also automatically captures the resulting page after navigation and most input actions; no additional snapshot call is needed for those results. Keep sensitive tabs out of the automation group and disconnect when done.
+Use the **Plugins** page to disable the Jan Browser row again or edit its host configuration. `proactiveCapture` is off by default. When enabled, and only after the same live Session received a successful screenshot-bearing browser result, Jan can capture the registered page before a new turn using a model that accepts image input. The capture is recorded as Session context and can be sent to the selected model. The extension also automatically captures the resulting page after navigation and most input actions; no additional snapshot call is needed for those results. Keep sensitive tabs out of the automation group and disconnect when done.
 
 ## Tools
 

@@ -65,10 +65,14 @@
       name: '@janhq/jan-hosts'
 
     # Let Sessions use the published Chrome extension without an MCP subprocess.
+    # Off until the user enables Jan Browser in Plugins: its loopback bridge
+    # trusts any local process that reaches the port, and an unconnected
+    # extension only adds browser tools the model calls and fails.
     - id: browser-use
       name: '@janhq/jan-browser-use'
     - id: jan-browser
       name: '@janhq/jan-browser'
+      disabled: true
 
     # Observe native windows and approve semantic actions through Jan.
     - id: jan-agent-desktop
