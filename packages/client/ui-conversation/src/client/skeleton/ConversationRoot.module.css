@@ -102,7 +102,8 @@
 .stripTitleRow .crumbs { display: none; }
 .stripTitleRow .headerActions:empty { display: none; }
 .stripTitleRow .headerUtilities { margin-left: 4px; }
-.stripTitleRow .headerCorner { margin-inline: 4px 0; }
+/* The title row's icon buttons keep one 8px gap, the rhythm of the window's leading controls. */
+.stripTitleRow .headerCorner { margin-inline: 8px 0; }
 /* Under a chip strip the view tabs' text starts on the chips' text line: the strip's start
    inset plus the chip's 10px pad (ConversationDesk, ui-dockkit `.tab`). Doubled class:
    `.tabs` (declared later) would otherwise reset the start inset to 8px. */

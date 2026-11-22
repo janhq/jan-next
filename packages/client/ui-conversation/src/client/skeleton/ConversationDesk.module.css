@@ -52,6 +52,12 @@
   mask-image: none;
 }
 
+/* The new-tab button is one more 28px title-row icon button, so it draws the row's 16px glyph. */
+.desk[data-chat-tabs] :global([data-dockkit-add-tab]) svg {
+  width: 16px;
+  height: 16px;
+}
+
 .chatTitle {
   display: block;
   min-width: 0;
@@ -69,10 +75,6 @@
 
 .stripTarget:empty { display: none; }
 
-@container (max-width: 570px) {
-  .splitText { display: none; }
-}
-
 .pane {
   position: relative;
   flex: 1;
@@ -83,47 +85,4 @@
 
 .pane[data-desk-secondary] {
   --jan-frame-leading-clearance: 0px;
-}
-
-.actions {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 4px;
-  -webkit-app-region: no-drag;
-}
-
-.action {
-  white-space: nowrap;
-  color: var(--dsw-alias-label-secondary);
-}
-
-.action[aria-pressed='true'] {
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-primary);
-}
-
-.status {
-  white-space: nowrap;
-  padding-inline: 5px;
-  font-size: 11px;
-  color: var(--dsw-alias-label-secondary);
-}
-
-.status[data-desk-status='running'] { color: var(--dsw-alias-state-business-primary); }
-
-.empty {
-  flex: 1;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  color: var(--dsw-alias-label-secondary);
-}
-
-.emptyToolbar {
-  flex: none;
-  display: flex;
-  justify-content: flex-end;
-  padding: var(--jan-frame-title-inset, 10px) 24px 10px;
-  border-bottom: 0.5px solid var(--dsw-alias-border-l3);
 }

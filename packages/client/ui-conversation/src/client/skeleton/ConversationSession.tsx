@@ -11,7 +11,7 @@ import type {
 } from '../contract/slots.ts'
 import { resolveActiveView } from '../view-selection.ts'
 import { FIXED_VIEW_ID } from '../view-pins.ts'
-import { ConversationDeskActions, ConversationDeskContext } from './ConversationDesk.tsx'
+import { ConversationDeskContext } from './ConversationDesk.tsx'
 import { DefaultConversationViews } from './DefaultConversationViews.tsx'
 import css from './ConversationRoot.module.css'
 
@@ -146,7 +146,7 @@ export function ConversationSessionHeader({
   }, [tabs, unpinned, hasEntryActions, visibleViewLimit])
   const currentInMore = moreTabs.some(tab => tab.id === active?.id)
   const titleRow = (
-    <div className={clsx(css.titleRow, desk?.strip === true && css.stripTitleRow)}>
+    <div className={clsx(css.titleRow, desk !== undefined && css.stripTitleRow)}>
       {renderSlot('conversation.session.header.identity', { blank: hideChrome })}
       {!hideChrome && (
         <>
@@ -219,18 +219,17 @@ export function ConversationSessionHeader({
         </>
       )}
       <div className={css.headerCorner} data-conversation-header-corner="">
-        <ConversationDeskActions t={t} />
         {desk?.primary !== false && renderSlot('conversation.session.header.corner', {})}
       </div>
     </div>
   )
   return (
     <>
-      {desk?.strip !== true ? titleRow : desk.stripTarget === undefined ? null : createPortal(titleRow, desk.stripTarget)}
+      {desk === undefined ? titleRow : desk.stripTarget === undefined ? null : createPortal(titleRow, desk.stripTarget)}
       {showTabs && (
         // data-conversation-tabs: marks the tab strip, which the window-chrome
         // geometry and the browser coverage lane anchor on.
-        <div ref={tabRow} className={clsx(css.tabs, desk?.strip === true && css.stripViews)}>
+        <div ref={tabRow} className={clsx(css.tabs, desk !== undefined && css.stripViews)}>
           <div className={css.viewTabs} role="tablist" data-conversation-tabs="">
             {visibleTabs.map(viewTab => (
               <button

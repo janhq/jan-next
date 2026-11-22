@@ -207,22 +207,18 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     })
   const retainPane = paneRetainer(sessions)
   const mainBinding = ctx.uiSession.adapter.current
-  const status = ctx.uiSession.sessionStatus
   const workspaces = ctx.workspaces.list
   ctx.effect(() => {
     const syncLayout = (): void => {
       const list = sessions.list.getSnapshot()
       const workspace = workspaces.getSnapshot()
       const archived = new Set(workspace.archivedSessionIds)
-      const eligible = list.ids.filter(id => !archived.has(id))
-      const running = status.getSnapshot()
       layout.sync(mainBinding.getSnapshot().key as SessionId | undefined,
-        list.phase === 'ready' && workspace.phase === 'ready' ? new Set(eligible) : undefined,
-        eligible.filter(id => list.byId[id]?.origin !== 'subagent' && running.get(id)?.running === true))
+        list.phase === 'ready' && workspace.phase === 'ready' ? new Set(list.ids.filter(id => !archived.has(id))) : undefined)
     }
     syncLayout()
     const disposeTabOpener = workspaceNavigation.registerSessionTabOpener?.(layout.openInNewTab)
-    const unsubscribers = [sessions.list, mainBinding, status, workspaces].map(source => source.subscribe(syncLayout))
+    const unsubscribers = [sessions.list, mainBinding, workspaces].map(source => source.subscribe(syncLayout))
     return () => {
       disposeTabOpener?.()
       for (const unsubscribe of unsubscribers) unsubscribe()
