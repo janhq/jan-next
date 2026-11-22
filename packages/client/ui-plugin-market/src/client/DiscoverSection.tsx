@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   Button, IconChevronDownOutlineRegular, IconPluginIndexOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular,
-  IconSearchOutlineRegular, IconSlidersTwoOutlineRegular, IconTrashOutlineRegular, IconWarningOutlineRegular, Input, Menu, Modal, Pill,
+  IconSearchOutlineRegular, IconSlidersTwoOutlineRegular, IconTrashOutlineRegular, IconWarningOutlineRegular, Input, Menu, Modal,
   PluginArtworkDefault, StateDot, Tag, Tooltip,
 } from '@janhq/jan-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
@@ -543,15 +543,15 @@ function Browser({ state, listing, t, face, hooks, language, onInstall, openPack
       </div>
       {declarations.categories.length === 0 ? null : (
         <div className={css.categories} role="group" aria-label={t('categoriesLabel')}>
-          <Pill active={query.category === null} aria-pressed={query.category === null}
+          <button type="button" className={css.chip} aria-pressed={query.category === null}
             onClick={() => { face.search({ ...query, category: null }) }}>
             {t('allCategories')}
-          </Pill>
+          </button>
           {declarations.categories.map(item => (
-            <Pill key={item.id} active={query.category === item.id} aria-pressed={query.category === item.id}
+            <button type="button" key={item.id} className={css.chip} aria-pressed={query.category === item.id}
               onClick={() => { face.search({ ...query, category: item.id }) }}>
               {item.title}
-            </Pill>
+            </button>
           ))}
         </div>
       )}
