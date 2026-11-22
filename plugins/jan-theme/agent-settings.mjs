@@ -270,7 +270,11 @@ export async function mountAgentSettings(ctx, config) {
       skills: await ctx.skills.snapshot(),
       recommended: RECOMMENDED_CONNECTORS.map(item => ({ ...item, installed: servers.some(row => row.name === item.serverName) })),
     }),
-    searchRegistry: ({ query, cursor } = {}) => mcpRegistry.search({ query: typeof query === 'string' ? query.slice(0, 200) : '', cursor: typeof cursor === 'string' ? cursor : undefined }),
+    searchRegistry: ({ query, since, cursor } = {}) => mcpRegistry.search({
+      query: typeof query === 'string' ? query.slice(0, 200) : '',
+      since: since === 'week' || since === 'month' ? since : undefined,
+      cursor: typeof cursor === 'string' ? cursor : undefined,
+    }),
     registryIcon: async ({ id } = {}) => {
       if (typeof id !== 'string' || id.length > 200) return null
       const recommended = RECOMMENDED_CONNECTORS.find(item => item.id === id)
