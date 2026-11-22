@@ -16,7 +16,7 @@ import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import {
   HoverCard, IconArchiveOutlineRegular,
   IconNewChatOutlineRegular, IconPinFillRegular,
-  IconTriangleRightFillRegular, IconUnarchiveOutlineRegular, relativeTime, StateDot, Tooltip, useRowDragPreview,
+  IconChevronRightOutlineRegular, IconUnarchiveOutlineRegular, relativeTime, StateDot, Tooltip, useRowDragPreview,
 } from '@janhq/jan-client-ui-primitives'
 import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
 import type { StateDotState } from '@janhq/jan-client-ui-primitives'
@@ -317,7 +317,7 @@ function ProjectRow({
       {onOpenProject === undefined
         ? (
           <span className={clsx(css.slot, css.chevron)}>
-            <IconTriangleRightFillRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
+            <IconChevronRightOutlineRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
           </span>
         )
         : (
@@ -327,7 +327,7 @@ function ProjectRow({
             aria-label={t(row.expanded ? 'actions.collapse.aria' : 'actions.expand.aria', { name: label })}
             onClick={(e) => { e.stopPropagation(); onToggle() }}
           >
-            <IconTriangleRightFillRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
+            <IconChevronRightOutlineRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
           </button>
         )}
       <span className={css.projectText}>
