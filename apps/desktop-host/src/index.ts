@@ -97,6 +97,21 @@ async function main(): Promise<void> {
       void task.finally(() => { dragTasks.delete(task) })
       return
     }
+    if (message.type === 'index-injections') {
+      if (!('requestId' in message) || !Number.isSafeInteger(message.requestId)) return
+      const requestId = message.requestId
+      void (async () => {
+        try {
+          if (stopping !== undefined) throw new Error('desktop boot: Host is stopping')
+          const { ctx } = await application
+          // Read per page load: live rebuilds retire batch URLs, so a copy taken at startup goes stale.
+          await send({ type: 'index-injections', requestId, injections: ctx.webServer.collectIndexInjections(ctx.connection.browserPeer) })
+        } catch (error) {
+          await send({ type: 'index-injections', requestId, injections: [], error: error instanceof Error ? error.message : String(error) })
+        }
+      })().catch((error: unknown) => { console.error(error) })
+      return
+    }
     if (message.type === 'quit-inspection') {
       if (!('requestId' in message) || !Number.isSafeInteger(message.requestId)) return
       const requestId = message.requestId
@@ -140,7 +155,7 @@ async function main(): Promise<void> {
     if (process.connected) process.send?.({ type: 'platform-session', session })
   })
   const url = ctx.connection.authenticatedUrl(`${ctx.webServer.protocol}//127.0.0.1:${String(ctx.webServer.port)}`)
-  if (process.connected) process.send?.({ type: 'ready', url, injections: ctx.webServer.collectIndexInjections(ctx.connection.browserPeer) }, (error) => { if (error !== null) console.error(error) })
+  if (process.connected) process.send?.({ type: 'ready', url }, (error) => { if (error !== null) console.error(error) })
 }
 
 if (import.meta.main) {

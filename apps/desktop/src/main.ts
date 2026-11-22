@@ -532,7 +532,6 @@ async function main(): Promise<void> {
   let hostUrl: string | undefined
   let hostCookie: string | undefined
   const browserGuests = new DesktopBrowserGuests(() => hostUrl)
-  let injections: readonly unknown[] = []
   let welcomeBackend: DesktopWelcomeBackend | undefined
   let reportedLaunch = false
   let analyticsEnabled = false
@@ -601,8 +600,6 @@ async function main(): Promise<void> {
         hostUrl = ready.url
         void removeLegacyHostCookies(session.defaultSession.cookies, ready.url)
           .catch((error: unknown) => { console.error('desktop: legacy Host cookie cleanup failed', error) })
-        if (ready.injections === undefined) throw new Error('Desktop Host did not provide boot injections')
-        injections = ready.injections
         welcomeBackend = connectDesktopWelcome(ready.url, cookie)
         analyticsEnabled = await welcomeBackend.analyticsEnabled().catch(() => false)
         if (!reportedLaunch) { reportedLaunch = true; void track('desktop_app_launch', {}) }
@@ -660,6 +657,7 @@ async function main(): Promise<void> {
       updateTasks: (action: 'inspect' | 'lock' | 'unlock') => host.updateTasks(action),
       inspectQuit: () => host.inspectQuit(),
       resolveDragResource: (address: string, signal?: AbortSignal) => host.resolveDragResource(address, signal),
+      indexInjections: () => host.indexInjections(),
     }
   }, (state) => {
     if (state.phase === 'error') reportFatal(state.failure, 'host')
@@ -706,7 +704,7 @@ async function main(): Promise<void> {
         startup = hostReady
         const recovery = hostReady.then(async () => {
           if (quitting) return
-          // A replacement Host can have a new port, cookie, or boot injections even at the same URL.
+          // A replacement Host can have a new port or cookie even at the same URL.
           navigation = undefined
           await navigateMain(applicationUrl)
           if (backend.host !== undefined) updateJournal?.action('workspace-ready')
@@ -880,7 +878,8 @@ async function main(): Promise<void> {
     assertDesktopSender(event, ['app'])
     await startup
     if (backend.host === undefined || hostUrl === undefined) throw new Error('Desktop Host is unavailable')
-    return { injections, streamBaseUrl: new URL(hostUrl).origin }
+    // Asked per page load: a live plugin rebuild retires the batch URLs a startup copy would still name.
+    return { injections: await backend.host.indexInjections(), streamBaseUrl: new URL(hostUrl).origin }
   })
 
   ipcMain.handle(DESKTOP_IPC.bootFailed, (event, message: unknown) => {
