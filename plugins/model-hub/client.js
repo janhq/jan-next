@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const h = React.createElement
     const {
-      Button, Input, Menu, MenuItemButton, Modal, RiskConfirmation, SegmentedTabs, Tag, IconSearchOutlineRegular,
+      Button, Input, Menu, MenuItemButton, Modal, RiskConfirmation, SegmentedTabs, Tag, Toast, IconSearchOutlineRegular,
       IconChevronDownOutlineRegular, IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular, IconSparkleRegular,
       IconToolOutlineRegular, IconImageOutlineRegular, IconCheckCircleFillRegular,
     } = require('@janhq/jan-client-ui-primitives')
@@ -41,7 +41,8 @@ window.__ModuleLoader__.load({
         discardAcknowledge: 'Discard the partial model file.', keepDownload: 'Keep download', discard: 'Discard file',
         use: 'Use', using: 'Starting...', more: 'Show more',
         failed: 'Could not finish: {error}',
-        startFailed: 'The local model could not start: {error}', settings: 'Open Settings -> Models',
+        startFailed: 'The local model could not start: {error}',
+        downloadingForChat: 'Downloading {name}. This chat switches to it when it’s ready.', readyInChat: '{name} is ready in this chat.', downloadFailedForChat: '{name} didn’t download: {error}', openChat: 'Open chat', settings: 'Open Settings -> Models',
         explore: 'Explore', allModels: 'All models', views: 'Hub views', featured: 'Featured', details: 'See details',
         position: '{index} of {total}', previous: 'Previous', next: 'Next', seeAll: 'See all', close: 'Close',
         scrollBack: 'Scroll {name} back', scrollForward: 'Scroll {name} forward',
@@ -67,7 +68,8 @@ window.__ModuleLoader__.load({
         discardAcknowledge: '丢弃已下载的部分模型文件', keepDownload: '保留下载', discard: '丢弃文件',
         use: '使用', using: '正在启动...', more: '显示更多',
         failed: '未能完成：{error}',
-        startFailed: '本地模型无法启动：{error}', settings: '打开设置 -> 模型',
+        startFailed: '本地模型无法启动：{error}',
+        downloadingForChat: '正在下载 {name}，完成后此对话会切换到它。', readyInChat: '{name} 已在此对话中就绪。', downloadFailedForChat: '{name} 下载失败：{error}', openChat: '打开对话', settings: '打开设置 -> 模型',
         explore: '探索', allModels: '全部模型', views: '模型中心视图', featured: '精选', details: '查看详情',
         position: '第 {index} 个，共 {total} 个', previous: '上一个', next: '下一个', seeAll: '查看全部', close: '关闭',
         scrollBack: '向后滚动{name}', scrollForward: '向前滚动{name}',
@@ -93,7 +95,8 @@ window.__ModuleLoader__.load({
         discardAcknowledge: '途中までダウンロードしたモデルファイルを破棄します。', keepDownload: 'ダウンロードを保持', discard: 'ファイルを破棄',
         use: '使用', using: '起動しています...', more: 'さらに表示',
         failed: '完了できませんでした: {error}',
-        startFailed: 'ローカルモデルを起動できませんでした: {error}', settings: '設定 -> モデルを開く',
+        startFailed: 'ローカルモデルを起動できませんでした: {error}',
+        downloadingForChat: '{name} をダウンロードしています。完了するとこのチャットで使われます。', readyInChat: '{name} をこのチャットで使えるようになりました。', downloadFailedForChat: '{name} をダウンロードできませんでした: {error}', openChat: 'チャットを開く', settings: '設定 -> モデルを開く',
         explore: '探索', allModels: 'すべてのモデル', views: 'Hub の表示', featured: 'おすすめ', details: '詳細を見る',
         position: '{total} 件中 {index} 件目', previous: '前へ', next: '次へ', seeAll: 'すべて表示', close: '閉じる',
         scrollBack: '{name}を戻る', scrollForward: '{name}を進む',
@@ -119,7 +122,8 @@ window.__ModuleLoader__.load({
         discardAcknowledge: 'Descartar el archivo parcial del modelo.', keepDownload: 'Conservar descarga', discard: 'Descartar archivo',
         use: 'Usar', using: 'Iniciando...', more: 'Mostrar más',
         failed: 'No se pudo completar: {error}',
-        startFailed: 'No se pudo iniciar el modelo local: {error}', settings: 'Abrir Configuración -> Modelos',
+        startFailed: 'No se pudo iniciar el modelo local: {error}',
+        downloadingForChat: 'Descargando {name}. Este chat lo usará cuando esté listo.', readyInChat: '{name} está listo en este chat.', downloadFailedForChat: 'No se pudo descargar {name}: {error}', openChat: 'Abrir chat', settings: 'Abrir Configuración -> Modelos',
         explore: 'Explorar', allModels: 'Todos los modelos', views: 'Vistas del Hub', featured: 'Destacado', details: 'Ver detalles',
         position: '{index} de {total}', previous: 'Anterior', next: 'Siguiente', seeAll: 'Ver todo', close: 'Cerrar',
         scrollBack: 'Desplazar {name} hacia atrás', scrollForward: 'Desplazar {name} hacia delante',
@@ -145,7 +149,8 @@ window.__ModuleLoader__.load({
         discardAcknowledge: 'Supprimer le fichier partiel du modèle.', keepDownload: 'Conserver le téléchargement', discard: 'Supprimer le fichier',
         use: 'Utiliser', using: 'Démarrage...', more: 'Afficher plus',
         failed: 'Impossible de terminer : {error}',
-        startFailed: 'Impossible de démarrer le modèle local : {error}', settings: 'Ouvrir Paramètres -> Modèles',
+        startFailed: 'Impossible de démarrer le modèle local : {error}',
+        downloadingForChat: 'Téléchargement de {name}. Ce chat l’utilisera dès qu’il sera prêt.', readyInChat: '{name} est prêt dans ce chat.', downloadFailedForChat: 'Échec du téléchargement de {name} : {error}', openChat: 'Ouvrir le chat', settings: 'Ouvrir Paramètres -> Modèles',
         explore: 'Explorer', allModels: 'Tous les modèles', views: 'Vues du Hub', featured: 'À la une', details: 'Voir les détails',
         position: '{index} sur {total}', previous: 'Précédent', next: 'Suivant', seeAll: 'Tout voir', close: 'Fermer',
         scrollBack: 'Faire défiler {name} vers l’arrière', scrollForward: 'Faire défiler {name} vers l’avant',
@@ -171,7 +176,8 @@ window.__ModuleLoader__.load({
         discardAcknowledge: 'Die unvollständige Modelldatei löschen.', keepDownload: 'Download behalten', discard: 'Datei löschen',
         use: 'Verwenden', using: 'Wird gestartet...', more: 'Mehr anzeigen',
         failed: 'Konnte nicht abgeschlossen werden: {error}',
-        startFailed: 'Das lokale Modell konnte nicht starten: {error}', settings: 'Einstellungen -> Modelle öffnen',
+        startFailed: 'Das lokale Modell konnte nicht starten: {error}',
+        downloadingForChat: '{name} wird geladen. Dieser Chat wechselt dazu, sobald es bereit ist.', readyInChat: '{name} ist in diesem Chat bereit.', downloadFailedForChat: '{name} konnte nicht geladen werden: {error}', openChat: 'Chat öffnen', settings: 'Einstellungen -> Modelle öffnen',
         explore: 'Entdecken', allModels: 'Alle Modelle', views: 'Hub-Ansichten', featured: 'Empfohlen', details: 'Details ansehen',
         position: '{index} von {total}', previous: 'Zurück', next: 'Weiter', seeAll: 'Alle anzeigen', close: 'Schließen',
         scrollBack: '{name} zurückblättern', scrollForward: '{name} weiterblättern',
@@ -197,7 +203,8 @@ window.__ModuleLoader__.load({
         discardAcknowledge: 'Удалить частично загруженный файл модели.', keepDownload: 'Сохранить загрузку', discard: 'Удалить файл',
         use: 'Использовать', using: 'Запуск...', more: 'Показать ещё',
         failed: 'Не удалось завершить: {error}',
-        startFailed: 'Не удалось запустить локальную модель: {error}', settings: 'Открыть Настройки -> Модели',
+        startFailed: 'Не удалось запустить локальную модель: {error}',
+        downloadingForChat: 'Загружается {name}. Этот чат переключится на неё, когда она будет готова.', readyInChat: '{name} готова в этом чате.', downloadFailedForChat: 'Не удалось загрузить {name}: {error}', openChat: 'Открыть чат', settings: 'Открыть Настройки -> Модели',
         explore: 'Обзор', allModels: 'Все модели', views: 'Режимы хаба', featured: 'Рекомендуем', details: 'Подробнее',
         position: '{index} из {total}', previous: 'Назад', next: 'Вперёд', seeAll: 'Показать все', close: 'Закрыть',
         scrollBack: 'Прокрутить «{name}» назад', scrollForward: 'Прокрутить «{name}» вперёд',
@@ -223,7 +230,8 @@ window.__ModuleLoader__.load({
         discardAcknowledge: 'Descartar o arquivo parcial do modelo.', keepDownload: 'Manter download', discard: 'Descartar arquivo',
         use: 'Usar', using: 'Iniciando...', more: 'Mostrar mais',
         failed: 'Não foi possível concluir: {error}',
-        startFailed: 'Não foi possível iniciar o modelo local: {error}', settings: 'Abrir Configurações -> Modelos',
+        startFailed: 'Não foi possível iniciar o modelo local: {error}',
+        downloadingForChat: 'Baixando {name}. Este chat passa a usá-lo quando estiver pronto.', readyInChat: '{name} está pronto neste chat.', downloadFailedForChat: 'Não foi possível baixar {name}: {error}', openChat: 'Abrir chat', settings: 'Abrir Configurações -> Modelos',
         explore: 'Explorar', allModels: 'Todos os modelos', views: 'Visualizações do Hub', featured: 'Destaque', details: 'Ver detalhes',
         position: '{index} de {total}', previous: 'Anterior', next: 'Próximo', seeAll: 'Ver tudo', close: 'Fechar',
         scrollBack: 'Rolar {name} para trás', scrollForward: 'Rolar {name} para frente',
@@ -927,6 +935,7 @@ window.__ModuleLoader__.load({
       .jan-hub-card-action{display:flex;justify-content:flex-end}
       .jan-hub-transfer{display:grid;gap:6px;padding:10px 12px;background:var(--dsw-alias-bg-subtle);border:0.5px solid var(--dsw-alias-border-l2);border-radius:8px}
       .jan-hub-transfer-head,.jan-hub-transfer-details{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 8px}
+      .jan-hub-option-progress{margin-left:auto;padding-left:8px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
       .jan-hub-transfer-head{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
       .jan-hub-transfer progress{display:block;width:100%;height:8px;accent-color:var(--dsw-alias-button-primary-fill)}
       .jan-hub-transfer progress[value]{appearance:none;border:0;border-radius:999px;background:var(--dsw-alias-border-l3);overflow:hidden}
@@ -1008,9 +1017,77 @@ window.__ModuleLoader__.load({
             })
             await answer(scope.remote.session.selectModel({ sessionId: blank.id, provider, model: 'local' }))
           }
+          // The chat whose model menu opened the Hub; Use and Download return to it. Leaving the Hub, or
+          // opening it any other way, forgets it.
+          let origin = null, fromPicker = false
+          scope.effect(() => {
+            let was = scope.layout.panelInfo.getSnapshot().activePanelId
+            return scope.layout.panelInfo.subscribe(() => {
+              const now = scope.layout.panelInfo.getSnapshot().activePanelId
+              if (now === was) return
+              if (was === PANEL || (now === PANEL && !fromPicker)) origin = null
+              fromPicker = false
+              was = now
+            })
+          }, 'jan-model-hub: origin chat')
+          const exists = sessionId => scope.sessions.list.getSnapshot().byId[sessionId] !== undefined
+          let showToast, serial = 0
+          const notify = toast => showToast?.({ key: ++serial, ...toast })
+          const returnToChat = async (provider, sessionId) => {
+            scope.layout.selectPanel(null)
+            scope.uiWorkspace.openSession(sessionId)
+            await answer(scope.remote.session.selectModel({ sessionId, provider, model: 'local' }))
+          }
+          // Downloads started for a chat: model id -> { sessionId, name, seen }. Memory only; after a reload the
+          // download continues in Downloads but the chat is not switched.
+          const pending = new Map()
+          const pendingListeners = new Set()
+          const publishPending = () => { for (const listener of pendingListeners) listener() }
+          const finishForChat = async (id, entry) => {
+            try {
+              await answer(remote.setDefaultModel(id))
+              const after = await settled(feed)
+              if (after.phase === 'failed') throw new Error(t('startFailed', { error: after.error ?? '' }))
+              if (exists(entry.sessionId)) await answer(scope.remote.session.selectModel({ sessionId: entry.sessionId, provider: after.provider, model: 'local' }))
+              notify({ text: t('readyInChat', { name: entry.name }), sessionId: entry.sessionId })
+            } catch (error) {
+              // The file is installed; only starting or selecting it failed, and the error says which.
+              notify({ text: message(error), sessionId: entry.sessionId })
+            }
+          }
+          // A small file can finish before the download call returns, so a new entry is checked at once; a
+          // job missing from the feed counts as stopped only after the feed has shown it.
+          const checkPending = () => {
+            const state = feed.getSnapshot()
+            for (const [id, entry] of pending) {
+              const job = state.downloads.find(download => download.id === id)
+              if (state.models.some(model => model.id === id)) {
+                pending.delete(id)
+                void finishForChat(id, entry)
+              } else if (job !== undefined && job.error === undefined) {
+                entry.seen = true
+              } else if (job !== undefined || entry.seen) {
+                pending.delete(id)
+                notify({ text: t('downloadFailedForChat', { name: entry.name, error: job?.error ?? '' }), sessionId: entry.sessionId })
+              }
+            }
+            // Progress changes the percent beside Get local models.
+            publishPending()
+          }
+          scope.effect(() => feed.subscribe(checkPending), 'jan-model-hub: downloads for chats')
           const runAction = async (kind, target) => {
-            if (kind === 'download') await answer(remote.downloadRepoFile(target.repo, target.file))
-            else if (kind === 'resume') await answer(remote.retryDownload(target.id))
+            if (kind === 'download') {
+              const modelId = await answer(remote.downloadRepoFile(target.repo, target.file))
+              const back = origin
+              if (back !== null && exists(back)) {
+                const name = target.name ?? target.file
+                pending.set(modelId, { sessionId: back, name, seen: false })
+                scope.layout.selectPanel(null)
+                scope.uiWorkspace.openSession(back)
+                notify({ text: t('downloadingForChat', { name }), sessionId: back })
+                checkPending()
+              }
+            } else if (kind === 'resume') await answer(remote.retryDownload(target.id))
             else if (kind === 'pause') await answer(remote.pauseDownload(target.id))
             else if (kind === 'cancel') await answer(remote.cancelDownload(target.id))
             else {
@@ -1019,7 +1096,9 @@ window.__ModuleLoader__.load({
               // through the followed state, and a chat opened on a route with no server has no model.
               const after = await settled(feed)
               if (after.phase === 'failed') throw new Error(t('startFailed', { error: after.error ?? '' }))
-              await startLocalChat(after.provider)
+              const back = origin
+              if (back !== null && exists(back)) await returnToChat(after.provider, back)
+              else await startLocalChat(after.provider)
             }
           }
           const openSettings = () => { ctx.get('settingsNavigation')?.open('models') }
@@ -1032,10 +1111,37 @@ window.__ModuleLoader__.load({
           // The composer's model menu offers the Hub beside Manage models.
           scope.slots.inject('conversation.input.model.options', () => scope.slots.register({
             name: 'conversation.input.model.options', id: PANEL, order: 10, locale: PANEL,
-          }, ({ dismiss, t: copy }) => h(MenuItemButton, {
+          }, ({ dismiss, sessionId, t: copy }) => h(MenuItemButton, {
             icon: h(ModelsGlyph, { size: 16 }),
-            onSelect: () => { dismiss(); scope.layout.selectPanel(PANEL) },
-          }, copy('getLocal'))))
+            onSelect: () => { dismiss(); fromPicker = true; scope.layout.selectPanel(PANEL); origin = sessionId },
+          }, copy('getLocal'), h(PendingPercent, { sessionId }))))
+          // Progress of a download this chat is waiting for, beside Get local models.
+          function PendingPercent({ sessionId }) {
+            const percent = React.useSyncExternalStore(listener => { pendingListeners.add(listener); return () => pendingListeners.delete(listener) }, () => percentFor(sessionId))
+            if (percent === '') return null
+            return h('span', { className: 'jan-hub-option-progress' }, percent)
+          }
+          // The percent text for the chat's pending download, or '' when it waits for none.
+          function percentFor(sessionId) {
+            for (const [id, entry] of pending) {
+              if (entry.sessionId !== sessionId) continue
+              const progress = feed.getSnapshot().downloads.find(download => download.id === id)?.progress
+              if (!(progress?.totalBytes > 0)) return '…'
+              return `${Math.min(100, Math.floor(progress.receivedBytes / progress.totalBytes * 100))}%`
+            }
+            return ''
+          }
+          function HubToasts() {
+            const [toast, setToast] = React.useState(null)
+            React.useEffect(() => {
+              showToast = setToast
+              return () => { if (showToast === setToast) showToast = undefined }
+            }, [])
+            return toast && h(Toast, { key: toast.key, text: toast.text, holdMs: 7000,
+              actions: exists(toast.sessionId) ? [{ label: t('openChat'), onClick: () => { setToast(null); scope.uiWorkspace.openSession(toast.sessionId) } }] : [],
+              onDone: () => { setToast(null) } })
+          }
+          scope.slots.inject('shell.overlay', () => scope.slots.register({ name: 'shell.overlay', id: `${PANEL}.toasts` }, HubToasts))
           // A one-shot request from the desktop welcome flow to open the Hub.
           const requested = () => {
             if (sessionStorage.getItem('jan:open-panel') !== PANEL) return
