@@ -53,7 +53,7 @@ Open **Project actions** on a project row and choose **Edit project...** to chan
 - **Icon**: one of the built-in glyphs; the folder glyph opens with the project.
 - **Emoji**: one emoji.
 
-The sidebar and the Workspace picker use the saved appearance. A project with no saved avatar shows its GitHub owner's picture, or the folder glyph outside a GitHub checkout. A picture that fails to load, for example offline, falls back to the folder glyph, or a globe for a favicon. The editor is available only to callers with `workspace/update` access.
+The sidebar, the Workspace picker and the Jan theme's project page title use the saved appearance; `ProjectAvatar` is exported for that title, which draws it at 32px and opens the same editor when clicked. A project with no saved avatar shows its GitHub owner's picture, or the folder glyph outside a GitHub checkout. A picture that fails to load, for example offline, falls back to the folder glyph, or a globe for a favicon. The editor is available only to callers with `workspace/update` access.
 
 ### Search
 

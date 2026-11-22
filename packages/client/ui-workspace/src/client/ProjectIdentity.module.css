@@ -31,6 +31,18 @@
   font-size: 16px;
 }
 
+/* Project page title: a 32px tile beside the 24px heading, rounded a step more to match its size. */
+.avatar[data-size='32'] {
+  inline-size: 32px;
+  block-size: 32px;
+  font-size: 20px;
+}
+
+.avatar[data-size='32'][data-emoji],
+.avatar[data-size='32'][data-image] img {
+  border-radius: var(--dsw-radius-sm);
+}
+
 /* A picture fills the seat with the same small rounding as an emoji tile. */
 .avatar[data-image] img {
   inline-size: 100%;

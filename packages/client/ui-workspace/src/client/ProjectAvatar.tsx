@@ -1,4 +1,4 @@
-/** Shared project avatar for the sidebar, picker, and identity preview. */
+/** Shared project avatar for the sidebar, picker, identity preview, and project page title. */
 import { useState } from 'react'
 import { IconCodeOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular, IconGlobeOutlineRegular, IconGoalOutlineRegular, IconImageOutlineRegular, IconLayersOutlineRegular, IconSparkleRegular, IconStarOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type { WorkspaceAvatar, WorkspaceColor, WorkspaceIcon } from '@janhq/jan-api-workspace-controller/client'
@@ -40,7 +40,7 @@ export function ProjectAvatar({ avatar, githubOwner, color, expanded, size = 16 
   githubOwner?: string | undefined
   color?: WorkspaceColor | undefined
   expanded?: boolean | undefined
-  size?: 16 | 24
+  size?: 16 | 24 | 32
 }) {
   const image = projectAvatarImage(avatar, githubOwner)
   // A picture that fails to load (offline, unknown site) falls back to the glyph it stands in for.
@@ -57,7 +57,7 @@ export function ProjectAvatar({ avatar, githubOwner, color, expanded, size = 16 
       : expanded ? IconFolderOpenRegular : IconFolderCloseRegular
   return (
     <span aria-hidden="true" className={css.avatar} data-color={color} data-size={size} data-emoji={avatar?.kind === 'emoji' || undefined}>
-      {avatar?.kind === 'emoji' ? avatar.value : <Icon size={size === 24 ? 18 : 16} />}
+      {avatar?.kind === 'emoji' ? avatar.value : <Icon size={size === 32 ? 22 : size === 24 ? 18 : 16} />}
     </span>
   )
 }
