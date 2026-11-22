@@ -3,7 +3,7 @@
  * to the package — the outward contracts are in `adapter.ts`.
  */
 import type { PointerEvent as ReactPointerEvent, ReactNode, HTMLAttributes } from 'react'
-import type { DockLabels, TabMenuExtras, TabRenderer } from '../contract/adapter.ts'
+import type { AddTabMenu, DockLabels, TabMenuExtras, TabRenderer } from '../contract/adapter.ts'
 import type { PaneId, SplitId, TabId, TabRecord } from '../contract/types.ts'
 import type { DropTarget } from '../engine/geometry.ts'
 
@@ -54,6 +54,8 @@ export interface PaneCallbacks {
   readonly getTabTriggerProps?: ((tab: TabRecord, paneId: PaneId, handlers?: Pick<HTMLAttributes<HTMLElement>, 'onContextMenu' | 'onKeyDown' | 'tabIndex'>) => Pick<HTMLAttributes<HTMLElement>, 'onContextMenu' | 'onKeyDown' | 'tabIndex'>) | undefined
   /** Extra rows for the kit popup; ignored when getTabTriggerProps is supplied. */
   readonly renderTabMenuItems: TabMenuExtras | undefined
+  /** Menu for the strip's `+`; absent, the `+` adds a tab directly. */
+  readonly renderAddTabMenu: AddTabMenu | undefined
   /** The pane whose strip hosts the embedder's surface-wide controls. */
   readonly chromePaneId: PaneId
   /** Those controls; absent means the strip ends at the kit's own split control. */

@@ -265,6 +265,9 @@ export function TabStrip({ state, pane, callbacks, offsets }: TabStripProps): Re
   // The open context menu and the chip that opened it; the menu positions
   // itself against that chip from its portal.
   const [menu, setMenu] = useState<{ readonly tabId: TabId; readonly anchor: HTMLElement } | undefined>(undefined)
+  // The `+` that opened the add menu, while that menu is open.
+  const [addMenu, setAddMenu] = useState<HTMLElement | undefined>(undefined)
+  const renderAddTabMenu = callbacks.renderAddTabMenu
   // The mounted chips by tab, for the keys that move focus between them.
   const [chips] = useState(() => new Map<TabId, HTMLElement>())
   const stripTabs = useRef<HTMLDivElement | null>(null)
@@ -411,14 +414,35 @@ export function TabStrip({ state, pane, callbacks, offsets }: TabStripProps): Re
             className={css.addTab}
             aria-label={callbacks.labels.addTab}
             data-dockkit-add-tab={pane.id}
+            {...renderAddTabMenu === undefined ? {} : { 'aria-haspopup': 'menu' as const, 'aria-expanded': addMenu !== undefined }}
             onClick={(event) => {
               event.stopPropagation()
-              callbacks.onAddTab(pane.id)
+              if (renderAddTabMenu === undefined) {
+                callbacks.onAddTab(pane.id)
+                return
+              }
+              if (addMenu !== undefined) {
+                setAddMenu(undefined)
+                return
+              }
+              // The menu acts on this pane, so the pane is the focused one while it is open.
+              callbacks.onFocusPane(pane.id)
+              setAddMenu(event.currentTarget)
             }}
           >
             <IconPlusOutlineRegular size={14} />
           </button>
         </Tooltip>
+      )}
+      {addMenu !== undefined && renderAddTabMenu !== undefined && (
+        <TabMenu
+          labels={callbacks.labels}
+          anchor={addMenu}
+          onClose={undefined}
+          onDismiss={() => { setAddMenu(undefined) }}
+          extras={renderAddTabMenu(pane.id, () => { setAddMenu(undefined) })}
+          anchorToggles
+        />
       )}
       <div className={css.stripFill} data-dockkit-strip-fill />
       {active !== undefined && callbacks.renderTabActions !== undefined && (

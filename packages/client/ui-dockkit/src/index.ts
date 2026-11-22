@@ -59,7 +59,7 @@ export { createIdMinter, createInitialState } from './engine/initial.ts'
 export type { IdMinter, TabFactory } from './engine/initial.ts'
 
 // Outward contracts.
-export type { DockIntents, DockLabels, TabMenuExtras, TabRenderer } from './contract/adapter.ts'
+export type { AddTabMenu, DockIntents, DockLabels, TabMenuExtras, TabRenderer } from './contract/adapter.ts'
 
 // React surface.
 export { DockSurface } from './components/DockSurface.tsx'

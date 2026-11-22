@@ -36,6 +36,8 @@ export interface TabMenuProps {
   readonly onDismiss: () => void
   /** Embedder items, rendered after the kit's own; absent means none. */
   readonly extras: ReactNode
+  /** Leave presses on the anchor to the anchor itself, so a toggle control can close the menu it opened. */
+  readonly anchorToggles?: boolean
 }
 
 /** Where the menu sits, or `undefined` before the first measurement. */
@@ -52,7 +54,7 @@ function placeMenu(anchor: HTMLElement, menu: HTMLElement): CSSProperties {
 }
 
 /** The actions menu body, anchored to the control that opened it. */
-export function TabMenu({ labels, anchor, onClose, onDismiss, extras }: TabMenuProps): ReactNode {
+export function TabMenu({ labels, anchor, onClose, onDismiss, extras, anchorToggles = false }: TabMenuProps): ReactNode {
   const self = useRef<HTMLDivElement | null>(null)
   const [position, setPosition] = useState<CSSProperties | undefined>(undefined)
   const hasItems = onClose !== undefined || Children.toArray(extras).some(item => item !== '')
@@ -83,7 +85,7 @@ export function TabMenu({ labels, anchor, onClose, onDismiss, extras }: TabMenuP
     // A press anywhere but inside the menu dismisses it; one with no element
     // target (dispatched to the window itself) counts as outside.
     const onPointerDown = (event: PointerEvent): void => {
-      if (event.target instanceof Node && menu.contains(event.target)) return
+      if (event.target instanceof Node && (menu.contains(event.target) || (anchorToggles && anchor.contains(event.target)))) return
       onDismiss()
     }
     // Capture phase: a press on a tab chip starts a drag on its own handler,
