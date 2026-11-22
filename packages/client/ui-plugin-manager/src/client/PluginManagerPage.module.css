@@ -1842,6 +1842,17 @@ label.registryOption {
   min-width: 240px;
 }
 
+/* A live count after a tab's label; an unknown count leaves the span empty and hidden. */
+.tabCount {
+  margin-left: 6px;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabCount:empty {
+  display: none;
+}
+
 @container plugin-page-bar (width < 600px) {
   .pageBarWithTabs .pageHead {
     align-items: center;
