@@ -140,6 +140,7 @@ export const ICON_ARTWORK = {
   'undo-outline': { size: 16, svg: strokeWidth => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="${strokeWidth}"><path d="M5 2.5L2 5.5l3 3"></path><path d="M2.5 5.5h7a4 4 0 0 1 0 8H6.5"></path></svg>` },
   'redo-outline': { size: 16, svg: strokeWidth => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="${strokeWidth}"><path d="M11 2.5l3 3-3 3"></path><path d="M13.5 5.5h-7a4 4 0 0 0 0 8h3"></path></svg>` },
   'cursor-outline': { size: 16, svg: strokeWidth => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="${strokeWidth}"><path d="M3 2.5l10 4.6-4.3 1.6-1.6 4.3Z"></path></svg>` },
+  'guides-outline': { size: 16, svg: strokeWidth => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="${strokeWidth}"><path d="M2.5 13.5v-11h3v8h8v3Z"></path><path d="M2.5 5h1.5M2.5 7.5h1.5M8 13.5V12M10.5 13.5V12"></path><path d="M9.5 2.5v5.5M9.5 8H14" stroke-dasharray="1.5 1.5"></path></svg>` },
 } satisfies Record<string, IconArtwork>
 
 /** Glyph name accepted by {@link iconSymbolId}. */
