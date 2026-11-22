@@ -39,6 +39,7 @@ import type {} from './contract/slots.ts'
 import { GuideBody, type GuideInjected } from './tabs/guide/GuideBody.tsx'
 import { GuideTitle } from './tabs/guide/GuideTitle.tsx'
 import { ExpandButton } from './shell/ExpandButton.tsx'
+import { NewTabItems, type NewTabItemsInjected } from './shell/NewTabItems.tsx'
 import { RightbarSeat, type SidebarRightInjected } from './shell/SidebarRight.tsx'
 import { closeWithPaneFocus, openWithPaneFocus } from './shell/close-focus.ts'
 import { RightbarRoot, type RightbarRootInjected } from './shell/RightbarRoot.tsx'
@@ -330,4 +331,23 @@ export function apply(ctx: ClientContext): void {
       adoptions.clear()
     }
   }, 'ui-sidebar-right: seats and shipped tab type')
+
+  // The chat tab strip's `+` menu lists every type the guide offers; a pick
+  // opens it in that pane's chat sidebar. The pane is focused while the menu
+  // is open, so its chat is normally the one on screen and the open takes focus.
+  ctx.effect(() => {
+    const injected: NewTabItemsInjected = {
+      hooks: {
+        guideEntries: { subscribe: listener => tabs.subscribe(listener), getSnapshot: () => tabs.guide() },
+        shortcuts: ctx.shortcuts.catalog,
+      },
+      openIn: (sessionId, kind) => {
+        if (controller.mounted.getSnapshot() === sessionId) controller.openTab(kind)
+        else controller.openTabIn(sessionId, kind)
+      },
+    }
+    return ctx.slots.inject('conversation.desk.new-tab.item', () => ctx.slots.register({
+      name: 'conversation.desk.new-tab.item', id: 'sidebar-right', locale: NS, inject: () => injected,
+    }, NewTabItems))
+  }, 'ui-sidebar-right: new tab menu rows')
 }
