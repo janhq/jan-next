@@ -15,7 +15,7 @@ window.__ModuleLoader__.load({
       NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
       IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
-      IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular, IconBranchOutlineRegular,
+      IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular, IconBranchOutlineRegular, StateDot,
     } = require('@janhq/jan-client-ui-primitives')
     const { workspaceDisplayTitle } = require('@janhq/jan-api-workspace-controller/client')
     // Optional: the matching host publishes the dock model seat. An older
@@ -600,6 +600,7 @@ window.__ModuleLoader__.load({
   @media (hover: hover) { .jt-project-session:hover { background: var(--dsw-alias-interactive-bg-hover); } }
   .jt-project-session-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 20px; }
   .jt-project-session-date { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
+  .jt-project-session-status { display: inline-flex; flex: none; align-items: center; gap: 6px; align-self: center; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 16px; }
   .jt-project-empty { margin: 0; padding: 20px 4px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
   .jt-project-rail { display: flex; flex-direction: column; gap: 12px; align-self: start; position: sticky; top: 24px; }
   .jt-project-card { padding: 14px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; }
@@ -1360,7 +1361,26 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           h(IconBranchOutlineRegular, { size: 14, 'aria-hidden': true }), h('span', null, branch)))
     }
 
-    function ProjectDetails({ workspace, useArchived, useSessions, useScheduleTasks, startSession, openChat, backToProjects, createSchedule, openScheduled, t }) {
+    /**
+     * A recent chat's live state, ranked like its sidebar row: a pending question
+     * outranks the chat's own run, which outranks its running subagents. Idle and
+     * finished chats return null and keep their date.
+     */
+    function liveChatStatus(summary, sessions, statuses, t) {
+      const status = statuses.get(summary.id)
+      switch (status?.pendingInteraction?.kind) {
+        case 'approval': return { state: 'warning', label: t('project.status.approval') }
+        case 'question': return { state: 'warning', label: t('project.status.question') }
+        case 'plan-review': return { state: 'warning', label: t('project.status.planReview') }
+      }
+      if (status?.running ?? summary.running) return { state: 'ongoing', label: t('project.status.running') }
+      const children = sessions.projectionsBySession[summary.id]?.values.subagentCatalog ?? []
+      const running = children.filter(child => (statuses.get(child.id)?.running ?? sessions.byId[child.id]?.running) === true).length
+      if (running === 0) return null
+      return { state: 'ongoing', label: t(running === 1 ? 'project.status.subagents.one' : 'project.status.subagents.other', { n: running }) }
+    }
+
+    function ProjectDetails({ workspace, useArchived, useSessions, useSessionStatus, useScheduleTasks, startSession, openChat, backToProjects, createSchedule, openScheduled, t }) {
       const { workspaceId } = workspace
       const title = workspaceDisplayTitle(workspace, t('workspace.defaultName'))
       const sessions = useSessions(value => value)
@@ -1394,6 +1414,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         return () => { controller.abort() }
       }, [workspaceId, detailsVersion])
       const archived = new Set(archivedIds)
+      const statuses = useSessionStatus(value => value)
       const recents = workspace.sessionIds
         .map(id => sessions.byId[id])
         .filter(summary => summary !== undefined && !summary.blank && summary.origin !== 'subagent' && summary.parentId === undefined && !archived.has(summary.id))
@@ -1458,10 +1479,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             h('h2', { className: 'jt-project-heading', id: 'jt-project-recents' }, t('project.recents')),
             recents.length === 0
               ? h('p', { className: 'jt-project-empty' }, t('project.noSessions'))
-              : h('ul', { className: 'jt-project-sessions' }, recents.map(summary => h('li', { key: summary.id },
-                h('button', { type: 'button', className: 'jt-project-session', onClick: () => { openChat(summary.id) } },
-                  h('span', { className: 'jt-project-session-title' }, summary.displayTitle),
-                  h('span', { className: 'jt-project-session-date' }, dateFormat.format(new Date(summary.updatedAt))))))))),
+              : h('ul', { className: 'jt-project-sessions' }, recents.map((summary) => {
+                const status = liveChatStatus(summary, sessions, statuses, t)
+                return h('li', { key: summary.id },
+                  h('button', { type: 'button', className: 'jt-project-session', onClick: () => { openChat(summary.id) } },
+                    h('span', { className: 'jt-project-session-title' }, summary.displayTitle),
+                    status === null
+                      ? h('span', { className: 'jt-project-session-date' }, dateFormat.format(new Date(summary.updatedAt)))
+                      : h('span', { className: 'jt-project-session-status', 'data-state': status.state }, h(StateDot, { state: status.state }), status.label)))
+              })))),
         h('aside', { className: 'jt-project-rail', 'aria-label': t('project.details') },
           error && h('p', { className: 'jt-project-error', role: 'alert' }, error),
           card('project.instructions',
@@ -1873,6 +1899,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "Start chat",
               'project.recents': "Recent chats",
               'project.noSessions': "No chats in this project yet.",
+              'project.status.running': "Running",
+              'project.status.approval': "Waiting for approval",
+              'project.status.question': "Waiting for your answer",
+              'project.status.planReview': "Plan waiting for review",
+              'project.status.subagents.one': "{n} subagent running",
+              'project.status.subagents.other': "{n} subagents running",
               'project.details': "Project details",
               'project.instructions': "Instructions",
               'project.instructions.empty': "Tell the agent how to work in this project.",
@@ -1946,6 +1978,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "开始对话",
               'project.recents': "最近的对话",
               'project.noSessions': "此项目还没有对话。",
+              'project.status.running': "运行中",
+              'project.status.approval': "等待审批",
+              'project.status.question': "等待你的回答",
+              'project.status.planReview': "计划等待审阅",
+              'project.status.subagents.one': "{n} 个子智能体运行中",
+              'project.status.subagents.other': "{n} 个子智能体运行中",
               'project.details': "项目详情",
               'project.instructions': "说明",
               'project.instructions.empty': "告诉智能体在此项目中如何工作。",
@@ -2022,6 +2060,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "チャットを開始",
               'project.recents': "最近のチャット",
               'project.noSessions': "このプロジェクトにはまだチャットがありません。",
+              'project.status.running': "実行中",
+              'project.status.approval': "承認待ち",
+              'project.status.question': "回答待ち",
+              'project.status.planReview': "計画のレビュー待ち",
+              'project.status.subagents.one': "サブエージェント {n} 件が実行中",
+              'project.status.subagents.other': "サブエージェント {n} 件が実行中",
               'project.details': "プロジェクトの詳細",
               'project.instructions': "指示",
               'project.instructions.empty': "このプロジェクトでの作業方法をエージェントに伝えます。",
@@ -2098,6 +2142,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "Iniciar chat",
               'project.recents': "Chats recientes",
               'project.noSessions': "Este proyecto todavía no tiene chats.",
+              'project.status.running': "En curso",
+              'project.status.approval': "Esperando aprobación",
+              'project.status.question': "Esperando tu respuesta",
+              'project.status.planReview': "Plan pendiente de revisión",
+              'project.status.subagents.one': "{n} subagente en curso",
+              'project.status.subagents.other': "{n} subagentes en curso",
               'project.details': "Detalles del proyecto",
               'project.instructions': "Instrucciones",
               'project.instructions.empty': "Indica al agente cómo trabajar en este proyecto.",
@@ -2174,6 +2224,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "Lancer la discussion",
               'project.recents': "Discussions récentes",
               'project.noSessions': "Ce projet n'a pas encore de discussion.",
+              'project.status.running': "En cours",
+              'project.status.approval': "En attente d'approbation",
+              'project.status.question': "En attente de votre réponse",
+              'project.status.planReview': "Plan en attente de relecture",
+              'project.status.subagents.one': "{n} sous-agent en cours",
+              'project.status.subagents.other': "{n} sous-agents en cours",
               'project.details': "Détails du projet",
               'project.instructions': "Instructions",
               'project.instructions.empty': "Expliquez à l'agent comment travailler dans ce projet.",
@@ -2250,6 +2306,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "Chat starten",
               'project.recents': "Letzte Chats",
               'project.noSessions': "Dieses Projekt hat noch keine Chats.",
+              'project.status.running': "Läuft",
+              'project.status.approval': "Wartet auf Freigabe",
+              'project.status.question': "Wartet auf deine Antwort",
+              'project.status.planReview': "Plan wartet auf Prüfung",
+              'project.status.subagents.one': "{n} Subagent läuft",
+              'project.status.subagents.other': "{n} Subagenten laufen",
               'project.details': "Projektdetails",
               'project.instructions': "Anweisungen",
               'project.instructions.empty': "Sag dem Agenten, wie er in diesem Projekt arbeiten soll.",
@@ -2326,6 +2388,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "Начать чат",
               'project.recents': "Недавние чаты",
               'project.noSessions': "В этом проекте пока нет чатов.",
+              'project.status.running': "Выполняется",
+              'project.status.approval': "Ожидает одобрения",
+              'project.status.question': "Ожидает вашего ответа",
+              'project.status.planReview': "План ожидает проверки",
+              'project.status.subagents.one': "Субагентов в работе: {n}",
+              'project.status.subagents.other': "Субагентов в работе: {n}",
               'project.details': "Сведения о проекте",
               'project.instructions': "Инструкции",
               'project.instructions.empty': "Объясните агенту, как работать в этом проекте.",
@@ -2402,6 +2470,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "Iniciar conversa",
               'project.recents': "Conversas recentes",
               'project.noSessions': "Este projeto ainda não tem conversas.",
+              'project.status.running': "Em execução",
+              'project.status.approval': "Aguardando aprovação",
+              'project.status.question': "Aguardando sua resposta",
+              'project.status.planReview': "Plano aguardando revisão",
+              'project.status.subagents.one': "{n} subagente em execução",
+              'project.status.subagents.other': "{n} subagentes em execução",
               'project.details': "Detalhes do projeto",
               'project.instructions': "Instruções",
               'project.instructions.empty': "Diga ao agente como trabalhar neste projeto.",
