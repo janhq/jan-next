@@ -136,6 +136,6 @@ export function skillBody(typesMap: string | undefined, standaloneMap: string | 
   // A topic reference is part of the closed set too: `web.md` on a host with no web capability is
   // the same error as documenting `$dsh/web` in the prompt — the model reads it and writes an
   // import that fails.
-  const refs = ["lifetime", "layout", "accessibility", "sound", "runtime", ...(capabilities.exec ? ["commands"] : []), ...(capabilities.web ? ["web"] : []), ...(capabilities.fs ? ["files"] : []), ...(capabilities.ai ? ["ai"] : []), "checking", "imports"];
+  const refs = ["lifetime", "kit", "layout", "accessibility", "sound", "runtime", ...(capabilities.exec ? ["commands"] : []), ...(capabilities.web ? ["web"] : []), ...(capabilities.fs ? ["files"] : []), ...(capabilities.ai ? ["ai"] : []), "checking", "imports"];
   return skillEntry(typesMap, standaloneMap, capabilities) + refs.map((name) => `\n${readSkill(`references/${name}.md`)}`).join("");
 }

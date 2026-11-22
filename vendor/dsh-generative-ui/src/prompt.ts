@@ -42,7 +42,7 @@ export const inlinePrompt = (capabilities: Capabilities = DEFAULT_CAPABILITIES):
  * string it was meant to remove, matched nothing, and left `exec` in the sentence on a host that
  * does not have it — a `replace` that matches nothing is not an error, it is a no-op.
  */
-const CAPABILITIES = ["fs", "ai", "exec", "web", "chat", "state"] as const;
+const CAPABILITIES = ["fs", "ai", "exec", "web", "chat", "state", "ui"] as const;
 
 /**
  * Which of the host-backed capabilities this host actually mounted.
@@ -54,8 +54,8 @@ const CAPABILITIES = ["fs", "ai", "exec", "web", "chat", "state"] as const;
 export type { Capabilities } from "./capabilities.ts";
 export { DEFAULT_CAPABILITIES } from "./capabilities.ts";
 import { DEFAULT_CAPABILITIES, type Capabilities } from "./capabilities.ts";
-const present = (capabilities: Capabilities): Record<(typeof CAPABILITIES)[number], boolean> => ({ fs: capabilities.fs, ai: capabilities.ai, exec: capabilities.exec, web: capabilities.web, chat: true, state: true });
-const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six"];
+const present = (capabilities: Capabilities): Record<(typeof CAPABILITIES)[number], boolean> => ({ fs: capabilities.fs, ai: capabilities.ai, exec: capabilities.exec, web: capabilities.web, chat: true, state: true, ui: true });
+const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven"];
 const capabilityList = (capabilities: Capabilities) =>
   CAPABILITIES.filter((name) => present(capabilities)[name])
     .map((name) => `\`${name}\``)
@@ -133,6 +133,7 @@ __EXEC_BULLET__
 __WEB_BULLET__
 - \`import { sendMessage } from "$dsh/chat"\` drives the next turn from inside the card. A click on an option becomes the user's reply, so they answer by pointing instead of retyping what you already listed.
 - \`import { usePersistedState } from "$dsh/state"\` returns the familiar \`[value, setValue]\` pair but its call signature is **key first:** \`usePersistedState(key, initial)\`, with a lazy initialiser allowed. It is the module's only export and keeps the value in \`localStorage\` under a namespaced key with the read and write already wrapped. Never import it from \`react\` — React does not export this hook. Both halves are load-bearing: an unresolvable sibling import renders a blank card, and treating it like \`useState(initial)\` produces \`usePersistedState(false, "saved")\`. Reach for it for anything the reader can edit, including calculator and conversion inputs; \`useState\` is only for transient UI or derived display. Your own next edit remounts the card, and a half-typed row goes with it.
+- \`import { Card, Title, Text, Row, Col, Badge, Button, RadioGroup, Slider, Carousel, … } from "$dsh/ui"\` is a ready component kit, already themed to this app in light and dark. **Reach for it before hand-styling the same thing:** a card, a heading, a badge, a button, a form field, a set of options, a slider, a segmented control, a carousel, a flashcard, a timer, a code block, a formula, a photo. Its controls report values, not events — \`<RadioGroup options={[{ value, label }]} value={v} onChange={setV} />\`, \`<Slider value={n} onChange={setN} min={0} max={10} />\` — so they bind straight to \`usePersistedState\`. Utility classes still lay out what the kit does not cover. Props and worked cards are in the skill's \`kit.md\`; a prop you guess at is ignored silently.
 - **Every editable inline card gets the same source check.** If the card has an input, slider, toggle, or other card-owned value the reader can change, its source must import and use \`usePersistedState\` from \`$dsh/state\` for that value before sending. Do not mirror a persisted input or draft in a second local \`useState\` value; bind the control to the persisted value, or persist the raw editable string too when an invalid intermediate token must survive. This applies to calculations and conversions as well as choices. __FS_AUTHORITATIVE__
 - **Displayed numbers stay live.** In a card, interpolate every editable input and derived result into the explanatory text from the same state/formatter that drives the control. Do not write an initial literal into a helper sentence (\`5 英里 = {km}\` is wrong once the field changes). Prose before or after a calculation or conversion card may frame the interaction or formula, but must not contain the initial result, an approximate equality, a threshold number, or any other computed numeric summary; the card must own the single live number.
 - **Keep units and formulas on the same scale.** Input labels, formulas, and output formatters must agree. If a field says \`万元\`, normalize it exactly once before the loan formula and format the result in the displayed unit; run one known sample through the same formula before sending.
