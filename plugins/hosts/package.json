@@ -13,6 +13,7 @@
   "files": ["*.mjs", "client.js", "README.md"],
   "dependencies": {
     "@janhq/jan-atomic-write": "workspace:*",
+    "@janhq/jan-home-paths": "workspace:*",
     "@janhq/jan-plugin-api": "workspace:*",
     "@janhq/schemastery": "workspace:~",
     "uqr": "^0.1.3",

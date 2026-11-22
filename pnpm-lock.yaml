@@ -18754,6 +18754,9 @@ importers:
       '@janhq/jan-atomic-write':
         specifier: workspace:*
         version: link:../../packages/util/atomic-write
+      '@janhq/jan-home-paths':
+        specifier: workspace:*
+        version: link:../../packages/util/home-paths
       '@janhq/jan-plugin-api':
         specifier: workspace:*
         version: link:../plugin-api

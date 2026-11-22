@@ -388,5 +388,7 @@ export function createFederation(ctx) {
     /** Ask a connected Jan directly, for the folder chooser. */
     call: (hostId, endpoint, args) => linkFor(hostId).link.call(endpoint, args),
     linkState: id => hosts.get(id)?.link.state,
+    /** The live link to a connected Jan, for calls this Host makes on its own behalf. */
+    linkOf: id => hosts.get(id)?.link,
   }
 }

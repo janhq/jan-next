@@ -42,6 +42,18 @@ Once an SSH Host is connected, its row asks the Jan there whether anybody set it
 
 The receiving Jan adds only what it lacks: a route with the same name, a key that already resolves there (stored or from its environment) and a default model someone picked all stay as they are, and the answer names what it kept. A route is sent as it was saved here; one with a `!!js` field goes as this computer evaluated it, because the expression would read the other computer's environment. Not now hides the offer until the next Connect.
 
+## Bring MCP servers, skills and plugins to the other computer
+
+A connected SSH Host's row has Bring setup. It asks the Jan there what it has and lists, by kind, what this computer can add: MCP servers, skills and plugin bundles it lacks, each with a checkbox. A filter by name shows once the list is long, and a group's checkbox ticks or clears only the rows the filter shows.
+
+| Kind | How it travels | Left unticked |
+| --- | --- | --- |
+| MCP server | One merge into that Jan's `mcp-manager` settings | A server whose command, arguments or folder is a Windows path on this computer |
+| Skill | The folders as one tar stream over the SSH login into that Jan's `skills` folder; `.git`, `node_modules`, `__pycache__` and `.venv` stay behind, and a symlinked skill goes as its files | None |
+| Plugin bundle | Enabled there when that Jan has it installed, otherwise installed from the same source | A bundle installed here from a local folder |
+
+The other Jan keeps what it has: a server or skill with the same name is not offered, and tar skips a folder that appears there meanwhile. A plugin that fails is named in the row's note while the rest still land. That Jan's window shows new skills after a reload.
+
 ## Versions on the two sides
 
 Each Jan serves its own page, so Open in browser always runs the Client that matches the Host on the other computer. Hosts depends only on what the two sides exchange before that:
@@ -51,5 +63,6 @@ Each Jan serves its own page, so Open in browser always runs the Client that mat
 | Index without login | HTTP 401 with `jan web authentication required` | Releases before 2026-11-16 say `dsh web`; both are accepted. |
 | Sign-in | `GET /connect?token=…&interactions=none` answers 302 with a cookie | Same since 2026-10-10. |
 | Live connection | WebSocket `api/remote.mux` opens with that cookie | Same since 2026-08-22. |
+| Projects in this window | That Jan's Gateway forwards calls (`registerForwarder`) | A Gateway without it still answers copies and folder browsing; its projects stay out of this window. |
 
 An SSH entry saved by an earlier Hosts also carried a command, profile and port; they are ignored, and dropped when the entry is edited. The hosts files carry `"version": 1`; a file of another version is refused rather than rewritten.
