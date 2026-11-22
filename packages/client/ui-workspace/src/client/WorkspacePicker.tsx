@@ -33,6 +33,7 @@ import type { DirectoryFlowOwnerProps, WorkspacePickerProps } from './contract/s
 import type { RemoteMachine, RemoteMachineSource } from './remote-machines.ts'
 import { distinguishingPathSuffixes } from './path-suffix.ts'
 import { ProjectAvatar } from './ProjectAvatar.tsx'
+import { DirectoryBrowser } from './DirectoryBrowser.tsx'
 import css from './WorkspacePicker.module.css'
 
 const THIS_MACHINE = '::this-machine'
@@ -57,7 +58,7 @@ export interface WorkspacePickFlowProps {
   /** Selector hook over the workspace list (framework standard hook). */
   useWorkspaces: <S>(selector: (state: WorkspaceSnapshot) => S) => S
   /** Adopt a picked host directory as a real Workspace. */
-  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  createWorkspace: (input: { path: string; hostId?: string }) => Promise<WorkspaceView>
   /** Create a folder on this Host (New folder). */
   createDirectory: (parent: string, name: string) => Promise<string>
   /** Bound occupancy selector hook for this surface's directory-flow hole (empty hides the folder-picking rows). */
@@ -155,6 +156,9 @@ export function WorkspacePickFlow({
   const [query, setQuery] = useState('')
   const [remote, setRemote] = useState<RemoteList>({ status: 'loading' })
   const [newFolder, setNewFolder] = useState<NewFolderDraft | null>(null)
+  // The other computer whose folders the in-app chooser lists, after Remote connected it.
+  const [remoteBrowse, setRemoteBrowse] = useState<{ readonly id: string; readonly name: string } | null>(null)
+  const [adoptingRemote, setAdoptingRemote] = useState(false)
   // One picking interaction at a time: while the flow is open (native chooser
   // pending, browse dialog up) or its pick is being adopted, every other
   // menu action stays disabled — a late outcome must not race a concurrent
@@ -351,9 +355,23 @@ export function WorkspacePickFlow({
   const openRemote = (id: string): void => {
     onClose()
     if (remoteSource === undefined) return
-    remoteSource.connect(id).catch((error: unknown) => {
+    const name = remoteMachines.find(machine => machine.id === id)?.name ?? id
+    remoteSource.connect(id).then(() => { setRemoteBrowse({ id, name }) }, (error: unknown) => {
       setFailure({ kind: 'remote', message: reason(error) })
     })
+  }
+
+  /** Make the folder chosen on the other computer a project there, then open it like a local pick. */
+  const adoptRemote = (path: string): void => {
+    if (remoteBrowse === null) return
+    setAdoptingRemote(true)
+    createWorkspace({ path, hostId: remoteBrowse.id }).then((workspace) => {
+      setRemoteBrowse(null)
+      onPick(workspace.workspaceId)
+    }, (error: unknown) => {
+      setRemoteBrowse(null)
+      setFailure({ kind: 'remote', message: reason(error) })
+    }).finally(() => { setAdoptingRemote(false) })
   }
 
   const handleSelect = (id: string): void => {
@@ -443,6 +461,18 @@ export function WorkspacePickFlow({
         anchorRef={anchorRef ?? absentAnchor}
       />
       {renderDirectoryFlow(flowOwner)}
+      {remoteSource !== undefined && (
+        <DirectoryBrowser
+          open={remoteBrowse !== null}
+          busy={adoptingRemote}
+          title={t('picker.remoteChoose', { name: remoteBrowse?.name ?? '' })}
+          listDirectory={path => remoteSource.listDirectory(remoteBrowse?.id ?? '', path)}
+          createDirectory={(path, name) => remoteSource.createDirectory(remoteBrowse?.id ?? '', path, name)}
+          onOpen={adoptRemote}
+          onClose={() => { if (!adoptingRemote) setRemoteBrowse(null) }}
+          t={t}
+        />
+      )}
       <Modal
         open={newFolder !== null}
         onClose={() => { if (newFolder?.busy !== true) setNewFolder(null) }}

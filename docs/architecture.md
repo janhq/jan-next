@@ -50,6 +50,10 @@ The [Electron desktop application](../apps/desktop/README.md) ships its exact ja
 
 Electron starts the private Desktop Host in Electron Node mode. The Host invokes the shared CLI profile runner and complete Web application. The window immediately loads packaged Web assets and waits for boot injections before activating client plugins in the same document. Web owns RPC and streams; the desktop carrier connects the local page to the authenticated Host. Node IPC carries boot injections, readiness, fatal errors, and shutdown. Desktop listens on an OS-assigned port by default; profile configuration can override it. Shell-owned UI runs plugin transactions through bundled pnpm with normal user and profile configuration.
 
+## Host federation
+
+A window talks to one Host. Projects and chats on other computers reach it through that Host: the [Hosts](../plugins/hosts/README.md) plugin signs in to each connected Jan and registers the Gateway's carrier-level forwarder, which sends calls naming another computer's ids (`<hostId>~<id>`) there and merges the sidebar's streams. The Client keeps one `ctx.remote` and never authenticates to a second origin. A forwarded chat is logged on the Host that runs it; this Host stores nothing for it. [Decision](../.agents/notes/implemented/architecture/2026-11-22-host-federation.md).
+
 ## Core packages
 
 | Package | Owns | `ctx` key |

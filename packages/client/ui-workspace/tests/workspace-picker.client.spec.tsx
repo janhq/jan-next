@@ -8,7 +8,7 @@ import type { SessionListState } from '@janhq/jan-api-session-controller/client'
 import type {
   WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@janhq/jan-api-workspace-controller/client'
-import type {} from '@janhq/jan-client-locale/client'
+import type { } from '@janhq/jan-client-locale/client'
 import { allowAllAccess, bindSnapshotSelector, makeTranslate } from '@janhq/jan-client-test-runtime'
 import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import type { SessionStatusSnapshot } from '@janhq/jan-client-ui-session/client'
@@ -18,7 +18,7 @@ import { WorkspacePicker } from '../src/client/WorkspacePicker.tsx'
 import { zh } from '../src/client/locales.ts'
 
 // Every fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
-const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
+const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => { } })) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
 afterEach(() => {
@@ -100,14 +100,20 @@ function hostFacts(remoteName?: string): RemoteHostFacts {
 function remoteSource(machines: readonly RemoteMachine[] = []) {
   return {
     list: vi.fn(async (_signal: AbortSignal) => machines),
-    connect: vi.fn(async (_id: string) => {}),
+    connect: vi.fn(async (_id: string) => { }),
+    listDirectory: vi.fn(async (_id: string, path?: string) => ({
+      path: path ?? '/home/lab', home: '/home/lab', crumbs: [{ name: '/', path: '/', hidden: false }, { name: 'home', path: '/home', hidden: false }, { name: 'lab', path: '/home/lab', hidden: false }],
+      entries: [{ name: 'code', path: '/home/lab/code', hidden: false }],
+      truncated: false,
+    })),
+    createDirectory: vi.fn(async (_id: string, path: string, name: string) => `${path}/${name}`),
     manage: vi.fn(),
   } satisfies RemoteMachineSource
 }
 
 interface MountOptions {
   items?: readonly WorkspaceView[]
-  createWorkspace?: Mock<(input: { path: string }) => Promise<WorkspaceView>>
+  createWorkspace?: Mock<(input: { path: string; hostId?: string }) => Promise<WorkspaceView>>
   createDirectory?: Mock<(parent: string, name: string) => Promise<string>>
   occupancy?: ReturnType<typeof occupancySource>
   remoteName?: string
@@ -118,7 +124,7 @@ interface MountOptions {
 
 function mount({
   items = [workspace('alpha', 'Alpha')],
-  createWorkspace = vi.fn<(input: { path: string }) => Promise<WorkspaceView>>(),
+  createWorkspace = vi.fn<(input: { path: string; hostId?: string }) => Promise<WorkspaceView>>(),
   createDirectory = vi.fn(async (parent: string, name: string) => `${parent}/${name}`),
   occupancy = occupancySource(),
   remoteName,
@@ -207,10 +213,12 @@ describe('WorkspacePicker', () => {
   })
 
   it('localizes only the registered default with its automatic title', () => {
-    mount({ items: [
-      { ...workspace('default', 'default-workspace'), isDefault: true },
-      workspace('manual', 'default-workspace'),
-    ] })
+    mount({
+      items: [
+        { ...workspace('default', 'default-workspace'), isDefault: true },
+        workspace('manual', 'default-workspace'),
+      ],
+    })
     openThisComputer()
     expect(screen.getByRole('menuitem', { name: '默认工作区' })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: 'default-workspace' })).toBeTruthy()
@@ -380,7 +388,8 @@ describe('WorkspacePicker', () => {
       { id: 'lab', name: 'homelab', detail: 'thinh@lab', state: 'ready' },
       { id: 'cloud', name: 'cloud box', detail: 'https://box.example', state: 'idle' },
     ])
-    const b = mount({ remote: source })
+    const createWorkspace = vi.fn(async () => ({ ...workspace('lab~code'), path: '/home/lab' }))
+    const b = mount({ remote: source, createWorkspace })
     await waitFor(() => { expect(source.list).toHaveBeenCalled() })
     fireEvent.click(screen.getByRole('menuitem', { name: '远程' }))
     await screen.findByRole('menuitem', { name: 'homelab thinh@lab' })
@@ -388,6 +397,12 @@ describe('WorkspacePicker', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'homelab thinh@lab' }))
     expect(source.connect).toHaveBeenCalledWith('lab')
     expect(b.onClose).toHaveBeenCalled()
+    // Connected, the in-app chooser lists that computer's folders and makes the pick a project there.
+    const chooser = await screen.findByRole('dialog', { name: '选择“homelab”上的文件夹' })
+    await waitFor(() => { expect(source.listDirectory).toHaveBeenCalledWith('lab', undefined) })
+    fireEvent.click(await within(chooser).findByRole('button', { name: '打开' }))
+    await waitFor(() => { expect(b.createWorkspace).toHaveBeenCalledWith({ path: '/home/lab', hostId: 'lab' }) })
+    await waitFor(() => { expect(b.onPick).toHaveBeenCalled() })
     fireEvent.click(screen.getByRole('menuitem', { name: '远程' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '添加电脑…' }))
     expect(source.manage).toHaveBeenCalledTimes(1)

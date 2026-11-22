@@ -67,7 +67,7 @@ export interface SessionNode {
 export type SessionOrderBy = 'manual' | 'updated'
 
 /** One workspace group section: header row facts + visible top-level session rows. */
-export interface GroupNode extends Pick<WorkspaceView, 'avatar' | 'color' | 'githubOwner'> {
+export interface GroupNode extends Pick<WorkspaceView, 'avatar' | 'color' | 'githubOwner' | 'hostName' | 'hostState'> {
   /** Group key: the workspace id or {@link UNGROUPED_KEY}. */
   key: string
   /** Backing Workspace id; absent only for the ungrouped bucket. */
@@ -115,7 +115,7 @@ export interface TreeView {
   ungroupedOrder?: readonly string[]
 }
 
-interface Group extends Pick<WorkspaceView, 'avatar' | 'color' | 'githubOwner'> {
+interface Group extends Pick<WorkspaceView, 'avatar' | 'color' | 'githubOwner' | 'hostName' | 'hostState'> {
   key: string
   workspaceId: WorkspaceId | undefined
   cwd: string | undefined
@@ -356,6 +356,8 @@ function groupByWorkspace(
       ...(workspace.color === undefined ? {} : { color: workspace.color }),
       ...(workspace.avatar === undefined ? {} : { avatar: workspace.avatar }),
       ...(workspace.githubOwner === undefined ? {} : { githubOwner: workspace.githubOwner }),
+      ...(workspace.hostName === undefined ? {} : { hostName: workspace.hostName }),
+      ...(workspace.hostState === undefined ? {} : { hostState: workspace.hostState }),
     })
   }
   const stray = list.ids
@@ -460,6 +462,8 @@ export function deriveGroups(
       ...(g.color === undefined ? {} : { color: g.color }),
       ...(g.avatar === undefined ? {} : { avatar: g.avatar }),
       ...(g.githubOwner === undefined ? {} : { githubOwner: g.githubOwner }),
+      ...(g.hostName === undefined ? {} : { hostName: g.hostName }),
+      ...(g.hostState === undefined ? {} : { hostState: g.hostState }),
       sessionCount: g.sessions.length,
       expanded,
       containsCurrent: g.key === currentGroup,

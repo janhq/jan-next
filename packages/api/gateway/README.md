@@ -48,6 +48,8 @@ Host composition can register one application event source through `registerRemo
 
 A disposed Peer is refused before event-stream participation checks. `$events` and `$events/result` require `peer.interactions === 'answer'` for owner and non-owner alike; refusal returns `gateway/interactions-forbidden`. Only owner Peers receive forwarded waterfalls and may answer; a reply must belong to an event stream owned by the same Peer. `hasLiveClient()` checks uncancelled owner answering streams; non-owner broadcast streams and bare WebSockets do not count. Cancellation excludes a stream even while its iterator awaits cleanup. This synchronous observation does not guarantee delivery or Client provider readiness.
 
+Host composition can register one carrier-level forwarder through `registerForwarder()`. Every unary call, stream and `$events` stream an owner Peer sends over the wire passes through it with a `local` callback that runs the call on this Host unchanged; a forwarder that claims a call answers it somewhere else, in wire form. Non-owner Peers and direct `invoke()`/`stream()` calls never reach it. A forwarded stream receives no uplink. The [Hosts](../../../plugins/hosts/README.md) plugin uses it to federate connected computers.
+
 <a id="client-service-clientremote-ctx-key-remote"></a>
 ## Client service: `ClientRemote` (ctx key: `remote`)
 

@@ -14,9 +14,11 @@ import { startRelay } from './relay.mjs'
 import { lanAddresses, startGateway } from './gateway.mjs'
 import { sshConfigHosts } from './ssh-config.mjs'
 import { callRemote, copyable, receiveSetup, setupPayload, setupState } from './setup-copy.mjs'
+import { createHostLink } from './link.mjs'
+import { createFederation } from './federation.mjs'
 
 export const name = 'jan-hosts'
-export const inject = ['janHomePath', 'webServer', 'connection', 'credentials', 'settings']
+export const inject = ['janHomePath', 'webServer', 'connection', 'credentials', 'settings', 'typertGateway']
 
 export const Config = schema.object({
   // Volatile so the page's switch takes effect without reloading the plugin.
@@ -62,6 +64,21 @@ export function apply(ctx, config) {
   let gatewayError
   let hashes = new Map()
   let gatewayStart
+  const federation = createFederation(ctx)
+  ctx.effect(() => ctx.typertGateway.registerForwarder(federation.forwarder), 'jan-hosts: federation forwarder')
+
+  /** Link a connected SSH Host's Jan into this window's sidebar and chats. */
+  async function linkHost(entry, tunnel) {
+    const link = createHostLink({ root: tunnel.root, token: tunnel.token })
+    try {
+      await link.open()
+    } catch (error) {
+      link.close()
+      ctx.logger.warn('jan-hosts: %s is connected but its projects cannot be listed here: %s', entry.name, error.message)
+      return
+    }
+    federation.attach(entry.id, entry.name, link)
+  }
 
   async function token(id) {
     const record = await ctx.credentials.readRecord(tokenKey(id))
@@ -129,6 +146,7 @@ export function apply(ctx, config) {
     return {
       ...entry, signedIn: entry.kind === 'url' ? (await token(entry.id)) !== undefined : tunnel !== undefined,
       tunnel: tunnel === undefined ? undefined : { root: tunnel.root, log: tunnel.log },
+      linkState: federation.linkState(entry.id),
       progress: progress.get(entry.id),
     }
   }
@@ -252,6 +270,7 @@ export function apply(ctx, config) {
     async remove({ id }) {
       tunnels.get(id)?.close()
       tunnels.delete(id)
+      federation.detach(id, true)
       await store.removeConnection(id)
       await ctx.credentials.deleteRecord(tokenKey(id))
       return null
@@ -275,7 +294,12 @@ export function apply(ctx, config) {
         connecting.set(id, connectSsh(entry, line => { log.push(line); if (log.length > 20) log.shift() }).then((tunnel) => {
           const record = { ...tunnel, log }
           tunnels.set(id, record)
-          void tunnel.exited.then(() => { if (tunnels.get(id) === record) tunnels.delete(id) })
+          void tunnel.exited.then(() => {
+            if (tunnels.get(id) !== record) return
+            tunnels.delete(id)
+            federation.detach(id)
+          })
+          return linkHost(entry, tunnel)
         }).finally(() => { connecting.delete(id); progress.delete(id) }))
       }
       try {
@@ -288,7 +312,15 @@ export function apply(ctx, config) {
     async disconnect({ id }) {
       tunnels.get(id)?.close()
       tunnels.delete(id)
+      federation.detach(id)
       return null
+    },
+    // The folder chooser for a project on another computer lists that computer's folders.
+    async browse({ id, path }) {
+      return federation.call(id, 'directoryPicker/list', path === undefined ? {} : { path })
+    },
+    async makeFolder({ id, path, name }) {
+      return { path: await federation.call(id, 'directoryPicker/createDirectory', { path, name }) }
     },
     async open({ id }) {
       return { url: await openUrl(await find(id)) }

@@ -38,7 +38,7 @@ export class WorkspaceCommands {
   private operationTail = Promise.resolve()
 
   /** @param ctx - Host context containing the Workspace registry. */
-  constructor(private readonly ctx: Context) {}
+  constructor(private readonly ctx: Context) { }
 
   /**
    * Create or resolve one Workspace over an existing directory.
@@ -46,6 +46,14 @@ export class WorkspaceCommands {
    * @returns the Workspace and whether this call created it.
    */
   create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
+    // Reaching here with a Host named means no federation forwarded it: never adopt that path locally.
+    if (request.hostId !== undefined) {
+      return Promise.reject(new RemoteError(
+        'workspace/invalid-path',
+        `cannot create a Workspace at "${request.path}": that computer is not connected here`,
+        { path: request.path },
+      ))
+    }
     return this.enqueue(async () => {
       try {
         const { workspace, created } = await this.ctx.workspaceRegistry.adopt(request.path)

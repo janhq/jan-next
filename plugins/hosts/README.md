@@ -23,6 +23,14 @@ The archives come from [`scripts/build-host-runtime.ts`](../../scripts/build-hos
 
 A Jan someone installed on that computer by hand is never used or changed: Hosts keeps its own copy and home under `~/.jan/hosts-runtime/`. Remove that directory there to take it away.
 
+## Projects and chats on connected computers
+
+A connected SSH Host's projects appear in this window's sidebar beside this computer's, each tagged with that computer's name, and its chats open in normal tabs and run there. Remote in the new-project menu connects the computer and opens Jan's folder chooser on that computer's folders; the chosen folder becomes a project there. This Host signs in to the other Jan with the tunnel's token, which never leaves this process, and keeps one live connection to it that reconnects after 1, 2, 5 and then every 10 seconds while the tunnel runs. `state` reports `linkState` for each Host.
+
+Ids from another computer reach this window as `<hostId>~<id>`; Host ids are UUIDs and Session and Workspace ids never contain `~`. A call naming such an id goes to that computer with the plain id, and its answer comes back qualified. The sidebar's project list, the Session control stream, the Session list and search, and chat activity events merge every connected computer's with this one's; approvals and questions from a chat on another computer come here to be answered. Settings, providers and plugins stay per computer. When a computer disconnects, its projects stay listed, dimmed and marked Offline, until it reconnects or the Host is removed; calls to them fail with an offline message. Chats on another computer are logged only there.
+
+A chat running on another computer reads only chats on that computer with `read_chat`; a chat on this computer reads every connected computer's.
+
 ## Copy model providers to the other computer
 
 Once an SSH Host is connected, its row asks the Jan there whether anybody set it up. A Jan with no provider added and no default model picked gets an offer under the row: each provider route this computer can give, ticked, and Copy. Copy sends the chosen routes, their keys and this computer's default model (when its route is among them) to that Jan's own `/jan-api/hosts` through the SSH tunnel, signed in with the tunnel's token, so keys never leave the encrypted session.

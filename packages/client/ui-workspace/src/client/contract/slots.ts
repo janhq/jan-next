@@ -371,7 +371,7 @@ export type WorkspaceBrowserInjected = Pick<DirectoryPickingInjected, 'createDir
   /** Remove a Session from the registry-global archived set (the search results' restore button). */
   unarchiveSession: (sessionId: SessionId) => Promise<void>
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
-  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  createWorkspace: (input: { path: string; hostId?: string }) => Promise<WorkspaceView>
   /** Raise the outcome notice of a folder dropped on the Sidebar. */
   notifyFolderDrop: (notice: FolderDropNotice) => void
 }
@@ -600,7 +600,7 @@ export type WorkspaceBrowserProps =
  */
 export type WorkspacePickerInjected = DirectoryPickingInjected & {
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
-  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  createWorkspace: (input: { path: string; hostId?: string }) => Promise<WorkspaceView>
   hooks: {
     /** Fixed Host facts; the picker heads its menu with the Host's computer name. */
     hostInfo: HostObservable<RemoteHostFacts>

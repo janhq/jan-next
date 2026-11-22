@@ -76,6 +76,9 @@ export type {
 export type { WorkspaceKey } from './locales.ts'
 /** The shared project avatar, for surfaces outside this package that show a project (e.g. a project page title). */
 export { ProjectAvatar } from './ProjectAvatar.tsx'
+/** The in-app folder chooser: the browse picker's dialog and the chooser for another computer's folders. */
+export { DirectoryBrowser } from './DirectoryBrowser.tsx'
+export type { BrowserKey, BrowserTranslate, DirectoryBrowserProps } from './DirectoryBrowser.tsx'
 
 declare module '@janhq/jan-client-ui-slots' {
   interface GlobalStandardProps {
