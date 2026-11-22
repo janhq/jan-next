@@ -30,7 +30,7 @@ declare module '@janhq/jan-client-ui-slots' {
  */
 export function apply(ctx: Context, config: Config['office']): void {
   const id = '@janhq/jan-client-ui-sidebar-documentpreview/office'
-  const extensions = ['doc', 'docx', 'ppt', 'pptx']
+  const extensions = ['doc', 'docx', 'odt', 'ppt', 'pptx', 'odp', 'ods']
   ctx.effect(() => ctx.locale.register('sidebarOffice', { zh, en, ja, es, fr, de, ru, pt }))
   const t = ctx.locale.bind('sidebarOffice')
   const unavailable: ReadOfficeDocument = (_file, signal) => {
