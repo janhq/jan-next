@@ -19,7 +19,8 @@ import clsx from 'clsx'
 import { WorkspaceDialogs } from './WorkspaceDialogs.tsx'
 import {
   AnimatedRows, HoverCardGroup, IconArchiveCheckOutlineRegular, IconArchiveOffOutlineRegular, IconArchiveOutlineRegular,
-  IconChevronDownOutlineRegular, IconChevronsUpDownOutlineRegular, IconChevronUpOutlineRegular, IconClockOutlineRegular, IconCloseFillRegular,
+  IconChevronDownOutlineRegular, IconChevronsUpDownOutlineRegular, IconChevronUpOutlineRegular, IconClockOutlineRegular,
+  IconCloseFillRegular,
   IconFlatListOutlineRegular, IconFolderCloseRegular, IconProjectAddOutlineRegular,
   IconQueueOutlineRegular, IconSearchOutlineRegular, IconSlidersTwoOutlineRegular,
   IconWorkspaceTreeOutlineRegular, Menu, Tooltip,
@@ -956,8 +957,10 @@ export function WorkspaceBrowser({
   t,
 }: WorkspaceBrowserProps) {
   const home = useHostInfo(info => info.home)
-  // Only a window on another computer tags its projects; local projects stay unlabelled.
-  const machine = useHostInfo(info => info.remote ? info.name : undefined)
+  // Every project row names its computer. A window on this computer (loopback and not
+  // started over SSH) calls it Local Mac; any other window uses the Host's own name.
+  const localMachine = t(typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? 'workspace.machine.localMac' : 'workspace.machine.local')
+  const machine = useHostInfo(info => info.name === undefined ? undefined : info.remote || !info.isLoopback ? info.name : localMachine)
   const projectSurface = useProjectSurface(present => present)
   const hiddenSessionIds = useHiddenSessions(ids => ids)
   const shortcuts = useShortcuts(rows => rows)
