@@ -1,14 +1,14 @@
-import { Fragment, memo, useMemo, useRef } from 'react'
+import { Fragment, memo, useMemo, useState } from 'react'
 import { fileMediaUrl } from '@janhq/jan-util-workspace-path'
 import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { ReactNode } from 'react'
-import { JsonBlock, MarkdownText } from '@janhq/jan-client-ui-primitives'
+import { JsonBlock, MarkdownText, createStreamReveal } from '@janhq/jan-client-ui-primitives'
 import type { MarkdownFileMentions, MarkdownPathImages } from '@janhq/jan-client-ui-primitives'
 import type { ChatNodeOwnerProps, ChatViewSlotProps, UseDisclosure, UsePresentation, UseGroupAction } from '../contract/slots.ts'
 import type { AssistantBlock } from '../contract/snapshot.ts'
 import { markdownLabels } from '../markdown-labels.ts'
 import { ReasoningRow } from './ReasoningRow.tsx'
-import { useSmoothText, useStreamFade } from './smooth-stream.ts'
+import { useSmoothText } from './smooth-stream.ts'
 import css from './AssistantMarkdown.module.css'
 
 /**
@@ -159,18 +159,14 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
 })
 
 /**
- * Streamed prose released at a steady pace with each new run fading in; the
- * settled render takes over once the paced text has caught up with a finished stream.
+ * Streamed prose released at a steady pace with each new word fading in from a
+ * slight blur; the settled render takes over once the paced text has caught up with a finished stream.
  */
-function PacedMarkdown({ text, streaming, ...markdown }: Omit<Parameters<typeof MarkdownText>[0], 'variant' | 'omitHtml'> & { streaming: boolean }) {
+function PacedMarkdown({ text, streaming, ...markdown }: Omit<Parameters<typeof MarkdownText>[0], 'variant' | 'omitHtml' | 'reveal'> & { streaming: boolean }) {
   const paced = useSmoothText(text, streaming)
-  const ref = useRef<HTMLDivElement>(null)
-  useStreamFade(ref, !paced.settled)
-  return (
-    <div ref={ref} className={css.paced}>
-      <MarkdownText {...markdown} text={paced.text} streaming={!paced.settled} />
-    </div>
-  )
+  // One reveal per reply, so words that remount as their block freezes resume their fade.
+  const [reveal] = useState(createStreamReveal)
+  return <MarkdownText {...markdown} text={paced.text} streaming={!paced.settled} reveal={reveal} />
 }
 
 function ProcessReasoning({ hidden, reveal, useGroupAction, children }: {

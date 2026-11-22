@@ -1,11 +1,10 @@
 /**
  * Smooth streaming for Assistant prose. Network chunks arrive in bursts; the
  * reader sees text released at a steady, backlog-adaptive pace, whole words at
- * a time, and each newly shown run fades in over a few frames. The fade paints
- * through the CSS Custom Highlight API, so the React-owned Markdown DOM is never
- * touched. Reduced motion shows text as it arrives.
+ * a time. Each new word's fade is the Markdown renderer's reveal
+ * (`createStreamReveal`). Reduced motion shows text as it arrives.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /** Slowest release, in characters per second (a brisk reading pace), so a backlog's tail does not crawl. */
 const MIN_CPS = 300
@@ -15,9 +14,6 @@ const DRAIN_MS = 360
 const FINISH_MS = 700
 /** A word longer than this is released mid-word instead of waiting for its end. */
 const WORD_REACH = 16
-/** Fade steps; each lasts STEP_MS. */
-export const FADE_STEPS = 3
-const STEP_MS = 70
 
 const reducedMotion = (): boolean =>
   typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -126,66 +122,4 @@ export function useSmoothText(text: string, streaming: boolean): { text: string;
   }, [])
   const visible = behind ? text.slice(0, shown.current) : text
   return { text: visible, settled: !streaming && !behind }
-}
-
-interface FreshRun { range: Range; born: number }
-const fresh: FreshRun[] = []
-let fadeFrame = 0
-
-function highlights(): HighlightRegistry | undefined {
-  return typeof CSS !== 'undefined' && 'highlights' in CSS && typeof Highlight === 'function' ? CSS.highlights : undefined
-}
-
-function paintFades(now: number): void {
-  const registry = highlights()
-  if (registry === undefined) return
-  const steps: Range[][] = Array.from({ length: FADE_STEPS }, () => [])
-  const live = fresh.filter((run) => {
-    // A frame's timestamp can precede a run pushed earlier in the same frame.
-    const step = Math.max(0, Math.floor((now - run.born) / STEP_MS))
-    steps[step]?.push(run.range)
-    return step < FADE_STEPS
-  })
-  fresh.splice(0, fresh.length, ...live)
-  steps.forEach((ranges, step) => { registry.set(`jan-stream-fade-${step}`, new Highlight(...ranges)) })
-  fadeFrame = fresh.length > 0 ? requestAnimationFrame(paintFades) : 0
-}
-
-/** A range over the last `count` characters of `root`'s text. */
-function tailRange(root: Node, count: number): Range | undefined {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  const nodes: Text[] = []
-  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) nodes.push(node as Text)
-  let remaining = count
-  const range = document.createRange()
-  const last = nodes.at(-1)
-  if (last === undefined) return undefined
-  range.setEnd(last, last.length)
-  for (const node of nodes.toReversed()) {
-    if (node.length >= remaining) { range.setStart(node, node.length - remaining); return range }
-    remaining -= node.length
-  }
-  range.setStart(nodes[0] ?? last, 0)
-  return range
-}
-
-/**
- * Fade in text appended under `root` while `active`. Call after every render that may append.
- * @param root - the rendered Markdown container.
- * @param active - the text is streaming in.
- */
-export function useStreamFade(root: RefObject<HTMLElement | null>, active: boolean): void {
-  const length = useRef<number | undefined>(undefined)
-  useLayoutEffect(() => {
-    const element = root.current
-    if (element === null || highlights() === undefined || reducedMotion()) return
-    const now = element.textContent.length
-    const before = length.current
-    length.current = now
-    if (!active || before === undefined || now <= before) return
-    const range = tailRange(element, now - before)
-    if (range === undefined) return
-    fresh.push({ range, born: performance.now() })
-    if (fadeFrame === 0) fadeFrame = requestAnimationFrame(paintFades)
-  })
 }

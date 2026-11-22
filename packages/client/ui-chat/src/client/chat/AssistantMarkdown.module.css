@@ -20,25 +20,6 @@
   gap: 16px;
 }
 
-/* Paced streaming wrapper: no box of its own, so the body's block gap is unchanged. */
-.paced {
-  display: contents;
-}
-
-/* Newly streamed text fades in over three frames (smooth-stream.ts paints the
-   ranges through the CSS Custom Highlight API; reduced motion paints none). */
-.paced ::highlight(jan-stream-fade-0) {
-  color: color-mix(in srgb, var(--dsw-alias-label-primary) 15%, transparent);
-}
-
-.paced ::highlight(jan-stream-fade-1) {
-  color: color-mix(in srgb, var(--dsw-alias-label-primary) 45%, transparent);
-}
-
-.paced ::highlight(jan-stream-fade-2) {
-  color: color-mix(in srgb, var(--dsw-alias-label-primary) 75%, transparent);
-}
-
 /* Wide markdown tables (the renderer's ≥4-column md-table-wide hook) span
    the whole transcript width instead of clipping at the 748px message
    column, while the table content keeps starting at its normal x (the lead

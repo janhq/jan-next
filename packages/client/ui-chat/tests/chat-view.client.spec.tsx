@@ -3923,8 +3923,8 @@ describe('ChatView', () => {
     act(() => {
       h.setChat({ partial: { turn: 2, step: 1, blocks: [{ kind: 'text', text: 'streaming… more' }] } })
     })
-    // Appended prose is paced onto the screen over a few frames.
-    expect(await view.findByText('streaming… more')).toBeTruthy()
+    // Appended prose is paced onto the screen over a few frames, one reveal span per word.
+    expect(await view.findByText((_, element) => element?.tagName === 'P' && element.textContent === 'streaming… more')).toBeTruthy()
     expect(view.getByTestId('tool-seat-a')).toBe(tool)
     expect(tool.innerHTML).toBe(beforeHtml)
   })
