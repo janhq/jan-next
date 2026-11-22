@@ -22,6 +22,7 @@ import { BrowserLogin } from './browser-login.ts'
 import { AccountOnboarding } from './AccountOnboarding.tsx'
 import { AccountPlatformHost, type AccountPlatformHostInjected } from './AccountPlatformHost.tsx'
 import { AccountMenu } from './AccountMenu.tsx'
+import { ModelMenuSignIn } from './ModelMenuSignIn.tsx'
 import { createPlatformPages, type PlatformPages } from './platform-pages.ts'
 import { AccountSection, type AccountSnapshot, type AccountSectionInjected } from './AccountSection.tsx'
 import { createBonusNoticeController } from './bonus-notices.ts'
@@ -368,6 +369,10 @@ export function apply(ctx: Context): void {
   ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('settings.launcher', () => ctx.slots.register({
     name: 'settings.launcher', locale: 'settings.account', inject: () => operations,
   }, AccountMenu)))
+  ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('conversation.input.model.options', () => ctx.slots.register({
+    name: 'conversation.input.model.options', id: 'account.sign-in', order: 20, locale: 'settings.account',
+    inject: () => ({ hooks: operations.hooks, start: operations.start }),
+  }, ModelMenuSignIn)))
   ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('settings.section', () => {
     let unregister: (() => void) | undefined
     const update = () => {

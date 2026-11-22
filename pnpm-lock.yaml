@@ -5912,6 +5912,9 @@ importers:
       '@janhq/jan-client-ui-layout':
         specifier: workspace:*
         version: link:../ui-layout
+      '@janhq/jan-client-ui-model-selection':
+        specifier: workspace:*
+        version: link:../ui-model-selection
       '@janhq/jan-client-ui-primitives':
         specifier: workspace:*
         version: link:../ui-primitives
