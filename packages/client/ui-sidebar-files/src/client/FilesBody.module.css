@@ -72,15 +72,17 @@
   border-left: 0;
 }
 
-/* Covered content stays laid out but cannot receive keyboard focus. The subject is the host's marked
-   row: a bare `:has()` subject made every element insertion in the window restyle the whole document. */
-[data-files-navigator-row]:has(> .navigator.fill) > :not(.navigator) {
+/* Covered content stays laid out but cannot receive keyboard focus. Hosts place the navigator after
+   the content of their marked row, so the covered parts are its preceding siblings. Matching them by a
+   sibling `:has()` keeps it cheap: a row-level `:has(> …) > *` made every element insertion anywhere
+   in the window restyle the whole document. */
+[data-files-navigator-row] > :not(.navigator):has(~ .navigator.fill) {
   visibility: hidden;
 }
 
 /* navigator-layout `FULLSCREEN_QUERY`: every layout fills the row. */
 @media (width < 768px) {
-  [data-files-navigator-row]:has(> .navigator:not(.wholePage)) > :not(.navigator) {
+  [data-files-navigator-row] > :not(.navigator):has(~ .navigator:not(.wholePage)) {
     visibility: hidden;
   }
 
