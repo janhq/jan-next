@@ -18,13 +18,14 @@
   gap: 6px;
   max-width: 100%;
   min-height: 28px;
-  padding: 3px 2px;
+  padding: 2px;
   border: 0;
   border-radius: var(--dsw-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-  line-height: 18px;
+  /* The transcript's process rows' size, so the roster reads at the same level as "Called tools". */
+  font-size: var(--jan-content-font-size, 14px);
+  line-height: calc(24px + var(--jan-content-font-delta, 0px));
   cursor: pointer;
 }
 
@@ -43,8 +44,8 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
 .progress {
@@ -95,14 +96,22 @@
   --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
-/* On a closed Turn's duration line the count reads at the line's own size and
-   height, so `3 subagents · 3 completed` sits on the same baseline as
-   `Completed in 4s`; its open rows take the whole line below. */
+/* Above the composer the open roster is a card of the composer's own material, radius and
+   edges (the seat's 12px padding is given back), set 8px clear of it. */
+.seat > .panel {
+  margin: 2px -12px 8px;
+  border-color: var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-panel);
+  background: var(--dsw-specific-input-major);
+  backdrop-filter: none;
+}
+
+/* On a closed Turn's duration line the count sits flush on the line's own height,
+   so `3 subagents · 3 completed` shares the baseline of `Completed in 4s`; its
+   open rows take the whole line below. */
 .turnHeader {
   min-height: calc(25px + var(--jan-content-font-delta, 0px));
   padding: 0;
-  font-size: var(--jan-content-font-size, 14px);
-  line-height: calc(24px + var(--jan-content-font-delta, 0px));
 }
 
 .turnPanel {

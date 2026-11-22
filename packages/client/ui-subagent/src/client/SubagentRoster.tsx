@@ -226,7 +226,7 @@ function RosterBody({
       <button type="button" className={css.header} aria-expanded={open} aria-controls={panelId}
         aria-describedby={running > 0 ? runningId : undefined} onClick={() => { setOpen(!open) }}>
         <span className={css.headerIcon} aria-hidden>
-          {running > 0 ? <StateDot state="ongoing" /> : <IconUsersOutlineRegular size={14} />}
+          {running > 0 ? <StateDot state="ongoing" /> : <IconUsersOutlineRegular size={16} />}
         </span>
         <span data-subagent-count>{t(totalKey, { count: entries.length })}</span>
         {progress !== '' && <span className={css.progress}>{progress}</span>}
