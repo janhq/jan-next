@@ -3825,6 +3825,11 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'name', description: 'kebab-case skill name.' }, { name: 'options', description: 'view options; `scope` selects the viewing agent\'s layers, `cwd` selects workspace-sensitive skills, and `signal` cancels work.' }],
         returns: 'the full skill, including body content, or `undefined`.',
       },
+      {
+        signature: 'refresh(): void',
+        description: 'Drop every completed catalog so the next lookup asks each provider again, for a user who changed skills outside a provider\'s own change detection. Notifies `skills/change` like a provider invalidation; definitions are never cached, so loaded bodies are already current.',
+        parameters: [],
+      },
     ],
   },
   {
@@ -5278,6 +5283,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'Reject a proposed step or replace the messages that enter it.',
     description: 'Reject a proposed step or replace the messages that enter it. Calling `next()` preserves the current messages.',
     parameters: [{ name: 'payload', description: '.modelSelection - captured step selection, retained across retries; omitted effort uses adapter defaults. Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.' }],
+  },
+  {
+    name: 'agent/reload',
+    mode: 'waterfall',
+    signature: '\'agent/reload\'(this: Scoped<Agent>, payload: { agent: Agent; signal: AbortSignal }, next: () => Promise<string[]>): Promise<string[]>',
+    summary: 'The user asked to re-read context that lives outside the Session, such as instruction files and skill folders, after editing it outside Jan.',
+    description: 'The user asked to re-read context that lives outside the Session, such as instruction files and skill folders, after editing it outside Jan. A listener re-reads its source, queues any change as a message appended after the conversation (never an edit to sent messages), and returns `[...await next(), ...its report lines]`.',
+    parameters: [{ name: 'payload', description: '.signal - the dispatching command\'s cancellation signal.' }],
   },
   {
     name: 'agent/request-error',
