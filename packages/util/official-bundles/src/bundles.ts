@@ -14,9 +14,9 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
   web: {
     bundles: ['@janhq/jan-base', '@janhq/jan-web-app'],
   },
-  // The desktop app's Web surface plus Jan's theme, legacy chat import, and preset catalog.
+  // The desktop app's Web surface plus Jan's theme, legacy chat import, and preset catalog, with Discover on.
   desktop: {
-    bundles: ['@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-desktop-app'],
+    bundles: ['@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-desktop-app', '@janhq/jan-experimental-plugin-market-bundle'],
   },
   headless: {
     bundles: ['@janhq/jan-base', '@janhq/jan-headless'],
@@ -55,11 +55,11 @@ export const RETIRED_BUNDLES: ReadonlySet<string> = new Set([
 export const DEFAULT_PROFILE_BUNDLES: readonly string[] = ['@janhq/jan-base']
 
 /**
- * The bundles the jan installation ships for a person to switch on: each a
+ * The bundles the jan installation ships for a person to switch on or off: each a
  * runtime dependency of the installation that declares `jan.bundle.patch`,
- * an `icon`, and `./locale/*.json` display metadata, selected by no shipped
- * template, and offered switched off by the plugin manager except persistent
- * terminals, which have no page switch
+ * an `icon`, and `./locale/*.json` display metadata, and offered switched off by the
+ * plugin manager unless a shipped template selects it (Discover on Desktop), except
+ * persistent terminals, which have no page switch
  * ([rationale](../../../../.agents/notes/implemented/process/2026-09-15-shipped-optional-bundles.md),
  * [admission](../../../../.agents/notes/implemented/architecture/2026-09-21-experimental-capabilities-as-optional-bundles.md)).
  */

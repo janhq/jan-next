@@ -412,9 +412,11 @@ describe('loadProfile', () => {
 
   const webBundles = ['@janhq/jan-base', '@janhq/jan-web-app']
   const desktopBundles = [...webBundles, '@janhq/jan-desktop-app']
+  // The current template also turns Discover on; a legacy tuple migrates to it whole.
+  const templateBundles = [...desktopBundles, '@janhq/jan-experimental-plugin-market-bundle']
   const customBundles = [...webBundles, 'custom-bundle']
   it.each([
-    { profile: 'legacy', initial: webBundles, expected: desktopBundles },
+    { profile: 'legacy', initial: webBundles, expected: templateBundles },
     { profile: 'current', initial: desktopBundles, expected: desktopBundles },
     { profile: 'custom', initial: customBundles, expected: customBundles },
   ])('preserves a desktop bundle opt-out after first opening a $profile profile', ({ initial, expected }) => {
@@ -422,6 +424,7 @@ describe('loadProfile', () => {
       '@janhq/jan-base': { patch: '[]\n' },
       '@janhq/jan-web-app': { patch: '[]\n' },
       '@janhq/jan-desktop-app': { patch: '[]\n' },
+      '@janhq/jan-experimental-plugin-market-bundle': { patch: '[]\n' },
     })
     const home = tmp()
     const dir = resolveProfileDir('desktop', home)
