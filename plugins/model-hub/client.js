@@ -626,6 +626,9 @@ window.__ModuleLoader__.load({
       const [confirm, setConfirm] = React.useState(null)
       const [acknowledged, setAcknowledged] = React.useState(false)
       const [view, setView] = React.useState('explore')
+      const scroller = React.useRef(null)
+      // Switching views starts the new view at its top, not at the old view's scroll offset.
+      React.useLayoutEffect(() => { if (scroller.current) scroller.current.scrollTop = 0 }, [view])
       const [detail, setDetail] = React.useState(null)
       const budget = memoryBudget(local.hardware)
       const inventory = React.useMemo(() => {
@@ -672,7 +675,7 @@ window.__ModuleLoader__.load({
         h('header', { className: 'jan-hub-head', 'data-window-drag': '' },
           h('h1', { id: 'jan-hub-heading' }, t('title')),
           h('p', null, t('lede'))),
-        h('div', { className: 'jan-hub-scroll' }, h('div', { className: 'jan-hub-column' },
+        h('div', { ref: scroller, className: 'jan-hub-scroll' }, h('div', { className: 'jan-hub-column' },
           h(SegmentedTabs, {
             className: 'jan-hub-views', size: 'sm', label: t('views'), value: view, onChange: setView,
             items: [
