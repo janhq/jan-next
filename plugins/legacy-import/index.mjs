@@ -11,6 +11,8 @@ import { orcaWorkspaces, workspaceOf } from './orca.mjs'
 import { janKeyNames, readJanKey } from './jan-secrets.mjs'
 import { assistantPresetId, derivePreset, keyRef, providerProfile, readJanSettings } from './settings.mjs'
 import { CONNECTORS_ONLY, MCP_SOURCES, readMcpSource, summarizeMcp } from './mcp.mjs'
+import { importSkills, readSkillSource } from './skills.mjs'
+import { resolveAgentsHome, resolveJanHome } from '@janhq/jan-home-paths'
 import { DEFAULT_MIGRATION_DAYS, migrationPreview, registerMigrateSkill, registerMigrateTools } from './migrate.mjs'
 
 export const Config = z.object({
@@ -190,7 +192,10 @@ export function apply(ctx, config = {}) {
   const settingsSummary = async (source, folder) => {
     const mcp = summarizeMcp(await readMcpSource(source, { folder }), new Set(ctx.get('janMcpSettings')?.configuredNames?.()))
     const result = { mcp, providers: [], assistants: [] }
-    if (source !== 'jan') return result
+    if (source !== 'jan') {
+      try { result.skills = await skillScan(source) } catch { result.skills = { error: 'Could not read skills. Check the skills folder and try again.' } }
+      return result
+    }
     try {
       const { providers, assistants } = await readJanSettings(folder, await janKeyNames(folder))
       const stored = config.assistants?.get() ?? {}
@@ -206,6 +211,8 @@ export function apply(ctx, config = {}) {
     } catch { result.error = 'Could not read earlier Jan settings. Check the source folder and try again.' }
     return result
   }
+  // Skills land in Jan's own skills folder, the one its skill loader reads first.
+  const skillScan = source => readSkillSource(source, { janHome: resolveJanHome(), agentsHome: resolveAgentsHome() })
   const preview = ({ source, days = DEFAULT_MIGRATION_DAYS } = {}) => migrationPreview(list, { source, days })
   const offer = async () => {
     if (config.offer?.get()?.dismissed === true) return { show: false }
@@ -316,8 +323,12 @@ export function apply(ctx, config = {}) {
     if (ops.length) await settings.mutate(PROVIDERS_NS, ops)
     return { id: row.id, route: row.route, status: existing ? 'already here' : 'imported', key, ...(reason ? { reason } : {}) }
   }
-  const importMcp = async (origin, folder) => {
-    const scan = await readMcpSource(origin, { folder })
+  // `names` limits the import to the servers the user ticked; absent brings every ready one.
+  const importMcp = async (origin, folder, names) => {
+    const read = await readMcpSource(origin, { folder })
+    const chosen = names === undefined ? undefined : new Set(names)
+    const scan = chosen === undefined ? read : { ...read, rows: read.rows.filter(row => chosen.has(row.name)),
+      servers: Object.fromEntries(Object.entries(read.servers).filter(([name]) => chosen.has(name))) }
     const settings = ctx.get('janMcpSettings')
     const summary = summarizeMcp(scan, new Set(settings?.configuredNames?.()))
     let error
@@ -335,15 +346,16 @@ export function apply(ctx, config = {}) {
     return { imported: added.length, already: rows.filter(row => row.status === 'already here').length,
       names: rows.map(row => row.name), rows, skipped: scan.skipped, issues: scan.issues, ...(error ? { error } : {}) }
   }
-  const importSelected = async ({ source: origin = 'jan', folder, ids, providers = false, assistants = false, mcp = false }) => {
+  const importSelected = async ({ source: origin = 'jan', folder, ids, providers = false, assistants = false, mcp = false, mcpNames, skills = false, skillNames, instructions = false }) => {
     if (job?.running) throw new Error('An import is already running.')
     const orca = origin === 'orca'
     if (!orca && !MCP_SOURCES.includes(origin)) throw new Error('Choose a supported migration source.')
     if (!Array.isArray(ids) || ids.some(id => !validId(id))) throw new Error('Select valid session IDs.')
     if (CONNECTORS_ONLY.includes(origin) && ids.length) throw new Error('This source only imports MCP servers, not chats.')
     if (origin !== 'jan' && (providers || assistants)) throw new Error('Model providers and assistants come only from the earlier Jan app.')
-    if (orca && mcp) throw new Error('Import MCP servers from the app that configured them.')
-    if (!ids.length && !providers && !assistants && !mcp) throw new Error('Choose chats or settings to import.')
+    if (orca && (mcp || skills || instructions)) throw new Error('Import MCP servers and skills from the app that configured them.')
+    if (origin === 'jan' && (skills || instructions)) throw new Error('Skills come from Claude Code, Codex, OMP and Cursor.')
+    if (!ids.length && !providers && !assistants && !mcp && !skills && !instructions) throw new Error('Choose chats or settings to import.')
     const unique = [...new Set(ids)]
     job = { running: true, total: unique.length, done: 0, current: null, results: [], settings: { providers: [], assistants: [] } }
     const run = job
@@ -356,10 +368,16 @@ export function apply(ctx, config = {}) {
       const janSettings = providers || assistants ? await readJanSettings(source, providers ? await janKeyNames(source) : []) : undefined
       if (providers) run.total += janSettings.providers.length
       if (assistants) run.total++
+      if (skills || instructions) {
+        run.total++
+        run.current = 'Skills'
+        try { run.settings.skills = await importSkills(await skillScan(origin), { skills, names: skillNames, instructions }) } catch { run.settings.skills = { error: 'Could not copy skills. Scan the source again.' } }
+        run.done++
+      }
       if (mcp) {
         run.total++
         run.current = 'MCP servers'
-        try { run.settings.mcp = await importMcp(origin, source) } catch { run.settings.mcp = { error: 'Could not read MCP configuration. Scan the source again.' } }
+        try { run.settings.mcp = await importMcp(origin, source, mcpNames) } catch { run.settings.mcp = { error: 'Could not read MCP configuration. Scan the source again.' } }
         run.done++
       }
       // Assistants first, so imported chats can name their preset.

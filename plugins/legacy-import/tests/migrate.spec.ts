@@ -22,31 +22,61 @@ it('reports connectors even when the coding agent has no chats and omits chat co
   expect(JSON.stringify(chatPreview)).not.toContain('private chat title')
 })
 
-it('lists the actual MCP selection in approval and imports without requiring chat IDs', async () => {
-  type Arguments = { source: string; chats: boolean; mcp: boolean }
-  type Decision = { kind: string; reason?: string }
-  type Tool = { name: string; execute(args: Arguments): Promise<object> }
-  type Listener = (exec: { name: string; arguments: Arguments }, next: () => Promise<Decision>) => Promise<Decision>
+it('ticks every ready item in one form and imports only what the user leaves ticked', async () => {
+  type Question = { id: string; detail?: string; multiSelect?: boolean; options: { label: string }[] }
+  type Tool = { name: string; execute(args: object, exec: object): Promise<Record<string, unknown>> }
   const tools = new Map<string, Tool>()
-  let before: Listener | undefined
+  const asked: Question[] = []
   const calls: object[] = []
+  const now = Date.now()
+  const listed = {
+    folder: '/home/me/.omp/agent/sessions',
+    threads: [
+      { id: 'recent', updated: now, messageCount: 1 },
+      { id: 'old', updated: now - 90 * 24 * 60 * 60 * 1000, messageCount: 1 },
+      { id: 'here', updated: now, messageCount: 1, alreadyImported: true },
+    ],
+    settings: {
+      ...settings,
+      skills: {
+        looked: ['/home/me/.omp/agent/skills'], target: '/jan/skills',
+        skills: [{ name: 'writer', status: 'ready' }, { name: 'shared', status: 'already here' }],
+        instructions: { name: 'AGENTS.md', target: '/jan/AGENTS.md', status: 'ready' },
+        others: [{ label: 'OMP plugins', names: ['gitingest'] }],
+      },
+    },
+  }
   registerMigrateTools({
     tools: { register: (tool: Tool) => { tools.set(tool.name, tool) } },
     effect: (register: () => Iterable<unknown>) => { for (const _ of register()) { /* Install each registration. */ } },
-    on: (_event: string, listener: Listener) => { before = listener },
+    get: () => ({
+      ask: async ({ questions }: { questions: Question[] }) => {
+        asked.push(...questions)
+        // The user unticks the MCP server and keeps the other recommended items.
+        const selected = questions[0].options.map(option => option.label).filter(label => label.endsWith('(Recommended)') && !label.includes('connector'))
+        return { answers: [{ id: 'migrate', selected }] }
+      },
+    }),
   }, {
-    list: async () => ({ threads: [], settings }),
+    list: async () => listed,
     importSelected: async (params: object) => {
       calls.push(params)
-      return { results: [], settings: { mcp: { imported: 1 } } }
+      return { results: [{ id: 'recent', status: 'imported' }], settings: {} }
     },
   })
-  const args = { source: 'claude-desktop', chats: false, mcp: true }
-  const decision = await before?.({ name: 'migrate_import', arguments: args }, async () => ({ kind: 'allow' }))
-  expect(decision?.kind).toBe('ask')
-  expect(decision?.reason).toContain('connector (2 masked credentials)')
-  expect(decision?.reason).toContain('legacy (unsupported transport)')
-  expect(decision?.reason).not.toContain('existing')
-  expect(await tools.get('migrate_import')?.execute(args)).toMatchObject({ imported: 0, settings: { mcp: { imported: 1 } } })
-  expect(calls).toEqual([{ source: 'claude-desktop', ids: [], providers: false, assistants: false, mcp: true }])
+  const result = await tools.get('migrate_import')?.execute({ source: 'omp' }, {})
+  const labels = asked[0].options.map(option => option.label)
+  expect(asked[0].multiSelect).toBe(true)
+  expect(labels).toEqual([
+    '1 chat from the last 30 days (Recommended)', '1 older chat', 'MCP server connector (Recommended)',
+    '1 skill (Recommended)', 'Global instructions AGENTS.md (Recommended)',
+  ])
+  expect(asked[0].detail).toContain('/home/me/.omp/agent/skills')
+  expect(asked[0].detail).toContain('OMP plugins: gitingest')
+  expect(asked[0].detail).toContain('legacy (unsupported transport)')
+  expect(calls).toEqual([{
+    source: 'omp', ids: ['recent'], providers: false, assistants: false,
+    mcp: false, mcpNames: [], skills: true, skillNames: ['writer'], instructions: true,
+  }])
+  expect(result).toMatchObject({ imported: 1, left: ['1 older chat', 'MCP server connector'] })
 })

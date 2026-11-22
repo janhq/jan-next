@@ -56,7 +56,7 @@ export async function migrationPreview(list, { source, days: window } = {}) {
 export function registerMigrateSkill(ctx, root = fileURLToPath(new URL('./skills/', import.meta.url))) {
   const candidate = {
     name: SKILL, provider: PROVIDER, source: 'bundled', rank: BUNDLED_SKILL_RANK,
-    description: 'Preview and import chats, MCP servers and connectors with configured credentials, and supported settings from other apps.',
+    description: 'Preview and import chats, MCP servers and connectors with configured credentials, skills, global instructions, and supported settings from other apps.',
     invocation: { modelInvocable: true, userInvocable: true },
     resourceBase: { kind: 'directory', path: join(root, SKILL) },
     locator: join(root, SKILL, 'SKILL.md'),
@@ -73,38 +73,69 @@ export function registerMigrateSkill(ctx, root = fileURLToPath(new URL('./skills
 }
 
 /**
- * Register `migrate_scan` and `migrate_import`, and ask the user before an import runs.
+ * The ticked-by-default choices for one app, and what each choice imports.
+ * @param {object} listed Importer list result for the whole history, so older chats can be offered.
+ * @param {string} source App id.
+ * @param {number} window Chat window in days.
+ * @returns {{ options: { label: string, description?: string, recommended: boolean, pick: object }[], detail: string }} Form options and the markdown shown above them.
+ */
+export function migrationForm(listed, source, window) {
+  const options = []
+  const add = (label, description, recommended, pick) => options.push({ label: recommended ? `${label} (Recommended)` : label, description, recommended, pick })
+  const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one : many}`
+  const ready = listed.threads.filter(thread => eligible(source, thread))
+  const cutoff = since(source, window)
+  const recent = cutoff === undefined ? ready : ready.filter(thread => (thread.updated ?? 0) >= cutoff)
+  const older = cutoff === undefined ? [] : ready.filter(thread => (thread.updated ?? 0) < cutoff)
+  if (recent.length) add(cutoff === undefined ? plural(recent.length, 'chat') : `${plural(recent.length, 'chat')} from the last ${window} days`, 'They open in Chats, in the project folder each one ran in.', true, { ids: recent.map(thread => thread.id) })
+  if (older.length) add(`${plural(older.length, 'older chat')}`, `Updated more than ${window} days ago.`, false, { ids: older.map(thread => thread.id) })
+  const settings = listed.settings
+  const masks = count => count ? `, ${plural(count, 'masked credential')}` : ''
+  for (const row of settings?.mcp.rows.filter(item => item.status === 'ready') ?? []) {
+    add(`MCP server ${row.name}`, `Added turned off, so you can review it in Settings first${masks(row.credentials)}.`, true, { mcp: [row.name] })
+  }
+  for (const row of settings?.providers.filter(item => !item.alreadyImported || (item.hasKey && !item.keyAlreadyConfigured)) ?? []) {
+    add(`Model provider ${row.id}`, row.hasKey && !row.keyAlreadyConfigured ? 'With its saved API key.' : undefined, true, { providers: true })
+  }
+  const assistants = settings?.assistants.filter(item => !item.alreadyImported) ?? []
+  if (assistants.length) add(plural(assistants.length, 'assistant'), `As agent presets: ${assistants.map(item => item.name).join(', ')}.`, true, { assistants: true })
+  const skills = settings?.skills
+  const readySkills = skills?.linked ? [] : skills?.skills?.filter(row => row.status === 'ready') ?? []
+  if (readySkills.length) add(plural(readySkills.length, 'skill'), `Copied into ${skills.target}: ${readySkills.slice(0, 6).map(row => row.name).join(', ')}${readySkills.length > 6 ? ', …' : ''}.`, true, { skills: readySkills.map(row => row.name) })
+  if (skills?.instructions?.status === 'ready') add(`Global instructions ${skills.instructions.name}`, `Copied to ${skills.instructions.target}.`, true, { instructions: true })
+
+  const lines = []
+  const looked = [listed.folder, ...(settings?.mcp.files ?? []), ...(skills?.looked ?? [])].filter(Boolean)
+  if (looked.length) lines.push(`**Read from:** ${[...new Set(looked)].map(path => `\`${path}\``).join(', ')}`)
+  const here = []
+  const already = listed.threads.filter(thread => thread.alreadyImported).length
+  if (already) here.push(plural(already, 'chat'))
+  const mcpHere = settings?.mcp.rows.filter(row => row.status === 'already here').length ?? 0
+  if (mcpHere) here.push(plural(mcpHere, 'MCP server'))
+  const skillsHere = skills?.skills?.filter(row => row.status === 'already here').length ?? 0
+  if (skillsHere) here.push(plural(skillsHere, 'skill'))
+  if (skills?.instructions && skills.instructions.status !== 'ready') here.push(`${skills.instructions.name} (${skills.instructions.status === 'kept yours' ? 'Jan has its own, kept' : 'same file'})`)
+  if (here.length) lines.push(`**Already in Jan:** ${here.join(', ')}.`)
+  const behind = []
+  if (skills?.linked && skills.skills?.some(row => row.status === 'ready')) behind.push(`skills (Jan's skills folder links to \`${skills.linked}\`)`)
+  for (const row of settings?.mcp.skipped ?? []) behind.push(`MCP server ${row.sourceName} (${row.reason})`)
+  for (const row of skills?.others ?? []) behind.push(`${row.label}: ${row.names.join(', ')} (Jan can't run them)`)
+  behind.push(CONNECTORS_ONLY.includes(source) ? 'chat history' : source === 'jan' ? CHAT_EXCLUSIONS.jan.toLowerCase() : CHAT_EXCLUSIONS.agent.toLowerCase(), 'sign-ins and unlisted settings')
+  lines.push(`**Stays behind:** ${behind.join('; ')}.`)
+  lines.push('Nothing in the source app is changed.')
+  return { options, detail: lines.join('\n\n') }
+}
+
+/**
+ * Register `migrate_scan` and `migrate_import`. `migrate_import` shows one form with every ready item
+ * ticked; the user's submitted ticks are the approval and decide what is imported.
  * @param {any} ctx Plugin context with `tools`.
  * @param {{ list: (request: object) => Promise<any>, importSelected: (request: object) => Promise<any> }} importer The importer the Settings card uses.
  */
 export function registerMigrateTools(ctx, { list, importSelected }) {
-  const selectedIds = ({ source, chats, ids }, listed) => {
-    if (chats === false || CONNECTORS_ONLY.includes(source)) return []
-    const ready = listed.threads.filter(thread => eligible(source, thread)).map(thread => thread.id)
-    if (!Array.isArray(ids)) return ready
-    const known = new Set(ready)
-    return [...new Set(ids.filter(id => known.has(id)))]
-  }
-  const describe = async args => {
-    const listed = await list({ source: args.source, since: since(args.source, args.days) })
-    const count = selectedIds(args, listed).length
-    const parts = [`${count} ${count === 1 ? 'chat' : 'chats'}`]
-    const settings = listed.settings
-    const masks = count => count ? ` (${count} masked ${count === 1 ? 'credential' : 'credentials'})` : ''
-    const mcp = args.mcp ? settings?.mcp.rows.filter(row => row.status === 'ready').map(row => row.name + masks(row.credentials)) : []
-    const providers = args.providers ? settings?.providers.filter(row => !row.alreadyImported || (row.hasKey && !row.keyAlreadyConfigured))
-      .map(row => row.id + masks(row.hasKey && !row.keyAlreadyConfigured ? 1 : 0)) : []
-    const assistants = args.assistants ? settings?.assistants.filter(row => !row.alreadyImported).map(row => row.name) : []
-    if (mcp?.length) parts.push(`MCP servers (added disabled): ${mcp.join(', ')}`)
-    if (providers?.length) parts.push(`Model providers: ${providers.join(', ')}`)
-    if (assistants?.length) parts.push(`Assistants: ${assistants.join(', ')}`)
-    const skipped = args.mcp ? settings?.mcp.skipped.map(row => `${row.sourceName} (${row.reason})`) : []
-    if (skipped?.length) parts.push(`MCP servers left behind: ${skipped.join(', ')}`)
-    return `Import from ${SOURCE_NAMES[args.source]}? ${parts.join('; ')}. Installed plugins, OAuth sign-ins, and unlisted settings stay behind. Source files are never changed.`
-  }
   const scan = {
     name: 'migrate_scan',
-    description: 'Read-only preview of chats, named MCP servers and connectors, masked credential counts, and supported settings from Earlier Jan, Claude Code, Claude Desktop, Codex, OMP and Cursor. Returns ready and already imported items, skipped entries with reasons, and what cannot be migrated.',
+    description: 'Read-only preview of chats, named MCP servers and connectors, masked credential counts, skills, the global instruction file, and supported settings from Earlier Jan, Claude Code, Claude Desktop, Codex, OMP and Cursor. Returns the folders and files read, ready and already imported items, skipped entries with reasons, and what cannot be migrated.',
     parameters: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -114,35 +145,47 @@ export function registerMigrateTools(ctx, { list, importSelected }) {
     },
     output: { schema: {}, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
     execute: args => migrationPreview(list, args),
-    presentCall: () => ({ card: 'generic', title: 'Preview chats, MCP servers, and settings', kind: 'search' }),
+    presentCall: () => ({ card: 'generic', title: 'Preview chats, MCP servers, skills, and settings', kind: 'search' }),
   }
   const run = {
     name: 'migrate_import',
-    description: 'Import approved chats, MCP servers and configured credentials, and supported settings into Jan. Run only after the user chooses what to bring. Without ids, imports all ready chats in the chosen window. MCP servers arrive disabled and existing names are kept. Returns the actual result per item.',
+    description: 'Show the user one form listing everything ready to import from one app, each item ticked, then import only what the user leaves ticked and submits. Call it right after migrate_scan; do not ask in text first. MCP servers arrive turned off and existing names, skills and files are kept. Returns the actual result per item, or that the user chose nothing.',
     parameters: {
       type: 'object', additionalProperties: false, required: ['source'],
       properties: {
         source: { type: 'string', enum: MCP_SOURCES, description: 'The app to import from. One app per call.' },
-        chats: { type: 'boolean', description: 'Import chats when the source supports them. Defaults to true; set false to import only MCP servers or settings.' },
-        days: { type: 'integer', minimum: 1, description: `Claude Code, Codex and OMP only: import sessions updated in this many recent days. Defaults to ${DEFAULT_MIGRATION_DAYS}.` },
-        ids: { type: 'array', items: { type: 'string' }, description: 'Import only these chat ids; omit to import all ready chats.' },
-        providers: { type: 'boolean', description: 'Jan only: bring model providers and their API keys.' },
-        mcp: { type: 'boolean', description: 'Bring configured MCP servers and connectors, including their env and header credentials.' },
-        assistants: { type: 'boolean', description: 'Jan only: bring assistants as agent presets.' },
+        days: { type: 'integer', minimum: 1, description: `Claude Code, Codex and OMP only: chats updated in this many recent days are ticked; older ones are offered unticked. Defaults to ${DEFAULT_MIGRATION_DAYS}.` },
       },
     },
     output: { schema: {}, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
-    async execute(args) {
-      if (args.source !== 'jan' && (args.providers || args.assistants)) throw new Error('Model providers and assistants come only from the earlier Jan app.')
-      const listed = await list({ source: args.source, since: since(args.source, args.days) })
-      const ids = selectedIds(args, listed)
-      const requested = Array.isArray(args.ids) ? new Set(args.ids) : undefined
-      const already = args.chats === false ? 0 : listed.threads.filter(thread => thread.alreadyImported && (!requested || requested.has(thread.id))).length
-      if (!ids.length && !args.providers && !args.mcp && !args.assistants) return { imported: 0, alreadyHere: already, note: 'Nothing new to import from this app.' }
-      const { results, settings } = await importSelected({ source: args.source, ids, providers: args.providers === true, mcp: args.mcp === true, assistants: args.assistants === true })
+    async execute(args, exec) {
+      const questions = ctx.get('userQuestions')
+      if (!questions) throw new Error('This chat cannot show the import form. Use Settings -> Built-in plugins -> Import sessions instead.')
+      const window = days(args.days)
+      const listed = await list({ source: args.source })
+      const { options, detail } = migrationForm(listed, args.source, window)
+      if (!options.length) return { imported: 0, note: `Nothing new to import from ${SOURCE_NAMES[args.source]}.`, detail }
+      const answer = await questions.ask({
+        questions: [{ id: 'migrate', header: `Import from ${SOURCE_NAMES[args.source]}`, question: 'Untick anything you want to leave behind, then submit.', detail, multiSelect: true,
+          options: options.map(({ label, description }) => description ? { label, description } : { label }) }],
+        ...(exec?.agent !== undefined ? { agent: exec.agent } : {}),
+        signal: exec?.signal,
+      })
+      const ticked = new Set(answer.answers.find(item => item.id === 'migrate')?.selected ?? [])
+      const picks = options.filter(option => ticked.has(option.label)).map(option => option.pick)
+      if (!picks.length) return { imported: 0, note: 'The user ticked nothing, so nothing was imported.' }
+      const ids = picks.flatMap(pick => pick.ids ?? [])
+      const mcp = picks.flatMap(pick => pick.mcp ?? [])
+      const skills = picks.flatMap(pick => pick.skills ?? [])
+      const { results, settings } = await importSelected({
+        source: args.source, ids, providers: picks.some(pick => pick.providers), assistants: picks.some(pick => pick.assistants),
+        mcp: mcp.length > 0, mcpNames: mcp, skills: skills.length > 0, skillNames: skills, instructions: picks.some(pick => pick.instructions),
+      })
       const count = status => results.filter(result => result.status === status).length
       return {
-        imported: count('imported'), alreadyHere: already + count('already imported'), emptySkipped: count('skipped'),
+        chosen: options.filter(option => ticked.has(option.label)).map(option => option.label.replace(/ \(Recommended\)$/u, '')),
+        left: options.filter(option => !ticked.has(option.label)).map(option => option.label.replace(/ \(Recommended\)$/u, '')),
+        imported: count('imported'), alreadyHere: count('already imported'), emptySkipped: count('skipped'),
         failed: results.filter(result => result.status === 'failed').map(result => ({ id: result.id, reason: result.reason })),
         partlyConverted: results.filter(result => result.losses?.length).length,
         losses: [...new Set(results.flatMap(result => result.losses ?? []))],
@@ -154,20 +197,5 @@ export function registerMigrateTools(ctx, { list, importSelected }) {
   return ctx.effect(function* () {
     yield ctx.tools.register(scan)
     yield ctx.tools.register(run)
-    yield ctx.on('tools/pre-execute', async (exec, next) => {
-      const decision = await next()
-      if (decision.kind !== 'allow' || exec.name !== 'migrate_import') return decision
-      if (exec.agent !== undefined && approvalPolicy(ctx, exec.agent.session) === 'never') return decision
-      const args = exec.arguments ?? {}
-      let reason
-      try { reason = await describe(args) } catch { return { kind: 'deny', reason: 'Could not review the migration selection. Scan the source again before importing.' } }
-      return { kind: 'ask', reason }
-    })
   }, 'legacy-import: /migrate tools')
-}
-
-// Full access sets the Session's approval policy to never, which rejects every ask; it already grants the import.
-function approvalPolicy(ctx, session) {
-  const approval = ctx.get('approval')
-  return approval === undefined ? undefined : approval.overrideOf(session) ?? approval.config.policy ?? 'ask'
 }
