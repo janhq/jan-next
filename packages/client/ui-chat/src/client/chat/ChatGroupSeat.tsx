@@ -16,7 +16,7 @@ import { ChatNodeSeat } from './ChatNodeSeat.tsx'
 import { hiddenOrCollapsing } from './flow-motion.ts'
 import { chatRenderKey } from './render-entry.ts'
 import { processTitle } from './step-process.ts'
-import { formatRunDuration } from './message-chrome.ts'
+import { formatSettledDuration } from './message-chrome.ts'
 import { useRunDurationLabel } from './run-clock.ts'
 import { RunningWhaleTail } from './RunningWhaleTail.tsx'
 import { useDisclosure } from './use-disclosure.ts'
@@ -153,7 +153,7 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({
       )}
       {data.closed && data.summary.durationMs !== undefined && (
         <span className={css.meta} aria-hidden data-step-duration>
-          {formatRunDuration(Math.max(1000, data.summary.durationMs), t).map(part => part.text).join('')}
+          {formatSettledDuration(data.summary.durationMs, t).map(part => part.text).join('')}
         </span>
       )}
     </button>

@@ -48,17 +48,13 @@ describe('chat flow font-size axis', () => {
 
   it('the message clock and action glyphs scale with the text they serve', () => {
     const actions = read('MessageIconActions.module.css')
-    // The user clock reads the secondary tier. The assistant tail is one
-    // further pixel down, matching its usage trigger and supporting metadata.
-    expect(declarationsFrom(actions, '.timeStart')).toEqual(expect.arrayContaining([
-      'font-size: var(--jan-content-font-size-secondary, 13px)',
-    ]))
-    expect(declarationsFrom(actions, '.timeEnd')).toEqual(expect.arrayContaining([
+    // Both message clocks are one metadata tier, one pixel under the secondary size.
+    expect(declarationsFrom(actions, '.timeStart,\n.timeEnd')).toEqual(expect.arrayContaining([
       'font-size: calc(var(--jan-content-font-size-secondary, 13px) - 1px)',
     ]))
     expect(declarationsFrom(actions, '.action svg')).toEqual(expect.arrayContaining([
-      'width: calc(15px + var(--jan-content-font-delta, 0px))',
-      'height: calc(15px + var(--jan-content-font-delta, 0px))',
+      'width: calc(16px + var(--jan-content-font-delta, 0px))',
+      'height: calc(16px + var(--jan-content-font-delta, 0px))',
     ]))
   })
 
@@ -97,18 +93,17 @@ describe('chat flow font-size axis', () => {
   })
 
   it('the usage pill sizes its glyph and hit height like the sibling action buttons', () => {
-    // The pill sits in the icon row right of the branch action; its data glyph
-    // and 28px hit height follow the same delta rule as `.action` so the row
-    // stays one height at every font size.
+    // The pill sits in the icon row right of the branch action: its 28px hit height follows
+    // the `.action` delta rule so the row stays one height; its inline stat icons pair with
+    // the 12px figures at 14px, and the lone narrow icon takes the action size.
     const css = read('TurnUsagePanel.module.css')
     expect(declarationsFrom(css, '.trigger')).toEqual(expect.arrayContaining([
       'height: calc(28px + var(--jan-content-font-delta, 0px))',
       'white-space: nowrap',
       'min-width: 0',
     ]))
-    expect(declarationsFrom(css, '.trigger svg')).toEqual(expect.arrayContaining([
-      'width: calc(15px + var(--jan-content-font-delta, 0px))',
-      'height: calc(15px + var(--jan-content-font-delta, 0px))',
+    expect(declarationsFrom(css, '.label svg')).toEqual(expect.arrayContaining([
+      'width: calc(14px + var(--jan-content-font-delta, 0px))',
     ]))
     // A narrow column clips the trailing figures instead of letting the
     // pill overflow or widen the chat column.

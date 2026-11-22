@@ -3,7 +3,7 @@ import { IconChevronDownOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { ChatNodeViewProps } from '../contract/slots.ts'
 import { turnProcessAlwaysOpen } from '../contract/turn-process.ts'
-import { formatRunDuration } from './message-chrome.ts'
+import { formatSettledDuration } from './message-chrome.ts'
 import a11yCss from './accessibility.module.css'
 import css from './TurnProcessNodeView.module.css'
 
@@ -21,9 +21,9 @@ export const TurnProcessNodeView = memo(function TurnProcessNodeView({
   const reason = turn.end?.data.reason.kind
   const stopped = reason === 'aborted' || reason === 'interrupted'
   const elapsedMs = turn.start === undefined || turn.end === undefined ? undefined
-    : Math.max(1000, turn.end.time - turn.start.time)
+    : turn.end.time - turn.start.time
   const duration = elapsedMs === undefined || stopped || reason === 'error' ? undefined
-    : formatRunDuration(elapsedMs, t)
+    : formatSettledDuration(elapsedMs, t)
   // Other end reasons retain elapsed time; only stops and failure replace it.
   const label = stopped ? t('message.stopped')
     : reason === 'error' ? t('message.turnProcess.failed')

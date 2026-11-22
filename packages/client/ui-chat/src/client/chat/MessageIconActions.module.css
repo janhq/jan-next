@@ -9,22 +9,22 @@
   height: calc(28px + var(--jan-content-font-delta, 0px));
 }
 
-/* The user clock keeps the secondary tier. */
-.timeStart {
-  padding-right: 12px;
-  font-size: var(--jan-content-font-size-secondary, 13px);
-  line-height: calc(24px + var(--jan-content-font-delta, 0px));
-  color: var(--dsw-alias-label-tertiary);
-  white-space: nowrap;
-}
-
-/* Assistant-tail metadata keeps the smaller information size while sharing
-   the action icons' resting color. */
+/* Message clocks are metadata: one tier (secondary size - 1px, tertiary ink) on both the user
+   and assistant rows, spaced from the action icons by the row's own 8px gap. */
+.timeStart,
 .timeEnd {
   font-size: calc(var(--jan-content-font-size-secondary, 13px) - 1px);
   line-height: calc(24px + var(--jan-content-font-delta, 0px));
-  color: inherit;
   white-space: nowrap;
+}
+
+.timeStart {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* The assistant clock sits in endInfo, which already carries the tertiary ink. */
+.timeEnd {
+  color: inherit;
 }
 
 .endInfo {
@@ -74,16 +74,12 @@
   cursor: pointer;
 }
 
-/* Action glyphs follow the same px delta as the text they serve; the
-   assistant completion row gives them two extra pixels. */
+/* Action glyphs render at the artwork's own 16px grid (scaling a 1px-stroke icon to 15 or 17
+   blurs it), which also fills the 28px button's content box exactly; they follow the text's
+   px delta. */
 .action svg {
-  width: calc(15px + var(--jan-content-font-delta, 0px));
-  height: calc(15px + var(--jan-content-font-delta, 0px));
-}
-
-.actions[data-clock='end'] .action svg {
-  width: calc(17px + var(--jan-content-font-delta, 0px));
-  height: calc(17px + var(--jan-content-font-delta, 0px));
+  width: calc(16px + var(--jan-content-font-delta, 0px));
+  height: calc(16px + var(--jan-content-font-delta, 0px));
 }
 
 @media (hover: hover) {
