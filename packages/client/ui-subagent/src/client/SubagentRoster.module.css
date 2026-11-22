@@ -95,6 +95,21 @@
   --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+/* On a closed Turn's duration line the count reads at the line's own size and
+   height, so `3 subagents · 3 completed` sits on the same baseline as
+   `Completed in 4s`; its open rows take the whole line below. */
+.turnHeader {
+  min-height: calc(25px + var(--jan-content-font-delta, 0px));
+  padding: 0;
+  font-size: var(--jan-content-font-size, 14px);
+  line-height: calc(24px + var(--jan-content-font-delta, 0px));
+}
+
+.turnPanel {
+  flex-basis: 100%;
+  margin-top: 6px;
+}
+
 .rows,
 .trail {
   margin: 0;

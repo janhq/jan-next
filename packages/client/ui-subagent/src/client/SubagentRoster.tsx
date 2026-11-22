@@ -145,43 +145,31 @@ function RosterRow({ entry, parentSessionId, context }: { entry: Entry; parentSe
   )
 }
 
-/**
- * The composer's subagent drop-down for a root Session.
- * @param props - root Session, board state, catalog sources and actions.
- * @returns A header that opens the roster in place, or null with nothing to show.
- */
-export function SubagentRoster({ sessionId, hasBoardContent, useSessions, useSessionStatus, ...rest }: SubagentRosterProps) {
-  const { catalogs, summaries } = useCatalogs({ useSessions, useSessionStatus })
-  const catalog: SubagentCatalogSnapshot | undefined = catalogs[sessionId]
-    ?? (hasBoardContent ? { entries: [], state: 'loading', error: null } : undefined)
-  // Hiding unmounts the body, so a roster that comes back starts closed.
-  if (catalog === undefined || (!hasBoardContent && catalog.state !== 'error' && catalog.entries.length === 0)) return null
-  return <RosterBody sessionId={sessionId} catalog={catalog} catalogs={catalogs} summaries={summaries} {...rest} />
-}
-
-function RosterBody({
-  sessionId, catalog, catalogs, summaries, hasSharedTasks, renderFooter, openChild, openChildAside, refreshProjection, t,
-}: Omit<SubagentRosterProps, 'hasBoardContent' | keyof CatalogSources> & {
-  catalog: SubagentCatalogSnapshot
+/** Rows of one parent's subagents with their own disclosure and live clock. */
+export type SubagentRowListProps = SubagentRosterActions & {
+  parentSessionId: SessionId
+  entries: readonly Entry[]
   catalogs: Catalogs
   summaries: Readonly<Record<SessionId, SessionSummary>>
-}) {
-  const [open, setOpen] = useState(false)
+  t: TranslateNS<typeof NS>
+}
+
+/**
+ * The roster's rows, shared by the composer drop-down and each turn's header.
+ * @param props - parent Session, its listed entries, catalogs and actions.
+ * @returns The row list; durations tick each second while any listed branch runs.
+ */
+export function SubagentRowList({
+  parentSessionId, entries, catalogs, summaries, openChild, openChildAside, refreshProjection, t,
+}: SubagentRowListProps) {
   const [expanded, setExpanded] = useState<ReadonlySet<SessionId>>(() => new Set())
   const [now, setNow] = useState(() => Date.now())
-  const panelId = useId()
-  const runningId = useId()
-  const entries = catalog.entries
-  const running = entries.filter(entry => entry.activity === 'running').length
-  const live = open && Object.values(catalogs).some(branch => branch.entries.some(entry => entry.activity === 'running'))
+  const live = Object.values(catalogs).some(branch => branch.entries.some(entry => entry.activity === 'running'))
   useEffect(() => {
     if (!live) return
     const timer = setInterval(() => { setNow(Date.now()) }, 1_000)
     return () => { clearInterval(timer) }
   }, [live])
-
-  const totalKey = entries.length === 1 ? 'count.total.one' : 'count.total.other'
-  const progress = catalogProgress(entries, summaries, t)
   const toggle = (id: SessionId): void => {
     if (!expanded.has(id)) refreshProjection(id)
     setExpanded((current) => {
@@ -193,6 +181,46 @@ function RosterBody({
   const context: RowContext = {
     catalogs, summaries, expanded, toggle, now: Math.max(now, Date.now()), openChild, openChildAside, refreshProjection, t,
   }
+  return (
+    <ul className={css.rows}>
+      {entries.map(entry => <RosterRow key={entry.id} entry={entry} parentSessionId={parentSessionId} context={context} />)}
+    </ul>
+  )
+}
+
+/**
+ * The composer's subagent drop-down for a root Session. It shows while a child or
+ * the root runs, or while shared tasks or a load error need it; finished subagents
+ * otherwise live on their turn's header.
+ * @param props - root Session, board state, catalog sources and actions.
+ * @returns A header that opens the roster in place, or null with nothing to show.
+ */
+export function SubagentRoster({ sessionId, hasBoardContent, useSessions, useSessionStatus, ...rest }: SubagentRosterProps) {
+  const { catalogs, summaries } = useCatalogs({ useSessions, useSessionStatus })
+  const rootRunning = useSessionStatus(snapshot => snapshot.get(sessionId)?.running === true)
+  const catalog: SubagentCatalogSnapshot | undefined = catalogs[sessionId]
+    ?? (hasBoardContent ? { entries: [], state: 'loading', error: null } : undefined)
+  const childRunning = catalog?.entries.some(entry => entry.activity === 'running') === true
+  // Hiding unmounts the body, so a roster that comes back starts closed.
+  if (catalog === undefined || (catalog.entries.length === 0 && !hasBoardContent && catalog.state !== 'error')) return null
+  if (!childRunning && !rootRunning && !hasBoardContent && catalog.state !== 'error') return null
+  return <RosterBody sessionId={sessionId} catalog={catalog} catalogs={catalogs} summaries={summaries} {...rest} />
+}
+
+function RosterBody({
+  sessionId, catalog, catalogs, summaries, hasSharedTasks, renderFooter, openChild, openChildAside, refreshProjection, t,
+}: Omit<SubagentRosterProps, 'hasBoardContent' | keyof CatalogSources> & {
+  catalog: SubagentCatalogSnapshot
+  catalogs: Catalogs
+  summaries: Readonly<Record<SessionId, SessionSummary>>
+}) {
+  const [open, setOpen] = useState(false)
+  const panelId = useId()
+  const runningId = useId()
+  const entries = catalog.entries
+  const running = entries.filter(entry => entry.activity === 'running').length
+  const totalKey = entries.length === 1 ? 'count.total.one' : 'count.total.other'
+  const progress = catalogProgress(entries, summaries, t)
   return (
     <section className={css.seat} aria-label={t('section.title')} data-subagent-action>
       <button type="button" className={css.header} aria-expanded={open} aria-controls={panelId}
@@ -223,9 +251,8 @@ function RosterBody({
             <p className={css.notice}>{t('section.empty')}</p>
           )}
           {entries.length > 0 && (
-            <ul className={css.rows}>
-              {entries.map(entry => <RosterRow key={entry.id} entry={entry} parentSessionId={sessionId} context={context} />)}
-            </ul>
+            <SubagentRowList parentSessionId={sessionId} entries={entries} catalogs={catalogs} summaries={summaries}
+              openChild={openChild} openChildAside={openChildAside} refreshProjection={refreshProjection} t={t} />
           )}
           {renderFooter()}
         </div>
