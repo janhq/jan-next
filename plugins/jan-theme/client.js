@@ -16,6 +16,7 @@ window.__ModuleLoader__.load({
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
       IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
       IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular, IconBranchOutlineRegular, StateDot,
+      IconEditOutlineRegular,
     } = require('@janhq/jan-client-ui-primitives')
     const { workspaceDisplayTitle } = require('@janhq/jan-api-workspace-controller/client')
     // Optional: the matching host publishes the dock model seat. An older
@@ -569,7 +570,8 @@ window.__ModuleLoader__.load({
   .jt-project-back { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 12px -6px; padding: 2px 6px; border: 0; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; line-height: 20px; cursor: pointer; }
   .jt-project-back:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
   @media (hover: hover) { .jt-project-back:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); } }
-  .jt-project-title { margin: 0; font-size: 24px; font-weight: 500; line-height: 32px; overflow-wrap: anywhere; }
+  .jt-project-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .jt-project-title { margin: 0; min-width: 0; font-size: 24px; font-weight: 500; line-height: 32px; overflow-wrap: anywhere; }
   .jt-project-path { margin: 4px 0 24px; color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
   .jt-project-path-row { display: flex; align-items: center; gap: 2px; margin: 4px 0 24px; min-width: 0; }
   .jt-project-path-row .jt-project-path { margin: 0 6px 0 0; min-width: 0; }
@@ -1380,7 +1382,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       return { state: 'ongoing', label: t(running === 1 ? 'project.status.subagents.one' : 'project.status.subagents.other', { n: running }) }
     }
 
-    function ProjectDetails({ workspace, useArchived, useSessions, useSessionStatus, useScheduleTasks, startSession, openChat, backToProjects, createSchedule, openScheduled, t }) {
+    function ProjectDetails({ workspace, useArchived, useSessions, useSessionStatus, useScheduleTasks, startSession, openChat, editProject, backToProjects, createSchedule, openScheduled, t }) {
       const { workspaceId } = workspace
       const title = workspaceDisplayTitle(workspace, t('workspace.defaultName'))
       const sessions = useSessions(value => value)
@@ -1451,7 +1453,13 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       return h('div', { className: 'jt-project' },
         h('div', null,
           h('button', { type: 'button', className: 'jt-project-back', onClick: backToProjects }, '‹ ', t('projects')),
-          h('h1', { className: 'jt-project-title' }, title),
+          h('div', { className: 'jt-project-title-row' },
+            h('h1', { className: 'jt-project-title' }, title),
+            // An older ui-workspace has no project editor; the sidebar menu stays the only way in.
+            editProject !== undefined && h('button', {
+              type: 'button', className: 'jt-project-path-action', 'aria-label': t('project.edit.identity'), title: t('project.edit.identity'),
+              onClick: () => { editProject(workspaceId) },
+            }, h(IconEditOutlineRegular, { size: 14, 'aria-hidden': true }))),
           h('div', { className: 'jt-project-path-row' },
             h('p', { className: 'jt-project-path' }, workspace.path),
             h('button', {
@@ -1916,6 +1924,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "Add files",
               'project.openFolder': "Open folder",
               'project.copyPath': "Copy path",
+              'project.edit.identity': "Edit project",
               'project.pathCopied': "Path copied",
               'project.git.branch': "Current branch",
               'project.git.open': "Open {name} on {host}",
@@ -1995,6 +2004,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "添加文件",
               'project.openFolder': "打开文件夹",
               'project.copyPath': "复制路径",
+              'project.edit.identity': "编辑项目",
               'project.pathCopied': "已复制路径",
               'project.git.branch': "当前分支",
               'project.git.open': "在 {host} 上打开 {name}",
@@ -2077,6 +2087,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "ファイルを追加",
               'project.openFolder': "フォルダーを開く",
               'project.copyPath': "パスをコピー",
+              'project.edit.identity': "プロジェクトを編集",
               'project.pathCopied': "パスをコピーしました",
               'project.git.branch': "現在のブランチ",
               'project.git.open': "{host} で {name} を開く",
@@ -2159,6 +2170,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "Añadir archivos",
               'project.openFolder': "Abrir carpeta",
               'project.copyPath': "Copiar ruta",
+              'project.edit.identity': "Editar proyecto",
               'project.pathCopied': "Ruta copiada",
               'project.git.branch': "Rama actual",
               'project.git.open': "Abrir {name} en {host}",
@@ -2241,6 +2253,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "Ajouter des fichiers",
               'project.openFolder': "Ouvrir le dossier",
               'project.copyPath': "Copier le chemin",
+              'project.edit.identity': "Modifier le projet",
               'project.pathCopied': "Chemin copié",
               'project.git.branch': "Branche actuelle",
               'project.git.open': "Ouvrir {name} sur {host}",
@@ -2323,6 +2336,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "Dateien hinzufügen",
               'project.openFolder': "Ordner öffnen",
               'project.copyPath': "Pfad kopieren",
+              'project.edit.identity': "Projekt bearbeiten",
               'project.pathCopied': "Pfad kopiert",
               'project.git.branch': "Aktueller Branch",
               'project.git.open': "{name} auf {host} öffnen",
@@ -2405,6 +2419,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "Добавить файлы",
               'project.openFolder': "Открыть папку",
               'project.copyPath': "Копировать путь",
+              'project.edit.identity': "Изменить проект",
               'project.pathCopied': "Путь скопирован",
               'project.git.branch': "Текущая ветка",
               'project.git.open': "Открыть {name} на {host}",
@@ -2487,6 +2502,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "Adicionar arquivos",
               'project.openFolder': "Abrir pasta",
               'project.copyPath': "Copiar caminho",
+              'project.edit.identity': "Editar projeto",
               'project.pathCopied': "Caminho copiado",
               'project.git.branch': "Branch atual",
               'project.git.open': "Abrir {name} em {host}",
@@ -2701,6 +2717,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 scope.layout.selectPanel(null)
                 scope.uiWorkspace.openSession(sessionId)
               },
+              ...(typeof scope.uiWorkspace.editProject === 'function'
+                ? { editProject: (workspaceId) => { scope.uiWorkspace.editProject(workspaceId) } } : {}),
               backToProjects: () => { scope.layout.selectPanel(PROJECTS_PANEL) },
               openScheduled: () => { scope.layout.selectPanel(SCHEDULED_PANEL) },
               createSchedule: async (request) => {
