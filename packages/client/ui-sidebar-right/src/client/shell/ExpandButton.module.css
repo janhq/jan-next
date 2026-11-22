@@ -6,9 +6,10 @@
   color: var(--dsw-alias-label-secondary);
 }
 
+/* The left sidebar's collapse button draws this same artwork at 16px. */
 .button svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 
 .expanded {
