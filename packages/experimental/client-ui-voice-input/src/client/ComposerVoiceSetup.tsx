@@ -86,6 +86,7 @@ export function ComposerVoiceSetup({
   const blocked = bundle === 'checking' || bundle === 'error' || bundle === 'restart'
   const ready = readiness.connected && canRecord(provider?.preparation.phase)
   return <Modal open title={t('setupPrompt.title')} closeLabel={t('cancel')} className={css.setupDialog ?? ''}
+    contentClassName={css.setupContent ?? ''}
     onClose={() => { void dismiss() }} footer={<>
       <Button variant="ghost" disabled={busy !== undefined} onClick={() => { void dismiss() }}>{t('cancel')}</Button>
       {bundle === 'error' && <Button variant="outline" onClick={() => { void refreshVoiceBundle() }}>{t('setup.retry')}</Button>}
@@ -103,7 +104,7 @@ export function ComposerVoiceSetup({
           onChange={(event) => { setLanguage(event.target.value) }}>
           {provider.languages.map(item => <option key={item} value={item}>{languageName(item, t)}</option>)}
         </select></label>
-        <p>{t(provider.location === 'cloud' ? 'cloud' : 'setup.local')}</p>
+        {provider.location === 'cloud' && <p>{t('cloud')}</p>}
       </div>
       <PreparationCard provider={provider} connected={readiness.connected && busy === undefined}
         prepare={stage} cancelPreparation={cancelPreparation} t={t} />
