@@ -8,6 +8,7 @@ import { ChatNodeSeat } from './ChatNodeSeat.tsx'
 import { ChatGroupSeat } from './ChatGroupSeat.tsx'
 import { PendingSteeringBubble, PendingSubmissionBubble } from './MessageItem.tsx'
 import { chatRenderKey } from './render-entry.ts'
+import { toolActivity } from '../conversation-nodes/process-activity.ts'
 import { RunningStatus } from './RunningStatus.tsx'
 
 const RUNNING_DETAIL_OWNER: RunningDetailOwnerProps = {}
@@ -26,12 +27,15 @@ function runningPhaseLabel(snapshot: ChatSnapshot, t: ChatFlowSlotProps['t'], de
   }
 
   // A step's calls run in order, so the earliest unfinished one is the one executing; later ones are queued.
+  // Without a title of its own, a call reads as its process category, never as its wire id.
   const tool = snapshot.legacy.runningCalls.find(call => call.turn === turn.turn && call.step === step.step)
   if (tool !== undefined) {
-    if (!detail) return t('chat.running.tool', { tool: tool.name })
+    const category = t(`message.stepProcess.${toolActivity(tool.name)}`)
+    if (!detail) return category
     const title = tool.args.textPrefix('title', TOOL_LABEL_PREFIX_LENGTH)?.trim()
     const description = title ? undefined : tool.args.textPrefix('description', TOOL_LABEL_PREFIX_LENGTH)?.trim()
-    return t('chat.running.tool', { tool: title || description || tool.name })
+    const own = title || description
+    return own ? t('chat.running.tool', { tool: own }) : category
   }
 
   const assistant = step.data.get('assistant-step')
