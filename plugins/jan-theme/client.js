@@ -429,6 +429,8 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] {
     --jt-sidebar-gap: 12px;
   }
+  /* The inset sidebar leaves the caption row on the page background; body holds the palette. */
+  html[data-jan-theme] body { --jan-windows-caption-fill: var(--dsw-alias-bg-base); }
   html[data-jan-theme] [data-slot='root'] > [data-sidebar-collapsed], html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]) {
     background: var(--dsw-alias-bg-base);
   }
