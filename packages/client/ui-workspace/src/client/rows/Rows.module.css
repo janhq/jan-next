@@ -176,7 +176,7 @@
   .chevronButton:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 }
 
-/* Expand arrow (filled triangle): points right closed, rotates to point down open. */
+/* Expand chevron (outline, like the list's other disclosures): points right closed, rotates to point down open. */
 .arrow {
   transition: transform 150ms var(--ds-ease-in-out);
 }
