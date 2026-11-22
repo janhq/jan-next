@@ -2,14 +2,14 @@
 
 Hosts lists the other computers that run Jan and the devices that use this one. Open **Settings → Hosts**.
 
-- **Other computers** saves a Jan by its address or over SSH. Test signs in with Jan's own login and opens its live connection, so a different web server on that port does not pass. Open opens that Jan's own page; its chats, files and tools stay on that computer. An address entry stores its login token in Jan's credential store, never in `hosts/connections.json`. Import from SSH config lists the concrete `Host` aliases in `~/.ssh/config` and the files it includes (patterns and `Match` blocks are skipped) and saves each chosen one by its alias with no port, so ssh still applies that alias's HostName, User, Port, keys and proxies.
+- **Other computers** saves a Jan by its address or over SSH. Test signs in with Jan's own login and opens its live connection, so a different web server on that port does not pass. Open in browser opens that Jan's own page in the system browser; its chats, files and tools stay on that computer. An address entry stores its login token in Jan's credential store, never in `hosts/connections.json`. Import from SSH config lists the concrete `Host` aliases in `~/.ssh/config` and the files it includes (patterns and `Match` blocks are skipped) and saves each chosen one by its alias with no port, so ssh still applies that alias's HostName, User, Port, keys and proxies.
 - **Devices that reach this Jan** starts switched off. Turning it on opens a second listener on this computer's network address. Make code shows a QR code and a link that pairs exactly one device; each device gets a separate token, and Remove signs it out at once, including open chats. The devices file keeps only a hash of each device token. The owner's own login never leaves this computer.
 
 A computer with no screen prints `jan hosts: pair a device at <link>` beside its `jan web:` line, once, when device access is on and no device is paired yet.
 
 ## Connect over SSH
 
-An SSH entry is only its destination: an ssh config alias, `user@host` or `user@host:port`. Left unnamed, it is called by that destination; a row for a config alias shows the `User@HostName:Port` the config gives it. The SSH key must already work in `BatchMode`, because there is no terminal to type a password into. One Connect press does the whole job and opens the page when it is done:
+An SSH entry is only its destination: an ssh config alias, `user@host` or `user@host:port`. Left unnamed, it is called by that destination; a row for a config alias shows the `User@HostName:Port` the config gives it. The SSH key must already work in `BatchMode`, because there is no terminal to type a password into. One Connect press does the whole job and opens no page or window; the new-project menu's Remote row connects the same way:
 
 | Step | What happens | Shown as |
 | --- | --- | --- |
@@ -36,7 +36,7 @@ The receiving Jan adds only what it lacks: a route with the same name, a key tha
 
 ## Versions on the two sides
 
-Each Jan serves its own page, so Open always runs the Client that matches the Host on the other computer. Hosts depends only on what the two sides exchange before that:
+Each Jan serves its own page, so Open in browser always runs the Client that matches the Host on the other computer. Hosts depends only on what the two sides exchange before that:
 
 | Exchange | Relied on | Older Jan |
 | --- | --- | --- |

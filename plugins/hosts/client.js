@@ -25,7 +25,7 @@ window.__ModuleLoader__.load({
         'hosts.keep': 'Keep',
         test: 'Test',
         testing: 'Testing...',
-        open: 'Open',
+        openInBrowser: 'Open in browser',
         connect: 'Connect',
         connecting: 'Connecting...',
         'progress.checking': 'Checking that computer...',
@@ -303,8 +303,8 @@ window.__ModuleLoader__.load({
       const connecting = !connected && (busy === 'connect' || host.progress !== undefined)
       const sshState = connected ? 'state.connected' : connecting ? 'state.connecting' : 'state.idle'
       const openHost = () => run(host.id, 'open', () => openInWindow(host.id))
-      // One press does the whole job: copy Jan there when needed, start it, open its page.
-      const connect = () => run(host.id, 'connect', async () => { await api('connect', { id: host.id }); await openInWindow(host.id) })
+      // One press copies Jan there when needed and starts it; its projects and chats open inside this app.
+      const connect = () => run(host.id, 'connect', async () => { await api('connect', { id: host.id }) })
       return h('div', { className: 'jh-row', 'data-host': host.id },
         h('div', { className: 'jh-info' },
           h('div', { className: 'jh-name' }, h('span', null, host.name), h(Tag, { tone: 'neutral' }, t(`kind.${host.kind}`)),
@@ -322,7 +322,7 @@ window.__ModuleLoader__.load({
               return { text: result.message, error: result.websocket !== 'ok' }
             })
           }, busy === 'test' ? t('testing') : t('test')),
-          h(Button, { size: 'sm', variant: 'outline', disabled: busy !== undefined || (ssh && !connected), onClick: openHost }, t('open')),
+          h(Button, { size: 'sm', variant: 'outline', disabled: busy !== undefined || (ssh && !connected), onClick: openHost }, t('openInBrowser')),
           h(Button, { size: 'sm', variant: 'ghost', disabled: busy !== undefined, onClick: onEdit }, t('hosts.edit')),
           h(Button, { size: 'sm', variant: 'ghost', disabled: busy !== undefined, onClick: onRemove }, t('hosts.remove'))))
     }
@@ -537,8 +537,7 @@ window.__ModuleLoader__.load({
           name: 'settings.section.icon', id: NS,
         }, ({ size }) => h(IconLinkOutlineRegular, { size, 'aria-hidden': true })))
         // Saved Hosts appear under Remote in the new-project menu. Picking one
-        // does what the row's Connect/Open buttons do: connect an SSH Host
-        // that is not up yet, then open its own Jan page.
+        // connects an SSH Host that is not up yet, without opening a browser.
         ctx.inject(['uiWorkspace'], scope => {
           scope.effect(() => scope.uiWorkspace.registerRemoteMachines({
             async list() {
@@ -554,11 +553,10 @@ window.__ModuleLoader__.load({
                 }
               })
             },
-            async open(id) {
+            async connect(id) {
               const { connections } = await api('state')
               const host = connections.find(entry => entry.id === id)
               if (host?.kind === 'ssh' && host.tunnel === undefined) await api('connect', { id })
-              await openInWindow(id)
             },
             manage() {
               if (ctx.get('settingsNavigation')?.open(NS) !== true) console.warn('jan-hosts: the Hosts settings section is unavailable')

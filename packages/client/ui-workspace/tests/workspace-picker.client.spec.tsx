@@ -100,7 +100,7 @@ function hostFacts(remoteName?: string): RemoteHostFacts {
 function remoteSource(machines: readonly RemoteMachine[] = []) {
   return {
     list: vi.fn(async (_signal: AbortSignal) => machines),
-    open: vi.fn(async (_id: string) => {}),
+    connect: vi.fn(async (_id: string) => {}),
     manage: vi.fn(),
   } satisfies RemoteMachineSource
 }
@@ -386,7 +386,7 @@ describe('WorkspacePicker', () => {
     await screen.findByRole('menuitem', { name: 'homelab thinh@lab' })
     expect(screen.getByRole('menuitem', { name: 'cloud box 未连接' })).toBeTruthy()
     fireEvent.click(screen.getByRole('menuitem', { name: 'homelab thinh@lab' }))
-    expect(source.open).toHaveBeenCalledWith('lab')
+    expect(source.connect).toHaveBeenCalledWith('lab')
     expect(b.onClose).toHaveBeenCalled()
     fireEvent.click(screen.getByRole('menuitem', { name: '远程' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '添加电脑…' }))
@@ -395,13 +395,13 @@ describe('WorkspacePicker', () => {
 
   it('finds a remote computer by search and reports an open failure', async () => {
     const source = remoteSource([{ id: 'lab', name: 'homelab', detail: 'thinh@lab', state: 'ready' }])
-    source.open.mockRejectedValueOnce(new Error('host key changed'))
+    source.connect.mockRejectedValueOnce(new Error('host key changed'))
     mount({ remote: source })
     await waitFor(() => { expect(source.list).toHaveBeenCalled() })
     const field = search('lab')
     await screen.findByRole('menuitem', { name: 'homelab thinh@lab' })
     fireEvent.keyDown(field, { key: 'Enter' })
-    expect(source.open).toHaveBeenCalledWith('lab')
+    expect(source.connect).toHaveBeenCalledWith('lab')
     await screen.findByRole('dialog', { name: '无法打开这台电脑' })
     expect(screen.getByRole('alert').textContent).toBe('host key changed')
     expect(screen.queryByRole('button', { name: '重新选择' })).toBeNull()
