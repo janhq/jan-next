@@ -153,27 +153,9 @@
 }
 
 
-/* Project disclosure: trails the title and shows with the row's actions (hover, an open
-   menu, keyboard focus); touch screens keep it visible. The avatar always leads the row. */
-.projectRow .chevron { display: none; }
-@media (hover: hover) {
-  .projectRow:hover .chevron { display: inline-flex; }
-}
-.projectRow.menuOpen .chevron { display: inline-flex; }
-
-/* With a project page the row opens it, and this button alone expands and collapses. */
-.chevronButton {
-  border: none;
-  border-radius: var(--dsw-radius-xs);
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-}
-.projectRow:has(.chevronButton:focus-visible) .chevron { display: inline-flex; }
-.chevronButton:focus-visible { outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 0; }
-@media (hover: hover) {
-  .chevronButton:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
-}
+/* Project disclosure: the first trailing action, so it shares the strip's pitch and shows
+   with it (hover, an open menu, keyboard focus). The avatar always leads the row. */
+:global(html[data-input-modality='keyboard']) .projectRow:focus-within .rowActions { display: inline-flex; }
 
 /* Expand chevron (outline, like the list's other disclosures): points right closed, rotates to point down open. */
 .arrow {
@@ -285,10 +267,13 @@
 }
 
 /* The computer a project lives on: a monitor glyph and the name in caption ink after the
-   title, in every window, so local and remote projects read apart without hovering. */
+   title, in every window, so local and remote projects read apart without hovering. In a
+   narrow sidebar the tag gives way first, down to its glyph, so the project name stays. */
 .machineTag {
-  flex: none;
+  flex: 0 1000 auto;
+  min-width: 14px;
   max-width: 120px;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -384,7 +369,6 @@
 }
 
 @media (hover: none) {
-  .projectRow .chevron,
   .projectRow .rowActions,
   .searchResultRow .rowActions,
   .sessionRow .rowActions {
@@ -395,7 +379,7 @@
   .sessionRow .timestamp,
   .sessionRow:has(.pinnedAction) .pinIndicator,
   .sessionRow .rowQuickActions > :global([data-slot]) > :not(.pinnedAction),
-  .projectRow[aria-expanded='false'] .rowActions {
+  .projectRow[aria-expanded='false'] .rowActions > :not(.chevron) {
     display: none;
   }
 
