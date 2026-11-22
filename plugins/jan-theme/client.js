@@ -483,10 +483,45 @@ window.__ModuleLoader__.load({
      the card's 6px top padding), and the first row follows at the stock 8px. */
   html[data-jan-theme][data-jan-theme-mac][data-fullscreen] [data-slot='sidebar'] > div > :has([data-slot='sidebar.brand.name']) { padding-left: 4px; margin-bottom: 8px; }
   html[data-jan-theme][data-jan-theme-mac][data-fullscreen] [data-slot='sidebar'] > div > [data-window-drag]:has(> [data-sidebar-toggle]) { top: 6px; }
-  html[data-jan-theme] .jt-nav-row:not([class*='rail']) { height: 38px; padding: 0 10px; gap: 11px; }
+  /* Jan's SidebarMenu rhythm: 32px rows 4px apart. The rows sit in the sidebar's flex column, not a nav, so the margin carries the gap. */
+  html[data-jan-theme] .jt-nav-row:not([class*='rail']) { height: 32px; padding: 0 8px; gap: 8px; margin: 0 0 4px; }
   /* The More launcher matches these rows (see the panelRow rule below). */
-  html[data-jan-theme] [data-slot='sidebar'] nav { gap: 2px; }
-  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] { height: 38px; padding-inline-start: calc(7px + var(--jan-workspace-indent, 0px)); }
+  html[data-jan-theme] [data-slot='sidebar'] nav { gap: 4px; }
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] { height: 32px; padding-inline-start: calc(7px + var(--jan-workspace-indent, 0px)); }
+  /* Jan's sidebar ink: labels in --sidebar-foreground, icons and the group label at 70%
+     of it, shortcut hints in --muted-foreground. */
+  html[data-jan-theme] [data-slot='sidebar'] { --jt-side-label: oklch(0.145 0 0); --jt-side-icon: oklch(0.145 0 0 / 70%); --jt-side-muted: oklch(0.556 0 0); }
+  html[data-jan-theme] body[data-ds-dark-theme] [data-slot='sidebar'] { --jt-side-label: oklch(0.985 0 0); --jt-side-icon: oklch(0.985 0 0 / 70%); --jt-side-muted: oklch(0.708 0 0); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row,
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'],
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='workspace:'],
+  html[data-jan-theme] [data-slot='sidebar'] button[aria-haspopup='menu'][class*='panelRow'],
+  html[data-jan-theme] [data-slot='sidebar'] .jt-footer-action { color: var(--jt-side-label); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row > svg,
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='workspace:'] svg,
+  html[data-jan-theme] [data-slot='sidebar'] .jt-footer-action > svg { color: var(--jt-side-icon); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-list-heading { font-size: 12px; font-weight: 500; color: var(--jt-side-icon); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row [class*='shortcut'] { font-size: 11px; color: var(--jt-side-muted); }
+  /* Hover motions copied from Jan's animated icons: each plays once per hover entry and ends at rest. */
+  html[data-jan-theme] .jt-nav-icon { display: inline-flex; flex: none; color: var(--jt-side-icon); transform-origin: center; transition: scale 150ms ease; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='chat'] { animation: jt-anim-chat 0.5s ease-in-out; scale: 1.05; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='search'] { animation: jt-anim-search 1s ease; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='box'],
+  html[data-jan-theme] [data-slot='sidebar'] button[aria-haspopup='menu'][class*='panelRow']:hover [class*='panelGlyph'] { animation: jt-anim-box 0.45s ease-in-out; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='folder'] { animation: jt-anim-folder 0.6s ease-in-out; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='home'] { animation: jt-anim-home 0.45s ease-in-out; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='shake'] { animation: jt-anim-shake 0.5s ease-in-out; }
+  html[data-jan-theme] .jt-nav-icon[data-jt-anim='spin'] { transition: rotate 600ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='spin'] { rotate: 180deg; }
+  @keyframes jt-anim-chat { 0%, 100% { transform: rotate(0); } 33% { transform: rotate(-7deg); } 66% { transform: rotate(7deg); } }
+  @keyframes jt-anim-search { 0%, 100% { transform: translate(0, 0); } 33% { transform: translate(0, -4px); } 66% { transform: translate(-3px, 0); } }
+  @keyframes jt-anim-box { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-7deg); } }
+  @keyframes jt-anim-folder { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 50% { transform: rotate(6deg); } 75% { transform: rotate(-4deg); } }
+  @keyframes jt-anim-home { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-1px) rotate(-5deg); } }
+  @keyframes jt-anim-shake { 0%, 100% { transform: rotate(0); } 33% { transform: rotate(-5deg); } 66% { transform: rotate(5deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    html[data-jan-theme] .jt-nav-icon, html[data-jan-theme] [data-slot='sidebar'] [class*='panelGlyph'] { animation: none !important; transition: none !important; }
+  }
   /* Grouped lists: a folder's chats start under its name, not under its icon, so the grouping
      reads at a glance. Only a section headed by a folder row gets it; the flat list stays flush. */
   html[data-jan-theme] [data-slot='sidebar'] :has(> * > [data-row-key^='workspace:']) > * > [data-row-key^='session:'] {
@@ -519,14 +554,14 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-slot='sidebar'] > div > button > span:first-child > span { width: auto; justify-content: flex-start; gap: 8px; }
   html[data-jan-theme] [data-slot='sidebar'] > div > button > span:last-child:not(:first-child) { opacity: 1; color: var(--dsw-alias-label-secondary); font-size: 10px; font-weight: 500; }
   html[data-jan-theme] [data-slot='sidebar'] nav { margin: 0 0 12px; }
-  html[data-jan-theme] [data-slot='sidebar'] nav > button, html[data-jan-theme] [data-slot='sidebar'] nav > div > button { min-height: 36px; border-radius: 12px; }
+  html[data-jan-theme] [data-slot='sidebar'] nav > button, html[data-jan-theme] [data-slot='sidebar'] nav > div > button { min-height: 32px; border-radius: 12px; }
   /* Jan has no panel launchers above the chat list. Plugins and Model Hub move
      to the footer; every remaining management page stays reachable through the
      native More menu, whose trigger keeps aria-haspopup. Without that trigger
      the rows stay so no page loses its only destination. */
   html[data-jan-theme] [data-slot='sidebar'] nav[aria-label]:has(button[aria-haspopup]) > button[aria-label]:not([aria-haspopup]),
   html[data-jan-theme] [data-slot='sidebar'] nav[aria-label]:has(button[aria-haspopup]) > div:has(> button[aria-label]):not(:has(button[aria-haspopup])) { display: none; }
-  html[data-jan-theme] [data-row-key^='session:'] { min-height: 36px; }
+  html[data-jan-theme] [data-row-key^='session:'] { min-height: 32px; }
   /* Jan lists a chat once it has a message; New Chat already reaches the blank
      session, so its "New Session" row reads as a duplicate. */
   html[data-jan-theme] [data-row-key^='session:'][data-blank] { display: none; }
@@ -546,12 +581,12 @@ window.__ModuleLoader__.load({
   }
   /* The stock More launcher keeps its own 32px / 12px-radius pill; Jan draws
      it as one more nav row so the column has a single row rhythm. */
-  html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 38px; padding: 0 10px; border-width: 0; border-radius: 12px; gap: 11px; line-height: 20px; }
+  html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 32px; padding: 0 8px; border-width: 0; border-radius: 12px; gap: 8px; line-height: 20px; }
   /* More is the next row of the nav, on the same 40px pitch and with the same
      secondary icon ink, not a separate group 12px further down. */
   html[data-jan-theme] [data-slot='sidebar'] [class*='scrollRegion'] { margin-top: 0; }
   html[data-jan-theme] [data-slot='sidebar'] [class*='scrollArea'] { grid-template-rows: 0 max-content 2px max-content; }
-  html[data-jan-theme] button[aria-haspopup='menu'][class*='panelRow'] [class*='panelGlyph'] { color: var(--dsw-alias-label-secondary); }
+  html[data-jan-theme] button[aria-haspopup='menu'][class*='panelRow'] [class*='panelGlyph'] { color: var(--jt-side-icon); }
   /* Projects page. */
   .jt-projects { box-sizing: border-box; width: 100%; max-width: 880px; margin: 0 auto; padding: 48px 32px; color: var(--dsw-alias-label-primary); }
   .jt-projects-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -770,8 +805,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
 
     const SidebarMark = () => h('span', { className: 'jt-sidebar-mark', 'aria-hidden': true })
 
+    // Jan's hover motion per destination (see the jt-anim-* keyframes); other pages shake.
+    const NAV_ANIMATIONS = { newChat: 'chat', search: 'search', 'jan-model-hub': 'box', plugins: 'spin', 'jt-projects': 'folder', artifacts: 'home' }
+    const navIcon = (id, icon) => h('span', { className: 'jt-nav-icon', 'data-jt-anim': NAV_ANIMATIONS[id] ?? 'shake', 'aria-hidden': true }, icon)
+
     const NewSession = ({ wide, onStart, shortcutKeys, shortcutAria, t }) => h(NavRow, {
-      icon: h(wide ? IconNewChatOutlineMedium : IconNewChatOutlineRegular, { size: wide ? 16 : 18 }),
+      icon: navIcon('newChat', h(wide ? IconNewChatOutlineMedium : IconNewChatOutlineRegular, { size: wide ? 16 : 18 })),
       label: t('newChat'), shortcutKeys, shortcutAria, rail: !wide, onClick: onStart, className: 'jt-nav-row',
     })
 
@@ -800,7 +839,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       }
       return h(React.Fragment, null,
         h(NavRow, {
-          icon: h(wide ? IconSearchOutlineMedium : IconSearchOutlineRegular, { size }),
+          icon: navIcon('search', h(wide ? IconSearchOutlineMedium : IconSearchOutlineRegular, { size })),
           label: t('search'), shortcutKeys: searchShortcut?.keys, shortcutAria: searchShortcut?.aria,
           rail: !wide, onClick: requestSearch, className: 'jt-nav-row',
         }),
@@ -812,7 +851,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             id, icon: renderFactorySlot('sidebar.panel.icon', { id, size, active: active === id }), label,
           })),
         ], order).map(({ id, icon, label, quick: action }) => h(NavRow, {
-          key: id, icon, label, rail: !wide, className: 'jt-nav-row',
+          key: id, icon: navIcon(id, icon), label, rail: !wide, className: 'jt-nav-row',
           current: active === id, onClick: () => { openPanel(id) }, quick: action,
         })),
         editing && h(SidebarEditor, { available, others, pinned, renderFactorySlot, t }))
