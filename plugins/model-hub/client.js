@@ -318,7 +318,7 @@ window.__ModuleLoader__.load({
       const created = Date.parse(row.createdAt) || 0
       const updated = Date.parse(row.updatedAt ?? row.lastModified) || 0
       return {
-        key: `${quants[0].repo}/${name}`, name, developer, created, updated,
+        key: `${quants[0].repo}/${name}`, name, developer, created, updated, owner: quants[0].repo.split('/')[0],
         search: [[words(name), 4], [words(developer), 3], [[...new Set(quants.flatMap(quant => words(quant.name)))], 2]],
         smallest, bytes: quants[smallest].bytes + projectorBytes, projectorBytes,
         // Catalog descriptions are README excerpts; the card shows them as plain text.
@@ -508,10 +508,164 @@ window.__ModuleLoader__.load({
     }
 
     const SHELF_SIZE = 12
+    // Publishers of Jan's own models; they are featured ahead of everything else.
+    const HOUSE = new Set(['janhq', 'menlo'])
     const hue = text => [...text].reduce((sum, char) => (sum * 31 + char.codePointAt(0)) % 360, 7)
-    // Each developer keeps one hue, so a model's art and its glow read as the same family everywhere.
-    const art = item => ({ '--jan-hub-hue': hue(item.developer || item.name) })
+    // Each developer keeps one hue, so a model's art and its glow read as the same family everywhere;
+    // once the publisher's picture is known, its own colours replace the hue.
+    const art = (item, tint) => ({ '--jan-hub-hue': hue(item.developer || item.name), ...(tint && { '--jan-hub-a': tint.a, '--jan-hub-b': tint.b }) })
+    const hex = (r, g, b) => `#${((1 << 24) | (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b)).toString(16).slice(1)}`
+    // A picture's colours as { a, b }: its two strongest hues weighted by how vivid and how large they
+    // are, or its average colour when it is nearly grey. Returns undefined when the pixels are unreadable.
+    function tintOf(img) {
+      const SIZE = 32
+      const canvas = document.createElement('canvas')
+      canvas.width = canvas.height = SIZE
+      const context = canvas.getContext('2d', { willReadFrequently: true })
+      if (!context) return undefined
+      let data
+      try { context.drawImage(img, 0, 0, SIZE, SIZE); data = context.getImageData(0, 0, SIZE, SIZE).data } catch { return undefined }
+      const bins = Array.from({ length: 24 }, () => ({ weight: 0, r: 0, g: 0, b: 0 }))
+      let opaque = 0, vivid = 0, r = 0, g = 0, b = 0
+      for (let at = 0; at < data.length; at += 4) {
+        if (data[at + 3] < 128) continue
+        const [pr, pg, pb] = [data[at], data[at + 1], data[at + 2]]
+        opaque += 1; r += pr; g += pg; b += pb
+        const max = Math.max(pr, pg, pb), chroma = max - Math.min(pr, pg, pb)
+        if (max < 40 || chroma / max < 0.25) continue
+        vivid += 1
+        const h6 = max === pr ? ((pg - pb) / chroma + 6) % 6 : max === pg ? (pb - pr) / chroma + 2 : (pr - pg) / chroma + 4
+        const bin = bins[Math.floor(h6 * 4) % 24]
+        const weight = chroma / 255
+        bin.weight += weight; bin.r += pr * weight; bin.g += pg * weight; bin.b += pb * weight
+      }
+      if (opaque === 0) return undefined
+      if (vivid / opaque < 0.06) { const grey = hex(r / opaque, g / opaque, b / opaque); return { a: grey, b: grey } }
+      const [first, second] = [...bins].sort((x, y) => y.weight - x.weight)
+      const colour = bin => hex(bin.r / bin.weight, bin.g / bin.weight, bin.b / bin.weight)
+      return { a: colour(first), b: second.weight >= first.weight * 0.25 ? colour(second) : colour(first) }
+    }
     const initial = item => (item.developer || item.name).trim().charAt(0).toUpperCase()
+
+    // Hugging Face profile pictures of the account that publishes each model. The API sends
+    // CORS headers, so the page asks it directly; one lookup per account is shared by every
+    // tile, a few run at a time, and answers persist in localStorage so a revisit draws them at once.
+    const avatars = (() => {
+      const KEY = 'jan-model-hub.avatars.v1'
+      const HIT_MS = 7 * 86_400_000
+      const MISS_MS = 86_400_000
+      const RETRY_MS = 60_000
+      const PARALLEL = 4
+      const OWNER = /^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$/
+      let storage
+      try { storage = window.localStorage } catch { storage = undefined }
+      let saved = {}
+      try { saved = JSON.parse(storage?.getItem(KEY) ?? '{}') ?? {} } catch { saved = {} }
+      // owner -> picture URL, or null when the account has none Jan shows; owner -> the picture's tint.
+      const known = new Map()
+      const tints = new Map()
+      for (const [owner, entry] of Object.entries(saved)) {
+        if (entry && Date.now() - entry.at < (entry.url ? HIT_MS : MISS_MS)) { known.set(owner, entry.url ?? null); if (entry.tint) tints.set(owner, entry.tint) }
+        else delete saved[owner]
+      }
+      const tintListeners = new Map()
+      const failedAt = new Map()
+      const listeners = new Map()
+      const queue = []
+      let running = 0
+      let saving = false
+      const save = () => {
+        if (saving || !storage) return
+        saving = true
+        setTimeout(() => {
+          saving = false
+          try { storage.setItem(KEY, JSON.stringify(saved)) } catch { /* full or blocked storage keeps the session cache only */ }
+        }, 1000)
+      }
+      // Listeners are notified once; a later watch after a failed lookup queues a fresh one.
+      const settle = (owner, url, persist) => {
+        known.set(owner, url)
+        if (persist) { saved[owner] = { url, at: Date.now() }; save() }
+        const waiting = listeners.get(owner)
+        listeners.delete(owner)
+        for (const listener of waiting ?? []) listener(url)
+      }
+      // Default pictures (huggingface.co/avatars/*.svg) are generic, so the monogram reads better.
+      const usable = url => typeof url === 'string' && /^https:\/\/cdn-avatars\.huggingface\.co\//.test(url) ? url : null
+      async function lookup(owner) {
+        for (const kind of ['organizations', 'users']) {
+          const response = await fetch(`https://huggingface.co/api/${kind}/${encodeURIComponent(owner)}/avatar`)
+          if (response.status === 404) continue
+          if (!response.ok) throw new Error(`avatar ${response.status}`)
+          return usable((await response.json())?.avatarUrl)
+        }
+        return null
+      }
+      function pump() {
+        while (running < PARALLEL && queue.length > 0) {
+          const owner = queue.shift()
+          running += 1
+          lookup(owner).then(url => settle(owner, url, true), () => { failedAt.set(owner, Date.now()); settle(owner, null, false); known.delete(owner) })
+            .finally(() => { running -= 1; pump() })
+        }
+      }
+      return {
+        /** The cached answer: a URL, null for none, or undefined when not known yet. */
+        peek: owner => known.get(owner),
+        /** Call `listener` with the owner's picture once known; returns the unsubscribe. */
+        watch(owner, listener) {
+          if (!owner || !OWNER.test(owner)) return () => {}
+          if (known.has(owner)) { listener(known.get(owner)); return () => {} }
+          let set = listeners.get(owner)
+          if (!set) {
+            listeners.set(owner, set = new Set())
+            if (!(Date.now() - (failedAt.get(owner) ?? -Infinity) < RETRY_MS)) { queue.push(owner); pump() }
+          }
+          set.add(listener)
+          return () => { set.delete(listener); if (set.size === 0 && listeners.get(owner) === set) { listeners.delete(owner); const at = queue.indexOf(owner); if (at >= 0) queue.splice(at, 1) } }
+        },
+        /** A picture that failed to load is dropped, so the next session asks again. */
+        broken(owner) { delete saved[owner]; tints.delete(owner); save(); settle(owner, null, false) },
+        peekTint: owner => tints.get(owner),
+        /** Call `listener` whenever the owner's tint is learned; returns the unsubscribe. */
+        watchTint(owner, listener) {
+          let set = tintListeners.get(owner)
+          if (!set) tintListeners.set(owner, set = new Set())
+          set.add(listener)
+          return () => set.delete(listener)
+        },
+        /** Reads a decoded picture's colours once per account and keeps them with the picture's URL. */
+        learnTint(owner, img) {
+          if (!owner || tints.has(owner)) return
+          const tint = tintOf(img)
+          if (!tint) return
+          tints.set(owner, tint)
+          if (saved[owner]) { saved[owner].tint = tint; save() }
+          for (const listener of tintListeners.get(owner) ?? []) listener(tint)
+        },
+      }
+    })()
+    function useAvatar(owner) {
+      const [url, setUrl] = React.useState(() => avatars.peek(owner))
+      React.useEffect(() => { setUrl(avatars.peek(owner)); return avatars.watch(owner, setUrl) }, [owner])
+      return url
+    }
+    function useTint(owner) {
+      const [tint, setTint] = React.useState(() => avatars.peekTint(owner))
+      React.useEffect(() => { setTint(avatars.peekTint(owner)); return avatars.watchTint(owner, setTint) }, [owner])
+      return tint
+    }
+    // The monogram stays underneath until the picture has decoded, so tiles never flash empty.
+    // `crossOrigin` keeps the pixels readable (the CDN allows any origin) so the tint can be sampled.
+    function Art({ item, className }) {
+      const url = useAvatar(item.owner)
+      return h('span', { className, 'aria-hidden': true }, initial(item),
+        url && h('img', {
+          src: url, alt: '', loading: 'lazy', decoding: 'async', draggable: false, referrerPolicy: 'no-referrer', crossOrigin: 'anonymous',
+          onLoad: event => { event.currentTarget.dataset.loaded = ''; avatars.learnTint(item.owner, event.currentTarget) },
+          onError: () => avatars.broken(item.owner),
+        }))
+    }
     const owns = (item, inventory) => item.quants.some((quant, index) => installedVariant(item, quant, index, inventory) !== undefined)
     const transferOf = (item, jobs) => item.quants.map(quant => jobs.get(quant.name)).find(Boolean)
     const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
@@ -532,8 +686,8 @@ window.__ModuleLoader__.load({
       const percent = progress?.totalBytes > 0 ? Math.min(100, Math.floor(progress.receivedBytes / progress.totalBytes * 100)) : undefined
       const size = Number.isFinite(quant.bytes) ? formatBytes(quant.bytes + item.projectorBytes, locale) : quant.size
       return h('li', { className: 'jan-hub-tile' },
-        h('button', { type: 'button', className: 'jan-hub-tile-button', style: art(item), onClick: () => open(item.key) },
-          h('span', { className: 'jan-hub-art', 'aria-hidden': true }, initial(item)),
+        h('button', { type: 'button', className: 'jan-hub-tile-button', style: art(item, useTint(item.owner)), onClick: () => open(item.key) },
+          h(Art, { item, className: 'jan-hub-art' }),
           h('span', { className: 'jan-hub-tile-name' }, item.name),
           h('span', { className: 'jan-hub-tile-meta' }, [item.developer, size].filter(Boolean).join(' - ')),
           h(Chips, { item, installed: owns(item, inventory), t }),
@@ -570,7 +724,8 @@ window.__ModuleLoader__.load({
       const index = at % items.length
       const item = items[index]
       const step = delta => setAt(value => (value % items.length + delta + items.length) % items.length)
-      return h('section', { className: 'jan-hub-spotlight', style: art(item), 'aria-roledescription': 'carousel', 'aria-label': t('featured') },
+      const tint = useTint(item.owner)
+      return h('section', { className: 'jan-hub-spotlight', style: art(item, tint), 'aria-roledescription': 'carousel', 'aria-label': t('featured') },
         h('div', { className: 'jan-hub-spotlight-body', key: item.key },
           h('p', { className: 'jan-hub-eyebrow' }, h(IconSparkleRegular, { size: 14 }), t('featured')),
           h('h2', null, item.name),
@@ -582,7 +737,7 @@ window.__ModuleLoader__.load({
           h(Chips, { item, installed: owns(item, inventory), t }),
           h('div', { className: 'jan-hub-spotlight-actions' },
             h(Button, { variant: 'primary', size: 'sm', onClick: () => open(item.key) }, t('details')))),
-        h('span', { className: 'jan-hub-spotlight-art', 'aria-hidden': true }, initial(item)),
+        h(Art, { item, className: 'jan-hub-spotlight-art' }),
         items.length > 1 && h('div', { className: 'jan-hub-spotlight-nav' },
           h(Button, { variant: 'ghost', size: 'sm', 'aria-label': t('previous'), icon: h(IconChevronLeftOutlineRegular, { size: 16 }), onClick: () => step(-1) }),
           h('span', null, t('position', { index: (index + 1).toLocaleString(locale), total: items.length.toLocaleString(locale) })),
@@ -600,8 +755,10 @@ window.__ModuleLoader__.load({
         const fits = budget > 0 ? popular.filter(item => item.bytes <= budget) : []
         const fresh = cards.some(item => item.updated) ? 'updated' : cards.some(item => item.created) ? 'added' : undefined
         const pool = (fits.length ? fits : popular).filter(item => !owns(item, inventory))
+        // Jan's own models (janhq, Menlo) lead the spotlight, then the most popular that suit this computer.
+        const house = popular.filter(item => HOUSE.has(item.owner?.toLowerCase()))
         return {
-          spotlight: (pool.length ? pool : popular).slice(0, 5),
+          spotlight: [...new Set([...house, ...(pool.length ? pool : popular)])].slice(0, 5),
           shelves: [
             { id: 'library', items: popular.filter(item => owns(item, inventory) || transferOf(item, jobs)), filters: ['installed'] },
             { id: 'fits', items: fits, filters: ['fits'] },
@@ -790,6 +947,8 @@ window.__ModuleLoader__.load({
       .jan-hub-spotlight h2{font-size:20px;font-weight:500;line-height:28px;margin:0;text-wrap:balance;overflow-wrap:anywhere}
       .jan-hub-eyebrow{display:flex;align-items:center;gap:6px;margin:0;font-size:12px;line-height:18px;font-weight:500;color:var(--dsw-alias-label-secondary)}
       .jan-hub-spotlight-art{position:absolute;right:-8px;bottom:-48px;font-size:220px;font-weight:700;line-height:1;color:color-mix(in oklab,var(--jan-hub-a) 30%,transparent);user-select:none;pointer-events:none}
+      .jan-hub-spotlight-art img{position:absolute;right:48px;bottom:88px;width:120px;height:120px;border-radius:28px;object-fit:cover;background:#fff;box-shadow:0 12px 32px color-mix(in oklab,var(--jan-hub-a) 35%,transparent);opacity:0;transition:opacity .24s ease}
+      .jan-hub-spotlight-art:has(img[data-loaded]){color:transparent}
       .jan-hub-spotlight-actions{display:flex;gap:8px;margin-top:4px}
       .jan-hub-spotlight-nav{position:relative;z-index:1;display:flex;align-items:center;gap:4px;font-size:12px;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-secondary)}
       .jan-hub-shelf{display:grid;gap:8px;min-width:0}
@@ -799,9 +958,12 @@ window.__ModuleLoader__.load({
       .jan-hub-shelf-row{list-style:none;margin:0;padding:4px 2px 10px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(180px,200px);gap:12px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:thin}
       .jan-hub-tile{scroll-snap-align:start;min-width:0}
       .jan-hub-tile-button{all:unset;box-sizing:border-box;width:100%;height:100%;display:grid;align-content:start;gap:6px;padding:12px;border-radius:var(--dsw-radius-lg,12px);cursor:pointer;background:var(--dsw-alias-settings-card-fill);border:0.5px solid var(--dsw-alias-border-l2);transition:transform .18s cubic-bezier(.2,.8,.2,1),border-color .18s,box-shadow .18s}
-      .jan-hub-tile-button:hover{transform:translateY(-2px);border-color:var(--dsw-alias-border-l4);box-shadow:0 8px 20px color-mix(in oklab,hsl(var(--jan-hub-hue) 60% 45%) 20%,transparent)}
+      .jan-hub-tile-button:hover{transform:translateY(-2px);border-color:var(--dsw-alias-border-l4);box-shadow:0 8px 20px color-mix(in oklab,var(--jan-hub-a,hsl(var(--jan-hub-hue) 60% 45%)) 20%,transparent)}
       .jan-hub-tile-button:active{transform:scale(.98)}
-      .jan-hub-art{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:18px;font-weight:600;color:#fff;background:linear-gradient(135deg,hsl(var(--jan-hub-hue) 70% 55%),hsl(calc(var(--jan-hub-hue) + 60) 70% 42%))}
+      .jan-hub-art{position:relative;overflow:hidden;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:18px;font-weight:600;color:#fff;background:linear-gradient(135deg,hsl(var(--jan-hub-hue) 70% 55%),hsl(calc(var(--jan-hub-hue) + 60) 70% 42%))}
+      .jan-hub-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#fff;opacity:0;transition:opacity .2s ease}
+      .jan-hub-art img[data-loaded],.jan-hub-spotlight-art img[data-loaded]{opacity:1}
+      @media (prefers-reduced-motion: reduce){.jan-hub-art img,.jan-hub-spotlight-art img{transition:none}}
       .jan-hub-tile-name{font-size:14px;font-weight:500;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .jan-hub-tile-meta{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
       .jan-hub-tile-progress{appearance:none;display:block;width:100%;height:4px;border:0;border-radius:999px;background:var(--dsw-alias-border-l3);overflow:hidden}
