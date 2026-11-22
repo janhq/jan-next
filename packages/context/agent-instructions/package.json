@@ -31,12 +31,10 @@
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-agent": "workspace:*",
-    "@janhq/jan-commands": "workspace:*",
     "@janhq/jan-fs": "workspace:*",
     "@janhq/jan-home-paths": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-session": "workspace:*",
-    "@janhq/jan-skill": "workspace:*",
     "@janhq/jan-tools": "workspace:*",
     "@janhq/jan-working-directory": "workspace:*"
   },
@@ -50,7 +48,6 @@
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-agent-loop": "workspace:*",
     "@janhq/jan-agent-loop-testkit": "workspace:*",
-    "@janhq/jan-commands": "workspace:*",
     "@janhq/jan-fs": "workspace:*",
     "@janhq/jan-fs-local": "workspace:*",
     "@janhq/jan-home-paths": "workspace:*",
@@ -58,7 +55,6 @@
     "@janhq/jan-llm-pi-ai": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-session-projection": "workspace:*",
-    "@janhq/jan-skill": "workspace:*",
     "@janhq/jan-system-prompt": "workspace:*",
     "@janhq/jan-tool-executor-native": "workspace:*",
     "@janhq/jan-tool-fs": "workspace:*",

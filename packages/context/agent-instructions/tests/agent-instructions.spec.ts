@@ -16,7 +16,6 @@ import SessionStore, { SessionId, SessionSeq, type SessionEvent, type SurfaceInt
 import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import AgentRegistry, { agentEvents, type Agent } from '@janhq/jan-agent'
 import AgentLoop from '@janhq/jan-agent-loop'
-import CommandRuntime from '@janhq/jan-commands'
 import { FileSystem, FsTargetKey, FsVersion } from '@janhq/jan-fs'
 import type {
   FsDirEntry,
@@ -2665,7 +2664,7 @@ describe('workspace context request injection', () => {
     }
   })
 
-  it('/reload queues a changed instruction as an appended message and keeps the sent prefix', async () => {
+  it('agent/reload queues a changed instruction as an appended message and keeps the sent prefix', async () => {
     const root = await tempRepo()
     const home = await tempRepo()
     try {
@@ -2674,17 +2673,15 @@ describe('workspace context request injection', () => {
       const ctx = new Context()
       provideWorkingDirectoryFixture(ctx)
       pinHarnessHome(home)
-      await ctx.plugin(CommandRuntime)
       await mountFileToolsAndAgentInstructions(ctx, { maxBytes: 65536 })
       const agent = await stubAgent(root)
       const prefix = structuredClone(await composeBaselinePrefix(ctx, agent))
+      const reload = (): Promise<string[]> => agentEvents(ctx, agent).waterfall('agent/reload', { signal: testToolSignal }, () => Promise.resolve([]))
 
-      expect((await ctx.commands.execute(agent, '/reload', [], testToolSignal))?.result)
-        .toMatchObject({ kind: 'success', text: expect.stringContaining('Instructions: no changes.') })
+      expect(await reload()).toEqual(['Instructions: no changes.'])
       await write(join(home, 'AGENTS.md'), 'updated global rule')
-      const reloaded = await ctx.commands.execute(agent, '/reload', [], testToolSignal)
 
-      expect(reloaded?.result).toMatchObject({ kind: 'success', text: expect.stringContaining('$JAN_HOME/AGENTS.md updated') })
+      expect(await reload()).toEqual(['Instructions: $JAN_HOME/AGENTS.md updated.'])
       const pending = await agentInstructionsOf(agent)
       expect(pending.source).toMatchObject({ changes: [{ action: 'replace', scope: sk(USER_GLOBAL_DIRECTORY, USER_GLOBAL_FILE) }] })
       expect(blocksText(pending.content)).toContain('updated global rule')

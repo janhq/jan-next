@@ -30,6 +30,7 @@
   "license": "MIT",
   "peerDependencies": {
     "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-commands": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-skill": "workspace:*",
     "@janhq/jan-tools": "workspace:*",
@@ -42,6 +43,7 @@
   "devDependencies": {
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-agent-loop-testkit": "workspace:*",
+    "@janhq/jan-commands": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-scope": "workspace:*",
     "@janhq/jan-session": "workspace:*",
