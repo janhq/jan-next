@@ -169,13 +169,15 @@ export async function mountAgentSettings(ctx, config) {
     return { saved: true }
   }
   // Other Host plugins can import missing servers without passing credentials through an RPC.
+  const configuredNames = () => configuredServers.map(row => row?.name).filter(name => typeof name === 'string')
   ctx.provide('janMcpSettings', {
+    configuredNames,
     async importMissing(document) {
-      const existing = new Set(servers.map(row => row.name))
+      const existing = new Set(configuredNames())
       const entries = Object.entries(document)
       const rows = entries.filter(([name]) => !existing.has(name)).map(([name, value]) => importedServer(name, value))
       if (rows.length) await saveRows([...servers, ...rows])
-      return { imported: rows.length, already: entries.length - rows.length, names: entries.map(([name]) => name) }
+      return { imported: rows.length, already: entries.length - rows.length, names: entries.map(([name]) => name), added: rows.map(row => row.name) }
     },
   })
   const skill = async name => {

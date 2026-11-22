@@ -15,7 +15,6 @@ import clsx from 'clsx'
 import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import {
   HoverCard, IconArchiveOutlineRegular,
-  IconFolderCloseRegular, IconFolderOpenRegular,
   IconNewChatOutlineRegular, IconPinFillRegular,
   IconTriangleRightFillRegular, IconUnarchiveOutlineRegular, relativeTime, StateDot, Tooltip, useRowDragPreview,
 } from '@janhq/jan-client-ui-primitives'
@@ -24,6 +23,7 @@ import type { StateDotState } from '@janhq/jan-client-ui-primitives'
 import { abbreviateHomePath } from '@janhq/jan-util-workspace-path'
 import type { WorkspaceId } from '@janhq/jan-api-workspace-controller/client'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
+import { ProjectAvatar } from '../ProjectAvatar.tsx'
 import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
 import css from './Rows.module.css'
 
@@ -314,7 +314,7 @@ function ProjectRow({
       onDragEnd={() => { if (dragPreview.clear()) drag?.end() }}
     >
       <span className={clsx(css.slot, css.folder, active && css.folderActive)}>
-        {row.expanded ? <IconFolderOpenRegular /> : <IconFolderCloseRegular />}
+        <ProjectAvatar avatar={row.avatar} githubOwner={row.githubOwner} color={row.color} expanded={row.expanded} />
       </span>
       {onOpenProject === undefined
         ? (
@@ -533,7 +533,7 @@ export function SearchResultItem({
 }: {
   result: SearchResultNode
   currentId: string | undefined
-  onOpen: (id: SearchResultNode['id']) => void
+  onOpen: WorkspaceBrowserProps['open']
   onUnarchive: (id: SearchResultNode['id']) => void
   t: RowTranslate
 } & Pick<WorkspaceBrowserProps, 'useSessionAccess'>) {
@@ -547,7 +547,10 @@ export function SearchResultItem({
       role="treeitem"
       aria-selected={selected}
       aria-description={result.archived ? t('toast.archivedNotOpenable') : undefined}
-      onClick={() => { onOpen(result.id) }}
+      onClick={(event) => {
+        if (event.metaKey || event.ctrlKey) onOpen(result.id, { meta: event.metaKey, control: event.ctrlKey })
+        else onOpen(result.id)
+      }}
     >
       <span className={css.searchResultHeading}>
         {/* Like session rows, the leading slot owns every row marker; on
@@ -621,7 +624,7 @@ export function SessionNodeItem({
   node: SessionNode
   currentId: string | undefined
   now: number
-  onOpen: (id: SessionNode['id']) => void
+  onOpen: WorkspaceBrowserProps['open']
   /** Open the rename dialog from a title double-click (id + current title); see the function JSDoc for the press precondition. */
   onRenameRequest: (id: SessionNode['id'], currentTitle: string) => void
   /** Scroll this row into view after search navigation, then acknowledge it. */
@@ -684,7 +687,10 @@ export function SessionNodeItem({
       aria-description={row.archived ? t('toast.archivedNotOpenable') : undefined}
       tabIndex={0}
 
-      onClick={() => { onOpen(node.id) }}
+      onClick={(event) => {
+        if (!row.blank && (event.metaKey || event.ctrlKey)) onOpen(node.id, { meta: event.metaKey, control: event.ctrlKey })
+        else onOpen(node.id)
+      }}
       {...getTriggerProps(row.blank ? undefined : { kind: 'session', value: { sessionId: node.id, displayTitle: row.title } }, {
         onKeyDown: (event) => {
           if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return

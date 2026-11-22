@@ -10,11 +10,18 @@
   padding: 0 var(--jan-composer-side-clearance) 4px;
 }
 
+/* An anonymous size container (CSS modules hash container names per module),
+   so the row's extras can drop out before they collide in a narrow pane
+   (ConversationRoot `.heroOptions`, whose nearest container this is). Full
+   width, because an inline-size container cannot size to its content; the
+   items stay centered. */
 .dock {
+  container-type: inline-size;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
+  width: 100%;
   max-width: 100%;
   padding-top: 4px;
 }

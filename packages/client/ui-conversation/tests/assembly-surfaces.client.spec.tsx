@@ -145,7 +145,7 @@ describe('resident composer', () => {
     fireEvent.focus(textarea!)
     textarea!.textContent = 'hi'
     fireEvent.input(textarea!)
-    expect(openWorkspace).toHaveBeenCalledExactlyOnceWith(undefined, expect.any(Function))
+    expect(openWorkspace).toHaveBeenCalledExactlyOnceWith(undefined, expect.any(Function), { reuseBlank: false })
     await act(async () => { pending.resolve(undefined); await runtime.flush() })
     await waitFor(() => { expect(textarea!.getAttribute('contenteditable')).toBe('true') })
     expect(textarea!.textContent).toBe('hi')
@@ -236,14 +236,18 @@ describe('multitask conversation', () => {
     expect(view.getByText('已完成')).toBeTruthy()
     fireEvent.click(view.getByRole('button', { name: '返回原布局' }))
     expect(panes().map(pane => pane.getAttribute('data-conversation-session'))).toEqual([SID, second])
-    fireEvent.click(view.getByRole('button', { name: '关闭对话窗格' }))
+    const strips = view.getAllByRole('tablist', { name: '对话标签页' })
+    fireEvent.click(within(strips[1]!).getByRole('button', { name: '关闭对话标签页' }))
     expect(panes().map(pane => pane.getAttribute('data-conversation-session'))).toEqual([SID])
     expect(runtime.sessions.retainInfo(second).getSnapshot().referenceCount).toBe(0)
     await runtime.dispose()
   })
 
   it('waits for the catalog before acquiring a restored pane', async () => {
-    localStorage.setItem(MULTITASK_LAYOUT_KEY, JSON.stringify({ sessions: ['restored'], sizes: [0.6, 0.4] }))
+    localStorage.setItem(MULTITASK_LAYOUT_KEY, JSON.stringify({
+      root: { axis: 'row', sizes: [0.6, 0.4], children: [{ tabs: [SID], active: 0 }, { tabs: ['restored'], active: 0 }] },
+      active: 0,
+    }))
     const runtime = await bench({ listPending: true })
     const view = runtime.renderRoot()
     expect(view.container.querySelector('[data-slot-error="main"]')).toBeNull()

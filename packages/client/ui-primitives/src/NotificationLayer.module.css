@@ -38,20 +38,37 @@
 /* Only the front notice takes input until the reader fans the stack out. */
 .item:not(:last-child) * { pointer-events: none; }
 
-/* Hovering the pile lays every notice out in a column, newest at the bottom. */
-.layer:has(.item + .item):hover {
+/* Hovering the pile, or moving keyboard focus into it, lays every notice out
+   in a column, newest at the bottom. */
+.layer:has(.item + .item):focus-within {
   grid-auto-flow: row;
   gap: 8px;
 }
 
-.layer:has(.item + .item):hover > .item {
+.layer:has(.item + .item):focus-within > .item {
   grid-area: auto;
   translate: none;
   scale: none;
   opacity: 1;
 }
 
-.layer:hover > .item * { pointer-events: auto; }
+.layer:focus-within > .item * { pointer-events: auto; }
+
+@media (hover: hover) {
+  .layer:has(.item + .item):hover {
+    grid-auto-flow: row;
+    gap: 8px;
+  }
+
+  .layer:has(.item + .item):hover > .item {
+    grid-area: auto;
+    translate: none;
+    scale: none;
+    opacity: 1;
+  }
+
+  .layer:hover > .item * { pointer-events: auto; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .item { transition: none; }

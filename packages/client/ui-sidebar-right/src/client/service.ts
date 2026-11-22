@@ -89,11 +89,12 @@ interface SidebarRightSessions {
  * @param tabs - registered tab types.
  * @param pin - resource retention for an occurrence's lifetime.
  * @param host - the viewport rule and focus continuity the commands use.
- * @returns the controller; store adoption and scope removal; naming the on-screen Session; and recording a seat's room rule.
+ * @returns the controller; store adoption, idle release and scope removal; naming the on-screen Session; and recording a seat's room rule.
  */
 export function createSidebarRightController(tabs: SidebarRightTabRegistry, pin: PinResource, host: SidebarRightHost): {
   controller: SidebarRightController
   adopt: (sessionId: SessionId, store: SidebarRightSurfaceStore) => () => void
+  releaseIdle: (sessionId: SessionId, store: SidebarRightSurfaceStore) => boolean
   forget: (sessionId: SessionId) => void
   show: (sessionId: SessionId | undefined) => void
   measure: (sessionId: SessionId, canSplitPane: RoomRule) => void
@@ -104,12 +105,25 @@ export function createSidebarRightController(tabs: SidebarRightTabRegistry, pin:
   const inventory = new SidebarTabInventory()
   const flashes = new Map<SessionId, SnapshotStore<SidebarRightFlash | undefined>>()
   const controller = new SidebarRightController(tabs, pin, host, { adopted, rooms, onScreen, openTabs: inventory.source, flashes })
+  const forget = (sessionId: SessionId): void => {
+    inventory.remove(sessionId)
+    rooms.delete(sessionId)
+    flashes.delete(sessionId)
+  }
   return {
     controller,
-    forget: (sessionId) => {
-      inventory.remove(sessionId)
-      rooms.delete(sessionId)
-      flashes.delete(sessionId)
+    forget,
+    // The runtime dropped a Session's store. With no tabs it holds nothing
+    // worth keeping: its layout is saved and the next seat adopts a fresh store.
+    // With tabs, background tab actions keep using it.
+    releaseIdle: (sessionId, store) => {
+      const adoption = adopted.get(sessionId)
+      if (adoption?.store !== store || Object.keys(store.getSnapshot().bySession[sessionId]?.layout.tabs ?? {}).length > 0) return false
+      adoption.unsubscribe()
+      adopted.delete(sessionId)
+      controller.tabDomain.forget(sessionId)
+      forget(sessionId)
+      return true
     },
     show: (sessionId) => { if (onScreen.getSnapshot() !== sessionId) onScreen.set(sessionId) },
     measure: (sessionId, canSplitPane) => { rooms.set(sessionId, canSplitPane) },

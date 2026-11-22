@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "connector": { "url": "https://example.com/cursor", "headers": { "Authorization": "Bearer ${env:CURSOR_TOKEN}" } },
+    "workspace": { "command": "node", "args": ["${workspaceFolder}/mcp.js"] },
+    "unsafe-url": { "url": "https://example.com/mcp?key=cursor-url-token" }
+  }
+}

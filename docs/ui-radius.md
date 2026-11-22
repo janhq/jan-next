@@ -32,11 +32,13 @@ H means designed outer height in CSS pixels, including borders. R means CSS `bor
 | Standard control or single-line cell | H32–40; buttons, inputs, selects, navigation rows | R12 | `--dsw-radius-md` |
 | Large control or grouped content | Large buttons, deliberately multiline cells, nested form groups | R16 | `--dsw-radius-lg` |
 | Independent content card | Settings cards, message bubbles, guide entry cards | R20 | `--dsw-radius-xl` |
-| Main enclosing surface | Composer, dialogs, main or floating panels | R28 | `--dsw-radius-panel` |
+| Main enclosing surface | Composer, dialogs, main or floating panels | R28 (R24 under the Jan theme) | `--dsw-radius-panel` |
 
-Prefer an existing shared size variant when a proposed control falls between these bands. A taller card remains a card: do not promote it to R28 merely because it exceeds a button's height. A multiline cell intentionally designed for multiple lines uses R16; an ordinary button whose label wraps retains its button variant.
+The radius column gives the `ui-theme` defaults. The Jan theme overrides `--dsw-radius-panel` to 24 to match Mimi's composer in the [Jan design contract](../plugins/jan-theme/design/DESIGN.md#shape-and-space), so consume the token and never write the number.
 
-Concrete defaults: `Button` uses H28/R8 for `sm` and H36/R12 for `md`, including outline variants. Standard H32 inputs and H36 selectors use R12. The Workspace files and New terminal guide entries both use R20, including title-only and described variants. Reserve R28 for their enclosing panel or dialog, not those entries. Composer statistics and the context-occupancy trigger use compact-control R8 with the theme curve, including hover, expanded, and focus states.
+Prefer an existing shared size variant when a proposed control falls between these bands. A taller card remains a card: do not promote it to the panel radius merely because it exceeds a button's height. A multiline cell intentionally designed for multiple lines uses R16; an ordinary button whose label wraps retains its button variant.
+
+Concrete defaults: `Button` uses H28/R8 for `sm` and H36/R12 for `md`, including outline variants. Standard H32 inputs and H36 selectors use R12. The Workspace files and New terminal guide entries both use R20, including title-only and described variants. Reserve the panel radius for their enclosing panel or dialog, not those entries. Composer statistics and the context-occupancy trigger use compact-control R8 with the theme curve, including hover, expanded, and focus states.
 
 Code blocks, diffs, and preview cards share R16: changed-file entry cards, delivered-file cards, submitted-plan cards, created-task cards, generic file attachment cards before and after sending, and hover preview panels. The 40px icon tiles inside changed-file, delivery, submitted-plan, and created-task cards use R10 on all four corners as a component-specific exception and share the same neutral tile fill and border in both themes. Their hover fills keep the same contour.
 
@@ -86,7 +88,7 @@ For a split guide card, put the shared radius and clipping on the outer card; gi
 }
 ```
 
-The enclosing guide sets `--dsl-guide-entry-radius: var(--dsw-radius-xl)`. Do not give the inner buttons their own R28 ends while the outer card is R20.
+The enclosing guide sets `--dsl-guide-entry-radius: var(--dsw-radius-xl)`. Do not give the inner buttons their own panel-radius ends while the outer card is R20.
 
 <a id="settings-cards"></a>
 ## Settings card materials

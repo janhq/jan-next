@@ -193,49 +193,6 @@
   }
 }
 
-.sectionHeader {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  padding: 4px 7px 8px;
-}
-
-.sectionIcon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 14px;
-  height: 24px;
-  color: var(--dsw-alias-label-tertiary);
-}
-
-.sectionTitle {
-  flex: none;
-  margin: 0;
-  color: var(--dsw-alias-label-primary);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 24px;
-}
-
-.sectionProgress {
-  margin-inline-start: 4px;
-  flex: 1 1 auto;
-  min-width: 0;
-  padding-top: 2px;
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 13px;
-  line-height: 20px;
-  overflow-wrap: anywhere;
-}
-
-.sectionEmpty {
-  margin: 0;
-  padding: 0 7px 8px 28px;
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-}
-
 .node {
   position: relative;
   min-width: 0;

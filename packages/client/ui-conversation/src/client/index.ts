@@ -92,7 +92,7 @@ export type {
   ConversationSessionInjected, ConversationSessionSlotProps, ConversationSlotProps,
   ConversationViewActionEntry, ConversationViewActionsOwnerProps, ConversationViewsProps,
   ConversationWidthControlsInputProps, ConversationWidthControlsProps,
-  ConversationStore, ConvViewOwnerProps, ConvViewProps, EmptyWorkspaceOwnerProps,
+  ConversationStore, ConvViewOwnerProps, ConvViewProps, EmptyWorkspaceOwnerProps, ConversationNewTabItemOwnerProps,
   ComposerAgentPresetOwnerProps, HeroAgentPresetOwnerProps, HeroBrandMarkOwnerProps, HeroFrameOwnerProps, InputControlOwnerProps, InputZone,
   MessageImageLabels, MessageImageLoader, MessageImageSource, MessageImagesContentInput, MessageImagesOwnerProps, UseConversation,
   UserTextInput, UserTextInjected, UserTextNodeOwnerProps, UserTextNodeProps,

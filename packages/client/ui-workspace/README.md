@@ -47,6 +47,14 @@ Hierarchy uses registered canonical paths only. It does not scan for projects or
 
 On devices without hover, expanded Workspace rows keep their menu and New Session controls visible, and archived search results keep the Unarchive control visible.
 
+Open **Project actions** on a project row and choose **Edit project...** to change its name, accent color, or avatar, then check the preview and choose **Save**. Escape or **Cancel** discards the draft; **Reset** returns the draft to the default color and the automatic avatar. The avatar has three tabs:
+
+- **Avatar**: **Use GitHub avatar** picks the automatic avatar, the GitHub picture of the owner of the folder's `origin` remote. GitHub serves one for every account, so it appears even without a custom image. **Upload image** center-crops a PNG, JPEG, WebP or GIF to a 64px PNG. A website such as `example.com` plus **Favicon** loads that site's icon through DuckDuckGo's icon service; a pasted address is reduced to its host.
+- **Icon**: one of the built-in glyphs; the folder glyph opens with the project.
+- **Emoji**: one emoji.
+
+The sidebar, the Workspace picker and the Jan theme's project page title use the saved appearance; `ProjectAvatar` is exported for that title, which draws it at 32px and opens the same editor when clicked. A project with no saved avatar shows its GitHub owner's picture, or the folder glyph outside a GitHub checkout. A picture that fails to load, for example offline, falls back to the folder glyph, or a globe for a favicon. The editor is available only to callers with `workspace/update` access.
+
 ### Search
 
 The search shortcut expands a closed sidebar, including a drawer that retains its wide content, before focusing the search field.
@@ -82,6 +90,8 @@ Grouped and flat Session rows show a clock mark when the Session has active sche
 Workspace headers share one `workspace` context-menu target, declared by this package, between right-click and the ellipsis. Rename and Delete use the existing confirmation dialogs and recheck Workspace existence and access before opening; native directory reveal is contributed by [ui-open-in-app](../ui-open-in-app/README.md). The menu remains available for native and plugin actions when mutation permissions are absent. Opening it changes neither expansion nor Session selection.
 
 Session rows share their existing action contributions between right-click and the ellipsis trigger through [ui-context-menu](../ui-context-menu/README.md). The captured Session stays the target without changing selection; `sidebar.workspaces.session.menu.item` remains the component extension position. The shipped groups are Pin, Rename, Fork; Copy session ID and the optional native directory reveal; then Archive, with separators before Copy session ID and Archive.
+
+When Conversation provides a tab opener, Command-click on macOS or Control-click elsewhere opens a sidebar Session in a separate tab. Without that contribution, the row navigates normally. Secondary Desktop windows use independent persisted Session selections; a moved chat seeds only a new window.
 
 -----
 

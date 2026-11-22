@@ -258,7 +258,8 @@ describe('Definition-owned Chat process groups', () => {
     }
     h.builder.apply({ upserts: [settled], timeline })
     h.commit()
-    expect(source.getSnapshot()?.data.summary).toEqual({ counts: [{ kind, count: 1 }], running: undefined, runningDetail: '' })
+    // The step spans its call's dispatch (2) to its result (3).
+    expect(source.getSnapshot()?.data.summary).toEqual({ counts: [{ kind, count: 1 }], running: undefined, runningDetail: '', durationMs: 1 })
   })
 
   it.each(['process', 'turn', 'input'] as const)('ends the group at a Node declared at %s, whatever its kind', (position) => {

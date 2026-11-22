@@ -8,6 +8,8 @@ import { SidebarTabInventory } from '../src/client/tab-inventory.ts'
 const session = 'session'
 const key = `${sidebarPersistence}.${session}`
 const empty = createSurface()
+/** Nothing open but expanded, so storage keeps it. */
+const other = { ...empty, layout: { ...empty.layout, expanded: true } }
 const tab = { id: 'tab2', kind: 'terminal', contentId: 'sidebar://terminal/unique', title: 'Terminal' }
 const pane = { id: 'pane1', kind: 'pane', host: 'dock', tabs: ['tab2'], activeTabId: 'tab2' }
 const layout = { ...empty.layout, nodes: { pane1: pane }, tabs: { tab2: tab } }
@@ -53,10 +55,10 @@ it.each([
   ['empty floating pane', { minted: 3, layout: { ...empty.layout, floats: ['float3'], nodes: { ...empty.layout.nodes, float3: { ...otherPane, id: 'float3', host: 'float', rect: { x: 0, y: 0, width: 100, height: 100 } } } } }],
 ] as const)('discards %s without affecting another Session', (_name, invalid) => {
   localStorage.setItem(key, JSON.stringify({ bySession: { [session]: invalid } }))
-  writeSidebarLayout('other', empty)
+  writeSidebarLayout('other', other)
   expect(createSidebarRightStore(() => ({ kind: 'guide', title: 'Start' })).create(session).getSnapshot()).toEqual({ bySession: {} })
   expect(localStorage.getItem(key)).toBeNull()
-  expect(readSidebarLayout('other')).toEqual(empty)
+  expect(readSidebarLayout('other')).toEqual(other)
   expect(new SidebarTabInventory().source.getSnapshot()).toEqual([])
 })
 

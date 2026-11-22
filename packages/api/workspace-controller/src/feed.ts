@@ -14,6 +14,7 @@ import type {
   WorkspaceFollowFrame,
   WorkspaceView,
 } from './types.ts'
+import { githubOwnerOf } from './github-owner.ts'
 
 /** The frames the feed produces: every follow frame except `replace`, which only access filtering sends. */
 type WorkspaceFeedFrame = Exclude<WorkspaceFollowFrame, { readonly type: 'replace' }>
@@ -30,6 +31,9 @@ export function workspaceView(workspace: Workspace, defaultId: Workspace['id'] |
     ...(workspace.id === defaultId ? { isDefault: true } : {}),
     path: workspace.path,
     title: workspace.title,
+    ...(workspace.color === undefined ? {} : { color: workspace.color }),
+    ...(workspace.avatar === undefined ? {} : { avatar: { ...workspace.avatar } }),
+    ...withGithubOwner(workspace.path),
     sessionIds: [...workspace.sessionIds],
     createdAt: workspace.createdAt,
     updatedAt: workspace.updatedAt,
@@ -43,10 +47,18 @@ function changedWorkspaceView(workspaceId: string, value: unknown, defaultId: Wo
     ...(workspaceId === defaultId ? { isDefault: true } : {}),
     path: record.path,
     title: record.title,
+    ...(record.color === undefined ? {} : { color: record.color }),
+    ...(record.avatar === undefined ? {} : { avatar: record.avatar }),
+    ...withGithubOwner(record.path),
     sessionIds: [...record.sessionIds],
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   }
+}
+
+function withGithubOwner(path: string): { githubOwner?: string } {
+  const githubOwner = githubOwnerOf(path)
+  return githubOwner === undefined ? {} : { githubOwner }
 }
 
 /** Owns Workspace domain observation and all active follow generations. */

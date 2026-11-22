@@ -19,7 +19,7 @@ import clsx from 'clsx'
 import { WorkspaceDialogs } from './WorkspaceDialogs.tsx'
 import {
   AnimatedRows, HoverCardGroup, IconArchiveCheckOutlineRegular, IconArchiveOffOutlineRegular, IconArchiveOutlineRegular,
-  IconChevronsUpDownOutlineRegular, IconClockOutlineRegular, IconCloseFillRegular,
+  IconChevronDownOutlineRegular, IconChevronsUpDownOutlineRegular, IconChevronUpOutlineRegular, IconClockOutlineRegular, IconCloseFillRegular,
   IconFlatListOutlineRegular, IconFolderCloseRegular, IconProjectAddOutlineRegular,
   IconQueueOutlineRegular, IconSearchOutlineRegular, IconSlidersTwoOutlineRegular,
   IconWorkspaceTreeOutlineRegular, Menu, Tooltip,
@@ -41,6 +41,7 @@ import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './Rows.tsx'
 import { FLAT_SESSION_ORDER_KEY, type SessionGroupBy } from '../stores.ts'
 import { WorkspacePickFlow } from '../WorkspacePicker.tsx'
 import { FolderDrop } from './FolderDrop.tsx'
+import { ProjectIdentityDialog } from './ProjectIdentityDialog.tsx'
 import css from './WorkspaceBrowser.module.css'
 
 /**
@@ -659,9 +660,14 @@ function SessionTree({
               setWatermarkMotionKey(key => key + 1)
             }}
           >
-            {sessionsExpanded
-              ? t('sessions.collapse')
-              : t('sessions.expand', { n: visible.hiddenCount })}
+            <span className={css.sessionOverflowSlot} aria-hidden>
+              {sessionsExpanded ? <IconChevronUpOutlineRegular size={12} /> : <IconChevronDownOutlineRegular size={12} />}
+            </span>
+            <span className={css.sessionOverflowLabel}>
+              {sessionsExpanded
+                ? t('sessions.collapse')
+                : t('sessions.expand', { n: visible.hiddenCount })}
+            </span>
           </button>
         )}
       </div>
@@ -927,6 +933,7 @@ export function WorkspaceBrowser({
   requestSessionRename,
   notifyArchivedNotOpenable,
   renameWorkspace, useWorkspaceActionRequest, settleWorkspaceAction,
+  updateWorkspaceIdentity, shortcutPlatform,
   deleteWorkspace,
   insertWorkspaceBefore,
   unarchiveSession,
@@ -986,12 +993,13 @@ export function WorkspaceBrowser({
   const sessionOrderByAccount = useStore(s => s.sessionOrderByAccount)
   // Archived sessions are not openable: the row stays visible under the
   // filter but a click explains instead of navigating.
-  const guardedOpen = (sessionId: SessionId): void => {
+  const guardedOpen: WorkspaceBrowserProps['open'] = (sessionId, modifiers) => {
     if (archivedSessionIds.includes(sessionId)) {
       notifyArchivedNotOpenable()
       return
     }
-    open(sessionId)
+    if (modifiers === undefined) open(sessionId)
+    else open(sessionId, modifiers)
   }
   const leaveArchivedOnly = (): void => { actions.setArchivedFilter('default') }
   const workspaceReady = workspacePhase === 'ready' && workspaceStreamState !== 'loading'
@@ -1142,7 +1150,7 @@ export function WorkspaceBrowser({
   const primaryActions = usePrimaryActions(value => value)
   const workspaceActionRequest = useWorkspaceActionRequest(value => value)
 
-  const openSearchResult = (sessionId: SessionId): void => {
+  const openSearchResult: WorkspaceBrowserProps['open'] = (sessionId, modifiers) => {
     if (archivedSessionIds.includes(sessionId)) {
       notifyArchivedNotOpenable()
       return
@@ -1150,7 +1158,8 @@ export function WorkspaceBrowser({
     setRevealSessionId(sessionId)
     setQuery('')
     changeSearchExpanded(false)
-    open(sessionId)
+    if (modifiers === undefined) open(sessionId)
+    else open(sessionId, modifiers)
   }
   const acknowledgeSessionReveal = (sessionId: SessionId): void => {
     setRevealSessionId(current => current === sessionId ? undefined : current)
@@ -1474,9 +1483,24 @@ export function WorkspaceBrowser({
             ))}
       </div>
 
-      {workspaceActionRequest !== null && <WorkspaceDialogs key={`${workspaceActionRequest.action}/${workspaceActionRequest.workspaceId}`}
-        request={workspaceActionRequest} workspaces={workspaces} renameWorkspace={renameWorkspace} deleteWorkspace={deleteWorkspace}
-        settleWorkspaceAction={settleWorkspaceAction} t={t} />}
+      {workspaceActionRequest?.action === 'update' ? (
+        <ProjectIdentityEditor
+          key={workspaceActionRequest.workspaceId}
+          request={workspaceActionRequest} workspaces={storedWorkspaces}
+          updateWorkspaceIdentity={updateWorkspaceIdentity} shortcutPlatform={shortcutPlatform}
+          settleWorkspaceAction={settleWorkspaceAction} t={t}
+        />
+      ) : workspaceActionRequest !== null && (
+        <WorkspaceDialogs key={`${workspaceActionRequest.action}/${workspaceActionRequest.workspaceId}`}
+          request={workspaceActionRequest} workspaces={workspaces} renameWorkspace={renameWorkspace} deleteWorkspace={deleteWorkspace}
+          settleWorkspaceAction={settleWorkspaceAction} t={t} />
+      )}
     </div>
   )
+}
+
+function ProjectIdentityEditor(props: Omit<Parameters<typeof ProjectIdentityDialog>[0], 'workspace'>) {
+  const workspace = props.workspaces.find(row => row.workspaceId === props.request.workspaceId)
+  if (workspace === undefined) return null
+  return <ProjectIdentityDialog {...props} workspace={workspace} />
 }

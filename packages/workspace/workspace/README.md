@@ -118,6 +118,8 @@ Archive admission is a capability seam over two Host events this package declare
 
 The registry opens the `workspace` domain (version 2): a `workspaces` table keyed by `WorkspaceId` plus one global state holding `workspaceIds` (the authoritative display order), `archivedSessionIds`, `pinnedSessionIds`, the optional active `defaultWorkspaceId`, and the optional `pendingMutation` marker. Archive and pin sets contain Session id strings, default to empty, and carry no per-entry objects or timestamps; the pin array keeps the most recently pinned id first. Archiving clears the pin in the same global-state write without changing Workspace membership. Unarchive runs no session-existence probe, because dropping an id from the set cannot introduce an unknown one, while archive verifies the session before adding it.
 
+Workspace records may also hold a named `color` and an `avatar`: a curated icon name, one Unicode emoji, an uploaded picture as a base64 PNG `data:` URL of at most 64 KiB, or a website host whose favicon the Client shows. Both fields are optional additions to the version 2 record; existing rows need no migration, and a record without an avatar keeps the automatic one. `workspaceRegistry.updateIdentity` applies the title and appearance together without replacing the registration or changing its membership.
+
 ### Lifecycle
 
 On start, the registry opens the domain, completes a marked mutation if one is pending, validates stored state — duplicate paths, duplicate session accounts, and order drift all fail loud — and, when not yet initialized, bootstraps history from persisted headers before writing the initialized marker last, so an interrupted bootstrap resumes safely. A fresh empty registry is real once initialized; it never re-bootstraps.

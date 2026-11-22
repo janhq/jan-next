@@ -11,7 +11,6 @@ const BUILT_IN = {
 }
 // Engines that run models on this machine; their models are not routes.
 const LOCAL = new Set(['llamacpp', 'mlx'])
-const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const missing = error => error?.code === 'ENOENT'
 const httpUrl = value => {
   try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch { return false }
@@ -78,34 +77,6 @@ export function providerProfile(row, ref) {
   const key = ref === undefined ? {} : { apiKeyEnv: ref }
   if (row.catalog) return key
   return { displayName: row.id, api: 'openai-completions', baseURL: row.baseURL, ...key, models: row.models }
-}
-
-// The MCP fields jan-next's server editor accepts; Jan's `active` and
-// `description` have no place there.
-const MCP_FIELDS = ['command', 'args', 'env', 'cwd', 'url', 'headers', 'type', 'transport']
-
-/**
- * Normalize Jan's MCP server names and settings for Host import. The returned
- * server definitions can contain credentials and must not be returned over RPC.
- * @param {object} config - Jan's parsed mcp_config.json.
- * @returns {{ servers: Record<string, object>, renamed: Record<string, string>, skipped: { sourceName: string, reason: string }[] }}
- */
-export function janMcpServers(config) {
-  const servers = Object.create(null)
-  const renamed = Object.create(null)
-  const skipped = []
-  for (const [sourceName, value] of Object.entries(plain(config?.mcpServers) ? config.mcpServers : {})) {
-    if (!plain(value)) { skipped.push({ sourceName, reason: 'not a server entry' }); continue }
-    const type = value.transport ?? value.type
-    if (type && !['stdio', 'http', 'streamable-http'].includes(type)) { skipped.push({ sourceName, reason: 'unsupported transport' }); continue }
-    if (JSON.stringify(value).includes('${')) { skipped.push({ sourceName, reason: 'uses ${...} placeholders; add it by hand with real values' }); continue }
-    const base = sourceName.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32) || 'server'
-    let name = base
-    for (let index = 2; Object.hasOwn(servers, name); index++) name = `${base.slice(0, 32 - String(index).length - 1)}-${index}`
-    servers[name] = Object.fromEntries(MCP_FIELDS.filter(field => value[field] !== undefined).map(field => [field, value[field]]))
-    if (name !== sourceName) renamed[name] = sourceName
-  }
-  return { servers, renamed, skipped }
 }
 
 // Jan's shipped default assistant prompt. One bullet in it, asking the model to
@@ -178,18 +149,6 @@ export function derivePreset(base, record) {
 
 const readJson = async path => {
   try { return JSON.parse(await readFile(path, 'utf8')) } catch (error) { if (missing(error)) return undefined; throw error }
-}
-
-/**
- * Read Jan's MCP server settings, including credentials, for use on the Host.
- * @param {string} folder - Jan's data folder.
- * @returns {Promise<ReturnType<typeof janMcpServers>>}
- */
-export async function readJanMcpServers(folder) {
-  let config
-  try { config = await readJson(join(folder, 'mcp_config.json')) }
-  catch { throw new Error('Could not read Jan’s MCP configuration. Check mcp_config.json and try again.') }
-  return janMcpServers(config)
 }
 
 /**

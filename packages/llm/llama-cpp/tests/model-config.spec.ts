@@ -14,11 +14,18 @@ const cleanups: Array<() => Promise<unknown>> = []
 afterEach(async () => { while (cleanups.length) await cleanups.pop()!() })
 
 describe('GGUF facts', () => {
-  it('records architecture, trained context, chat template, quantization and KV dimensions', () => {
+  it('records architecture, trained context, chat template, tool support, quantization and KV dimensions', () => {
     expect(modelFacts(chatModel(40960))).toEqual({
-      architecture: 'qwen3', contextLength: 40960, hasChatTemplate: true, expertCount: 0, fileType: 'Q4_K_M',
+      architecture: 'qwen3', contextLength: 40960, hasChatTemplate: true, toolCalls: true, expertCount: 0, fileType: 'Q4_K_M',
       kvElementsPerToken: 28 * 8 * (128 + 128),
     })
+  })
+
+  it('records no tool support for a template that never reads tools, or no template at all', () => {
+    // The worker cannot declare tools to such a model; the route reports `toolUse: false` for it.
+    expect(modelFacts({ ...chatModel(4096), 'tokenizer.chat_template': '{% for m in messages %}{{ m.content }}{% endfor %}' }).toolCalls).toBe(false)
+    const { 'tokenizer.chat_template': _template, ...bare } = chatModel(4096)
+    expect(modelFacts(bare)).toMatchObject({ hasChatTemplate: false, toolCalls: false })
   })
 
   it('derives head dimensions from the embedding length when the file omits them, and reads per-layer arrays', () => {

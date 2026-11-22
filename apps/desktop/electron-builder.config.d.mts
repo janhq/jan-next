@@ -24,6 +24,7 @@ export interface DesktopElectronBuilderConfig {
   readonly mac: {
     readonly extendInfo: {
       readonly CFBundleLocalizations: readonly string[]
+      readonly NSCameraUsageDescription: string
       readonly NSMicrophoneUsageDescription: string
     }
     readonly entitlements: string

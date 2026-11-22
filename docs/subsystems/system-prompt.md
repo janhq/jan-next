@@ -196,7 +196,7 @@ refreshContext(assembly: PromptAssembly, context: AssembleContext = {}): PromptA
  * canonical ordering, then run the presentation waterfall. Scoped sections
  * and variables shadow globals. The waterfall's text is authoritative except
  * that an effective complete section is restored afterwards as the sole
- * prompt section; tool declarations stay provider-owned.
+ * prompt section, plus the registered sections it keeps; tool declarations stay provider-owned.
  * @param context - the optional scope, step tool set, and plugin-defined assembly fields.
  * @returns the post-waterfall assembly with ordered tool declarations and any complete prompt enforced.
  */

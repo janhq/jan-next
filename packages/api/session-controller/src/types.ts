@@ -119,6 +119,8 @@ export interface ModelCatalogModel {
   readonly contextWindow?: number
   /** Whether the route reads image input; absent when the route does not declare its input modalities. */
   readonly imageInput?: boolean
+  /** Whether the model calls tools; `false` when the route declares it cannot, absent when unknown. */
+  readonly toolUse?: boolean
 }
 
 /** One provider and its successfully loaded model catalog. */

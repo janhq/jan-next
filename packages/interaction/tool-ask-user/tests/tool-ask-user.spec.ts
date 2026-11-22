@@ -143,6 +143,50 @@ describe('ask_user_question tool', () => {
     expect(JSON.stringify(ctx.tools.schemas().find(tool => tool.name === 'ask_user_question'))).toContain('Wait seconds for the entire batch (default 120)')
   })
 
+  it.each([0, 60])('uses the live user preference (%ss) and marks automatic results for the model', async (seconds) => {
+    const ctx = await setup({ mode: 'auto' })
+    ctx.provide('userQuestionSettings', { autoAnswerSeconds: () => seconds })
+    const agent = stubAgent('ask-user-preference')
+    ctx.agents.enter(agent)
+    const received = vi.fn(async (_request: AskUserQuestionRequest) => ({
+      answers: [{ id: 'style', selected: ['Concise (Recommended)'] }, { id: 'other', selected: [] }],
+      ...seconds > 0 ? { autoSubmitted: true as const } : {},
+    }))
+    registerQuestionAnswerer(ctx, { ask: received })
+    try {
+      const result = await executeToolFixture(ctx, {
+        signal: testToolSignal,
+        callId: ToolCallId('ask-user-preference'),
+        name: 'ask_user_question',
+        arguments: { questions: [{ id: 'style', question: 'Which style?' }, { id: 'other', question: 'Anything else?' }] },
+        agent,
+      })
+      expect(received.mock.calls[0]?.[0].wait).toEqual(seconds === 0 ? undefined : {
+        callId: 'ask-user-preference', timed: true, autoSubmit: true,
+      })
+      expect(result.isError).toBe(false)
+      const block = result.content[0]
+      expect(block?.type).toBe('text')
+      if (block?.type !== 'text') throw new Error('expected the tool result text')
+      expect(JSON.parse(block.text)).toEqual({
+        answers: [{ id: 'style', selected: ['Concise (Recommended)'] }, { id: 'other', selected: [] }],
+        ...seconds > 0 ? { autoSubmitted: true, message: expect.stringMatching(/automatically submitted.*timeout.*not.*permission/i) } : {},
+      })
+      const recorded = foldUserQuestions([
+        headerEvent(0, ctx.tools.schemas()),
+        askedEvent(1, 'ask-user-preference', '{"questions":[{"id":"style","question":"Which style?"},{"id":"other","question":"Anything else?"}]}'),
+        resultedEvent(2, 'ask-user-preference', block.text),
+      ])
+      expect(recorded.active).toEqual([])
+      expect(recorded.settled).toEqual([{
+        callId: 'ask-user-preference',
+        answers: [{ id: 'style', selected: ['Concise (Recommended)'] }, { id: 'other', selected: [] }],
+      }])
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
   it('returns the answer batch when the Client answers inside the configured wait', async () => {
     const ctx = await setup({ mode: 'timed', timeout: 30 })
     registerQuestionAnswerer(ctx, {

@@ -1,7 +1,7 @@
 /** Test-owned workspaces face: the renderer standard-kit observable plus recorded actions. */
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import type {
-  IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
+  IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceUpdateRequest, WorkspaceView,
 } from '@janhq/jan-api-workspace-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { SnapshotStore } from '@janhq/jan-client-store'
@@ -103,6 +103,28 @@ export class TestWorkspaces implements IWorkspaces {
     const stub = this.stubs.get('rename')
     if (stub !== undefined) return await (stub(workspaceId, title) as Promise<WorkspaceView>)
     return { workspaceId, title, path: `/${title}`, sessionIds: [] } as unknown as WorkspaceView
+  }
+
+  /**
+   * Record a project identity edit and echo the result, without changing the fixture feed.
+   * @param request - target workspace and changed identity fields.
+   * @returns the resulting Workspace view.
+   */
+  async updateIdentity(request: WorkspaceUpdateRequest): Promise<WorkspaceView> {
+    this.calls.push({ method: 'updateIdentity', args: [request] })
+    const stub = this.stubs.get('updateIdentity')
+    if (stub !== undefined) return await (stub(request) as Promise<WorkspaceView>)
+    const workspace = this.list.getSnapshot().items.find(row => row.workspaceId === request.workspaceId)
+    if (workspace === undefined) throw new Error(`Unknown fixture Workspace ${request.workspaceId}`)
+    const { color, avatar, ...rest } = workspace
+    const nextColor = request.color === undefined ? color : request.color
+    const nextAvatar = request.avatar === undefined ? avatar : request.avatar
+    return {
+      ...rest,
+      title: request.title ?? workspace.title,
+      ...(nextColor == null ? {} : { color: nextColor }),
+      ...(nextAvatar == null ? {} : { avatar: nextAvatar }),
+    }
   }
 
   /**

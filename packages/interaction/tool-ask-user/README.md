@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-`ask_user_question` asks the user for confirmation, a choice, or missing information. It waits for an answer by default. With `mode: timed`, a deadline can release the model to continue independent work while the question stays answerable; `timeout: -1` waits indefinitely. A live child agent cannot call the tool. Callers provide the answer UI.
+`ask_user_question` asks the user for confirmation, a choice, or missing information. It waits for an answer by default. Web presets that use `mode: auto` can automatically submit recommended choices at the user's chosen deadline. With `mode: timed`, a deadline instead releases the model to continue independent work while the question stays answerable. A live child agent cannot call the tool. Callers provide the answer UI.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ kind: "package-reference"
 
 Compose this plugin with `ctx.userQuestions` when the model needs a user decision. Without an answerer, blocking calls fail; finite timed calls return pending at their deadline.
 
-Shipped presets use blocking mode. To enable timed mode, set `mode: timed` on the `tool-ask-user` row in the active preset's `config.plugins` list:
+The shipped Standard, PTC, and Cordis Web presets use `mode: auto`. With **Settings > Agent loop > Answer questions automatically after** set to Off, the tool waits without a countdown. With a duration set, a connected question card submits its answers at expiry unless the user edits an answer or chooses Take time. The SDK retains blocking mode. To configure a model-adjustable wait that returns pending rather than submitting the card, set `mode: timed` on the `tool-ask-user` row in the active preset's `config.plugins` list:
 
 ```yaml
 - id: tool-ask-user
@@ -63,6 +63,8 @@ An answer returns one item per question. `selected` holds option labels; `custom
 
 For a finite timed call, `{ "pending": true, "callId": "…" }` means the foreground wait ended without an answer. The question remains answerable, and the model may continue independent work. A later answer arrives as a user message identified by `kind`, `tool`, and `callId`. Web chat pairs its questions and answers; other consumers receive compact JSON text.
 
+For an automatic submission, the result carries `autoSubmitted: true` and a message explaining that unanswered questions took their recommendations or were skipped. This is not permission from the user. If no Client claims the foreground wait, the tool instead returns pending.
+
 ```json
 { "answers": [{ "id": "cleanup", "selected": ["Yes, delete them (Recommended)"] }] }
 ```
@@ -90,7 +92,7 @@ The observable behavior is covered in [Use this package](#use-this-package); thi
 
 ### Consumer role
 
-The plugin registers one tool definition. Legacy mode calls `ask()`; timed mode calls `askTimed()` for positive timeouts and `ask()` for `-1`. Both forward the calling agent and turn signal to `ctx.userQuestions`. Timed requests include the tool call id in `wait`, so a Client can reopen their card. The projection identifies timed native calls from the `timeout` field in the recorded tool schema, even when a call omits that argument.
+The plugin registers one tool definition. Legacy mode calls `ask()`. Auto mode reads the current Host preference per call, calls `ask()` when Off, and otherwise calls `askTimed()` with automatic submission enabled. Timed mode calls `askTimed()` for positive timeouts and `ask()` for `-1`. All modes forward the calling agent and turn signal to `ctx.userQuestions`. Timed requests include the tool call id in `wait`, so a Client can reopen their card. The projection identifies tracked native calls from their recorded tool schema.
 
 ### Result rendering
 
@@ -119,7 +121,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 #### What the model sees
 
-The shipped presets expose the original blocking [`ask_user_question` schema](../../../docs/tool-catalog.md#janhqjan-tool-ask-user). A custom Cordis row with `mode: timed` switches to the alternate schema, including question ids, prompts, headings, options, multi-select flags, `timeout`, and the pending result; the model sees only the selected definition.
+The shipped Web presets that include the tool expose its questions without a model-editable timeout. The duration comes from the user's settings. A custom Cordis row with `mode: timed` instead includes the model-facing `timeout` parameter and can return a pending result. The model sees only the definition selected by the preset.
 
 #### Token effect
 
@@ -133,7 +135,7 @@ Prefix-stable while the definition and visibility are unchanged. Plugin lifecycl
 
 #### What the model sees
 
-The assistant tool call retains the questions. An answer during the wait appears in the next step as compact `{"answers":[{"id":"<id>","selected":["<label>"],"custom":"<text>"}]}` JSON; unused `custom` is omitted. A timed-out call returns `{"pending":true,"callId":"<pending-call-id>","message":"<instruction>"}`. A later answer arrives as a user message with `kind: "answer_to_pending_question"`, `tool: "ask_user_question"`, the call id, the original questions, and the answers. UI activity before submission is not model context.
+The assistant tool call retains the questions. An answer appears in the next step as compact `{"answers":[{"id":"<id>","selected":["<label>"],"custom":"<text>"}]}` JSON; unused `custom` is omitted. When an enabled countdown submits the batch, the same result also contains `autoSubmitted: true` and an explanation. A wait that expires without a submission returns `{"pending":true,"callId":"<pending-call-id>","message":"<instruction>"}`. A later answer arrives as a user message with `kind: "answer_to_pending_question"`, `tool: "ask_user_question"`, the call id, the original questions, and the answers. UI activity before submission is not model context.
 
 #### Token effect
 

@@ -1,8 +1,22 @@
 /** Names, elapsed time, and provider usage shared by subagent roster surfaces. */
 import type { SessionProjectionMap, SessionSummary } from '@janhq/jan-api-session-controller/client'
-import type { SubagentCatalogEntry } from '@janhq/jan-subagent/client'
+import type { SubagentActivityEntry, SubagentCatalogEntry } from '@janhq/jan-subagent/client'
 import type { TranslateNS } from '@janhq/jan-client-ui-slots'
 import type { NS } from './locales.ts'
+
+/**
+ * Name one observed activity step.
+ * @param stage - projected step, absent before the first observation.
+ * @param t - subagent dictionary translator.
+ * @returns localized step label; tool calls carry only their safe tool name.
+ */
+export function stageLabel(stage: SubagentActivityEntry | undefined, t: TranslateNS<typeof NS>): string {
+  if (stage === undefined) return t('dock.stage.unavailable')
+  if (stage.kind === 'calling-tool') {
+    return stage.tool === null ? t('dock.stage.calling-tool') : t('dock.stage.named-tool', { tool: stage.tool })
+  }
+  return t(`dock.stage.${stage.kind}`)
+}
 
 /**
  * Format a token count compactly.

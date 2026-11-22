@@ -49,6 +49,11 @@ export const zh = {
   'image.unreadable': '{model} 无法读取图片。请移除图片，或换用能读取图片的模型。',
   'image.unreadableNone': '{model} 无法读取图片。请移除图片，或在设置中添加能读取图片的模型。',
   'image.useModel': '改用 {model}',
+  'tools.unusable': '{model} 无法使用工具',
+  'tools.hint': '换用能使用工具的模型来开始这个任务。',
+  'tools.hintNone': '从 Hub 下载能使用工具的模型，或在模型菜单中选择一个。',
+  'tools.useModel': '切换到 {model}',
+  'tools.dismiss': '关闭',
 } satisfies Record<string, string>
 
 /** The model namespace key union. */
@@ -95,6 +100,11 @@ export const en = {
   'image.unreadable': "{model} can't read images. Remove the image or switch to a model that can.",
   'image.unreadableNone': "{model} can't read images. Remove the image, or add a model that can in Settings.",
   'image.useModel': 'Use {model}',
+  'tools.unusable': "{model} can't use tools",
+  'tools.hint': 'Switch to a model that can use tools to start this task.',
+  'tools.hintNone': 'Download a model that can use tools from the Hub, or pick one in the model menu.',
+  'tools.useModel': 'Switch to {model}',
+  'tools.dismiss': 'Dismiss',
 } satisfies Record<ModelKey, string>
 
 /** Japanese copy, checked against the English keys. */
@@ -138,6 +148,11 @@ export const ja = {
   'image.unreadable': '{model} は画像を読み取れません。画像を削除するか、画像を読み取れるモデルに切り替えてください。',
   'image.unreadableNone': '{model} は画像を読み取れません。画像を削除するか、設定で画像を読み取れるモデルを追加してください。',
   'image.useModel': '{model} を使う',
+  'tools.unusable': '{model} はツールを使えません',
+  'tools.hint': 'このタスクを始めるには、ツールを使えるモデルに切り替えてください。',
+  'tools.hintNone': 'Hub からツールを使えるモデルをダウンロードするか、モデルメニューで選んでください。',
+  'tools.useModel': '{model} に切り替える',
+  'tools.dismiss': '閉じる',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -181,6 +196,11 @@ export const es = {
   'image.unreadable': '{model} no puede leer imágenes. Quite la imagen o cambie a un modelo que pueda.',
   'image.unreadableNone': '{model} no puede leer imágenes. Quite la imagen o añada en Ajustes un modelo que pueda.',
   'image.useModel': 'Usar {model}',
+  'tools.unusable': '{model} no puede usar herramientas',
+  'tools.hint': 'Cambie a un modelo que pueda usar herramientas para empezar esta tarea.',
+  'tools.hintNone': 'Descargue desde Hub un modelo que pueda usar herramientas, o elija uno en el menú de modelos.',
+  'tools.useModel': 'Cambiar a {model}',
+  'tools.dismiss': 'Descartar',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
@@ -224,6 +244,11 @@ export const fr = {
   'image.unreadable': '{model} ne peut pas lire les images. Retirez l’image ou passez à un modèle qui le peut.',
   'image.unreadableNone': '{model} ne peut pas lire les images. Retirez l’image ou ajoutez dans les Paramètres un modèle qui le peut.',
   'image.useModel': 'Utiliser {model}',
+  'tools.unusable': "{model} ne peut pas utiliser d'outils",
+  'tools.hint': 'Passez à un modèle capable d’utiliser des outils pour commencer cette tâche.',
+  'tools.hintNone': 'Téléchargez depuis le Hub un modèle capable d’utiliser des outils, ou choisissez-en un dans le menu des modèles.',
+  'tools.useModel': 'Passer à {model}',
+  'tools.dismiss': 'Ignorer',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
@@ -267,6 +292,11 @@ export const de = {
   'image.unreadable': '{model} kann keine Bilder lesen. Entfernen Sie das Bild oder wechseln Sie zu einem Modell, das es kann.',
   'image.unreadableNone': '{model} kann keine Bilder lesen. Entfernen Sie das Bild oder fügen Sie in den Einstellungen ein Modell hinzu, das es kann.',
   'image.useModel': '{model} verwenden',
+  'tools.unusable': '{model} kann keine Werkzeuge verwenden',
+  'tools.hint': 'Wechseln Sie zu einem Modell, das Werkzeuge verwenden kann, um diese Aufgabe zu starten.',
+  'tools.hintNone': 'Laden Sie im Hub ein Modell herunter, das Werkzeuge verwenden kann, oder wählen Sie eines im Modellmenü.',
+  'tools.useModel': 'Zu {model} wechseln',
+  'tools.dismiss': 'Schließen',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -310,6 +340,11 @@ export const ru = {
   'image.unreadable': '{model} не умеет читать изображения. Удалите изображение или переключитесь на модель, которая умеет.',
   'image.unreadableNone': '{model} не умеет читать изображения. Удалите изображение или добавьте в настройках модель, которая умеет.',
   'image.useModel': 'Использовать {model}',
+  'tools.unusable': '{model} не умеет использовать инструменты',
+  'tools.hint': 'Чтобы начать эту задачу, переключитесь на модель, которая умеет использовать инструменты.',
+  'tools.hintNone': 'Скачайте в Hub модель, которая умеет использовать инструменты, или выберите её в меню моделей.',
+  'tools.useModel': 'Переключиться на {model}',
+  'tools.dismiss': 'Закрыть',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -353,4 +388,9 @@ export const pt = {
   'image.unreadable': '{model} não consegue ler imagens. Remova a imagem ou mude para um modelo que consiga.',
   'image.unreadableNone': '{model} não consegue ler imagens. Remova a imagem ou adicione nas Configurações um modelo que consiga.',
   'image.useModel': 'Usar {model}',
+  'tools.unusable': '{model} não consegue usar ferramentas',
+  'tools.hint': 'Mude para um modelo que consiga usar ferramentas para começar esta tarefa.',
+  'tools.hintNone': 'Baixe no Hub um modelo que consiga usar ferramentas ou escolha um no menu de modelos.',
+  'tools.useModel': 'Mudar para {model}',
+  'tools.dismiss': 'Dispensar',
 } satisfies Record<keyof typeof en, string>

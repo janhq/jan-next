@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, onTestFinished } from 'vitest'
@@ -9,12 +9,21 @@ type Reply = { status: number; body: { error?: string; result?: unknown } }
 type Request = AsyncIterable<Buffer> & { method: 'POST'; headers: { 'content-type': string } }
 type Response = { writeHead(status: number): void; end(body: string): void }
 
-async function projectHome() {
+async function projectHome(events = [], inheritedEventCount = 0) {
   const root = await mkdtemp(join(tmpdir(), 'jan-project-home-'))
   onTestFinished(() => rm(root, { recursive: true, force: true }))
+  const settings = await mkdtemp(join(tmpdir(), 'jan-project-settings-'))
+  onTestFinished(() => rm(settings, { recursive: true, force: true }))
+  const workspace = { id: 'project', path: root, sessionIds: events.length === 0 ? [] : ['session'] }
+  let prompt
   let handler: ((req: Request, res: Response) => Promise<void>) | undefined
   mountProjectHome({
-    get: () => ({ get: (id: string) => id === 'project' ? { path: root } : undefined }),
+    get: (key: string) => ({
+      workspaceRegistry: { get: (id: string) => id === 'project' ? workspace : undefined, list: () => [workspace] },
+      janHomePath: (...segments: string[]) => join(settings, ...segments),
+      sessionQuery: { observeSession: async () => ({ events, inheritedEventCount, cursor: events.length - 1, source: 'live', [Symbol.dispose]() {} }) },
+    })[key],
+    inject: (_, callback) => callback({ systemPrompt: { context: section => { prompt = section.text } } }),
     effect: (register: () => void) => register(),
     webServer: { register: (route: { handler: typeof handler }) => { handler = route.handler } },
     connection: { requestRejection: () => undefined },
@@ -34,7 +43,7 @@ async function projectHome() {
     if (reply === undefined) throw new Error('Project home did not return a reply')
     return reply
   }
-  return { root, call }
+  return { root, call, context: () => prompt({ agent: { session: { header: { cwd: root }, id: 'session' } } }) }
 }
 
 it('adds a project file larger than the generic plugin request limit', async () => {
@@ -98,4 +107,65 @@ it('turns common remote forms into a web address and rejects the rest', () => {
   expect(repositoryOf('https://user:[PASSWORD_IN_URL]@github.com/janhq/jan')?.url).toBe('https://github.com/janhq/jan')
   expect(repositoryOf('/srv/git/local.git')).toBeNull()
   expect(repositoryOf('../sibling')).toBeNull()
+})
+
+it('previews HTML as source, and does not traverse outside the selected directory', async () => {
+  const { root, call } = await projectHome()
+  await mkdir(join(root, 'docs'))
+  await writeFile(join(root, 'docs', 'index.html'), '<p>example</p>')
+  expect((await call('browse', { parts: ['docs'] })).body.result).toMatchObject({ files: [{ name: 'index.html' }] })
+  expect((await call('preview', { parts: ['docs', 'index.html'] })).body.result).toMatchObject({ kind: 'code', lang: 'html', text: '<p>example</p>' })
+  expect((await call('preview', { parts: ['..', 'index.html'] })).status).toBe(400)
+})
+
+it.skipIf(process.platform === 'win32')('never previews a symlink to an unlinked folder', async () => {
+  const { root, call } = await projectHome()
+  await symlink(tmpdir(), join(root, 'outside'))
+  expect((await call('browse', { parts: ['outside'] })).status).toBe(400)
+})
+
+it('persists linked folders and identity; unlinking revokes browsing and removes the agent hint', async () => {
+  const { root, call, context } = await projectHome()
+  const linked = await mkdtemp(join(tmpdir(), 'jan-linked-folder-'))
+  onTestFinished(() => rm(linked, { recursive: true, force: true }))
+  await writeFile(join(linked, 'notes.md'), '# Linked')
+  expect((await call('linkFolder', { path: linked })).status).toBe(200)
+  expect((await call('linkFolder', { path: root })).status).toBe(400)
+  expect((await call('saveIdentity', { name: 'Research', color: '#596cbc', icon: { kind: 'emoji', value: '🦊' } })).status).toBe(200)
+  const stored = (await call('read')).body.result as { linkedFolders: { id: string; path: string }[] }
+  expect(stored).toMatchObject({ identity: { name: 'Research', color: '#596cbc', icon: { kind: 'emoji', value: '🦊' } }, linkedFolders: [{ path: expect.stringContaining('jan-linked-folder-') }] })
+  const folderId = stored.linkedFolders[0]!.id
+  expect((await call('preview', { folderId, parts: ['notes.md'] })).body.result).toMatchObject({ kind: 'markdown', text: '# Linked' })
+  expect(context()).toContain(stored.linkedFolders[0]!.path)
+  expect((await call('unlinkFolder', { folderId })).status).toBe(200)
+  expect((await call('browse', { folderId, parts: [] })).status).toBe(400)
+  expect(context()).toBe('')
+})
+
+it('lists configured names and source paths without returning MCP secrets', async () => {
+  const { root, call } = await projectHome()
+  await mkdir(join(root, '.vscode'))
+  await writeFile(join(root, '.vscode', 'mcp.json'), '{ "servers": { "example": { "command": "secret" } }, }')
+  await writeFile(join(root, 'package.json'), JSON.stringify({ jan: { profile: { bundles: ['my-plugin'] } } }))
+  const { body } = await call('read')
+  expect(body.result).toMatchObject({ inventory: {
+    mcp: [{ name: 'example', path: join(root, '.vscode', 'mcp.json'), loaded: false }],
+    plugins: [{ name: 'my-plugin', path: join(root, 'package.json'), loaded: false }],
+  } })
+  expect(JSON.stringify(body)).not.toContain('secret')
+})
+
+it('counts owned turns only and replaces duplicate usage within an attempt', async () => {
+  const event = (type, time, turn, fields = {}) => ({ type, time, data: { turn, ...fields } })
+  const usage = (inputTokens, outputTokens, cacheReadTokens = 0) => ({ step: 0, usage: { inputTokens, outputTokens, cacheReadTokens } })
+  // Attempts keep usage only in their durable stream, as the Session writer records it.
+  const attempt = (inputTokens, outputTokens) => ({ step: 0, stream: [{ type: 'chunk', chunk: { type: 'usage', usage: { inputTokens, outputTokens } } }] })
+  const { call } = await projectHome([
+    event('turn/start', 0, 0), event('assistant/message', 90, 0, usage(200, 100)), event('turn/end', 100, 0),
+    event('turn/start', 1000, 1), event('assistant/attempt', 1050, 1, attempt(8, 1)),
+    event('llm/retry-started', 1060, 1, { step: 0 }), event('assistant/attempt', 1110, 1, attempt(9, 1)),
+    event('assistant/message', 1190, 1, usage(10, 2, 3)), event('turn/end', 1200, 1),
+    event('turn/start', 2000, 2),
+  ], 3)
+  expect((await call('usage')).body.result).toMatchObject({ inputTokens: 21, outputTokens: 3, workingMs: 200, cost: null })
 })

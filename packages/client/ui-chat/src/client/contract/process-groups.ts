@@ -16,6 +16,8 @@ export interface ProcessActivitySummary {
   readonly preparing?: true
   /** For a group of only context injections: the sum of their estimated token costs, as the rows show them. */
   readonly contextTokens?: number
+  /** Wall-clock span of the step's settled tool calls and reasoning, in ms. */
+  readonly durationMs?: number
 }
 
 /** Presentation facts for one group between independent replies or input. */

@@ -98,6 +98,11 @@ const CHROME_ROWS: readonly ChromeRow[] = [
     inset: ['padding', '10px 6px 0 var(--jan-dockkit-strip-inline-start, 10px)'],
   },
   {
+    file: 'client/ui-conversation/src/client/skeleton/ConversationDesk.module.css',
+    selector: '.emptyToolbar',
+    markup: 'client/ui-conversation/src/client/skeleton/ConversationPanel.tsx',
+  },
+  {
     file: PLUGIN_MANAGER,
     selector: '.pageHead',
     markup: 'client/ui-plugin-manager/src/client/PluginManagerPage.tsx',

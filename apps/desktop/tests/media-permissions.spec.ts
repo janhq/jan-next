@@ -1,7 +1,7 @@
-/** Desktop media permissions exclude external pages, subframes and camera requests. */
+/** Desktop media permissions exclude external pages, subframes and combined requests. */
 import type { Session, WebContents } from 'electron'
 import { afterEach, expect, it, vi } from 'vitest'
-import { installMicrophonePermissions } from '../src/microphone-permissions.ts'
+import { installMediaPermissions } from '../src/media-permissions.ts'
 
 const access = vi.hoisted(() => ({ getMediaAccessStatus: vi.fn(() => 'granted'), askForMediaAccess: vi.fn(async () => true) }))
 vi.mock('electron', () => ({ systemPreferences: access }))
@@ -11,10 +11,10 @@ function fixture(platform: NodeJS.Platform = 'darwin') {
   const setPermissionCheckHandler = vi.fn<Session['setPermissionCheckHandler']>()
   const setPermissionRequestHandler = vi.fn<Session['setPermissionRequestHandler']>()
   const primary = {} as WebContents
-  installMicrophonePermissions({ setPermissionCheckHandler, setPermissionRequestHandler }, () => primary)
+  installMediaPermissions({ setPermissionCheckHandler, setPermissionRequestHandler }, contents => contents === primary)
   return { primary, check: setPermissionCheckHandler.mock.calls[0]![0]!, request: setPermissionRequestHandler.mock.calls[0]![0]! }
 }
-it('allows only audio checks from the owned primary application frame', () => {
+it('allows microphone and camera checks only from an owned application frame', () => {
   const f = fixture(), details = { isMainFrame: true, mediaType: 'audio' as const }
   expect(f.check(f.primary, 'media', 'jan-app://app', details)).toBe(true)
   expect(f.check(null, 'media', 'jan-app://app', details)).toBe(false)
@@ -22,7 +22,8 @@ it('allows only audio checks from the owned primary application frame', () => {
   expect(f.check(f.primary, 'media', 'https://example.com', details)).toBe(false)
   expect(f.check(f.primary, 'media', 'invalid', details)).toBe(false)
   expect(f.check(f.primary, 'media', 'jan-app://app', { ...details, isMainFrame: false })).toBe(false)
-  expect(f.check(f.primary, 'media', 'jan-app://app', { ...details, mediaType: 'video' })).toBe(false)
+  expect(f.check(f.primary, 'media', 'jan-app://app', { ...details, mediaType: 'video' })).toBe(true)
+  expect(access.getMediaAccessStatus).toHaveBeenLastCalledWith('camera')
   expect(f.check(f.primary, 'clipboard-sanitized-write', 'jan-app://app', details)).toBe(true)
 })
 it.each(['not-determined', 'granted', 'denied', 'restricted', 'unknown'] as const)(
@@ -59,6 +60,13 @@ it('requests macOS microphone access and reports operating-system rejection', as
   }
   f.request(f.primary, 'clipboard-sanitized-write', done, details)
   expect(done).toHaveBeenLastCalledWith(true)
+})
+it('uses macOS camera authorization for video-only requests', async () => {
+  const f = fixture(), done = vi.fn()
+  access.askForMediaAccess.mockResolvedValueOnce(false)
+  f.request(f.primary, 'media', done, { isMainFrame: true, requestingUrl: 'jan-app://app/', mediaTypes: ['video'] })
+  await vi.waitFor(() => { expect(done).toHaveBeenCalledExactlyOnceWith(false) })
+  expect(access.askForMediaAccess).toHaveBeenCalledExactlyOnceWith('camera')
 })
 it.each(['win32', 'linux'] as const)('leaves system authorization to Chromium on %s', (platform) => {
   const f = fixture(platform), done = vi.fn()

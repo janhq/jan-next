@@ -10,8 +10,9 @@ import {
 } from '@janhq/jan-client-ui-primitives'
 import { planReviewOf, type QuestionAnswer, type QuestionCardSnapshot, type QuestionComposerProps } from './contract/slots.ts'
 import type { PendingQuestion } from './contract/slots.ts'
-import type { QuestionDraftAnswer, QuestionDraftProgress } from './draft-store.ts'
+import { questionDraftHold, questionDraftProgress, type QuestionDraftAnswer } from './draft-store.ts'
 import { PlanReviewPanel } from './PlanReviewPanel.tsx'
+import { parseRecommendedLabel, recommendedOptions } from './question-answers.ts'
 import css from './QuestionComposer.module.css'
 
 /**
@@ -36,44 +37,6 @@ interface ExpandedCopy {
 }
 
 const NOTHING_EXPANDED: ExpandedCopy['copies'] = new Set()
-
-/**
- * Split the conventional recommendation suffix without changing the answer value.
- * @param label - Original option label returned if selected.
- * @returns Display label plus recommendation state.
- */
-export function parseRecommendedLabel(label: string): { label: string; recommended: boolean } {
-  const suffix = /\s*(?:\((?:recommended|推荐)\)|（(?:recommended|推荐)）)\s*$/i
-  return suffix.test(label)
-    ? { label: label.replace(suffix, ''), recommended: true }
-    : { label, recommended: false }
-}
-
-/**
- * Implicit draft selection the user still submits: every marked choice of a
- * multi-select question, or a marked first choice of a single-select question.
- */
-function recommendedOptions(question: PendingQuestion['questions'][number]): string[] {
-  const labels = (question.options ?? []).map(option => option.label)
-  const candidates = question.multiSelect === true ? labels : labels.slice(0, 1)
-  return candidates.filter(label => parseRecommendedLabel(label).recommended)
-}
-
-/** Accept persisted progress only when it still describes this question batch. */
-function isQuestionDraftProgress(value: unknown, questionCount: number): value is QuestionDraftProgress {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
-  const progress = value as Record<string, unknown>
-  if (typeof progress.index !== 'number' || !Number.isInteger(progress.index)
-    || progress.index < 0 || progress.index >= questionCount
-    || !Array.isArray(progress.drafts) || progress.drafts.length !== questionCount
-    || (progress.wait !== undefined && progress.wait !== 'editing' && progress.wait !== 'waiting')) return false
-  return progress.drafts.every((item: unknown) => {
-    if (typeof item !== 'object' || item === null || Array.isArray(item)) return false
-    const draft = item as Record<string, unknown>
-    return Array.isArray(draft.selected) && draft.selected.every((label: unknown) => typeof label === 'string')
-      && typeof draft.custom === 'string' && typeof draft.skipped === 'boolean'
-  })
-}
 
 /** Return whether a text-field key event belongs to an active IME composition. */
 function isComposing(event: KeyboardEvent<HTMLTextAreaElement>): boolean {
@@ -195,18 +158,13 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions }: Questi
     })
   }, [questions, review])
   const stored = useStore(state => state.progressByRequest[pending.key])
-  const validStored = isQuestionDraftProgress(stored, questions.length) ? stored : undefined
+  const validStored = questionDraftProgress(stored, questions.length)
   // A review card renders the record itself, so a draft its live card left
   // behind can never surface as an answer; only the page position is restored.
   const storedProgress = review === undefined ? validStored : undefined
   const index = validStored?.index ?? 0
   const drafts = storedProgress?.drafts ?? initialDrafts
-  const restoredWait = storedProgress?.wait
-    ?? (storedProgress?.drafts.some((item, itemIndex) =>
-      item.selected.length !== initialDrafts[itemIndex]?.selected.length
-      || item.selected.some((label, labelIndex) => label !== initialDrafts[itemIndex]?.selected[labelIndex])
-      || item.custom !== '' || item.skipped) === true
-      ? 'editing' : undefined)
+  const restoredWait = questionDraftHold(storedProgress, questions)
   const [busy, setBusy] = useState<'answer' | 'cancel' | null>(null)
   const [error, setError] = useState<Feedback | null>(null)
   const card = useQuestionCard(pending.key, snapshot => snapshot ?? REMOVED_CARD)

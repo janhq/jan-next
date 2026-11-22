@@ -153,6 +153,9 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  /* Shrinks with a narrow row, so the name ellipsizes instead of pushing the
+     preset seat under the model picker. */
+  min-width: 0;
   max-width: min(100%, 360px);
   min-height: 28px;
   padding: 0 8px;

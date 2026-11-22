@@ -1,62 +1,142 @@
 /** Conversation-specific placement and temporary Active view over the dockkit engine. */
 import {
-  applyOp, clampSizes, createIdMinter, createInitialState, dockPaneIds, getPane, MAX_DOCK_PANES, planSettle,
+  applyOp, clampSizes, createIdMinter, createInitialState, dockPaneIds, findContentTab, getNode, getPane, getTab, MAX_DOCK_PANES,
+  planAddTab, planDropTab, planPlaceTab, planSettle, replay,
 } from '@janhq/jan-client-ui-dockkit'
-import type { LayoutState, Mint, PaneId, SplitAxis, SplitId, TabFactory, TabId } from '@janhq/jan-client-ui-dockkit'
+import type {
+  DockZone, LayoutNode, LayoutOp, LayoutState, Mint, NodeId, PaneId, SplitAxis, SplitId, TabFactory, TabId, TabRecord,
+} from '@janhq/jan-client-ui-dockkit'
 import type { SessionId } from '@janhq/jan-session/types'
 import { z } from 'zod'
 
-const persisted = z.object({
-  sessions: z.array(z.string().min(1).transform(value => value as SessionId)).max(MAX_DOCK_PANES - 1),
-  sizes: z.array(z.number().positive()).max(MAX_DOCK_PANES),
-})
+/** The versioned manual arrangement; the old single-tab-per-pane layout is not read. */
+export const MULTITASK_LAYOUT_KEY = 'jan.conversation.multitask.v2'
 
-/** Storage namespace for the manual arrangement. Active never writes this preference. */
-export const MULTITASK_LAYOUT_KEY = 'jan.conversation.multitask.v1'
-
-const PRIMARY = 'primary'
 const CHAT = 'chat'
 const NO_SESSIONS: readonly SessionId[] = []
+const makeTab = (contentId: string): TabFactory => id => ({ id, kind: CHAT, contentId, title: '' })
+const blankTab = makeTab('')
 
-function tabFactory(kind: string, contentId: string): TabFactory {
-  return id => ({ id, kind, contentId, title: '' })
+interface SavedPane {
+  tabs: string[]
+  active: number
+}
+
+interface SavedSplit {
+  axis: SplitAxis
+  sizes: readonly number[]
+  children: SavedNode[]
+}
+
+type SavedNode = SavedPane | SavedSplit
+
+const savedPane = z.object({ tabs: z.array(z.string()).nonempty(), active: z.number().int().nonnegative() })
+const savedNode: z.ZodType<SavedNode> = z.lazy(() => z.union([
+  savedPane.refine(pane => pane.active < pane.tabs.length),
+  z.object({
+    axis: z.enum(['row', 'column']), sizes: z.array(z.number().positive()),
+    children: z.array(savedNode).min(2).max(MAX_DOCK_PANES),
+  }).refine(split => split.sizes.length === split.children.length),
+]))
+const savedLayout = z.object({ root: savedNode, active: z.number().int().nonnegative() })
+
+function restoreDock(raw: string | undefined, mint: Mint): LayoutState | undefined {
+  if (raw === undefined) return undefined
+  let stored: z.infer<typeof savedLayout>
+  try { stored = savedLayout.parse(JSON.parse(raw)) }
+  catch { return undefined }
+  const seed = createInitialState({ next: mint })
+  const nodes: Record<NodeId, LayoutNode> = {}
+  const tabs: Record<TabId, TabRecord> = {}
+  const panes: PaneId[] = []
+  const ids = new Set<string>()
+  const restore = (node: SavedNode, depth: number): NodeId | undefined => {
+    if (depth >= MAX_DOCK_PANES || panes.length >= MAX_DOCK_PANES) return undefined
+    if ('axis' in node) {
+      const id = mint('split')
+      const children: NodeId[] = []
+      for (const saved of node.children) {
+        const child = restore(saved, depth + 1)
+        if (child === undefined) return undefined
+        children.push(child)
+      }
+      const sum = node.sizes.reduce((total, size) => total + size, 0)
+      if (!Number.isFinite(sum) || Math.abs(1 - sum) > 1e-6) return undefined
+      nodes[id] = { kind: 'split', id, axis: node.axis, children, sizes: node.sizes }
+      return id
+    }
+    const paneId = mint('pane')
+    const tabIds: TabId[] = []
+    for (const session of node.tabs) {
+      if (session !== '' && ids.has(session)) return undefined
+      if (session !== '') ids.add(session)
+      const tabId = mint('tab')
+      tabs[tabId] = makeTab(session)(tabId)
+      tabIds.push(tabId)
+    }
+    panes.push(paneId)
+    nodes[paneId] = { kind: 'pane', id: paneId, host: 'dock', tabs: tabIds, activeTabId: tabIds[node.active], rect: undefined }
+    return paneId
+  }
+  const rootId = restore(stored.root, 0)
+  const activePaneId = panes[stored.active]
+  return rootId === undefined || activePaneId === undefined ? undefined : { ...seed, rootId, activePaneId, nodes, tabs }
+}
+
+function saveNode(dock: LayoutState, id: NodeId): SavedNode {
+  const node = getNode(dock, id)
+  if (node.kind === 'split') return { axis: node.axis, sizes: node.sizes, children: node.children.map(child => saveNode(dock, child)) }
+  const active = node.activeTabId === undefined ? 0 : node.tabs.indexOf(node.activeTabId)
+  return { tabs: node.tabs.map(tab => getTab(dock, tab).contentId), active }
+}
+
+/** @param tab - a desk tab. @returns its Session, or undefined for an unbound new chat. */
+export function tabSessionId(tab: TabRecord): SessionId | undefined {
+  return tab.contentId === '' ? undefined : tab.contentId as SessionId
+}
+
+function selectedSession(dock: LayoutState): SessionId | undefined {
+  const tab = getPane(dock, dock.activePaneId).activeTabId
+  return tab === undefined ? undefined : tabSessionId(getTab(dock, tab))
+}
+
+function withOp(dock: LayoutState, op: LayoutOp): LayoutState {
+  return applyOp(dock, op).state
+}
+
+function openInPane(dock: LayoutState, mint: Mint, paneId: PaneId, contentId: string): LayoutState {
+  return replay(dock, planAddTab(dock, mint, paneId, makeTab(contentId)))
+}
+
+function splitChat(dock: LayoutState, mint: Mint, paneId: PaneId, id: SessionId, axis: SplitAxis): LayoutState {
+  const newPaneId = mint('pane')
+  return openInPane(withOp(dock, { type: 'split', paneId, axis, direction: 'after', newPaneId, newSplitId: mint('split') }), mint, newPaneId, id)
+}
+
+function replaceSelected(dock: LayoutState, id: SessionId | undefined): LayoutState {
+  const tabId = getPane(dock, dock.activePaneId).activeTabId
+  if (tabId === undefined) return dock
+  return { ...dock, tabs: { ...dock.tabs, [tabId]: makeTab(id ?? '')(tabId) } }
+}
+
+function settled(dock: LayoutState, mint: Mint): LayoutState {
+  return replay(dock, planSettle(dock, mint, blankTab))
+}
+
+function prune(dock: LayoutState, mint: Mint, known: ReadonlySet<SessionId>): LayoutState {
+  let next = dock
+  for (const tab of Object.values(dock.tabs)) {
+    const id = tabSessionId(tab)
+    if (id !== undefined && !known.has(id)) next = withOp(next, { type: 'closeTab', tabId: tab.id })
+  }
+  return next === dock ? dock : settled(next, mint)
 }
 
 function sameIds(a: readonly SessionId[], b: readonly SessionId[]): boolean {
   return a.length === b.length && a.every((id, index) => id === b[index])
 }
 
-function initialTab(dock: LayoutState): TabId {
-  const id = getPane(dock, dock.activePaneId).activeTabId
-  if (id === undefined) throw new Error('ui-conversation: initial dock missing its primary tab')
-  return id
-}
-
-function sessionInPane(dock: LayoutState, paneId: PaneId): SessionId | undefined {
-  const tabId = getPane(dock, paneId).activeTabId
-  const tab = tabId === undefined ? undefined : dock.tabs[tabId]
-  return tab?.kind === CHAT && tab.contentId !== '' ? tab.contentId as SessionId : undefined
-}
-
-function splitChat(
-  dock: LayoutState, mint: Mint, paneId: PaneId, value: SessionId, axis: SplitAxis,
-): LayoutState {
-  const newPaneId = mint('pane')
-  const split = applyOp(dock, { type: 'split', paneId, axis, direction: 'after', newPaneId, newSplitId: mint('split') }).state
-  const tab = tabFactory(CHAT, value)(mint('tab'))
-  return applyOp(split, { type: 'openTab', paneId: newPaneId, tab, index: 0 }).state
-}
-
-function readManual(raw: string | undefined): { sessions: SessionId[]; sizes: number[] } | undefined {
-  if (raw === undefined) return undefined
-  let body: unknown
-  try { body = JSON.parse(raw) }
-  catch { return undefined }
-  const result = persisted.safeParse(body)
-  if (!result.success || new Set(result.data.sessions).size !== result.data.sessions.length
-    || result.data.sizes.length !== result.data.sessions.length + 1) return undefined
-  return result.data
-}
+type Navigate = (id: SessionId | undefined) => void
 
 /** The visible desk, including both running IDs and Active sessions outside the tile cap. */
 export interface ConversationLayoutSnapshot {
@@ -71,21 +151,17 @@ export interface ConversationLayoutSnapshot {
 export class ConversationLayout {
   private readonly listeners = new Set<() => void>()
   private readonly mint = createIdMinter().next
-  private manual = createInitialState({ next: this.mint }, tabFactory(PRIMARY, ''))
-  private readonly primaryPane = this.manual.activePaneId
-  private readonly primaryTab = initialTab(this.manual)
+  private manual: LayoutState
   private selected: SessionId | undefined
   private activeOrder: readonly SessionId[] | undefined
   private activeDock: LayoutState | undefined
   private running: readonly SessionId[] = NO_SESSIONS
-  private restored: { sessions: SessionId[]; sizes: number[] } | undefined
-  private snapshot: ConversationLayoutSnapshot = {
-    dock: this.manual, active: false, activeEmpty: false, running: this.running, overflow: NO_SESSIONS,
-  }
+  private snapshot: ConversationLayoutSnapshot
 
-  /** @param raw - persisted manual arrangement. @param save - write the manual arrangement. */
-  constructor(raw: string | undefined, private readonly save: (value: string) => void) {
-    this.restored = readManual(raw)
+  /** @param raw - persisted tab layout. @param save - persist it. @param navigate - focus the selected chat in Workspace navigation. */
+  constructor(raw: string | undefined, private readonly save: (value: string) => void, private readonly navigate?: Navigate) {
+    this.manual = restoreDock(raw, this.mint) ?? createInitialState({ next: this.mint }, blankTab)
+    this.snapshot = { dock: this.manual, active: false, activeEmpty: false, running: this.running, overflow: NO_SESSIONS }
   }
 
   /** @returns the stable visible layout snapshot. */
@@ -98,44 +174,25 @@ export class ConversationLayout {
   }
 
   /**
-   * Apply the current workspace selection and running catalog facts.
-   * @param selected - navigation's primary Session.
-   * @param known - authoritative catalog once ready, or undefined while it is loading.
+   * Apply Workspace navigation and live catalog membership without replacing an already open tab.
+   * @param selected - current Workspace selection.
+   * @param catalog - complete set of openable Sessions, or undefined while loading.
    * @param running - running top-level Sessions in catalog order.
    */
-  sync(selected: SessionId | undefined, known: readonly SessionId[] | undefined, running: readonly SessionId[]): void {
-    let persist = false
-    if (this.selected !== selected) {
-      const previous = this.selected
-      this.selected = selected
-      const open = selected === undefined ? undefined : this.secondaryTab(selected)
-      const other = open === undefined ? undefined : this.manual.tabs[open]
-      if (other !== undefined) {
-        if (previous === undefined || known?.includes(previous) === false) this.removeManualTab(other.id)
-        else this.manual = { ...this.manual, tabs: { ...this.manual.tabs, [other.id]: { ...other, contentId: previous } } }
-        persist = true
-      }
-      this.manual = { ...this.manual, tabs: {
-        ...this.manual.tabs, [this.primaryTab]: tabFactory(PRIMARY, selected ?? '')(this.primaryTab),
-      } }
+  sync(selected: SessionId | undefined, catalog: ReadonlySet<SessionId> | undefined, running: readonly SessionId[]): void {
+    const previous = this.selected
+    const was = this.manual
+    this.selected = selected
+    const openable = selected !== undefined ? catalog?.has(selected) !== false : previous === undefined || catalog?.has(previous) !== false
+    if (previous !== selected && openable && selected !== selectedSession(this.manual)) {
+      this.leaveActive()
+      const open = selected === undefined ? undefined : findContentTab(this.manual, selected, CHAT)
+      if (open !== undefined) this.manual = withOp(this.manual, { type: 'focusTab', tabId: open })
+      else this.manual = replaceSelected(this.manual, selected)
     }
-    if (known !== undefined) {
-      const catalog = new Set(known)
-      if (this.restored !== undefined) {
-        const { sessions, sizes } = this.restored
-        this.restored = undefined
-        for (const id of sessions) this.splitManual(id)
-        const root = this.manual.nodes[this.manual.rootId]
-        if (root?.kind === 'split') {
-          this.manual = applyOp(this.manual, { type: 'resize', splitId: root.id, sizes: clampSizes(sizes) }).state
-        }
-      }
-      for (const tab of Object.values(this.manual.tabs)) {
-        if (tab.kind !== CHAT || (tab.contentId !== this.selected && catalog.has(tab.contentId as SessionId))) continue
-        this.removeManualTab(tab.id)
-        persist = true
-      }
-      if (this.activeOrder !== undefined && this.activeOrder.some(id => !catalog.has(id))) {
+    if (catalog !== undefined) {
+      this.manual = prune(this.manual, this.mint, catalog)
+      if (this.activeOrder?.some(id => !catalog.has(id)) === true) {
         this.activeOrder = this.activeOrder.filter(id => catalog.has(id))
         this.activeDock = this.tile(this.activeOrder)
       }
@@ -151,30 +208,64 @@ export class ConversationLayout {
         }
       }
     }
-    if (persist) this.persist()
+    if (was !== this.manual) this.persist()
     this.publish()
-  }
-
-  /** @param id - target Session. @returns whether a new pane can be opened for it. */
-  canOpenBeside(id: SessionId): boolean {
-    return this.restored === undefined && id !== this.selected
-      && (this.secondaryTab(id) !== undefined || dockPaneIds(this.manual).length < MAX_DOCK_PANES)
-  }
-
-  /** @param id - a different chat to open, or reveal if it already has a pane. */
-  openBeside = (id: SessionId): void => {
-    if (id === this.selected) return
-    const existing = this.secondaryTab(id)
-    if (existing === undefined && dockPaneIds(this.manual).length >= MAX_DOCK_PANES) return
-    this.leaveActive()
-    if (existing === undefined) {
-      this.splitManual(id)
-      this.persist()
-    } else {
-      const pane = dockPaneIds(this.manual).find(paneId => sessionInPane(this.manual, paneId) === id)
-      if (pane !== undefined) this.manual = applyOp(this.manual, { type: 'focusPane', paneId: pane }).state
+    // A catalog update can arrive while Workspace is still clearing an archived selection.
+    // Wait for that transaction, then navigate only if the layout still requests it.
+    const current = selectedSession(this.manual)
+    if (was !== this.manual && catalog !== undefined && current !== selected && this.activeOrder === undefined) {
+      queueMicrotask(() => {
+        if (this.selected !== selected || this.activeOrder !== undefined) return
+        if (selectedSession(this.manual) === current) this.navigate?.(current)
+      })
     }
-    this.publish()
+  }
+
+  /** @param id - Session to move or open beside the focused pane. @returns whether that action is available. */
+  canOpenBeside(id: SessionId): boolean {
+    return id !== selectedSession(this.manual) && dockPaneIds(this.manual).length < MAX_DOCK_PANES
+  }
+
+  /** @param id - Session to reveal in a new pane, keeping one tab per Session. */
+  openBeside = (id: SessionId): void => {
+    if (!this.canOpenBeside(id)) return
+    const pane = this.manual.activePaneId
+    const existing = findContentTab(this.manual, id, CHAT)
+    const dock = existing === undefined
+      ? splitChat(this.manual, this.mint, pane, id, 'row')
+      : settled(replay(this.manual, planDropTab(this.manual, this.mint, existing, pane, 'right', blankTab)), this.mint)
+    this.commitManual(dock)
+  }
+
+  /** @param id - Session to append, or reveal if already open in this window. */
+  openInNewTab = (id: SessionId): void => {
+    const existing = findContentTab(this.manual, id, CHAT)
+    this.commitManual(existing === undefined ? openInPane(this.manual, this.mint, this.manual.activePaneId, id)
+      : withOp(this.manual, { type: 'focusTab', tabId: existing }))
+  }
+
+  /** @param paneId - pane receiving an independent blank tab. */
+  addTab = (paneId: PaneId): void => {
+    if (this.activeOrder !== undefined || this.manual.nodes[paneId]?.kind !== 'pane') return
+    this.commitManual(openInPane(this.manual, this.mint, paneId, ''))
+  }
+
+  /** @param tabId - Session tab to reveal. */
+  focusTab = (tabId: TabId): void => {
+    if (this.activeOrder !== undefined || this.manual.tabs[tabId] === undefined) return
+    this.commitManual(withOp(this.manual, { type: 'focusTab', tabId }))
+  }
+
+  /** @param tabId - dragged tab. @param paneId - destination pane. @param index - strip insertion slot. */
+  placeTab = (tabId: TabId, paneId: PaneId, index: number): void => {
+    if (this.activeOrder !== undefined || this.manual.tabs[tabId] === undefined || this.manual.nodes[paneId]?.kind !== 'pane') return
+    this.commitManual(settled(replay(this.manual, planPlaceTab(this.manual, tabId, paneId, index)), this.mint))
+  }
+
+  /** @param tabId - dragged tab. @param paneId - destination pane. @param zone - body drop zone. */
+  dropTab = (tabId: TabId, paneId: PaneId, zone: DockZone): void => {
+    if (this.activeOrder !== undefined || this.manual.tabs[tabId] === undefined || this.manual.nodes[paneId]?.kind !== 'pane') return
+    this.commitManual(settled(replay(this.manual, planDropTab(this.manual, this.mint, tabId, paneId, zone, blankTab)), this.mint))
   }
 
   /** Show the live Active tiles, or restore the prior manual arrangement. */
@@ -195,50 +286,37 @@ export class ConversationLayout {
     this.publish()
   }
 
-  /** @param tabId - removable tab in the manual arrangement. */
-  closeTab = (tabId: TabId): void => {
-    if (this.activeOrder !== undefined || tabId === this.primaryTab || this.manual.tabs[tabId] === undefined) return
-    this.removeManualTab(tabId)
-    this.persist()
-    this.publish()
+  /** @param tabId - tab to close. @param expected - Session identity for an asynchronous window move. */
+  closeTab = (tabId: TabId, expected?: SessionId): void => {
+    const tab = this.manual.tabs[tabId]
+    if (tab === undefined || (expected === undefined ? this.activeOrder !== undefined : tab.contentId !== expected)) return
+    const next = settled(withOp(this.manual, { type: 'closeTab', tabId }), this.mint)
+    if (this.activeOrder === undefined) this.commitManual(next)
+    else { this.manual = next; this.persist() }
   }
 
   /** @param paneId - pane the user interacted with. */
   focusPane = (paneId: PaneId): void => {
     const dock = this.activeDock ?? this.manual
     if (paneId === dock.activePaneId || dock.nodes[paneId]?.kind !== 'pane') return
-    this.setVisibleDock(applyOp(dock, { type: 'focusPane', paneId }).state, false)
+    const next = withOp(dock, { type: 'focusPane', paneId })
+    if (this.activeOrder === undefined) this.commitManual(next)
+    else { this.activeDock = next; this.publish() }
   }
 
   /** @param id - splitter id. @param sizes - measured fractional pane sizes. */
   resizeSplit = (id: SplitId, sizes: readonly number[]): void => {
     const dock = this.activeDock ?? this.manual
     if (dock.nodes[id]?.kind !== 'split') return
-    this.setVisibleDock(applyOp(dock, { type: 'resize', splitId: id, sizes: clampSizes(sizes) }).state, true)
-  }
-
-  private secondaryTab(id: SessionId): TabId | undefined {
-    return Object.values(this.manual.tabs).find(tab => tab.kind === CHAT && tab.contentId === id)?.id
-  }
-
-  private splitManual(id: SessionId): void {
-    const panes = dockPaneIds(this.manual)
-    this.manual = splitChat(this.manual, this.mint, panes.at(-1) ?? this.primaryPane, id, 'row')
-    const root = this.manual.nodes[this.manual.rootId]
-    if (root?.kind === 'split') {
-      this.manual = applyOp(this.manual, { type: 'resize', splitId: root.id, sizes: root.children.map(() => 1 / root.children.length) }).state
-    }
-  }
-
-  private removeManualTab(tabId: TabId): void {
-    this.manual = applyOp(this.manual, { type: 'closeTab', tabId }).state
-    for (const op of planSettle(this.manual, this.mint)) this.manual = applyOp(this.manual, op).state
+    const next = withOp(dock, { type: 'resize', splitId: id, sizes: clampSizes(sizes) })
+    if (this.activeOrder === undefined) this.commitManual(next)
+    else { this.activeDock = next; this.publish() }
   }
 
   private tile(ids: readonly SessionId[]): LayoutState | undefined {
     const first = ids[0]
     if (first === undefined) return undefined
-    const firstPane = createInitialState({ next: this.mint }, tabFactory(CHAT, first))
+    const firstPane = createInitialState({ next: this.mint }, makeTab(first))
     const left = firstPane.activePaneId
     const second = ids[1]
     if (second === undefined) return firstPane
@@ -255,20 +333,21 @@ export class ConversationLayout {
     this.activeDock = undefined
   }
 
-  private setVisibleDock(dock: LayoutState, persist: boolean): void {
-    if (this.activeOrder !== undefined) this.activeDock = dock
-    else {
-      this.manual = dock
-      if (persist) this.persist()
+  private commitManual(next: LayoutState): void {
+    this.leaveActive()
+    if (this.manual !== next) {
+      this.manual = next
+      this.persist()
     }
     this.publish()
+    const id = selectedSession(this.manual)
+    if (id !== this.selected) this.navigate?.(id)
   }
 
   private persist(): void {
-    const root = this.manual.nodes[this.manual.rootId]
     this.save(JSON.stringify({
-      sessions: dockPaneIds(this.manual).slice(1).map(id => sessionInPane(this.manual, id)),
-      sizes: root?.kind === 'split' ? root.sizes : [1],
+      root: saveNode(this.manual, this.manual.rootId),
+      active: dockPaneIds(this.manual).indexOf(this.manual.activePaneId),
     }))
   }
 

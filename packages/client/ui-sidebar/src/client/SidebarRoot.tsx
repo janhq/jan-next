@@ -21,7 +21,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  FishLogo, IconAppsAddOutlineRegular, IconNewChatOutlineMedium, IconNewChatOutlineRegular,
+  FishLogo, IconAppsAddOutlineMedium, IconAppsAddOutlineRegular, IconNewChatOutlineMedium, IconNewChatOutlineRegular,
   IconPanelLeftOutlineRegular, IconPinFillRegular, focusWithoutRing, isBehindModal, isDarwinDesktop, Menu, ShortcutKeys, Toast,
   Tooltip, useModalLayer, writeClipboard,
 } from '@janhq/jan-client-ui-primitives'
@@ -135,7 +135,7 @@ function PanelMoreMenu({ wide, label, entries, onOpen, onPinnedChange, trackEntr
               trackEntryClick({ menu_name: 'more', position: 'sidebar' })
               setOpen(value => !value)
             }}>
-            <span className={css.panelGlyph} aria-hidden="true"><IconAppsAddOutlineRegular size={wide ? 16 : 18} /></span>
+            <span className={css.panelGlyph} aria-hidden="true">{wide ? <IconAppsAddOutlineMedium size={16} /> : <IconAppsAddOutlineRegular size={18} />}</span>
             {wide && <span className={clsx(css.panelTitle, css.wide)}>{label}</span>}
           </button>
         </Tooltip>

@@ -16,11 +16,12 @@ import { ChatNodeSeat } from './ChatNodeSeat.tsx'
 import { hiddenOrCollapsing } from './flow-motion.ts'
 import { chatRenderKey } from './render-entry.ts'
 import { processTitle } from './step-process.ts'
+import { formatRunDuration } from './message-chrome.ts'
 import { useRunDurationLabel } from './run-clock.ts'
 import { RunningWhaleTail } from './RunningWhaleTail.tsx'
-import { formatExactTokens, formatTokens } from './token-format.ts'
 import { useDisclosure } from './use-disclosure.ts'
 import { useProcessScroll } from './use-process-scroll.ts'
+import { formatExactTokens, formatTokens } from './token-format.ts'
 import css from './ChatGroupSeat.module.css'
 
 type SeatProps = Omit<ComponentProps<typeof ChatNodeSeat>, 'nodeKey' | 'groupPart'>
@@ -142,11 +143,17 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({
           <span className={css.duration} aria-hidden><TextShimmer>{duration}</TextShimmer></span>
         )}
       </TextShimmer>
-      {data.summary.contextTokens !== undefined && (
-        // Supplementary and approximate, like each row's figure: kept out of the button's name.
-        <span className={css.tokens} aria-hidden data-context-tokens-total
+      {/* Supplementary figures, kept out of the button's name: a closed step's wall-clock span,
+          or a context-only step's estimated cost, summed as each row prices it. */}
+      {data.closed && data.summary.contextTokens !== undefined && (
+        <span className={css.meta} aria-hidden data-step-context-tokens
           title={t('message.contextTokensTitle', { count: formatExactTokens(data.summary.contextTokens, t) })}>
           {t('message.contextTokens', { count: formatTokens(data.summary.contextTokens, t) })}
+        </span>
+      )}
+      {data.closed && data.summary.durationMs !== undefined && (
+        <span className={css.meta} aria-hidden data-step-duration>
+          {formatRunDuration(Math.max(1000, data.summary.durationMs), t).map(part => part.text).join('')}
         </span>
       )}
     </button>

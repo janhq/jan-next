@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode, HTMLAttributes } from 'react'
-import type { DockIntents, DockLabels, TabMenuExtras, TabRenderer } from '../contract/adapter.ts'
+import type { AddTabMenu, DockIntents, DockLabels, TabMenuExtras, TabRenderer } from '../contract/adapter.ts'
 import type { LayoutState, PaneId, SplitId, TabId, TabRecord } from '../contract/types.ts'
 import { clampSizes, FLOAT_DEFAULT_SIZE, MIN_PANE_FRACTION } from '../engine/constraints.ts'
 import { getSplit, topRightPaneId } from '../engine/tree.ts'
@@ -58,6 +58,12 @@ export interface DockSurfaceProps {
    * width either way. The menu still opens and carries the embedder's items.
    */
   readonly canCloseTab?: (tabId: TabId) => boolean
+  /** Handle a dragged tab released outside the document viewport instead of floating it. */
+  readonly onTabReleasedOutsideViewport?: (tabId: TabId) => void
+  /** Suppress the built-in split button without disabling edge drops. */
+  readonly showSplitControl?: boolean
+  /** Localized accessible name for each pane's tab list. */
+  readonly tabListLabel?: string
   readonly intents: Pick<DockIntents, 'resizeSplit' | 'focusPane'> & Partial<DockIntents>
   readonly labels: DockLabels
   readonly renderTab: TabRenderer
@@ -79,6 +85,8 @@ export interface DockSurfaceProps {
   readonly getTabTriggerProps?: ((tab: TabRecord, paneId: PaneId, handlers?: Pick<HTMLAttributes<HTMLElement>, 'onContextMenu' | 'onKeyDown' | 'tabIndex'>) => Pick<HTMLAttributes<HTMLElement>, 'onContextMenu' | 'onKeyDown' | 'tabIndex'>) | undefined
   /** Extra rows for the kit popup; ignored when getTabTriggerProps is supplied. */
   readonly renderTabMenuItems?: TabMenuExtras
+  /** Menu for a strip's `+`; absent, the `+` reports `addTab` directly. */
+  readonly renderAddTabMenu?: AddTabMenu
   /**
    * Surface-wide controls, drawn at the far end of the top-right pane's tab
    * strip so the surface needs no header of its own. The kit places them; what
@@ -184,7 +192,7 @@ function sameSizes(a: readonly number[], b: readonly number[]): boolean {
 /** The split tree and the gestures over it. */
 function Surface({
   state, canSplit, canAddTab, canCloseTab, intents, labels, renderTab, renderTabTitle, renderTabActions, renderTabMenuItems,
-  getTabTriggerProps, tabMenuOpen, chrome, onRoom,
+  renderAddTabMenu, getTabTriggerProps, tabMenuOpen, chrome, onRoom, onTabReleasedOutsideViewport, showSplitControl = true, tabListLabel,
   tabStrips = true, dividerLabel,
   draw,
   dropZones = 'edges', minPaneFraction = MIN_PANE_FRACTION, hideSplitWhenBlocked = false,
@@ -259,6 +267,12 @@ function Surface({
             const target = hitTest(root, released.clientX, released.clientY, tabId, canSplit, fits, dropZones)
             if (target === undefined) {
               if (containsPoint(root.getBoundingClientRect(), released.clientX, released.clientY)) return
+              if (onTabReleasedOutsideViewport !== undefined
+                && (released.clientX < 0 || released.clientY < 0
+                  || released.clientX >= window.innerWidth || released.clientY >= window.innerHeight)) {
+                onTabReleasedOutsideViewport(tabId)
+                return
+              }
               intents.floatTab?.(tabId, floatRectAt(released.clientX, released.clientY, FLOAT_DEFAULT_SIZE))
               return
             }
@@ -305,6 +319,8 @@ function Surface({
     },
     splitBlock,
     hideSplitWhenBlocked,
+    showSplitControl,
+    tabListLabel,
     canAddTab: canAddTab ?? ALWAYS,
     canCloseTab: canCloseTab ?? ALWAYS,
     dropTarget: preview.dropTarget,
@@ -315,6 +331,7 @@ function Surface({
     renderTabTitle,
     renderTabActions,
     renderTabMenuItems,
+    renderAddTabMenu,
     getTabTriggerProps, tabMenuOpen,
     chromePaneId: topRightPaneId(state),
     chrome,

@@ -77,6 +77,12 @@ export interface RunningTailOwnerProps {
   turn: TurnLocation
 }
 
+/** Owner currency of contributions after a closed Turn's duration header. */
+export interface TurnProcessTrailingOwnerProps {
+  /** The closed Turn the header belongs to. */
+  readonly turn: TurnLocation
+}
+
 /** Owner currency of finalized-assistant actions. */
 export interface AssistantActionOwnerProps {
   messageId: MessageId
@@ -521,6 +527,12 @@ declare module '@janhq/jan-client-ui-slots' {
      * adds an entry; entries without content return null.
      */
     'conversation.chat.turnTail': { kind: 'list'; scope: 'session'; owner: TurnTailOwnerProps }
+    /**
+     * Ordered contributions after a closed Turn's duration header, on the same line;
+     * an entry that opens a panel gives it `flex-basis: 100%` to drop below the line.
+     * Entries return null with nothing to show.
+     */
+    'conversation.chat.turn-process.trailing': { kind: 'list'; scope: 'session'; owner: TurnProcessTrailingOwnerProps }
     /**
      * Ordered details beside the running status of a Session, e.g. how far a local model got
      * reading the prompt. Each entry reads its own state and returns null when it has nothing

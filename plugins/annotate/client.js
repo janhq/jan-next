@@ -12,6 +12,8 @@ window.__ModuleLoader__.load({
     const SHELL_SLOTS = ['sidebar.right.pane.tab.actions']
     const INLINE_SLOTS = ['conversation.image.preview.actions', 'conversation.chat.image.actions', 'deliverables.preview.actions',
       'deliverables.live.actions']
+    // A composer thumbnail is already a draft image: it offers Draw alone, as a badge like its remove control.
+    const BADGE_SLOTS = ['conversation.input.attachment.actions']
     // Pick and grab hand the agent a selector and HTML, which only mean something for a web page or code;
     // slides, CAD, images and PDFs offer just the whole-surface actions.
     const ACTIONS = [
@@ -61,7 +63,9 @@ window.__ModuleLoader__.load({
     function directImage(element) {
       if (element.localName !== 'img') return false
       const source = new URL(element.currentSrc || element.src, location.href)
-      return source.origin === location.origin || source.protocol === 'data:' || element.crossOrigin !== null
+      // A composer preview is a blob URL this document created, so it draws into a canvas untainted.
+      return source.origin === location.origin || source.protocol === 'data:' || source.protocol === 'blob:'
+        || element.crossOrigin !== null
     }
 
     function startDisplayCapture() {
@@ -79,7 +83,7 @@ window.__ModuleLoader__.load({
       }).finally(() => { media.setCaptureHandleConfig({ handle: '', permittedOrigins: [] }) })
     }
 
-    function Launcher({ sessionId, getSurface, t, watch, activate, setGrab, getKeys, append, compact, loadOverlay }) {
+    function Launcher({ sessionId, getSurface, t, watch, activate, setGrab, getKeys, append, compact, badge, loadOverlay }) {
       const current = useRef()
       const [view, setView] = useState()
       const [error, setError] = useState(false)
@@ -128,16 +132,18 @@ window.__ModuleLoader__.load({
       }, [getSurface, watch, compact, sessionId])
       if (sessionId === undefined) return null
       const Overlay = view?.Overlay
-      // Every action is one visible control: nothing hides behind a menu.
+      // Every action is one visible control: nothing hides behind a menu. 8px between them, as between
+      // the turn's own actions and the strip's split and panel controls.
       return h('span', { role: 'group', 'aria-label': t('title'),
-        style: { display: 'inline-flex', alignItems: 'center', gap: '2px', alignSelf: 'start' } },
-        ACTIONS.filter(action => elements || !action.element).map(action => h(Tooltip, {
+        style: { display: 'inline-flex', alignItems: 'center', gap: '8px', alignSelf: 'start' } },
+        ACTIONS.filter(action => badge ? action.id === 'draw' : elements || !action.element).map(action => h(Tooltip, {
           key: action.id, label: t(action.id), side: 'bottom', delayMs: 300, portal: true,
           shortcutKeys: action.binding && getKeys(action.binding) },
         // Ghost everywhere: inline, the strip sits beside the turn's own ghost actions (copy, replay, share) and must read as one row.
         h(Button, { type: 'button', variant: 'ghost', size: 'sm', style: compact ? inlineSquare : square,
           'aria-label': t(action.id), 'aria-busy': view?.pending === action.id || undefined,
-          'data-annotate-action': action.id, 'data-annotate-inline': compact || undefined, onClick: () => start(action.id) },
+          'data-annotate-action': action.id, 'data-annotate-inline': (compact && !badge) || undefined,
+          'data-annotate-badge': badge || undefined, onClick: () => start(action.id) },
         h(action.icon, { size: 16, 'aria-hidden': true })))),
         error && h(Tooltip, { label: t('openError'), side: 'bottom', portal: true },
           h('span', { role: 'alert', 'aria-label': t('openError'), tabIndex: 0,
@@ -173,14 +179,22 @@ window.__ModuleLoader__.load({
         const append = (sessionId, text, image, contexts) => ctx.conversation.appendDraft(sessionId, text, image ? [image] : [], contexts ?? [])
         let live = true
         ctx.effect(() => () => { live = false; closeActive?.() })
-        // Inline strips match the turn's icon actions (ui-chat MessageIconActions): tertiary ink, secondary on hover, 15px glyph.
+        // Every strip matches its neighbours' icon actions with a 15px glyph: inline, the turn's actions
+        // (ui-chat MessageIconActions: tertiary ink, secondary on hover); in a tab strip, the kit's split
+        // and the panel chrome (secondary ink, hover only fills the background).
         ctx.effect(() => {
           const style = document.createElement('style')
-          style.textContent = 'button[data-annotate-inline][data-annotate-action]{color:var(--dsw-alias-label-tertiary);'
+          style.textContent = 'button[data-annotate-action]{color:var(--dsw-alias-label-secondary)}'
+            + 'button[data-annotate-action] svg{width:15px;height:15px}'
+            + 'button[data-annotate-inline][data-annotate-action]{color:var(--dsw-alias-label-tertiary);'
             + 'width:calc(28px + var(--jan-content-font-delta, 0px));height:calc(28px + var(--jan-content-font-delta, 0px))}'
             + 'button[data-annotate-inline][data-annotate-action] svg{width:calc(15px + var(--jan-content-font-delta, 0px));'
             + 'height:calc(15px + var(--jan-content-font-delta, 0px))}'
             + '@media (hover:hover){button[data-annotate-inline][data-annotate-action]:hover:not(:disabled){color:var(--dsw-alias-label-secondary)}}'
+            // The composer thumbnail's remove control: an 18px contrast disc.
+            + 'button[data-annotate-badge][data-annotate-action]{width:18px;height:18px;min-width:0;min-height:0;padding:0;'
+            + 'border-radius:50%;background:var(--dsw-alias-button-contrast-fill);color:var(--dsw-alias-label-primary-inverted)}'
+            + 'button[data-annotate-badge][data-annotate-action] svg{width:11px;height:11px}'
           document.head.append(style)
           return () => { style.remove() }
         })
@@ -211,11 +225,13 @@ window.__ModuleLoader__.load({
             target ??= candidates.find(item => !item.compact) ?? candidates[0]
             if (target) { input.consume(); target.start() }
           }))
-          for (const [names, compact] of [[SHELL_SLOTS, false], [INLINE_SLOTS, true]]) for (const name of names) {
-            ctx.slots.inject(name, () => ctx.slots.register({
-              name, id, locale: id,
-              inject: () => ({ watch, activate, setGrab, getKeys, append, compact, loadOverlay }),
-            }, Launcher))
+          for (const [names, compact, badge] of [[SHELL_SLOTS, false, false], [INLINE_SLOTS, true, false], [BADGE_SLOTS, true, true]]) {
+            for (const name of names) {
+              ctx.slots.inject(name, () => ctx.slots.register({
+                name, id, locale: id,
+                inject: () => ({ watch, activate, setGrab, getKeys, append, compact, badge, loadOverlay }),
+              }, Launcher))
+            }
           }
           // A sent grab shows as one chip; its selector and HTML open on click.
           void element.then(({ pageElementRule, PageElement }) => {

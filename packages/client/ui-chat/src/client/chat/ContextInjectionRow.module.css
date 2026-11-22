@@ -59,6 +59,19 @@
   white-space: nowrap;
 }
 
+/* Disclosure affordance at the row's end: right while closed, down while open. */
+.trailingChevron {
+  flex: none;
+  display: inline-flex;
+  margin-left: 6px;
+  color: var(--dsw-alias-label-caption);
+  transition: transform 120ms ease;
+}
+
+.trailingChevron[data-open] {
+  transform: rotate(90deg);
+}
+
 .body {
   box-sizing: border-box;
   /* Indent under the title, which starts at leading (16 + delta) + gap 6. */

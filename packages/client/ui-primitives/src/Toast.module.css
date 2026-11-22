@@ -14,9 +14,10 @@
   max-width: min(420px, calc(100vw - 40px));
   padding: 12px 16px;
   border-radius: var(--dsw-radius-lg);
-  /* The design platform's toast surface is dark in BOTH themes (bluish-800
-     light / bluish-750 dark), so the label and the action text below stay
-     fixed instead of flipping with the theme. */
+  /* Surface, border, label and action colors are toast tokens. The design
+     platform's defaults keep the surface dark in both themes (bluish-800
+     light / bluish-750 dark) with no border; a theme may restyle all four. */
+  border: 1px solid var(--dsw-alias-toast-border);
   background: var(--dsw-alias-toast-bg);
   color: var(--dsw-alias-toast-label);
   font-size: 14px;
@@ -47,9 +48,9 @@
   padding: 0;
   border: 0;
   background: none;
-  /* brand-400, brightened at the designer's request, reads as the action
-     against the always-dark toast surface without an underline. */
-  color: var(--dsw-static-brand-400);
+  /* The default action token is brand-400, brightened at the designer's
+     request so it reads against the dark default surface without an underline. */
+  color: var(--dsw-alias-toast-action);
   font: inherit;
   cursor: pointer;
   /* Breathing room where the action text meets the surrounding copy. */
@@ -59,9 +60,39 @@
   pointer-events: auto;
 }
 
+/* Dismisses the notice at once; like the action text, it alone takes the pointer. */
+.close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  align-self: flex-start;
+  width: 22px;
+  height: 22px;
+  margin-inline: 2px -6px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.close:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);
+  outline-offset: 1px;
+  opacity: 1;
+}
+
 @media (hover: hover) {
   .action:hover {
     opacity: 0.8;
+  }
+
+  .close:hover {
+    opacity: 1;
+    background: color-mix(in srgb, currentColor 12%, transparent);
   }
 }
 

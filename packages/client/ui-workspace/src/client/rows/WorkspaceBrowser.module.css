@@ -525,17 +525,42 @@
   bottom: -8px;
 }
 
+/* Reads as one more session row: same height, inset, leading 16px slot (the
+   chevron, saying which way) and title start, so its label lines up under the
+   titles it reveals. */
 .sessionOverflowButton {
+  display: flex;
+  align-items: center;
   width: 100%;
-  height: 28px;
+  height: 32px;
   border: none;
-  border-radius: var(--dsw-radius-sm);
-  padding: 0 var(--jan-sidebar-row-padding) 0 calc(var(--jan-sidebar-row-padding) + 16px + var(--jan-sidebar-label-gap) + var(--jan-workspace-indent, 0px));
+  border-inline: var(--jan-sidebar-paint-inset) solid transparent;
+  border-radius: var(--dsw-radius-md);
+  background-clip: padding-box;
+  box-sizing: border-box;
+  padding: 0 8px;
+  padding-inline-start: calc(var(--jan-sidebar-row-padding) - var(--jan-sidebar-paint-inset) + var(--jan-workspace-indent, 0px));
   background: transparent;
   cursor: pointer;
   text-align: left;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--dsw-alias-label-tertiary);
+}
+
+.sessionOverflowSlot {
+  flex: none;
+  width: 16px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sessionOverflowLabel {
+  margin-inline-start: var(--jan-sidebar-label-gap);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .groupSection > .sessionOverflowButton {

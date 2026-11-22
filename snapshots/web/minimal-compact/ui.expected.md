@@ -1,8 +1,7 @@
-- banner:
-  - navigation "Session hierarchy": "Remember the project requirements: imple"
-  - 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
-  - button "More actions"
-  - button "Open right sidebar"
+- navigation "Session hierarchy": "Remember the project requirements: imple"
+- button "More actions"
+- button "Active (0)"
+- button "Open right sidebar"
 - navigation "Turn navigation":
   - button "Jump to turn 1"
   - button "Jump to turn 2"
@@ -26,9 +25,12 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
+- 'button "Access mode, current: Project Write"': Project Write
+- button "Loading models…"
+- button "Open voice input setup"
 - button "Send message" [disabled]
+- button "Choose project"
+- 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
 - button "2 turns 2 steps"
 - button "28 tok · Cache hit 0%": 28 tokCache hit 0%
 - button "0% of context used": 0%

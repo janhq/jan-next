@@ -35,6 +35,7 @@
         "@janhq/jan-client-ui-conversation",
         "@janhq/jan-client-ui-renderer",
         "@janhq/jan-client-ui-session",
+        "@janhq/jan-client-ui-settings",
         "@janhq/jan-client-ui-chat"
       ],
       "platform": "web"
@@ -45,6 +46,9 @@
     "watch": "tsdown --watch"
   },
   "license": "MIT",
+  "dependencies": {
+    "@janhq/schemastery": "workspace:~"
+  },
   "peerDependencies": {
     "@janhq/cordis": "workspace:~"
   },
@@ -64,11 +68,13 @@
     "@janhq/jan-client-ui-slots": "workspace:*",
     "@janhq/jan-client-ui-renderer": "workspace:*",
     "@janhq/jan-client-ui-session": "workspace:*",
+    "@janhq/jan-client-ui-settings": "workspace:*",
     "@janhq/jan-typert-protocol": "workspace:*",
     "react": "^18.2.0",
     "@janhq/jan-client-ui-conversation": "workspace:*",
     "@janhq/jan-client-connection": "workspace:*",
     "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-settings": "workspace:*",
     "clsx": "^2.0.0",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-client-ui-chat": "workspace:*",

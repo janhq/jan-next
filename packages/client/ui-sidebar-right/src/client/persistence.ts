@@ -55,10 +55,27 @@ function validateReferences(value: z.infer<typeof surface>): void {
     || layout.nodes[layout.activePaneId]?.kind !== 'pane') reject()
 }
 
+interface PristineProbe {
+  readonly minted: number
+  readonly layout: { readonly expanded: boolean; readonly mode: string; readonly tabs: object }
+}
+
+/**
+ * Whether a surface still equals a fresh one: collapsed, push mode, no tabs and
+ * only the first pane minted. Restoring nothing gives the same surface, so such
+ * layouts are never kept in storage.
+ * @param value - layout and identity counter.
+ * @returns true when nothing about the surface needs saving.
+ */
+function isPristine(value: PristineProbe): boolean {
+  const { minted, layout } = value
+  return minted <= 1 && !layout.expanded && layout.mode === 'push' && Object.keys(layout.tabs).length === 0
+}
+
 /**
  * Restore one validated Session layout with a fresh in-window undo history.
  * @param sessionId - storage scope.
- * @returns the saved surface, or undefined when absent, inaccessible or invalid.
+ * @returns the saved surface, or undefined when absent, inaccessible, invalid or pristine; invalid and pristine entries are removed.
  */
 export function readSidebarLayout(sessionId: string): SurfaceState | undefined {
   if (typeof localStorage === 'undefined') return undefined
@@ -71,6 +88,10 @@ export function readSidebarLayout(sessionId: string): SurfaceState | undefined {
     if (saved === undefined) return undefined
     const parsed = surface.parse(saved)
     validateReferences(parsed)
+    if (isPristine(parsed)) {
+      clearSidebarLayout(sessionId)
+      return undefined
+    }
     return { layout: parsed.layout as unknown as LayoutState, minted: parsed.minted, history: EMPTY_HISTORY }
   } catch (_invalidLayout) {
     clearSidebarLayout(sessionId)
@@ -79,12 +100,17 @@ export function readSidebarLayout(sessionId: string): SurfaceState | undefined {
 }
 
 /**
- * Persist current layout and identity allocation without retaining undo entries.
+ * Persist current layout and identity allocation without retaining undo entries;
+ * a pristine surface removes the entry instead.
  * @param sessionId - storage scope.
  * @param surface - current in-memory surface.
  */
 export function writeSidebarLayout(sessionId: string, surface: SurfaceState): void {
   if (typeof localStorage === 'undefined') return
+  if (isPristine(surface)) {
+    clearSidebarLayout(sessionId)
+    return
+  }
   const saved = { bySession: { [sessionId]: { layout: surface.layout, minted: surface.minted } } }
   try { localStorage.setItem(`${sidebarPersistence}.${sessionId}`, JSON.stringify(saved)) }
   catch (error) { console.error('Sidebar layout persistence failed:', error) }

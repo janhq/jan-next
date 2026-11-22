@@ -142,6 +142,15 @@ export class TabDomain {
     existing.navigation.set({ ...target, revision: existing.navigation.getSnapshot().revision + 1 })
   }
 
+  /**
+   * Drop one session's occurrences, aborting any it still holds.
+   * @param sessionId - the session leaving memory.
+   */
+  forget(sessionId: SessionId): void {
+    for (const occurrence of this.bySession.get(sessionId)?.values() ?? []) occurrence.controller.abort()
+    this.bySession.delete(sessionId)
+  }
+
   /** Abort every occurrence of every session; the package is unloading. */
   dispose(): void {
     for (const held of this.bySession.values()) {
