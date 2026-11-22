@@ -2,7 +2,7 @@
 import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
 import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { SessionListState } from '@janhq/jan-api-session-controller/client'
 import type {
@@ -107,8 +107,8 @@ function remoteSource(machines: readonly RemoteMachine[] = []) {
 
 interface MountOptions {
   items?: readonly WorkspaceView[]
-  createWorkspace?: ReturnType<typeof vi.fn>
-  createDirectory?: ReturnType<typeof vi.fn>
+  createWorkspace?: Mock<(input: { path: string }) => Promise<WorkspaceView>>
+  createDirectory?: Mock<(parent: string, name: string) => Promise<string>>
   occupancy?: ReturnType<typeof occupancySource>
   remoteName?: string
   remote?: RemoteMachineSource
@@ -118,7 +118,7 @@ interface MountOptions {
 
 function mount({
   items = [workspace('alpha', 'Alpha')],
-  createWorkspace = vi.fn(),
+  createWorkspace = vi.fn<(input: { path: string }) => Promise<WorkspaceView>>(),
   createDirectory = vi.fn(async (parent: string, name: string) => `${parent}/${name}`),
   occupancy = occupancySource(),
   remoteName,
