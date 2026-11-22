@@ -22,5 +22,8 @@
     "src",
     "types",
     "tsdown.config.ts"
+  ],
+  "exclude": [
+    "src/client/kit/react-components.ts"
   ]
 }

@@ -1,0 +1,133 @@
+"use client";
+
+import { RadioGroup as RCRadioGroup, RadioItem } from "@openuidev/react-components";
+import clsx from "clsx";
+import { useId } from "react";
+import { FieldError, RequiredMark } from "../Field";
+import { names as fieldNames, fieldStyles } from "../Field/field.styles";
+import { names, radioGroupStyles } from "./radioGroup.styles";
+
+export interface RadioOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+export interface RadioGroupProps {
+  options: RadioOption[];
+  /** The chosen option's value, or "" for none. */
+  value: string;
+  onChange: (value: string) => void;
+  /** list (the default), cards for choices that need a description line, or pills for short choices. */
+  variant?: "list" | "cards" | "pills";
+  label?: string;
+  required?: boolean;
+  /** Shown under the options. */
+  error?: string;
+}
+
+/**
+ * One group, three renderings:
+ *
+ *   list   -> react-components' RadioGroup + RadioItem
+ *   pills  -> the kit's own markup, kept deliberately
+ *   cards  -> the pills' markup in a grid of bordered cards. (Upstream used react-components'
+ *             OptionCards, whose Markdown titles bring the whole Markdown renderer into the bundle.)
+ *
+ * All three sit in one fieldset, so the label and any error show the same way.
+ */
+export function RadioGroup({
+  options,
+  value,
+  onChange,
+  variant: variantProp,
+  label,
+  required,
+  error,
+}: RadioGroupProps) {
+  const name = useId();
+  const variant = variantProp ?? "list";
+  const errorId = `${name}-error`;
+  // Every rendering is one radiogroup, so a screen reader hears the same state from all three.
+  const state = {
+    "aria-required": required || undefined,
+    "aria-invalid": error ? true : undefined,
+    "aria-describedby": error ? errorId : undefined,
+  };
+  let body;
+  if (variant === "pills" || variant === "cards") {
+    const cards = variant === "cards";
+    body = (
+      <div role="radiogroup" className={clsx(radioGroupStyles.track, names.track)} {...state}>
+        {options.map((o, i) => (
+          <label
+            key={`${o.value}-${i}`}
+            className={
+              cards
+                ? clsx(radioGroupStyles.card, names.card)
+                : clsx(radioGroupStyles.option, names.option)
+            }
+            data-selected={o.value === value || undefined}
+          >
+            <input
+              type="radio"
+              className={clsx(radioGroupStyles.input, names.input)}
+              name={name}
+              checked={o.value === value}
+              onChange={() => onChange(o.value)}
+            />
+            <span className={clsx(radioGroupStyles.text, names.text)}>
+              <span className={cards ? clsx(radioGroupStyles.cardTitle, names.cardTitle) : undefined}>
+                {o.label}
+              </span>
+              {o.description ? (
+                <span className={clsx(radioGroupStyles.description, names.description)}>
+                  {o.description}
+                </span>
+              ) : null}
+            </span>
+          </label>
+        ))}
+      </div>
+    );
+  } else {
+    body = (
+      <RCRadioGroup value={value} onValueChange={onChange} {...state}>
+        {options.map((o, i) => (
+          <RadioItem
+            key={`${o.value}-${i}`}
+            value={o.value}
+            label={o.label}
+            description={o.description}
+          />
+        ))}
+      </RCRadioGroup>
+    );
+  }
+  return (
+    <fieldset
+      className={clsx(
+        radioGroupStyles.root,
+        names.root,
+        variant === "pills" && names.pills,
+        variant === "cards" && names.cards,
+      )}
+    >
+      {label ? (
+        <legend
+          className={clsx(
+            fieldStyles.label,
+            fieldNames.label,
+            radioGroupStyles.legend,
+            names.legend,
+          )}
+        >
+          {label}
+          {required ? <RequiredMark /> : null}
+        </legend>
+      ) : null}
+      {body}
+      <FieldError error={error} id={errorId} />
+    </fieldset>
+  );
+}

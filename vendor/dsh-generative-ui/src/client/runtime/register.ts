@@ -16,14 +16,18 @@
  * installs — omitting the entry here is a silent `Failed to resolve module
  * specifier "scheduler"` at the browser level, not a compile-time error.
  *
- * We otherwise pre-register no component library. Anything else resolves through
- * the esm.sh fallback at compile time.
+ * One component library is pre-registered: the Intelligent UI kit, as `$dsh/ui` (src/client/kit).
+ * It ships inside this bundle so a card's layout never waits on, or breaks with, the network.
+ * Anything else resolves through the esm.sh fallback at compile time.
  */
 import * as React from "react";
 import * as ReactJsxRuntime from "react/jsx-runtime";
 import * as ReactDom from "react-dom";
 import * as ReactDomClient from "react-dom/client";
 import * as Scheduler from "scheduler";
+import { capabilityModule } from "../../contract.ts";
+import { installKitTheme } from "../kit/jan-theme.ts";
+import * as Kit from "../kit/index.ts";
 import { registerModules, registryImports } from "./registry.ts";
 
 let installed = false;
@@ -62,8 +66,10 @@ export function registerRuntimeModules(): void {
     "react-dom": ReactDom,
     "react-dom/client": ReactDomClient,
     scheduler: Scheduler,
+    [capabilityModule("ui")]: Kit,
   });
   installDocumentImportMap();
+  installKitTheme();
 }
 
 export const hostReactVersion = React.version;
