@@ -141,8 +141,12 @@ export function registerChatNodeRenderers(
       } }, TurnErrorNodeView))
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
     { name: 'conversation.chat.node', key: 'turn-max-tokens', locale: NS }, TurnMaxTokensNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'turn-process', locale: NS }, TurnProcessNodeView))
+  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
+    name: 'conversation.chat.node',
+    key: 'turn-process',
+    locale: NS,
+    children: { 'conversation.chat.turn-process.trailing': { kind: 'list', scope: 'session' } },
+  }, TurnProcessNodeView))
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
     name: 'conversation.chat.node',
     key: 'turn-tail',

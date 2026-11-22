@@ -293,6 +293,7 @@ type ToolOwner = Pick<ChatNodeOwnerProps, 'openFile' | 'inspectCall'> & {
 const renderCommandSlot: React.ComponentProps<typeof CommandNodeView>['renderSlot'] =
   (_key, _owner, opts) => opts?.fallback ?? null
 const renderTurnTailSlot: React.ComponentProps<typeof TurnTailNodeView>['renderSlot'] = () => null
+const renderTurnProcessSlot: React.ComponentProps<typeof TurnProcessNodeView>['renderSlot'] = () => null
 // A plugin action that answers only one failure code, so other failure rows render as shipped.
 // The slot renderer is generic over every Turn error key, so its owner widens to the union.
 const renderTurnErrorSlot: React.ComponentProps<typeof TurnErrorNodeView>['renderSlot'] = (_key, owner) => {
@@ -368,7 +369,7 @@ function HarnessChatNode({
     case 'turn-max-tokens':
       return <TurnMaxTokensNodeView {...nodeProps} node={owner.node} />
     case 'turn-process':
-      return <TurnProcessNodeView {...nodeProps} node={owner.node} />
+      return <TurnProcessNodeView {...nodeProps} node={owner.node} renderSlot={renderTurnProcessSlot} />
     case 'system-prompt':
       return <SystemPromptNodeView {...nodeProps} node={owner.node} />
     case 'turn-tail':
