@@ -363,6 +363,8 @@ export function claimInlineFences({ segments, fences, render, t, subscribeLocale
       block.setAttribute(CLAIMED, "");
       const mount = document.createElement("div");
       mount.setAttribute(MOUNT, "");
+      // The host chat's marker for an embedded live surface: the reply's actions (annotate, for one) find the card by it.
+      mount.setAttribute("data-chat-embed", "");
       block.parentElement?.insertBefore(mount, block.nextSibling);
       // Swap the host's block for our own CodeBlock while the card is still compiling. Two
       // reasons, both reported from a real transcript: the host keys highlighting on the fence
