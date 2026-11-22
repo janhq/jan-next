@@ -257,6 +257,12 @@ declare module '@janhq/jan-client-ui-slots' {
     }
     /** Conversation shell beneath its root-scoped main-panel entry. */
     'main.conversation': { kind: 'single'; scope: 'session-maybe' }
+    /**
+     * Rows after **New chat** in the menu a chat tab strip's `+` opens. Each entry renders
+     * menu items (`role="menuitem"`) that open something for the pane's chat and call
+     * `dismiss`; return null with nothing to offer.
+     */
+    'conversation.desk.new-tab.item': { kind: 'list'; scope: 'root'; owner: ConversationNewTabItemOwnerProps }
     /** Strict per-Session Conversation body. */
     'conversation.session': {
       kind: 'single'
@@ -463,6 +469,14 @@ declare module '@janhq/jan-client-ui-slots' {
     /** Input actions are absent without a current Session. */
     inputActions: InputActions | undefined
   }
+}
+
+/** Owner share of a `+` menu row: the chat of the pane whose `+` was pressed. */
+export interface ConversationNewTabItemOwnerProps {
+  /** The pane's selected chat; undefined while that pane shows a blank new chat. */
+  readonly sessionId: SessionId | undefined
+  /** Close the menu; call it when a row acts. */
+  readonly dismiss: () => void
 }
 
 /** Owner share of the Hero agent-preset control. */

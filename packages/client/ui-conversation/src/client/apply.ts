@@ -693,7 +693,10 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       key: 'conversation',
       locale: NS,
       inject: () => ({ layout, retainPane, desktop }),
-      children: { 'main.conversation': { kind: 'single', scope: 'session-maybe' } },
+      children: {
+        'main.conversation': { kind: 'single', scope: 'session-maybe' },
+        'conversation.desk.new-tab.item': { kind: 'list', scope: 'root' },
+      },
     }, ConversationPanel)
     yield registerConversationRoot()
     yield registerConversationContent()
