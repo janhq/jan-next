@@ -277,6 +277,46 @@ window.__ModuleLoader__.load({
           })),
           result.nextCursor && !result.loading && h('div', { className: 'jt-agent-actions' }, h(Button, { variant: 'outline', onClick: () => load(result.nextCursor) }, 'Show more'))))
     }
+    // One box takes whatever a person already has: a whole MCP config from another app, one server's JSON,
+    // a command or an endpoint URL. It reads the paste as they type and shows what will be added.
+    function PasteServers({ busy, text, setText, error, onClose, onManual, onAdd }) {
+      const { Modal, Tag } = require('@janhq/jan-client-ui-primitives')
+      const [preview, setPreview] = React.useState({ rows: [], problem: '' })
+      React.useEffect(() => {
+        if (!text.trim()) { setPreview({ rows: [], problem: '' }); return }
+        let live = true
+        const timer = setTimeout(() => {
+          agentApi('previewImport', { text }).then(rows => { if (live) setPreview({ rows, problem: '' }) }, failure => { if (live) setPreview({ rows: [], problem: failure.message }) })
+        }, 250)
+        return () => { live = false; clearTimeout(timer) }
+      }, [text])
+      const fresh = preview.rows.filter(row => !row.exists)
+      const where = row => row.transport === 'stdio' ? [row.command, ...(row.args ?? [])].join(' ') : row.url
+      return h(Modal, {
+        open: true, title: 'Add MCP servers', closeLabel: 'Close', onClose, className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content',
+        footer: h('div', { className: 'jt-paste-foot' },
+          h(Button, { variant: 'ghost', size: 'sm', disabled: busy, onClick: onManual }, 'Enter details manually'),
+          h('div', { className: 'jt-agent-actions' },
+            h(Button, { variant: 'outline', disabled: busy, onClick: onClose }, 'Cancel'),
+            h(Button, { variant: 'primary', disabled: busy || fresh.length === 0, onClick: onAdd }, fresh.length > 1 ? `Add ${fresh.length} servers` : 'Add server'))),
+      },
+        h('label', { className: 'jt-agent-field' }, 'Paste your MCP setup from Cursor, VS Code, Claude Desktop, Windsurf or Zed, one server, a command or a URL.',
+          h('textarea', {
+            rows: 8, value: text, autoFocus: true, autoComplete: 'off', spellCheck: false, className: 'jt-paste-box', disabled: busy,
+            placeholder: '{\n  "mcpServers": {\n    "github": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-github"] }\n  }\n}\n\nor  npx -y @playwright/mcp@latest\nor  https://mcp.linear.app/mcp',
+            onChange: event => setText(event.target.value),
+          })),
+        preview.problem && h('p', { role: 'alert', className: 'jt-paste-problem' }, preview.problem),
+        preview.rows.length > 0 && h('ul', { className: 'jt-paste-list', 'aria-label': 'Servers in this paste' }, preview.rows.map(row => h('li', { key: row.name, 'data-exists': row.exists ? '' : undefined },
+          h('span', { className: 'jt-agent-art', style: { '--jt-hue': nameHue(row.name) }, 'aria-hidden': true }, row.name.charAt(0).toUpperCase()),
+          h('div', null,
+            h('strong', null, row.name),
+            h('code', { className: 'jt-agent-card-meta', title: where(row) }, where(row)),
+            [...row.environmentKeys, ...row.headerKeys].length > 0 && h('small', null, `Saves ${[...row.environmentKeys, ...row.headerKeys].join(', ')} as credentials`)),
+          row.exists ? h(Tag, { tone: 'neutral' }, 'Already added') : h(Tag, { tone: 'quiet' }, row.transport === 'stdio' ? 'Local' : 'Remote')))),
+        h('p', { className: 'jt-registry-note' }, 'Servers are added off. Turn each on when you trust it; secrets are stored as credentials and never shown again.'),
+        error && h('p', { role: 'alert' }, error))
+    }
     function AgentSettings({ skills = false, onCreate }) {
       const { Input, Modal, RiskConfirmation, SelectMenu, Tag } = require('@janhq/jan-client-ui-primitives')
       const { data, error: loadError } = React.useSyncExternalStore(agentList.subscribe, agentList.getSnapshot)
@@ -288,7 +328,6 @@ window.__ModuleLoader__.load({
       const [original, setOriginal] = useAgentDraft('original', '')
       const [replaceSecrets, setReplaceSecrets] = useAgentDraft('replaceSecrets', false)
       const [importText, setImportText] = useAgentDraft('import', '')
-      const [preview, setPreview] = React.useState(null)
       const [importOpen, setImportOpen] = React.useState(false)
       const [skillQuery, setSkillQuery] = useAgentDraft('skillQuery', '')
       const [skillFilter, setSkillFilter] = useAgentDraft('skillFilter', 'all')
@@ -307,9 +346,10 @@ window.__ModuleLoader__.load({
       React.useEffect(() => { if (data && directories === null) setDirectories(data.directories.join('\n')) }, [data])
       // Opening a tab rereads the list; the shared copy shows meanwhile.
       React.useEffect(() => { refresh().catch(() => {}) }, [])
+      // `message` is the notice to show afterwards, or a function from the action's result to it.
       async function run(action, message) {
         setBusy(true); setError(''); setNotice('')
-        try { await action(); await refresh(); setNotice(message) }
+        try { const result = await action(); await refresh(); setNotice(typeof message === 'function' ? message(result) : message) }
         catch (failure) { setError(failure.message) }
         finally { setBusy(false) }
       }
@@ -357,7 +397,7 @@ window.__ModuleLoader__.load({
             h('p', null, skills ? 'Reusable instructions the agent loads when a task matches. Jan finds SKILL.md folders in .agents/skills and .jan/skills.' : 'Connect the agent to external tools. A local server runs with your account permissions, so enable only servers you trust.')),
           skills
             ? onCreate && actions(button('Create skill', onCreate, { variant: 'primary' }))
-            : actions(onCreate && button('Create connector', onCreate), button('Import JSON', () => setImportOpen(true)), button('Add server', () => edit(null), { variant: 'primary' }))),
+            : actions(onCreate && button('Create connector', onCreate), button('Add server', () => setImportOpen(true), { variant: 'primary' }))),
         !data && !error && skeleton,
         skills ? h(React.Fragment, null,
           allSkills.length > 0 && h('div', { className: 'jt-agent-toolbar' },
@@ -387,7 +427,7 @@ window.__ModuleLoader__.load({
           h('details', { className: 'jt-agent-note' }, h('summary', null, 'Using Claude or Codex skills'), h('p', null, 'Claude and Codex skill instructions may work when they use the same format. Their hooks, plugin manifests, permissions and unavailable tool names are not imported. Review instructions and scripts before use.')),
           instruction && h(Modal, { open: true, title: instruction.name, closeLabel: 'Close skill editor', onClose: () => setInstruction(null), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Save instructions', () => ask('Save skill instructions?', 'This writes to the original skill file. Other agents using this folder will see the change.', () => run(async () => setInstruction({ name: instruction.name, ...await agentApi('saveSkill', instruction) }), 'Skill instructions saved.')), { variant: 'primary' }), button('Close editor', () => setInstruction(null))) }, h('code', { className: 'jt-agent-card-meta' }, instruction.path), h('p', null, 'This edits the original file, so other agents that use it see the change too. Unsaved edits are lost on reload.'), h('label', { className: 'jt-agent-field' }, 'Skill instruction file', h('textarea', { rows: 16, value: instruction.text, onChange: event => setInstruction({ ...instruction, text: event.target.value }), disabled: busy })), error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, notice))
         ) : h(React.Fragment, null,
-          data && data.servers.length === 0 && empty(IconToolOutlineMedium, 'No MCP servers yet. Add one, or import the mcpServers JSON you already use in Jan or Claude Desktop.'),
+          data && data.servers.length === 0 && empty(IconToolOutlineMedium, 'No MCP servers yet. Paste the MCP setup you use in Cursor, VS Code, Claude Desktop or Zed, or a single command or URL.'),
           data?.servers.length > 0 && h('div', { className: 'jt-agent-list' }, ...data.servers.map(row => {
             const [tone, label] = SERVER_STATE[row.state] ?? SERVER_STATE.empty
             return card(row.name,
@@ -401,9 +441,9 @@ window.__ModuleLoader__.load({
                   row.enabled && h(Button, { variant: (row.state === 'failed' || row.state === 'empty') ? 'outline' : 'ghost', size: 'sm', disabled: busy, 'aria-label': `${row.state === 'failed' || row.state === 'empty' ? 'Try again' : 'Reconnect'} ${row.name}`, onClick: () => run(() => agentApi('toggle', { name: row.name, enabled: true }), 'Connection refreshed.') }, row.state === 'failed' || row.state === 'empty' ? 'Try again' : 'Reconnect'),
                   h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => edit(row) }, 'Edit'),
                   h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Remove ${row.name}`, onClick: () => ask('Remove MCP server?', 'This removes the connection and its saved credentials. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')) }, 'Remove'))))
-          }), h('button', { type: 'button', className: 'jt-agent-add', disabled: busy, onClick: () => edit(null) },
-            h(IconToolOutlineMedium, { size: 20, 'aria-hidden': true }), h('span', null, 'Add your own server'),
-            h('small', null, 'A local command or a remote endpoint'))),
+          }), h('button', { type: 'button', className: 'jt-agent-add', disabled: busy, onClick: () => setImportOpen(true) },
+            h(IconToolOutlineMedium, { size: 20, 'aria-hidden': true }), h('span', null, 'Add servers'),
+            h('small', null, 'Paste a setup from Cursor, VS Code or Claude, a command, or a URL'))),
           data && h(RegistryBrowser, { busy, recommended: data.recommended, onAdd: addFromRegistry, onInstall: installConnector }),
           h('details', { className: 'jt-agent-note' }, h('summary', null, 'MCP servers, skills, plugins and agent presets'), h('p', null, 'MCP servers provide tools. Skills provide reusable instructions. Plugins add app features through Plugin manager. Agent presets hold saved instructions and working modes.')),
           draft && h(Modal, {
@@ -429,10 +469,16 @@ window.__ModuleLoader__.load({
               replaceSecrets && (draft.transport === 'stdio' ? field('Environment (JSON object, stored as credentials)', 'env', true, { autoComplete: 'off', spellCheck: false }) : field('Headers (JSON object, stored as credentials)', 'headers', true, { autoComplete: 'off', spellCheck: false }))),
             h('p', null, 'Saved connections persist. Unsaved drafts stay while switching sections, but are lost on reload. Credentials are never displayed after saving.'),
             error && h('p', { role: 'alert' }, error)),
-          importOpen && h(Modal, { open: true, title: 'Import MCP JSON', closeLabel: 'Close import', onClose: () => setImportOpen(false), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Review import', () => run(async () => setPreview(await agentApi('previewImport', { text: importText })), 'Import reviewed. Nothing has been saved.')), preview && button('Import disabled servers', () => run(async () => { await agentApi('importServers', { text: importText, confirmed: true }); setImportText(''); setPreview(null); setImportOpen(false) }, 'Servers imported disabled.'), { variant: 'primary' }), button('Cancel', () => setImportOpen(false))) },
-            h('p', null, 'Paste an object containing mcpServers. Imports are all-or-nothing, never overwrite names, and stay disabled until you enable them. Codex TOML, Claude plugins and legacy SSE need separate conversion.'),
-            h('label', { className: 'jt-agent-field' }, 'MCP configuration JSON', h('textarea', { rows: 6, value: importText, autoComplete: 'off', spellCheck: false, onChange: event => { setImportText(event.target.value); setPreview(null) } })),
-            preview && h('div', null, ...preview.map(row => h('p', { key: row.name }, `${row.name}: ${row.transport}, disabled. Credential fields: ${[...row.environmentKeys, ...row.headerKeys].join(', ') || 'none'}`))), error && h('p', { role: 'alert' }, error))
+          importOpen && h(PasteServers, {
+            busy, text: importText, setText: setImportText, error,
+            onClose: () => setImportOpen(false),
+            onManual: () => { setImportOpen(false); edit(null) },
+            onAdd: () => run(async () => {
+              const { added } = await agentApi('importServers', { text: importText, confirmed: true })
+              setImportText(''); setImportOpen(false)
+              return added
+            }, added => `Added ${added.join(', ')}. Turn a server on when you trust it.`),
+          })
         ), message,
         h(RiskConfirmation, { open: !!confirmation, title: confirmation?.title || '', description: confirmation?.description || '', acknowledgeLabel: 'I understand this change', cancelLabel: 'Cancel', closeLabel: 'Close', confirmLabel: 'Confirm', acknowledged, disabled: busy, onAcknowledgedChange: setAcknowledged, onCancel: () => setConfirmation(null), onConfirm: () => { const action = confirmation.action; setConfirmation(null); action() } }))
     }
@@ -527,7 +573,7 @@ window.__ModuleLoader__.load({
 .jt-agent-field textarea { min-height: 80px; resize: vertical; }
 .jt-agent-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .jt-registry { display: grid; gap: 24px; margin-top: 24px; }
-.jt-registry-heading { margin: 0 0 4px; font-size: 15px; font-weight: 600; color: var(--dsw-alias-label-primary); }
+.jt-agent-settings .jt-registry-heading { margin: 0 0 4px; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--dsw-alias-label-primary); }
 .jt-registry-note { margin: 0 0 12px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .jt-registry [aria-busy="true"] { opacity: .6; transition: opacity .15s; }
 .jt-registry-option { height: 24px; max-width: 180px; padding: 0 8px; gap: 6px; font-size: 12px; line-height: 18px; }
@@ -558,12 +604,13 @@ window.__ModuleLoader__.load({
 .jt-agent-grid { grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
 .jt-agent-tile { align-content: start; gap: 8px; padding: 14px; transition: transform .18s cubic-bezier(.2, .8, .2, 1), border-color .18s, box-shadow .18s; }
 .jt-agent-tile:hover { transform: translateY(-2px); border-color: var(--dsw-alias-border-l4); box-shadow: 0 8px 20px color-mix(in oklab, hsl(var(--jt-hue) 60% 45%) 18%, transparent); }
-.jt-agent-tile h3 { margin: 0; }
+.jt-agent-settings .jt-agent-tile h3 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; overflow-wrap: anywhere; }
 .jt-agent-tile .jt-agent-card-meta { display: inline; }
-.jt-agent-art { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: #fff; background: linear-gradient(135deg, hsl(var(--jt-hue) 70% 55%), hsl(calc(var(--jt-hue) + 60) 70% 42%)); }
+/* Tile art matches the Hub's and the plugin tiles' 40px frame. */
+.jt-agent-art { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-size: 18px; font-weight: 600; color: #fff; background: linear-gradient(135deg, hsl(var(--jt-hue) 70% 55%), hsl(calc(var(--jt-hue) + 60) 70% 42%)); }
 /* A publisher logo sits on white like an app icon, so dark marks stay visible in the dark theme. */
 .jt-registry-logo { background: #fff; box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / .12); overflow: hidden; }
-.jt-registry-logo img { width: 24px; height: 24px; object-fit: contain; }
+.jt-registry-logo img { width: 30px; height: 30px; object-fit: contain; }
 .jt-agent-settings .jt-agent-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--dsw-alias-label-secondary); }
 .jt-agent-skeleton { height: 132px; border-radius: 12px; background: linear-gradient(90deg, var(--dsw-alias-bg-layer-1) 0%, var(--dsw-alias-border-l1) 50%, var(--dsw-alias-bg-layer-1) 100%); background-size: 200% 100%; animation: jt-skeleton 1.4s ease-in-out infinite; }
 @keyframes jt-skeleton { from { background-position: 100% 0 } to { background-position: -100% 0 } }
@@ -576,6 +623,18 @@ window.__ModuleLoader__.load({
 .jt-agent-add { display: grid; justify-items: center; gap: 4px; padding: 20px; border: 1px dashed var(--dsw-alias-border-l2); border-radius: 12px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font: inherit; font-size: 13px; transition: border-color .18s, color .18s; }
 .jt-agent-add span { color: var(--dsw-alias-label-primary); font-weight: 500; }
 .jt-agent-add:hover:not(:disabled) { border-color: var(--dsw-alias-border-l4); }
+.jt-agent-settings .jt-agent-field textarea.jt-paste-box { min-height: 168px; font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 12px; line-height: 18px; white-space: pre; overflow-x: auto; }
+.jt-agent-settings .jt-agent-field textarea.jt-paste-box::placeholder { color: var(--dsw-alias-label-tertiary); }
+.jt-agent-settings .jt-paste-problem { margin: 8px 0 0; font-size: 13px; color: var(--dsw-alias-state-error-primary); }
+.jt-paste-list { display: grid; gap: 4px; margin: 12px 0 0; padding: 0; list-style: none; }
+.jt-paste-list li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1); }
+.jt-paste-list li[data-exists] { opacity: .6; }
+.jt-paste-list li > div { display: grid; min-width: 0; }
+.jt-paste-list strong { font-size: 14px; line-height: 20px; font-weight: 500; }
+.jt-paste-list small { margin: 0; font-size: 12px; }
+.jt-paste-list .jt-agent-art { width: 32px; height: 32px; border-radius: 8px; font-size: 14px; }
+.jt-paste-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.jt-paste-foot > button:first-child { margin-left: -8px; color: var(--dsw-alias-label-secondary); }
 @media (prefers-reduced-motion: reduce) { .jt-agent-tile { transition: none; } .jt-agent-tile:hover { transform: none; } .jt-agent-skeleton { animation: none; } }
 .jt-agent-card-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .jt-agent-card-foot > :first-child { flex: 1 1 240px; min-width: 0; }
