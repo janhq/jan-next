@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   id: '@janhq/jan-wall-of-quotes',
   factory(require) {
     const { createElement: h, useEffect, useId, useMemo, useRef, useState } = require('react')
-    const { Button, Switch } = require('@janhq/jan-client-ui-primitives')
+    const { Button, IconEditOutlineRegular, IconRefreshOutlineRegular, Switch, Tooltip } = require('@janhq/jan-client-ui-primitives')
     const NS = 'jan-wall-of-quotes'
     const HEADLINE_SLOT = 'conversation.hero.headline'
     const SETTINGS_SLOT = 'plugins.item'
@@ -20,6 +20,7 @@ window.__ModuleLoader__.load({
         addQuote: 'Add a quote', quote: 'Quote', author: 'Author (optional)', add: 'Add', remove: 'Remove',
         removeQuote: 'Remove quote: {quote}', saveFailed: 'Could not save your change. Try again.',
         loadFailed: 'Could not load the built-in quotes.', readOnly: 'These settings are read-only.',
+        newQuote: 'New quote', editQuotes: 'Edit quotes',
       },
       zh: {
         title: 'Wall of Quotes', summary: '为每个新对话显示一条随机语录。', master: '在新对话中显示语录',
@@ -27,6 +28,7 @@ window.__ModuleLoader__.load({
         addQuote: '添加语录', quote: '语录', author: '作者（可选）', add: '添加', remove: '移除',
         removeQuote: '移除语录：{quote}', saveFailed: '无法保存更改，请重试',
         loadFailed: '无法加载内置语录', readOnly: '这些设置为只读',
+        newQuote: '换一条语录', editQuotes: '编辑语录',
       },
       ja: {
         title: 'Wall of Quotes', summary: '新しいチャットにランダムな名言を表示します。', master: '新しいチャットに名言を表示',
@@ -34,6 +36,7 @@ window.__ModuleLoader__.load({
         addQuote: '名言を追加', quote: '名言', author: '著者（任意）', add: '追加', remove: '削除',
         removeQuote: '名言を削除：{quote}', saveFailed: '変更を保存できませんでした。もう一度お試しください。',
         loadFailed: '組み込みの名言を読み込めませんでした。', readOnly: 'これらの設定は読み取り専用です。',
+        newQuote: '別の名言', editQuotes: '名言を編集',
       },
       es: {
         title: 'Wall of Quotes', summary: 'Muestra una cita al azar en cada chat nuevo.', master: 'Mostrar citas en chats nuevos',
@@ -41,6 +44,7 @@ window.__ModuleLoader__.load({
         addQuote: 'Añadir una cita', quote: 'Cita', author: 'Autor (opcional)', add: 'Añadir', remove: 'Eliminar',
         removeQuote: 'Eliminar cita: {quote}', saveFailed: 'No se pudo guardar el cambio. Inténtalo de nuevo.',
         loadFailed: 'No se pudieron cargar las citas incluidas.', readOnly: 'Estos ajustes son de solo lectura.',
+        newQuote: 'Otra cita', editQuotes: 'Editar citas',
       },
       fr: {
         title: 'Wall of Quotes', summary: 'Affiche une citation au hasard dans chaque nouveau chat.', master: 'Afficher des citations dans les nouveaux chats',
@@ -48,6 +52,7 @@ window.__ModuleLoader__.load({
         addQuote: 'Ajouter une citation', quote: 'Citation', author: 'Auteur (facultatif)', add: 'Ajouter', remove: 'Supprimer',
         removeQuote: 'Supprimer la citation : {quote}', saveFailed: 'Impossible d’enregistrer la modification. Réessayez.',
         loadFailed: 'Impossible de charger les citations intégrées.', readOnly: 'Ces paramètres sont en lecture seule.',
+        newQuote: 'Autre citation', editQuotes: 'Modifier les citations',
       },
       de: {
         title: 'Wall of Quotes', summary: 'Zeigt in jedem neuen Chat ein zufälliges Zitat.', master: 'Zitate in neuen Chats anzeigen',
@@ -55,6 +60,7 @@ window.__ModuleLoader__.load({
         addQuote: 'Zitat hinzufügen', quote: 'Zitat', author: 'Autor (optional)', add: 'Hinzufügen', remove: 'Entfernen',
         removeQuote: 'Zitat entfernen: {quote}', saveFailed: 'Die Änderung konnte nicht gespeichert werden. Versuche es erneut.',
         loadFailed: 'Die integrierten Zitate konnten nicht geladen werden.', readOnly: 'Diese Einstellungen sind schreibgeschützt.',
+        newQuote: 'Neues Zitat', editQuotes: 'Zitate bearbeiten',
       },
       ru: {
         title: 'Wall of Quotes', summary: 'Показывает случайную цитату в каждом новом чате.', master: 'Показывать цитаты в новых чатах',
@@ -62,6 +68,7 @@ window.__ModuleLoader__.load({
         addQuote: 'Добавить цитату', quote: 'Цитата', author: 'Автор (необязательно)', add: 'Добавить', remove: 'Удалить',
         removeQuote: 'Удалить цитату: {quote}', saveFailed: 'Не удалось сохранить изменение. Попробуйте ещё раз.',
         loadFailed: 'Не удалось загрузить встроенные цитаты.', readOnly: 'Эти настройки доступны только для чтения.',
+        newQuote: 'Другая цитата', editQuotes: 'Изменить цитаты',
       },
       pt: {
         title: 'Wall of Quotes', summary: 'Mostra uma citação aleatória em cada nova conversa.', master: 'Mostrar citações em novas conversas',
@@ -69,12 +76,22 @@ window.__ModuleLoader__.load({
         addQuote: 'Adicionar uma citação', quote: 'Citação', author: 'Autor (opcional)', add: 'Adicionar', remove: 'Remover',
         removeQuote: 'Remover citação: {quote}', saveFailed: 'Não foi possível guardar a alteração. Tente novamente.',
         loadFailed: 'Não foi possível carregar as citações integradas.', readOnly: 'Estas definições são só de leitura.',
+        newQuote: 'Outra citação', editQuotes: 'Editar citações',
       },
     }
 
     const CSS = `
 .woq-title { width: 100%; margin: 0 0 16px; font-family: 'StudioFeixenSans', 'Inter', sans-serif; font-size: 24px; font-weight: 500; line-height: 32px; color: var(--dsw-alias-label-primary); text-align: center; text-wrap: balance; overflow-wrap: anywhere; }
 .woq-author { display: block; font-size: 14px; font-weight: 400; line-height: 20px; color: var(--dsw-alias-label-secondary); }
+.woq-headline { width: 100%; margin: 0 0 16px; }
+.woq-headline > .woq-title { margin: 0; }
+/* The quote's controls sit on the author line and appear while the pointer is over the quote or a control has focus. */
+.woq-byline { display: flex; align-items: center; justify-content: center; gap: 2px; min-height: 28px; }
+.woq-actions { display: inline-flex; gap: 2px; opacity: 0; transition: opacity 120ms ease; }
+.woq-headline:hover .woq-actions, .woq-actions:focus-within { opacity: 1; }
+@media (hover: none) { .woq-actions { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .woq-actions { transition: none; } }
+.woq-actions button { color: var(--dsw-alias-label-tertiary); }
 .woq-section-title { margin: 0; font-size: 14px; font-weight: 500; line-height: 20px; color: var(--dsw-alias-label-primary); }
 .woq-section + .woq-section { margin-top: 32px; }
 .woq-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 0; border-bottom: 0.5px solid var(--dsw-alias-border-l2); }
@@ -106,23 +123,33 @@ window.__ModuleLoader__.load({
       return result
     }
 
-    function QuoteHeadline({ headline, preferences, chunk, readLast, remember }) {
-      const [sample] = useState(Math.random)
-      const [previous] = useState(readLast)
+    function QuoteHeadline({ t, headline, preferences, chunk, readLast, remember, openSettings }) {
+      const [sample, setSample] = useState(Math.random)
+      const [previous, setPrevious] = useState(readLast)
       const { builtIn, custom, quotes } = preferences
       const quote = useMemo(() => chunk.pickQuote({ builtIn, custom, quotes }, chunk.builtInQuotes, () => sample, previous),
         [chunk, builtIn, custom, quotes, sample, previous])
       useEffect(() => { if (quote) remember(quote) }, [quote, remember])
-      return h('h1', { className: 'woq-title' }, quote?.text ?? headline,
-        quote?.author ? h('span', { className: 'woq-author' }, `- ${quote.author}`) : null)
+      const total = (builtIn ? chunk.builtInQuotes.length : 0) + (custom ? quotes.length : 0)
+      // A new sample that skips the shown quote, the same rule a new chat applies to the previous one.
+      const refresh = () => { setPrevious(quote ?? undefined); setSample(Math.random()) }
+      const action = (label, Icon, onClick, disabled) => h(Tooltip, { label, key: label },
+        h(Button, { variant: 'ghost', size: 'sm', 'aria-label': label, disabled, onClick, icon: h(Icon, { size: 14 }) }))
+      return h('div', { className: 'woq-headline' },
+        h('h1', { className: 'woq-title' }, quote?.text ?? headline),
+        h('div', { className: 'woq-byline' },
+          quote?.author ? h('span', { className: 'woq-author' }, `- ${quote.author}`) : null,
+          h('span', { className: 'woq-actions' },
+            action(t('newQuote'), IconRefreshOutlineRegular, refresh, total < 2),
+            action(t('editQuotes'), IconEditOutlineRegular, openSettings, false))))
     }
 
-    function HeroHeadline({ headline, useQuoteSettings, loadedQuotes, loadQuotes, readLast, remember, fixedHeadline }) {
+    function HeroHeadline({ t, headline, useQuoteSettings, loadedQuotes, loadQuotes, readLast, remember, fixedHeadline, openSettings }) {
       const preferences = useQuoteSettings(readPreferences)
       const needed = preferences?.enabled === true
         && (preferences.builtIn || (preferences.custom && preferences.quotes.length > 0))
       const chunk = useQuotes(needed, loadedQuotes, loadQuotes)
-      if (needed && chunk) return h(QuoteHeadline, { headline, preferences, chunk, readLast, remember })
+      if (needed && chunk) return h(QuoteHeadline, { t, headline, preferences, chunk, readLast, remember, openSettings })
       // Before the profile is ready, use the fixed greeting rather than assuming the plugin is on.
       return h('h1', { className: 'woq-title' }, preferences?.enabled === true ? headline : fixedHeadline(headline))
     }
@@ -268,9 +295,11 @@ window.__ModuleLoader__.load({
         })
 
         ctx.slots.inject(HEADLINE_SLOT, () => ctx.slots.register({
-          name: HEADLINE_SLOT, priority: -2,
+          name: HEADLINE_SLOT, priority: -2, locale: NS,
           inject: () => ({ hooks, loadedQuotes, loadQuotes, fixedHeadline,
-            readLast: () => lastQuote, remember: quote => { lastQuote = quote } }),
+            readLast: () => lastQuote, remember: quote => { lastQuote = quote },
+            // The Plugins page's navigation, looked up on click so a composition without it still shows the quote.
+            openSettings: () => { ctx.get('pluginNavigation')?.openItem(NS) } }),
         }, HeroHeadline))
         ctx.effect(() => ctx.configForms.whileServed([NS], () => {
           const clearItem = ctx.slots.inject(SETTINGS_SLOT, () => ctx.slots.register({
