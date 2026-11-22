@@ -1,15 +1,21 @@
 import { notifySubscribers } from '@janhq/jan-client-store'
 
 /**
- * Batches structural updates in microtasks and stream updates by animation
- * frame. Reads may rebuild a dirty snapshot without consuming the pending
- * subscriber notification.
+ * Batches structural updates in microtasks, stream updates by animation
+ * frame, and background reads (a library filling in many Sessions'
+ * projections) at most once per {@link BACKGROUND_MS}: each publication
+ * re-renders every list subscriber, so a burst of reads must not cost one
+ * full re-render each. A sooner kind takes over a pending background
+ * publication. Reads may rebuild a dirty snapshot without consuming the
+ * pending subscriber notification.
  */
+export const BACKGROUND_MS = 250
+
 export class Notifier {
   private listeners = new Set<() => void>()
   private dirty = false
   private notifyPending = false
-  private scheduled: 'none' | 'microtask' | 'frame' = 'none'
+  private scheduled: 'none' | 'microtask' | 'frame' | 'background' = 'none'
   private scheduleGeneration = 0
 
   /** @param rebuild - snapshot rebuild function injected by the owner (writes the owner's snapshotCache). */
@@ -39,8 +45,16 @@ export class Notifier {
   markFrameDirty(): void {
     this.dirty = true
     this.notifyPending = true
-    if (this.scheduled !== 'none') return
+    if (this.scheduled === 'microtask' || this.scheduled === 'frame') return
     this.schedule(typeof globalThis.requestAnimationFrame === 'function' ? 'frame' : 'microtask')
+  }
+
+  /** Mark the snapshot dirty for a background read and publish it at most once per {@link BACKGROUND_MS}. */
+  markBackgroundDirty(): void {
+    this.dirty = true
+    this.notifyPending = true
+    if (this.scheduled !== 'none') return
+    this.schedule('background')
   }
 
   /**
@@ -64,7 +78,7 @@ export class Notifier {
     this.rebuild()
   }
 
-  private schedule(kind: 'microtask' | 'frame'): void {
+  private schedule(kind: 'microtask' | 'frame' | 'background'): void {
     const generation = ++this.scheduleGeneration
     this.scheduled = kind
     const publish = () => {
@@ -74,6 +88,8 @@ export class Notifier {
     }
     if (kind === 'frame') {
       globalThis.requestAnimationFrame(publish)
+    } else if (kind === 'background') {
+      setTimeout(publish, BACKGROUND_MS)
     } else {
       queueMicrotask(publish)
     }
