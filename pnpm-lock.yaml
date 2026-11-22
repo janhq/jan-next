@@ -6117,6 +6117,9 @@ importers:
       '@janhq/jan-api-session-controller':
         specifier: workspace:*
         version: link:../../api/session-controller
+      '@janhq/jan-api-workspace-controller':
+        specifier: workspace:*
+        version: link:../../api/workspace-controller
       '@janhq/jan-client-connection':
         specifier: workspace:*
         version: link:../connection

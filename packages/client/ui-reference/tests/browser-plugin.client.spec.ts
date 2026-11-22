@@ -30,10 +30,14 @@ const CREATED_AT = 1_700_000_000_000
 const NOW = CREATED_AT + 3 * 86_400_000
 /** The Host session list dates a row; only a session missing from it falls back to createdAt. */
 const UPDATED_AT = NOW - 3_600_000
+/** Registered projects the Client Workspace list reports; each test sets its own. */
+let projects: { workspaceId: string; path: string; title: string; isDefault?: true }[] = []
+const workspacesService = { list: { getSnapshot: () => ({ items: projects }) } }
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(NOW)
+  projects = []
 })
 afterEach(() => { vi.useRealTimers() })
 
@@ -119,6 +123,7 @@ async function bench(
   new RemoteService(ctx)
   ctx.provide('remote.fileReferences', { list: files })
   ctx.provide('remote.sessionReferenceResolver', { candidates: sessions })
+  ctx.provide('workspaces', workspacesService)
   ctx.provide('locale', new LocaleRuntime(ctx))
   const sessionStore = new TestSessions(async (action) => { await action() }, ctx)
   onTestFinished(async () => {
@@ -143,7 +148,7 @@ describe('apply', () => {
   it('declares its services and releases the @ reference registration on disposal', async () => {
     expect(inject).toEqual([
       'inputTriggers', 'locale', 'sessions', 'remote', 'remote.fileReferences',
-      'remote.sessionReferenceResolver', 'sidebarRight', 'slots', 'uiConversation',
+      'remote.sessionReferenceResolver', 'sidebarRight', 'slots', 'uiConversation', 'workspaces',
     ])
     const { fiber } = await bench()
     let registered: InputTriggerSource | undefined
@@ -166,6 +171,7 @@ describe('apply', () => {
     new RemoteService(ctx)
     ctx.provide('remote.fileReferences', { list: () => Promise.resolve({ ok: true, value: [] }) })
     ctx.provide('remote.sessionReferenceResolver', { candidates: () => Promise.resolve({ ok: true, value: [] }) })
+    ctx.provide('workspaces', workspacesService)
     ctx.provide('locale', new LocaleRuntime(ctx))
     const sessions = new TestSessions(async (action) => { await action() }, ctx)
     onTestFinished(() => sessions.disposeScopes())
@@ -324,6 +330,34 @@ describe('candidates', () => {
         section: 'Sessions',
       }),
     ])
+  })
+
+  it('lists matching projects after sessions as folder pointers and names a session by its project', async () => {
+    projects = [
+      { workspaceId: 'w1', path: `${HOME}/project`, title: 'Research Lab' },
+      { workspaceId: 'w2', path: `${HOME}/other`, title: 'Unrelated' },
+      { workspaceId: 'w3', path: `${HOME}/default-workspace`, title: 'default-workspace', isDefault: true },
+    ]
+    const { source } = await bench(undefined, undefined, { source: { updatedAt: UPDATED_AT } })
+    const rows = await source.candidates(session, request('lab'))
+    expect(rows.map(row => row.section)).toEqual(['Files & folders', 'Files & folders', 'Sessions', 'Projects'])
+    expect(rows[2]).toMatchObject({ name: 'Research', description: 'Research Lab · 1h' })
+    expect(rows[3]).toEqual({
+      name: 'Research Lab',
+      description: '~/project',
+      icon: 'folder',
+      section: 'Projects',
+      value: JSON.stringify({ kind: 'file', fileKind: 'directory', label: 'Research Lab', mention: `@${HOME}/project/` }),
+    })
+    const picked = source.onPick?.({ candidate: rows[3] as InputTriggerCandidate, action: 'pick' } as never)
+    expect(picked).toEqual({ insert: {
+      source: 'reference', ref: `@${HOME}/project/`, label: 'Research Lab/', appearance: 'folder', clipboardText: `@${HOME}/project/`,
+    } })
+    // An empty query lists every project under its display title; a typed path is file navigation only.
+    const all = await source.candidates(session, request(''))
+    expect(all.filter(row => row.section === 'Projects').map(row => row.name)).toEqual(['Research Lab', 'Unrelated', 'Default project'])
+    const pathRows = await source.candidates(session, request('src/'))
+    expect(pathRows.some(row => row.section === 'Projects')).toBe(false)
   })
 
   it('suppresses sessions for an open quoted path and degrades each failed domain independently', async () => {
