@@ -16,7 +16,8 @@ import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import {
   HoverCard, IconArchiveOutlineRegular,
   IconNewChatOutlineRegular, IconPinFillRegular,
-  IconChevronRightOutlineRegular, IconUnarchiveOutlineRegular, relativeTime, StateDot, Tooltip, useRowDragPreview,
+  IconChevronRightOutlineRegular, IconFollowsystemOutlineRegular, IconUnarchiveOutlineRegular,
+  relativeTime, StateDot, Tooltip, useRowDragPreview,
 } from '@janhq/jan-client-ui-primitives'
 import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
 import type { StateDotState } from '@janhq/jan-client-ui-primitives'
@@ -316,6 +317,16 @@ function ProjectRow({
       <span className={clsx(css.slot, css.folder, active && css.folderActive)}>
         <ProjectAvatar avatar={row.avatar} githubOwner={row.githubOwner} color={row.color} expanded={row.expanded} />
       </span>
+      <span className={css.projectText}>
+        <span className={css.title}>{label}</span>
+        {machine !== undefined && row.workspaceId !== undefined && (
+          <span className={css.machineTag} data-machine-tag="" title={t('workspace.machine', { name: machine })}>
+            <IconFollowsystemOutlineRegular size={14} />
+            <span className={css.machineName}>{machine}</span>
+          </span>
+        )}
+      </span>
+      {/* The disclosure trails the title, beside the row's other actions. */}
       {onOpenProject === undefined
         ? (
           <span className={clsx(css.slot, css.chevron)}>
@@ -332,12 +343,6 @@ function ProjectRow({
             <IconChevronRightOutlineRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
           </button>
         )}
-      <span className={css.projectText}>
-        <span className={css.title}>{label}</span>
-      </span>
-      {machine !== undefined && row.workspaceId !== undefined && (
-        <span className={css.machineTag} title={t('workspace.machine', { name: machine })}>{machine}</span>
-      )}
       <span className={css.rowActions}>
         {workspaceMenuTarget !== undefined && (
           renderFactorySlot('contextMenu.button', {

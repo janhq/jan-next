@@ -153,13 +153,13 @@
 }
 
 
-/* Project leading slot: folder by default, expand arrow on row hover. */
+/* Project disclosure: trails the title and shows with the row's actions (hover, an open
+   menu, keyboard focus); touch screens keep it visible. The avatar always leads the row. */
 .projectRow .chevron { display: none; }
 @media (hover: hover) {
   .projectRow:hover .chevron { display: inline-flex; }
-
-  .projectRow:hover .folder { display: none; }
 }
+.projectRow.menuOpen .chevron { display: inline-flex; }
 
 /* With a project page the row opens it, and this button alone expands and collapses. */
 .chevronButton {
@@ -170,7 +170,6 @@
   cursor: pointer;
 }
 .projectRow:has(.chevronButton:focus-visible) .chevron { display: inline-flex; }
-.projectRow:has(.chevronButton:focus-visible) .folder { display: none; }
 .chevronButton:focus-visible { outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 0; }
 @media (hover: hover) {
   .chevronButton:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
@@ -185,12 +184,13 @@
   transform: rotate(90deg);
 }
 
+/* Title then the computer it lives on, on one line; the title gives way first. */
 .projectText {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 6px;
 }
 
 .title {
@@ -284,30 +284,28 @@
   flex: none;
 }
 
-/* A remote window's project rows name the computer they live on. The tag yields to the
-   row's actions on hover, so it never pushes them out of the row. */
+/* The computer a project lives on: a monitor glyph and the name in caption ink after the
+   title, in every window, so local and remote projects read apart without hovering. */
 .machineTag {
   flex: none;
-  max-width: 96px;
+  max-width: 120px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.machineTag svg {
+  flex: none;
+}
+
+.machineName {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 0 6px;
-  border-radius: var(--dsw-radius-xs);
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
-  line-height: 18px;
-}
-
-@media (hover: hover) {
-  .projectRow:hover .machineTag {
-    display: none;
-  }
-}
-
-.projectRow.menuOpen .machineTag {
-  display: none;
 }
 
 /* The trailing strip keeps a shared gap between its fixed-size control boxes. */
@@ -386,6 +384,7 @@
 }
 
 @media (hover: none) {
+  .projectRow .chevron,
   .projectRow .rowActions,
   .searchResultRow .rowActions,
   .sessionRow .rowActions {
