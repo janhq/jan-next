@@ -32,7 +32,10 @@ export interface FileNavigatorInput {
 
 declare module '@janhq/jan-client-ui-slots' {
   interface SlotFactoryMap {
-    /** One pane's workspace tree with its width and show/hide state. */
+    /**
+     * One pane's workspace tree with its width and show/hide state. The host renders it as a child of
+     * the row it shares, and marks that row `data-files-navigator-row`, so a covering navigator can hide the row's content.
+     */
     'sidebar.files.navigator': {
       scope: 'session'
       props: FileNavigatorInput
