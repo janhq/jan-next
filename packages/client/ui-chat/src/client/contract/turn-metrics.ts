@@ -1,8 +1,6 @@
 // Assistant timing readings used by session statistics.
 
-import {
-  assistantBlockChars, type AssistantMessageNode,
-} from '@janhq/jan-client-ui-conversation/client'
+import type { AssistantMessageNode } from '@janhq/jan-client-ui-conversation/client'
 import { measuredDecodeMs } from '@janhq/jan-llm/assistant-stream'
 
 /** One assistant step's derivable latency facts; null marks an unrecorded part. */
@@ -30,6 +28,16 @@ function usageOutputTokens(usage: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
 }
 
+/** Characters the message carried as text, reasoning and Tool-call name and arguments. */
+function streamedChars(blocks: AssistantMessageNode['blocks']): number {
+  let chars = 0
+  for (const block of blocks) {
+    if (block.kind === 'text' || block.kind === 'reasoning') chars += block.text.length
+    else if (block.kind === 'tool-call') chars += block.name.length + block.argsRaw.length
+  }
+  return chars
+}
+
 /**
  * Read one assistant node's TTFT, decode wall time, and output tokens.
  * @param node - A settled assistant node.
@@ -44,7 +52,7 @@ export function assistantStepReading(node: AssistantNode): StepReading {
   const decodeMs = timing !== undefined && timing.firstTokenTime !== null && outputTokens !== null
     ? measuredDecodeMs({
       stepStartTime: timing.stepStartTime, firstTokenTime: timing.firstTokenTime, completedTime: timing.completedTime,
-      outputTokens, streamedChars: assistantBlockChars(node.blocks),
+      outputTokens, streamedChars: streamedChars(node.blocks),
     }) ?? null
     : null
   return { ttftMs, decodeMs, outputTokens }

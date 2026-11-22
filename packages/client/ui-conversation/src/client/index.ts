@@ -52,7 +52,6 @@ export { EMPTY_CONVERSATION_SNAPSHOT, conversationPhase } from './contract/snaps
 export type {
   ConversationPhase, ConversationSnapshot,
 } from './contract/snapshot.ts'
-export { assistantBlockChars } from './contract/records.ts'
 export type {
   AssistantBlock, AssistantMessageNode, AssistantProviderMetadataView, AssistantRequestConfig,
   AssistantTiming, CommandNode, CompactionSummaryNode, ContextMessageNode, ConversationNode,

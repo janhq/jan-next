@@ -38,21 +38,6 @@ export type AssistantBlock =
   | { kind: 'tool-call'; callId: string; name: string; argsRaw: string }
   | { kind: 'other'; block: unknown }
 
-/**
- * Characters assistant blocks carried as text, reasoning and Tool-call name and arguments: the
- * `streamedChars` an output speed is read with (`measuredDecodeMs` in `@janhq/jan-llm`).
- * @param blocks - one assistant message's blocks.
- * @returns the character count.
- */
-export function assistantBlockChars(blocks: readonly AssistantBlock[]): number {
-  let chars = 0
-  for (const block of blocks) {
-    if (block.kind === 'text' || block.kind === 'reasoning') chars += block.text.length
-    else if (block.kind === 'tool-call') chars += block.name.length + block.argsRaw.length
-  }
-  return chars
-}
-
 /** A finalized user message. */
 export interface UserMessageNode {
   kind: 'user'
