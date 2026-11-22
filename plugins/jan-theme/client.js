@@ -12,7 +12,7 @@ window.__ModuleLoader__.load({
       IconPluginPinwheelOutlineMedium, IconFolderCloseMedium, IconLayersOutlineMedium, IconClockOutlineMedium, IconLinkOutlineMedium,
       MenuItemButton, Button, Switch, Checkbox, IconLayersOutlineRegular, IconClockOutlineRegular, IconAppsAddOutlineRegular,
       IconToolOutlineMedium, IconSkillOutlineMedium,
-      NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
+      NavRow, SectionHeading, ColorSwatchGroup, WindowControls,
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
       IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
       IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular, IconBranchOutlineRegular, StateDot,
@@ -778,10 +778,22 @@ window.__ModuleLoader__.load({
   .jt-projects-head button { display: inline-flex; align-items: center; gap: 6px; }
   .jt-projects-lede { margin: 4px 0 24px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
   .jt-projects-error { margin: -12px 0 20px; color: var(--dsw-alias-state-error-primary); font-size: 14px; line-height: 20px; }
-  .jt-projects-search { display: flex; align-items: center; gap: 8px; height: 40px; margin-bottom: 20px; padding: 0 12px; border: 1px solid var(--dsw-alias-border-primary, var(--dsw-alias-separator)); border-radius: 8px; color: var(--dsw-alias-label-secondary); }
-  .jt-projects-search:focus-within { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -1px; }
-  .jt-projects-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; }
-  .jt-projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+  .jt-projects-sort { flex: none; display: inline-flex; align-items: center; gap: 4px; }
+  .jt-projects-sort-label { color: var(--dsw-alias-label-tertiary); }
+  .jt-projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+  .jt-projects-grid > li { display: grid; min-width: 0; }
+  .jt-project-tile { display: grid; gap: 8px; align-content: start; justify-items: start; box-sizing: border-box; width: 100%; min-width: 0; min-height: 132px; padding: 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); color: inherit; font: inherit; text-align: start; cursor: pointer; transition: transform .18s cubic-bezier(.2, .8, .2, 1), border-color .18s, box-shadow .18s; }
+  .jt-project-tile:hover { transform: translateY(-2px); border-color: var(--dsw-alias-border-l4); box-shadow: 0 8px 20px color-mix(in oklab, hsl(var(--jt-hue) 60% 45%) 18%, transparent); }
+  .jt-project-tile:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); }
+  .jt-project-tile > span { max-width: 100%; min-width: 0; }
+  .jt-project-tile-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15px; font-weight: 500; line-height: 22px; }
+  /* rtl clips from the left so the folder name at the end stays visible. */
+  .jt-project-tile-path { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; direction: rtl; text-align: left; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; }
+  .jt-project-tile-meta { margin-top: auto; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 18px; }
+  .jt-project-add { min-height: 132px; align-content: center; width: 100%; box-sizing: border-box; }
+  .jt-project-add small { color: var(--dsw-alias-label-tertiary); font-size: 12px; }
+  .jt-projects .jt-agent-empty p { margin: 0; max-width: 42ch; }
+  @media (prefers-reduced-motion: reduce) { .jt-project-tile { transition: none; } .jt-project-tile:hover { transform: none; } }
   .jt-projects-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 64px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; }
   @media (max-width: 600px) { .jt-projects { padding: 24px 16px; } }
   /* Project home: the main column (title, composer, recents) and a details rail. */
@@ -1329,41 +1341,88 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       return `${Math.round(minutes / 60 / 24)}d`
     }
 
-    // Projects page: every project folder Jan knows, newest first. A card
-    // opens its project page; New project picks a folder.
+    // Projects page: every project folder Jan knows as a gallery like Skills
+    // and Hub. Search, a filter and a sort narrow it; a tile opens the project
+    // page and the last tile picks a folder for a new one.
+    const PROJECT_SORTS = {
+      updated: (a, b) => Date.parse(b.row.updatedAt) - Date.parse(a.row.updatedAt),
+      name: (a, b) => a.title.localeCompare(b.title),
+      chats: (a, b) => b.row.sessionIds.length - a.row.sessionIds.length,
+      created: (a, b) => Date.parse(b.row.createdAt) - Date.parse(a.row.createdAt),
+    }
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+    const PROJECT_FILTERS = {
+      all: () => true,
+      recent: ({ row }) => Date.now() - Date.parse(row.updatedAt) < WEEK_MS,
+      empty: ({ row }) => row.sessionIds.length === 0,
+    }
     function ProjectsPanel({ useWorkspaces, openProject, addProject, t }) {
+      const { Input, Menu, IconChevronDownOutlineRegular } = require('@janhq/jan-client-ui-primitives')
       const items = useWorkspaces((snapshot) => snapshot.items)
       const [query, setQuery] = React.useState('')
+      const [filter, setFilter] = React.useState('all')
+      const [sort, setSort] = React.useState('updated')
+      const [sortOpen, setSortOpen] = React.useState(false)
       const [busy, setBusy] = React.useState(false)
       const needle = query.trim().toLowerCase()
       const defaultName = t('workspace.defaultName')
-      const rows = items.map(row => ({ row, title: workspaceDisplayTitle(row, defaultName) }))
+      const all = items.map(row => ({ row, title: workspaceDisplayTitle(row, defaultName) }))
+      const chips = Object.keys(PROJECT_FILTERS).map(id => [id, all.filter(PROJECT_FILTERS[id]).length])
+        .filter(([id, count]) => id === 'all' || (count > 0 && count < all.length))
+      const active = chips.some(([id]) => id === filter) ? filter : 'all'
+      const rows = all.filter(PROJECT_FILTERS[active])
         .filter(({ row, title }) => needle === '' || title.toLowerCase().includes(needle) || row.path.toLowerCase().includes(needle))
-        .sort((a, b) => Date.parse(b.row.updatedAt) - Date.parse(a.row.updatedAt))
+        .sort(PROJECT_SORTS[sort])
+      const narrowed = needle !== '' || active !== 'all'
       const error = useProjectError()
-      const add = async () => {
+      // The shared menu opens under the clicked control; the busy state only covers the fallback chooser.
+      const add = async (anchor) => {
         setBusy(true)
-        try { await addProject() } finally { setBusy(false) }
+        try { await addProject(anchor) } finally { setBusy(false) }
       }
+      const clear = () => { setQuery(''); setFilter('all'); setSort('updated') }
+      const sortItems = Object.keys(PROJECT_SORTS).map(id => ({ id, label: t(`projects.sort.${id}`) }))
       return h('section', { className: 'jt-projects', 'aria-labelledby': 'jt-projects-title' },
         h('header', { className: 'jt-projects-head' },
           h('h1', { id: 'jt-projects-title' }, t('projects')),
-          h(Button, { variant: 'primary', size: 'sm', disabled: busy, onClick: () => { void add() } },
+          h(Button, { variant: 'primary', size: 'sm', disabled: busy, onClick: (event) => { void add(event.currentTarget) } },
             h(IconProjectAddOutlineRegular, { size: 16, 'aria-hidden': true }), t('newProject'))),
         h('p', { className: 'jt-projects-lede' }, t('projects.lede')),
         error && h('p', { className: 'jt-projects-error', role: 'alert' }, t('projects.addFailed', { reason: error })),
-        items.length > 0 && h('label', { className: 'jt-projects-search' },
-          h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }),
-          h('input', { type: 'search', value: query, placeholder: t('projects.search'), 'aria-label': t('projects.search'), onChange: (event) => { setQuery(event.target.value) } })),
+        items.length > 0 && h('div', { className: 'jt-agent-toolbar' },
+          h(Input, { type: 'search', className: 'jt-agent-search', icon: h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }), placeholder: t('projects.search'), 'aria-label': t('projects.search'), value: query, onChange: event => { setQuery(event.target.value) } }),
+          h('span', null, narrowed ? t('projects.countOf', { shown: rows.length, count: all.length }) : t('projects.count', { count: all.length })),
+          h(Menu, {
+            open: sortOpen, portal: true, align: 'end', items: sortItems, selectedId: sort,
+            onSelect: (id) => { setSort(id); setSortOpen(false) }, onClose: () => { setSortOpen(false) },
+            anchor: h(Button, { variant: 'ghost', size: 'sm', className: 'jt-projects-sort', 'aria-haspopup': 'menu', 'aria-expanded': sortOpen, onClick: () => { setSortOpen(!sortOpen) } },
+              h('span', { className: 'jt-projects-sort-label' }, t('projects.sort')), t(`projects.sort.${sort}`),
+              h(IconChevronDownOutlineRegular, { size: 14, 'aria-hidden': true })),
+          })),
+        chips.length > 1 && h('div', { className: 'jt-chips', role: 'group', 'aria-label': t('projects.filter') }, chips.map(([id, count]) =>
+          h('button', { key: id, type: 'button', className: 'jt-chip', 'aria-pressed': active === id, onClick: () => { setFilter(id) } },
+            t(`projects.filter.${id}`), h('span', { className: 'jt-chip-count' }, count)))),
         items.length === 0
           ? h('div', { className: 'jt-projects-empty' },
             h(IconFolderCloseRegular, { size: 32, 'aria-hidden': true }),
             h('p', null, t('projects.empty')))
-          : h('ul', { className: 'jt-projects-grid' }, rows.map(({ row, title }) => h('li', { key: row.workspaceId },
-            h(ProjectCard, {
-              title, path: row.path, onClick: () => { openProject(row.workspaceId) },
-              meta: [t(row.sessionIds.length === 1 ? 'projects.chat' : 'projects.chats', { count: row.sessionIds.length }), ' · ', t('projects.updated', { ago: relative(row.updatedAt) })].join(''),
-            })))))
+          : rows.length === 0
+            ? h('div', { className: 'jt-agent-empty' },
+              h(IconSearchOutlineRegular, { size: 20, 'aria-hidden': true }),
+              h('p', null, t('projects.noMatch')),
+              h(Button, { variant: 'outline', size: 'sm', onClick: clear }, t('projects.clear')))
+            : h('ul', { className: 'jt-projects-grid' }, rows.map(({ row, title }) => h('li', { key: row.workspaceId },
+              h('button', { type: 'button', className: 'jt-project-tile', style: { '--jt-hue': nameHue(title) }, title: row.path, onClick: () => { openProject(row.workspaceId) } },
+                ProjectAvatar
+                  ? h(ProjectAvatar, { avatar: row.avatar, githubOwner: row.githubOwner, color: row.color, size: 32 })
+                  : h('span', { className: 'jt-agent-art', 'aria-hidden': true }, title.charAt(0).toUpperCase()),
+                h('span', { className: 'jt-project-tile-title' }, title),
+                h('span', { className: 'jt-project-tile-path' }, h('bdi', null, row.path)),
+                h('span', { className: 'jt-project-tile-meta' },
+                  t(row.sessionIds.length === 1 ? 'projects.chat' : 'projects.chats', { count: row.sessionIds.length }), ' · ', t('projects.updated', { ago: relative(row.updatedAt) }))))),
+            h('li', { key: 'add' }, h('button', { type: 'button', className: 'jt-agent-add jt-project-add', disabled: busy, onClick: (event) => { void add(event.currentTarget) } },
+              h(IconProjectAddOutlineRegular, { size: 20, 'aria-hidden': true }), h('span', null, t('projects.addTile')),
+              h('small', null, t('projects.addTileHint'))))))
     }
 
     // Project home: one Workspace's page. Which project it shows is a plain
@@ -2208,6 +2267,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'Search projects',
               'projects.empty': 'No projects yet. Create one from a folder on this computer.',
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
+              'projects.count': '{count} projects', 'projects.countOf': '{shown} of {count}', 'projects.filter': 'Filter projects',
+              'projects.filter.all': 'All', 'projects.filter.recent': 'This week', 'projects.filter.empty': 'No chats yet',
+              'projects.sort': 'Sort', 'projects.sort.updated': 'Recently updated', 'projects.sort.name': 'Name', 'projects.sort.chats': 'Most chats', 'projects.sort.created': 'Newest',
+              'projects.noMatch': 'No projects match your search.', 'projects.clear': 'Clear filters',
+              'projects.addTile': 'New project', 'projects.addTileHint': 'Pick or create a folder',
               'projects.updated': 'updated {ago} ago',
               'projects.addFailed': 'Could not add the project: {reason}',
               'section.mcp': 'MCP Servers', 'section.skills': 'Skills', 'tab.connectors': 'Connectors',
@@ -2291,6 +2355,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': '搜索项目',
               'projects.empty': '还没有项目。从本机的文件夹创建一个。',
               'projects.chat': '{count} 个对话', 'projects.chats': '{count} 个对话',
+              'projects.count': '{count} 个项目', 'projects.countOf': '{shown} / {count}', 'projects.filter': '筛选项目',
+              'projects.filter.all': '全部', 'projects.filter.recent': '本周', 'projects.filter.empty': '暂无对话',
+              'projects.sort': '排序', 'projects.sort.updated': '最近更新', 'projects.sort.name': '名称', 'projects.sort.chats': '对话最多', 'projects.sort.created': '最新创建',
+              'projects.noMatch': '没有匹配的项目。', 'projects.clear': '清除筛选',
+              'projects.addTile': '新建项目', 'projects.addTileHint': '选择或创建一个文件夹',
               'projects.updated': '{ago}前更新',
               'section.mcp': 'MCP 服务器', 'section.skills': '技能', 'tab.connectors': '连接器',
               scheduled: '定时任务', 'palette.title': '搜索', 'palette.placeholder': '搜索对话、成果、项目和操作',
@@ -2377,6 +2446,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'プロジェクトを検索',
               'projects.empty': 'プロジェクトはまだありません。このコンピューター上のフォルダーから作成してください。',
               'projects.chat': '{count} 件のチャット', 'projects.chats': '{count} 件のチャット',
+              'projects.count': '{count} 件のプロジェクト', 'projects.countOf': '{count} 件中 {shown} 件', 'projects.filter': 'プロジェクトを絞り込む',
+              'projects.filter.all': 'すべて', 'projects.filter.recent': '今週', 'projects.filter.empty': 'チャットなし',
+              'projects.sort': '並べ替え', 'projects.sort.updated': '最近の更新', 'projects.sort.name': '名前', 'projects.sort.chats': 'チャットが多い順', 'projects.sort.created': '新しい順',
+              'projects.noMatch': '一致するプロジェクトはありません。', 'projects.clear': '絞り込みを解除',
+              'projects.addTile': '新規プロジェクト', 'projects.addTileHint': 'フォルダーを選ぶか作成します',
               'projects.updated': '{ago}前に更新',
               'section.mcp': 'MCP サーバー', 'section.skills': 'スキル', 'tab.connectors': 'コネクタ',
               scheduled: 'スケジュール', 'palette.title': '検索', 'palette.placeholder': 'チャット、成果物、プロジェクト、操作を検索',
@@ -2463,6 +2537,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'Buscar proyectos',
               'projects.empty': 'Aún no hay proyectos. Crea uno a partir de una carpeta de este equipo.',
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
+              'projects.count': '{count} proyectos', 'projects.countOf': '{shown} de {count}', 'projects.filter': 'Filtrar proyectos',
+              'projects.filter.all': 'Todos', 'projects.filter.recent': 'Esta semana', 'projects.filter.empty': 'Sin chats',
+              'projects.sort': 'Ordenar', 'projects.sort.updated': 'Actualizados recientemente', 'projects.sort.name': 'Nombre', 'projects.sort.chats': 'Más chats', 'projects.sort.created': 'Más nuevos',
+              'projects.noMatch': 'Ningún proyecto coincide con tu búsqueda.', 'projects.clear': 'Quitar filtros',
+              'projects.addTile': 'Nuevo proyecto', 'projects.addTileHint': 'Elige o crea una carpeta',
               'projects.updated': 'actualizado hace {ago}',
               'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades', 'tab.connectors': 'Conectores',
               scheduled: 'Programadas', 'palette.title': 'Buscar', 'palette.placeholder': 'Buscar chats, artefactos, proyectos y acciones',
@@ -2549,6 +2628,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'Rechercher des projets',
               'projects.empty': 'Aucun projet pour le moment. Créez-en un à partir d’un dossier de cet ordinateur.',
               'projects.chat': '{count} discussion', 'projects.chats': '{count} discussions',
+              'projects.count': '{count} projets', 'projects.countOf': '{shown} sur {count}', 'projects.filter': 'Filtrer les projets',
+              'projects.filter.all': 'Tous', 'projects.filter.recent': 'Cette semaine', 'projects.filter.empty': 'Sans discussion',
+              'projects.sort': 'Trier', 'projects.sort.updated': 'Mis à jour récemment', 'projects.sort.name': 'Nom', 'projects.sort.chats': 'Plus de discussions', 'projects.sort.created': 'Plus récents',
+              'projects.noMatch': 'Aucun projet ne correspond à votre recherche.', 'projects.clear': 'Effacer les filtres',
+              'projects.addTile': 'Nouveau projet', 'projects.addTileHint': 'Choisissez ou créez un dossier',
               'projects.updated': 'mis à jour il y a {ago}',
               'section.mcp': 'Serveurs MCP', 'section.skills': 'Compétences', 'tab.connectors': 'Connecteurs',
               scheduled: 'Planifiées', 'palette.title': 'Rechercher', 'palette.placeholder': 'Rechercher des discussions, artefacts, projets et actions',
@@ -2635,6 +2719,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'Projekte suchen',
               'projects.empty': 'Noch keine Projekte. Erstelle eines aus einem Ordner auf diesem Computer.',
               'projects.chat': '{count} Chat', 'projects.chats': '{count} Chats',
+              'projects.count': '{count} Projekte', 'projects.countOf': '{shown} von {count}', 'projects.filter': 'Projekte filtern',
+              'projects.filter.all': 'Alle', 'projects.filter.recent': 'Diese Woche', 'projects.filter.empty': 'Noch keine Chats',
+              'projects.sort': 'Sortieren', 'projects.sort.updated': 'Zuletzt aktualisiert', 'projects.sort.name': 'Name', 'projects.sort.chats': 'Meiste Chats', 'projects.sort.created': 'Neueste',
+              'projects.noMatch': 'Keine Projekte entsprechen deiner Suche.', 'projects.clear': 'Filter zurücksetzen',
+              'projects.addTile': 'Neues Projekt', 'projects.addTileHint': 'Ordner auswählen oder erstellen',
               'projects.updated': 'vor {ago} aktualisiert',
               'section.mcp': 'MCP-Server', 'section.skills': 'Skills', 'tab.connectors': 'Konnektoren',
               scheduled: 'Geplant', 'palette.title': 'Suchen', 'palette.placeholder': 'Chats, Artefakte, Projekte und Aktionen suchen',
@@ -2721,6 +2810,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'Поиск проектов',
               'projects.empty': 'Проектов пока нет. Создайте проект из папки на этом компьютере.',
               'projects.chat': 'Чатов: {count}', 'projects.chats': 'Чатов: {count}',
+              'projects.count': 'Проектов: {count}', 'projects.countOf': '{shown} из {count}', 'projects.filter': 'Фильтр проектов',
+              'projects.filter.all': 'Все', 'projects.filter.recent': 'На этой неделе', 'projects.filter.empty': 'Без чатов',
+              'projects.sort': 'Сортировка', 'projects.sort.updated': 'Недавно обновлённые', 'projects.sort.name': 'Название', 'projects.sort.chats': 'Больше всего чатов', 'projects.sort.created': 'Новые',
+              'projects.noMatch': 'Нет проектов, подходящих под запрос.', 'projects.clear': 'Сбросить фильтры',
+              'projects.addTile': 'Новый проект', 'projects.addTileHint': 'Выберите или создайте папку',
               'projects.updated': 'обновлено {ago} назад',
               'section.mcp': 'MCP-серверы', 'section.skills': 'Навыки', 'tab.connectors': 'Коннекторы',
               scheduled: 'Запланированные', 'palette.title': 'Поиск', 'palette.placeholder': 'Поиск чатов, артефактов, проектов и действий',
@@ -2807,6 +2901,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'Pesquisar projetos',
               'projects.empty': 'Nenhum projeto ainda. Crie um a partir de uma pasta deste computador.',
               'projects.chat': '{count} conversa', 'projects.chats': '{count} conversas',
+              'projects.count': '{count} projetos', 'projects.countOf': '{shown} de {count}', 'projects.filter': 'Filtrar projetos',
+              'projects.filter.all': 'Todos', 'projects.filter.recent': 'Esta semana', 'projects.filter.empty': 'Sem conversas',
+              'projects.sort': 'Ordenar', 'projects.sort.updated': 'Atualizados recentemente', 'projects.sort.name': 'Nome', 'projects.sort.chats': 'Mais conversas', 'projects.sort.created': 'Mais recentes',
+              'projects.noMatch': 'Nenhum projeto corresponde à sua pesquisa.', 'projects.clear': 'Limpar filtros',
+              'projects.addTile': 'Novo projeto', 'projects.addTileHint': 'Escolha ou crie uma pasta',
               'projects.updated': 'atualizado há {ago}',
               'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades', 'tab.connectors': 'Conectores',
               scheduled: 'Agendadas', 'palette.title': 'Pesquisar', 'palette.placeholder': 'Pesquisar conversas, artefatos, projetos e ações',
@@ -2900,7 +2999,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           // Each tab shows how many it holds, read from the list both tabs share.
           scope.slots.inject('plugins.tab.count', () => scope.slots.register({ name: 'plugins.tab.count', key: 'jt-skills' }, () => h(AgentCount, { pick: data => data.skills.skills.length })))
           scope.slots.inject('plugins.tab.count', () => scope.slots.register({ name: 'plugins.tab.count', key: 'jt-connectors' }, () => h(AgentCount, { pick: data => data.servers.length })))
-          const addProject = async () => {
+          // The shared new-project menu offers this computer, a remote computer and a new folder, as the
+          // sidebar's add button does. An older ui-workspace without it keeps the folder chooser alone.
+          const addProject = async (anchor) => {
+            if (typeof scope.uiWorkspace.addProject === 'function' && scope.uiWorkspace.addProject(anchor)) return
             try {
               const path = await scope.uiWorkspace.pickDirectory()
               if (path === null) return
