@@ -11,13 +11,13 @@
  * Both registrations declare a **directory-flow hole** (`single` kind): the
  * slot a composed picker package's client half fills with its
  * picking interaction — a renderless native-chooser driver or an in-app
- * browsing dialog. ui-workspace owns the trigger (the "Add workspace…"
- * entry, present only while the hole is occupied) and the adoption
- * semantics (`createWorkspace({ path })`, the retryable error dialog,
- * Choose again); the occupant owns everything between `open` and the picked path,
- * including creating a new directory to hand back. That occupant-owned
- * creation is why adding a workspace has a single route: an unoccupied hole
- * leaves the surface with no add affordance at all.
+ * browsing dialog. ui-workspace owns the trigger (the new-project menu's
+ * Use existing folder and Browse folders rows, present only while the hole
+ * is occupied) and the adoption semantics (`createWorkspace({ path })`, the
+ * retryable error dialog, Choose again); the occupant owns everything
+ * between `open` and the picked path. The menu's New folder action creates
+ * the folder through `createDirectory` and uses the flow only to choose its
+ * parent.
  * Two holes exist because the two menu surfaces are independent slot entries
  * and a hole has exactly one declaring entry — they carry the same owner
  * contract and the same occupant.
@@ -53,6 +53,7 @@ import type { WorkspaceShortcutState } from '../shortcuts.ts'
 import type { StartSessionOptions } from '../navigation.ts'
 import type { } from './toast.ts'
 import type { createWorkspaceViewStore } from '../stores.ts'
+import type { RemoteMachineSource } from '../remote-machines.ts'
 
 /** Primary actions retain the browser's shared picker anchor and shortcuts. */
 export interface WorkspaceActionsOwnerProps {
@@ -277,7 +278,16 @@ export type DirectoryPickingInjected = {
   hooks: {
     /** True while this surface's directory-flow hole is occupied. */
     directoryFlow: HostObservable<boolean>
+    /** The registered remote computer source; undefined hides the menu's Remote row. */
+    remoteMachines: HostObservable<RemoteMachineSource | undefined>
   }
+  /**
+   * Create a folder on this Host for the menu's New folder action.
+   * @param parent - existing parent directory.
+   * @param name - new folder name.
+   * @returns the created absolute path.
+   */
+  createDirectory: (parent: string, name: string) => Promise<string>
 }
 
 /** Component-side view of the picking share: the bound occupancy selector hook. */
@@ -288,7 +298,7 @@ export type DirectoryPickingHooks = PropsHooks<DirectoryPickingInjected['hooks']
  * Data reads use the global framework hooks; these are the Host actions the
  * browsing region drives.
  */
-export type WorkspaceBrowserInjected = {
+export type WorkspaceBrowserInjected = Pick<DirectoryPickingInjected, 'createDirectory'> & {
   addWorkspaceButtonRef: RefObject<HTMLButtonElement>
   /** Dismiss the settled Workspace dialog. */
   settleWorkspaceAction: () => void

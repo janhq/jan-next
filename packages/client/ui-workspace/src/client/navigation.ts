@@ -27,6 +27,7 @@ import type { NavigationAvailability, NavigationDirection, NavigationLocation } 
 import { pinOrderAccounts, pinOrderSource } from './pin-order.ts'
 import type { SessionGroupBy, WorkspaceViewStoreActions } from './stores.ts'
 import { createMainSelection } from './window-selection.ts'
+import type { RemoteMachineSource } from './remote-machines.ts'
 
 interface ProjectHandler {
   readonly open: (workspaceId: WorkspaceId) => void
@@ -168,6 +169,14 @@ export interface UiWorkspace {
    */
   createDirectory(path: string, name: string): Promise<string>
   /**
+   * Offer other computers in the new-project menu's Remote row.
+   * @param source - lists computers and opens one; the latest registration wins.
+   * @returns idempotent disposer; removing the latest source restores the previous one.
+   */
+  registerRemoteMachines(source: RemoteMachineSource): () => void
+  /** The source the Remote row reads, or undefined when no plugin offers computers. */
+  readonly remoteMachines: ObservableSnapshot<RemoteMachineSource | undefined>
+  /**
    * Keep `callback`'s effects installed while the current Peer may call
    * `action` on one Workspace resource, with the semantics of
    * `ctx.remoteAccess.whenAccess`: `useWorkspaceAccess` answers the same
@@ -261,6 +270,9 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   readonly projectSurface = createSnapshotStore(false)
   readonly hiddenSessions = createSnapshotStore<ReadonlySet<SessionId>>(new Set())
   private readonly sessionPresentations = new Set<ObservableSnapshot<ReadonlySet<SessionId>>>()
+  /** Remote computer sources in registration order; the last one feeds the Remote row. */
+  private readonly remoteSources: { readonly source: RemoteMachineSource }[] = []
+  readonly remoteMachines = createSnapshotStore<RemoteMachineSource | undefined>(undefined)
 
   /**
    * @param ctx - Client root Context.
@@ -533,6 +545,19 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const result = await this.directoryPicker.createDirectory(path, name)
     if (!result.ok) throw new DirectoryBrowseError(result.error)
     return result.value
+  }
+
+  registerRemoteMachines(source: RemoteMachineSource): () => void {
+    // A fresh wrapper keeps two registrations of one source independently removable.
+    const entry = { source }
+    this.remoteSources.push(entry)
+    this.remoteMachines.set(source)
+    return () => {
+      const at = this.remoteSources.indexOf(entry)
+      if (at === -1) return
+      this.remoteSources.splice(at, 1)
+      this.remoteMachines.set(this.remoteSources.at(-1)?.source)
+    }
   }
 
   whenAccess(workspaceId: WorkspaceId, action: RemoteEndpoint, callback: () => AccessEffect): () => void {

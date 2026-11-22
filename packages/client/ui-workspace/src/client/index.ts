@@ -64,6 +64,7 @@ import { WorkspacePicker } from './WorkspacePicker.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type WorkspaceKey } from './locales.ts'
 
 export type { StartSessionOptions, UiWorkspace } from './navigation.ts'
+export type { RemoteMachine, RemoteMachineSource } from './remote-machines.ts'
 export type { NavigationAvailability, NavigationLocation } from './history.ts'
 export type {
   DirectoryFlowOwnerProps, DirectoryFlowSlotName, DirectoryPickingHooks, DirectoryPickingInjected,
@@ -337,6 +338,7 @@ export function apply(ctx: Context): void {
     },
     unarchiveSession: async (sessionId) => { await uiWorkspace.unarchiveSession(sessionId) },
     createWorkspace: input => workspaces.create(input),
+    createDirectory: (parent, name) => uiWorkspace.createDirectory(parent, name),
     notifyFolderDrop: notify,
     addWorkspaceButtonRef,
     requestSearch: shortcutControls.search,
@@ -346,13 +348,15 @@ export function apply(ctx: Context): void {
     openProject: (workspaceId) => { uiWorkspace.openProjectSurface(workspaceId) },
     hooks: {
       primaryActions, workspaceActionRequest, contextMenuTarget: ctx.contextMenus.active, directoryFlow: browserFlowSource, hostInfo,
+      remoteMachines: uiWorkspace.remoteMachines,
       workspaceShortcuts: shortcutControls.state, shortcuts: ctx.shortcuts.catalog, projectSurface: uiWorkspace.projectSurface,
       hiddenSessions: uiWorkspace.hiddenSessions,
     },
   })
   const pickerInjected = (): WorkspacePickerInjected => ({
     createWorkspace: input => workspaces.create(input),
-    hooks: { directoryFlow: pickerFlowSource, hostInfo },
+    createDirectory: (parent, name) => uiWorkspace.createDirectory(parent, name),
+    hooks: { directoryFlow: pickerFlowSource, hostInfo, remoteMachines: uiWorkspace.remoteMachines },
   })
   // Each registration declares its owned children in the same call; slot
   // injection follows both the owner and declaration HMR lifetimes.
