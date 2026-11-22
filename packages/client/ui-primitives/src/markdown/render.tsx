@@ -27,6 +27,7 @@ import type { CodeToolbarLabels } from '../CodeToolbar.tsx'
 import { CodeBlock } from './CodeBlock.tsx'
 import { isExplicitFilePath, parseFileLink } from './file-link.ts'
 import { renderTexToReact } from './katex.tsx'
+import { revealWords, type StreamReveal } from './reveal.tsx'
 import { LinkIconMedium, classifyLinkPath } from '../LinkIcon.tsx'
 import { useMarkdownDelegate } from './MarkdownDelegate.tsx'
 import { HoverCard } from '../HoverCard.tsx'
@@ -243,6 +244,10 @@ export interface MarkdownRenderContext {
   readonly footnoteOrder: string[]
   /** References rendered per identifier; drives the section's back-reference count. */
   readonly footnoteCounts: Map<string, number>
+  /** Streamed words fade in through this reveal; absent for settled renders. */
+  readonly reveal?: StreamReveal | undefined
+  /** Added to a node's parsed offset to give its offset in the full source, which keys its words' reveal. */
+  readonly revealBase?: number
 }
 
 /**
@@ -258,7 +263,9 @@ export function renderBlocks(
   context: MarkdownRenderContext,
 ): ReactNode[] {
   return blocks
-    .map(block => renderNode(block.node, block.key, context))
+    .map(block => renderNode(block.node, block.key, context.reveal === undefined
+      ? context
+      : { ...context, revealBase: block.key - (block.node.position?.start.offset ?? 0) }))
     .filter(element => element !== null)
 }
 
@@ -314,8 +321,12 @@ function renderChildren(
 
 function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderContext): ReactNode {
   switch (node.type) {
-    case 'text':
-      return node.value
+    case 'text': {
+      const at = node.position?.start.offset
+      return context.reveal === undefined || context.revealBase === undefined || at === undefined
+        ? node.value
+        : revealWords(node.value, context.revealBase + at, context.reveal)
+    }
     case 'paragraph':
       return <p key={key}>{renderChildren(node.children, context)}</p>
     case 'heading':
