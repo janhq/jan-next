@@ -27,10 +27,20 @@ export type WorkspaceColor = (typeof WORKSPACE_COLORS)[number]
 /** One glyph from the curated Workspace avatar set. */
 export type WorkspaceIcon = (typeof WORKSPACE_ICONS)[number]
 
-/** One built-in glyph or one Unicode emoji sequence. */
+/**
+ * One built-in glyph, one Unicode emoji sequence, an uploaded picture, or a website's favicon.
+ * No avatar means the automatic one: the GitHub owner's picture for a GitHub checkout, else the folder.
+ */
 export type WorkspaceAvatar =
   | { readonly kind: 'icon'; readonly name: WorkspaceIcon }
   | { readonly kind: 'emoji'; readonly value: string }
+  /** A square PNG `data:` URL the Client scaled down, at most {@link MAX_WORKSPACE_IMAGE_LENGTH} characters. */
+  | { readonly kind: 'image'; readonly url: string }
+  /** A bare host name such as `example.com`, whose favicon the Client loads. */
+  | { readonly kind: 'favicon'; readonly domain: string }
+
+/** Longest accepted uploaded-avatar `data:` URL; a 64px PNG stays far below it. */
+export const MAX_WORKSPACE_IMAGE_LENGTH = 65_536
 
 /** A partial edit; null clears the optional appearance field and omission preserves it. */
 export interface WorkspaceIdentityPatch {
@@ -45,6 +55,37 @@ export interface WorkspaceIdentityPatch {
  */
 export function isWorkspaceEmoji(value: string): boolean {
   return /^\p{RGI_Emoji}$/v.test(value) && !/^\p{Emoji_Modifier}$/u.test(value)
+}
+
+/**
+ * @param value - candidate uploaded avatar.
+ * @returns whether it is a base64 PNG `data:` URL within {@link MAX_WORKSPACE_IMAGE_LENGTH}.
+ */
+export function isWorkspaceImage(value: string): boolean {
+  return value.length <= MAX_WORKSPACE_IMAGE_LENGTH && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value)
+}
+
+/**
+ * @param value - candidate favicon host, already trimmed and lower-cased.
+ * @returns whether it is a dotted DNS host name such as `example.com`, without scheme, port or path.
+ */
+export function isWorkspaceDomain(value: string): boolean {
+  return value.length <= 253 && /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,62}$/.test(value)
+}
+
+/**
+ * @param left - one avatar, or undefined for the automatic one.
+ * @param right - the other.
+ * @returns whether both show the same choice.
+ */
+export function sameWorkspaceAvatar(left: WorkspaceAvatar | undefined, right: WorkspaceAvatar | undefined): boolean {
+  if (left === undefined || right === undefined) return left === right
+  switch (left.kind) {
+    case 'icon': return right.kind === 'icon' && left.name === right.name
+    case 'emoji': return right.kind === 'emoji' && left.value === right.value
+    case 'image': return right.kind === 'image' && left.url === right.url
+    case 'favicon': return right.kind === 'favicon' && left.domain === right.domain
+  }
 }
 
 declare module '@janhq/jan-typert-protocol' {
