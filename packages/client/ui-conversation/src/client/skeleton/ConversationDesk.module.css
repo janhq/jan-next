@@ -48,7 +48,11 @@
   pointer-events: auto;
 }
 
-.desk[data-chat-tabs] :global([data-dockkit-tab-title]) {
+/* Chat tabs keep the close in their own end padding, so the title never runs
+   under it and drops ui-dockkit's fade, hovered too (dockkit's hover rule is
+   more specific than the resting one). */
+.desk[data-chat-tabs] :global([data-dockkit-tab-title]),
+.desk[data-chat-tabs] :global([data-dockkit-tab]):hover :global([data-dockkit-tab-title]) {
   mask-image: none;
 }
 
@@ -64,6 +68,28 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A clipped chat title crawls while its chip is hovered (ChatTabTitle), like a
+   sidebar chat row: the ellipsis drops so it does not cover the characters the
+   crawl reached, and whichever edge still cuts text fades over 12px. Guarded
+   because a touch tap latches :hover after the title has already returned. */
+@media (hover: hover) {
+  .desk[data-chat-tabs] :global([data-dockkit-tab]):hover .chatTitle {
+    text-overflow: clip;
+  }
+}
+
+.chatTitle[data-scrolled] {
+  mask-image: linear-gradient(to right, transparent, #000 12px);
+}
+
+.chatTitle[data-clipped] {
+  mask-image: linear-gradient(to left, transparent, #000 12px);
+}
+
+.chatTitle[data-scrolled][data-clipped] {
+  mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent);
 }
 
 .stripTarget {
