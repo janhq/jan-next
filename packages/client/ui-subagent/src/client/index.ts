@@ -7,6 +7,7 @@ import { SubagentCatalogAction, SubagentHeaderLineage, type SubagentCatalogInjec
 import {
   SubagentReadOnlyComposer, type SubagentReadOnlyMatch,
 } from './SubagentReadOnlyComposer.tsx'
+import { TurnSubagents } from './TurnSubagents.tsx'
 import { registerSidebarChat, subagentChatAddress } from './sidebar-chat/index.tsx'
 import type {} from '@janhq/jan-client-locale/client'
 import type {} from '@janhq/jan-client-ui-chat/client'
@@ -88,6 +89,15 @@ export function apply(ctx: ClientContext): void {
       }),
       children: { 'conversation.session.header.actions.subagent.footer': { kind: 'list', scope: 'session' } },
     }, SubagentCatalogAction),
+  )
+  ctx.slots.inject(
+    'conversation.chat.turn-process.trailing',
+    () => ctx.slots.register({
+      name: 'conversation.chat.turn-process.trailing',
+      id: 'subagents',
+      locale: NS,
+      inject: catalogActions,
+    }, TurnSubagents),
   )
   ctx.slots.inject(
     'conversation.composer',
