@@ -31,6 +31,7 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('conversation.input.attachments', () => ctx.slots.register({
     name: 'conversation.input.attachments',
     inject: (): ComposerAttachmentsInjected => ({ readFileDrag: ctx.fileDrag.read }),
+    children: { 'conversation.input.attachment.actions': { kind: 'list', scope: 'session-maybe' } },
     locale: 'conversation',
   }, ComposerAttachments))
   ctx.slots.inject('conversation.chat.message.images', () => ctx.slots.register({
