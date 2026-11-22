@@ -4955,6 +4955,9 @@ importers:
       '@janhq/jan-client-ui-sidebar':
         specifier: workspace:*
         version: link:../ui-sidebar
+      '@janhq/jan-client-ui-sidebar-browser':
+        specifier: workspace:*
+        version: link:../ui-sidebar-browser
       '@janhq/jan-client-ui-sidebar-right':
         specifier: workspace:*
         version: link:../ui-sidebar-right
