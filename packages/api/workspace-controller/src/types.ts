@@ -25,8 +25,10 @@ export interface WorkspaceView {
   readonly title: string
   /** Saved accent; absent for the stock appearance. */
   readonly color?: WorkspaceColor
-  /** Saved avatar; absent for the default folder. */
+  /** Saved avatar; absent for the automatic one. */
   readonly avatar?: WorkspaceAvatar
+  /** GitHub login behind the folder's `origin` remote; the Client shows its picture while no avatar is saved. */
+  readonly githubOwner?: string
   /** Sessions accounted to this Workspace in manual order. */
   readonly sessionIds: readonly SessionId[]
   /** ISO-8601 creation instant. */
