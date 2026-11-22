@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const { Button, Tooltip, IconListPenOutlineRegular, IconInspectOutlineRegular, IconPenOutlineRegular,
-      IconPaperclipOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+      IconPaperclipOutlineRegular, IconGuidesOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const { createElement: h, useEffect, useRef, useState } = React
     const id = 'jan-annotate'
     const pickBinding = { code: 'KeyC', modifiers: ['primary', 'shift'] }
@@ -24,6 +24,8 @@ window.__ModuleLoader__.load({
       { id: 'grab', icon: IconInspectOutlineRegular, binding: grabBinding, element: true },
       { id: 'draw', icon: IconPenOutlineRegular },
       { id: 'attach', icon: IconPaperclipOutlineRegular },
+      // Layout guides measure the page's own elements, so they need a page or code to read, like pick.
+      { id: 'guides', icon: IconGuidesOutlineRegular, element: true, toggle: true },
     ]
     const CODE = '[data-code-preview], [data-textpreview-plain]'
     const square = { width: '28px', padding: 0, justifyContent: 'center' }
@@ -97,8 +99,11 @@ window.__ModuleLoader__.load({
         setView(undefined)
       }
       const start = (mode) => {
+        // Guides stay up while you look; the same control takes them down.
+        const showing = view?.props?.mode === 'guides'
         setError(false)
         close()
+        if (mode === 'guides' && showing) return
         const surface = targetOf(getSurface())
         if (!visible(surface)) { setError(true); return }
         activate(close)
@@ -114,9 +119,9 @@ window.__ModuleLoader__.load({
         const release = () => { void requestDisplay?.then(stream => stream.getTracks().forEach(track => track.stop()), () => {}) }
         controller.signal.addEventListener('abort', release, { once: true })
         setView({ pending: mode })
-        void loadOverlay().then(([{ Overlay }, { elementName }]) => {
+        void loadOverlay().then(([{ Overlay, Guides }, { elementName }]) => {
           if (controller.signal.aborted) return
-          setView({ Overlay, props: { mode, surface, image, captureRegion, requestDisplay, startDisplayCapture,
+          setView({ Overlay: mode === 'guides' ? Guides : Overlay, props: { mode, surface, image, captureRegion, requestDisplay, startDisplayCapture,
             getSurface: () => targetOf(getSurface()), signal: controller.signal, close, t,
             save: (text, file, contexts) => append(sessionId, text, file, contexts), elementName, setGrab, grabKeys: getKeys(grabBinding) } })
         }, () => {
@@ -145,6 +150,7 @@ window.__ModuleLoader__.load({
         // Ghost everywhere: inline, the strip sits beside the turn's own ghost actions (copy, replay, share) and must read as one row.
         h(Button, { type: 'button', variant: 'ghost', size: 'sm', style: compact ? inlineSquare : square,
           'aria-label': t(action.id), 'aria-busy': view?.pending === action.id || undefined,
+          'aria-pressed': action.toggle ? view?.props?.mode === action.id : undefined,
           'data-annotate-action': action.id, 'data-annotate-inline': (compact && !badge) || undefined,
           'data-annotate-badge': badge || undefined, onClick: () => start(action.id) },
         h(action.icon, { size: 16, 'aria-hidden': true })))),
