@@ -8,6 +8,7 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { EventEmitter } from 'node:events'
 import type { MenuItemConstructorOptions, MessageBoxOptions } from 'electron'
 import { DESKTOP_IPC, type DesktopUpdateState } from '../src/ipc.ts'
 import { MANDATORY_IPC } from '../src/mandatory-update-ipc.ts'
@@ -95,6 +96,8 @@ const harness = await vi.hoisted(async () => {
       getURL: () => this.urls.at(-1) ?? '',
       mainFrame: { url: '' },
       getZoomFactor: () => 1,
+      getType: () => 'window',
+      setZoomLevel: vi.fn(),
       isDestroyed: () => this.destroyed,
       setIgnoreMenuShortcuts: vi.fn(),
       focus: vi.fn(),
@@ -322,6 +325,7 @@ vi.mock('electron', () => ({
   app: harness.app,
   BrowserWindow: harness.FakeWindow,
   WebContentsView: harness.FakeView,
+  webContents: { getAllWebContents: () => harness.windows.map(window => window.webContents) },
   dialog: harness.dialog,
   shell: { openExternal: harness.openExternal, showItemInFolder: harness.showItemInFolder },
   nativeTheme: harness.nativeTheme,
@@ -513,6 +517,15 @@ afterEach(async () => {
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
 })
+
+const windowsHiddenMenu = [
+  { role: 'toggleDevTools', visible: false },
+  { role: 'toggleDevTools', visible: false, accelerator: 'F12' },
+  { label: 'Actual Size', accelerator: 'CmdOrCtrl+0', visible: false, click: expect.any(Function) },
+  { label: 'Zoom In', accelerator: 'CmdOrCtrl+=', visible: false, click: expect.any(Function) },
+  { label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', visible: false, acceleratorWorksWhenHidden: true, click: expect.any(Function) },
+  { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', visible: false, click: expect.any(Function) },
+]
 
 describe('desktop main startup', () => {
   it.each([true, false])('selects the package manager before Host startup (packaged=%s)', async (packaged) => {
@@ -830,10 +843,7 @@ describe('desktop main startup', () => {
       { role: 'toggleDevTools', label: messages.toggleDevToolsMenu },
     ])
     if (platform === 'win32') {
-      expect(harness.menu.mock.calls[0]![0]).toEqual([
-        { role: 'toggleDevTools', visible: false },
-        { role: 'toggleDevTools', visible: false, accelerator: 'F12' },
-      ])
+      expect(harness.menu.mock.calls[0]![0]).toEqual(windowsHiddenMenu)
       expect(menu.every(item => item.visible !== false)).toBe(true)
     } else {
       expect(menu.filter(item => item.visible === false)).toEqual([
@@ -1158,10 +1168,7 @@ describe('desktop main startup', () => {
     } else if (platform === 'win32') {
       expect(window.options).toMatchObject({ titleBarStyle: 'hidden', titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT } })
       expect(window.options).not.toHaveProperty('vibrancy')
-      expect(harness.menu.mock.calls[0]![0]).toEqual([
-        { role: 'toggleDevTools', visible: false },
-        { role: 'toggleDevTools', visible: false, accelerator: 'F12' },
-      ])
+      expect(harness.menu.mock.calls[0]![0]).toEqual(windowsHiddenMenu)
     } else {
       expect(window.options).not.toHaveProperty('titleBarStyle')
       expect(window.options).not.toHaveProperty('vibrancy')
@@ -1380,6 +1387,24 @@ describe('desktop main startup', () => {
       ? ['about', 'separator', en.checkUpdatesMenu, en.cliCommandMenu, 'separator', 'toggleDevTools', 'separator', 'hide', 'hideOthers', 'unhide', 'separator', 'quit']
       : ['about', 'separator', en.checkUpdatesMenu, 'separator', 'toggleDevTools', 'separator', 'quit'])
     expect(harness.menu.setApplicationMenu).toHaveBeenCalledOnce()
+  })
+
+  it('zooms the app a half step for each Ctrl+wheel or pinch request, but not from DevTools', async () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    await import('../src/main.ts')
+    await harness.preparing.promise
+    const saved = join(harness.app.getPath('userData'), 'desktop', 'zoom-level')
+    const contents = Object.assign(new EventEmitter(), { getURL: () => 'jan-app://app/' })
+    const devtools = Object.assign(new EventEmitter(), { getURL: () => 'devtools://devtools/bundled/devtools_app.html' })
+    harness.app.emit('web-contents-created', {}, contents)
+    harness.app.emit('web-contents-created', {}, devtools)
+    contents.emit('zoom-changed', {}, 'in')
+    contents.emit('zoom-changed', {}, 'in')
+    expect(readFileSync(saved, 'utf8')).toBe('1\n')
+    contents.emit('zoom-changed', {}, 'out')
+    devtools.emit('zoom-changed', {}, 'in')
+    expect(readFileSync(saved, 'utf8')).toBe('0.5\n')
+    expect(harness.windows[0]!.webContents.setZoomLevel.mock.calls).toEqual([[0.5], [1], [0.5]])
   })
 
   it.each(['en-US', 'zh-CN'])('localizes macOS application commands without changing the application name (%s)', async (locale) => {

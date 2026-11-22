@@ -1300,18 +1300,24 @@ async function main(): Promise<void> {
   }
   app.on('web-contents-created', (_event, contents) => {
     contents.on('did-finish-load', () => { if (zoomLevel !== 0) contents.setZoomLevel(zoomLevel) })
+    // Electron reports Ctrl+wheel and trackpad pinch here but applies no zoom itself.
+    contents.on('zoom-changed', (_zoomEvent, direction) => {
+      if (contents.getURL().startsWith('devtools:')) return
+      applyZoom(zoomLevel + (direction === 'in' ? 0.5 : -0.5))
+    })
   })
-  const viewMenu: MenuItemConstructorOptions = {
-    label: 'View', submenu: [
-      { label: 'Actual Size', accelerator: 'CmdOrCtrl+0', click: () => { applyZoom(0) } },
-      { label: 'Zoom In', accelerator: 'CmdOrCtrl+=', click: () => { applyZoom(zoomLevel + 0.5) } },
-      {
-        label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', visible: false, acceleratorWorksWhenHidden: true,
-        click: () => { applyZoom(zoomLevel + 0.5) },
-      },
-      { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', click: () => { applyZoom(zoomLevel - 0.5) } },
-    ],
-  }
+  const zoomItems: MenuItemConstructorOptions[] = [
+    { label: 'Actual Size', accelerator: 'CmdOrCtrl+0', click: () => { applyZoom(0) } },
+    { label: 'Zoom In', accelerator: 'CmdOrCtrl+=', click: () => { applyZoom(zoomLevel + 0.5) } },
+    {
+      label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', visible: false, acceleratorWorksWhenHidden: true,
+      click: () => { applyZoom(zoomLevel + 0.5) },
+    },
+    { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', click: () => { applyZoom(zoomLevel - 0.5) } },
+  ]
+  const viewMenu: MenuItemConstructorOptions = { label: 'View', submenu: zoomItems }
+  // Windows draws its own title bar and installs no visible menu, so its hidden menu carries the zoom keys.
+  const windowsZoomShortcuts: MenuItemConstructorOptions[] = zoomItems.map(item => ({ ...item, visible: false }))
   const platformMenus = (): MenuItemConstructorOptions[] => darwin
     ? [shortcuts.fileMenu(currentDesktopLocale().messages), macEditMenu(currentDesktopLocale().messages), viewMenu, { role: 'windowMenu' }]
     : [{ role: 'editMenu' }, viewMenu]
@@ -1359,7 +1365,7 @@ async function main(): Promise<void> {
   ]
   const refreshApplicationMenu = (): void => {
     Menu.setApplicationMenu(Menu.buildFromTemplate(process.platform === 'win32'
-      ? windowsDevToolsShortcuts : [{
+      ? [...windowsDevToolsShortcuts, ...windowsZoomShortcuts] : [{
         label: darwin ? app.name : currentDesktopLocale().messages.application,
         submenu: [...applicationItems(), devToolsF12Shortcut],
       }, ...platformMenus()]))
