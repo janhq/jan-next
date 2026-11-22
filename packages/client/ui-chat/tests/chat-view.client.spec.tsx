@@ -4007,7 +4007,7 @@ describe('ChatView', () => {
     expect(footer?.textContent).toBe('正在思考 - 4秒')
 
     chunk(2.5, { type: 'tool-call-delta', index: 2, id: callId, name: 'bash', argumentsDelta: '' })
-    expect(footer?.textContent).toBe('正在运行 bash - 4秒')
+    expect(footer?.textContent).toBe('正在运行命令 - 4秒')
     const args = '{"description":"Check project status","command":"git status"}'
     chunk(2.6, { type: 'tool-call-delta', index: 2, id: callId, argumentsDelta: args })
     expect(footer?.textContent).toBe('正在运行 Check project status - 4秒')
