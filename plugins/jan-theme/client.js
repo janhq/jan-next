@@ -198,6 +198,26 @@ window.__ModuleLoader__.load({
             h('dd', { key: `${arg.name}:d` }, arg.description || '-'),
           ])) : h('small', null, 'Takes no arguments.'))))
     }
+    // Logos the Host resolved this session, by tile id. Misses are not kept here:
+    // the Host remembers them, and retries sooner when the miss was a network failure.
+    const registryLogos = new Map()
+    function RegistryArt({ id, title }) {
+      const [logo, setLogo] = React.useState(() => registryLogos.get(id))
+      React.useEffect(() => {
+        if (registryLogos.has(id)) { setLogo(registryLogos.get(id)); return }
+        setLogo(undefined)
+        let live = true
+        agentApi('registryIcon', { id }).then(found => found, () => null).then(found => {
+          if (found) registryLogos.set(id, found)
+          if (live) setLogo(found)
+        })
+        return () => { live = false }
+      }, [id])
+      return logo
+        ? h('span', { className: 'jt-agent-art jt-registry-logo', 'aria-hidden': true },
+          h('img', { src: logo, alt: '', draggable: false, onError: () => { registryLogos.set(id, null); setLogo(null) } }))
+        : h('span', { className: 'jt-agent-art', 'aria-hidden': true }, title.charAt(0).toUpperCase())
+    }
     // Recommended connectors and the official MCP Registry. A registry server opens the
     // server editor prefilled and saves disabled; a recommended one runs its own setup.
     function RegistryBrowser({ busy, recommended, onAdd, onInstall }) {
@@ -222,7 +242,7 @@ window.__ModuleLoader__.load({
         return () => clearTimeout(timer)
       }, [query.trim()])
       const tile = (key, title, head, ...body) => h('article', { className: 'jt-agent-card jt-agent-tile', key, style: { '--jt-hue': nameHue(title) } },
-        h('div', { className: 'jt-agent-card-head' }, h('span', { className: 'jt-agent-art', 'aria-hidden': true }, title.charAt(0).toUpperCase()), head),
+        h('div', { className: 'jt-agent-card-head' }, h(RegistryArt, { id: key, title }), head),
         h('h3', null, title), ...body)
       return h('div', { className: 'jt-registry' },
         recommended?.length > 0 && h('section', { 'aria-label': 'Recommended connectors' },
@@ -541,6 +561,9 @@ window.__ModuleLoader__.load({
 .jt-agent-tile h3 { margin: 0; }
 .jt-agent-tile .jt-agent-card-meta { display: inline; }
 .jt-agent-art { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: #fff; background: linear-gradient(135deg, hsl(var(--jt-hue) 70% 55%), hsl(calc(var(--jt-hue) + 60) 70% 42%)); }
+/* A publisher logo sits on white like an app icon, so dark marks stay visible in the dark theme. */
+.jt-registry-logo { background: #fff; box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / .12); overflow: hidden; }
+.jt-registry-logo img { width: 24px; height: 24px; object-fit: contain; }
 .jt-agent-settings .jt-agent-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--dsw-alias-label-secondary); }
 .jt-agent-skeleton { height: 132px; border-radius: 12px; background: linear-gradient(90deg, var(--dsw-alias-bg-layer-1) 0%, var(--dsw-alias-border-l1) 50%, var(--dsw-alias-bg-layer-1) 100%); background-size: 200% 100%; animation: jt-skeleton 1.4s ease-in-out infinite; }
 @keyframes jt-skeleton { from { background-position: 100% 0 } to { background-position: -100% 0 } }
