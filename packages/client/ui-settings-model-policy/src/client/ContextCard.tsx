@@ -1,10 +1,11 @@
 /** Automatic context compaction and summary model controls. */
 import { useSyncExternalStore } from 'react'
-import { Button, Switch } from '@janhq/jan-client-ui-primitives'
+import { Button, SectionHeading, SelectMenu, Switch } from '@janhq/jan-client-ui-primitives'
 import type { ConfigForm } from '@janhq/jan-client-ui-settings/client'
 import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import { NS } from './locales.ts'
 import { useCatalog, type CatalogLoader } from './useCatalog.ts'
+import { SettingRow } from './SettingRow.tsx'
 import css from './PolicyCard.module.css'
 
 /** Host `compaction-settings` preferences; an unset field keeps the compaction backend's default. */
@@ -35,36 +36,35 @@ export function ContextCard({ form, loadCatalog, t }: ContextCardProps) {
   const selection = summarizationProvider === '' && summarizationModel === '' ? '' : JSON.stringify([summarizationProvider, summarizationModel])
   const selectedInCatalog = catalog?.groups.some(group => group.id === summarizationProvider
     && group.models.some(model => model.id === summarizationModel))
-  return <section className={css.card} aria-label={t('contextTitle')}>
-    <h3 className={css.title}>{t('contextTitle')}</h3>
-    <div className={css.switchRow}>
-      <span className={css.fieldTitle}>{t('autoCompact')}</span>
+  const thresholdOptions = [...thresholds.includes(thresholdRatio) ? [] : [thresholdRatio], ...thresholds]
+    .map(ratio => ({ id: String(ratio), label: `${Math.round(ratio * 100)}%` }))
+  // A saved model missing from the catalog stays selectable so the current choice is visible.
+  const summaryOptions = [
+    { id: '', label: t('sameModel') },
+    ...selection !== '' && !selectedInCatalog ? [{ id: selection, label: `${summarizationModel} (${summarizationProvider})` }] : [],
+    ...catalog?.groups.flatMap(group => group.models.map(model => ({ id: JSON.stringify([group.id, model.id]), label: `${model.name} (${group.name})` }))) ?? [],
+  ]
+  return <section className={css.group} aria-label={t('contextTitle')}>
+    <SectionHeading as="h3">{t('contextTitle')}</SectionHeading>
+    <SettingRow title={t('autoCompact')} description={t('autoCompactHint')}>
       <Switch label={t('autoCompact')} checked={auto} disabled={!snapshot.writable} onChange={(value) => { void form.set('auto', value) }} />
-    </div>
-    <p className={css.muted}>{t('autoCompactHint')}</p>
-    <label className={css.field}>
-      <span className={css.fieldTitle}>{t('threshold')}</span>
-      <select className={css.select} aria-label={t('threshold')} disabled={!snapshot.writable || !auto} value={thresholdRatio} onChange={(event) => { void form.set('thresholdRatio', Number(event.target.value)) }}>
-        {!thresholds.includes(thresholdRatio) && <option value={thresholdRatio}>{Math.round(thresholdRatio * 100)}%</option>}
-        {thresholds.map(ratio => <option key={ratio} value={ratio}>{Math.round(ratio * 100)}%</option>)}
-      </select>
-    </label>
-    <label className={css.field}>
-      <span className={css.fieldTitle}>{t('summaryModel')}</span>
-      <select className={css.select} aria-label={t('summaryModel')} disabled={!snapshot.writable || catalog === null} value={selection} onChange={(event) => {
-        const [provider, model] = event.target.value === '' ? ['', ''] : JSON.parse(event.target.value) as [string, string]
-        void form.mutate([
-          { op: 'set', path: ['summarizationProvider'], value: provider },
-          { op: 'set', path: ['summarizationModel'], value: model },
-        ])
-      }}>
-        <option value="">{t('sameModel')}</option>
-        {selection !== '' && !selectedInCatalog && <option value={selection}>{summarizationModel} ({summarizationProvider})</option>}
-        {catalog?.groups.flatMap(group => group.models.map(model => <option key={`${group.id}\0${model.id}`} value={JSON.stringify([group.id, model.id])}>{model.name} ({group.name})</option>))}
-      </select>
-    </label>
+    </SettingRow>
+    <SettingRow title={t('threshold')}>
+      <SelectMenu label={t('threshold')} disabled={!snapshot.writable || !auto} value={String(thresholdRatio)} options={thresholdOptions}
+        onChange={(id) => { void form.set('thresholdRatio', Number(id)) }} />
+    </SettingRow>
+    <SettingRow title={t('summaryModel')}>
+      <SelectMenu label={t('summaryModel')} disabled={!snapshot.writable || catalog === null} value={selection} options={summaryOptions}
+        onChange={(id) => {
+          const [provider, model] = id === '' ? ['', ''] : JSON.parse(id) as [string, string]
+          void form.mutate([
+            { op: 'set', path: ['summarizationProvider'], value: provider },
+            { op: 'set', path: ['summarizationModel'], value: model },
+          ])
+        }} />
+    </SettingRow>
     {error && <div className={css.error} role="alert">{t('catalogError')} <Button variant="ghost" size="sm" onClick={retry}>{t('retry')}</Button></div>}
-    <div className={css.field}><span className={css.fieldTitle}>{t('contextLength')}</span><p className={css.muted}>{t('contextLengthHint')}</p></div>
-    {!snapshot.writable && <p className={css.muted} role="status">{t('readOnly')}</p>}
+    <SettingRow title={t('contextLength')} description={t('contextLengthHint')} />
+    {!snapshot.writable && <p className={css.note} role="status">{t('readOnly')}</p>}
   </section>
 }

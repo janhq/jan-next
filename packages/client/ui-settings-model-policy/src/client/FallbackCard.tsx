@@ -2,12 +2,13 @@
 import { useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import {
   Button, IconChevronDownOutlineRegular, IconChevronUpOutlineRegular, IconPlusOutlineRegular, IconTrashOutlineRegular,
-  Menu, Tooltip, type MenuEntry,
+  Menu, SectionHeading, SelectMenu, Tooltip, type MenuEntry,
 } from '@janhq/jan-client-ui-primitives'
 import type { ConfigForm } from '@janhq/jan-client-ui-settings/client'
 import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import { NS } from './locales.ts'
 import { useCatalog, type CatalogLoader } from './useCatalog.ts'
+import { SettingRow } from './SettingRow.tsx'
 import css from './PolicyCard.module.css'
 
 export interface FallbackRoute { provider: string; model: string }
@@ -59,11 +60,20 @@ export function FallbackCard({ form, loadCatalog, t }: FallbackCardProps) {
     <Tooltip label={label} side="top" disabled={disabled}>
       <Button variant="ghost" size="sm" className={css.iconAction} disabled={disabled} aria-label={label} icon={icon} onClick={onClick} />
     </Tooltip>
-  return <section className={css.card} aria-label={t('fallbackTitle')}>
-    <h3 className={css.title}>{t('fallbackTitle')}</h3>
-    <p className={css.muted}>{t('fallbackDescription')}</p>
-    {chain.length === 0 ? <p className={css.muted}>{t('fallbackEmpty')}</p> : <ol className={css.list}>
-      {chain.map((route, index) => <li key={`${route.provider}\0${route.model}`} className={css.row}>
+  // The current value stays selectable when it is not one of the presets.
+  const cooldownOptions = [
+    ...cooldownChoices.includes(cooldownSeconds) ? [] : [{ id: String(cooldownSeconds), label: `${cooldownSeconds} ${t('seconds')}` }],
+    { id: '60', label: t('minute1') }, { id: '300', label: t('minute5') }, { id: '900', label: t('minute15') }, { id: '3600', label: t('hour1') },
+  ]
+  const switchBackOptions = [
+    ...switchBackChoices.includes(switchBackBelowPercent) ? [] : [{ id: String(switchBackBelowPercent), label: `${switchBackBelowPercent}%` }],
+    ...switchBackChoices.map(percent => ({ id: String(percent), label: percent === 100 ? t('always') : `${percent}%` })),
+  ]
+  return <section className={css.group} aria-label={t('fallbackTitle')}>
+    <SectionHeading as="h3">{t('fallbackTitle')}</SectionHeading>
+    <p className={css.intro}>{t('fallbackDescription')}{chain.length === 0 && <> {t('fallbackEmpty')}</>}</p>
+    {chain.length > 0 && <ol className={css.list}>
+      {chain.map((route, index) => <li key={`${route.provider}\0${route.model}`} className={css.listRow}>
         <span className={css.number}>{index + 1}.</span>
         <span className={css.name}>{modelName(route)}<span className={css.provider}>{providerName(route)}</span></span>
         {writable && <span className={css.actions}>
@@ -73,7 +83,7 @@ export function FallbackCard({ form, loadCatalog, t }: FallbackCardProps) {
         </span>}
       </li>)}
     </ol>}
-    {writable && catalog !== null && choices.length === 0 && <p className={css.muted}>{t('allModelsAdded')}</p>}
+    {writable && catalog !== null && choices.length === 0 && <p className={css.note}>{t('allModelsAdded')}</p>}
     {writable && (catalog === null || choices.length > 0) && <Menu
       open={adding}
       onClose={() => { setAdding(false) }}
@@ -93,21 +103,14 @@ export function FallbackCard({ form, loadCatalog, t }: FallbackCardProps) {
       </Button>}
     />}
     {error && <div className={css.error} role="alert">{t('catalogError')} <Button variant="ghost" size="sm" onClick={retry}>{t('retry')}</Button></div>}
-    <label className={css.field}>
-      <span className={css.fieldTitle}>{t('cooldown')}</span>
-      <select className={css.select} aria-label={t('cooldown')} disabled={!writable} value={cooldownSeconds} onChange={(event) => { void form.set('cooldownSeconds', Number(event.target.value)) }}>
-        {!cooldownChoices.includes(cooldownSeconds) && <option value={cooldownSeconds}>{cooldownSeconds} {t('seconds')}</option>}
-        <option value={60}>{t('minute1')}</option><option value={300}>{t('minute5')}</option><option value={900}>{t('minute15')}</option><option value={3600}>{t('hour1')}</option>
-      </select>
-    </label>
-    <label className={css.field}>
-      <span className={css.fieldTitle}>{t('switchBack')}</span>
-      <select className={css.select} aria-label={t('switchBack')} disabled={!writable} value={switchBackBelowPercent} onChange={(event) => { void form.set('switchBackBelowPercent', Number(event.target.value)) }}>
-        {!switchBackChoices.includes(switchBackBelowPercent) && <option value={switchBackBelowPercent}>{switchBackBelowPercent}%</option>}
-        {switchBackChoices.map(percent => <option key={percent} value={percent}>{percent === 100 ? t('always') : `${percent}%`}</option>)}
-      </select>
-      <span className={css.muted}>{t('switchBackHint')}</span>
-    </label>
-    {!writable && <p className={css.muted} role="status">{t('readOnly')}</p>}
+    <SettingRow title={t('cooldown')}>
+      <SelectMenu label={t('cooldown')} disabled={!writable} value={String(cooldownSeconds)} options={cooldownOptions}
+        onChange={(id) => { void form.set('cooldownSeconds', Number(id)) }} />
+    </SettingRow>
+    <SettingRow title={t('switchBack')} description={t('switchBackHint')}>
+      <SelectMenu label={t('switchBack')} disabled={!writable} value={String(switchBackBelowPercent)} options={switchBackOptions}
+        onChange={(id) => { void form.set('switchBackBelowPercent', Number(id)) }} />
+    </SettingRow>
+    {!writable && <p className={css.note} role="status">{t('readOnly')}</p>}
   </section>
 }
