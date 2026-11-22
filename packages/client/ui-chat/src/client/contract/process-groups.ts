@@ -14,8 +14,6 @@ export interface ProcessActivitySummary {
   readonly runningDetail: string
   /** Present only while the selected live activity has not reached tool/call. */
   readonly preparing?: true
-  /** For a group of only context injections: the sum of their estimated token costs, as the rows show them. */
-  readonly contextTokens?: number
 }
 
 /** Presentation facts for one group between independent replies or input. */
