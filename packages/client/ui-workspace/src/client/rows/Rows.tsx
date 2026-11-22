@@ -230,6 +230,8 @@ type ProjectRowItemProps = {
   drag?: WorkspaceRowDragProps | undefined
   /** Host account home; POSIX home-rooted hover paths display as `~`. */
   home?: string | undefined
+  /** Computer a remote window's projects live on; omitted in a local window. */
+  machine?: string | undefined
   t: RowTranslate
 } & Pick<WorkspaceBrowserProps, 'useRemoteAccess' | 'useWorkspaceAccess' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu'>
 
@@ -279,7 +281,7 @@ function WorkspaceProjectRow({ workspaceId, ...props }: ProjectRowItemProps & { 
 }
 
 function ProjectRow({
-  group, containsCurrentDescendant = false, onToggle, onOpenProject, onCreate, drag: offeredDrag, home, newShortcut, t, access,
+  group, containsCurrentDescendant = false, onToggle, onOpenProject, onCreate, drag: offeredDrag, home, machine, newShortcut, t, access,
   renderFactorySlot, useContextMenuTarget, useContextMenu,
 }: ProjectRowItemProps & { access: ProjectRowAccess }) {
   const { getTriggerProps } = useContextMenu()
@@ -333,6 +335,9 @@ function ProjectRow({
       <span className={css.projectText}>
         <span className={css.title}>{label}</span>
       </span>
+      {machine !== undefined && row.workspaceId !== undefined && (
+        <span className={css.machineTag} title={t('workspace.machine', { name: machine })}>{machine}</span>
+      )}
       <span className={css.rowActions}>
         {workspaceMenuTarget !== undefined && (
           renderFactorySlot('contextMenu.button', {

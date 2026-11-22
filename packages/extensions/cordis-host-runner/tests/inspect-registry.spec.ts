@@ -83,7 +83,7 @@ async function connectGatewayClient(): Promise<AbortController> {
   await ctx.plugin(TypertGateway)
   ctx.effect(() => ctx.typertGateway.registerRemoteEvents(async function* (signal) {
     await new Promise<void>((resolve) => { signal.addEventListener('abort', () => { resolve() }, { once: true }) })
-  }, { home: '/fixture' }))
+  }, { home: '/fixture', name: 'fixture-host', remote: false }))
   const connection = new AbortController()
   const peer: PeerScope = { id: 'inspect-registry-owner' as PeerId, ctx, principal: { kind: 'owner' }, interactions: 'answer', signal: connection.signal, dispose: () => Promise.resolve() }
   const stream = await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), peer, connection.signal)

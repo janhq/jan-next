@@ -268,6 +268,8 @@ type SessionTreeProps = Pick<
   list: SessionListState
   /** Host account home for POSIX hover-path abbreviation. */
   home?: string | undefined
+  /** Computer a remote window's projects live on; omitted in a local window. */
+  machine?: string | undefined
   /** Workspaces in Host group order with browser-projected Session order. */
   workspaces: readonly WorkspaceView[]
   /** Browser-projected order for Sessions outside every Workspace. */
@@ -323,7 +325,7 @@ function SessionTree({
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
   insertWorkspaceBefore,
   nestWorkspaces, groupExpansion, setGroupExpanded,
-  setSessionOrder, home, t,
+  setSessionOrder, home, machine, t,
   revealSessionId, onSessionRevealed, shortcuts, openProject, projectSurface,
 }: SessionTreeProps) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
@@ -563,6 +565,7 @@ function SessionTree({
           useWorkspaceAccess={useWorkspaceAccess}
           containsCurrentDescendant={currentAncestors.has(group.key)}
           home={home}
+          machine={machine}
           t={t}
           onToggle={() => {
             if (group.expanded) dropWatermarks(key => withinGroup(key, group.key))
@@ -946,6 +949,8 @@ export function WorkspaceBrowser({
   t,
 }: WorkspaceBrowserProps) {
   const home = useHostInfo(info => info.home)
+  // Only a window on another computer tags its projects; local projects stay unlabelled.
+  const machine = useHostInfo(info => info.remote ? info.name : undefined)
   const projectSurface = useProjectSurface(present => present)
   const hiddenSessionIds = useHiddenSessions(ids => ids)
   const shortcuts = useShortcuts(rows => rows)
@@ -1463,6 +1468,7 @@ export function WorkspaceBrowser({
                 openProject={openProject}
                 projectSurface={projectSurface}
                 home={home}
+                machine={machine}
                 t={t}
               />
             ))}

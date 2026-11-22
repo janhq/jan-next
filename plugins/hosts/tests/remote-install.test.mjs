@@ -81,6 +81,11 @@ test('the start command quotes the proxy and keeps loopback direct', () => {
   assert.doesNotMatch(startCommand({ port: 41000 }), /PROXY/)
 })
 
+test('the start command names the remote after the saved connection', () => {
+  assert.match(startCommand({ port: 41000, name: " Thịnh's homelab " }), /JAN_HOST_NAME='Thịnh'\\''s homelab'/)
+  assert.doesNotMatch(startCommand({ port: 41000, name: '  ' }), /JAN_HOST_NAME/)
+})
+
 async function archiveFixture(directory) {
   const product = join(directory, 'product')
   await mkdir(join(product, 'node', 'bin'), { recursive: true })
