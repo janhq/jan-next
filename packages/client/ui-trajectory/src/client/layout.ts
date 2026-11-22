@@ -12,7 +12,6 @@ import type {
   ToolCallBlock,
   ToolResultNode,
 } from '@janhq/jan-client-ui-conversation/client'
-import { assistantBlockChars } from '@janhq/jan-client-ui-conversation/client'
 import type { FileAttachmentRef, ImageAttachmentRef } from '@janhq/jan-attachment'
 import type {
   TrajectoryCellProps,
@@ -22,6 +21,20 @@ import type { TrajectoryPartialAssistant, TrajectorySnapshot } from './trajector
 import { formatElapsedSeconds } from './trajectory-record.ts'
 import type { TrajectoryTranslate } from './locales.ts'
 import { COMPACTION_INTERRUPTED_ERROR } from './copy-codes.ts'
+
+/**
+ * Characters assistant blocks carried as text, reasoning and Tool-call arguments: the
+ * `streamedChars` an output speed is read with. Mirrors ui-chat's turn-metrics count,
+ * which this bundle may not import as a value.
+ */
+function streamedChars(blocks: AssistantMessageNode['blocks']): number {
+  let chars = 0
+  for (const block of blocks) {
+    if (block.kind === 'text' || block.kind === 'reasoning') chars += block.text.length
+    else if (block.kind === 'tool-call') chars += block.name.length + block.argsRaw.length
+  }
+  return chars
+}
 
 /** One Message or Step group inside a turn. */
 export interface TrajectoryGroupModel {
@@ -761,7 +774,7 @@ function expandAssistant(
     completedTime: streaming ? null : finiteTime(node.time),
     usageProvided: usage !== undefined,
     outputTokens: Number.isFinite(usage?.outputTokens) ? usage?.outputTokens ?? null : null,
-    streamedChars: assistantBlockChars(node.blocks),
+    streamedChars: streamedChars(node.blocks),
   }
   out.push({ absTime: nodeAbs, cell: message })
 
