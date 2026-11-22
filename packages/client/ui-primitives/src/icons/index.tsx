@@ -336,6 +336,18 @@ export const IconApiOutlineRegular = productIcon('api-outline', 'regular')
 /** Medium IconApiOutline artwork with a 1.3px stroke. */
 export const IconApiOutlineMedium = productIcon('api-outline', 'medium')
 
+/** Regular one-pixel IconArrowDownOutline artwork. */
+export const IconArrowDownOutlineRegular = productIcon('arrow-down-outline', 'regular')
+
+/** Medium IconArrowDownOutline artwork with a 1.3px stroke. */
+export const IconArrowDownOutlineMedium = productIcon('arrow-down-outline', 'medium')
+
+/** Regular one-pixel IconArrowUpOutline artwork. */
+export const IconArrowUpOutlineRegular = productIcon('arrow-up-outline', 'regular')
+
+/** Medium IconArrowUpOutline artwork with a 1.3px stroke. */
+export const IconArrowUpOutlineMedium = productIcon('arrow-up-outline', 'medium')
+
 /** Regular one-pixel IconPersonalizationOutline artwork. */
 export const IconPersonalizationOutlineRegular = productIcon('personalization-outline', 'regular')
 
