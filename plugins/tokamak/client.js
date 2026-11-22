@@ -10,7 +10,7 @@ window.__ModuleLoader__.load({
 
     const STYLE = ''
       + '.jan-tokamak-action{display:inline-flex;align-items:center;justify-content:center;width:calc(28px + var(--jan-content-font-delta,0px));height:calc(28px + var(--jan-content-font-delta,0px));padding:6px;border:none;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer}'
-      + '.jan-tokamak-action svg{width:calc(15px + var(--jan-content-font-delta,0px));height:calc(15px + var(--jan-content-font-delta,0px))}'
+      + '.jan-tokamak-action svg{width:calc(16px + var(--jan-content-font-delta,0px));height:calc(16px + var(--jan-content-font-delta,0px))}'
       + '.jan-tokamak-action[data-active]{color:var(--dsw-alias-state-business-primary)}'
       + '@media (hover:hover){.jan-tokamak-action:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}}'
       + '.jan-tokamak-status{font-size:12px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}'
