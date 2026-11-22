@@ -139,12 +139,14 @@ function EntryAction({ entry, title, t, onInstall, onOpenInstalled }: {
   return <Button variant="outline" size="sm" aria-label={t('installTitle', { name: title })} onClick={() => { onInstall(version) }}>{t('install')}</Button>
 }
 
-function EntryCard({ entry, t, face, language, labels, onOpen, onInstall, onOpenInstalled }: {
+function EntryCard({ entry, t, face, language, labels, facts, onOpen, onInstall, onOpenInstalled }: {
   readonly entry: MarketListingEntry
   readonly t: Translate
   readonly face: DiscoverActions
   readonly language: string
   readonly labels: readonly DisplayDeclaration<unknown>[]
+  /** The index's declared sort keys; an entry shows the values it carries, such as its GitHub stars. */
+  readonly facts: readonly DisplayDeclaration<unknown>[]
   readonly onOpen: () => void
   readonly onInstall: (version: MarketListingVersion) => void
   readonly onOpenInstalled: () => void
@@ -166,6 +168,17 @@ function EntryCard({ entry, t, face, language, labels, onOpen, onInstall, onOpen
             ? t('entryMeta', { version: version.version, date })
             : t('entryMetaAuthor', { version: version.version, author: entry.author, date })}
         </span>
+        {facts.some(fact => Object.hasOwn(entry.metadata.sortKeys, fact.id))
+          ? (
+            <span className={css.facts}>
+              {facts.filter(fact => Object.hasOwn(entry.metadata.sortKeys, fact.id)).map(fact => (
+                <span key={fact.id} title={`${fact.title}: ${(entry.metadata.sortKeys[fact.id] as number).toLocaleString(language)}`}>
+                  {fact.title} <strong>{new Intl.NumberFormat(language, { notation: 'compact', maximumFractionDigits: 1 }).format(entry.metadata.sortKeys[fact.id] as number)}</strong>
+                </span>
+              ))}
+            </span>
+          )
+          : null}
       </div>
       <div className={css.cardEnd}>
         <EntryAction entry={entry} title={title} t={t} onInstall={onInstall} onOpenInstalled={onOpenInstalled} />
@@ -572,7 +585,8 @@ function Browser({ state, listing, t, face, hooks, language, onInstall, openPack
             <>
               <ul className={css.cards} aria-busy={busy}>
                 {value.entries.map(entry => (
-                  <EntryCard key={entry.name} entry={entry} t={t} face={face} language={language} labels={declarations.labels}
+                  <EntryCard key={entry.name} entry={entry} t={t} face={face} language={language}
+                    labels={declarations.labels} facts={declarations.sortKeys}
                     onOpen={() => { setOpened(entry) }} onInstall={(version) => { onInstall({ entry, version }) }}
                     onOpenInstalled={() => { openPackage(entry.name) }} />
                 ))}
