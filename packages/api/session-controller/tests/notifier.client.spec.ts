@@ -4,7 +4,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Notifier } from '../src/client/sessions/notifier.ts'
+import { BACKGROUND_MS, Notifier } from '../src/client/sessions/notifier.ts'
 
 const microtask = (): Promise<void> => new Promise((resolve) => { queueMicrotask(resolve) })
 
@@ -23,6 +23,29 @@ describe('Session notifier', () => {
     expect(order).toEqual([]) // nothing until the microtask boundary
     await microtask()
     expect(order).toEqual(['rebuild', 'notify'])
+  })
+
+  it('publishes a burst of background reads once per interval, and a structural change does not wait for it', async () => {
+    vi.useFakeTimers()
+    try {
+      let notified = 0
+      const notifier = new Notifier(() => {})
+      notifier.subscribe(() => { notified++ })
+      for (let i = 0; i < 50; i++) notifier.markBackgroundDirty()
+      await vi.advanceTimersByTimeAsync(BACKGROUND_MS - 1)
+      expect(notified).toBe(0)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(notified).toBe(1)
+
+      notifier.markBackgroundDirty()
+      notifier.markDirty()
+      await microtask()
+      expect(notified).toBe(2)
+      await vi.advanceTimersByTimeAsync(BACKGROUND_MS)
+      expect(notified).toBe(2) // the pending background publication was absorbed
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('skips rebuild with zero listeners and ensureFresh rebuilds lazily exactly once', async () => {

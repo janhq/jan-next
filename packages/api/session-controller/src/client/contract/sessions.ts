@@ -101,9 +101,11 @@ export interface ISessions {
   /**
    * Read projections without starting migration; retry failed or migration-deferred reads.
    * @param sessionId - Session to inspect without opening its conversation.
-   * @returns completion of the current or newly started refresh.
+   * @param options - `background`: the read is one of many no one is waiting on (a library scanning old chats),
+   *   so list subscribers hear of it at most a few times a second instead of once per read.
+   * @returns completion of the current or newly started refresh; the list snapshot reads fresh once it settles.
    */
-  refreshProjections(sessionId: SessionId): Promise<void>
+  refreshProjections(sessionId: SessionId, options?: { readonly background?: boolean }): Promise<void>
 
   /**
    * Refresh the Host-authoritative Session list.
