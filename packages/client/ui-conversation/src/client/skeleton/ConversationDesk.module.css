@@ -24,9 +24,11 @@
   border-bottom: 0.5px solid var(--dsw-alias-border-l3);
 }
 
+/* macOS: the 28px chips center on y 38, the traffic lights' and the left sidebar's title-row
+   icons' line, with the rule at y 53 kept. */
 :global(html[data-platform='darwin']) .desk[data-chat-tabs] :global([data-dockkit-strip]) {
   height: 53px;
-  padding-block: 23px 2px;
+  padding-block: 24px 1px;
 }
 
 .desk[data-chat-tabs] :global([data-dockkit-pane]):first-child :global([data-dockkit-strip]) {

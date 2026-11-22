@@ -56,7 +56,7 @@ export function WorkspaceChip({ buttonRef, label, menuOpen = false, onClick, t }
         ? <IconFolderCloseRegular className={css.folder} size={16} />
         : <IconFolderOpenRegular className={css.folder} size={16} />}
       <span className={css.workspaceLabel}>{label ?? t('hero.chooseWorkspace')}</span>
-      <IconChevronDownOutlineRegular className={css.chevron} size={12} />
+      <IconChevronDownOutlineRegular className={css.chevron} size={14} />
     </button>
   )
 }

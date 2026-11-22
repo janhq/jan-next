@@ -103,8 +103,13 @@
 .stripTitleRow .headerActions:empty { display: none; }
 .stripTitleRow .headerUtilities { margin-left: 4px; }
 .stripTitleRow .headerCorner { margin-inline: 4px 0; }
-/* Doubled class: `.tabs` (declared later) would otherwise reset the start inset to 8px. */
-.tabs.stripViews { padding-inline: 12px; }
+/* Under a chip strip the view tabs' text starts on the chips' text line: the strip's start
+   inset plus the chip's 10px pad (ConversationDesk, ui-dockkit `.tab`). Doubled class:
+   `.tabs` (declared later) would otherwise reset the start inset to 8px. */
+.tabs.stripViews { padding-inline: 18px 12px; }
+:global([data-dockkit-pane]):first-child .tabs.stripViews {
+  padding-inline-start: calc(max(8px, var(--jan-frame-leading-clearance, 0px)) + 10px);
+}
 
 @container (max-width: 370px) {
   .stripTitleRow .headerActions { max-width: 28px; overflow: clip; }
@@ -229,9 +234,10 @@
   color: var(--dsw-alias-label-secondary);
 }
 
+/* Header icon buttons draw their 16px artwork at its own grid, like the left sidebar's. */
 .headerMenuButton svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 
 /* The far-right corner seat reaches 16px into the header's 28px right padding,

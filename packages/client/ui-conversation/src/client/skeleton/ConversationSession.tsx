@@ -36,7 +36,7 @@ function ViewsMoreMenu({ label, current, entries, onOpen, onPinnedChange, render
         <Tooltip label={label} portal>
           <Button size="sm" className={clsx(css.viewsMore, current && css.viewsMoreActive)} aria-label={label} aria-haspopup="menu" aria-expanded={open}
             onClick={() => { setOpen(value => !value) }}>
-            <IconEllipsisOutlineRegular size={13} />
+            <IconEllipsisOutlineRegular size={16} />
           </Button>
         </Tooltip>
       )}>
