@@ -142,6 +142,8 @@ export { DetailDocument, detailDocumentState, useDetailDocumentLabels } from './
 export type { DetailDocumentCopy, DetailDocumentLabels, DetailDocumentRead, DetailDocumentState } from './DetailDocument.tsx'
 export { MarkdownText } from './markdown/MarkdownText.tsx'
 export type { MarkdownCodeLabels, MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from './markdown/MarkdownText.tsx'
+export { createStreamReveal } from './markdown/reveal.tsx'
+export type { StreamReveal } from './markdown/reveal.tsx'
 export { extractMarkdownPlainText } from './markdown/plain-text.ts'
 export { parseFileLink } from './markdown/file-link.ts'
 export type { MarkdownPlainTextMode, MarkdownPlainTextOptions } from './markdown/plain-text.ts'
