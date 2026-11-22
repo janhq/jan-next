@@ -27,12 +27,14 @@
   color: inherit;
 }
 
+/* The usage pill follows the action buttons at the row's 8px gap, so its first icon keeps the
+   actions' glyph rhythm; the clock sits 12px past the pill's last figure (its 6px inset plus
+   this 6px gap), the gap between the figures themselves. */
 .endInfo {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  margin-left: 8px;
   color: var(--dsw-alias-label-tertiary);
 }
 

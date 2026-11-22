@@ -37,8 +37,8 @@ describe('TurnUsagePanel', () => {
 
     const trigger = view.getByRole('button', { name: 'Turn usage' })
     expect(figures(trigger, view)).toEqual([
-      ['↓5.1K', 'Uncached input · 5,060 tok'],
-      ['↑5.8K', 'Output · 5,800 tok'],
+      ['5.1K', 'Uncached input · 5,060 tok'],
+      ['5.8K', 'Output · 5,800 tok'],
       ['4.9K', 'Cached input · 4,940 tok'],
       ['2.3s', 'Time to first token · 2.3s'],
       ['90 tok/s', 'Output speed · 90 tok/s'],

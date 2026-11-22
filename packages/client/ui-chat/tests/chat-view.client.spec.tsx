@@ -3700,7 +3700,7 @@ describe('ChatView', () => {
     const view = render(<h.ChatView {...h.props} />)
     // The usage pill spells out the token buckets; cache hit stays dialog-only.
     const trigger = view.getByRole('button', { name: '本轮用量' })
-    expect(trigger.textContent).toBe('↓5.1K↑1004.9K')
+    expect(trigger.textContent).toBe('5.1K1004.9K')
     expect(view.queryByRole('dialog')).toBeNull()
     fireEvent.click(trigger)
     const dialog = view.getByRole('dialog')
