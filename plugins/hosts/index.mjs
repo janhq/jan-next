@@ -190,7 +190,7 @@ export function apply(ctx, config) {
     const proxy = await startedRelay()
     return openTunnel({
       ssh, relayPort: proxy?.port, log,
-      command: ports => startCommand({ port: ports.web, proxy: proxy?.proxyUrl(ports.relay) }),
+      command: ports => startCommand({ port: ports.web, proxy: proxy?.proxyUrl(ports.relay), name: entry.name }),
     })
   }
 

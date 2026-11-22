@@ -52,6 +52,8 @@ export interface WorkspacePickFlowProps {
   side?: 'bottom' | 'top' | 'right'
   /** Currently active workspace (trailing check in the picker list). */
   selectedId?: WorkspaceId | undefined
+  /** Computer the listed projects live on, shown as the menu heading; omitted before the Host reports it. */
+  machineName?: string | undefined
 }
 
 /**
@@ -73,6 +75,7 @@ export function WorkspacePickFlow({
   onBusyChange,
   side = 'bottom',
   selectedId,
+  machineName,
 }: WorkspacePickFlowProps) {
   // Without an owner-provided anchor, the menu remains hidden.
   const absentAnchor = useRef<HTMLElement>(null)
@@ -143,6 +146,11 @@ export function WorkspacePickFlow({
   // package without any directory-picker): an empty popover would claim a
   // choice that does not exist, so the anchor gesture shows nothing at all.
   const menuIsEmpty = items.length === 0
+  // A window can work on another computer over SSH; the heading names the one
+  // whose folders these are, so a pick is never made on the wrong machine.
+  const entries: MenuEntry[] = machineName === undefined || machineName === ''
+    ? items
+    : [{ type: 'label', id: 'machine', text: t('picker.machine', { name: machineName }) }, ...items]
 
   const closeModal = (): void => {
     setErrorOpen(false)
@@ -212,7 +220,7 @@ export function WorkspacePickFlow({
       <Menu
         open={open && !addIsTheOnlyEntry && !menuIsEmpty}
         anchor={null}
-        items={items}
+        items={entries}
         {...pinAdd ? { footer: addEntries } : {}}
         selectedId={selectedId}
         onSelect={handleSelect}
@@ -259,8 +267,10 @@ export function WorkspacePicker({
   createWorkspace,
   useDirectoryFlow,
   renderSlot,
+  useHostInfo,
   t,
 }: WorkspacePickerProps) {
+  const machineName = useHostInfo(info => info.name)
   return (
     <WorkspacePickFlow
       t={t}
@@ -271,6 +281,7 @@ export function WorkspacePicker({
       useDirectoryFlow={useDirectoryFlow}
       renderDirectoryFlow={owner => renderSlot('conversation.hero.workspace.directoryFlow', owner)}
       selectedId={selectedId}
+      machineName={machineName}
       onPick={onPick}
       onClose={onClose}
     />

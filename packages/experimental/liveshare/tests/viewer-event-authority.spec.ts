@@ -64,7 +64,7 @@ describe('viewer forwarded interactions', () => {
         if (signal.aborted) resolve()
         else signal.addEventListener('abort', () => { resolve() }, { once: true })
       })
-    })(), { home: '/owner' })
+    })(), { home: '/owner', name: 'fixture-host', remote: false })
     onTestFinished(stop)
     const readers = readerConnection()
     const read = createViewerReadService({
@@ -127,7 +127,7 @@ describe('viewer forwarded interactions', () => {
         if (signal.aborted) resolve()
         else signal.addEventListener('abort', () => { resolve() }, { once: true })
       })
-    })(), { home: '/owner' })
+    })(), { home: '/owner', name: 'fixture-host', remote: false })
     onTestFinished(stop)
     await queued.promise
     const gatewayRpc = (endpoint: string, payload: unknown, signal: AbortSignal, peer: PeerScope) => {

@@ -139,7 +139,7 @@ async function nodeFixture(interactions: 'none' | 'answer') {
           peer.send(JSON.stringify({
             type: 'item', streamId: frame.streamId,
             value: frame.endpoint === '$events'
-              ? { type: 'ready', clientId: 'node-client', host: { home: '/home/node' } } : 'stream item',
+              ? { type: 'ready', clientId: 'node-client', host: { home: '/home/node', name: 'fixture-host', remote: false } } : 'stream item',
           }))
         })
       })

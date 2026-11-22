@@ -587,6 +587,10 @@ export type WorkspaceBrowserProps =
 export type WorkspacePickerInjected = DirectoryPickingInjected & {
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
   createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  hooks: {
+    /** Fixed Host facts; the picker heads its menu with the Host's computer name. */
+    hostInfo: HostObservable<RemoteHostFacts>
+  }
 }
 
 /**

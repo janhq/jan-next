@@ -1987,6 +1987,9 @@ importers:
       '@janhq/jan-deque':
         specifier: workspace:*
         version: link:../../util/deque
+      '@janhq/jan-launch-environment':
+        specifier: workspace:*
+        version: link:../../util/launch-environment
       '@janhq/jan-util-values':
         specifier: workspace:*
         version: link:../../util/values

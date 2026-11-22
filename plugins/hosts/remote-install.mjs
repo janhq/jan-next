@@ -238,11 +238,12 @@ export async function installRemote({ ssh, runtime, onProgress, signal }) {
  * variables point at the relay tunnel; loopback stays direct so its own login still works.
  * A server with no `~/.config/user-dirs.dirs` makes `xdg-user-dir DOCUMENTS` answer `$HOME`,
  * which Jan refuses as a project home, so the default project goes under `~/Documents` there,
- * the folder a desktop Linux names, unless the account already set its own.
- * @param {{ port: number, proxy?: string }} options - remote listen port and the relay's proxy URL.
+ * the folder a desktop Linux names, unless the account already set its own. `JAN_HOST_NAME` carries
+ * the saved connection's name, which the remote window shows as the computer its projects are on.
+ * @param {{ port: number, proxy?: string, name?: string }} options - remote listen port, the relay's proxy URL and the saved connection name.
  * @returns {string} the remote command.
  */
-export function startCommand({ port, proxy }) {
+export function startCommand({ port, proxy, name }) {
   const root = `"$HOME"/${REMOTE_ROOT}`
   const variables = proxy === undefined ? [] : [
     ...['HTTPS_PROXY', 'HTTP_PROXY', 'https_proxy', 'http_proxy'].map(name => `${name}=${shellQuote(proxy)}`),
@@ -250,6 +251,7 @@ export function startCommand({ port, proxy }) {
   ]
   return [
     `cd "$HOME" &&`, 'exec env', ...variables, `JAN_HOME=${root}/home`,
+    ...(name === undefined || name.trim() === '' ? [] : [`JAN_HOST_NAME=${shellQuote(name.trim())}`]),
     'XDG_DOCUMENTS_DIR="${XDG_DOCUMENTS_DIR:-$HOME/Documents}"',
     `${root}/current/node/bin/node`, `${root}/current/jan/node_modules/@janhq/jan/lib/bin.js`,
     '--profile', 'edge', '--no-open', '--port', String(port),

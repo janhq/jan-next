@@ -28,6 +28,10 @@ export type RemoteEventId = Branded<'RemoteEventId'>
 export interface RemoteEventHostInfo {
   /** Host account home used only to abbreviate displayed filesystem paths. */
   readonly home: string
+  /** Name of the computer the Host runs on, shown so a person can tell which machine a window works on. */
+  readonly name: string
+  /** Whether the Host was started over SSH, so the window works on another computer than the person's own. */
+  readonly remote: boolean
 }
 
 /** Opening item that binds later HTTP results to this active event stream. */
