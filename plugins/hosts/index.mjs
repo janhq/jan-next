@@ -16,6 +16,8 @@ import { sshConfigHosts } from './ssh-config.mjs'
 import { callRemote, copyable, receiveSetup, setupPayload, setupState } from './setup-copy.mjs'
 import { createHostLink } from './link.mjs'
 import { createFederation } from './federation.mjs'
+import { copyCustomizations, customizationOffer, customizationState } from './customization-copy.mjs'
+import { resolveAgentsHome } from '@janhq/jan-home-paths'
 
 export const name = 'jan-hosts'
 export const inject = ['janHomePath', 'webServer', 'connection', 'credentials', 'settings', 'typertGateway']
@@ -65,7 +67,20 @@ export function apply(ctx, config) {
   let hashes = new Map()
   let gatewayStart
   const federation = createFederation(ctx)
-  ctx.effect(() => ctx.typertGateway.registerForwarder(federation.forwarder), 'jan-hosts: federation forwarder')
+  // A Gateway from before federation has no forwarder: Hosts still answers copies and folder
+  // browsing there, and only another computer's projects stay out of that Jan's own window.
+  if (typeof ctx.typertGateway.registerForwarder === 'function') {
+    ctx.effect(() => ctx.typertGateway.registerForwarder(federation.forwarder), 'jan-hosts: federation forwarder')
+  } else ctx.logger.warn('jan-hosts: this Jan\'s gateway cannot forward calls; other computers\' projects will not show in its window')
+
+  /** This computer's side of a customization copy: its settings, skill folders and plugin manager. */
+  function customizationSource() {
+    return {
+      settings: ctx.settings,
+      skillRoots: [join(ctx.janHomePath(), 'skills'), join(resolveAgentsHome(), 'skills')],
+      pluginManager: ctx.get('pluginManager'),
+    }
+  }
 
   /** Link a connected SSH Host's Jan into this window's sidebar and chats. */
   async function linkHost(entry, tunnel) {
@@ -341,6 +356,27 @@ export function apply(ctx, config) {
       if (!remote.untouched) return { offer: false, items: [] }
       const items = await copyable(ctx, remote)
       return { offer: items.length > 0, items }
+    },
+    // Answered on the other computer: which MCP servers, skills and plugin bundles it already has.
+    async customizationState() {
+      return customizationState({ settings: ctx.settings, janHome: ctx.janHomePath(), pluginManager: ctx.get('pluginManager') })
+    },
+    // Asked here: what a connected SSH Host lacks of this computer's customizations, by kind.
+    async customizationOffer({ id }) {
+      const link = federation.linkOf(id)
+      if (link === undefined) return { servers: [], skills: [], plugins: [] }
+      return customizationOffer(customizationSource(), await callRemote(tunnels.get(id), 'customizationState'))
+    },
+    async copyCustomizations({ id, servers, skills, plugins }) {
+      const tunnel = tunnels.get(id)
+      const link = federation.linkOf(id)
+      if (tunnel === undefined || link === undefined) throw new HostsError('not-connected', 'Connect first.')
+      const chosen = { servers, skills, plugins }
+      if (Object.values(chosen).every(list => !Array.isArray(list) || list.length === 0)) throw new HostsError('items', 'Choose at least one thing to bring.')
+      const source = customizationSource()
+      const offer = await customizationOffer(source, await callRemote(tunnel, 'customizationState'))
+      const entry = await find(id)
+      return copyCustomizations(source, { ssh: sshArgs(entry.ssh), remote: (endpoint, args) => link.call(endpoint, args) }, offer, chosen)
     },
     async copySetup({ id, routes }) {
       const tunnel = tunnels.get(id)

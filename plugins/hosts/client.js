@@ -41,6 +41,24 @@ window.__ModuleLoader__.load({
         'setup.skip': 'Not now',
         'setup.done': 'Copied to {name}: {routes}. Reload its window to see them.',
         'setup.doneKept': '{routes} were already there and stay as they are.',
+        'bring.open': 'Bring setup',
+        'bring.title': 'Bring your setup to {name}',
+        'bring.lede': 'Choose what Jan on {name} should get from this computer. Nothing it already has is replaced.',
+        'bring.loading': 'Checking what {name} already has...',
+        'bring.empty': '{name} already has every MCP server, skill and plugin from this computer.',
+        'bring.servers': 'MCP servers',
+        'bring.skills': 'Skills',
+        'bring.plugins': 'Plugins',
+        'bring.filter': 'Filter by name',
+        'bring.localPath': 'Uses a path on this computer',
+        'bring.installs': 'Installs {spec}',
+        'bring.shipped': 'Turns on',
+        'bring.submit': 'Bring {count}',
+        'bring.none': 'Bring',
+        'bring.working': 'Bringing...',
+        'bring.cancel': 'Cancel',
+        'bring.done': 'Brought to {name}: {items}. Reload its window to see them.',
+        'bring.failed': '{name} didn\u2019t install: {error}',
         'kind.url': 'Address',
         'kind.ssh': 'SSH',
         'state.signedIn': 'Signed in',
@@ -110,7 +128,11 @@ window.__ModuleLoader__.load({
 .jh-list { display: flex; flex-direction: column; }
 .jh-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 0.5px solid var(--dsw-alias-border-l2); }
 .jh-row:last-child { border-bottom: 0; }
+.jh-row-note { flex-basis: 100%; }
 .jh-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+/* Up to six buttons would squeeze the name and address; the button group moves under them whole instead. */
+.jh-row[data-host] { flex-wrap: wrap; row-gap: 6px; }
+[data-host] > .jh-info { flex: 1 1 180px; }
 .jh-name { display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 20px; min-width: 0; }
 .jh-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jh-detail { color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; user-select: text; font-variant-numeric: tabular-nums; }
@@ -131,6 +153,11 @@ window.__ModuleLoader__.load({
 .jh-pick label { flex-direction: row; align-items: center; gap: 10px; padding: 6px 0; min-width: 0; }
 .jh-pick label[data-saved] { color: var(--dsw-alias-label-secondary); }
 .jh-pick .jh-detail { margin-inline-start: auto; text-align: end; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+.jh-bring-group { display: flex; flex-direction: column; gap: 6px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.jh-bring-group legend { padding: 0; margin-bottom: 6px; width: 100%; }
+.jh-bring-group legend label { flex-direction: row; align-items: center; gap: 10px; font-weight: 500; }
+.jh-bring-group legend .jh-detail { margin-inline-start: auto; font-weight: 400; }
+.jh-bring-name { flex: none; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jh-pair { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 16px; border-radius: 12px; background: var(--dsw-alias-settings-card-fill); }
 .jh-qr { flex-shrink: 0; width: 200px; aspect-ratio: 1; padding: 8px; border-radius: 8px; background: #fff; color: #000; }
 .jh-qr svg { display: block; width: 100%; height: 100%; }
@@ -296,7 +323,7 @@ window.__ModuleLoader__.load({
       return progress?.step === undefined ? t('connecting') : t(`progress.${progress.step}`)
     }
 
-    function HostRow({ t, host, busy, note, run, onEdit, onRemove }) {
+    function HostRow({ t, host, busy, note, run, onEdit, onRemove, onBring }) {
       const ssh = host.kind === 'ssh'
       const connected = ssh && host.tunnel !== undefined
       const ready = ssh ? connected : host.signedIn
@@ -310,8 +337,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'jh-name' }, h('span', null, host.name), h(Tag, { tone: 'neutral' }, t(`kind.${host.kind}`)),
             h(Tag, { tone: ready ? 'success' : 'outline' }, t(ssh ? sshState : (host.signedIn ? 'state.signedIn' : 'state.signIn')))),
           h('div', { className: 'jh-detail' }, ssh ? (host.address ?? host.ssh) : host.url),
-          connecting && h('div', { className: 'jh-note', role: 'status' }, progressText(t, host.progress)),
-          note && h('div', { className: 'jh-note', role: note.error ? 'alert' : 'status', 'data-error': note.error || undefined }, note.text)),
+        ),
         h('div', { className: 'jh-actions' },
           // A Connect started before a reload still runs on the Host; its progress keeps the row busy.
           ssh && !connected && h(Button, { size: 'sm', variant: 'outline', className: 'jh-primary', disabled: busy !== undefined || connecting, onClick: connect }, t('connect')),
@@ -322,9 +348,13 @@ window.__ModuleLoader__.load({
               return { text: result.message, error: result.websocket !== 'ok' }
             })
           }, busy === 'test' ? t('testing') : t('test')),
+          ssh && connected && h(Button, { size: 'sm', variant: 'outline', disabled: busy !== undefined, onClick: onBring }, t('bring.open')),
           h(Button, { size: 'sm', variant: 'outline', disabled: busy !== undefined || (ssh && !connected), onClick: openHost }, t('openInBrowser')),
           h(Button, { size: 'sm', variant: 'ghost', disabled: busy !== undefined, onClick: onEdit }, t('hosts.edit')),
-          h(Button, { size: 'sm', variant: 'ghost', disabled: busy !== undefined, onClick: onRemove }, t('hosts.remove'))))
+          h(Button, { size: 'sm', variant: 'ghost', disabled: busy !== undefined, onClick: onRemove }, t('hosts.remove'))),
+        // Notes take their own line under the row, so a long result is not squeezed beside the buttons.
+        connecting && h('div', { className: 'jh-note jh-row-note', role: 'status' }, progressText(t, host.progress)),
+        note && h('div', { className: 'jh-note jh-row-note', role: note.error ? 'alert' : 'status', 'data-error': note.error || undefined }, note.text))
     }
 
     /**
@@ -386,6 +416,91 @@ window.__ModuleLoader__.load({
           h(Button, { type: 'button', variant: 'outline', size: 'sm', disabled: saving, onClick: () => setOffer(null) }, t('setup.skip'))))
     }
 
+    const BRING_KINDS = ['servers', 'skills', 'plugins']
+
+    /** Bring this computer's MCP servers, skills and plugins to a connected SSH Host, item by item. */
+    function BringSetup({ t, host, onNote, onClose }) {
+      const [offer, setOffer] = React.useState(null)
+      const [error, setError] = React.useState(null)
+      const [chosen, setChosen] = React.useState(() => ({ servers: new Set(), skills: new Set(), plugins: new Set() }))
+      const [saving, setSaving] = React.useState(false)
+      const [filter, setFilter] = React.useState('')
+      React.useEffect(() => {
+        let live = true
+        api('customizationOffer', { id: host.id }).then((result) => {
+          if (!live) return
+          setOffer(result)
+          // Ticked unless it would not run there; a person opts into those knowingly.
+          setChosen(Object.fromEntries(BRING_KINDS.map(kind => [kind, new Set(result[kind].filter(item => item.problem === undefined).map(item => item.id))])))
+        }, (failure) => { if (live) setError(failure.message) })
+        return () => { live = false }
+      }, [host.id])
+      const count = BRING_KINDS.reduce((total, kind) => total + chosen[kind].size, 0)
+      const set = (kind, ids) => setChosen(current => ({ ...current, [kind]: ids }))
+      const toggle = (kind, id, on) => {
+        const next = new Set(chosen[kind])
+        if (on) next.add(id)
+        else next.delete(id)
+        set(kind, next)
+      }
+      const detail = (kind, item) => {
+        if (item.problem === 'local-path') return t('bring.localPath')
+        if (kind === 'plugins') return item.install === undefined ? t('bring.shipped') : t('bring.installs', { spec: item.install })
+        return item.detail
+      }
+      const needle = filter.trim().toLowerCase()
+      const group = (kind) => {
+        if (offer[kind].length === 0) return null
+        const items = needle === '' ? offer[kind] : offer[kind].filter(item => `${item.name} ${item.detail ?? ''}`.toLowerCase().includes(needle))
+        const all = items.length > 0 && items.every(item => chosen[kind].has(item.id))
+        return h('fieldset', { key: kind, className: 'jh-bring-group' },
+          h('legend', null,
+            h('label', null,
+              // The group box ticks or clears the rows the filter shows; hidden choices stay as they are.
+              h('input', {
+                type: 'checkbox', checked: all, disabled: saving || items.length === 0, onChange: (event) => {
+                  const next = new Set(chosen[kind])
+                  for (const item of items) event.currentTarget.checked ? next.add(item.id) : next.delete(item.id)
+                  set(kind, next)
+                }
+              }),
+              h('span', null, t(`bring.${kind}`)),
+              h('span', { className: 'jh-detail' }, `${chosen[kind].size}/${offer[kind].length}`))),
+          h('div', { className: 'jh-pick' }, items.map(item => h('label', { key: item.id, 'data-saved': item.problem === undefined ? undefined : '' },
+            h('input', { type: 'checkbox', checked: chosen[kind].has(item.id), disabled: saving, onChange: event => toggle(kind, item.id, event.currentTarget.checked) }),
+            h('span', { className: 'jh-bring-name' }, item.name),
+            h('span', { className: 'jh-detail', title: detail(kind, item) }, detail(kind, item))))))
+      }
+      const empty = offer !== null && BRING_KINDS.every(kind => offer[kind].length === 0)
+      return h('form', {
+        className: 'jh-form', 'aria-label': t('bring.title', { name: host.name }),
+        async onSubmit(event) {
+          event.preventDefault()
+          setSaving(true)
+          setError(null)
+          try {
+            const result = await api('copyCustomizations', { id: host.id, ...Object.fromEntries(BRING_KINDS.map(kind => [kind, [...chosen[kind]]])) })
+            const items = [...result.servers, ...result.skills, ...result.plugins]
+            onNote({ text: [items.length > 0 && t('bring.done', { name: host.name, items: items.join(', ') }), ...result.failed.map(item => t('bring.failed', { name: item.name, error: item.error }))].filter(Boolean).join(' '), error: result.failed.length > 0 })
+            onClose()
+          } catch (failure) {
+            setError(failure.message)
+          } finally {
+            setSaving(false)
+          }
+        },
+      },
+        h('h3', { style: { margin: 0, fontSize: 14, fontWeight: 500 } }, t('bring.title', { name: host.name })),
+        h('p', { className: 'jh-lede' }, offer === null && error === null ? t('bring.loading', { name: host.name }) : empty ? t('bring.empty', { name: host.name }) : t('bring.lede', { name: host.name })),
+        offer !== null && BRING_KINDS.reduce((total, kind) => total + offer[kind].length, 0) >= FILTER_FROM
+        && h(Input, { value: filter, onChange: event => setFilter(event.currentTarget.value), placeholder: t('bring.filter'), 'aria-label': t('bring.filter') }),
+        offer !== null && BRING_KINDS.map(group),
+        error && h('div', { className: 'jh-note', role: 'alert', 'data-error': '' }, error),
+        h('div', { className: 'jh-actions', style: { justifyContent: 'flex-start' } },
+          !empty && h(Button, { type: 'submit', variant: 'primary', size: 'sm', disabled: saving || offer === null || count === 0 }, saving ? t('bring.working') : count === 0 ? t('bring.none') : t('bring.submit', { count })),
+          h(Button, { type: 'button', variant: 'outline', size: 'sm', disabled: saving, onClick: onClose }, t('bring.cancel'))))
+    }
+
     function PairPanel({ t, pairing, onDone }) {
       const [copied, setCopied] = React.useState(false)
       return h('div', { className: 'jh-pair', role: 'region', 'aria-label': t('devices.pair') },
@@ -399,6 +514,7 @@ window.__ModuleLoader__.load({
     }
 
     function HostsSection({ t }) {
+      const [bringing, setBringing] = React.useState(null)
       const [state, setState] = React.useState(null)
       const [loadError, setLoadError] = React.useState(null)
       const [editing, setEditing] = React.useState(undefined)
@@ -460,9 +576,11 @@ window.__ModuleLoader__.load({
               : state.connections.map(host => h(React.Fragment, { key: host.id },
                 h(HostRow, {
                   t, host, busy: busy[host.id], note: notes[host.id], run: act,
-                  onEdit: () => setEditing(host), onRemove: () => { setAcknowledged(false); setRemoving(host) }
+                  onEdit: () => setEditing(host), onRemove: () => { setAcknowledged(false); setRemoving(host) },
+                  onBring: () => setBringing(host.id),
                 }),
-                host.kind === 'ssh' && h(SetupOffer, { t, host, onNote: value => note(host.id, value) }))))),
+                host.kind === 'ssh' && h(SetupOffer, { t, host, onNote: value => note(host.id, value) }),
+                bringing === host.id && host.tunnel !== undefined && h(BringSetup, { t, host, onNote: value => note(host.id, value), onClose: () => setBringing(null) }))))),
 
         h('div', { className: 'jh-group', role: 'group', 'aria-labelledby': 'jh-devices-title' },
           h('div', { className: 'jh-group-head' },
