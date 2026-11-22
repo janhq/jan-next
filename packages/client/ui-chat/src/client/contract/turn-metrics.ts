@@ -1,7 +1,7 @@
 // Assistant timing readings used by session statistics.
 
-import type {
-  AssistantMessageNode,
+import {
+  assistantBlockChars, type AssistantMessageNode,
 } from '@janhq/jan-client-ui-conversation/client'
 import { measuredDecodeMs } from '@janhq/jan-llm/assistant-stream'
 
@@ -9,7 +9,10 @@ import { measuredDecodeMs } from '@janhq/jan-llm/assistant-stream'
 export interface StepReading {
   /** step/start → first token delta, in ms. */
   ttftMs: number | null
-  /** First token delta → final message, in ms; null when too short to measure speed from. */
+  /**
+   * First token delta (or step/start, when unstreamed reasoning preceded the stream) → final
+   * message, in ms; null when too short to measure speed from.
+   */
   decodeMs: number | null
   /** Provider-reported completion tokens. */
   outputTokens: number | null
@@ -37,8 +40,12 @@ export function assistantStepReading(node: AssistantNode): StepReading {
   const ttftMs = timing !== undefined && timing.stepStartTime !== null && timing.firstTokenTime !== null
     ? Math.max(0, timing.firstTokenTime - timing.stepStartTime)
     : null
-  const decodeMs = timing !== undefined && timing.firstTokenTime !== null
-    ? measuredDecodeMs(timing.firstTokenTime, timing.completedTime) ?? null
+  const outputTokens = usageOutputTokens(node.usage)
+  const decodeMs = timing !== undefined && timing.firstTokenTime !== null && outputTokens !== null
+    ? measuredDecodeMs({
+      stepStartTime: timing.stepStartTime, firstTokenTime: timing.firstTokenTime, completedTime: timing.completedTime,
+      outputTokens, streamedChars: assistantBlockChars(node.blocks),
+    }) ?? null
     : null
-  return { ttftMs, decodeMs, outputTokens: usageOutputTokens(node.usage) }
+  return { ttftMs, decodeMs, outputTokens }
 }

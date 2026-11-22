@@ -3,7 +3,7 @@
 import type { SessionEventLike } from '@janhq/jan-api-session-controller/client'
 import type { ImageAttachmentRef } from '@janhq/jan-attachment'
 import type { AssistantMessage, ContentBlock, StreamChunk, UserMessage } from '@janhq/jan-llm'
-import { assistantStreamFirstTokenTime, measuredDecodeMs } from '@janhq/jan-llm/assistant-stream'
+import { assistantStreamFirstTokenTime, contentChars, measuredDecodeMs } from '@janhq/jan-llm/assistant-stream'
 // Type-only: the PTC event members this fold reads.
 import type {} from '@janhq/jan-tool-executor-ptc/types'
 import type {
@@ -325,6 +325,7 @@ export function newState(
     ended: false,
     firstTokenTime: null,
     messageTime: null,
+    streamedChars: null,
     usage: null,
     interrupted: false,
     toolPairs: 0,
@@ -439,6 +440,7 @@ export function foldEvent(
       return {
         ...next,
         messageTime: next.messageTime ?? event.time,
+        streamedChars: next.streamedChars ?? contentChars(event.data.message.content),
         usage: event.data.usage ?? next.usage,
         interrupted: event.data.interrupted === true,
         ...answer === null
@@ -647,7 +649,12 @@ export function stepMetrics(state: StatsStepState): StatsStepMetrics {
   const model = isNumber(start) && isNumber(message) ? Math.max(0, message - start) : null
   const decode = isNumber(first) && isNumber(message) ? Math.max(0, message - first) : null
   // A burst-delivered step (a buffered Tool call) has no decode span to measure speed from.
-  const measured = isNumber(first) && isNumber(message) ? measuredDecodeMs(first, message) : undefined
+  const measured = isNumber(first) && isNumber(message) && isNumber(output) && isNumber(state.streamedChars)
+    ? measuredDecodeMs({
+      stepStartTime: isNumber(start) ? start : null, firstTokenTime: first, completedTime: message,
+      outputTokens: output, streamedChars: state.streamedChars,
+    })
+    : undefined
   const tps = measured !== undefined && isNumber(output) && output > 0
     ? output / (measured / 1000)
     : null

@@ -14,10 +14,12 @@ interface StepSpec {
   step: number
   timing?: AssistantMessageNode['timing']
   usage?: unknown
+  /** The message text; defaults to as many characters as a streamed 1,000-token answer carries. */
+  text?: string
 }
 
-const assistant = ({ seq, turn, step, timing, usage }: StepSpec): AssistantMessageNode => ({
-  kind: 'assistant', seq, time: seq * 1_000, turn, step, blocks: [{ kind: 'text', text: `t${seq}` }],
+const assistant = ({ seq, turn, step, timing, usage, text = 'x'.repeat(4_000) }: StepSpec): AssistantMessageNode => ({
+  kind: 'assistant', seq, time: seq * 1_000, turn, step, blocks: [{ kind: 'text', text }],
   ...(timing === undefined ? {} : { timing }),
   ...(usage === undefined ? {} : { usage }),
 })
@@ -37,11 +39,11 @@ describe('assistantStepReading', () => {
     expect(reading).toEqual({ ttftMs: null, decodeMs: null, outputTokens: 5 })
   })
 
-  it('needs both boundaries for ttft and clamps negative spans to zero', () => {
+  it('needs both boundaries for ttft, output tokens for a decode span, and clamps negative spans to zero', () => {
     expect(assistantStepReading(assistant({
       seq: 2, turn: 1, step: 1,
       timing: { stepStartTime: null, firstTokenTime: 1_800, completedTime: 6_800 },
-    }))).toEqual({ ttftMs: null, decodeMs: 5_000, outputTokens: null })
+    }))).toEqual({ ttftMs: null, decodeMs: null, outputTokens: null })
     expect(assistantStepReading(assistant({
       seq: 2, turn: 1, step: 1,
       timing: { stepStartTime: 1_000, firstTokenTime: null, completedTime: 6_800 },
@@ -53,12 +55,30 @@ describe('assistantStepReading', () => {
   })
 
   it('reports no decode span for a step whose tokens arrived in one burst', () => {
-    // A buffered Tool call: 7,000 tokens land 27 ms after the first one.
+    // A buffered Tool call: 7,000 tokens of arguments land 27 ms after the first one.
     expect(assistantStepReading(assistant({
-      seq: 2, turn: 1, step: 1,
+      seq: 2, turn: 1, step: 1, text: 'x'.repeat(28_000),
       timing: { stepStartTime: 1_000, firstTokenTime: 38_800, completedTime: 38_827 },
       usage: { outputTokens: 7_000 },
     }))).toEqual({ ttftMs: 37_800, decodeMs: null, outputTokens: 7_000 })
+  })
+
+  it('measures from the step start when the output count outgrows what the stream carried', () => {
+    // Hidden reasoning: 1,802 output tokens, but the stream carried a 1,095-character answer over its
+    // last 1.6 s. Dividing by that span alone read 1,146 tok/s.
+    expect(assistantStepReading(assistant({
+      seq: 2, turn: 1, step: 1, text: 'x'.repeat(1_095),
+      timing: { stepStartTime: 1_000, firstTokenTime: 10_820, completedTime: 12_393 },
+      usage: { outputTokens: 1_802 },
+    }))).toEqual({ ttftMs: 9_820, decodeMs: 11_393, outputTokens: 1_802 })
+  })
+
+  it('cannot measure hidden-reasoning output whose step start is outside the window', () => {
+    expect(assistantStepReading(assistant({
+      seq: 2, turn: 1, step: 1, text: 'short',
+      timing: { stepStartTime: null, firstTokenTime: 10_820, completedTime: 12_393 },
+      usage: { outputTokens: 1_802 },
+    })).decodeMs).toBeNull()
   })
 
   it('rejects non-object, missing, and non-finite usage token counts', () => {

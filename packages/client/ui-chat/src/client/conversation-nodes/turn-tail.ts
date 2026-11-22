@@ -2,7 +2,7 @@ import type { Context } from '@janhq/cordis'
 import type {
   ConversationMatch, ConversationNodeContext, ConversationNodeDefinition, TurnLocation,
 } from '@janhq/jan-client-ui-conversation/client'
-import { assistantStreamFirstTokenTime, measuredDecodeMs } from '@janhq/jan-llm/assistant-stream'
+import { assistantStreamFirstTokenTime, contentChars, measuredDecodeMs } from '@janhq/jan-llm/assistant-stream'
 import type {} from '@janhq/jan-llm-retry/types'
 import type { SessionEvent } from '@janhq/jan-session/types'
 import { deriveTurnTokenUsage } from '@janhq/jan-token-meter/client'
@@ -92,7 +92,10 @@ function turnTiming(events: readonly SessionEvent[]): TurnTiming | undefined {
         // A cut reply never received its final output count, and a burst-delivered step has no
         // measurable decode span; leave both out of the speed.
         const tokens = event.data.interrupted === true ? null : outputTokens(event.data.usage)
-        const span = measuredDecodeMs(first, event.time)
+        const span = tokens === null ? undefined : measuredDecodeMs({
+          stepStartTime: open.start, firstTokenTime: first, completedTime: event.time,
+          outputTokens: tokens, streamedChars: contentChars(event.data.message.content),
+        })
         if (tokens !== null && span !== undefined) {
           decodeMs += span
           decodeTokens += tokens

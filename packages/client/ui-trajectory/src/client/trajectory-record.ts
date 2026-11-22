@@ -23,6 +23,8 @@ export interface AssistantMetricDetail {
   completedTime: number | null
   usageProvided: boolean
   outputTokens: number | null
+  /** Characters the message carried as text, reasoning and Tool-call arguments. */
+  streamedChars: number
 }
 
 /** One source content block preserved in model order for the details panel. */

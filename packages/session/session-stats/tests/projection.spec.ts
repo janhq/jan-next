@@ -177,9 +177,10 @@ function fold(events: readonly SessionEvent[]): SessionStatsProjection {
 }
 
 describe('sessionStats wall-time fold (controlled timestamps)', () => {
+  // Long enough to hold every output token the tests report, so speed reads from the first token.
   const message = createMessage({
     role: 'assistant',
-    content: [{ type: 'text', text: 'answer' }],
+    content: [{ type: 'text', text: 'answer'.padEnd(30_000, '.') }],
     source: { kind: 'model', provider: 'mock', model: 'mock' },
   })
 

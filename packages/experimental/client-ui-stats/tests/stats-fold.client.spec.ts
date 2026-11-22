@@ -1199,6 +1199,7 @@ describe('step metric derivation', () => {
       startTime: 1_000,
       firstTokenTime: 1_100,
       messageTime: 2_100,
+      streamedChars: 160,
       endTime: 2_600,
       usage,
       toolPairs: 1,

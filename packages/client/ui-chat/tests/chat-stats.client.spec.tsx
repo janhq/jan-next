@@ -32,8 +32,9 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** Each message carries enough characters for the few hundred tokens its usage reports. */
 const assistant = (seq: number, turn: number, usage?: unknown): AssistantMessageNode => ({
-  kind: 'assistant', seq, time: seq * 1_000, turn, step: seq, blocks: [{ kind: 'text', text: `t${seq}` }],
+  kind: 'assistant', seq, time: seq * 1_000, turn, step: seq, blocks: [{ kind: 'text', text: `t${seq}`.padEnd(1_000, '.') }],
   ...(usage === undefined ? {} : { usage }),
 })
 
