@@ -3871,7 +3871,7 @@ describe('ChatView', () => {
     expect(useAccess).toHaveBeenCalledWith('session/fork')
   })
 
-  it('renders assistant Markdown across history, streaming, final, and interrupted states while user text stays literal', () => {
+  it('renders assistant Markdown across history, streaming, final, and interrupted states while user text stays literal', async () => {
     const markdown = '# Rendered\n\n- **one**\n- `two`'
     const h = makeHarness({ nodes: [user(1, markdown), assistant(2, markdown)] })
     const view = render(<h.ChatView {...h.props} />)
@@ -3884,8 +3884,9 @@ describe('ChatView', () => {
     act(() => {
       h.setChat({ partial: { turn: 2, step: 1, blocks: [{ kind: 'text', text: markdown }] } })
     })
+    // A live reply types out over a few frames.
+    await waitFor(() => { expect(view.container.querySelector('[data-streaming="true"] h1')?.textContent).toBe('Rendered') })
     expect(view.container.querySelectorAll('h1')).toHaveLength(2)
-    expect(view.container.querySelector('[data-streaming="true"] h1')?.textContent).toBe('Rendered')
 
     act(() => {
       h.setChat({
@@ -3909,7 +3910,7 @@ describe('ChatView', () => {
     expect(view.container.querySelectorAll('h1')).toHaveLength(2)
   })
 
-  it('streaming partial frames update the tail without replacing a sibling Tool row', () => {
+  it('streaming partial frames update the tail without replacing a sibling Tool row', async () => {
     const h = makeHarness({
       nodes: [user(1, 'q'), assistant(2, 'old answer'), toolResult(3, 'a')],
     })
@@ -3922,7 +3923,8 @@ describe('ChatView', () => {
     act(() => {
       h.setChat({ partial: { turn: 2, step: 1, blocks: [{ kind: 'text', text: 'streaming… more' }] } })
     })
-    expect(view.getByText('streaming… more')).toBeTruthy()
+    // Appended prose is paced onto the screen over a few frames.
+    expect(await view.findByText('streaming… more')).toBeTruthy()
     expect(view.getByTestId('tool-seat-a')).toBe(tool)
     expect(tool.innerHTML).toBe(beforeHtml)
   })

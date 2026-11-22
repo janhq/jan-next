@@ -1,4 +1,4 @@
-import { Fragment, memo, useMemo } from 'react'
+import { Fragment, memo, useMemo, useRef } from 'react'
 import { fileMediaUrl } from '@janhq/jan-util-workspace-path'
 import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { ReactNode } from 'react'
@@ -8,6 +8,7 @@ import type { ChatNodeOwnerProps, ChatViewSlotProps, UseDisclosure, UsePresentat
 import type { AssistantBlock } from '../contract/snapshot.ts'
 import { markdownLabels } from '../markdown-labels.ts'
 import { ReasoningRow } from './ReasoningRow.tsx'
+import { useSmoothText, useStreamFade } from './smooth-stream.ts'
 import css from './AssistantMarkdown.module.css'
 
 /**
@@ -83,7 +84,7 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
     switch (block.kind) {
       case 'text':
         rendered.push(
-          <MarkdownText
+          <PacedMarkdown
             key={i}
             text={block.text}
             streaming={streaming}
@@ -156,6 +157,21 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
     </div>
   )
 })
+
+/**
+ * Streamed prose released at a steady pace with each new run fading in; the
+ * settled render takes over once the paced text has caught up with a finished stream.
+ */
+function PacedMarkdown({ text, streaming, ...markdown }: Omit<Parameters<typeof MarkdownText>[0], 'variant' | 'omitHtml'> & { streaming: boolean }) {
+  const paced = useSmoothText(text, streaming)
+  const ref = useRef<HTMLDivElement>(null)
+  useStreamFade(ref, !paced.settled)
+  return (
+    <div ref={ref} className={css.paced}>
+      <MarkdownText {...markdown} text={paced.text} streaming={!paced.settled} />
+    </div>
+  )
+}
 
 function ProcessReasoning({ hidden, reveal, useGroupAction, children }: {
   hidden: boolean
