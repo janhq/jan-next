@@ -9,8 +9,30 @@ import type { UserMessage } from '@janhq/jan-llm/message'
 import type { ContentBlock } from '@janhq/jan-llm/types'
 import type { OptionalSessionSeq, SessionId } from '@janhq/jan-session/types'
 
-/** Durable source session, cited event seqs, and snapshot facts for prepared cross-session context. */
-export interface SessionReferenceSource {
+/**
+ * The chats one direct message pointed at. Their content is not loaded: the
+ * model reads a mentioned chat on demand with `read_chat`.
+ */
+export interface SessionReferencePointerSource {
+  kind: 'session-reference'
+  /** Material about another session's log (`recall` context form). */
+  form: 'recall'
+  version: 2
+  references: {
+    sessionId: string
+    label: string
+    /** The mentioned chat's project folder; null when it has none or no longer exists. */
+    cwd: string | null
+    inputIndex: number
+  }[]
+}
+
+/**
+ * Durable source session, cited event seqs, and snapshot facts recorded by
+ * Hosts that loaded a bounded preview of each mentioned chat. No longer
+ * written; logs that hold it stay readable.
+ */
+export interface SessionReferenceSnapshotSource {
   kind: 'session-reference'
   /** Material lifted out of another session's log (`recall` context form). */
   form: 'recall'
@@ -30,6 +52,9 @@ export interface SessionReferenceSource {
     inputIndex: number
   }[]
 }
+
+/** Session-reference context in a log: a pointer, or a preview from older Hosts. */
+export type SessionReferenceSource = SessionReferencePointerSource | SessionReferenceSnapshotSource
 
 declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
@@ -75,14 +100,14 @@ export interface SessionReferenceMentionCandidate extends SessionReferenceCandid
 export interface PreparedReferencedMessage {
   /** Readable message content after host mention tokens are removed. */
   content: ContentBlock[]
-  /** Aggregated untrusted snapshot, absent when the message has no references. */
+  /** The pointer naming each mentioned chat, absent when the message has no references. */
   additionalContext?: UserMessage
 }
 
-/** Text-only projected conversation item. */
+/** One message of a mentioned chat as `read_chat` reads it. */
 export interface ReferencedConversationItem {
   /** Original message role. */
   role: 'user' | 'assistant'
-  /** Visible text retained from that message. */
+  /** Visible text of that message. */
   text: string
 }

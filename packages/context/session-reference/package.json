@@ -56,21 +56,17 @@
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-compaction": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
-    "@janhq/jan-output-retention": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-session-projection": "workspace:*",
     "@janhq/jan-session-projection-cache": "workspace:*",
     "@janhq/jan-session-query": "workspace:*",
     "@janhq/jan-session-title": "workspace:*",
-    "@janhq/jan-spill": "workspace:*",
     "@janhq/jan-subagent": "workspace:*",
     "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
     "@janhq/jan-typert-protocol": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@janhq/jan-spill": {
-      "optional": true
-    },
     "@janhq/jan-session-projection-cache": {
       "optional": true
     }
@@ -81,24 +77,18 @@
     "@janhq/cordis-plugin-loader": "workspace:~",
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-compaction": "workspace:*",
-    "@janhq/jan-fs-local": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
-    "@janhq/jan-output-retention": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-session-projection": "workspace:*",
     "@janhq/jan-session-projection-cache": "workspace:*",
     "@janhq/jan-session-query": "workspace:*",
     "@janhq/jan-session-query-sqlite": "workspace:*",
     "@janhq/jan-session-title": "workspace:*",
-    "@janhq/jan-spill": "workspace:*",
     "@janhq/jan-subagent": "workspace:*",
-    "@janhq/jan-spill-local": "workspace:*",
     "@janhq/jan-system-prompt": "workspace:*",
     "@janhq/jan-tool-executor-native": "workspace:*",
-    "@janhq/jan-tool-fs": "workspace:*",
     "@janhq/jan-tool-testkit": "workspace:*",
     "@janhq/jan-tools": "workspace:*",
-    "@janhq/jan-typert-protocol": "workspace:*",
-    "@janhq/jan-working-directory": "workspace:*"
+    "@janhq/jan-typert-protocol": "workspace:*"
   }
 }

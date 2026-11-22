@@ -2,19 +2,10 @@
 - name: '@janhq/jan-system-prompt'
 - name: '@janhq/jan-tools'
 - name: '@janhq/jan-tool-executor-native'
-- name: '@janhq/jan-fs-local'
 - name: '@janhq/jan-session-projection'
-- name: '@janhq/jan-working-directory'
-- name: '@janhq/jan-tool-fs'
 - name: '@janhq/jan-session-query-sqlite'
   config:
     path: ':memory:'
     openAt: never
 - name: '@janhq/jan-session-reference'
-  config:
-    maxReferenceBytes: 360
 - name: './source-session.ts'
-- name: '@janhq/jan-spill-local'
-  config:
-    root: '{{spillRoot}}'
-    cleanupPeriodDays: 0

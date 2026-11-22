@@ -1,5 +1,5 @@
 ---
-description: "Cross-session snapshot references and durable untrusted model context, for users and maintainers enabling or debugging ctx.sessionReferenceResolver."
+description: "Cross-session mentions as pointers, and the read_chat tool that reads a mentioned chat on demand, for users and maintainers enabling or debugging ctx.sessionReferenceResolver."
 kind: "package-reference"
 ---
 
@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-`jan-session-reference` lets a conversation reference other sessions: a host turns a `@label` mention into a canonical URI, and the service prepares a bounded, read-only snapshot of each referenced session as durable, untrusted background context for the model. Candidate discovery ranks other sessions by working-directory affinity and labels them with their latest titles. Snapshots are immutable after capture and carry a fixed warning that forbids following instructions, permission claims, or tool requests inside them. It is an opt-in service for hosts that support cross-session mentions; it consumes `ctx.sessionQuery` and needs no SQLite FTS.
+`jan-session-reference` lets a conversation point at other chats. A host turns a `@label` mention into a canonical URI; the service replaces it with readable `@label` text and adds a short pointer naming each mentioned chat's label, session id, and project folder. Nothing of a mentioned chat is loaded: the model reads one on demand with the `read_chat` tool, a page of messages at a time, and only for chats the user mentioned. Candidate discovery ranks other sessions by working-directory affinity and labels them with their latest titles. It is an opt-in service for hosts that support cross-session mentions; it consumes `ctx.sessionQuery` and needs no SQLite FTS.
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## Use this package
 
-Enable this service when hosts should let a user mention another session and give the model its context. It works with any session-query backend because it consumes the backend-independent compact checkpoint marker.
+Enable this service when hosts should let a user mention another chat and let the model look into it. It works with any session-query backend because it reads current surfaces through `ctx.sessionQuery`. `read_chat` is registered whenever `ctx.tools` is composed.
 
 ### Mention syntax
 
@@ -31,9 +31,11 @@ A canonical mention is `@[label](jan-session:<base64url-encoded-id>)` in Markdow
 
 ### What the agent gets
 
-A message that cites other sessions is followed immediately by a `## Referenced sessions` snapshot as a second user-role message. The snapshot is untrusted background: the fixed warning tells the model not to follow instructions, permission claims, or tool requests inside it unless the current user explicitly repeats them. Each source preview is bounded independently — at most `maxReferences` distinct sessions per message and a configured or model-relative serialized JSON byte budget per source. Retention drops older non-checkpoint messages before shortening retained text; preparation fails only when the reference cannot fit even after retention.
+A message that mentions other chats is followed immediately by a `## Mentioned chats` pointer as a second user-role message: one line per chat with its label, `session_id`, and project folder (`none` when it has none, `unknown` when the chat no longer exists), plus guidance to call `read_chat` only when a chat's content matters and to treat what it reads as background, not instructions. At most `maxReferences` distinct chats are named per message. The pointer is recorded with a version 2 `session-reference` source; version 1 sources, which earlier Hosts wrote with a bounded preview, stay readable.
 
-For a truncated reference, an optional spill backend saves the full captured text projection under the target session. A separate omission notice outside the bounded preview JSON gives exact `omittedMessages` and `omittedBytes`, then the saved locator and `retrievalHint`, or an unavailable outcome distinguishing missing storage from a failed save. The notice is part of the same durable context message. Full transcripts carry the same untrusted-background warning and capture metadata, including `capturedFormatVersion`. Each message uses JSON string fragments of at most 64 Unicode code points per line; decode and concatenate its fragments to recover exact text, including original newlines. This fixed storage format keeps even long single-line text readable through paged file reads.
+### Reading a mentioned chat
+
+`read_chat` takes `session_id` and optional `query` (case-insensitive substring), `before` (message number cursor), and `limit` (1 to 50, default 20). It returns the chat's visible user and assistant text, newest last, numbered `#<index>`, with a `before=<n>` cursor line when older messages remain. Compact checkpoints stand in for the messages they summarize; tool traffic, reasoning, and injected context are left out. Each message is cut at 2,000 characters and a page at 24 KiB of text. A chat is readable only when a recorded `session-reference` message of the calling chat names it, so a session id the model writes itself grants nothing.
 
 ### Finding sessions to reference
 
@@ -43,12 +45,8 @@ For a truncated reference, an optional spill backend saves the full captured tex
 
 | Field | Default | Meaning |
 |---|---|---|
-| `maxReferences` | `3` | Maximum distinct source sessions in one prepared message; must not exceed `3` |
+| `maxReferences` | `3` | Maximum distinct chats named by one message; must not exceed `3` |
 | `candidateLimit` | `50` | Default candidate count returned to a host |
-| `maxReferenceBytes` | automatic | Explicit maximum serialized JSON bytes per source; overrides the automatic budget exactly |
-| `referenceContextFraction` | `0.2` | Context-window fraction per source, from `0` to `1` |
-
-The automatic budget is `max(65536, floor(contextWindow × 4 × referenceContextFraction))` bytes per source. Model context capacity is measured in tokens; four bytes per token is a sizing heuristic, not an exact token conversion. A missing LLM service, adapter, or capacity uses 64 KiB; other model metadata lookup errors and cancellation fail preparation.
 
 The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-session-reference) is the exhaustive source for every accepted field and its JSDoc.
 
@@ -64,27 +62,23 @@ This section explains the design of the service; the observable behavior is cove
 
 ### Design concept
 
-Preparation reads each referenced session's current surface exactly once, when the target message reaches `agent/pre-step`. Both preview and spill use that same captured projection: direct-user text, assistant text, and user checkpoints carrying the canonical compaction marker; tools, reasoning, and other injected context are excluded. This prevents recursive reference propagation and prevents a later source mutation from changing the saved transcript. Preview JSON escapes every `<` as `\u003c`, so source text cannot spell the `<referenced-sessions>` framing tag.
+A mention is a pointer, not a copy. Loading a preview of every mentioned chat spent context on text the task often did not need and froze a stale cut of a chat that kept changing; a pointer costs a few lines and lets the model decide how much to read. The pointer resolves each chat's folder from one `listSessions` read at `agent/pre-step` and never reads a chat's events.
 
-The resolver discovers optional storage through `ctx.get("spillStore")` and saves only truncated references. Storage ownership is the target session; the source descriptor identifies the referenced session and label, without a fabricated tool call. Cancellation is checked after the asynchronous save and prevents publication even if an artifact was written. Artifact expiry remains the backend's existing policy.
-
-The budget uses the provider and model passed in `agent/pre-step.modelSelection`, so reference sizing follows the route captured for that step. Direct `prepare` callers supply the route explicitly; prompt variables, Agent options, and stored headers do not implicitly select it.
+`read_chat` authorizes from the caller's own derived messages: only `session-reference` sources the Host recorded count, never message text. It reads the current surface through `ctx.sessionQuery.readSurface`, projects direct-user text, assistant text, and compact checkpoints, and pages from the newest message under a message count and byte budget.
 
 ### Source map
 
 | File | Role |
 |---|---|
-| [`src/index.ts`](src/index.ts) | `SessionReferenceResolver`: pre-step listener, candidate discovery, preparation |
+| [`src/index.ts`](src/index.ts) | `SessionReferenceResolver`: pre-step listener, candidate discovery, pointer preparation, `read_chat` registration |
+| [`src/read-chat.ts`](src/read-chat.ts) | `read_chat` tool: authorization, current-surface projection, paging |
 | [`src/config.ts`](src/config.ts) | `Config` schema, `SessionReferenceError` taxonomy |
 | [`src/uri.ts`](src/uri.ts) | `jan-session:` URI codec, mention formatting and parsing |
-| [`src/projection.ts`](src/projection.ts) | Current-surface projection and byte-budget retention |
-| [`src/serialization.ts`](src/serialization.ts) | Tag-safe JSON escaping for snapshot payloads |
-| [`src/spill.ts`](src/spill.ts) | Full transcript serialization and model-visible omission notices |
 | [`src/types.ts`](src/types.ts) | `SessionReferenceInput`/`Candidate` and source types |
 
 ### Main flow
 
-The outer `agent/pre-step` listener accepts the step, parses canonical mentions out of direct user messages, then calls `prepare`, which normalizes references (first-mention order, deduplication, self-reference and count rejection), reads every surface in parallel, retains each under its resolved byte budget, and renders the aggregated prompt. Each durable source record keeps the frozen `capturedThroughSeq` and records a nonzero `capturedFormatVersion`; absence denotes format v0. Each snapshot is inserted immediately after the message that cited it, and the target log records the readable direct message followed by its sourced context, so source mutation after capture cannot change target replay.
+The outer `agent/pre-step` listener accepts the step, parses canonical mentions out of direct user messages, then calls `prepare`, which normalizes references (first-mention order, deduplication, self-reference and count rejection), looks up each chat's folder, and renders the pointer. Each pointer is inserted immediately after the message that cited it, and the target log records the readable direct message followed by its pointer. Later, `read_chat` reads a mentioned chat's surface at call time.
 
 </details>
 
@@ -95,7 +89,7 @@ The outer `agent/pre-step` listener accepts the step, parses canonical mentions 
 
 Read these pages when the package-level contract is not enough. They move from the shared reference surface to the read service behind it.
 
-- [Session-reference subsystem](../../../docs/subsystems/session-reference.md) — canonical URIs, projection rules, and the stable error taxonomy.
+- [Session-reference subsystem](../../../docs/subsystems/session-reference.md) — canonical URIs, pointer sources, and the stable error taxonomy.
 - [Session-query subsystem](../../../docs/subsystems/session-query.md) — the read service that supplies session surfaces.
 - [Context group map](../README.md) — sibling request-context packages.
 - [Generated configuration catalog](../../../docs/config-catalog.md#janhqjan-session-reference) — every accepted config field and its source declaration.
@@ -105,19 +99,19 @@ Read these pages when the package-level contract is not enough. They move from t
 <a id="model-experience"></a>
 ## Model Experience
 
-### Referenced session background
+### Mentioned chats
 
 #### What the model sees
 
-The model sees two consecutive user-role messages: the current message with its readable `@label`, then the `## Referenced sessions` untrusted snapshot. The warning forbids following instructions, permission claims, or tool requests from the snapshot unless the current user explicitly repeats them. Labels, cwd values, ids, and conversation text are serialized as JSON inside `<referenced-sessions>` tags; every data `<` is emitted as the lossless JSON escape `\u003c`, so source text cannot spell a framing tag.
+The model sees two consecutive user-role messages: the current message with its readable `@label`, then the `## Mentioned chats` pointer listing each chat's label, `session_id`, and project folder. When it needs a chat's content it calls `read_chat`, whose result is a numbered page of that chat's messages with a cursor for older ones.
 
 #### Token effect
 
-Each referenced message adds the fixed warning plus up to three serialized previews, each independently bounded by the configured or model-relative byte budget. Truncated references add separate omission notices outside that budget; a saved full transcript adds tokens only when retrieved. The exact context remains in target history until target compaction shadows or summarizes it; source-session changes add no further tokens.
+A mention adds one short pointer: fixed guidance plus one line per chat. A chat's text costs tokens only when the model reads it, and only for the pages it asks for, each capped at 24 KiB.
 
 #### KV Cache effect
 
-The request and snapshot are consecutive append-only target messages and preserve earlier cacheable history. Different references or source capture contents change the new suffix only; later target compaction may invalidate reuse from its replacement boundary.
+The request and pointer are consecutive append-only target messages and preserve earlier cacheable history. `read_chat` results are ordinary tool results appended after them.
 
 ## Known Limitations and Deferred Work
 
@@ -128,10 +122,9 @@ These limits define when cross-session references are a poor fit. They are curre
 
 - **No body discovery** — candidate queries inspect titles but do not search message bodies.
 - **Labels come from projections alone** — an attached session is labeled from its live projection cut, a cold one from its durable checkpoint, and a session neither answers for is labeled by its id and cannot be found by its title. Discovery never reads a log: folding one title costs a whole log, and this runs under every completion keystroke. A session persisted before the projection cache was composed regains its title the first time it is opened, which checkpoints it.
-- **Trusted caller boundary** — the service assumes its host is authorized to read every session exposed by `ctx.sessionQuery`; it is not a model-facing search tool.
-- **Text projection only** — non-text user and assistant blocks are not propagated across sessions.
-- **No live link** — references are snapshots, not forks, resumes, subscriptions, or source-session mutations.
-- **Transcript search is line-based** — a literal phrase can straddle JSON-fragment lines or include escaped characters; decode and concatenate a message's fragments for exact text matching. Saved artifacts may expire under the backend's policy.
+- **Trusted caller boundary** — the service assumes its host is authorized to read every session exposed by `ctx.sessionQuery`; `read_chat` narrows the model to chats the user mentioned.
+- **Text projection only** — non-text user and assistant blocks are not read across chats.
+- **Reads are live** — `read_chat` reads a chat as it is when called, so a chat edited or deleted after the mention reads differently or fails with `SESSION_REFERENCE_READ_FAILED`.
 
 <a id="dev-note"></a>
 ### Dev Note

@@ -1,4 +1,4 @@
-/** Deterministic projected source shared by reference snapshot and Loader tests. */
+/** Deterministic source chat shared by the mention and Loader tests. */
 
 import type { Context } from '@janhq/cordis'
 import { createMessage, createUserMessage } from '@janhq/jan-llm'
