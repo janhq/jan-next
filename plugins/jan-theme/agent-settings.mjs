@@ -1,4 +1,5 @@
 import { credentialKey } from '@janhq/jan-credentials'
+import { beginSignIn, failureReason, hostOf, needsSignIn, signedInTokens, signInFailure } from './mcp-auth.mjs'
 import { readFile, stat, realpath, writeFile, rename, unlink } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -11,6 +12,28 @@ import { RECOMMENDED_CONNECTORS, installRecommended } from './recommended-connec
 
 // One registry client per Host process, so its short cache survives settings reloads.
 const mcpRegistry = createMcpRegistry()
+// Sign-ins outlive a settings reload: the browser may return after Jan reloaded this plugin, so the
+// pending flow and the mount that finishes it live at module level.
+const pendingSignIns = new Map()
+let liveMount
+// Hosted servers whose own sign-in does not admit Jan, and the local server that takes the same
+// account's personal access token instead.
+const TOKEN_ROUTES = {
+  'mcp.figma.com': {
+    title: 'Figma', env: 'FIGMA_API_KEY',
+    help: 'Create one in Figma under Settings, Security, Personal access tokens, with read access to files.',
+    helpUrl: 'https://help.figma.com/hc/en-us/articles/8085703771159-Manage-personal-access-tokens',
+    command: 'npx', args: ['-y', 'figma-developer-mcp@0.13.2', '--stdio', '--no-telemetry'],
+    // The local server accepts any token and fails only when a tool runs, so Jan asks Figma first.
+    verify: async (token) => {
+      const response = await fetch('https://api.figma.com/v1/me', { headers: { 'X-Figma-Token': token }, signal: AbortSignal.timeout(15_000) })
+      if (response.status === 401 || response.status === 403) throw new Error('Figma did not accept this token. Check that you copied all of it and that it has not expired.')
+      if (!response.ok) throw new Error(`Figma could not check the token (HTTP ${response.status}). Try again in a moment.`)
+      const me = await response.json()
+      return me.email ?? me.handle
+    },
+  },
+}
 
 const plain = value => value && typeof value === 'object' && !Array.isArray(value)
 const strings = value => plain(value) && Object.values(value).every(item => typeof item === 'string')
@@ -102,7 +125,11 @@ function guessName(value) {
     const name = base.replace(/^(mcp-server-|server-|mcp-)|(-mcp-server|-mcp)$/g, '')
     return ['mcp', 'server', ''].includes(name) ? scope : name
   }
-  try { return new URL(value.url).hostname.split('.').slice(-2, -1)[0] ?? 'server' } catch { return 'server' }
+  let host
+  try { host = new URL(value.url).hostname } catch { return 'server' }
+  // An address or a single-label host such as localhost says nothing about the service.
+  if (/^[\d.]+$|^\[|^[^.]+$/.test(host)) return 'local-server'
+  return host.split('.').slice(-2, -1)[0] || 'server'
 }
 
 // JSON with comments and trailing commas, as VS Code and Zed settings files allow.
@@ -159,44 +186,105 @@ export async function mountAgentSettings(ctx, config) {
       ctx.logger.warn(`Skipping invalid MCP server configuration at row ${index + 1}: ${error.message}`)
     }
   }
+  // A reload or shutdown cancels starts still in flight; those are not broken servers.
+  let live = true
+  ctx.effect(() => () => {
+    live = false
+    for (const timer of refreshTimers.values()) clearTimeout(timer)
+  }, 'jan-theme: MCP startup audit')
+  // What each server is doing now, for its row: connecting, connected, failed or waiting for sign-in.
   const status = new Map()
+  const handles = new Map()
+  const refreshTimers = new Map()
   const mcp = await import('@janhq/jan-mcp-client')
+  const oauthKey = name => credentialKey('jan-theme', `oauth-${mcpSecretId(name)}`)
   // Servers start in the background: a slow or broken one must not hold up
-  // the rest of Jan. Once every start settles, the failed ones are switched
-  // off in one save, so the next launch does not try them again.
-  const starts = servers.map(async (row) => {
-    if (!row.enabled) { status.set(row.name, 'Disabled'); return undefined }
+  // the rest of Jan. Once every start settles at launch, the failed ones are
+  // switched off in one save, so the next launch does not try them again.
+  // A server waiting for sign-in is not broken and stays on, showing Sign in.
+  async function start(row) {
+    clearTimeout(refreshTimers.get(row.name))
+    if (!row.enabled) { status.set(row.name, { phase: 'disabled' }); return undefined }
+    status.set(row.name, { phase: 'connecting', since: Date.now() })
+    let handle
     try {
       const secret = (await credentials.readRecord(key(row.name)))?.payload ?? {}
-      await ctx.plugin(mcp, { ...row, serverName: row.name, env: secret.env ?? {}, headers: secret.headers ?? {}, failOnStartupError: true })
-      status.set(row.name, 'Connected at startup')
+      const headers = { ...secret.headers }
+      let expiresAt
+      if (row.transport === 'streamable-http' && !Object.keys(headers).some(name => name.toLowerCase() === 'authorization')) {
+        const saved = (await credentials.readRecord(oauthKey(row.name)))?.payload
+        const signedIn = saved && await signedInTokens(row.url, saved, next => credentials.modifyRecord(oauthKey(row.name), () => ({ kind: 'grant', payload: next })))
+        if (signedIn) { headers.Authorization = `Bearer ${signedIn.accessToken}`; expiresAt = signedIn.expiresAt }
+      }
+      handle = ctx.plugin(mcp, { ...row, serverName: row.name, env: secret.env ?? {}, headers, failOnStartupError: true })
+      handles.set(row.name, handle)
+      await handle
+      status.set(row.name, { phase: 'connected' })
+      // A sign-in that expires is refreshed and the server restarted shortly before, so tools keep working.
+      if (expiresAt && live) refreshTimers.set(row.name, setTimeout(() => { void restart(row.name) }, Math.max(10_000, expiresAt - Date.now() - 60_000)))
       return undefined
     } catch (error) {
-      status.set(row.name, 'Connection failed. Check the command, endpoint and credentials, then reconnect.')
+      if (!live || (handle && handles.get(row.name) !== handle)) return undefined
+      if (row.transport === 'streamable-http' && needsSignIn(error)) {
+        status.set(row.name, { phase: 'needs-auth', message: `${hostOf(row.url)} asks you to sign in before Jan can use it.` })
+        return undefined
+      }
+      status.set(row.name, { phase: 'failed', message: failureReason(error) })
       const cause = error instanceof Error && error.cause instanceof Error ? `\n${error.cause.stack ?? error.cause.message}` : ''
       return { name: row.name, message: (error instanceof Error ? error.stack ?? error.message : String(error)) + cause }
     }
-  })
+  }
+  // One server reconnects without reloading the others; its row shows Connecting meanwhile.
+  async function restart(name) {
+    const row = servers.find(item => item.name === name)
+    if (!row || !live) return
+    const previous = handles.get(name)
+    handles.delete(name)
+    status.set(name, { phase: 'connecting', since: Date.now() })
+    await previous?.dispose().catch(() => {})
+    await start(row)
+  }
+  const starts = servers.map(start)
+  liveMount = {
+    restart, credentials, oauthKey,
+    signInFailed: (name, error) => {
+      const row = servers.find(item => item.name === name)
+      if (row?.transport === 'streamable-http') status.set(name, { phase: 'needs-auth', message: /cancelled/i.test(error?.message ?? '') ? 'Sign-in cancelled.' : signInFailure(row.url, error) })
+    },
+  }
   if (config.skillDirectories?.length) {
     const filesystem = await import('@janhq/jan-skill-filesystem')
     await ctx.plugin(filesystem, { providerName: 'jan-theme-custom', includeDefaultRoots: false, customSkillDirs: config.skillDirectories })
   }
+  const signInLabel = (row) => row.transport === 'streamable-http' && TOKEN_ROUTES[hostOf(row.url)]
   const publicRows = async () => Promise.all(servers.map(async row => {
     const tools = ctx.tools.definitions().filter(tool => tool.name.startsWith(`mcp__${row.name}__`)).map(toolInfo)
-    const failed = row.enabled && !tools.length && status.get(row.name)?.startsWith('Connection failed')
-    const state = !row.enabled ? 'disabled' : tools.length ? 'ready' : failed ? 'failed' : 'empty'
+    const current = status.get(row.name) ?? { phase: 'connecting' }
+    const signingIn = pendingSignIns.get(row.name)
+    const state = !row.enabled ? 'disabled'
+      : signingIn ? 'signing-in'
+        : tools.length ? 'ready'
+          : current.phase === 'connected' ? 'empty' : current.phase
     const secret = (await credentials.readRecord(key(row.name)))?.payload
+    const signedIn = row.transport === 'streamable-http' && !!(await credentials.readRecord(oauthKey(row.name)))?.payload?.tokens
     const secretConfigured = Object.keys(secret?.env ?? {}).length + Object.keys(secret?.headers ?? {}).length > 0
     const { name, enabled, transport } = row
     const endpoint = transport === 'stdio'
       ? { command: row.command, args: row.args, cwd: row.cwd }
       : { url: row.url }
-    return { name, enabled, transport, ...endpoint, secretConfigured, tools, state, status: !enabled ? 'Disabled' : tools.length ? `${tools.length} tools available` : status.get(name) ?? 'No tools available' }
+    const message = state === 'signing-in' ? 'Finish signing in in your browser. Jan connects as soon as you approve.'
+      : state === 'ready' ? (tools.length === 1 ? '1 tool available' : `${tools.length} tools available`)
+        : state === 'connecting' ? 'Connecting…'
+          : state === 'empty' ? 'Connected, but the server offers no tools.'
+            : current.message ?? 'Disabled'
+    const route = signInLabel(row)
+    return {
+      name, enabled, transport, ...endpoint, secretConfigured, signedIn, tools, state, status: message, signInRefused: !!current.signInRefused,
+      ...(signingIn?.url && { signInUrl: signingIn.url }),
+      ...(route && { tokenRoute: { title: route.title, help: route.help, helpUrl: route.helpUrl } }),
+    }
   }))
   const persist = change => editor.edit(entry, current => ({ ...current, ...change(current) }))
-  // A reload or shutdown cancels starts still in flight; those are not broken servers.
-  let live = true
-  ctx.effect(() => () => { live = false }, 'jan-theme: MCP startup audit')
   // After a settings save the row in Settings reports the failure; only launch switches servers off.
   const launch = takeLaunchAudit()
   void trackStart(Promise.all(starts).then(async (results) => {
@@ -313,15 +401,74 @@ export async function mountAgentSettings(ctx, config) {
     },
     async toggle({ name, enabled }) {
       if (typeof enabled !== 'boolean' || !servers.some(row => row.name === name)) throw new Error('Choose an existing MCP server.')
+      if (!enabled) pendingSignIns.get(name)?.cancel()
       const result = await saveRows(servers.map(row => row.name === name ? { ...row, enabled } : row))
       clearFailure(`mcp:${name}`)
       return result
     },
     async remove({ name, confirmed }) {
       if (confirmed !== true || !servers.some(row => row.name === name)) throw new Error('Confirm removal of an existing server.')
+      pendingSignIns.get(name)?.cancel()
       await saveRows(servers.filter(row => row.name !== name))
       await credentials.deleteRecord(key(name))
+      await credentials.deleteRecord(oauthKey(name))
       clearFailure(`mcp:${name}`)
+      return { saved: true }
+    },
+    // Try again: reconnect one server in place. The row shows Connecting until the attempt settles.
+    reconnect({ name }) {
+      if (!servers.some(row => row.name === name && row.enabled)) throw new Error('Choose an enabled MCP server.')
+      clearFailure(`mcp:${name}`)
+      void restart(name)
+      return { started: true }
+    },
+    // Sign in: returns the page the person opens in their browser; the row waits until it returns.
+    async signIn({ name }) {
+      const row = servers.find(item => item.name === name)
+      if (!row || row.transport !== 'streamable-http') throw new Error('Only remote MCP servers can sign in.')
+      pendingSignIns.get(name)?.cancel()
+      let flow
+      try {
+        flow = await beginSignIn(row.url, async (record) => {
+          await liveMount.credentials.modifyRecord(liveMount.oauthKey(name), () => ({ kind: 'grant', payload: record }))
+        })
+      } catch (error) {
+        ctx.logger.warn(`Sign-in to ${row.url} could not start: ${error instanceof Error ? error.message : String(error)}`)
+        status.set(name, { phase: 'needs-auth', message: signInFailure(row.url, error), signInRefused: true })
+        return { started: false }
+      }
+      if (!flow.url) { void restart(name); return { started: true } }
+      const pending = { url: flow.url, cancel: flow.cancel }
+      pendingSignIns.set(name, pending)
+      const settle = () => { if (pendingSignIns.get(name) === pending) pendingSignIns.delete(name) }
+      flow.done.then(
+        () => { settle(); return liveMount?.restart(name) },
+        (error) => { settle(); liveMount?.signInFailed(name, error) },
+      )
+      return { started: true, url: flow.url }
+    },
+    cancelSignIn({ name }) {
+      pendingSignIns.get(name)?.cancel()
+      return { cancelled: true }
+    },
+    // An access token instead of signing in: sent as `Authorization: Bearer`, or, for a hosted server
+    // with a token route, handed to that route's local server, which replaces the remote endpoint.
+    async useToken({ name, token }) {
+      const row = servers.find(item => item.name === name)
+      if (!row) throw new Error('Choose an existing MCP server.')
+      if (typeof token !== 'string' || !token.trim() || /\s/.test(token.trim())) throw new Error('Paste the access token, without spaces.')
+      const value = token.trim()
+      const route = row.transport === 'streamable-http' && TOKEN_ROUTES[hostOf(row.url)]
+      pendingSignIns.get(name)?.cancel()
+      if (route) {
+        // Throws a sentence the row shows when Figma rejects the token, before anything is saved.
+        await route.verify(value)
+        const local = { name, enabled: true, transport: 'stdio', command: route.command, args: route.args, env: { [route.env]: value }, headers: {} }
+        return saveRows(servers.map(item => item.name === name ? local : item))
+      }
+      const secret = (await credentials.readRecord(key(name)))?.payload ?? {}
+      await credentials.modifyRecord(key(name), () => ({ kind: 'grant', payload: { env: secret.env ?? {}, headers: { ...secret.headers, Authorization: `Bearer ${value}` } } }))
+      void restart(name)
       return { saved: true }
     },
     // A pasted setup often repeats servers Jan already has; those are listed and left untouched.
