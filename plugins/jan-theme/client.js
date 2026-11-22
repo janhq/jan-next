@@ -780,15 +780,17 @@ window.__ModuleLoader__.load({
   }
   /* The inset sidebar leaves the caption row on the page background; body holds the palette. */
   html[data-jan-theme] body { --jan-windows-caption-fill: var(--dsw-alias-bg-base); }
-  html[data-jan-theme] [data-slot='root'] > [data-sidebar-collapsed], html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]) {
+  /* The shell marks its frame and columns (data-shell-frame, -center, -sidebar); matching those, not
+     :has(), keeps an element streamed into the chat from restyling the whole window. */
+  html[data-jan-theme] [data-slot='root'] > [data-sidebar-collapsed], html[data-jan-theme] [data-slot='root'] > [data-shell-frame] {
     background: var(--dsw-alias-bg-base);
   }
-  html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay])::before { background: var(--dsw-alias-bg-base); }
-  html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]) > :has([data-slot='main']) {
+  html[data-jan-theme] [data-slot='root'] > [data-shell-frame]::before { background: var(--dsw-alias-bg-base); }
+  html[data-jan-theme] [data-slot='root'] > [data-shell-frame] > [data-shell-center] {
     border: 0;
     border-radius: 0;
   }
-  html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]):not([data-sidebar-collapsed]):not([data-sidebar-drawer]) > :has(> [data-slot='sidebar']) {
+  html[data-jan-theme] [data-slot='root'] > [data-shell-frame]:not([data-sidebar-collapsed]):not([data-sidebar-drawer]) > [data-shell-sidebar] {
     position: relative;
     margin: var(--jt-sidebar-gap) 0 var(--jt-sidebar-gap) var(--jt-sidebar-gap);
     border: 1px solid var(--dsw-alias-border-l1);
@@ -798,8 +800,8 @@ window.__ModuleLoader__.load({
   }
   /* The floating card runs the full window height; the shell's bottom row (status bars and
      the like) lives in the chat column only, beside the card instead of under it. */
-  html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]):not([data-sidebar-drawer]) > :has(> [data-slot='sidebar']) { grid-row: 1 / -1; }
-  html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]):not([data-sidebar-drawer]) > [data-shell-bottom] { grid-column: 2 / -1; }
+  html[data-jan-theme] [data-slot='root'] > [data-shell-frame]:not([data-sidebar-drawer]) > [data-shell-sidebar] { grid-row: 1 / -1; }
+  html[data-jan-theme] [data-slot='root'] > [data-shell-frame]:not([data-sidebar-drawer]) > [data-shell-bottom] { grid-column: 2 / -1; }
   html[data-jan-theme] [data-slot='sidebar'] > div:has(> [data-window-drag]) {
     width: 100% !important; /* The shell passes the outer column width, before the inset. */
     background: linear-gradient(to bottom, var(--dsw-specific-sidebar-fill), var(--dsw-alias-bg-base));
@@ -941,10 +943,11 @@ window.__ModuleLoader__.load({
   /* Jan's sidebar paints a gradient, while the native list fade fades to a
      single sidebar-fill colour: either choice paints a hard-edged band across
      the last row (blue with the accent, grey with the base). Drop the overlay;
-     the list keeps its own clip. */
-  html[data-jan-theme] [data-slot='sidebar.workspaces'] > div > div > div:has([role='tree']) > span:last-child { display: none; }
+     the list keeps its own clip. Sibling combinators, not ":has(...) > span": that shape restyled
+     the whole window for every element streamed into the chat. */
+  html[data-jan-theme] [data-slot='sidebar.workspaces'] > div > div > div > [role='tree'] ~ span:last-child { display: none; }
   /* The shell's sidebar-wide fade above the footer has the same single-colour band. */
-  html[data-jan-theme] [data-slot='sidebar'] > div > div:has([data-slot='sidebar.workspaces']) > span[aria-hidden='true']:last-child { display: none; }
+  html[data-jan-theme] [data-slot='sidebar'] > div > div > :has([data-slot='sidebar.workspaces']) + span[aria-hidden='true']:last-child { display: none; }
   /* Without it the scroll area cut the last chat row in half above the footer.
      A mask fades the rows themselves, so it works over any sidebar fill; the
      padding lets the final row scroll clear of the fade. */
@@ -1148,11 +1151,11 @@ html[data-sidebar-hide-settings] [data-account-launcher] { display: none; }
 .jt-menu-check { flex: none; margin-left: auto; color: var(--dsw-alias-state-business-primary); }
 /* Native titlebar rules need to outrank the shell's platform rules; they never touch
    third-party panel or composer contents. The shell's track motion stays. */
-html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]) { padding-top: 0; }
-html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]) > :has([data-slot='main']),
-html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]) > [data-rightbar-col] { padding-top: var(--jan-windows-titlebar-height); }
+html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > [data-shell-frame] { padding-top: 0; }
+html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > [data-shell-frame] > [data-shell-center],
+html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > [data-shell-frame] > [data-rightbar-col] { padding-top: var(--jan-windows-titlebar-height); }
 /* The inset sidebar card starts below the caption, where the history buttons and menubar sit. */
-html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]):not([data-sidebar-collapsed]):not([data-sidebar-drawer]) > :has(> [data-slot='sidebar']) { margin-top: var(--jan-windows-titlebar-height); }
+html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > [data-shell-frame]:not([data-sidebar-collapsed]):not([data-sidebar-drawer]) > [data-shell-sidebar] { margin-top: var(--jan-windows-titlebar-height); }
 /* The expanded card carries its own toggle, so the caption starts with the menus at the window edge;
    Back and Forward follow them from the shell's --jan-windows-menu-end. */
 html[data-jan-theme][data-windows-titlebar]:not(:has([data-sidebar-collapsed])) { --jan-windows-menu-start: 12px; }
