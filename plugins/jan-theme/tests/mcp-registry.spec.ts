@@ -95,6 +95,36 @@ describe('MCP Registry search', () => {
     const failing = createMcpRegistry({ fetch: (async () => new Response('', { status: 503 })) as never })
     await expect(failing.search({ query: 'x' })).rejects.toThrow('answered 503')
   })
+
+  it('keeps servers updated in the last week and adds the larger weekly package download count it can read', async () => {
+    const npm = { registryType: 'npm', identifier: '@acme/tool', transport: { type: 'stdio' } }
+    const pypi = { registryType: 'pypi', identifier: 'Acme-Tool', transport: { type: 'stdio' } }
+    const fetch = vi.fn(async (url: string) => {
+      if (url.startsWith('https://api.npmjs.org/')) return ok({ downloads: 1200 })
+      if (url.startsWith('https://pypistats.org/')) return url.includes('acme-tool') ? ok({ data: { last_week: 3400 } }) : new Response('', { status: 404 })
+      return ok({
+        servers: [
+          { server: { name: 'com.acme/tool', packages: [npm, pypi] }, _meta: { 'io.modelcontextprotocol.registry/official': { status: 'active', updatedAt: '2026-11-20T10:00:00Z' } } },
+          { server: { name: 'com.acme/py', packages: [{ ...pypi, identifier: 'missing' }] }, _meta: active },
+        ],
+        metadata: {},
+      })
+    })
+    const registry = createMcpRegistry({ fetch: fetch as never, now: () => Date.parse('2026-11-22T15:00:00Z') })
+    const result = await registry.search({ since: 'week' })
+    expect(result.featured).toBe(false)
+    expect(new URL(fetch.mock.calls[0][0]).searchParams.get('updated_since')).toBe('2026-11-15T00:00:00.000Z')
+    expect(fetch.mock.calls.map(([url]) => url)).toContain('https://api.npmjs.org/downloads/point/last-week/@acme%2Ftool')
+    expect(result.entries).toMatchObject([
+      { id: 'com.acme/tool', updated: '2026-11-20T10:00:00Z', downloads: { count: 3400, source: 'PyPI' } },
+      { id: 'com.acme/py' },
+    ])
+    expect(result.entries[1].downloads).toBeUndefined()
+    // Counts are kept between searches, misses included.
+    const calls = fetch.mock.calls.length
+    await registry.search({ since: 'month' })
+    expect(fetch.mock.calls.length).toBe(calls + 1)
+  })
 })
 
 describe('recommended connectors', () => {

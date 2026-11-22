@@ -12,6 +12,10 @@ export const MCP_REGISTRY_ORIGIN = 'https://registry.modelcontextprotocol.io'
 const PAGE_SIZE = 30
 const TIMEOUT_MS = 15_000
 const CACHE_MS = 10 * 60_000
+const COUNT_TIMEOUT_MS = 5_000
+const COUNT_MS = 6 * 60 * 60_000
+const COUNT_MISS_MS = 10 * 60_000
+const SINCE_DAYS = { week: 7, month: 30 }
 
 // Well-known publishers shown before the user types: a registry name, or the id
 // of an official server the publisher runs but has not published to the registry.
@@ -164,7 +168,8 @@ function remoteOption(remote, index) {
 export function registryEntry(raw) {
   const server = raw?.server
   const name = text(server?.name)
-  const status = raw?._meta?.['io.modelcontextprotocol.registry/official']?.status
+  const official = raw?._meta?.['io.modelcontextprotocol.registry/official']
+  const status = official?.status
   if (!name || status === 'deleted') return undefined
   const options = [
     ...list(server.remotes).map(remoteOption),
@@ -179,15 +184,30 @@ export function registryEntry(raw) {
     website: text(server.websiteUrl) || undefined,
     repository: text(server.repository?.url) || undefined,
     deprecated: status === 'deprecated',
+    // When the registry last changed this server's latest version, as an ISO date.
+    updated: text(official?.updatedAt) || undefined,
     slug: serverSlug(name),
     options,
   }
 }
 
+// Packages whose public download counts Jan can read: npm (api.npmjs.org) and PyPI (pypistats.org).
+function countedPackages(server) {
+  return list(server?.packages).flatMap(pkg => {
+    const identifier = text(pkg?.identifier)
+    if (!identifier) return []
+    if (pkg.registryType === 'npm' && (!text(pkg.registryBaseUrl) || /^https:\/\/registry\.npmjs\.org\/?$/.test(text(pkg.registryBaseUrl)))) return [{ source: 'npm', identifier }]
+    if (pkg.registryType === 'pypi') return [{ source: 'PyPI', identifier }]
+    return []
+  })
+}
+
 /**
- * Search the registry, or list the featured servers when `query` is empty.
- * Pages of one query continue with `cursor`.
- * @param {{ query?: string, cursor?: string }} request
+ * Search the registry, or list the featured servers when neither `query` nor `since` is given.
+ * `since` keeps servers updated in the last 7 (`week`) or 30 (`month`) days.
+ * Pages of one query continue with `cursor`. Each entry carries `downloads`, last week's
+ * public download count of its npm or PyPI package, when it has one and the count could be read.
+ * @param {{ query?: string, since?: 'week' | 'month', cursor?: string }} request
  * @param {{ fetch?: typeof fetch, now?: () => number }} [deps]
  */
 export function createMcpRegistry({ fetch: request = globalThis.fetch, now = Date.now } = {}) {
@@ -195,12 +215,34 @@ export function createMcpRegistry({ fetch: request = globalThis.fetch, now = Dat
   const logos = createIconFetcher({ fetch: request, now })
   // Logo sources of every server a search returned; the client asks for logos by name only.
   const sources = new Map()
-  function entries(servers) {
-    return servers.map(raw => {
+  // Last week's downloads by `source:identifier`; an unreadable count is kept as undefined for a while.
+  const counts = new Map()
+  function weekly({ source, identifier }) {
+    const key = `${source}:${identifier}`
+    const hit = counts.get(key)
+    if (hit && now() - hit.at < (hit.value ? COUNT_MS : COUNT_MISS_MS)) return hit.value
+    const url = source === 'npm'
+      ? `https://api.npmjs.org/downloads/point/last-week/${identifier.replace('/', '%2F')}`
+      : `https://pypistats.org/api/packages/${encodeURIComponent(identifier.toLowerCase())}/recent`
+    const value = request(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(COUNT_TIMEOUT_MS), redirect: 'error' })
+      .then(response => response.ok ? response.json() : undefined)
+      .then(body => {
+        const count = source === 'npm' ? body?.downloads : body?.data?.last_week
+        return Number.isSafeInteger(count) && count >= 0 ? { count, source } : undefined
+      }, () => undefined)
+    counts.set(key, { at: now(), value })
+    value.then(found => counts.set(key, { at: now(), value: found ? Promise.resolve(found) : undefined }))
+    return value
+  }
+  async function entries(servers) {
+    return (await Promise.all(servers.map(async raw => {
       const entry = registryEntry(raw)
-      if (entry?.options.length) sources.set(entry.id, iconSources(raw.server))
-      return entry
-    }).filter(entry => entry?.options.length)
+      if (!entry?.options.length) return undefined
+      sources.set(entry.id, iconSources(raw.server))
+      const found = (await Promise.all(countedPackages(raw.server).map(weekly))).filter(Boolean)
+      const downloads = found.sort((a, b) => b.count - a.count)[0]
+      return downloads ? { ...entry, downloads } : entry
+    }))).filter(Boolean)
   }
   async function get(path) {
     const hit = cache.get(path)
@@ -213,25 +255,28 @@ export function createMcpRegistry({ fetch: request = globalThis.fetch, now = Dat
     return value
   }
   return {
-    async search({ query = '', cursor } = {}) {
+    async search({ query = '', since, cursor } = {}) {
       const words = text(query)
+      const days = SINCE_DAYS[since]
       try {
-        if (!words && !cursor) {
+        if (!words && !days && !cursor) {
           const found = await Promise.all(FEATURED_MCP_SERVERS.map(name => publisherListed.get(name)
             ?? get(`/v0/servers/${encodeURIComponent(name)}/versions/latest`).catch(() => undefined)))
-          return { featured: true, entries: entries(found), nextCursor: undefined }
+          return { featured: true, entries: await entries(found), nextCursor: undefined }
         }
         const params = new URLSearchParams({ limit: String(PAGE_SIZE), version: 'latest' })
         if (words) params.set('search', words)
+        // Whole days, so a cached page holds for the day instead of missing on every call.
+        if (days) params.set('updated_since', new Date((Math.floor(now() / 86_400_000) - days) * 86_400_000).toISOString())
         if (cursor) params.set('cursor', cursor)
         const page = await get(`/v0/servers?${params}`)
         // The registry cannot find servers it does not hold, so the first page leads with matching ones Jan lists.
         const needle = words.toLowerCase()
-        const listed = cursor || !needle ? [] : PUBLISHER_LISTED_SERVERS.filter(({ server }) =>
+        const listed = cursor || !needle || days ? [] : PUBLISHER_LISTED_SERVERS.filter(({ server }) =>
           [server.name, server.title, server.description].some(value => value.toLowerCase().includes(needle)))
         return {
           featured: false,
-          entries: entries([...listed, ...list(page?.servers)]),
+          entries: await entries([...listed, ...list(page?.servers)]),
           nextCursor: text(page?.metadata?.nextCursor) || undefined,
         }
       } catch (error) {
