@@ -8268,6 +8268,9 @@ importers:
       '@janhq/jan-agent-loop-testkit':
         specifier: workspace:*
         version: link:../../test-support/agent-loop-testkit
+      '@janhq/jan-commands':
+        specifier: workspace:*
+        version: link:../../interaction/commands
       '@janhq/jan-fs':
         specifier: workspace:*
         version: link:../../fs/fs
@@ -8289,6 +8292,9 @@ importers:
       '@janhq/jan-session-projection':
         specifier: workspace:*
         version: link:../../session/session-projection
+      '@janhq/jan-skill':
+        specifier: workspace:*
+        version: link:../../skill/skill
       '@janhq/jan-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt

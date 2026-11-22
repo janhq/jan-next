@@ -9,13 +9,16 @@
  * @module @janhq/jan-agent-instructions
  */
 
-import type {} from '@janhq/jan-working-directory'
+import type { } from '@janhq/jan-working-directory'
 import type { Context } from '@janhq/cordis'
 import { isDeepStrictEqual } from 'node:util'
 import type { Agent, PreStepDecision } from '@janhq/jan-agent'
 import { createUserMessage } from '@janhq/jan-llm'
 import type { Session, UserMessage } from '@janhq/jan-session'
 import type { ToolExecution, ToolExecutionResult, ToolExecutionToken } from '@janhq/jan-tools'
+import type { CommandResult } from '@janhq/jan-commands'
+import { CommandDefinitionId } from '@janhq/jan-commands/brand'
+import type { } from '@janhq/jan-skill'
 import { Config, resolveConfig, workspaceBaselineIdentity, type ResolvedConfig } from './config.ts'
 import { findProjectRoot, loadBaselineInstructionSet } from './files.ts'
 import { trimmedInstructionDigest } from './digest.ts'
@@ -353,6 +356,35 @@ export function apply(ctx: Context, config: Config): void {
     const lastClaimedIndex = decision.messages.findLastIndex(message => messages.includes(message))
     const entered = decision.messages.toSpliced(lastClaimedIndex + 1, 0, desired)
     return { ...decision, messages: entered }
+  })
+
+  // `/reload` re-reads instruction files and skills now. Both arrive as messages appended after
+  // the conversation, never as an edit to the system prompt or earlier turns, so the provider's
+  // cached prefix stays valid; only the new message is uncached.
+  ctx.inject(['commands'], (scope) => {
+    scope.commands.register({
+      definitionId: CommandDefinitionId('@janhq/jan-agent-instructions/reload'),
+      name: 'reload',
+      description: 'Reload instruction files and skills without resetting the cache',
+      async handler({ agent, rawInput, signal }): Promise<CommandResult> {
+        if (rawInput.trim().length > 0) return { kind: 'error', text: 'Usage: /reload (no arguments)' }
+        const skills = ctx.get('skills')
+        skills?.refresh()
+        await waitForProjections(agent)
+        await composeAndSync(agent, signal, [])
+        const update = agent.inbox.nextStep.find(isAgentInstructionsMessage)
+        const changes = update?.source.kind === 'agent-instructions' ? update.source.changes : []
+        const lines = [changes.length === 0
+          ? 'Instructions: no changes.'
+          : `Instructions: ${changes.map(change => `${change.path} ${change.action === 'remove' ? 'removed' : change.action === 'set' ? 'added' : 'updated'}`).join(', ')}.`]
+        if (skills !== undefined) {
+          const found = await skills.list({ cwd: await ctx.workingDirectory.ensure(agent, signal), signal, scope: agent })
+          lines.push(`Skills: ${String(found.length)} found.`)
+        }
+        lines.push('Changes reach the model with your next message; earlier messages are not resent.')
+        return { kind: 'success', text: lines.join(' ') }
+      },
+    })
   })
 
   ctx.on('tools/result', (exec: ToolExecution, result: ToolExecutionResult) => {

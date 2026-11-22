@@ -16,6 +16,7 @@ import SessionStore, { SessionId, SessionSeq, type SessionEvent, type SurfaceInt
 import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import AgentRegistry, { agentEvents, type Agent } from '@janhq/jan-agent'
 import AgentLoop from '@janhq/jan-agent-loop'
+import CommandRuntime from '@janhq/jan-commands'
 import { FileSystem, FsTargetKey, FsVersion } from '@janhq/jan-fs'
 import type {
   FsDirEntry,
@@ -245,7 +246,7 @@ class RecordingFileSystem extends FileSystem {
     this.readTargets.push(target.targetKey)
     if (this.throwOnRead.has(target.targetKey)) throw new Error(`read failed: ${target.displayPath}`)
     const content = this.entries.get(target.targetKey)?.content ?? ''
-    return (async function* () {
+    return (async function*() {
       const midpoint = Math.ceil(content.length / 2)
       yield content.slice(0, midpoint)
       signal?.throwIfAborted()
@@ -273,7 +274,7 @@ class BlockingReadFileSystem extends RecordingFileSystem {
     if (signal !== undefined) this.signals.push(signal)
     this.readTargets.push(target.targetKey)
     this.started.resolve(undefined)
-    return (async function* () {
+    return (async function*() {
       await new Promise<void>((_resolve, reject) => {
         const abortReason = (): Error => signal?.reason instanceof Error ? signal.reason : new Error('aborted')
         if (signal?.aborted) { reject(abortReason()); return }
@@ -2657,6 +2658,38 @@ describe('workspace context request injection', () => {
         changes: [{ action: 'replace', scope: sk(USER_GLOBAL_DIRECTORY, USER_GLOBAL_FILE) }],
       })
       expect(blocksText(pending?.content)).toContain('updated global rule')
+    } finally {
+      vi.unstubAllEnvs()
+      await rm(root, { recursive: true, force: true })
+      await rm(home, { recursive: true, force: true })
+    }
+  })
+
+  it('/reload queues a changed instruction as an appended message and keeps the sent prefix', async () => {
+    const root = await tempRepo()
+    const home = await tempRepo()
+    try {
+      await mkdir(join(root, '.git'), { recursive: true })
+      await write(join(home, 'AGENTS.md'), 'global rule')
+      const ctx = new Context()
+      provideWorkingDirectoryFixture(ctx)
+      pinHarnessHome(home)
+      await ctx.plugin(CommandRuntime)
+      await mountFileToolsAndAgentInstructions(ctx, { maxBytes: 65536 })
+      const agent = await stubAgent(root)
+      const prefix = structuredClone(await composeBaselinePrefix(ctx, agent))
+
+      expect((await ctx.commands.execute(agent, '/reload', [], testToolSignal))?.result)
+        .toMatchObject({ kind: 'success', text: expect.stringContaining('Instructions: no changes.') })
+      await write(join(home, 'AGENTS.md'), 'updated global rule')
+      const reloaded = await ctx.commands.execute(agent, '/reload', [], testToolSignal)
+
+      expect(reloaded?.result).toMatchObject({ kind: 'success', text: expect.stringContaining('$JAN_HOME/AGENTS.md updated') })
+      const pending = await agentInstructionsOf(agent)
+      expect(pending.source).toMatchObject({ changes: [{ action: 'replace', scope: sk(USER_GLOBAL_DIRECTORY, USER_GLOBAL_FILE) }] })
+      expect(blocksText(pending.content)).toContain('updated global rule')
+      // Earlier messages, which the provider has cached, are byte-identical after the reload.
+      expect(agent.session.deriveMessages().slice(0, prefix.length)).toEqual(prefix)
     } finally {
       vi.unstubAllEnvs()
       await rm(root, { recursive: true, force: true })
