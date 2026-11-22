@@ -23,18 +23,20 @@ describe('tails', () => {
         blocks={[{ kind: 'text', text: 'source words' }]} textInteractionSource={textInteractionSource} streaming={streaming} />
     )
     const view = render(body(false, true))
+    // Streamed words are separate reveal spans, so match the paragraph by its whole text.
+    const byParagraph = (_: string, element: Element | null) => element?.tagName === 'P' && element.textContent === 'source words'
     // A live reply types out over a few frames.
-    const paragraph = await view.findByText('source words')
+    const paragraph = await view.findByText(byParagraph)
     const markdown = paragraph.parentElement
     expect(view.container.querySelector('[data-text-interaction-source]')).toBeNull()
 
     view.rerender(body(true, false))
     expect(view.container.querySelector('[data-text-interaction-source]')).toBe(markdown)
-    expect(view.getByText('source words')).toBe(paragraph)
+    expect(view.getByText(byParagraph)).toBe(paragraph)
 
     view.rerender(body(false, false))
     expect(view.container.querySelector('[data-text-interaction-source]')).toBeNull()
-    expect(view.getByText('source words').parentElement).toBe(markdown)
+    expect(view.getByText(byParagraph).parentElement).toBe(markdown)
   })
 
   it('AssistantMarkdown renders reasoning as a Think row and unknown blocks as JSON fallback', () => {
