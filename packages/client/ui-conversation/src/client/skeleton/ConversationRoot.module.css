@@ -103,7 +103,8 @@
 .stripTitleRow .headerActions:empty { display: none; }
 .stripTitleRow .headerUtilities { margin-left: 4px; }
 .stripTitleRow .headerCorner { margin-inline: 4px 0; }
-.stripViews { padding-inline: 12px; }
+/* Doubled class: `.tabs` (declared later) would otherwise reset the start inset to 8px. */
+.tabs.stripViews { padding-inline: 12px; }
 
 @container (max-width: 370px) {
   .stripTitleRow .headerActions { max-width: 28px; overflow: clip; }

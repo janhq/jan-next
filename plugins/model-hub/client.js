@@ -411,7 +411,7 @@ window.__ModuleLoader__.load({
         ?? (index === item.recommended ? installed.curated.get(quant.repo.toLowerCase()) : undefined)
     }
 
-    function ModelCard({ item, jobs, inventory, engine, act, cancel, busy, failure, fits, installedOnly, smallestFirst, t, locale, openSettings }) {
+    function ModelCard({ item, jobs, inventory, act, cancel, busy, failure, engineError, openSettings, fits, installedOnly, smallestFirst, t, locale }) {
       const [requested, setChoice] = React.useState(null)
       const variants = item.quants.map((quant, index) => ({
         quant, index, job: jobs.get(quant.name), installed: installedVariant(item, quant, index, inventory),
@@ -424,9 +424,10 @@ window.__ModuleLoader__.load({
       if (!selected) return null
       const { quant, index, installed, job } = selected
       const working = busy?.key === item.key
+      // The default model is the one the local server loads; its failed start is this card's to show.
+      const engineFailed = installed?.active === true && engineError !== undefined
       const run = (kind, target) => act(kind, item.key, target)
       const size = Number.isFinite(quant.bytes) ? formatBytes(quant.bytes, locale) : quant.size
-      const engineFailed = installed?.active === true && engine.phase === 'failed'
       return h('li', { className: 'jan-hub-card', 'aria-busy': working },
         h('h2', null, item.name),
         h('p', { className: 'jan-hub-meta' }, [
@@ -451,10 +452,9 @@ window.__ModuleLoader__.load({
               variant: installed ? 'primary' : 'outline', size: 'sm', disabled: busy !== null,
               onClick: () => run(installed ? installed.active && installed.status === 'loaded' ? 'chat' : 'use' : 'download', installed ?? quant),
             }, installed ? working ? t('using') : t('use') : working ? t('preparing') : t('download')))),
-        // The default model is the one the local server loads; its failed start is this card's to show.
         engineFailed
           ? h('div', { role: 'alert', className: 'jan-hub-error' },
-            h('p', null, t('startFailed', { error: engine.error ?? '' })),
+            h('p', null, t('startFailed', { error: engineError })),
             openSettings && h(Button, { variant: 'outline', size: 'sm', onClick: openSettings }, t('settings')))
           : failure && h('p', { role: 'alert', className: 'jan-hub-error' }, t('failed', { error: failure })))
     }
@@ -488,7 +488,7 @@ window.__ModuleLoader__.load({
         && (!filters.includes('vision') || item.vision) && (!fits || item.bytes <= fits)
         && (!installedOnly || item.quants.some((quant, index) =>
           (!fits || quant.bytes + item.projectorBytes <= fits) && installedVariant(item, quant, index, inventory)))),
-        [ranked, filters, fits, installedOnly, inventory])
+      [ranked, filters, fits, installedOnly, inventory])
       const clear = () => { setQuery(''); setFilters([]); setShown(PAGE) }
       const act = async (kind, key, target) => {
         setBusy({ key })
@@ -528,8 +528,8 @@ window.__ModuleLoader__.load({
                 h(Button, { variant: 'outline', size: 'sm', onClick: clear }, t('clear')))
               : h(React.Fragment, null,
                 h('ul', { className: 'jan-hub-list' }, matches.slice(0, shown).map(item => h(ModelCard, {
-                  key: item.key, item, jobs, inventory, busy, t, locale, fits, installedOnly, smallestFirst: sort === 'size',
-                  engine: local, openSettings,
+                  key: item.key, item, jobs, inventory, busy, t, locale, fits, installedOnly, smallestFirst: sort === 'size', openSettings,
+                  engineError: local.phase === 'failed' ? local.error ?? '' : undefined,
                   failure: failure?.key === item.key ? failure.message : '',
                   act: (kind, key, target) => { void act(kind, key, target) },
                   cancel: target => { setAcknowledged(false); setConfirm(target) },
@@ -635,8 +635,7 @@ window.__ModuleLoader__.load({
               await startLocalChat(after.provider)
             }
           }
-          const navigation = () => ctx.get('settingsNavigation')
-          const openSettings = () => { navigation()?.open('models') }
+          const openSettings = () => { ctx.get('settingsNavigation')?.open('models') }
           scope.slots.inject('main', () => scope.slots.register({
             name: 'main', key: PANEL, locale: PANEL, inject: () => ({ hooks: { local: feed }, runAction, openSettings }),
           }, HubPanel))

@@ -16,7 +16,7 @@ window.__ModuleLoader__.load({
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
       IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
       IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular, IconBranchOutlineRegular, StateDot,
-      IconEditOutlineRegular,
+      IconEditOutlineRegular, relativeTime,
     } = require('@janhq/jan-client-ui-primitives')
     const { workspaceDisplayTitle } = require('@janhq/jan-api-workspace-controller/client')
     // Optional: the matching host publishes the dock model seat. An older
@@ -509,7 +509,7 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-slot='sidebar'] button[aria-haspopup='menu'][class*='panelRow'],
   html[data-jan-theme] [data-slot='sidebar'] .jt-footer-action { color: var(--jt-side-label); }
   html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row > svg,
-  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='workspace:'] svg,
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='workspace:'] svg:not([data-color] svg),
   html[data-jan-theme] [data-slot='sidebar'] .jt-footer-action > svg { color: var(--jt-side-icon); }
   html[data-jan-theme] [data-slot='sidebar'] .jt-list-heading { font-size: 12px; font-weight: 500; color: var(--jt-side-icon); }
   html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row [class*='shortcut'] { font-size: 11px; color: var(--jt-side-muted); }
@@ -1504,6 +1504,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         reloadDetails()
       }
       const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      // Within a day, the same compact age the sidebar shows ("now", "3min", "2h"); older chats show their date.
+      const chatTime = (at) => {
+        const { unit, n } = relativeTime(at, Date.now())
+        if (unit === 'now') return t('time.now')
+        return unit === 'minutes' || unit === 'hours' ? t(`time.${unit}`, { n }) : dateFormat.format(new Date(at))
+      }
       const card = (titleKey, action, body) => h('section', { className: 'jt-project-card', 'aria-label': t(titleKey) },
         h('div', { className: 'jt-project-card-head' }, h('h2', null, t(titleKey)), action), body)
       const preview = (text, emptyKey) => h('p', { className: 'jt-project-card-text', 'data-empty': text.trim() === '' || undefined },
@@ -1559,7 +1565,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                   h('button', { type: 'button', className: 'jt-project-session', onClick: () => { openChat(summary.id) } },
                     h('span', { className: 'jt-project-session-title' }, summary.displayTitle),
                     status === null
-                      ? h('span', { className: 'jt-project-session-date' }, dateFormat.format(new Date(summary.updatedAt)))
+                      ? h('span', { className: 'jt-project-session-date' }, chatTime(summary.updatedAt))
                       : h('span', { className: 'jt-project-session-status', 'data-state': status.state }, h(StateDot, { state: status.state }), status.label)))
               })))),
         h('aside', { className: 'jt-project-rail', 'aria-label': t('project.details') },
@@ -1972,6 +1978,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.composerHint': "Enter starts a chat in this project. Shift+Enter adds a line.",
               'project.start': "Start chat",
               'project.recents': "Recent chats",
+              'time.now': "now",
+              'time.minutes': "{n}min",
+              'time.hours': "{n}h",
               'project.noSessions': "No chats in this project yet.",
               'project.status.running': "Running",
               'project.status.approval': "Waiting for approval",
@@ -2052,6 +2061,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.composerHint': "按 Enter 在此项目中开始对话，Shift+Enter 换行。",
               'project.start': "开始对话",
               'project.recents': "最近的对话",
+              'time.now': "刚刚",
+              'time.minutes': "{n}分钟",
+              'time.hours': "{n}小时",
               'project.noSessions': "此项目还没有对话。",
               'project.status.running': "运行中",
               'project.status.approval': "等待审批",
@@ -2135,6 +2147,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.composerHint': "Enter でこのプロジェクトのチャットを開始、Shift+Enter で改行。",
               'project.start': "チャットを開始",
               'project.recents': "最近のチャット",
+              'time.now': "今",
+              'time.minutes': "{n}分",
+              'time.hours': "{n}時間",
               'project.noSessions': "このプロジェクトにはまだチャットがありません。",
               'project.status.running': "実行中",
               'project.status.approval': "承認待ち",
@@ -2218,6 +2233,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.composerHint': "Enter inicia un chat en este proyecto. Mayús+Enter añade una línea.",
               'project.start': "Iniciar chat",
               'project.recents': "Chats recientes",
+              'time.now': "ahora",
+              'time.minutes': "{n}min",
+              'time.hours': "{n}h",
               'project.noSessions': "Este proyecto todavía no tiene chats.",
               'project.status.running': "En curso",
               'project.status.approval': "Esperando aprobación",
@@ -2301,6 +2319,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.composerHint': "Entrée lance une discussion dans ce projet. Maj+Entrée ajoute une ligne.",
               'project.start': "Lancer la discussion",
               'project.recents': "Discussions récentes",
+              'time.now': "maintenant",
+              'time.minutes': "{n}min",
+              'time.hours': "{n}h",
               'project.noSessions': "Ce projet n'a pas encore de discussion.",
               'project.status.running': "En cours",
               'project.status.approval': "En attente d'approbation",
@@ -2384,6 +2405,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.composerHint': "Eingabe startet einen Chat in diesem Projekt. Umschalt+Eingabe fügt eine Zeile ein.",
               'project.start': "Chat starten",
               'project.recents': "Letzte Chats",
+              'time.now': "jetzt",
+              'time.minutes': "{n}min",
+              'time.hours': "{n}h",
               'project.noSessions': "Dieses Projekt hat noch keine Chats.",
               'project.status.running': "Läuft",
               'project.status.approval': "Wartet auf Freigabe",
@@ -2467,6 +2491,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.composerHint': "Enter начинает чат в этом проекте, Shift+Enter добавляет строку.",
               'project.start': "Начать чат",
               'project.recents': "Недавние чаты",
+              'time.now': "сейчас",
+              'time.minutes': "{n}мин",
+              'time.hours': "{n}h",
               'project.noSessions': "В этом проекте пока нет чатов.",
               'project.status.running': "Выполняется",
               'project.status.approval': "Ожидает одобрения",
@@ -2550,6 +2577,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.composerHint': "Enter inicia uma conversa neste projeto. Shift+Enter adiciona uma linha.",
               'project.start': "Iniciar conversa",
               'project.recents': "Conversas recentes",
+              'time.now': "agora",
+              'time.minutes': "{n}min",
+              'time.hours': "{n}h",
               'project.noSessions': "Este projeto ainda não tem conversas.",
               'project.status.running': "Em execução",
               'project.status.approval': "Aguardando aprovação",
