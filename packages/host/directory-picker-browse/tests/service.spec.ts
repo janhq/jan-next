@@ -5,9 +5,9 @@ import { homedir, tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Context } from '@janhq/cordis'
-import { DirectoryPickerError } from '@janhq/jan-host-directory-picker'
+import { DirectoryPickerError, fullyQualified } from '@janhq/jan-host-directory-picker'
 import type { DirectoryPickerBrowseCapability } from '@janhq/jan-host-directory-picker'
-import BrowseDirectoryPicker, { boundedInsert, fullyQualified, raceAbort } from '../src/index.ts'
+import BrowseDirectoryPicker, { boundedInsert, raceAbort } from '../src/index.ts'
 import type { ListingCandidate } from '../src/index.ts'
 
 let root: string

@@ -79,7 +79,8 @@ export class DirectoryPickerController extends TypertRemoteService {
   }
 
   /**
-   * Create one child directory for a Remote caller's in-app browser.
+   * Create one child directory for a Remote caller (the in-app browser or the
+   * new-project menu's New folder); every backend that can create folders serves it.
    * @param path - absolute existing parent directory.
    * @param name - single non-blank path segment.
    * @returns the created directory's absolute path.
@@ -94,7 +95,14 @@ export class DirectoryPickerController extends TypertRemoteService {
         { issues: request.error.issues },
       )
     }
-    const capability = this.requireCapability('browse', 'createDirectory')
+    const capability = this.ctx.directoryPicker.capability()
+    if (!('createDirectory' in capability)) {
+      throw new RemoteError(
+        'directory-picker/unavailable',
+        `directoryPicker.createDirectory is not served by the composed "${(capability as { kind: string }).kind}" picker`,
+        { capability: (capability as { kind: string }).kind },
+      )
+    }
     try {
       return await capability.createDirectory(request.data.path, request.data.name)
     } catch (error: unknown) {

@@ -13,14 +13,19 @@ afterEach(async () => {
 
 /** A backend serving exactly the capability one case is about. */
 class StubPicker extends DirectoryPicker {
-  static capabilityStub: DirectoryPickerCapability = { kind: 'native', pick: async () => null }
+  static capabilityStub: DirectoryPickerCapability = nativeStub()
 
   capability(): DirectoryPickerCapability {
     return StubPicker.capabilityStub
   }
 }
 
-const NATIVE_STUB: DirectoryPickerCapability = { kind: 'native', pick: async () => null }
+/** A native backend whose chooser answers `pick`; it creates folders as every backend does. */
+function nativeStub(pick: (signal: AbortSignal) => Promise<string | null> = async () => null): DirectoryPickerCapability {
+  return { kind: 'native', pick, createDirectory: async (path, name) => `${path}/${name}` }
+}
+
+const NATIVE_STUB = nativeStub()
 
 const BROWSE_STUB: DirectoryPickerCapability = {
   kind: 'browse',
@@ -69,7 +74,7 @@ async function refused(call: Promise<unknown>): Promise<{ code: string; message:
 
 describe('directoryPicker pick Remote', () => {
   it('answers the selected path or the operator\'s cancellation', async () => {
-    const selected = await harness({ kind: 'native', pick: async () => '/tmp/project' })
+    const selected = await harness(nativeStub(async () => '/tmp/project'))
     expect(await selected.pick(new AbortController().signal)).toBe('/tmp/project')
 
     const cancelled = await harness(NATIVE_STUB)
@@ -77,18 +82,15 @@ describe('directoryPicker pick Remote', () => {
   })
 
   it('reports an aborted chooser as cancelled and any other failure as internal', async () => {
-    const picker = await harness({
-      kind: 'native',
-      pick: signal => new Promise((_resolve, reject) => {
-        signal.addEventListener('abort', () => { reject(new Error('aborted')) }, { once: true })
-      }),
-    })
+    const picker = await harness(nativeStub(signal => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => { reject(new Error('aborted')) }, { once: true })
+    })))
     const abort = new AbortController()
     const pending = refused(picker.pick(abort.signal))
     abort.abort()
     expect((await pending).code).toBe('gateway/cancelled')
 
-    const broken = await harness({ kind: 'native', pick: async () => { throw new Error('no chooser installed') } })
+    const broken = await harness(nativeStub(async () => { throw new Error('no chooser installed') }))
     const failure = await refused(broken.pick(new AbortController().signal))
     expect(failure.code).toBe('gateway/internal')
     expect(failure.message).toContain('no chooser installed')
@@ -157,11 +159,10 @@ describe('directoryPicker browse Remotes', () => {
     expect((await pending).code).toBe('gateway/cancelled')
   })
 
-  it('refuses the browse verbs under a native composition', async () => {
+  it('refuses listing under a native composition but creates folders there', async () => {
     const picker = await harness()
     expect(await refused(picker.list(undefined, new AbortController().signal)))
       .toMatchObject({ code: 'directory-picker/unavailable', details: { capability: 'native' } })
-    expect(await refused(picker.createDirectory('/x', 'y')))
-      .toMatchObject({ code: 'directory-picker/unavailable', details: { capability: 'native' } })
+    expect(await picker.createDirectory('/x', 'y')).toBe('/x/y')
   })
 })

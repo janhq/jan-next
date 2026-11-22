@@ -1051,7 +1051,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote(\'createDirectory\') async createDirectory(path: string, name: string): Promise<string>',
-        description: 'Create one child directory for a Remote caller\'s in-app browser.',
+        description: 'Create one child directory for a Remote caller (the in-app browser or the new-project menu\'s New folder); every backend that can create folders serves it.',
         parameters: [{ name: 'path', description: 'absolute existing parent directory.' }, { name: 'name', description: 'single non-blank path segment.' }],
         returns: 'the created directory\'s absolute path.',
       },
@@ -6761,7 +6761,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'DirectoryPickerBrowseCapability',
-    declaration: 'export interface DirectoryPickerBrowseCapability {\n    kind: \'browse\';\n    list(path?: string, signal?: AbortSignal): Promise<DirectoryListing>;\n    createDirectory(path: string, name: string): Promise<string>;\n}',
+    declaration: 'export interface DirectoryPickerBrowseCapability {\n    kind: \'browse\';\n    list(path?: string, signal?: AbortSignal): Promise<DirectoryListing>;\n    createDirectory: CreateDirectory;\n}',
   },
   {
     name: 'DirectoryPickerCapabilities',
@@ -6773,7 +6773,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'DirectoryPickerNativeCapability',
-    declaration: 'export interface DirectoryPickerNativeCapability {\n    kind: \'native\';\n    pick(signal: AbortSignal): Promise<string | null>;\n}',
+    declaration: 'export interface DirectoryPickerNativeCapability {\n    kind: \'native\';\n    pick(signal: AbortSignal): Promise<string | null>;\n    createDirectory: CreateDirectory;\n}',
   },
   {
     name: 'DirectoryRegistrationHandle',
@@ -8597,7 +8597,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'RemoteEventHostInfo',
-    declaration: 'export interface RemoteEventHostInfo {\n    readonly home: string;\n}',
+    declaration: 'export interface RemoteEventHostInfo {\n    readonly home: string;\n    readonly name: string;\n    readonly remote: boolean;\n}',
   },
   {
     name: 'RemoteStream',
