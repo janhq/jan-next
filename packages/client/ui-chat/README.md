@@ -56,6 +56,8 @@ Chat omits system-prompt and `permission` command rows in every work-details mod
 
 An injected context row is titled `Inject context`, followed by its producer, such as `Inject context · skill-catalog`. An attributed row ends with its estimated token cost, such as `~2.4K tok`, priced with the same `estimateContent` heuristic the context meter uses; the tooltip gives the exact estimate. The figure is hidden from assistive technology, so the row's accessible name stays its role and producer. Tool-list changes and unattributed context show no figure. An expandable row ends with a chevron that points right while closed and down while open.
 
+A closed step header ends with one caption: a context-only step shows the sum of its rows' estimated token figures, such as `~2.9K tok`; any other step shows its wall-clock span, from its first tool call or reasoning start to its last result, such as `36s`. Both are hidden from assistive technology.
+
 When an Assistant attempt retires without a visible message, Chat hides its already-published Node instead of removing its key. A retry in the same Step reuses that key when visible content returns. This also applies when the loaded window lacks the Step start.
 
 Text and reasoning contribute to Assistant visibility only when they contain a non-whitespace character. Streaming appends reuse each block's visibility; block replacement and finalized messages recalculate it while preserving the original text.
