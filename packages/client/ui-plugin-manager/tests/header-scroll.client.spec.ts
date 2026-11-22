@@ -86,6 +86,16 @@ function harness() {
   }
   vi.stubGlobal('ResizeObserver', ControlledResize)
   vi.stubGlobal('MutationObserver', ControlledMutation)
+  // Re-measurement waits for the next frame; tests run queued frames explicitly.
+  const frames = new Map<number, FrameRequestCallback>()
+  let nextFrame = 0
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(++nextFrame, callback); return nextFrame })
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => { frames.delete(id) })
+  function frame(): void {
+    const queued = [...frames.values()]
+    frames.clear()
+    for (const callback of queued) callback(0)
+  }
 
   function fixture(initial: Layout = wide(), ref = createPluginHeaderRef()) {
     const body = document.createElement('div')
@@ -165,7 +175,7 @@ function harness() {
     }
     return { body, bar, header, content, state, clones, measurements, part, scroll, ref, attach: () => { ref(bar) } }
   }
-  return { fonts, resizes, mutations, fixture }
+  return { fonts, resizes, mutations, fixture, frame }
 }
 
 describe('plugin header scroll geometry', () => {
@@ -284,6 +294,7 @@ describe('plugin header scroll geometry', () => {
     if (event === 'resize') h.resizes[0]!.deliver()
     else if (event === 'mutation') h.mutations[0]!.deliver()
     else h.fonts.dispatchEvent(new Event('loadingdone'))
+    h.frame()
     expect(f.part('toolbar').style.translate).toBe('200px -74px')
     expect(f.part('toolbar').style.width).toBe('80px')
     expect(f.bar.style.getPropertyValue('--plugin-header-rest-height')).toBe('210px')
@@ -340,6 +351,7 @@ describe('plugin header scroll geometry', () => {
     h.resizes[0]!.deliver()
     h.mutations[0]!.deliver()
     h.fonts.dispatchEvent(new Event('loadingdone'))
+    h.frame()
     expect(f.bar.outerHTML).toBe(before)
     expect(f.clones).toHaveLength(1)
     f.ref(null)
@@ -357,6 +369,7 @@ describe('plugin header scroll geometry', () => {
     first.scroll(144)
     h.resizes[0]!.deliver()
     h.mutations[0]!.deliver()
+    h.frame()
     expect(first.bar.outerHTML).toBe(oldMarkup)
     expect(second.bar.outerHTML).toBe(newMarkup)
     expect(first.body.style.getPropertyValue('--plugin-header-scroll-padding')).toBe('')
@@ -378,6 +391,7 @@ describe('plugin header scroll geometry', () => {
     const oldMarkup = first.bar.outerHTML
     second.state.layout = wide()
     h.fonts.dispatchEvent(new Event('loadingdone'))
+    h.frame()
     expect(first.bar.outerHTML).toBe(oldMarkup)
     expect(first.clones).toHaveLength(1)
     expect(second.clones).toHaveLength(2)

@@ -143,20 +143,27 @@ function attach(bar: HTMLDivElement): () => void {
   }
 
   measure()
-  const resize = new ResizeObserver(measure)
+  // Counts, tabs and fonts can all change in one render; one measurement per frame reads the settled header.
+  let frame = 0
+  const schedule = (): void => {
+    if (frame !== 0) return
+    frame = requestAnimationFrame(() => { frame = 0; if (!disposed) measure() })
+  }
+  const resize = new ResizeObserver(schedule)
   resize.observe(body)
-  const mutation = new MutationObserver(measure)
+  const mutation = new MutationObserver(schedule)
   mutation.observe(bar.querySelector('header') as HTMLElement, {
     childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['hidden'],
   })
   body.addEventListener('scroll', scroll, { passive: true })
-  document.fonts.addEventListener('loadingdone', measure)
+  document.fonts.addEventListener('loadingdone', schedule)
   return () => {
     disposed = true
+    cancelAnimationFrame(frame)
     resize.disconnect()
     mutation.disconnect()
     body.removeEventListener('scroll', scroll)
-    document.fonts.removeEventListener('loadingdone', measure)
+    document.fonts.removeEventListener('loadingdone', schedule)
     body.style.removeProperty('--plugin-header-scroll-padding')
     body.style.removeProperty('--plugin-page-scrollbar-width')
   }
