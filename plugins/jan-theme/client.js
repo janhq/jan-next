@@ -1159,6 +1159,9 @@ html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > [data-shell-fra
 /* The expanded card carries its own toggle, so the caption starts with the menus at the window edge;
    Back and Forward follow them from the shell's --jan-windows-menu-end. */
 html[data-jan-theme][data-windows-titlebar]:not(:has([data-sidebar-collapsed])) { --jan-windows-menu-start: 12px; }
+/* With Back and Forward hidden, the collapsed caption seat holds only the toggle:
+   12px seat offset + 28px toggle + 8px gap (ui-sidebar reserves 156px for its full set). */
+html[data-jan-theme][data-jt-hide-navigation][data-windows-titlebar]:has([data-sidebar-collapsed='true']) { --jan-windows-menu-start: 48px; }
 /* Guide labels remain readable when shortcut hints consume a narrow card. */
 html[data-jan-theme] [data-sidebar-right-guide-entry='files'] > span:nth-child(2) > span,
 html[data-jan-theme] [data-sidebar-right-guide-entry='terminal'] > span:nth-of-type(2) > span:last-child { white-space: normal; overflow-wrap: anywhere; }
