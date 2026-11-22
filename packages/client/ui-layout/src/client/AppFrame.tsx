@@ -37,9 +37,13 @@ export type AppFrameProps =
   & PropsLocale<'common'>
   & InjectFace<AppFrameInjected>
 
-/** Center column grid item (session-body building block). */
+/**
+ * Center column grid item (session-body building block). `data-shell-center`, like the frame's
+ * `data-shell-frame` and the other columns' markers, lets themes target it without `:has()`, which
+ * on an ancestor of the transcript makes every streamed element restyle the whole window.
+ */
 function CenterColumn(props: { children?: ReactNode; inert: boolean }) {
-  return <div className={css.centerCol} {...{ inert: props.inert ? '' : undefined }}>{props.children}</div>
+  return <div className={css.centerCol} data-shell-center {...{ inert: props.inert ? '' : undefined }}>{props.children}</div>
 }
 
 /** Subscribe to the main key without subscribing the column frame to each panel id. */
@@ -295,6 +299,7 @@ export function AppFrame({
     <div
       ref={frameRef}
       className={css.frame}
+      data-shell-frame
       style={{
         ...(windowsTitlebar
           ? { '--jan-windows-sidebar-width': `${cols.sidebar}px` } : {}),
