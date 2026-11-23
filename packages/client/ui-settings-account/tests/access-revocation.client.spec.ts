@@ -46,6 +46,7 @@ it('withdraws every account surface and the account stream on revocation, and re
   const streams: { readonly signal: AbortSignal; readonly accepted: Promise<undefined> }[] = []
   const lifetime: (() => void)[] = []
   const ctx = {
+    provide: () => {},
     effect: (install: () => (() => void) | undefined) => { const dispose = install(); if (dispose) lifetime.push(dispose) },
     locale: { register: () => () => {}, bind: () => (key: string) => key, getSnapshot: () => ({ active: 'en' }) },
     configForms: {
@@ -120,6 +121,7 @@ it('drops reads a revoked grant started, and the next grant shows no account sec
   const firstFrames: { release: () => void; accepted: Promise<undefined> }[] = []
   const lifetime: (() => void)[] = []
   const ctx = {
+    provide: () => {},
     effect: (install: () => (() => void) | undefined) => { const dispose = install(); if (dispose) lifetime.push(dispose) },
     locale: { register: () => () => {}, bind: () => (key: string) => key, getSnapshot: () => ({ active: 'en' }) },
     configForms: {
@@ -208,6 +210,7 @@ function revocationHarness(scripts: StreamScript[]) {
   const getUnnotifiedBonuses = vi.fn(async () => ({ ok: true, value: null }))
   const startSignIn = vi.fn<() => Promise<{ ok: false }>>()
   const ctx = {
+    provide: () => {},
     effect: (install: () => (() => void) | undefined) => { const dispose = install(); if (dispose) lifetime.push(dispose) },
     locale: { register: () => () => {}, bind: () => (key: string) => key, getSnapshot: () => ({ active: 'en' }) },
     configForms: {
