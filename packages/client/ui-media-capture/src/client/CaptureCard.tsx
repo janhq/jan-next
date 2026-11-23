@@ -288,10 +288,10 @@ export function CaptureCard({ mode, reason, confirmActive, decline, send, t }: C
     }
   }
 
-  const title = audio ? 'audioRequest' : mode === 'photo' ? 'photoRequest' : 'videoRequest'
+  const titleKey = audio ? 'audioRequest' : mode === 'photo' ? 'photoRequest' : 'videoRequest'
   const timer = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`
-  return <section className={styles.card} aria-label={t(title)}>
-    <strong>{t(title)}</strong>
+  return <section className={styles.card} aria-label={t(titleKey)}>
+    <strong>{t(titleKey)}</strong>
     <p className={styles.reason}>{reason}</p>
     {error !== undefined && <p className={styles.error} role="alert">{t(error)}</p>}
     {(stage === 'permission' || stage === 'opening' || stage === 'declining') && <div className={styles.controls}>
