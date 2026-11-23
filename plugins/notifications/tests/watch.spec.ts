@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
-import { beforeAll, expect, it } from 'vitest'
+import { beforeAll, expect, it, vi } from 'vitest'
 
 type Status = { running: boolean | undefined; pendingInteraction: { key: string } | undefined }
 type Event = { kind: 'finished' | 'failed' | 'waiting'; sessionId: string }
 type Watcher = { observe(snapshot: ReadonlyMap<string, Status>): void; error(sessionId: string): void }
-type Factory = (options: { tracked: (sessionId: string) => boolean; emit: (event: Event) => void }) => Watcher
+type End = { seq: number; kind: string }
+type Factory = (options: {
+  tracked: (sessionId: string) => boolean
+  emit: (event: Event) => void
+  readOutcome: (sessionId: string) => Promise<End | undefined>
+}) => Watcher
 
 let createStatusWatcher: Factory
 beforeAll(async () => {
@@ -22,11 +27,12 @@ beforeAll(async () => {
 })
 
 function setup(tracked: (sessionId: string) => boolean = () => true) {
+  const readOutcome = vi.fn<() => Promise<End | undefined>>(async () => undefined)
   const events: Event[] = []
-  const watcher = createStatusWatcher({ tracked, emit: (event) => { events.push(event) } })
+  const watcher = createStatusWatcher({ tracked, emit: (event) => { events.push(event) }, readOutcome })
   const status = (entries: Record<string, Partial<Status>>) => new Map(Object.entries(entries).map(([id, value]) =>
     [id, { running: undefined, pendingInteraction: undefined, ...value }] as const))
-  return { events, watcher, status }
+  return { events, watcher, status, readOutcome }
 }
 
 it('treats the first snapshot as a baseline', () => {
@@ -42,23 +48,56 @@ it('does not replay an interaction that was already pending when a Session first
   expect(f.events).toEqual([])
 })
 
-it('reports a finished run when a running Session stops without an error', () => {
+it('reports a completed turn once, and not again if a later run records no new outcome', async () => {
   const f = setup()
+  f.readOutcome.mockResolvedValue({ seq: 5, kind: 'completed' })
   f.watcher.observe(f.status({ a: { running: false } }))
   f.watcher.observe(f.status({ a: { running: true } }))
   f.watcher.observe(f.status({ a: { running: false } }))
   f.watcher.observe(f.status({ a: { running: false } }))
+  await Promise.resolve()
+  f.watcher.observe(f.status({ a: { running: true } }))
+  f.watcher.observe(f.status({ a: { running: false } }))
+  await Promise.resolve()
   expect(f.events).toEqual([{ kind: 'finished', sessionId: 'a' }])
 })
 
-it('reports a failed run once when an error arrives before the Session stops', () => {
+it('reports a failed run once when an error arrives before the Session stops', async () => {
   const f = setup()
+  f.readOutcome.mockResolvedValueOnce({ seq: 5, kind: 'error' }).mockResolvedValueOnce({ seq: 10, kind: 'completed' })
   f.watcher.observe(f.status({ a: { running: true } }))
   f.watcher.error('a')
   f.watcher.observe(f.status({ a: { running: false } }))
+  await Promise.resolve()
   f.watcher.observe(f.status({ a: { running: true } }))
   f.watcher.observe(f.status({ a: { running: false } }))
+  await Promise.resolve()
   expect(f.events).toEqual([{ kind: 'failed', sessionId: 'a' }, { kind: 'finished', sessionId: 'a' }])
+})
+
+it('does not report a stopped turn as finished, even without an error event', async () => {
+  const f = setup()
+  f.readOutcome.mockResolvedValueOnce({ seq: 5, kind: 'aborted' }).mockResolvedValueOnce({ seq: 10, kind: 'error' })
+  f.watcher.observe(f.status({ a: { running: true } }))
+  f.watcher.observe(f.status({ a: { running: false } }))
+  await Promise.resolve()
+  expect(f.events).toEqual([])
+  f.watcher.observe(f.status({ a: { running: true } }))
+  f.watcher.observe(f.status({ a: { running: false } }))
+  await Promise.resolve()
+  expect(f.events).toEqual([{ kind: 'failed', sessionId: 'a' }])
+})
+
+it('does not announce a delayed outcome after that session starts running again', async () => {
+  const f = setup()
+  const read = Promise.withResolvers<End>()
+  f.readOutcome.mockReturnValueOnce(read.promise)
+  f.watcher.observe(f.status({ a: { running: true } }))
+  f.watcher.observe(f.status({ a: { running: false } }))
+  f.watcher.observe(f.status({ a: { running: true } }))
+  read.resolve({ seq: 5, kind: 'completed' })
+  await read.promise
+  expect(f.events).toEqual([])
 })
 
 it('reports an error outside a run, such as a failed activation, at once', () => {

@@ -52,6 +52,19 @@ window.__ModuleLoader__.load({
               const row = summary(sessionId)
               return row !== undefined && row.origin !== 'subagent' && row.parentSessionId === undefined
             },
+            readOutcome: async (sessionId) => {
+              try {
+                // The Agent records turn/end before publishing idle. Read it
+                // from the Host even when this window no longer retains the chat.
+                const result = await ctx.remote.session.events({ address: { kind: 'session', sessionId }, maxMessages: 1 })
+                if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
+                const boundary = result.value.records.findLast(({ event }) => event.type === 'turn/end' || event.type === 'turn/start')?.event
+                if (boundary?.type === 'turn/end') return { seq: boundary.seq, kind: boundary.data.reason.kind }
+              } catch (error) {
+                logger.warn('could not read the final turn outcome', error)
+              }
+              return undefined
+            },
             emit: ({ kind, sessionId }) => {
               const name = nameOf(sessionId)
               if (kind === 'failed' && visible() && !isMain(sessionId)) {
@@ -74,6 +87,7 @@ window.__ModuleLoader__.load({
               })
             },
           })
+          ctx.effect(() => () => { watcher.dispose() })
           ctx.effect(() => {
             const status = ctx.uiSession.sessionStatus
             const sync = () => { watcher.observe(status.getSnapshot()) }
