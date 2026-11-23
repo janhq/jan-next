@@ -128,6 +128,8 @@ window.__ModuleLoader__.load({
         if (outcome.status === 'rejected') {
           // A long run can outlive the request while the Host finishes it; its last progress still lists what landed.
           const last = followed.status === 'fulfilled' ? followed.value : null
+          // A run the Host refused before starting has no progress: drop the optimistic job so the form is free again.
+          setJob(last)
           if (last?.results.length) {
             settle(last.results)
             if (last.results.some(result => result.status === 'imported')) await refreshSessions()
