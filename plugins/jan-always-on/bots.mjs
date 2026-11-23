@@ -88,7 +88,12 @@ export async function openBots(home, { changed = () => {} } = {}) {
     directory,
     persona: id => readFile(personaPath(requireBot(id)), 'utf8'),
     adopt: (workspaceId, prepare) => serialize(() => state.migrated ? undefined : create({ name: 'Jan', workspaceId }, prepare, 'jan')),
-    create: (input, prepare) => serialize(() => create(input, prepare)),
+    create: (input, prepare, { uniqueName = false } = {}) => serialize(() => {
+      if (uniqueName && state.bots.some(bot => bot.name.toLowerCase() === input.name.trim().toLowerCase())) {
+        throw new Error('bot-already-here')
+      }
+      return create(input, prepare)
+    }),
     duplicate: (id, name, prepare) => serialize(async () => {
       const bot = requireBot(id)
       return create({ ...bot, name, persona: await readFile(personaPath(bot), 'utf8') }, prepare)

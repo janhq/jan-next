@@ -109,7 +109,9 @@ window.__ModuleLoader__.load({
         'Tokens de acesso', 'Os tokens são compartilhados por todos os bots e nunca são exibidos nem enviados ao modelo.', 'Token de acesso', 'Token configurado', 'Sem token (opcional para repositórios públicos)', 'Token obrigatório', 'O serviço rejeitou o token.', 'A fonte não foi encontrada ou não está acessível.', 'Muitas solicitações. O Jan verificará novamente mais tarde.', 'O Jan não conseguiu verificar esta fonte.', 'Configurar token', 'Substituir token', 'Remover token', 'Atualização de fonte', 'padrão do bot',
       ],
     }
+    const importBot = { en: 'Import a bot', zh: '导入机器人', ja: 'ボットをインポート', es: 'Importar un bot', fr: 'Importer un bot',
+      de: 'Bot importieren', ru: 'Импортировать бота', pt: 'Importar um bot' }
     return Object.fromEntries(Object.entries(rows).map(([locale, values]) => [locale,
-      Object.fromEntries(keys.map((key, index) => [key, values[index]]))]))
+      { ...Object.fromEntries(keys.map((key, index) => [key, values[index]])), importBot: importBot[locale] }]))
   },
 })
