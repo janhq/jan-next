@@ -18794,6 +18794,9 @@ importers:
       '@janhq/jan-schedule':
         specifier: workspace:*
         version: link:../../packages/schedule/schedule
+      '@janhq/jan-tokamak':
+        specifier: workspace:*
+        version: link:../tokamak
       '@janhq/jan-tools':
         specifier: workspace:*
         version: link:../../packages/core/tools

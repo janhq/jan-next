@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
       task follow-up approval reply notice review approveTitle approveDetail addRoutine manageRoutines manageRoutine noRoutines taskPrompt delay repeat
       memoryFile refresh emptyFile truncated noActivity keepChat
       watch watchHint addSource sourceLimit sourceKind repository channelId intervalMinutes removeSource invalidSources
-      sources noSources noSourcesHint checkNow checking lastCheck nextCheck itemsFound lastError noCheckTime
+      sources noSources noSourcesHint checkNow checking lastCheck nextCheck itemsFound itemsSkipped lastError noCheckTime
       tokens tokensHint token tokenSet tokenOptional tokenMissing tokenRejected sourceNotFound sourceRateLimited sourceFailed setToken replaceToken removeToken source botDefault`.trim().split(/\s+/)
     const rows = {
       en: [
@@ -21,7 +21,7 @@ window.__ModuleLoader__.load({
         'Memory file', 'Refresh', 'This file is empty.', 'Only the beginning of this file is shown.', 'No activity yet.',
         'This bot will keep this chat and its project.',
         'Watch', 'Watch repositories and channels for new items while Jan is open.', 'Add source', 'You can watch up to 8 sources.', 'Source type', 'Repository', 'Channel ID', 'Interval (minutes)', 'Remove source', 'Use a valid, unique repository or channel ID and an interval from 5 to 1440 minutes.',
-        'Sources', 'No sources yet', 'Add sources in Edit bot to watch repositories and channels.', 'Check now', 'Checking…', 'Last check', 'Next check', 'Items found', 'Last error', 'Not yet',
+        'Sources', 'No sources yet', 'Add sources in Edit bot to watch repositories and channels.', 'Check now', 'Checking…', 'Last check', 'Next check', 'Items found', 'Skipped as unrelated', 'Last error', 'Not yet',
         'Access tokens', 'Tokens are shared by all bots and are never shown or sent to the model.', 'Access token', 'Token set', 'No token set (optional for public repositories)', 'Token required', 'The service rejected the token.', 'The source was not found or is not accessible.', 'Too many requests. Jan will check again later.', 'Jan could not check this source.', 'Set token', 'Replace token', 'Remove token', 'Source update', 'bot default',
       ],
       zh: [
@@ -33,7 +33,7 @@ window.__ModuleLoader__.load({
         '记忆文件', '刷新', '此文件为空。', '仅显示此文件的开头。', '暂无活动。',
         '此机器人将保留当前聊天及其所属项目。',
         '监视', 'Jan 打开时监视仓库和频道中的新内容。', '添加来源', '最多可监视 8 个来源。', '来源类型', '仓库', '频道 ID', '间隔（分钟）', '移除来源', '请使用有效且不重复的仓库或频道 ID，并将间隔设为 5 到 1440 分钟。',
-        '来源', '暂无来源', '在“编辑机器人”中添加来源，即可监视仓库和频道。', '立即检查', '正在检查…', '上次检查', '下次检查', '找到的条目', '上次错误', '尚无',
+        '来源', '暂无来源', '在“编辑机器人”中添加来源，即可监视仓库和频道。', '立即检查', '正在检查…', '上次检查', '下次检查', '找到的条目', '判定为无关而跳过', '上次错误', '尚无',
         '访问令牌', '所有机器人共用令牌；令牌不会显示，也不会发送给模型。', '访问令牌', '已设置令牌', '未设置令牌（公开仓库可选）', '需要令牌', '服务拒绝了令牌。', '找不到来源或无法访问。', '请求过多，Jan 稍后将再次检查。', 'Jan 无法检查此来源。', '设置令牌', '替换令牌', '移除令牌', '来源更新', '机器人默认',
       ],
       ja: [
@@ -45,7 +45,7 @@ window.__ModuleLoader__.load({
         '記憶ファイル', '更新', 'このファイルは空です。', 'ファイルの先頭のみを表示しています。', 'アクティビティはまだありません。',
         'このボットは、このチャットとそのプロジェクトをそのまま使います。',
         '監視', 'Jan を開いている間、リポジトリやチャンネルの新着を監視します。', 'ソースを追加', '監視できるソースは 8 件までです。', 'ソースの種類', 'リポジトリ', 'チャンネル ID', '間隔（分）', 'ソースを削除', '有効なリポジトリまたはチャンネル ID を重複なく指定し、間隔を 5〜1440 分にしてください。',
-        'ソース', 'ソースはまだありません', '「ボットを編集」で監視するリポジトリやチャンネルを追加できます。', '今すぐ確認', '確認中…', '最終確認', '次回確認', '新着件数', '直近のエラー', '未実施',
+        'ソース', 'ソースはまだありません', '「ボットを編集」で監視するリポジトリやチャンネルを追加できます。', '今すぐ確認', '確認中…', '最終確認', '次回確認', '新着件数', '無関係としてスキップ', '直近のエラー', '未実施',
         'アクセストークン', 'トークンはすべてのボットで共有され、表示されたりモデルに送信されたりすることはありません。', 'アクセストークン', 'トークン設定済み', 'トークン未設定（公開リポジトリでは任意）', 'トークンが必要です', 'サービスがトークンを拒否しました。', 'ソースが見つからないか、アクセスできません。', 'リクエストが多すぎます。Jan は後で再確認します。', 'Jan はこのソースを確認できませんでした。', 'トークンを設定', 'トークンを交換', 'トークンを削除', 'ソースの更新', 'ボットの既定',
       ],
       es: [
@@ -57,7 +57,7 @@ window.__ModuleLoader__.load({
         'Archivo de memoria', 'Actualizar', 'Este archivo está vacío.', 'Solo se muestra el inicio del archivo.', 'Aún no hay actividad.',
         'Este bot conservará este chat y su proyecto.',
         'Seguimiento', 'Vigila repositorios y canales en busca de novedades mientras Jan está abierto.', 'Añadir fuente', 'Puedes vigilar hasta 8 fuentes.', 'Tipo de fuente', 'Repositorio', 'ID del canal', 'Intervalo (minutos)', 'Quitar fuente', 'Usa un repositorio o ID de canal válido y sin duplicados, con un intervalo de 5 a 1440 minutos.',
-        'Fuentes', 'Aún no hay fuentes', 'Añade fuentes en Editar bot para vigilar repositorios y canales.', 'Comprobar ahora', 'Comprobando…', 'Última comprobación', 'Próxima comprobación', 'Elementos encontrados', 'Último error', 'Aún no',
+        'Fuentes', 'Aún no hay fuentes', 'Añade fuentes en Editar bot para vigilar repositorios y canales.', 'Comprobar ahora', 'Comprobando…', 'Última comprobación', 'Próxima comprobación', 'Elementos encontrados', 'Omitidos por no relacionados', 'Último error', 'Aún no',
         'Tokens de acceso', 'Todos los bots comparten los tokens. No se muestran ni se envían al modelo.', 'Token de acceso', 'Token configurado', 'Sin token (opcional para repositorios públicos)', 'Se requiere un token', 'El servicio rechazó el token.', 'No se encontró la fuente o no es accesible.', 'Demasiadas solicitudes. Jan volverá a comprobar más tarde.', 'Jan no pudo comprobar esta fuente.', 'Configurar token', 'Reemplazar token', 'Quitar token', 'Novedad de una fuente', 'predeterminado del bot',
       ],
       fr: [
@@ -69,7 +69,7 @@ window.__ModuleLoader__.load({
         'Fichier de mémoire', 'Actualiser', 'Ce fichier est vide.', 'Seul le début du fichier est affiché.', 'Aucune activité pour le moment.',
         'Ce bot conservera cette conversation et son projet.',
         'Surveillance', 'Surveillez les nouveautés des dépôts et des canaux tant que Jan est ouvert.', 'Ajouter une source', 'Vous pouvez surveiller jusqu’à 8 sources.', 'Type de source', 'Dépôt', 'ID du canal', 'Intervalle (minutes)', 'Retirer la source', 'Utilisez un dépôt ou un ID de canal valide et unique, avec un intervalle de 5 à 1440 minutes.',
-        'Sources', 'Aucune source pour le moment', 'Ajoutez des sources dans Modifier le bot pour surveiller des dépôts et des canaux.', 'Vérifier maintenant', 'Vérification…', 'Dernière vérification', 'Prochaine vérification', 'Éléments trouvés', 'Dernière erreur', 'Pas encore',
+        'Sources', 'Aucune source pour le moment', 'Ajoutez des sources dans Modifier le bot pour surveiller des dépôts et des canaux.', 'Vérifier maintenant', 'Vérification…', 'Dernière vérification', 'Prochaine vérification', 'Éléments trouvés', 'Ignorés car sans rapport', 'Dernière erreur', 'Pas encore',
         'Jetons d’accès', 'Les jetons sont partagés par tous les bots. Ils ne sont ni affichés ni envoyés au modèle.', 'Jeton d’accès', 'Jeton configuré', 'Aucun jeton (facultatif pour les dépôts publics)', 'Jeton requis', 'Le service a rejeté le jeton.', 'La source est introuvable ou inaccessible.', 'Trop de requêtes. Jan réessaiera plus tard.', 'Jan n’a pas pu vérifier cette source.', 'Configurer le jeton', 'Remplacer le jeton', 'Supprimer le jeton', 'Mise à jour d’une source', 'par défaut pour le bot',
       ],
       de: [
@@ -81,7 +81,7 @@ window.__ModuleLoader__.load({
         'Speicherdatei', 'Aktualisieren', 'Diese Datei ist leer.', 'Nur der Anfang dieser Datei wird angezeigt.', 'Noch keine Aktivität.',
         'Dieser Bot behält diesen Chat und das zugehörige Projekt.',
         'Überwachen', 'Solange Jan offen ist, werden Repositories und Kanäle auf neue Einträge geprüft.', 'Quelle hinzufügen', 'Du kannst bis zu 8 Quellen überwachen.', 'Quellentyp', 'Repository', 'Kanal-ID', 'Intervall (Minuten)', 'Quelle entfernen', 'Verwende ein gültiges, eindeutiges Repository oder eine Kanal-ID und ein Intervall von 5 bis 1440 Minuten.',
-        'Quellen', 'Noch keine Quellen', 'Füge unter „Bot bearbeiten“ Quellen hinzu, um Repositories und Kanäle zu überwachen.', 'Jetzt prüfen', 'Wird geprüft…', 'Letzte Prüfung', 'Nächste Prüfung', 'Gefundene Einträge', 'Letzter Fehler', 'Noch nicht',
+        'Quellen', 'Noch keine Quellen', 'Füge unter „Bot bearbeiten“ Quellen hinzu, um Repositories und Kanäle zu überwachen.', 'Jetzt prüfen', 'Wird geprüft…', 'Letzte Prüfung', 'Nächste Prüfung', 'Gefundene Einträge', 'Als irrelevant übersprungen', 'Letzter Fehler', 'Noch nicht',
         'Zugriffstoken', 'Alle Bots teilen sich die Tokens. Sie werden nie angezeigt oder an das Modell gesendet.', 'Zugriffstoken', 'Token eingerichtet', 'Kein Token (optional für öffentliche Repositories)', 'Token erforderlich', 'Der Dienst hat das Token abgelehnt.', 'Die Quelle wurde nicht gefunden oder ist nicht zugänglich.', 'Zu viele Anfragen. Jan prüft später erneut.', 'Jan konnte diese Quelle nicht prüfen.', 'Token einrichten', 'Token ersetzen', 'Token entfernen', 'Quellenaktualisierung', 'Bot-Standard',
       ],
       ru: [
@@ -93,7 +93,7 @@ window.__ModuleLoader__.load({
         'Файл памяти', 'Обновить', 'Этот файл пуст.', 'Показано только начало файла.', 'Активности пока нет.',
         'Этот бот сохранит текущий чат и его проект.',
         'Отслеживание', 'Следите за новыми записями в репозиториях и каналах, пока Jan открыт.', 'Добавить источник', 'Можно отслеживать до 8 источников.', 'Тип источника', 'Репозиторий', 'ID канала', 'Интервал (минуты)', 'Удалить источник', 'Укажите действительный репозиторий или ID канала без повторов и интервал от 5 до 1440 минут.',
-        'Источники', 'Источников пока нет', 'Добавьте источники через «Изменить бота», чтобы следить за репозиториями и каналами.', 'Проверить сейчас', 'Проверка…', 'Последняя проверка', 'Следующая проверка', 'Найдено записей', 'Последняя ошибка', 'Пока нет',
+        'Источники', 'Источников пока нет', 'Добавьте источники через «Изменить бота», чтобы следить за репозиториями и каналами.', 'Проверить сейчас', 'Проверка…', 'Последняя проверка', 'Следующая проверка', 'Найдено записей', 'Пропущено как нерелевантное', 'Последняя ошибка', 'Пока нет',
         'Токены доступа', 'Токены общие для всех ботов. Они не отображаются и не передаются модели.', 'Токен доступа', 'Токен задан', 'Токен не задан (для открытых репозиториев необязателен)', 'Требуется токен', 'Сервис отклонил токен.', 'Источник не найден или недоступен.', 'Слишком много запросов. Jan повторит проверку позже.', 'Jan не удалось проверить источник.', 'Задать токен', 'Заменить токен', 'Удалить токен', 'Обновление источника', 'по умолчанию для бота',
       ],
       pt: [
@@ -105,7 +105,7 @@ window.__ModuleLoader__.load({
         'Arquivo de memória', 'Atualizar', 'Este arquivo está vazio.', 'Apenas o início deste arquivo está visível.', 'Ainda não há atividade.',
         'Este bot manterá esta conversa e seu projeto.',
         'Monitoramento', 'Monitore repositórios e canais em busca de novidades enquanto o Jan estiver aberto.', 'Adicionar fonte', 'Você pode monitorar até 8 fontes.', 'Tipo de fonte', 'Repositório', 'ID do canal', 'Intervalo (minutos)', 'Remover fonte', 'Use um repositório ou ID de canal válido e único e um intervalo de 5 a 1440 minutos.',
-        'Fontes', 'Ainda não há fontes', 'Adicione fontes em Editar bot para monitorar repositórios e canais.', 'Verificar agora', 'Verificando…', 'Última verificação', 'Próxima verificação', 'Itens encontrados', 'Último erro', 'Ainda não',
+        'Fontes', 'Ainda não há fontes', 'Adicione fontes em Editar bot para monitorar repositórios e canais.', 'Verificar agora', 'Verificando…', 'Última verificação', 'Próxima verificação', 'Itens encontrados', 'Ignorados por não relacionados', 'Último erro', 'Ainda não',
         'Tokens de acesso', 'Os tokens são compartilhados por todos os bots e nunca são exibidos nem enviados ao modelo.', 'Token de acesso', 'Token configurado', 'Sem token (opcional para repositórios públicos)', 'Token obrigatório', 'O serviço rejeitou o token.', 'A fonte não foi encontrada ou não está acessível.', 'Muitas solicitações. O Jan verificará novamente mais tarde.', 'O Jan não conseguiu verificar esta fonte.', 'Configurar token', 'Substituir token', 'Remover token', 'Atualização de fonte', 'padrão do bot',
       ],
     }

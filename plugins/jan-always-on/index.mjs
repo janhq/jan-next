@@ -14,6 +14,7 @@ const EMPTY_MEMORY = ['index.md', 'instructions.md', 'reported.md']
 const TOKEN_KINDS = ['github', 'slack', 'discord']
 const tokenKey = kind => `jan-always-on/token-${kind}`
 const BOT_MODEL = { provider: 'tokamak', model: 'anthropic/claude-haiku-5-5[1m]' }
+const JEV_MODEL = 'jev/jev-latest'
 /** @returns Tokamak's Claude Haiku 5.5 when the catalog offers it, otherwise null (the app default). */
 const botDefaultModel = catalog => catalog.groups.some(group => group.id === BOT_MODEL.provider
   && group.models.some(model => model.id === BOT_MODEL.model)) ? BOT_MODEL : null
@@ -60,10 +61,17 @@ export function apply(ctx, config) {
     const record = await ctx.credentials.readRecord(tokenKey(kind))
     return record?.kind === 'grant' && typeof record.payload?.token === 'string' ? record.payload.token : undefined
   }
+  // Jev answers through the signed-in Tokamak account; without one the call fails and the triage keeps every item.
+  let tokamak
+  async function systemOne(body, signal) {
+    tokamak ??= import('@janhq/jan-tokamak/api').then(({ createTokamakApi }) => createTokamakApi(ctx))
+    const reply = await (await tokamak).request('/systemone', 'classification', { json: { model: JEV_MODEL, ...body }, signal })
+    return reply.json()
+  }
   function modules() {
     runtimeModules ??= Promise.all([import('./background.mjs'), import('./memory.mjs'), import('./agent.mjs'), import('./watch.mjs'),
-      import('@janhq/dsh-superagent/queue')])
-      .then(([background, memory, agent, watch, queue]) => ({ ...background, ...memory, ...agent, ...watch, delivery: new queue.AgentDelivery(ctx) }))
+      import('./triage.mjs'), import('@janhq/dsh-superagent/queue')])
+      .then(([background, memory, agent, watch, triage, queue]) => ({ ...background, ...memory, ...agent, ...watch, ...triage, delivery: new queue.AgentDelivery(ctx) }))
     return runtimeModules
   }
   function load() {
@@ -139,7 +147,7 @@ export function apply(ctx, config) {
   async function startBot(bot, resume = false) {
     if (runtimes.has(bot.id)) return runtimes.get(bot.id)
     lifetime.signal.throwIfAborted()
-    const { openBackground, memoryAt, bindBotAgent, runWithJan, appendBotNotice, botPrompt, delivery, openWatch } = await modules()
+    const { openBackground, memoryAt, bindBotAgent, runWithJan, appendBotNotice, botPrompt, delivery, openWatch, createTriage } = await modules()
     if (runtimes.has(bot.id)) return runtimes.get(bot.id)
     const directory = registry.directory(bot)
     const memory = memoryAt(home, directory)
@@ -172,7 +180,7 @@ export function apply(ctx, config) {
     })
     runtime.queue = queue
     runtime.watch = openWatch({ queue, sources: () => registry.get(bot.id)?.sources ?? [], token: sourceToken,
-      changed: activityChanged, report })
+      triage: createTriage({ request: systemOne, profile: () => registry.get(bot.id) }), changed: activityChanged, report })
     runtimes.set(bot.id, runtime)
     prompts.set(bot.sessionId, botPrompt(bot, persona))
     try {
