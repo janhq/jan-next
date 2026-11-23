@@ -51,9 +51,14 @@
 /* Chat tabs keep the close in their own end padding, so the title never runs
    under it and drops ui-dockkit's fade, hovered too (dockkit's hover rule is
    more specific than the resting one). */
-.desk[data-chat-tabs] :global([data-dockkit-tab-title]),
-.desk[data-chat-tabs] :global([data-dockkit-tab]):hover :global([data-dockkit-tab-title]) {
+.desk[data-chat-tabs] :global([data-dockkit-tab-title]) {
   mask-image: none;
+}
+
+@media (hover: hover) {
+  .desk[data-chat-tabs] :global([data-dockkit-tab]):hover :global([data-dockkit-tab-title]) {
+    mask-image: none;
+  }
 }
 
 /* The new-tab button is one more 28px title-row icon button, so it draws the row's 16px glyph. */
