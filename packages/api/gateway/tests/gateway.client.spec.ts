@@ -1502,7 +1502,7 @@ describe('Client Typert API', () => {
     await subscriber
 
     expect(carrier.calls).toEqual([expect.objectContaining({
-      channel: '/api', endpoint: '$events', payload: { args: {} },
+      channel: '/api', endpoint: '$events', payload: { args: { hostInfo: true } },
     })])
     carrier.emit({ type: 'emit', event: 'fixture/changed', args: ['settings'] })
     await vi.waitFor(() => { expect(seen).toEqual(['settings']) })
@@ -2056,7 +2056,7 @@ describe('Client Typert API', () => {
       const socket = FakeWebSocket.sockets[0]!
       const opened = JSON.parse(socket.sent[0]!) as { streamId: string }
       expect(opened).toMatchObject({
-        type: 'open', endpoint: '$events', payload: { args: {} },
+        type: 'open', endpoint: '$events', payload: { args: { hostInfo: true } },
       })
       socket.receive({
         type: 'item',
@@ -2133,6 +2133,41 @@ describe('Client Typert API', () => {
     }
   })
 
+  it('falls back to the old Host event payload and accepts home-only readiness', async () => {
+    await withFakeWebSocket('https://harness.example', async () => {
+      const call = vi.fn<ConnectionHandle['rpc']['call']>()
+      const { ctx, client, generation } = await benchFiber(call, 'web')
+      const run = generation.start()
+      try {
+        await vi.waitFor(() => { expect(FakeWebSocket.sockets[0]?.sent).toHaveLength(1) })
+        const socket = FakeWebSocket.sockets[0]!
+        const negotiated = JSON.parse(socket.sent[0]!) as { streamId: string }
+        expect(negotiated).toMatchObject({ endpoint: '$events', payload: { args: { hostInfo: true } } })
+        socket.receive({
+          type: 'error', streamId: negotiated.streamId,
+          error: { code: 'gateway/arguments-invalid', message: 'requires an empty args object', details: {} },
+        })
+        await vi.waitFor(() => { expect(socket.sent).toHaveLength(2) })
+        const legacy = JSON.parse(socket.sent[1]!) as { streamId: string }
+        expect(legacy).toMatchObject({ endpoint: '$events', payload: { args: {} } })
+        socket.receive({
+          type: 'item', streamId: legacy.streamId,
+          value: { type: 'ready', clientId: 'legacy-client', host: { home: '/home/legacy' } },
+        })
+        await run.ready
+        const seen: string[] = []
+        ctx.remote.$on('fixture/changed', (namespace) => { seen.push(namespace) })
+        socket.receive({
+          type: 'item', streamId: legacy.streamId,
+          value: { type: 'emit', event: 'fixture/changed', args: ['legacy'] },
+        })
+        await vi.waitFor(() => { expect(seen).toEqual(['legacy']) })
+      } finally {
+        await client.dispose()
+      }
+    })
+  })
+
   it.each([
     null,
     [],
@@ -2145,7 +2180,6 @@ describe('Client Typert API', () => {
     { type: 'ready', clientId: 'client', host: {} },
     { type: 'ready', clientId: 'client', host: { home: 1 } },
     { type: 'ready', clientId: 'client', host: { home: '/home', extra: true } },
-    { type: 'ready', clientId: 'client', host: { home: '/home' } },
     { type: 'ready', clientId: 'client', host: { home: '/home', name: 1, remote: false } },
     { type: 'ready', clientId: 'client', host: { home: '/home', name: 'h', remote: 'yes' } },
     { type: 'emit', event: 'fixture/changed', args: ['too early'] },

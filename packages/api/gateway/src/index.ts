@@ -602,19 +602,23 @@ export class TypertGatewayService extends Service implements TypertGateway {
     RemoteEventEmitFrame | RemoteEventInvocationFrame | RemoteEventCancellationFrame
     | RemoteEventReadyFrame
   > {
+    const invalidPayload = (): never => {
+      throw new TypertGatewayError(
+        'gateway/arguments-invalid',
+        REMOTE_EVENT_STREAM_ENDPOINT,
+        'forwarded Remote event stream requires an empty args object or hostInfo: true',
+      )
+    }
     if (!isObject(payload)
       || !isPlainObject(payload)
       || Reflect.ownKeys(payload).length !== 1
       || !Object.hasOwn(payload, 'args')
       || !isObject(payload.args)
-      || !isPlainObject(payload.args)
-      || Reflect.ownKeys(payload.args).length !== 0) {
-      throw new TypertGatewayError(
-        'gateway/arguments-invalid',
-        REMOTE_EVENT_STREAM_ENDPOINT,
-        'forwarded Remote event stream requires an empty args object',
-      )
-    }
+      || !isPlainObject(payload.args)) return invalidPayload()
+    const args = payload.args
+    const argCount = Reflect.ownKeys(args).length
+    const withHostInfo = argCount === 1 && Object.hasOwn(args, 'hostInfo') && Reflect.get(args, 'hostInfo') === true
+    if (argCount !== 0 && !withHostInfo) return invalidPayload()
     const registration = this.remoteEvents
     if (registration === undefined) {
       throw new TypertGatewayError(
@@ -641,7 +645,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
       for (const pending of this.pendingRemoteEvents.values()) this.deliverRemoteEvent(pending, client)
     }
     try {
-      yield { ...REMOTE_EVENT_STREAM_READY, clientId, host: registration.host }
+      yield { ...REMOTE_EVENT_STREAM_READY, clientId, host: withHostInfo ? registration.host : { home: registration.host.home } }
       yield* client.queue.iterate(lifetime)
     } finally {
       this.removeRemoteEventClient(client)
