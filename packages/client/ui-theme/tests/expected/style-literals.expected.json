@@ -24,6 +24,7 @@
   "client/ui-chat/src/client/chat/ChatGroupSeat.module.css": [
     ".title: transition: color 100ms ease",
     ".activityIcon, .chevron: transition: opacity 100ms ease",
+    ".tickerIn: animation: process-ticker-in 320ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards",
     ":global([data-chat-motion]) .content > :not([data-chat-motion]): transition: margin-top 160ms cubic-bezier(0.4, 0, 0.2, 1)"
   ],
   "client/ui-chat/src/client/chat/ChatView.module.css": [
@@ -56,6 +57,10 @@
   "client/ui-conversation/src/client/skeleton/ContextMeter.module.css": [
     ".colorTools: --meter-tint: rgb(167, 139, 250)",
     ".chevron: transition: transform 120ms ease"
+  ],
+  "client/ui-conversation/src/client/skeleton/ConversationRoot.module.css": [
+    ":is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child, :is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot] > *: animation: conversation-welcome-in 350ms var(--ds-ease-emphasized) 120ms backwards",
+    ":is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot='conversation.hero.suggestions'] > *: animation-delay: 240ms"
   ],
   "client/ui-conversation/src/client/skeleton/InputBar.module.css": [
     ".cardWorkspaceTrigger::after: transition: color 100ms ease",
@@ -101,7 +106,14 @@
   ],
   "client/ui-plugin-manager/src/client/PluginManagerPage.module.css": [
     ".guideChevron: transition: transform 160ms ease",
-    ".detailsChevron: transition: transform 160ms ease"
+    ".detailsChevron: transition: transform 160ms ease",
+    ".spotlight: --plugin-a: hsl(var(--plugin-hue) 70% 55%)",
+    ".spotlight: --plugin-b: hsl(calc(var(--plugin-hue) + 60) 70% 45%)",
+    ".spotlightBody: animation: plugin-spotlight-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+    "[data-plugin-tiles] .card: transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.18s, box-shadow 0.18s"
+  ],
+  "client/ui-plugin-market/src/client/DiscoverSection.module.css": [
+    ":global([data-plugin-tiles]) .card: transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.18s, box-shadow 0.18s"
   ],
   "client/ui-primitives/src/Coachmark.module.css": [
     ".card: transition: opacity 150ms ease, transform 150ms ease, display 150ms allow-discrete, overlay 150ms allow-discrete"
@@ -180,6 +192,10 @@
   "client/ui-primitives/src/Tooltip.module.css": [
     ".bubble: animation: tooltip-in 150ms var(--ds-ease-in-out)"
   ],
+  "client/ui-primitives/src/ViewToggle.module.css": [
+    ".indicator: transition: transform 160ms var(--ds-ease-out, ease)",
+    ".segment: transition: color 120ms ease"
+  ],
   "client/ui-primitives/src/WindowControls.module.css": [
     ".close:hover: background: #c42b1c",
     ".close:hover: color: #fff"
@@ -217,10 +233,25 @@
     ".iconsEntering > svg:nth-child(2): animation-delay: 30ms",
     ".iconsEntering > svg:nth-child(3): animation-delay: 50ms",
     ".iconsEntering > svg:nth-child(4): animation-delay: 62ms",
-    ".iconsEntering > svg:nth-child(5): animation-delay: 70ms"
+    ".iconsEntering > svg:nth-child(5): animation-delay: 70ms",
+    ".inlineProcess .card: transition: background-color 150ms var(--ds-ease-out), box-shadow 150ms var(--ds-ease-out)",
+    ".inlineProcess .processGlyph: transition: background-color 150ms var(--ds-ease-out)",
+    ".demoUser: animation: demoIn 260ms var(--ds-ease-out) both",
+    ".demoStep: animation: demoIn 260ms var(--ds-ease-out) calc(220ms + var(--i) * 140ms) both",
+    ".demoAnswer: animation: demoIn 320ms var(--ds-ease-out) calc(300ms + var(--i) * 140ms) both",
+    ".demoPhotos: animation: demoIn 320ms var(--ds-ease-out) calc(300ms + var(--i) * 140ms) both",
+    ".demoPhoto: box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 8%)",
+    ".demoPhoto: color: #fff",
+    ".demoPhoto: text-shadow: 0 1px 2px rgb(0 0 0 / 35%)",
+    ".demoPhoto[data-photo='0']: background: linear-gradient(180deg, #f6c995 0%, #e98f6f 45%, #6f5f73 46%, #4b4a5c 100%)",
+    ".demoPhoto[data-photo='1']: background: linear-gradient(180deg, #9fd3f0 0%, #6bb2db 55%, #2f6f99 56%, #23577a 100%)",
+    ".demoPhoto[data-photo='2']: background: radial-gradient(circle at 70% 30%, #d9f0a8 0 12%, transparent 13%), linear-gradient(180deg, #bfe3c8 0%, #7fb987 50%, #3f7d4c 51%, #2c5c37 100%)"
   ],
   "client/ui-settings-account/src/client/OnboardingSurface.module.css": [
     ".onboardingOverlay[data-exiting]: animation: onboardingExit 180ms ease-out forwards"
+  ],
+  "client/ui-settings-general/src/client/HostStatusChip.module.css": [
+    "button.chip: transition: background-color 150ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1)"
   ],
   "client/ui-settings-models/src/client/ModelsSection.module.css": [
     ".customizedSummary::before: transition: transform 120ms ease"
@@ -230,6 +261,10 @@
   ],
   "client/ui-shortcuts/src/client/Reference.module.css": [
     ".dialog: box-shadow: 0 0 1px rgba(0, 0, 0, 0.2), 0 0 4px rgba(0, 0, 0, 0.02), 0 12px 32px rgba(0, 0, 0, 0.08)"
+  ],
+  "client/ui-sidebar-documentpreview/src/client/media/MediaBody.module.css": [
+    ".video: background: #000",
+    ".video .failure: color: rgb(255 255 255 / 80%)"
   ],
   "client/ui-sidebar-terminal/src/client/TerminalCleanup.module.css": [
     ".notice: box-shadow: 0 4px 20px #0002"
@@ -273,6 +308,7 @@
     ".requestBoundaryControl::after: transition: opacity 120ms var(--ds-ease-in-out),\n    transform 120ms var(--ds-ease-in-out)",
     ".eventColumn, .event, .requestBoundaryControl, .kindSlot, .kindTag, .kindTagIcon, .kindTagLabel, .turnLabelFull, .turnLabelCompact: transition-duration: 180ms",
     ".table tbody tr[data-collapsed-summary]: transition: background-color 120ms var(--ds-ease-in-out)",
+    ".details: animation: trajectory-details-in 300ms cubic-bezier(0.4, 0, 0.2, 1) backwards",
     ".thinkingChevron: transition: transform 120ms var(--ds-ease-in-out)",
     ".toolCatalogChevron: transition: transform 100ms var(--ds-ease-in-out)",
     ".details: box-shadow: -12px 0 32px rgba(0, 0, 0, 0.14)"
