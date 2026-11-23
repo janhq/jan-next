@@ -26,7 +26,7 @@
       "inject": [
         "@janhq/jan-client-ui-layout",
         "@janhq/jan-client-ui-primitives",
-        "@janhq/jan-client-ui-settings-plugins",
+        "@janhq/jan-client-ui-settings-general",
         "@janhq/jan-client-ui-workspace"
       ]
     }

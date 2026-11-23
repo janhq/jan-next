@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { readFile, readdir, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { resolve, join, extname, isAbsolute, sep } from 'node:path'
@@ -12,9 +13,10 @@ import { orcaWorkspaces, workspaceOf } from './orca.mjs'
 import { janKeyNames, readJanKey } from './jan-secrets.mjs'
 import { assistantPresetId, derivePreset, keyRef, providerProfile, readJanSettings } from './settings.mjs'
 import { CONNECTORS_ONLY, MCP_SOURCES, readMcpSource, summarizeMcp } from './mcp.mjs'
-import { importSkills, readSkillSource } from './skills.mjs'
+import { importSkills, installExportSkills, readSkillSource } from './skills.mjs'
 import { resolveAgentsHome, resolveJanHome } from '@janhq/jan-home-paths'
 import { DEFAULT_MIGRATION_DAYS, migrationPreview, registerMigrateSkill, registerMigrateTools } from './migrate.mjs'
+import { applyAiExport, exportPreview, parseAiExport, planAiExport } from './ai-export.mjs'
 
 export const Config = z.object({
   // The first-launch offer: `dismissed` once the user answered it.
@@ -37,11 +39,38 @@ const ensureUnchanged = (label, before, current) => {
   if (!isDeepStrictEqual(before, current)) throw new Error(`${label} changed since the import form opened. Open the form and try again.`)
 }
 
+function previews() {
+  const values = new Map()
+  return {
+    save(value) {
+      const now = Date.now()
+      for (const [id, snapshot] of values) if (snapshot.expires <= now) values.delete(id)
+      if (values.size >= 12) values.delete(values.keys().next().value)
+      const id = randomUUID()
+      values.set(id, { ...value, expires: now + 10 * 60 * 1000 })
+      return id
+    },
+    get(id) {
+      const value = values.get(id)
+      if (value && value.expires > Date.now()) return value
+      values.delete(id)
+      throw new Error('preview-expired')
+    },
+    remove(id) { values.delete(id) },
+  }
+}
+
+function approvedIds(selected = [], allowed) {
+  if (!Array.isArray(selected) || selected.some(id => !allowed.has(id))) throw new Error('Selection was not in the import preview.')
+  return [...new Set(selected)]
+}
+
 export function apply(ctx, config = {}) {
   const entry = ctx.fiber.entry?.options.id
   // The running (or last finished) import, read by `progress` so the page can
   // draw a bar and pick the run back up after the user leaves and returns.
   let job = null
+  const localPreviews = previews(), aiPreviews = previews()
   // Jan's default data folder; a relocated one is entered explicitly.
   const defaultFolder = () => process.platform === 'win32'
     ? join(process.env.APPDATA ?? join(homedir(), 'AppData', 'Roaming'), 'Jan', 'data')
@@ -201,8 +230,11 @@ export function apply(ctx, config = {}) {
     const result = { mcp, providers: [], assistants: [] }
     if (source !== 'jan') {
       try {
-        result.skills = await skillScan(source)
-        if (approval) approval.skills = result.skills
+        const scan = await skillScan(source, Boolean(approval))
+        if (approval) approval.skills = scan
+        const { skills, instructions, ...summary } = scan
+        const publicRow = ({ digest: _digest, ...row }) => row
+        result.skills = { ...summary, skills: skills.map(publicRow), instructions: instructions && publicRow(instructions) }
       } catch { result.skills = { error: 'Could not read skills. Check the skills folder and try again.' } }
       return result
     }
@@ -224,18 +256,20 @@ export function apply(ctx, config = {}) {
     return result
   }
   // Skills land in Jan's own skills folder, the one its skill loader reads first.
-  const skillScan = source => readSkillSource(source, { janHome: resolveJanHome(), agentsHome: resolveAgentsHome() })
+  const skillScan = (source, approval = false) => readSkillSource(source, { janHome: resolveJanHome(), agentsHome: resolveAgentsHome(), approval })
   const preview = ({ source, days = DEFAULT_MIGRATION_DAYS } = {}) => migrationPreview(list, { source, days })
   const offer = async () => {
     if (config.offer?.get()?.dismissed === true) return { show: false }
     const { sources } = await preview()
     return { show: sources.some(row => row.ready || row.settings?.mcp.names.length
       || row.settings?.providers.some(item => !item.alreadyImported || (item.hasKey && !item.keyAlreadyConfigured))
-      || row.settings?.assistants.some(item => !item.alreadyImported)), sources }
+      || row.settings?.assistants.some(item => !item.alreadyImported)
+      || !row.settings?.skills?.linked && row.settings?.skills?.skills?.some(item => item.status === 'ready')
+      || row.settings?.skills?.instructions?.status === 'ready'), sources }
   }
   const dismissOffer = async () => {
     const settings = ctx.get('settings')
-    if (!settings || !entry) throw new Error('Settings are unavailable. Try again from Settings -> Built-in plugins.')
+    if (!settings || !entry) throw new Error('Settings are unavailable. Try again from Settings -> Import.')
     await settings.update(entry, { offer: { dismissed: true } })
   }
   const saveImages = async (folder, messages) => {
@@ -387,7 +421,7 @@ export function apply(ctx, config = {}) {
       const janSettings = withProviders || withAssistants ? await readJanSettings(source, withProviders ? await janKeyNames(source) : []) : undefined
       const providerRows = withProviders ? selectedRows(janSettings.providers, providerSelection) : []
       const assistantRows = withAssistants ? selectedRows(janSettings.assistants, assistantSelection) : []
-      const skillSource = approval && (skills || instructions) ? await skillScan(origin) : undefined
+      const skillSource = approval && (skills || instructions) ? await skillScan(origin, true) : undefined
       const mcpSource = approval && mcp ? selectMcp(await readMcpSource(origin, { folder: source }), mcpNames) : undefined
       // Check all selected settings before writing any of them. Unselected additions should not block an import.
       if (approval) {
@@ -399,10 +433,13 @@ export function apply(ctx, config = {}) {
         }
         if (skills) {
           const chosen = new Set(skillNames)
-          const paths = scan => scan.skills.filter(row => chosen.has(row.name)).map(row => [row.name, row.path])
+          const paths = scan => scan.skills.filter(row => chosen.has(row.name)).map(row => [row.name, row.path, row.digest])
           ensureUnchanged('The selected skill folders', [approval.skills.linked, paths(approval.skills)], [skillSource.linked, paths(skillSource)])
         }
-        if (instructions) ensureUnchanged('The global instructions file', approval.skills.instructions?.path, skillSource.instructions?.path)
+        if (instructions) {
+          const identity = row => row && [row.path, row.digest]
+          ensureUnchanged('The global instructions file', identity(approval.skills.instructions), identity(skillSource.instructions))
+        }
       }
       run.total += providerRows.length
       if (withAssistants) run.total++
@@ -410,6 +447,7 @@ export function apply(ctx, config = {}) {
         run.total++
         run.current = 'Skills'
         try { run.settings.skills = await importSkills(skillSource ?? await skillScan(origin), { skills, names: skillNames, instructions }) } catch { run.settings.skills = { error: 'Could not copy skills. Scan the source again.' } }
+        if (run.settings.skills?.imported?.length) ctx.get('skills')?.refresh()
         run.done++
       }
       if (mcp) {
@@ -507,10 +545,60 @@ export function apply(ctx, config = {}) {
     } finally { run.running = false; run.current = null }
   }
   const progress = async () => job
-  // Only the chat form can pass a private scan alongside its redacted list.
+  async function listForBrowser(request) {
+    const approval = {}
+    const listed = await list(request, approval)
+    const { threads, settings } = listed
+    const allowed = {
+      ids: new Set(threads.filter(row => !row.error).map(row => row.id)),
+      providerIds: new Set(settings?.providers.map(row => row.id)),
+      assistantIds: new Set(settings?.assistants.map(row => row.id)),
+      mcpNames: new Set(settings?.mcp.rows.map(row => row.name)),
+      skillNames: new Set(settings?.skills?.linked ? [] : settings?.skills?.skills?.map(row => row.name)),
+    }
+    const previewId = localPreviews.save({ source: listed.source, folder: listed.folder, approval, allowed,
+      instructions: settings?.skills?.instructions?.status === 'ready' })
+    return { ...listed, previewId }
+  }
+  function importForBrowser({ previewId, ids, providerIds, assistantIds, mcpNames, skillNames, instructions }) {
+    const snapshot = localPreviews.get(previewId)
+    const chosen = { ids, providerIds, assistantIds, mcpNames, skillNames }
+    for (const key of Object.keys(chosen)) chosen[key] = approvedIds(chosen[key], snapshot.allowed[key])
+    if (instructions !== undefined && typeof instructions !== 'boolean' || instructions && !snapshot.instructions) {
+      throw new Error('Selection was not in the import preview.')
+    }
+    if (job?.running) throw new Error('An import is already running.')
+    localPreviews.remove(previewId)
+    return importSelected({ source: snapshot.source, folder: snapshot.folder, ...chosen,
+      mcp: chosen.mcpNames.length > 0, skills: chosen.skillNames.length > 0, instructions }, snapshot.approval)
+  }
+  function previewAiExport({ documents, timeZone }) {
+    const bot = ctx.get('janBotImport')
+    if (!bot) throw new Error('bots-unavailable')
+    if (typeof timeZone !== 'string' || timeZone.length > 100) timeZone = 'UTC'
+    try { timeZone = new Intl.DateTimeFormat('en', { timeZone }).resolvedOptions().timeZone } catch { timeZone = 'UTC' }
+    if (Array.isArray(documents) && Buffer.byteLength(JSON.stringify({ method: 'previewAiExport', params: { documents, timeZone } })) > 1024 * 1024) throw new Error('export-too-large')
+    const plan = planAiExport(parseAiExport(documents), { bot, mcp: ctx.get('janMcpSettings'), timeZone })
+    return { previewId: aiPreviews.save({ plan }), ...exportPreview(plan) }
+  }
+  function importAiExport({ previewId, botIds, appIds }) {
+    const { plan } = aiPreviews.get(previewId)
+    botIds = approvedIds(botIds, new Set(plan.bots.map(row => row.id)))
+    const chosen = new Set(botIds)
+    appIds = approvedIds(appIds, new Set(plan.apps.filter(row => row.botIds.some(id => chosen.has(id))).map(row => row.id)))
+    if (!botIds.length) throw new Error('select-bots')
+    const bot = ctx.get('janBotImport')
+    if (!bot) throw new Error('bots-unavailable')
+    aiPreviews.remove(previewId)
+    return applyAiExport(plan, { botIds, appIds }, {
+      bot, mcp: ctx.get('janMcpSettings'),
+      installSkills: entries => installExportSkills(entries, { janHome: resolveJanHome(), agentsHome: resolveAgentsHome(), skills: ctx.get('skills') }),
+    })
+  }
   ctx.effect(() => registerApi(ctx, 'legacy-import', {
-    list: request => list(request), import: request => importSelected(request), progress, preview, offer, dismissOffer,
-  }), 'Jan read-only import API')
+    list: listForBrowser, import: importForBrowser, progress, preview, offer, dismissOffer,
+    previewAiExport, importAiExport, aiExportStatus: () => ({ bots: Boolean(ctx.get('janBotImport')) }),
+  }), 'Jan import API')
   ctx.inject(['skills'], scope => { registerMigrateSkill(scope) })
   ctx.inject(['tools'], scope => { registerMigrateTools(scope, { list, importSelected }) })
 }
