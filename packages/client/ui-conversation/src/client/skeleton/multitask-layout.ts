@@ -89,7 +89,11 @@ function saveNode(dock: LayoutState, id: NodeId): SavedNode {
   return { tabs: node.tabs.map(tab => getTab(dock, tab).contentId), active }
 }
 
-/** @param tab - a desk tab. @returns its Session, or undefined for an unbound new chat. */
+/**
+ * Resolve the Session bound to a conversation tab.
+ * @param tab - tab from the conversation layout.
+ * @returns the Session id, or undefined for an unbound new chat.
+ */
 export function tabSessionId(tab: TabRecord): SessionId | undefined {
   return tab.contentId === '' ? undefined : tab.contentId as SessionId
 }
@@ -152,10 +156,17 @@ export class ConversationLayout {
     this.snapshot = { dock: this.manual }
   }
 
-  /** @returns the stable visible layout snapshot. */
+  /**
+   * Read the currently published layout for an external-store subscriber.
+   * @returns the same snapshot until the dock changes.
+   */
   getSnapshot = (): ConversationLayoutSnapshot => this.snapshot
 
-  /** @param listener - layout observer. @returns its disposer. */
+  /**
+   * Subscribe to published dock changes.
+   * @param listener - callback run after a new snapshot is available.
+   * @returns the unsubscribe function.
+   */
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
     return () => { this.listeners.delete(listener) }
@@ -190,12 +201,19 @@ export class ConversationLayout {
     }
   }
 
-  /** @param id - Session to move or open beside the focused pane. @returns whether that action is available. */
+  /**
+   * Check whether a Session can open beside the focused pane.
+   * @param id - Session to move or open.
+   * @returns true when the Session is not selected and the dock has room for another pane.
+   */
   canOpenBeside(id: SessionId): boolean {
     return id !== selectedSession(this.manual) && dockPaneIds(this.manual).length < MAX_DOCK_PANES
   }
 
-  /** @param id - Session to reveal in a new pane, keeping one tab per Session. */
+  /**
+   * Open a Session beside the focused pane, moving its existing tab if it has one.
+   * @param id - Session to show; ignored if opening beside is unavailable.
+   */
   openBeside = (id: SessionId): void => {
     if (!this.canOpenBeside(id)) return
     const pane = this.manual.activePaneId
@@ -206,51 +224,81 @@ export class ConversationLayout {
     this.commitManual(dock)
   }
 
-  /** @param id - Session to append, or reveal if already open in this window. */
+  /**
+   * Focus an existing Session tab or append a new one to the active pane.
+   * @param id - Session to show in this window.
+   */
   openInNewTab = (id: SessionId): void => {
     const existing = findContentTab(this.manual, id, CHAT)
     this.commitManual(existing === undefined ? openInPane(this.manual, this.mint, this.manual.activePaneId, id)
       : withOp(this.manual, { type: 'focusTab', tabId: existing }))
   }
 
-  /** @param paneId - pane receiving an independent blank tab. */
+  /**
+   * Add an independent blank chat tab to an existing pane.
+   * @param paneId - pane receiving the new tab.
+   */
   addTab = (paneId: PaneId): void => {
     if (this.manual.nodes[paneId]?.kind !== 'pane') return
     this.commitManual(openInPane(this.manual, this.mint, paneId, ''))
   }
 
-  /** @param tabId - Session tab to reveal. */
+  /**
+   * Focus a tab and its containing pane if the tab still exists.
+   * @param tabId - tab to reveal.
+   */
   focusTab = (tabId: TabId): void => {
     if (this.manual.tabs[tabId] === undefined) return
     this.commitManual(withOp(this.manual, { type: 'focusTab', tabId }))
   }
 
-  /** @param tabId - dragged tab. @param paneId - destination pane. @param index - strip insertion slot. */
+  /**
+   * Move a tab to a strip insertion slot, settling any empty pane it leaves behind.
+   * @param tabId - dragged tab.
+   * @param paneId - destination pane.
+   * @param index - strip insertion slot.
+   */
   placeTab = (tabId: TabId, paneId: PaneId, index: number): void => {
     if (this.manual.tabs[tabId] === undefined || this.manual.nodes[paneId]?.kind !== 'pane') return
     this.commitManual(settled(replay(this.manual, planPlaceTab(this.manual, tabId, paneId, index)), this.mint))
   }
 
-  /** @param tabId - dragged tab. @param paneId - destination pane. @param zone - body drop zone. */
+  /**
+   * Move a tab into a pane or split it beside the pane according to the drop zone.
+   * @param tabId - dragged tab.
+   * @param paneId - destination pane.
+   * @param zone - body drop zone.
+   */
   dropTab = (tabId: TabId, paneId: PaneId, zone: DockZone): void => {
     if (this.manual.tabs[tabId] === undefined || this.manual.nodes[paneId]?.kind !== 'pane') return
     this.commitManual(settled(replay(this.manual, planDropTab(this.manual, this.mint, tabId, paneId, zone, blankTab)), this.mint))
   }
 
-  /** @param tabId - tab to close. @param expected - Session identity for an asynchronous window move. */
+  /**
+   * Close a tab and settle the dock without closing a tab rebound during a window move.
+   * @param tabId - tab to close.
+   * @param expected - when supplied, close only if the tab is still bound to this Session.
+   */
   closeTab = (tabId: TabId, expected?: SessionId): void => {
     const tab = this.manual.tabs[tabId]
     if (tab === undefined || (expected !== undefined && tab.contentId !== expected)) return
     this.commitManual(settled(withOp(this.manual, { type: 'closeTab', tabId }), this.mint))
   }
 
-  /** @param paneId - pane the user interacted with. */
+  /**
+   * Make an existing pane active without changing its selected tab.
+   * @param paneId - pane the user interacted with.
+   */
   focusPane = (paneId: PaneId): void => {
     if (paneId === this.manual.activePaneId || this.manual.nodes[paneId]?.kind !== 'pane') return
     this.commitManual(withOp(this.manual, { type: 'focusPane', paneId }))
   }
 
-  /** @param id - splitter id. @param sizes - measured fractional pane sizes. */
+  /**
+   * Clamp and save the sizes for an existing split.
+   * @param id - splitter id.
+   * @param sizes - measured fractional pane sizes.
+   */
   resizeSplit = (id: SplitId, sizes: readonly number[]): void => {
     if (this.manual.nodes[id]?.kind !== 'split') return
     this.commitManual(withOp(this.manual, { type: 'resize', splitId: id, sizes: clampSizes(sizes) }))
