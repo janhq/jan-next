@@ -6,8 +6,8 @@
  * login, into that Jan's own `skills` folder. The other side keeps anything it already has.
  */
 import { spawn } from 'node:child_process'
-import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readdirSync, readFileSync, readlinkSync, realpathSync, statSync } from 'node:fs'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { REMOTE_ROOT, runRemote } from './remote-install.mjs'
 
 /** Settings namespace (profile entry id) of the MCP manager. */
@@ -38,6 +38,18 @@ function serversOf(descriptor) {
   return isRecord(servers) ? servers : {}
 }
 
+function realPath(path) {
+  try { return realpathSync(path) } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR' || error.code === 'ELOOP') return undefined
+    throw error
+  }
+}
+
+function existsInside(root, path) {
+  const fromRoot = relative(root, path)
+  return !isAbsolute(fromRoot) && fromRoot !== '..' && !fromRoot.startsWith(`..${sep}`)
+}
+
 /**
  * This computer's skill folders under `root`, each a directory holding `SKILL.md`.
  * @param {string} root - a skills folder.
@@ -50,9 +62,11 @@ export function skillFolders(root) {
   for (const entry of readdirSync(base, { withFileTypes: true })) {
     if (!SKILL_NAME.test(entry.name)) continue
     const dir = join(base, entry.name)
-    const isDir = entry.isDirectory() || (entry.isSymbolicLink() && lstatSync(realpathSync(dir)).isDirectory())
-    if (!isDir || !existsSync(join(dir, 'SKILL.md'))) continue
-    const head = readFileSync(join(dir, 'SKILL.md'), 'utf8').slice(0, 4000)
+    const source = entry.isSymbolicLink() ? realPath(dir) : dir
+    if (source === undefined || (!entry.isDirectory() && (!entry.isSymbolicLink() || !statSync(source).isDirectory()))) continue
+    const skillFile = realPath(join(source, 'SKILL.md'))
+    if (skillFile === undefined || !existsInside(source, skillFile) || !statSync(skillFile).isFile()) continue
+    const head = readFileSync(skillFile, 'utf8').slice(0, 4000)
     const description = /^description:\s*["']?(.+?)["']?\s*$/m.exec(head)?.[1] ?? ''
     skills.push({ name: entry.name, dir, description })
   }
@@ -143,7 +157,9 @@ export async function copyCustomizations({ settings, skillRoots }, target, offer
   if (skills.length > 0) {
     const dirs = new Map()
     for (const root of skillRoots) for (const skill of skillFolders(root)) if (!dirs.has(skill.name)) dirs.set(skill.name, skill.dir)
-    await sendSkills(target.ssh, skills.map(item => ({ name: item.id, dir: dirs.get(item.id) })).filter(item => item.dir !== undefined))
+    const selected = skills.map(item => ({ name: item.id, dir: dirs.get(item.id) }))
+    if (selected.some(item => item.dir === undefined)) throw new Error('A selected skill is no longer available on this computer.')
+    await sendSkills(target.ssh, selected)
     result.skills.push(...skills.map(item => item.name))
   }
 
@@ -163,16 +179,20 @@ export async function copyCustomizations({ settings, skillRoots }, target, offer
 }
 
 /**
- * Stream skill folders into the other Jan's `skills` folder as one tar archive. A folder that
- * already exists there is skipped by tar (`--skip-old-files`), so nothing there is overwritten.
+ * Stream skill folders into the other Jan's `skills` folder as one tar archive, without
+ * following nested links or overwriting existing files.
  * @param {string[]} ssh - ssh arguments.
  * @param {Array<{ name: string, dir: string }>} skills - folders to send, by skill name.
  */
 async function sendSkills(ssh, skills) {
-  // `-h` follows a symlinked skill to its files; options go before the first `-C`, because tar
-  // reads every word after one as a path.
-  const args = ['-c', '-h', ...SKILL_EXCLUDES.flatMap(name => ['--exclude', name])]
-  for (const skill of skills) args.push('-C', join(skill.dir, '..'), relativeName(skill))
+  const args = ['-cf', '-', ...SKILL_EXCLUDES.map(name => `--exclude=${name}`)]
+  for (const skill of skills) {
+    const root = realPath(skill.dir)
+    if (root === undefined) throw new Error(`The skill ${skill.name} is no longer available on this computer.`)
+    validateSkillLinks(root, root)
+    // The final `/.` resolves just the selected root while retaining its name in the archive.
+    args.push('-C', dirname(skill.dir), `${skill.name}/.`)
+  }
   const tar = spawn('tar', args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
   let stderr = ''
   tar.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-4000) })
@@ -183,14 +203,25 @@ async function sendSkills(ssh, skills) {
     tar.once('close', code => resolve(code === 0 ? undefined : new Error(`Packing the skills failed: ${stderr.trim().split('\n').at(-1) ?? code}`)))
   })
   const dest = `"$HOME"/${REMOTE_ROOT}/home/skills`
-  const result = await runRemote({ ssh, command: `mkdir -p ${dest} && tar -x --skip-old-files -C ${dest}`, timeoutMs: SKILL_COPY_MS, input: tar.stdout })
+  // BSD tar supports -k; GNU tar uses --skip-old-files to skip without a failing exit status.
+  const result = await runRemote({ ssh, command: `mkdir -p ${dest} && (case "$(tar --version)" in *"GNU tar"*) tar -x --skip-old-files -f - -C ${dest};; *) tar -xkf - -C ${dest};; esac)`, timeoutMs: SKILL_COPY_MS, input: tar.stdout })
     .finally(() => { if (tar.exitCode === null) tar.kill() })
   const packFailure = await packed
   if (packFailure !== undefined) throw packFailure
   if (result.code !== 0) throw new Error(`The skills could not be unpacked there: ${result.stderr.trim().split('\n').at(-1) ?? result.code}`)
 }
 
-/** The skill's folder name as tar should store it: the skill name, even when `dir` is a symlink target. */
-function relativeName(skill) {
-  return skill.dir.split(/[\\/]/).at(-1)
+function validateSkillLinks(root, directory) {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (SKILL_EXCLUDES.includes(entry.name)) continue
+    const path = join(directory, entry.name)
+    if (entry.isDirectory()) validateSkillLinks(root, path)
+    else if (entry.isSymbolicLink()) {
+      const link = readlinkSync(path)
+      const target = realPath(path)
+      if (isAbsolute(link) || !existsInside(root, resolve(directory, link)) || (target !== undefined && !existsInside(root, target))) {
+        throw new Error(`The link ${relative(root, path)} points outside the skill.`)
+      }
+    }
+  }
 }

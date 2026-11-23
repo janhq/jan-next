@@ -12,6 +12,7 @@ export const PROVIDERS_NS = 'llm-pi-ai'
 export const DEFAULT_MODEL_NS = 'agent-default-model'
 
 const CALL_MS = 15_000
+const KEY_BINDING_VERSION = 1
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -32,6 +33,24 @@ function providersOf(descriptor) {
   return isRecord(providers) ? providers : {}
 }
 
+function catalogEndpoints(llm) {
+  return new Map((llm?.listConfigurableProviders() ?? [])
+    .filter(item => item.settingsNs === PROVIDERS_NS)
+    .map(item => [item.provider, item.defaultBaseURL]))
+}
+
+function keyBinding(profile, endpoint) {
+  const ref = profile?.apiKeyEnv
+  if (typeof ref !== 'string' || profile.baseURLEnv !== undefined) return undefined
+  const url = URL.parse(profile.baseURL ?? endpoint ?? '')
+  if (url === null || (url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password) return undefined
+  return { ref, endpoint: url.href }
+}
+
+function sameBinding(left, right) {
+  return left !== undefined && right !== undefined && left.ref === right.ref && left.endpoint === right.endpoint
+}
+
 function userSet(descriptor) {
   return isRecord(descriptor?.user) && Object.keys(descriptor.user).length > 0
 }
@@ -45,38 +64,43 @@ function userProviders(descriptor) {
  * What a Jan has for each provider route, without any key value: answered by the other computer.
  * A Jan is untouched while nobody added a provider or picked a default model there; the bundle's
  * own routes do not count.
- * @param {{ settings: object, credentials: object }} ctx - the Host context's settings and credentials.
- * @returns {Promise<{ untouched: boolean, routes: Record<string, { key: boolean | null }> }>}
- * each route and whether its key is configured (`null` when the route names no key).
+ * @param {{ settings: object, credentials: object, llm?: object }} ctx - the Host's settings, credentials and model directory.
+ * @returns {Promise<{ untouched: boolean, routes: Record<string, { key: boolean | null, binding?: { ref: string, endpoint: string } }> }>}
+ * each route's key status and its binding, if it has a fixed endpoint.
  */
-export async function setupState({ settings, credentials }) {
+export async function setupState({ settings, credentials, llm }) {
   const providers = section(settings, PROVIDERS_NS)
-  const routes = {}
+  const endpoints = catalogEndpoints(llm)
+  const routes = Object.create(null)
   for (const [route, profile] of Object.entries(providersOf(providers))) {
     const ref = profile?.apiKeyEnv
-    routes[route] = { key: typeof ref === 'string' ? (await credentials.describe(ref)).configured : null }
+    const binding = keyBinding(profile, endpoints.get(route))
+    routes[route] = { key: typeof ref === 'string' ? (await credentials.describe(ref)).configured : null, binding }
   }
-  return { untouched: userProviders(providers).length === 0 && !userSet(section(settings, DEFAULT_MODEL_NS)), routes }
+  return { untouched: userProviders(providers).length === 0 && !userSet(section(settings, DEFAULT_MODEL_NS)), keyBindingVersion: KEY_BINDING_VERSION, routes }
 }
 
 /**
  * The routes this computer can give the other one. A route whose endpoint comes from a variable
  * (`baseURLEnv`, such as the local llama.cpp worker) is left out, because that address belongs to
  * this computer. Each item says whether the route itself or only its key is missing there.
- * @param {{ settings: object, credentials: object }} ctx - this Host's settings and credentials.
- * @param {{ routes: Record<string, { key: boolean | null }> }} remote - the other Jan's {@link setupState}.
- * @returns {Promise<Array<{ route: string, name: string, profile: boolean, key: boolean }>>} what a copy would add, in settings order.
+ * @param {{ settings: object, credentials: object, llm?: object }} ctx - this Host's settings, credentials and model directory.
+ * @param {Awaited<ReturnType<typeof setupState>>} remote - the other Jan's state.
  */
-export async function copyable({ settings, credentials }, remote) {
+export async function copyable({ settings, credentials, llm }, remote) {
+  const endpoints = catalogEndpoints(llm)
   const items = []
   for (const [route, profile] of Object.entries(providersOf(section(settings, PROVIDERS_NS)))) {
-    if (!isRecord(profile) || typeof profile.baseURLEnv === 'string') continue
-    const ref = typeof profile.apiKeyEnv === 'string' ? profile.apiKeyEnv : undefined
-    const haveKey = ref !== undefined && (await credentials.describe(ref)).configured
-    const there = remote.routes[route]
-    const item = { route, name: typeof profile.displayName === 'string' ? profile.displayName : route, profile: there === undefined, key: haveKey && there?.key !== true }
-    // A route with a key it lacks here gives the other Jan nothing it could use.
-    if (ref !== undefined && !haveKey) continue
+    if (!isRecord(profile) || profile.baseURLEnv !== undefined) continue
+    const binding = keyBinding(profile, endpoints.get(route))
+    const there = Object.hasOwn(remote.routes, route) ? remote.routes[route] : undefined
+    const addProfile = there === undefined
+    // Copy only fixed, known key destinations. An older Host does not report a key binding.
+    const key = remote.keyBindingVersion === KEY_BINDING_VERSION && binding !== undefined
+      && (addProfile || there.key === false && sameBinding(binding, there.binding))
+      && (await credentials.describe(binding.ref)).configured
+    const item = { route, name: typeof profile.displayName === 'string' ? profile.displayName : route, profile: addProfile, key, ...(key ? { binding } : {}) }
+    if (typeof profile.apiKeyEnv === 'string' && !key) continue
     if (item.profile || item.key) items.push(item)
   }
   return items
@@ -85,49 +109,59 @@ export async function copyable({ settings, credentials }, remote) {
 /**
  * Collect the chosen routes, their keys and this computer's default model for the other Jan.
  * Key values are read here, at send time, and go only into the request to that Jan.
- * @param {{ settings: object, credentials: object }} ctx - this Host's settings and credentials.
- * @param {Array<{ route: string, profile: boolean, key: boolean }>} items - the chosen {@link copyable} items.
- * @returns {Promise<{ providers: Record<string, object>, keys: Record<string, string>, defaultModel?: { provider: string, model: string } }>} the request body.
+ * @param {{ settings: object, credentials: object, llm?: object }} ctx - this Host's settings, credentials and model directory.
+ * @param {Awaited<ReturnType<typeof copyable>>} items - the chosen routes.
  */
-export async function setupPayload({ settings, credentials }, items) {
+export async function setupPayload({ settings, credentials, llm }, items) {
+  const endpoints = catalogEndpoints(llm)
   const descriptor = section(settings, PROVIDERS_NS)
   const profiles = providersOf(descriptor)
   const saved = isRecord(descriptor?.user?.providers) ? descriptor.user.providers : {}
-  const providers = {}
-  const keys = {}
+  const providers = Object.create(null)
+  const keys = Object.create(null)
+  const sent = new Set()
   for (const item of items) {
-    const profile = profiles[item.route]
-    if (!isRecord(profile)) continue
+    const profile = Object.hasOwn(profiles, item.route) ? profiles[item.route] : undefined
+    if (!isRecord(profile) || profile.baseURLEnv !== undefined) continue
+    const binding = keyBinding(profile, endpoints.get(item.route))
+    if (item.key) {
+      if (!sameBinding(binding, item.binding)) continue
+      const resolved = await credentials.resolve(binding.ref)
+      if (resolved === undefined) continue
+      keys[item.route] = { ...binding, value: resolved.value }
+    }
+    sent.add(item.route)
     // The saved route is what a person wrote; the live one adds every default. A `!!js` field
     // only evaluates on this computer, so such a route goes as this computer resolved it.
     const written = saved[item.route]
     if (item.profile) providers[item.route] = isRecord(written) && !hasExpression(written) ? written : profile
-    if (item.key && typeof profile.apiKeyEnv === 'string') {
-      const resolved = await credentials.resolve(profile.apiKeyEnv)
-      if (resolved !== undefined) keys[profile.apiKeyEnv] = resolved.value
-    }
   }
   const selected = section(settings, DEFAULT_MODEL_NS)?.value
-  const sent = new Set(items.map(item => item.route))
   const defaultModel = isRecord(selected) && typeof selected.provider === 'string' && typeof selected.model === 'string' && sent.has(selected.provider)
     ? { provider: selected.provider, model: selected.model }
     : undefined
-  return { providers, keys, ...(defaultModel === undefined ? {} : { defaultModel }) }
+  return { providers: { ...providers }, keys: { ...keys }, ...(defaultModel === undefined ? {} : { defaultModel }) }
 }
 
 /**
  * Add what the request carries and this Jan lacks: answered by the other computer. A provider
  * route with the same name, a key that already resolves (stored or from the environment) and a
  * default model someone picked all stay as they are.
- * @param {{ settings: object, credentials: object }} ctx - the receiving Host's settings and credentials.
+ * @param {{ settings: object, credentials: object, llm?: object }} ctx - the receiving Host's settings, credentials and model directory.
  * @param {unknown} request - the {@link setupPayload} body.
  * @returns {Promise<{ added: string[], kept: string[], keys: string[], defaultModel: boolean }>} the
  * routes added and kept, the key names stored, and whether the default model was set.
  */
-export async function receiveSetup({ settings, credentials }, request) {
+export async function receiveSetup({ settings, credentials, llm }, request) {
   if (!isRecord(request) || !isRecord(request.providers) || !isRecord(request.keys)) throw new Error('Expected providers and keys.')
+  const requestedKeys = Object.entries(request.keys)
+  for (const [route, key] of requestedKeys) {
+    if (!isRecord(key) || typeof key.ref !== 'string' || typeof key.endpoint !== 'string' || typeof key.value !== 'string' || key.value === '') {
+      throw new Error(`Expected a bound key for provider ${route}.`)
+    }
+  }
   const present = providersOf(section(settings, PROVIDERS_NS))
-  const added = {}
+  const added = Object.create(null)
   const kept = []
   for (const [route, profile] of Object.entries(request.providers)) {
     if (!isRecord(profile)) throw new Error(`Provider ${route} is not a provider profile.`)
@@ -136,9 +170,15 @@ export async function receiveSetup({ settings, credentials }, request) {
   }
   if (Object.keys(added).length > 0) await settings.update(PROVIDERS_NS, { providers: added })
   const keys = []
-  for (const [ref, value] of Object.entries(request.keys)) {
-    if (typeof value !== 'string' || value === '') throw new Error(`The key ${ref} is empty.`)
+  const endpoints = catalogEndpoints(llm)
+  for (const [route, key] of requestedKeys) {
+    const { ref, value } = key
     if ((await credentials.describe(ref)).configured) continue
+    const routes = providersOf(section(settings, PROVIDERS_NS))
+    if (!Object.hasOwn(routes, route) || !sameBinding(key, keyBinding(routes[route], endpoints.get(route)))) continue
+    // Keys are looked up by reference, not by route. A second route using the same reference
+    // must not get a key intended for another endpoint.
+    if (Object.entries(routes).some(([id, profile]) => profile?.apiKeyEnv === ref && !sameBinding(key, keyBinding(profile, endpoints.get(id))))) continue
     await credentials.set(ref, value)
     keys.push(ref)
   }
