@@ -4,8 +4,10 @@
  * `data-dockkit-tab-clipped`, and the stylesheet fades the text out at the
  * clipped edge in place of an ellipsis. Written to the DOM directly rather
  * than through state: a reading changes nothing that renders, only how the
- * stylesheet paints it. Re-read after every commit (the text may have
- * changed) and whenever the span's box resizes (the chip shrank or grew).
+ * stylesheet paints it. Re-read after a commit that changed the text and
+ * whenever the span's box resizes (the chip shrank or grew). A commit that
+ * left the text alone is skipped: reading the width forces a layout of the
+ * whole page, and the shell re-renders its chips on most state changes.
  */
 import { useLayoutEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
@@ -21,9 +23,13 @@ function markClipped(element: HTMLElement): void {
 /** The title span of a strip chip or a floating panel's header chip. */
 export function TabTitle({ children }: { readonly children: ReactNode }): ReactNode {
   const span = useRef<HTMLSpanElement | null>(null)
+  const measuredText = useRef<string | null>(null)
   useLayoutEffect(() => {
+    const element = span.current
     /* v8 ignore next -- the span is rendered unconditionally. */
-    if (span.current !== null) markClipped(span.current)
+    if (element === null || element.textContent === measuredText.current) return
+    measuredText.current = element.textContent
+    markClipped(element)
   })
   useLayoutEffect(() => {
     const element = span.current
