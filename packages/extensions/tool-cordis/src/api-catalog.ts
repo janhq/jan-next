@@ -264,10 +264,22 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'The bound identity.',
       },
       {
-        signature: '@Remote(\'select\') async select(agent: Agent, agentPreset: string): Promise<string>',
-        description: 'Select a preset for a Session at a turn boundary. A Session with no recorded preset that already runs the current revision keeps its composition; nothing is logged or announced. A started Session may switch once no turn is open: messages are never rewritten, the selection is appended to the log, and every later turn runs under the new composition.',
+        signature: '@Remote(\'select\') select(agent: Agent, agentPreset: string): Promise<string>',
+        description: 'Select and pin a preset at a turn boundary. Pinning a preset already in use records the choice without replacing its composition.',
         parameters: [{ name: 'agent', description: 'Target Agent.' }, { name: 'agentPreset', description: 'Requested identity.' }],
         returns: 'Committed preset identity.',
+      },
+      {
+        signature: 'followsRouteDefault(session: Session): boolean',
+        description: 'Read whether a Session follows the default for its model provider.',
+        parameters: [{ name: 'session', description: 'Session whose latest preset choice is read.' }],
+        returns: 'whether the preset was assigned automatically.',
+      },
+      {
+        signature: 'selectRouteDefault(agent: Agent, agentPreset: string, previousDefault?: string): Promise<string | undefined>',
+        description: 'Apply a route default. On a model change, leave the preset alone unless the blank Session still follows the previous provider\'s default.',
+        parameters: [{ name: 'agent', description: 'Session running the preset.' }, { name: 'agentPreset', description: 'default for the target provider route.' }, { name: 'previousDefault', description: 'previous provider\'s default for a conditional route change; omit for blank reuse.' }],
+        returns: 'the recorded preset, or undefined if a conditional change was skipped.',
       },
       {
         signature: 'async acquireScope(id?: string): Promise<{ key: ScopeKey } & AsyncDisposable>',
@@ -4716,6 +4728,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'request', description: 'decoded endpoint, named wire arguments, and the Client uplink when the carrier has one.' }],
         returns: 'a cancellation-aware iterable over the business results.',
       },
+      {
+        signature: 'registerForwarder(forwarder: TypertGatewayForwarder): () => void',
+        description: 'Register the sole carrier-level forwarder.',
+        parameters: [{ name: 'forwarder', description: 'the hook offered every owner wire call and stream.' }],
+        returns: 'disposer restoring direct dispatch.',
+      },
     ],
   },
   {
@@ -7069,6 +7087,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ForgeWorktreeWaiting = \'creation\' | \'restoration\';',
   },
   {
+    name: 'ForwardedRemoteRequest',
+    declaration: 'export interface ForwardedRemoteRequest {\n    readonly endpoint: string;\n    readonly payload: unknown;\n    readonly peer: PeerScope;\n    readonly signal: AbortSignal;\n}',
+  },
+  {
+    name: 'ForwardedRemoteResult',
+    declaration: 'export type ForwardedRemoteResult = {\n    readonly ok: true;\n    readonly value?: unknown;\n    readonly attachments?: readonly {\n        readonly path: readonly (string | number)[];\n        readonly bytes: Uint8Array;\n    }[];\n} | {\n    readonly ok: false;\n    readonly error: {\n        readonly code: string;\n        readonly message: string;\n        readonly details: object;\n    };\n};',
+  },
+  {
     name: 'FsDeleteOutcome',
     declaration: 'export interface FsDeleteOutcome {\n    before: string | null;\n}',
   },
@@ -7478,7 +7504,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlamaCppDownload',
-    declaration: 'export interface LlamaCppDownload {\n    id: string;\n    name: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    paused?: true;\n}',
+    declaration: 'export interface LlamaCppDownload {\n    id: string;\n    name: string;\n    repo: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    paused?: true;\n}',
   },
   {
     name: 'LlamaCppHardware',
@@ -7610,7 +7636,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LocalModelEntry',
-    declaration: 'export interface LocalModelEntry {\n    id: string;\n    name: string;\n    bytes: number;\n    source: LocalModelSource;\n    vision: boolean;\n    active: boolean;\n    status: LocalModelStatus;\n    contextSize?: number;\n    configuredContextSize: number;\n    autoFit: boolean;\n    architecture: string;\n    contextLength?: number;\n    fit?: ModelFit;\n}',
+    declaration: 'export interface LocalModelEntry {\n    id: string;\n    name: string;\n    bytes: number;\n    source: LocalModelSource;\n    repo?: string;\n    vision: boolean;\n    active: boolean;\n    status: LocalModelStatus;\n    contextSize?: number;\n    configuredContextSize: number;\n    autoFit: boolean;\n    architecture: string;\n    contextLength?: number;\n    fit?: ModelFit;\n}',
   },
   {
     name: 'LocalModelSource',
@@ -7986,7 +8012,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'OfficeExtension',
-    declaration: 'export type OfficeExtension = \'doc\' | \'docx\' | \'xls\' | \'xlsx\' | \'ppt\' | \'pptx\';',
+    declaration: 'export type OfficeExtension = \'doc\' | \'docx\' | \'odt\' | \'xls\' | \'xlsx\' | \'ods\' | \'ppt\' | \'pptx\' | \'odp\';',
   },
   {
     name: 'OfficeSourceKey',
@@ -10501,6 +10527,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface TypertGatewayBinding<Service extends object = object> {\n    readonly service: Service;\n    readonly serviceKey: string;\n    readonly namespace: string;\n}',
   },
   {
+    name: 'TypertGatewayForwarder',
+    declaration: 'export interface TypertGatewayForwarder {\n    call(request: ForwardedRemoteRequest, local: () => Promise<ForwardedRemoteResult>): Promise<ForwardedRemoteResult>;\n    stream(request: ForwardedRemoteRequest, local: () => Promise<AsyncIterable<unknown>>): Promise<AsyncIterable<unknown>>;\n}',
+  },
+  {
     name: 'TypertGatewayWireStream',
     declaration: 'export interface TypertGatewayWireStream {\n    readonly open: (endpoint: string, payload: unknown, uplink: AsyncIterable<unknown>, peer: PeerScope, signal: AbortSignal) => Promise<AsyncIterable<unknown>>;\n    readonly failure: (error: unknown) => {\n        readonly code: string;\n        readonly message: string;\n        readonly details: object;\n    };\n}',
   },
@@ -10890,7 +10920,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WorkspaceCreateRequest',
-    declaration: 'export interface WorkspaceCreateRequest {\n    readonly path: string;\n}',
+    declaration: 'export interface WorkspaceCreateRequest {\n    readonly path: string;\n    readonly hostId?: string;\n}',
   },
   {
     name: 'WorkspaceCreateValue',
@@ -11006,7 +11036,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WorkspaceView',
-    declaration: 'export interface WorkspaceView {\n    readonly workspaceId: WorkspaceId;\n    readonly isDefault?: true;\n    readonly path: string;\n    readonly title: string;\n    readonly color?: WorkspaceColor;\n    readonly avatar?: WorkspaceAvatar;\n    readonly githubOwner?: string;\n    readonly sessionIds: readonly SessionId[];\n    readonly createdAt: string;\n    readonly updatedAt: string;\n}',
+    declaration: 'export interface WorkspaceView {\n    readonly workspaceId: WorkspaceId;\n    readonly isDefault?: true;\n    readonly path: string;\n    readonly title: string;\n    readonly color?: WorkspaceColor;\n    readonly avatar?: WorkspaceAvatar;\n    readonly githubOwner?: string;\n    readonly sessionIds: readonly SessionId[];\n    readonly createdAt: string;\n    readonly updatedAt: string;\n    readonly hostId?: string;\n    readonly hostName?: string;\n    readonly hostState?: \'live\' | \'lost\';\n}',
   },
 ]
 
