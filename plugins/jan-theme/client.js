@@ -66,7 +66,7 @@ window.__ModuleLoader__.load({
     ]
     const DEFAULT_ACCENT = PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'yellow'
     const paletteOf = accent => PALETTES.find(p => p[0] === accent) || PALETTES.find(p => p[0] === DEFAULT_ACCENT)
-    let preferences = { accent: DEFAULT_ACCENT, coloredUserBubble: false, navigationButtons: false, ...shell.appearance }
+    let preferences = { accent: DEFAULT_ACCENT, coloredUserBubble: false, navigationButtons: false, readingStyle: 'standard', ...shell.appearance }
     const appearanceListeners = new Set()
     let retheme = null
     const applyAppearance = (value) => {
@@ -75,6 +75,9 @@ window.__ModuleLoader__.load({
       const root = document.documentElement
       // Back and Forward stay hidden until General turns them on; the shortcuts keep working.
       root.toggleAttribute('data-jt-hide-navigation', value.navigationButtons !== true)
+      // Terminal reading style: every rule is scoped under this attribute, so Standard is untouched.
+      if (value.readingStyle === 'terminal') root.setAttribute('data-jt-reading', 'terminal')
+      else root.removeAttribute('data-jt-reading')
       root.style.setProperty('--jt-sidebar-light', palette[3])
       root.style.setProperty('--jt-sidebar-dark', palette[4])
       retheme?.()
@@ -125,6 +128,16 @@ window.__ModuleLoader__.load({
       const { value, busy } = useAppearance()
       return h(GeneralRow, { title: 'Back and forward buttons', description: 'Show Back and Forward beside the sidebar button. The keyboard shortcuts work either way.' },
         h(Switch, { label: 'Back and forward buttons', checked: value.navigationButtons === true, disabled: busy, onChange: checked => saveAppearance({ ...value, navigationButtons: checked }) }))
+    }
+    function ReadingStyleRow() {
+      const { SelectMenu } = require('@janhq/jan-client-ui-primitives')
+      const { value, busy } = useAppearance()
+      return h(GeneralRow, { title: 'Reading style', description: 'Terminal shows chats in a monospace font with colored headings, code, diffs and framed tool calls.' },
+        h(SelectMenu, {
+          label: 'Reading style', value: value.readingStyle === 'terminal' ? 'terminal' : 'standard', disabled: busy, align: 'end',
+          options: [{ id: 'standard', label: 'Standard' }, { id: 'terminal', label: 'Terminal' }],
+          onChange: readingStyle => saveAppearance({ ...value, readingStyle }),
+        }))
     }
     function AppearanceResetRow() {
       const { value, busy } = useAppearance()
@@ -644,6 +657,12 @@ window.__ModuleLoader__.load({
       // Sidebar card, composer and other enclosing panels.
       '--jt-sidebar-radius': both('20px'),
       '--dsw-radius-panel': both('24px'),
+      // Terminal reading style colors; unused unless that style is on.
+      '--jt-term-heading': { light: '#1F6FB2', dark: '#6CB6FF' },
+      '--jt-term-strong': { light: '#9A5A0C', dark: '#E8B05C' },
+      '--jt-term-tool': { light: '#7A4FD0', dark: '#B392F0' },
+      '--jt-term-add': { light: '#1A7F37', dark: '#56D364' },
+      '--jt-term-del': { light: '#CF222E', dark: '#F85149' },
     }
 
     const CSS = `
@@ -1187,6 +1206,42 @@ html[data-jan-theme] [data-sidebar-right-panel] button[aria-haspopup='menu'] > s
 /* Positioned dock panels ignore their column's padding. Reserve the caption on
    the panel itself so both normal and fullscreen chrome stay below it. */
 html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: var(--jan-windows-titlebar-height); }
+
+/* Terminal reading style (Settings > General > Reading style). Every rule sits under
+   data-jt-reading, which only the Terminal choice sets, so Standard renders exactly as before. */
+html[data-jan-theme][data-jt-reading='terminal'] {
+  --jt-term-font: 'SF Mono', ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+html[data-jan-theme][data-jt-reading='terminal'] :is([data-slot='conversation.chat.flow'], [data-trajectory-scroll]),
+html[data-jan-theme][data-jt-reading='terminal'] :is([data-slot='conversation.chat.flow'], [data-trajectory-scroll]) * { font-family: var(--jt-term-font); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :is(h1, h2, h3, h4, h5, h6) { color: var(--jt-term-heading); font-weight: 700; letter-spacing: 0; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] h1 { font-size: 1.2em; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] h2 { font-size: 1.1em; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :is(h3, h4, h5, h6) { font-size: 1em; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] h1::before { content: '# '; color: var(--dsw-alias-label-tertiary); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] h2::before { content: '## '; color: var(--dsw-alias-label-tertiary); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] h3::before { content: '### '; color: var(--dsw-alias-label-tertiary); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :is(strong, b) { color: var(--jt-term-strong); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :is(h1, h2, h3, h4, h5, h6) code { color: inherit; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :not(pre) > code {
+  color: var(--dsw-alias-label-deep-diving); background: color-mix(in oklch, var(--dsw-alias-label-deep-diving) 9%, transparent); font-size: inherit;
+}
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] .md-code-block { border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; }
+/* Diff fences: the diff grammar colors lines through these shiki variables, which no other style defines. */
+html[data-jan-theme][data-jt-reading='terminal'] .md-code-block { --shiki-token-inserted: var(--jt-term-add); --shiki-token-deleted: var(--jt-term-del); }
+/* Tool calls and process steps: framed, with the tool name in the tool color. */
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] > [data-tool] {
+  border: 1px solid var(--dsw-alias-border-l2); border-left: 2px solid var(--jt-term-tool); border-radius: 6px; padding-inline: 8px;
+}
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] > [data-tool][data-state='error'] { border-left-color: var(--jt-term-del); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] [data-disclosure-row] [class*='_title_'] { color: var(--jt-term-tool); font-weight: 600; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-process-header] button { color: var(--jt-term-tool); }
+/* Metadata stays quiet: durations, token counts, sources, clocks and turn stats. */
+html[data-jan-theme][data-jt-reading='terminal'] :is([data-step-duration], [data-context-source], [data-context-tokens], [data-turn-usage-stat], [data-turn-process], [data-clock]) {
+  color: var(--dsw-alias-label-tertiary); font-family: var(--jt-term-font);
+}
+/* Trajectory: role tags read as colored text, not pills. */
+html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-role-kind] { background: none; padding-inline: 0; letter-spacing: 0; }
 
 `
 
@@ -2337,13 +2392,16 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       inject: ['slots'],
       apply(ctx) {
         applyAppearance(preferences)
-        ctx.effect(() => () => { document.documentElement.removeAttribute('data-jt-hide-navigation') }, 'jan-theme: navigation buttons preference')
+        ctx.effect(() => () => {
+          document.documentElement.removeAttribute('data-jt-hide-navigation')
+          document.documentElement.removeAttribute('data-jt-reading')
+        }, 'jan-theme: navigation buttons and reading style preferences')
         // Follow the saved appearance: a profile edit, another window or Plugin Manager can change it after boot.
         ctx.inject(['configForms'], (scope) => {
           const form = scope.configForms.get('jan-theme')
           const sync = () => {
             const saved = form.getSnapshot().value?.appearance
-            if (saved === undefined || ['accent', 'coloredUserBubble', 'navigationButtons'].every(key => saved[key] === undefined || saved[key] === preferences[key])) return
+            if (saved === undefined || ['accent', 'coloredUserBubble', 'navigationButtons', 'readingStyle'].every(key => saved[key] === undefined || saved[key] === preferences[key])) return
             applyAppearance({ ...preferences, ...saved })
           }
           scope.effect(() => form.subscribe(sync), 'jan-theme: saved appearance')
@@ -2354,6 +2412,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           // Directly under General's theme (10) and font size (11) rows, before the conversation rows at 12.
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-accent-color', order: 11.1, locale: 'jan-theme' }, AccentColorRow))
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-user-bubble', order: 11.2, locale: 'jan-theme' }, UserBubbleRow))
+          scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-reading-style', order: 11.25, locale: 'jan-theme' }, ReadingStyleRow))
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-appearance-reset', order: 11.3, locale: 'jan-theme' }, AppearanceResetRow))
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-navigation-buttons', order: 11.4, locale: 'jan-theme' }, NavigationButtonsRow))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: () => t('section.mcp'), locale: 'jan-theme' }, () => h(AgentSettings, { key: 'mcp' })))
