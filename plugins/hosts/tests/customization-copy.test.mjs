@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { copyCustomizations, customizationOffer, customizationState, skillFolders } from '../customization-copy.mjs'
@@ -39,33 +39,53 @@ test('skill listing skips dangling links without losing other skills', { skip: p
   assert.deepEqual(skillFolders(root).map(skill => skill.name), ['writing'])
 })
 
-test('skill uploads preserve the selected alias and safe nested links without overwriting files', { skip: process.platform === 'win32' }, async (t) => {
-  const root = skillsRoot([])
-  const sources = skillsRoot(['original', 'unsafe'])
+/** Point `ssh` at a local shell that runs the remote command, reading at most `limit` bytes of input. */
+function localSsh(t, limit) {
   const home = mkdtempSync(join(tmpdir(), 'jan-hosts-skill-dest-'))
-  const dest = join(home, '.jan/hosts-runtime/home/skills')
   const env = { PATH: process.env.PATH, HOME: process.env.HOME }
   t.after(() => {
     Object.assign(process.env, env)
-    for (const directory of [root, sources, home]) rmSync(directory, { recursive: true, force: true })
+    rmSync(home, { recursive: true, force: true })
   })
+  const read = limit === undefined ? '' : `head -c ${limit} | `
+  writeFileSync(join(home, 'ssh'), `#!/bin/sh\nfor arg do command=$arg; done\n${read}exec sh -c "$command"\n`, { mode: 0o755 })
+  process.env.PATH = `${home}:${env.PATH}`
+  process.env.HOME = home
+  return join(home, '.jan/hosts-runtime/home/skills')
+}
+
+test('skill uploads preserve the selected alias and safe nested links, and keep skills already there', { skip: process.platform === 'win32' }, async (t) => {
+  const root = skillsRoot(['kept'])
+  const sources = skillsRoot(['original', 'unsafe'])
+  t.after(() => { for (const directory of [root, sources]) rmSync(directory, { recursive: true, force: true }) })
+  const dest = localSsh(t)
   symlinkSync(join(sources, 'original'), join(root, 'renamed'))
   symlinkSync(join(sources, 'unsafe'), join(root, 'unsafe'))
   symlinkSync('SKILL.md', join(sources, 'original', 'same'))
   symlinkSync('../original/SKILL.md', join(sources, 'unsafe', 'outside'))
-  mkdirSync(join(dest, 'renamed'), { recursive: true })
-  writeFileSync(join(dest, 'renamed', 'SKILL.md'), 'existing')
-  writeFileSync(join(home, 'ssh'), '#!/bin/sh\nfor arg do command=$arg; done\nexec sh -c "$command"\n', { mode: 0o755 })
-  process.env.PATH = `${home}:${env.PATH}`
-  process.env.HOME = home
+  mkdirSync(join(dest, 'kept'), { recursive: true })
+  writeFileSync(join(dest, 'kept', 'SKILL.md'), 'existing')
   const source = { settings: settingsWith({}), skillRoots: [root] }
   const target = { ssh: ['box'] }
   const offer = await customizationOffer(source, { skills: [], servers: [], plugins: false })
   await assert.rejects(copyCustomizations(source, target, offer, { skills: ['unsafe'] }), /outside the skill/)
-  const result = await copyCustomizations(source, target, offer, { skills: ['renamed'] })
-  assert.deepEqual(result.skills, ['renamed'])
-  assert.equal(readFileSync(join(dest, 'renamed', 'SKILL.md'), 'utf8'), 'existing')
+  const result = await copyCustomizations(source, target, offer, { skills: ['renamed', 'kept'] })
+  assert.deepEqual(result.skills, ['kept', 'renamed'])
+  assert.match(readFileSync(join(dest, 'renamed', 'SKILL.md'), 'utf8'), /name: original/)
   assert.equal(readlinkSync(join(dest, 'renamed', 'same')), 'SKILL.md')
+  assert.equal(readFileSync(join(dest, 'kept', 'SKILL.md'), 'utf8'), 'existing')
+  assert.deepEqual(readdirSync(dest).sort(), ['kept', 'renamed'])
+})
+
+test('an interrupted skill upload leaves no partial skill behind', { skip: process.platform === 'win32' }, async (t) => {
+  const root = skillsRoot(['large'])
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  writeFileSync(join(root, 'large', 'data.bin'), Buffer.alloc(256 * 1024, 1))
+  const dest = localSsh(t, 4096)
+  const source = { settings: settingsWith({}), skillRoots: [root] }
+  const offer = await customizationOffer(source, { skills: [], servers: [], plugins: false })
+  await assert.rejects(copyCustomizations(source, { ssh: ['box'] }, offer, { skills: ['large'] }))
+  assert.deepEqual(readdirSync(dest), [])
 })
 
 test('the offer lists only what the other Jan lacks, and marks what would not run there', async () => {
@@ -74,6 +94,7 @@ test('the offer lists only what the other Jan lacks, and marks what would not ru
       fetch: { transport: 'stdio', command: 'uvx', args: ['mcp-server-fetch'] },
       serper: { transport: 'stdio', command: 'C:\\Program Files\\nodejs\\node.exe', args: [] },
       docs: { transport: 'http', url: 'https://docs.example/mcp' },
+      tool: { transport: 'stdio', command: 'node', args: ['/home/alice/server/index.js'] },
     }),
     skillRoots: [skillsRoot(['writing', 'research'])],
     pluginManager: { listBundles: async () => bundles },
@@ -83,7 +104,7 @@ test('the offer lists only what the other Jan lacks, and marks what would not ru
     bundles: { '@janhq/jan-base': { installed: true, enabled: true }, '@janhq/jan-experimental-voice-input-bundle': { installed: true, enabled: false } },
   }
   const offer = await customizationOffer(here, remote)
-  assert.deepEqual(offer.servers.map(item => [item.id, item.problem]), [['fetch', undefined], ['serper', 'local-path']])
+  assert.deepEqual(offer.servers.map(item => [item.id, item.problem]), [['fetch', undefined], ['serper', 'local-path'], ['tool', 'local-path']])
   assert.deepEqual(offer.skills.map(item => item.id), ['writing'])
   assert.deepEqual(offer.plugins.map(item => [item.id, item.install, item.problem]), [
     ['@me/browser-pack', '@me/browser-pack@1.2.0', undefined],

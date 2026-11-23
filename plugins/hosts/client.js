@@ -218,7 +218,7 @@ window.__ModuleLoader__.load({
 }`
 
     async function api(method, params = {}) {
-      const response = await fetch('/jan-api/hosts', {
+      const response = await fetch(new URL('jan-api/hosts', document.baseURI), {
         method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }),
       })
       if (!response.headers.get('content-type')?.startsWith('application/json')) throw new Error(`HTTP ${response.status}`)
@@ -708,22 +708,19 @@ window.__ModuleLoader__.load({
         ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
           name: 'settings.section.icon', id: NS,
         }, ({ size }) => h(IconLinkOutlineRegular, { size, 'aria-hidden': true })))
-        // Saved Hosts appear under Remote in the new-project menu. Picking one
-        // connects an SSH Host that is not up yet, without opening a browser.
+        // Saved SSH Hosts appear under Remote in the new-project menu. Picking one connects it
+        // when it is not up yet, without opening a browser. Only SSH Hosts carry the link that
+        // serves the folder chooser; an address Host opens in its own window instead.
         ctx.inject(['uiWorkspace'], scope => {
           scope.effect(() => scope.uiWorkspace.registerRemoteMachines({
             async list() {
               const { connections } = await api('state')
-              return connections.map((host) => {
-                const ssh = host.kind === 'ssh'
-                const ready = ssh ? host.tunnel !== undefined : host.signedIn
-                return {
-                  id: host.id,
-                  name: host.name,
-                  detail: ssh ? (host.address ?? host.ssh) : host.url,
-                  state: ready ? 'ready' : host.progress !== undefined ? 'connecting' : 'idle',
-                }
-              })
+              return connections.filter(host => host.kind === 'ssh').map(host => ({
+                id: host.id,
+                name: host.name,
+                detail: host.address ?? host.ssh,
+                state: host.tunnel !== undefined ? 'ready' : host.progress !== undefined ? 'connecting' : 'idle',
+              }))
             },
             async connect(id) {
               const { connections } = await api('state')
