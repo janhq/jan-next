@@ -190,6 +190,17 @@ interface ToolArgsMap {
     /** Max wait in milliseconds with wait: true. Defaults to and is capped by configuration. */
     timeout_ms?: number;
   } & Record<string, JsonValue>;
+  /** Watch new output from a running background job without polling. Matching lines arrive in batched notices, waking you when idle if enabled. Does not consume job_output. */
+  job_watch: {
+    /** ID of a running background job owned by this session. */
+    job_id: string;
+    /** JavaScript regular expression source (no delimiters or flags) to match each line. Omit to watch every line. */
+    pattern?: string;
+    /** Maximum live batches before the watch stops (1-100, default 20). The normal completion notice is separate. */
+    max_events?: number;
+    /** Milliseconds to collect matches after the first match in a batch (1-60000, default 1000). */
+    debounce_ms?: number;
+  } & Record<string, JsonValue>;
   /** List your entire subagent tree: the root agent and all reachable continuable descendants, including yourself. Rows carry names, descriptions, and status. A descendant's name is its path from the root, such as reviewer/checker. You can message any other agent in the subagent tree. running means it is working; inactive means no turn is executing; it does not indicate task completion, success, or failure. corrupt, unsupported, or unavailable means this row's own descendants could not be read; the row itself is still a member you can message. While you remain active, you will be notified when a direct child finishes; there is no need to keep checking its status. Use send_message to continue the conversation. */
   list_agents: Record<string, JsonValue>;
   /** Read a UTF-8 text file and return line-numbered content. */
@@ -269,6 +280,13 @@ interface ToolArgsMap {
   wait_agent: {
     /** Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000. */
     timeout_ms?: number;
+  } & Record<string, JsonValue>;
+  /** Schedule a one-time reminder to resume work later without polling or blocking. Returns a timer job ID you can list or cancel with job_kill. Completion wakes you if enabled. */
+  wake_after: {
+    /** Delay in seconds, from 1 to 86400. */
+    seconds: number;
+    /** Non-blank reminder to include in the completion notice (up to 1024 UTF-8 bytes). */
+    note: string;
   } & Record<string, JsonValue>;
   /** Fetch the content of a specific HTTP(S) URL and return it decoded to text. */
   web_fetch: {
@@ -473,6 +491,12 @@ interface ToolOutputMap {
       finishedAt?: number;
     };
   };
+  job_watch: {
+    watch_id: string;
+    job_id: string;
+    max_events: number;
+    debounce_ms: number;
+  };
   list_agents: ({
     name: string;
     status: "running" | "inactive" | "corrupt" | "unsupported" | "unavailable";
@@ -560,6 +584,10 @@ interface ToolOutputMap {
   };
   wait_agent: {
     timedOut: boolean;
+  };
+  wake_after: {
+    job_id: string;
+    seconds: number;
   };
   web_fetch: {
     url: string;

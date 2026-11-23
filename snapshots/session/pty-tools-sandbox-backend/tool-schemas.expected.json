@@ -256,6 +256,34 @@
       }
     },
     {
+      "name": "job_watch",
+      "description": "Watch new output from a running background job without polling. Matching lines arrive in batched notices, waking you when idle if enabled. Does not consume job_output.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "description": "ID of a running background job owned by this session."
+          },
+          "pattern": {
+            "type": "string",
+            "description": "JavaScript regular expression source (no delimiters or flags) to match each line. Omit to watch every line."
+          },
+          "max_events": {
+            "type": "integer",
+            "description": "Maximum live batches before the watch stops (1-100, default 20). The normal completion notice is separate."
+          },
+          "debounce_ms": {
+            "type": "integer",
+            "description": "Milliseconds to collect matches after the first match in a batch (1-60000, default 1000)."
+          }
+        },
+        "required": [
+          "job_id"
+        ]
+      }
+    },
+    {
       "name": "list_agents",
       "description": "List your entire subagent tree: the root agent and all reachable continuable descendants, including yourself. Rows carry names, descriptions, and status. A descendant's name is its path from the root, such as reviewer/checker. You can message any other agent in the subagent tree. running means it is working; inactive means no turn is executing; it does not indicate task completion, success, or failure. corrupt, unsupported, or unavailable means this row's own descendants could not be read; the row itself is still a member you can message. While you remain active, you will be notified when a direct child finishes; there is no need to keep checking its status. Use send_message to continue the conversation.",
       "parameters": {
@@ -622,6 +650,27 @@
             "description": "Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000."
           }
         }
+      }
+    },
+    {
+      "name": "wake_after",
+      "description": "Schedule a one-time reminder to resume work later without polling or blocking. Returns a timer job ID you can list or cancel with job_kill. Completion wakes you if enabled.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "seconds": {
+            "type": "number",
+            "description": "Delay in seconds, from 1 to 86400."
+          },
+          "note": {
+            "type": "string",
+            "description": "Non-blank reminder to include in the completion notice (up to 1024 UTF-8 bytes)."
+          }
+        },
+        "required": [
+          "seconds",
+          "note"
+        ]
       }
     },
     {
