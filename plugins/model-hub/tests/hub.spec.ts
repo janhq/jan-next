@@ -33,7 +33,9 @@ function mount(local = {}, remote = {}, fetch: (url: string) => Promise<unknown>
     panelInfo = { activePanelId: id }
     for (const listener of panelListeners) listener()
   })
-  const openSession = vi.fn(), startSession = vi.fn()
+  const openSession = vi.fn()
+  // The workspace reports the Session it opened, as ui-workspace does just before selecting it.
+  const startSession = vi.fn((_workspace?: string, options?: { onOpen?: (id: string) => void }) => { options?.onOpen?.('s2') })
   const selectModel = vi.fn(async () => ({ ok: true }))
   const updates: Array<(next: object) => void> = []
   let copy: Record<string, string>
@@ -72,7 +74,7 @@ function mount(local = {}, remote = {}, fetch: (url: string) => Promise<unknown>
         plugin.apply({ ...scope, inject: (_: string[], apply: (injected: object) => void) => apply(scope) })
       } },
     },
-    setTimeout: () => 0, document, sessionStorage, AbortController,
+    setTimeout: () => 0, clearTimeout: () => {}, document, sessionStorage, AbortController,
     fetch,
   })
   const localSource = props.hooks.local
@@ -140,7 +142,7 @@ it('sorts by downloads, size, name and catalog creation date', async () => {
 })
 
 it('combines filters, counts results and clears an empty search', async () => {
-  mount({ models: [{ id: 'qwen', name: 'qwen3-coder-IQ2_XXS', active: false }] })
+  mount({ models: [{ id: 'qwen', name: 'qwen3-coder-IQ2_XXS', repo: 'Alibaba/Qwen3-Coder-GGUF', active: false }] })
   allModels()
   await screen.findByRole('heading', { name: 'Qwen3-Coder' })
   fireEvent.click(screen.getByRole('button', { name: 'Tools' }))
@@ -154,6 +156,14 @@ it('combines filters, counts results and clears an empty search', async () => {
   expect(names()).toEqual(['Gemma', 'Qwen3-Coder', 'Llama'])
 })
 
+it('does not take another repository\'s file with the same name for an installed variant', async () => {
+  mount({ models: [{ id: 'qwen-2', name: 'qwen3-coder-IQ2_XXS', repo: 'Someone/Qwen3-Coder-GGUF', active: false }] })
+  allModels()
+  await screen.findByRole('heading', { name: 'Qwen3-Coder' })
+  fireEvent.click(screen.getByRole('button', { name: 'Installed' }))
+  expect(screen.getByText('No matching models')).toBeTruthy()
+})
+
 it('filters against host memory when hardware is available', async () => {
   mount({ hardware: { memoryBytes: 3e9, backend: 'cpu', devices: [] } })
   allModels()
@@ -165,7 +175,7 @@ it('filters against host memory when hardware is available', async () => {
 it('shows progress and pauses or cancels a transfer from its card', async () => {
   const pauseDownload = vi.fn(async () => ({ ok: true }))
   const cancelDownload = vi.fn(async () => ({ ok: true }))
-  mount({ downloads: [{ id: 'qwen', name: 'qwen3-coder-IQ2_XXS', progress: { receivedBytes: 500e6, totalBytes: 1e9, bytesPerSecond: 42e6 } }] }, { pauseDownload, cancelDownload })
+  mount({ downloads: [{ id: 'qwen', name: 'qwen3-coder-IQ2_XXS', repo: 'Alibaba/Qwen3-Coder-GGUF', progress: { receivedBytes: 500e6, totalBytes: 1e9, bytesPerSecond: 42e6 } }] }, { pauseDownload, cancelDownload })
   allModels()
   const card = (await screen.findByRole('heading', { name: 'Qwen3-Coder' })).closest('li')!
   expect(within(card).getByRole('progressbar').getAttribute('value')).toBe('50')
@@ -236,21 +246,30 @@ function openFromChat(optionRow: ReturnType<typeof mount>['optionRow'], t: Retur
 
 it('returns to the chat that opened the Hub when a model is used', async () => {
   const setDefaultModel = vi.fn(async () => ({ ok: true }))
-  const b = mount({}, { setDefaultModel })
+  const b = mount({ phase: 'running', model: { id: 'gemma' } }, { setDefaultModel })
   openFromChat(b.optionRow, b.t)
   await act(async () => { await b.runAction('use', { id: 'gemma' }) })
   expect(setDefaultModel).toHaveBeenCalledWith('gemma')
   expect(b.openSession).toHaveBeenCalledWith('s1')
-  expect(b.selectModel).toHaveBeenCalledWith({ sessionId: 's1', provider: 'local', model: 'local' })
+  expect(b.selectModel).toHaveBeenCalledWith({ sessionId: 's1', provider: 'local', model: 'gemma' })
   expect(b.startSession).not.toHaveBeenCalled()
 })
 
+it('stays in the Hub when the clicked model has not started', async () => {
+  const b = mount({ phase: 'failed', error: 'out of memory', model: { id: 'gemma' } }, { setDefaultModel: vi.fn(async () => ({ ok: true })) })
+  openFromChat(b.optionRow, b.t)
+  await expect(b.runAction('use', { id: 'gemma' })).rejects.toThrow('out of memory')
+  expect(b.openSession).not.toHaveBeenCalled()
+  expect(b.selectModel).not.toHaveBeenCalled()
+})
+
 it('opens a new chat on Use when the Hub was opened from the sidebar', async () => {
-  const b = mount({}, { setDefaultModel: vi.fn(async () => ({ ok: true })) })
+  const b = mount({ phase: 'running', model: { id: 'gemma' } }, { setDefaultModel: vi.fn(async () => ({ ok: true })) })
   act(() => { b.selectPanel('jan-model-hub') })
-  await act(async () => { void b.runAction('use', { id: 'gemma' }) })
+  await act(async () => { await b.runAction('use', { id: 'gemma' }) })
   expect(b.startSession).toHaveBeenCalledOnce()
   expect(b.openSession).not.toHaveBeenCalled()
+  expect(b.selectModel).toHaveBeenCalledWith({ sessionId: 's2', provider: 'local', model: 'gemma' })
 })
 
 it('switches the asking chat to a downloaded model once it is installed', async () => {
@@ -261,10 +280,10 @@ it('switches the asking chat to a downloaded model once it is installed', async 
   await act(async () => { await b.runAction('download', { repo: 'Meta/Llama-GGUF', file: 'llama-Q4_K_M.gguf', name: 'llama-Q4_K_M' }) })
   expect(b.openSession).toHaveBeenCalledWith('s1')
   expect(b.selectPanel).toHaveBeenLastCalledWith(null)
-  await b.update({ downloads: [{ id: 'llama', name: 'llama-Q4_K_M', progress: { receivedBytes: 1, totalBytes: 2 } }] })
+  await b.update({ downloads: [{ id: 'llama', name: 'llama-Q4_K_M', repo: 'Meta/Llama-GGUF', progress: { receivedBytes: 1, totalBytes: 2 } }] })
   expect(setDefaultModel).not.toHaveBeenCalled()
-  await b.update({ downloads: [], models: [{ id: 'llama', name: 'llama-Q4_K_M' }] })
-  await waitFor(() => expect(b.selectModel).toHaveBeenCalledWith({ sessionId: 's1', provider: 'local', model: 'local' }))
+  await b.update({ phase: 'running', model: { id: 'llama' }, downloads: [], models: [{ id: 'llama', name: 'llama-Q4_K_M', repo: 'Meta/Llama-GGUF' }] })
+  await waitFor(() => expect(b.selectModel).toHaveBeenCalledWith({ sessionId: 's1', provider: 'local', model: 'llama' }))
   expect(setDefaultModel).toHaveBeenCalledWith('llama')
 })
 
@@ -274,6 +293,6 @@ it('switches the asking chat when the download finishes before the feed reports 
   const b = mount({}, { setDefaultModel, downloadRepoFile })
   openFromChat(b.optionRow, b.t)
   await act(async () => { await b.runAction('download', { repo: 'Meta/Llama-GGUF', file: 'llama-Q4_K_M.gguf', name: 'llama-Q4_K_M' }) })
-  await b.update({ downloads: [], models: [{ id: 'llama', name: 'llama-Q4_K_M' }] })
-  await waitFor(() => expect(b.selectModel).toHaveBeenCalledWith({ sessionId: 's1', provider: 'local', model: 'local' }))
+  await b.update({ phase: 'running', model: { id: 'llama' }, downloads: [], models: [{ id: 'llama', name: 'llama-Q4_K_M', repo: 'Meta/Llama-GGUF' }] })
+  await waitFor(() => expect(b.selectModel).toHaveBeenCalledWith({ sessionId: 's1', provider: 'local', model: 'llama' }))
 })

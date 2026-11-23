@@ -247,6 +247,9 @@ window.__ModuleLoader__.load({
       return result.value
     }
     const stem = file => file.replace(/\.gguf$/i, '')
+    // A downloaded file's identity: its repository plus its GGUF stem. Two repositories can publish the same
+    // stem as different installs, so a stem alone can match another repository's model or download.
+    const artifact = (repo, name) => `${repo.toLowerCase()}/${name}`
     const words = text => text.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []
     const units = ['B', 'KB', 'MB', 'GB', 'TB']
     const sizeBytes = size => {
@@ -312,7 +315,9 @@ window.__ModuleLoader__.load({
       const quants = (Array.isArray(row?.quants) ? row.quants : []).flatMap(quant => {
         const match = typeof quant?.path === 'string' ? FILE.exec(quant.path) : null
         if (match === null || projectorPaths.has(quant.path)) return []
-        const file = decodeURIComponent(match[2])
+        // One badly escaped catalog path drops only its own file.
+        let file
+        try { file = decodeURIComponent(match[2]) } catch { return [] }
         if (/mmproj|(?:^|[-_.])imatrix(?=[-_.]|$)|^dflash-|\-draft|-\d{5}-of-\d{5}\.gguf$/i.test(file)) return []
         const name = stem(file)
         return [{ repo: match[1], file, name, size: String(quant.file_size ?? ''), bytes: sizeBytes(quant.file_size) }]
@@ -388,11 +393,14 @@ window.__ModuleLoader__.load({
       }
     }
 
-    // The followed state once the local server has finished starting or failed; `starting` and
-    // `checking` are transient, and the feed can trail the call that ended them.
-    const SETTLE_MS = 10000
-    function settled(feed) {
-      const done = state => state.phase !== 'starting' && state.phase !== 'checking'
+    // The followed state once the local server has finished starting `id` or failed; `starting` and
+    // `checking` are transient, and the feed can trail the call that ended them, so a state still naming
+    // the previous default is not settled yet. Loading a large model into memory can take a minute; past
+    // this the start counts as unfinished.
+    const SETTLE_MS = 120000
+    function settled(feed, id) {
+      const done = state => state.phase === 'failed'
+        || (state.phase !== 'starting' && state.phase !== 'checking' && state.model?.id === id)
       if (done(feed.getSnapshot())) return Promise.resolve(feed.getSnapshot())
       return new Promise((resolve) => {
         const timeout = setTimeout(() => { stop(); resolve(feed.getSnapshot()) }, SETTLE_MS)
@@ -466,14 +474,14 @@ window.__ModuleLoader__.load({
     }
 
     function installedVariant(item, quant, index, installed) {
-      return installed.models.get(quant.name)
+      return installed.models.get(artifact(quant.repo, quant.name))
         ?? (index === item.recommended ? installed.curated.get(quant.repo.toLowerCase()) : undefined)
     }
 
     function ModelCard({ item, jobs, inventory, act, cancel, busy, failure, engineError, openSettings, fits, installedOnly, smallestFirst, detail = false, t, locale }) {
       const [requested, setChoice] = React.useState(null)
       const variants = item.quants.map((quant, index) => ({
-        quant, index, job: jobs.get(quant.name), installed: installedVariant(item, quant, index, inventory),
+        quant, index, job: jobs.get(artifact(quant.repo, quant.name)), installed: installedVariant(item, quant, index, inventory),
       })).filter(({ quant, installed }) => (!fits || quant.bytes + item.projectorBytes <= fits) && (!installedOnly || installed))
       const selected = variants.find(variant => variant.index === requested)
         ?? variants.find(variant => variant.job)
@@ -675,7 +683,7 @@ window.__ModuleLoader__.load({
         }))
     }
     const owns = (item, inventory) => item.quants.some((quant, index) => installedVariant(item, quant, index, inventory) !== undefined)
-    const transferOf = (item, jobs) => item.quants.map(quant => jobs.get(quant.name)).find(Boolean)
+    const transferOf = (item, jobs) => item.quants.map(quant => jobs.get(artifact(quant.repo, quant.name))).find(Boolean)
     const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
 
     // Tags read the same on tiles, the spotlight and full cards.
@@ -806,12 +814,12 @@ window.__ModuleLoader__.load({
       const inventory = React.useMemo(() => {
         const byId = new Map(local.models.map(model => [model.id, model]))
         return {
-          models: new Map(local.models.map(model => [model.name, model])),
+          models: new Map(local.models.filter(model => model.repo !== undefined).map(model => [artifact(model.repo, model.name), model])),
           // Curated installs in Settings stand for the recommended Hub variant of their repository.
           curated: new Map(local.catalog.filter(entry => entry.installed).map(entry => [entry.repo.toLowerCase(), byId.get(entry.id)])),
         }
       }, [local.models, local.catalog])
-      const jobs = React.useMemo(() => new Map(local.downloads.map(job => [job.name, job])), [local.downloads])
+      const jobs = React.useMemo(() => new Map(local.downloads.map(job => [artifact(job.repo, job.name), job])), [local.downloads])
       const fits = filters.includes('fits') ? budget : 0
       const installedOnly = filters.includes('installed')
       const ranked = React.useMemo(() => cards === null ? [] : sortCatalog(cards, query, sort, locale), [cards, query, sort, locale])
@@ -906,7 +914,7 @@ window.__ModuleLoader__.load({
       .jan-hub{--jan-hub-inset:clamp(24px,4vw,48px);box-sizing:border-box;display:flex;flex-direction:column;height:100%;color:var(--dsw-alias-label-primary)}
       @media(max-width:767px){.jan-hub{--jan-hub-inset:20px}}
       .jan-hub-head,.jan-hub-column{box-sizing:border-box;width:100%;max-width:calc(960px + 2 * var(--jan-hub-inset));margin:0 auto;padding-inline:var(--jan-hub-inset)}
-      .jan-hub-head{flex:none;padding-top:28px}
+      .jan-hub-head{flex:none;padding-top:calc(28px + var(--jan-frame-top-clearance,0px))}
       .jan-hub h1{margin:0;font-size:20px;font-weight:500;line-height:28px}
       .jan-hub-head>p{margin:4px 0 0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);text-wrap:pretty}
       .jan-hub-scroll{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto}
@@ -999,27 +1007,26 @@ window.__ModuleLoader__.load({
           const remote = scope.remote.llamaCpp
           const feed = follow(remote)
           scope.effect(() => () => feed.dispose(), 'jan-model-hub: local model state')
-          const mainBlank = () => Object.values(scope.sessions.list.getSnapshot().byId)
-            .find(session => session.blank && (session.retainedBy.mainView ?? 0) > 0)
-          // Open the main blank chat; it resolves once the session exists.
-          const openBlank = async () => {
+          // Open a new chat and resolve with the Session that request opened, not whichever blank is showing.
+          const openBlank = () => new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => { reject(new Error('the new chat did not open')) }, 10000)
             scope.layout.selectPanel(null)
-            scope.uiWorkspace.startSession()
-            return mainBlank() ?? await new Promise((resolve, reject) => {
-              const timeout = setTimeout(() => { stop(); reject(new Error('the new chat did not open')) }, 10000)
-              const stop = scope.sessions.list.subscribe(() => {
-                const found = mainBlank()
-                if (found === undefined) return
-                clearTimeout(timeout)
-                stop()
-                resolve(found)
-              })
-            })
+            scope.uiWorkspace.startSession(undefined, { onOpen: id => { clearTimeout(timeout); resolve({ id }) } })
+          })
+          // The local server once it is serving the new default; a failed or unfinished start is an error, so
+          // the Hub never leaves for a chat whose route has no server.
+          const started = async (id) => {
+            const after = await settled(feed, id)
+            if (after.phase !== 'running' || after.model?.id !== id) throw new Error(t('startFailed', { error: after.error ?? after.phase }))
+            return after
           }
-          // Open the main blank chat and route it to the local model the Host just made default.
-          const startLocalChat = async (provider) => {
+          // Chats name the clicked model by its id; the route's `local` alias follows whichever model is
+          // default later, which would switch this chat behind the user's back.
+          const selectLocal = (sessionId, provider, id) => answer(scope.remote.session.selectModel({ sessionId, provider, model: id }))
+          // Open a new chat on the local model the Host just made default.
+          const startLocalChat = async (provider, id) => {
             const blank = await openBlank()
-            await answer(scope.remote.session.selectModel({ sessionId: blank.id, provider, model: 'local' }))
+            await selectLocal(blank.id, provider, id)
           }
           // The chat whose model menu opened the Hub; Use and Download return to it. Leaving the Hub, or
           // opening it any other way, forgets it.
@@ -1037,10 +1044,10 @@ window.__ModuleLoader__.load({
           const exists = sessionId => scope.sessions.list.getSnapshot().byId[sessionId] !== undefined
           let showToast, serial = 0
           const notify = toast => showToast?.({ key: ++serial, ...toast })
-          const returnToChat = async (provider, sessionId) => {
+          const returnToChat = async (provider, sessionId, id) => {
             scope.layout.selectPanel(null)
             scope.uiWorkspace.openSession(sessionId)
-            await answer(scope.remote.session.selectModel({ sessionId, provider, model: 'local' }))
+            await selectLocal(sessionId, provider, id)
           }
           // Downloads started for a chat: model id -> { sessionId, name, seen }. Memory only; after a reload the
           // download continues in Downloads but the chat is not switched.
@@ -1050,9 +1057,8 @@ window.__ModuleLoader__.load({
           const finishForChat = async (id, entry) => {
             try {
               await answer(remote.setDefaultModel(id))
-              const after = await settled(feed)
-              if (after.phase === 'failed') throw new Error(t('startFailed', { error: after.error ?? '' }))
-              if (exists(entry.sessionId)) await answer(scope.remote.session.selectModel({ sessionId: entry.sessionId, provider: after.provider, model: 'local' }))
+              const after = await started(id)
+              if (exists(entry.sessionId)) await selectLocal(entry.sessionId, after.provider, id)
               notify({ text: t('readyInChat', { name: entry.name }), sessionId: entry.sessionId })
             } catch (error) {
               // The file is installed; only starting or selecting it failed, and the error says which.
@@ -1098,11 +1104,10 @@ window.__ModuleLoader__.load({
               if (kind === 'use') await answer(remote.setDefaultModel(target.id))
               // setDefaultModel also returns when the worker failed to start; that failure arrives only
               // through the followed state, and a chat opened on a route with no server has no model.
-              const after = await settled(feed)
-              if (after.phase === 'failed') throw new Error(t('startFailed', { error: after.error ?? '' }))
+              const after = await started(target.id)
               const back = origin
-              if (back !== null && exists(back)) await returnToChat(after.provider, back)
-              else await startLocalChat(after.provider)
+              if (back !== null && exists(back)) await returnToChat(after.provider, back, target.id)
+              else await startLocalChat(after.provider, target.id)
             }
           }
           const openSettings = () => { ctx.get('settingsNavigation')?.open('models') }
@@ -1168,9 +1173,8 @@ window.__ModuleLoader__.load({
           const chatOn = async target => {
             if (target.installed) {
               await answer(remote.setDefaultModel(target.id))
-              const after = await settled(feed)
-              if (after.phase === 'failed') throw new Error(t('startFailed', { error: after.error ?? '' }))
-              return startLocalChat(after.provider)
+              const after = await started(target.id)
+              return startLocalChat(after.provider, target.id)
             }
             const modelId = target.file !== undefined ? await answer(remote.downloadRepoFile(target.repo, target.file))
               : (await answer(remote.downloadModel(target.id)), target.id)
