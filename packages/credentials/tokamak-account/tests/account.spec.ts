@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -13,12 +13,16 @@ import { TokamakAccountProvider } from '../src/index.ts'
 import { startMockTokamak, type MockTokamak } from './mock-tokamak.ts'
 
 const cleanups: Array<() => Promise<unknown>> = []
-afterEach(async () => { while (cleanups.length) await cleanups.pop()!() })
+afterEach(async () => {
+  vi.unstubAllEnvs()
+  while (cleanups.length) await cleanups.pop()!()
+})
 
 const client: AccountClientMetadata = { version: '1.0.0', locale: 'en', timezoneOffsetSeconds: 0 }
 
 async function fixture(configure?: (mock: MockTokamak) => void, config: Record<string, unknown> = {},
   seed?: (ctx: Context, mock: MockTokamak) => Promise<void>) {
+  vi.stubEnv('TOKAMAK_API_KEY', undefined)
   const mock = await startMockTokamak()
   configure?.(mock)
   cleanups.push(() => mock.close())
