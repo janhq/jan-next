@@ -1,0 +1,3 @@
+- insert:
+    - id: team-direct-inbox-interrupt-order
+      name: './interrupt-order.mjs'
