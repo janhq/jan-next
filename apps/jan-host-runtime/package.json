@@ -130,6 +130,7 @@
     "@janhq/jan-tool-bash": "workspace:*",
     "@janhq/jan-tool-bash-persistent": "workspace:*",
     "@janhq/jan-tool-call-timeout-policy": "workspace:*",
+    "@janhq/jan-tool-capture-media": "workspace:*",
     "@janhq/jan-tool-cordis": "workspace:*",
     "@janhq/jan-tool-executor-ptc": "workspace:*",
     "@janhq/jan-tool-fs": "workspace:*",
