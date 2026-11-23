@@ -47,14 +47,14 @@ function updates(ctx: Context): CredentialRef[] {
 }
 
 describe('resolveSpec', () => {
-  it('defaults to .credentials.yaml under the harness home with watching on', () => {
+  it('defaults to .credentials.yaml under the harness home, with watching on and keychain writes off', () => {
     const spec = resolveSpec({ janHome: '/custom/home' })
-    expect(spec).toEqual({ filename: resolve('/custom/home/.credentials.yaml'), watch: true, debounceMs: 100 })
+    expect(spec).toEqual({ filename: resolve('/custom/home/.credentials.yaml'), watch: true, debounceMs: 100, keychain: false })
   })
 
   it('lets an explicit path win over the home', () => {
-    const spec = resolveSpec({ path: '/etc/jan/creds.yaml', janHome: '/ignored', watch: false, debounceMs: 5 })
-    expect(spec).toEqual({ filename: resolve('/etc/jan/creds.yaml'), watch: false, debounceMs: 5 })
+    const spec = resolveSpec({ path: '/etc/jan/creds.yaml', janHome: '/ignored', watch: false, debounceMs: 5, keychain: true })
+    expect(spec).toEqual({ filename: resolve('/etc/jan/creds.yaml'), watch: false, debounceMs: 5, keychain: true })
   })
 })
 

@@ -828,7 +828,7 @@ export interface Config {
 
 ## `@janhq/jan-credentials-local`
 
-- `source`: [`packages/credentials/credentials-local/src/index.ts:64`](../packages/credentials/credentials-local/src/index.ts)
+- `source`: [`packages/credentials/credentials-local/src/index.ts:66`](../packages/credentials/credentials-local/src/index.ts)
 
 ```ts config-catalog
 /** Plugin config: file location and hot-reload behavior. */
@@ -841,6 +841,8 @@ export interface Config {
   watch?: boolean
   /** Watcher write-settle window in milliseconds; defaults to 100. */
   debounceMs?: number
+  /** Store new values in the OS keychain; defaults to false. Existing keychain entries remain readable. */
+  keychain?: boolean
 }
 ```
 

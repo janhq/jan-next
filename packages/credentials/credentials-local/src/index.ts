@@ -1,6 +1,6 @@
 /**
- * File-backed credentials provider over `$JAN_HOME/.credentials.yaml`, layered
- * over the environment in this precedence order:
+ * Local credentials provider over `$JAN_HOME/.credentials.yaml` and optionally
+ * the OS keychain, layered over the environment in this precedence order:
  *
  * ```text
  * $JAN_HOME/.credentials.yaml        (provider-managed, written by set/unset)
@@ -26,19 +26,16 @@
  * wholesale so a deleted entry never lingers in memory.
  *
  * The document holds credentials, which is why `refs` is a strict
- * `CredentialRef`-to-string mapping rather than a dotenv file; a foreign
- * top-level key another tool wrote is kept but resolves nothing: a store the
- * Harness owns and never materializes into the environment cannot also serve
- * as the user's environment layer; a store that doubled as the environment
- * layer would shadow non-secret entries behind its precedence, making them
- * silently unreachable.
+ * `CredentialRef`-to-value mapping rather than a dotenv file. Unknown
+ * top-level keys stay on disk and resolve nothing.
  * @module @janhq/jan-credentials-local
  */
 
 import { Context, Service } from '@janhq/cordis'
 import z from '@janhq/schemastery'
 import { watch as chokidarWatch } from 'chokidar'
-import { mkdir, readFile, stat } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { mkdir, readFile, rm, stat } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { Document, isMap, isScalar, parseDocument, type YAMLError } from 'yaml'
 import { withFileLock, writeFileAtomic } from '@janhq/jan-atomic-write'
@@ -46,7 +43,6 @@ import { canonicalizeWatchPath, resolveJanHome } from '@janhq/jan-home-paths'
 import { launchEnvironmentOf } from '@janhq/jan-launch-environment'
 import { CredentialProvider, credentialRef, parseCredentialKey } from '@janhq/jan-credentials'
 import type {
-  ApiKeyRecord,
   CredentialInfo,
   CredentialKey,
   CredentialRecord,
@@ -56,6 +52,12 @@ import type {
   ResolvedCredential,
 } from '@janhq/jan-credentials'
 import type { LaunchEnvironmentEntry } from '@janhq/jan-launch-environment'
+import { KEYCHAIN_ENTRY_ID, KEYCHAIN_REMOVE_FAILURE, keychainService, loadKeychain } from './keychain.ts'
+import type { KeychainBackend } from './keychain.ts'
+import { resolvePasswordManagerValue, vaultCli } from './password-manager.ts'
+
+const KEYCHAIN_UNREADABLE = 'Jan could not read this saved credential from the OS keychain. Unlock it or save the credential again.'
+const KEYCHAIN_FALLBACK = 'The OS keychain is unavailable. Jan will save new credentials in its private file for this run.'
 
 /** Basename of the credentials document inside the harness home. */
 export const CREDENTIALS_FILENAME = '.credentials.yaml'
@@ -70,6 +72,8 @@ export interface Config {
   watch?: boolean
   /** Watcher write-settle window in milliseconds; defaults to 100. */
   debounceMs?: number
+  /** Store new values in the OS keychain; defaults to false. Existing keychain entries remain readable. */
+  keychain?: boolean
 }
 
 /** Fully resolved provider parameters; defaulting happens here, never inline. */
@@ -77,6 +81,7 @@ interface ResolvedSpec {
   filename: string
   watch: boolean
   debounceMs: number
+  keychain: boolean
 }
 
 /**
@@ -90,6 +95,7 @@ export function resolveSpec(config: Config): ResolvedSpec {
     filename: resolve(config.path ?? join(resolveJanHome(config.janHome), CREDENTIALS_FILENAME)),
     watch: config.watch ?? true,
     debounceMs: config.debounceMs ?? 100,
+    keychain: config.keychain ?? false,
   }
 }
 
@@ -166,12 +172,25 @@ function describeYamlError(error: YAMLError): string {
 /** The document layout this build reads and writes. */
 export const DOCUMENT_VERSION = 1
 
+interface KeychainMarker { keychain: string }
+type StoredRef = string | KeychainMarker
+type StoredRecord = CredentialRecord | (KeychainMarker & { kind: CredentialRecord['kind'] })
+
+function readMarker(value: unknown, where: string, fieldCount: number): KeychainMarker | undefined {
+  if (value === null || typeof value !== 'object' || !Object.hasOwn(value, 'keychain')) return undefined
+  const { keychain } = value as Record<string, unknown>
+  if (Array.isArray(value) || Object.keys(value).length !== fieldCount || typeof keychain !== 'string' || !KEYCHAIN_ENTRY_ID.test(keychain)) {
+    throw new TypeError(`credentials-local: invalid OS keychain marker for ${where}`)
+  }
+  return { keychain }
+}
+
 /** One parsed credentials document: the two key spaces it stores, keyed as written, plus the top-level keys it does not read. */
 export interface CredentialsDocument {
   /** Reference entries, keyed by {@link CredentialRef}. */
-  refs: Map<string, string>
+  refs: Map<string, StoredRef>
   /** Stored records, keyed by {@link CredentialKey}. */
-  records: Map<string, CredentialRecord>
+  records: Map<string, StoredRecord>
   /** Top-level keys this build does not read; they stay on disk and resolve nothing. */
   ignoredKeys: string[]
 }
@@ -268,14 +287,19 @@ export function renderFlatLayoutMigration(text: string): string | undefined {
   return `version: ${DOCUMENT_VERSION}\nrefs:\n${body}${text.endsWith('\n') ? '' : '\n'}`
 }
 
-/** Admit a `refs` section: POSIX-identifier keys over non-empty string values. */
-function parseRefs(section: unknown, filename: string): Map<string, string> {
-  const entries = new Map<string, string>()
+/** Admit a `refs` section: POSIX-identifier keys over non-empty strings or keychain markers. */
+function parseRefs(section: unknown, filename: string): Map<string, StoredRef> {
+  const entries = new Map<string, StoredRef>()
   for (const [key, value] of Object.entries(asSection(section, 'refs', filename))) {
     // credentialRef throws on anything that is not a POSIX identifier, which
     // is exactly the constraint a stored reference must satisfy to be
     // addressable through the seam.
     credentialRef(key)
+    const marker = readMarker(value, `"${key}" in ${filename}`, 1)
+    if (marker !== undefined) {
+      entries.set(key, marker)
+      continue
+    }
     // The key name is quoted, never the value: a wrong-typed entry is still a
     // secret the user meant to store.
     if (typeof value !== 'string') {
@@ -290,32 +314,57 @@ function parseRefs(section: unknown, filename: string): Map<string, string> {
 }
 
 /** Admit a `records` section: `<scope>/<id>` keys over tagged record mappings. */
-function parseRecords(section: unknown, filename: string): Map<string, CredentialRecord> {
-  const entries = new Map<string, CredentialRecord>()
+function parseRecords(section: unknown, filename: string): Map<string, StoredRecord> {
+  const entries = new Map<string, StoredRecord>()
   for (const [key, value] of Object.entries(asSection(section, 'records', filename))) {
     parseCredentialKey(key)
-    entries.set(key, parseRecord(key, value, filename))
+    const where = `record "${key}" in ${filename}`
+    const marker = readMarker(value, where, 2)
+    if (marker === undefined) {
+      entries.set(key, parseRecord(key, value, filename))
+    } else {
+      const { kind } = value as Record<string, unknown>
+      if (kind !== 'api-key' && kind !== 'grant') {
+        throw new TypeError(`credentials-local: invalid OS keychain marker for ${where}`)
+      }
+      entries.set(key, { kind, ...marker })
+    }
   }
   return entries
 }
 
 /**
- * Refuse an api-key record the read path could not admit, before it is
- * rendered: an empty key, an env name outside the reference grammar, or an
- * empty env value would persist a document `parseRecord` rejects at the next
- * boot — a durable-boundary write is validated where it is written.
- * @param key - the record's credential key, for the failure message.
- * @param record - the api-key record a mutation returned.
+ * Remove the credentials document and its indexed native entries while holding its writer lock.
+ * When cleanup fails, keep the document so the same reset can be retried.
+ * @param filename - absolute path of the credentials document to remove.
  */
-function assertStorableApiKey(key: CredentialKey, record: ApiKeyRecord): void {
-  if (record.key !== undefined && record.key.length === 0) {
-    throw new TypeError(`credentials-local: record "${key}" has an empty key; omit the field instead`)
-  }
-  for (const [name, value] of Object.entries(record.env ?? {})) {
-    credentialRef(name)
-    if (value.length === 0) {
-      throw new TypeError(`credentials-local: record "${key}" env "${name}" must be a non-empty string`)
-    }
+export async function resetCredentialDocument(filename: string): Promise<void> {
+  try {
+    await withFileLock(filename, async () => {
+      await assertOwnerOnly(filename)
+      const text = await readFile(filename, 'utf8').catch((error: unknown) => {
+        if (isENOENT(error)) return undefined
+        throw error
+      })
+      if (text === undefined) return
+      if (renderFlatLayoutMigration(text) === undefined) {
+        const { refs, records } = parseCredentialsDocument(text, filename)
+        const entries = new Set<string>()
+        for (const value of refs.values()) if (typeof value === 'object') entries.add(value.keychain)
+        for (const record of records.values()) if ('keychain' in record) entries.add(record.keychain)
+        if (entries.size > 0) {
+          try {
+            const backend = await loadKeychain(await keychainService(filename))
+            for (const id of entries) await backend.remove(id)
+          } catch {
+            throw new Error(KEYCHAIN_REMOVE_FAILURE)
+          }
+        }
+      }
+      await rm(filename, { force: true })
+    }, { waitMs: DOCUMENT_LOCK_WAIT_MS })
+  } catch (error) {
+    if (!isENOENT(error)) throw error
   }
 }
 
@@ -444,7 +493,7 @@ function mutableDocument(text: string | undefined): Document {
  * @param value - the new value, or `undefined` to delete the key.
  * @returns the text to persist.
  */
-function renderRef(text: string | undefined, ref: CredentialRef, value: string | undefined): string {
+function renderRef(text: string | undefined, ref: CredentialRef, value: StoredRef | undefined): string {
   const document = mutableDocument(text)
   if (value === undefined) deleteSectionEntry(document, 'refs', ref)
   else document.setIn(['refs', ref], value)
@@ -460,7 +509,7 @@ function renderRef(text: string | undefined, ref: CredentialRef, value: string |
  * @param record - the new record, or `undefined` to delete it.
  * @returns the text to persist.
  */
-function renderRecord(text: string | undefined, key: CredentialKey, record: CredentialRecord | undefined): string {
+function renderRecord(text: string | undefined, key: CredentialKey, record: StoredRecord | undefined): string {
   const document = mutableDocument(text)
   if (record === undefined) deleteSectionEntry(document, 'records', key)
   else document.setIn(['records', key], record)
@@ -520,9 +569,12 @@ export class LocalCredentialProvider extends CredentialProvider {
     janHome: z.string(),
     watch: z.boolean().default(true),
     debounceMs: z.number().min(0).default(100),
+    keychain: z.boolean().default(false),
   })
 
   private readonly spec: ResolvedSpec
+  private backend: Promise<KeychainBackend> | undefined
+  private keychainWriteFailed = false
   /**
    * Raw text of the last read or persisted document; `undefined` while the
    * file is absent. Watcher events whose content equals this cache are no-ops,
@@ -530,9 +582,9 @@ export class LocalCredentialProvider extends CredentialProvider {
    */
   private text: string | undefined
   /** Parsed reference snapshot; replaced wholesale on every reload. */
-  private values = new Map<string, string>()
+  private values = new Map<string, StoredRef>()
   /** Parsed record snapshot; replaced wholesale on every reload. */
-  private records = new Map<string, CredentialRecord>()
+  private records = new Map<string, StoredRecord>()
   /**
    * Single exclusive operation chain: watcher reloads and line edits run one
    * at a time in queue order (settled tail), so an edit can never render from
@@ -621,14 +673,19 @@ export class LocalCredentialProvider extends CredentialProvider {
     }
   }
 
-  override resolve(ref: CredentialRef): Promise<ResolvedCredential | undefined> {
+  override async resolve(ref: CredentialRef, options?: { dereference?: boolean }): Promise<ResolvedCredential | undefined> {
     const stored = this.values.get(ref)
-    if (stored !== undefined) return Promise.resolve({ value: stored, source: 'file' })
+    const value = typeof stored === 'object'
+      ? await this.readSealed(stored, document => document.refs.get(ref), value => this.readStoredRef(value))
+      : stored
+    if (value !== undefined) {
+      const pointer = options?.dereference !== false && (value.startsWith('op://') || value.startsWith('bw://'))
+      return { value: pointer ? await resolvePasswordManagerValue(value, vaultCli(launchEnvironmentOf(this.ctx))) : value, source: 'file' }
+    }
     const inherited = this.inherited(ref)
-    if (inherited !== undefined) return Promise.resolve({ value: inherited, source: 'env' })
+    if (inherited !== undefined) return { value: inherited, source: 'env' }
     const fallback = this.dotenvFallback(ref)
-    if (fallback !== undefined) return Promise.resolve({ value: fallback.value, source: fallback.source })
-    return Promise.resolve(undefined)
+    return fallback === undefined ? undefined : { value: fallback.value, source: fallback.source }
   }
 
   override describe(ref: CredentialRef): Promise<CredentialInfo> {
@@ -653,8 +710,12 @@ export class LocalCredentialProvider extends CredentialProvider {
     await this.write(ref, undefined)
   }
 
-  override readRecord(key: CredentialKey): Promise<CredentialRecord | undefined> {
-    return Promise.resolve(this.records.get(key))
+  override async readRecord(key: CredentialKey): Promise<CredentialRecord | undefined> {
+    const stored = this.records.get(key)
+    if (stored !== undefined && 'keychain' in stored) {
+      return this.readSealed(stored, document => document.records.get(key), value => this.readStoredRecord(value, key))
+    }
+    return stored
   }
 
   override describeRecord(key: CredentialKey): Promise<CredentialRecordInfo> {
@@ -690,22 +751,24 @@ export class LocalCredentialProvider extends CredentialProvider {
         // stands now, not as this process last saw it — another process may
         // have rotated it since.
         await this.reconcileFromDisk()
-        const current = this.records.get(key)
+        const stored = this.records.get(key)
+        let current: CredentialRecord | undefined
+        if (stored !== undefined && 'keychain' in stored) {
+          current = await this.readStoredRecord(stored, key)
+          if (current === undefined) throw new Error(KEYCHAIN_UNREADABLE)
+        } else {
+          current = stored
+        }
         const next = await mutate(current)
         if (next === undefined) return current
-        // Admitted before it is rendered: what the read path would refuse is
-        // refused here first, so a caller can never persist a document the
-        // next boot rejects, and a value refused here has not been stored.
-        if (next.kind === 'grant') assertJsonValue(`record "${key}" payload`, next.payload, new Set())
-        else assertStorableApiKey(key, next)
-        const nextText = renderRecord(this.text, key, next)
-        // 0600: a document holding secrets is never world-readable.
-        await writeFileAtomic(this.spec.filename, nextText, { mode: 0o600, dirMode: 0o700 })
-        this.text = nextText
-        this.records.set(key, next)
-        // After the commit, on the same terms as a reference write.
+        const record = parseRecord(key, next, this.spec.filename)
+        const marker = await this.seal(record)
+        const replacement = marker === undefined ? record : { kind: record.kind, ...marker }
+        await this.publishDocument(() => renderRecord(this.text, key, replacement), marker)
+        this.records.set(key, replacement)
+        if (stored !== undefined && 'keychain' in stored) await this.discard(stored)
         this.notifyRecordUpdated(key)
-        return next
+        return record
       }, { waitMs: DOCUMENT_LOCK_WAIT_MS })
     })
   }
@@ -719,14 +782,105 @@ export class LocalCredentialProvider extends CredentialProvider {
       await mkdir(dirname(this.spec.filename), { recursive: true, mode: 0o700 })
       await withFileLock(this.spec.filename, async () => {
         await this.reconcileFromDisk()
-        if (!this.records.has(key)) return
-        const nextText = renderRecord(this.text, key, undefined)
-        await writeFileAtomic(this.spec.filename, nextText, { mode: 0o600, dirMode: 0o700 })
-        this.text = nextText
+        const stored = this.records.get(key)
+        if (stored === undefined) return
+        await this.publishDocument(() => renderRecord(this.text, key, undefined), undefined)
         this.records.delete(key)
+        if ('keychain' in stored) await this.discard(stored)
         this.notifyRecordUpdated(key)
       }, { waitMs: DOCUMENT_LOCK_WAIT_MS })
     })
+  }
+
+  private getKeychain(): Promise<KeychainBackend> {
+    return this.backend ??= keychainService(this.spec.filename).then(loadKeychain)
+  }
+
+  /** Store a new generation before its marker can appear in the document. */
+  private async seal(value: string | CredentialRecord): Promise<KeychainMarker | undefined> {
+    if (!this.spec.keychain || this.keychainWriteFailed) return undefined
+    const marker = { keychain: randomUUID() }
+    const serialized = JSON.stringify(value)
+    let backend: KeychainBackend | undefined
+    try {
+      backend = await this.getKeychain()
+      await backend.write(marker.keychain, serialized)
+      return marker
+    } catch {
+      this.keychainWriteFailed = true
+      this.ctx.logger.warn(KEYCHAIN_FALLBACK)
+      if (backend !== undefined) await this.discard(marker)
+      return undefined
+    }
+  }
+
+  /** Roll back a newly allocated generation if rendering or the YAML commit fails. */
+  private async publishDocument(render: () => string, marker: KeychainMarker | undefined): Promise<void> {
+    try {
+      const text = render()
+      await writeFileAtomic(this.spec.filename, text, { mode: 0o600, dirMode: 0o700 })
+      this.text = text
+    } catch (error) {
+      if (marker !== undefined) await this.discard(marker)
+      throw error
+    }
+  }
+
+  private async discard(marker: KeychainMarker): Promise<void> {
+    try { await (await this.getKeychain()).remove(marker.keychain) } catch {
+      this.ctx.logger.warn(KEYCHAIN_REMOVE_FAILURE)
+    }
+  }
+
+  private async readNative(marker: KeychainMarker): Promise<unknown> {
+    try {
+      const value = await (await this.getKeychain()).read(marker.keychain)
+      return value === undefined ? undefined : JSON.parse(value) as unknown
+    } catch {
+      throw new Error(KEYCHAIN_UNREADABLE)
+    }
+  }
+
+  private async readStoredRef(stored: StoredRef): Promise<string | undefined> {
+    if (typeof stored === 'string') return stored
+    const value = await this.readNative(stored)
+    if (value === undefined) return undefined
+    if (typeof value !== 'string' || value.length === 0) throw new Error(KEYCHAIN_UNREADABLE)
+    return value
+  }
+
+  private async readStoredRecord(marker: StoredRecord, key: CredentialKey): Promise<CredentialRecord | undefined> {
+    if (!('keychain' in marker)) return marker
+    const value = await this.readNative(marker)
+    if (value === undefined) return undefined
+    try {
+      const record = parseRecord(key, value, this.spec.filename)
+      if (record.kind === marker.kind) return record
+    } catch {
+      // Native data is secret just like YAML data; never attach its parse error.
+    }
+    throw new Error(KEYCHAIN_UNREADABLE)
+  }
+
+  /** A writer can remove an old generation before this reader's watcher sees the new YAML. */
+  private async readSealed<T, S>(marker: S, locate: (document: CredentialsDocument) => S | undefined,
+    read: (value: S) => Promise<T | undefined>): Promise<T | undefined> {
+    const value = await read(marker)
+    if (value !== undefined) return value
+    let next: S | undefined
+    try {
+      await assertOwnerOnly(this.spec.filename)
+      const text = await readFile(this.spec.filename, 'utf8')
+      next = locate(parseCredentialsDocument(text, this.spec.filename))
+    } catch (error) {
+      if (!isENOENT(error)) throw new Error(KEYCHAIN_UNREADABLE)
+    }
+    if (next === undefined) return undefined
+    if (!sameJsonValue(next, marker)) {
+      const updated = await read(next)
+      if (updated !== undefined) return updated
+    }
+    throw new Error(KEYCHAIN_UNREADABLE)
   }
 
   /** Queue one exclusive document operation behind every earlier one. */
@@ -762,12 +916,12 @@ export class LocalCredentialProvider extends CredentialProvider {
         await this.reconcileFromDisk()
         const existing = this.values.get(ref)
         if (value === undefined && existing === undefined) return
-        const nextText = renderRef(this.text, ref, value)
-        // 0600: a document holding secrets is never world-readable.
-        await writeFileAtomic(this.spec.filename, nextText, { mode: 0o600, dirMode: 0o700 })
-        this.text = nextText
-        if (value === undefined) this.values.delete(ref)
-        else this.values.set(ref, value)
+        const marker = value === undefined ? undefined : await this.seal(value)
+        const replacement = marker ?? value
+        await this.publishDocument(() => renderRef(this.text, ref, replacement), marker)
+        if (replacement === undefined) this.values.delete(ref)
+        else this.values.set(ref, replacement)
+        if (typeof existing === 'object') await this.discard(existing)
         // After the commit: a broken observer must never make the durable
         // write look failed.
         this.notifyUpdated(ref)
@@ -867,7 +1021,7 @@ export class LocalCredentialProvider extends CredentialProvider {
     }
     if (text === this.text || this.isClosed()) return
     const next = text === undefined
-      ? { refs: new Map<string, string>(), records: new Map<string, CredentialRecord>(), ignoredKeys: [] }
+      ? { refs: new Map<string, StoredRef>(), records: new Map<string, StoredRecord>(), ignoredKeys: [] }
       : parseCredentialsDocument(text, this.spec.filename)
     this.warnIgnoredKeys(next)
     const changedRefs = this.changedRefs(this.values, next.refs)
@@ -890,10 +1044,10 @@ export class LocalCredentialProvider extends CredentialProvider {
   }
 
   /** Entries whose stored value changed; the parser has already proven every key addressable. */
-  private changedRefs(prev: Map<string, string>, next: Map<string, string>): CredentialRef[] {
+  private changedRefs(prev: Map<string, StoredRef>, next: Map<string, StoredRef>): CredentialRef[] {
     const changed: CredentialRef[] = []
     for (const key of new Set([...prev.keys(), ...next.keys()])) {
-      if (prev.get(key) === next.get(key)) continue
+      if (sameJsonValue(prev.get(key), next.get(key))) continue
       changed.push(credentialRef(key))
     }
     return changed
@@ -901,8 +1055,8 @@ export class LocalCredentialProvider extends CredentialProvider {
 
   /** Records whose stored value changed; the parser has already proven every key addressable. */
   private changedRecords(
-    prev: Map<string, CredentialRecord>,
-    next: Map<string, CredentialRecord>,
+    prev: Map<string, StoredRecord>,
+    next: Map<string, StoredRecord>,
   ): CredentialKey[] {
     const changed: CredentialKey[] = []
     for (const key of new Set([...prev.keys(), ...next.keys()])) {

@@ -1,5 +1,5 @@
 ---
-description: "Package map for the credential capability family: the credential-reference seam, the environment-and-file provider, the authorization flow registry, and how references keep secret values out of configuration."
+description: "Package map for credential references, local storage and OS keychain integration, and the authorization flow registry."
 kind: "package-group"
 ---
 
@@ -7,7 +7,7 @@ kind: "package-group"
 
 ## Summary
 
-The `credentials/` group lets configuration name secrets instead of embedding their values. Use `credentials/` to store, look up, and remove credentials, `credentials-local/` for private on-machine storage with environment fallbacks, and `authorization/` when obtaining a credential requires asking a human. Rotated stored values apply to the next model request, and a stored value takes precedence over `TOKAMAK_API_KEY=… jan`. Configuration files contain only credential names; local secret values remain readable only by the same OS user.
+The `credentials/` group lets configuration name secrets instead of embedding their values. Use `credentials/` to store, look up, and remove credentials, `credentials-local/` for OS keychain or private YAML storage and password-manager references, and `authorization/` when obtaining a credential requires asking a human. A saved value outranks environment fallbacks, and rotations apply to the next model request.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ Three packages provide the credential feature: one stores, looks up, and removes
 | Package | Role | ctx key |
 |---|---|---|
 | [`credentials/`](credentials/README.md) | Store, look up, and remove secrets at runtime while configuration only names them | `ctx.credentials` |
-| [`credentials-local/`](credentials-local/README.md) | The default on-machine store: a private YAML file that outranks environment fallbacks | registers `ctx.credentials` |
+| [`credentials-local/`](credentials-local/README.md) | Local store with OS keychain and password-manager support, ahead of environment fallbacks | registers `ctx.credentials` |
 | [`authorization/`](authorization/README.md) | Plugin-owned flows that obtain a credential by asking a human | `ctx.authorization` |
 
 -----

@@ -1,5 +1,5 @@
 ---
-description: "The file-backed credentials provider for users and maintainers choosing, configuring, or debugging the local credential store and its environment layering."
+description: "The local credential store: OS keychain storage, private YAML, password-manager references, and environment fallbacks."
 kind: "package-reference"
 ---
 
@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-`jan-credentials-local` keeps API keys and other secrets in a private file under your harness home. You can save credentials through the configuration UI or edit the file directly; changes reload automatically and saved values survive restarts. Credential lookup follows a fixed precedence: the stored file wins, followed by the launch environment, the project's `.env`, and the harness-home `.env`; a newly saved value immediately overrides older environment values. Only your OS user can read the file, but agent tool processes run as that same user, so this store cannot isolate secrets from the agent.
+`jan-credentials-local` keeps API keys and other secrets in a private store under your harness home. Jan Desktop saves new and rewritten values in the OS keychain when available. The managed store wins over the launch environment, the project's `.env`, and the harness-home `.env`, in that order. You can also save a 1Password or Bitwarden reference instead of saving the secret itself.
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@ This package gives a composition a local credential store: save API keys and oth
 
 ### When to use it
 
-Use it as the default local store: the product's base composition loads it, and a key you save through a configuration UI takes effect immediately. Choose a different store when a deployment must keep provider keys away from its own agent — file permissions cannot do that, because the agent's tool processes run as your OS user (see "Who can read the file").
+Use it as the default local store: the product's base composition loads it, and a key you save through a configuration UI takes effect immediately. File permissions do not isolate secrets from tool processes running as your OS user.
 
 ### Setting it up
 
@@ -43,6 +43,7 @@ Use it as the default local store: the product's base composition loads it, and 
 | `janHome` | `$JAN_HOME` or `~/.config/jan-alpha` | Harness home used when `path` is omitted |
 | `watch` | `true` | Reload the file automatically when it changes on disk |
 | `debounceMs` | `100` | Wait this long after a change before reloading, in milliseconds |
+| `keychain` | `false` (`true` in Jan Desktop) | Put new or rewritten values in the OS keychain. Existing keychain entries stay readable regardless of this setting. |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-credentials-local) is the exhaustive source for every accepted field and its JSDoc.
 
@@ -62,7 +63,7 @@ await ctx.credentials.describe(ref)             // { configured, source?, writab
 await ctx.credentials.unset(ref)                // remove
 ```
 
-A key you save is usable by the next request that names it, and `describe` reports whether it is set, where it comes from, and whether you can write to it — never the value itself. Records persist in the same file, addressed by `<owner>/<id>` and managed with the seam's record operations (`readRecord`, `describeRecord`, `listRecords`, `modifyRecord`, `deleteRecord`).
+A key you save is usable by the next request that names it. `describe` reports configuration without reading the keychain or running a CLI. Records use the same store, addressed by `<owner>/<id>` and managed with `readRecord`, `describeRecord`, `listRecords`, `modifyRecord`, and `deleteRecord`.
 
 ### Where keys come from
 
@@ -70,12 +71,27 @@ Keys are resolved in one fixed order — the first place that has a value wins:
 
 | Place | Writable? | Wins over |
 |---|---|---|
-| The stored file | yes (`set`/`unset`) | everything |
+| The managed store (YAML and keychain) | yes (`set`/`unset`) | everything |
 | The environment you launched in (`TOKAMAK_API_KEY=… jan`) | not here | both `.env` files |
 | Your project's `.env` (`<invocation cwd>/.env`) | not here | your home `.env` |
 | Your home `.env` (`$JAN_HOME/.env`) | not here | nothing |
 
 The stored file wins because a credential explicitly saved through the product must take effect consistently for every provider ([decision](../../../.agents/notes/implemented/architecture/2026-10-09-stored-credential-precedence.md)). The launching environment — `TOKAMAK_API_KEY=… jan`, a CI secret, or a container `-e` — is the fallback when no stored value exists; a project `.env` then outranks the harness-home `.env`. A save always writes the winning layer, so `describe` reports `writable: true` for every reference, and its `source` names the place that currently supplies the value. The environment layer is the launcher's snapshot taken at launch ([environment snapshot](../../util/launch-environment/README.md)), so a variable exported after startup is not seen.
+
+### OS keychain
+
+Jan Desktop uses macOS Keychain, Windows Credential Manager, or Linux Secret Service. An indexed value is stored in the keychain; `.credentials.yaml` keeps only its entry ID and, for a record, its kind. Existing plaintext entries stay readable and are moved only when you save that entry again. If a new keychain write fails, Jan warns once and saves through its private file for the rest of the run (`0600` on POSIX). An unreadable keychain entry is not treated as absent: unlock the keychain or save the credential again.
+
+Use Jan to replace or unset a keychain-backed value. Manually deleting or changing a marker can leave the old native entry behind. Copying `.credentials.yaml` does not transfer keychain-backed values to another machine, OS account, or Jan home. Earlier builds that do not understand markers reject documents that contain them.
+
+### 1Password and Bitwarden references
+
+In place of a key, save a reference such as `op://Private/Jan/credential`, `op://Private/Jan/Provider Keys/credential`, or `bw://Engineering%20API/password`. Jan looks up the value on each use and never saves the result. `describe` does not unlock or contact either manager. References are supported only in saved `refs`, not in ambient environment values or opaque records. Paired-host copy and sync skip these machine-specific references.
+
+- **1Password:** Install `op` on your launch `PATH`, then sign in to its CLI or enable its desktop integration. Copy a secret reference from 1Password; use IDs for segments that contain unsupported characters. Jan accepts the vault, item, optional section, and field form, without query parameters or templates.
+- **Bitwarden:** Install `bw` on your launch `PATH`, sign in, and launch Jan with the `BW_SESSION` from `bw unlock`. For Vaultwarden, first configure the server using `bw config server`. A reference uses an exact item name or item ID and a field (`password`, `username`, `notes`, `totp`, or the exact custom field name). Percent-encode `/` and other URI delimiters inside a segment. Use the ID if the name is ambiguous.
+
+Jan does not install, sign in to, unlock, or synchronize a vault. Keep the CLI credentials in the launch environment, not a project `.env` file. On Windows, Jan needs `op.exe` or `bw.exe` rather than a `.cmd` shim.
 
 ### The credential file
 
@@ -104,7 +120,7 @@ records:
     kind: api-key               # neither: the owner confirmed the ambient credential chain
 ```
 
-You can edit the file directly — the store reloads it automatically and picks up the change, including a key or record you delete. `refs` holds key values by environment-variable name; `records` holds per-plugin credentials by `<owner>/<id>`, each tagged `api-key` or `grant`, whose grant payload the store keeps verbatim because only its owner can interpret it. Comments and the formatting of untouched entries survive product writes; a comment directly above an entry is that entry's note and is removed with it. An unknown top-level key, such as a token another tool wrote, is kept on disk and ignored with a warning at startup and on each reload that changes the file, because only `refs` and `records` entries resolve. Inside the document anything else is refused loudly rather than silently ignored: a non-mapping root, a key that is not addressable in its space, a wrong-typed or empty value, an unknown record tag or field, duplicate keys, and malformed YAML all fail at startup, and on a live reload the last good content keeps serving with a warning.
+When enabled, the watcher reloads direct edits to the file. `refs` holds values by environment-variable name and `records` holds per-plugin credentials by `<owner>/<id>`. The provider preserves comments and formatting on untouched entries. Unknown top-level keys are preserved but resolve nothing; malformed entries fail at startup. An invalid live edit leaves the last good snapshot in place and logs a warning.
 
 A key's value can be any text, multi-line values included — no quoting tricks needed. An empty value means "no key", which is why an empty string in the file is rejected: removing a key deletes it, it does not blank it. A `grant` payload must survive a JSON round trip, enforced on the way in and on the way out, so the store refuses a value it could not read back exactly as written. If the file on disk no longer parses, saving fails instead of overwriting content the product could not read.
 
@@ -114,7 +130,7 @@ Only your OS user can read the file: the product creates it with owner-only perm
 
 ### What can go wrong
 
-- **A key the launching environment supplies is a fallback** — saving a value stores a higher-priority credential; removing it reveals the launch environment again. To make an exported key apply, delete its entry under `refs` in the file.
+- **A key the launching environment supplies is a fallback** - saving a value stores a higher-priority credential; removing it with `unset` reveals the launch environment again.
 - **An empty value cannot be saved** — storing an empty string is refused; remove the key instead.
 - **The store refuses to load a file it cannot trust** — a file any other user can read, malformed YAML, or an unreachable path fails at startup; on a live reload the last good content keeps serving with a warning.
 - **Changes made at the same time are both kept** — if you edit the file while the product writes, your change is folded in rather than overwritten.
@@ -141,10 +157,12 @@ This section explains the design decisions behind the provider and points at the
 | File | Role |
 |---|---|
 | [`src/index.ts`](src/index.ts) | Provider: layer resolution, strict document parse, reference and record write paths under the writer lock, watcher lifecycle, permissions check |
+| [`src/keychain.ts`](src/keychain.ts) | Lazy native adapter, per-document namespace, and Windows chunk storage |
+| [`src/password-manager.ts`](src/password-manager.ts) | Reference parsing, bounded CLI execution, and sanitized errors |
 
 ### Resolution and write paths
 
-`resolve` and `describe` read the parsed document snapshot, the inherited environment snapshot, and the `.env` fallbacks in precedence order. `set`/`unset` queue onto one exclusive operation chain: entry checks reject early (disposed or empty value), and the queue performs a read-modify-write under the writer lock before firing `credentials/reference-updated` exactly once.
+`resolve` picks the first source, reads a keychain marker if needed, and resolves a password-manager reference only in the managed layer. `set`/`unset` queue onto the same exclusive operation chain. Under the writer lock, a native write stages a fresh entry, commits its marker to YAML, and then removes the old native entry. A failed YAML commit discards the staged entry. Removing an entry publishes its deletion before attempting native cleanup.
 
 `modifyRecord` runs on the same chain and lock: it re-reads the document, passes the record as it stands to the mutation, admits the result — a non-empty API key, a grant payload that survives a JSON round trip — renders the record wholesale, and commits, firing `credentials/record-updated` once. A composition the product CLI did not boot has only the inherited environment as its layer.
 
@@ -194,7 +212,7 @@ No direct invalidation; stored values never enter a request prefix.
 These limits define when the provider is a poor fit or needs special operational care. They are current package constraints, not a task backlog.
 
 - **Same-reference concurrent writes are last-write-wins** — the writer lock and the read-modify-write keep concurrent writers from dropping each other's entries, but two writers editing one reference still resolve to the later write; there is no revision check.
-- **A same-UID process can read the document** — the file-effect sandbox modes do not deny reads, and an OS-keychain provider is deferred.
+- **A same-UID process can read the YAML** - the file-effect sandbox modes do not deny reads, and using the OS keychain is not a guarantee that tools running as your OS user cannot access its entries.
 - **Environment changes are invisible** — the snapshot is frozen at launch, so a variable exported after startup reaches neither resolution nor `describe`; changing an environment-sourced credential takes a restart.
 - **Atomic, not crash-durable** — inherited from `jan-atomic-write`; the store re-reads on boot.
 
@@ -206,6 +224,6 @@ These limits define when the provider is a poor fit or needs special operational
 
 This Dev Note is working context for maintainers: open questions and undecided directions. It is explicitly non-authoritative — shipped behavior and limits live in the sections above and in the package code.
 
-An OS-keychain provider — a store the model's processes cannot read — is the deferred answer to the same-UID limitation and belongs beside this provider as a sibling package. The seam shape also leaves room for helper-command- and KMS-backed providers; none is shipped.
+The seam leaves room for other deployment-specific storage providers, such as a managed KMS.
 
 </details>
