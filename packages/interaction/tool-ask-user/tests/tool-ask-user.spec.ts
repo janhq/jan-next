@@ -168,11 +168,10 @@ describe('ask_user_question tool', () => {
       const block = result.content[0]
       expect(block?.type).toBe('text')
       if (block?.type !== 'text') throw new Error('expected the tool result text')
+      const autoMessage: unknown = expect.stringMatching(/automatically submitted.*timeout.*not.*permission/i)
       expect(JSON.parse(block.text)).toEqual({
         answers: [{ id: 'style', selected: ['Concise (Recommended)'] }, { id: 'other', selected: [] }],
-        ...seconds > 0
-          ? { autoSubmitted: true, message: expect.stringMatching(/automatically submitted.*timeout.*not.*permission/i) as unknown }
-          : {},
+        ...seconds > 0 ? { autoSubmitted: true, message: autoMessage } : {},
       })
       const recorded = foldUserQuestions([
         headerEvent(0, ctx.tools.schemas()),

@@ -60,13 +60,9 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
         expect(workspace.sessionIds).toContain(sessionId)
         const session = scaffold.ctx.sessions.get(sessionId)
         expect(session?.header.cwd).toBe(workspace.path)
-        expect(session?.snapshotEvents()).toContainEqual(expect.objectContaining({
-          type: 'user/message',
-          data: expect.objectContaining({
-            source: expect.objectContaining({ kind: 'user' }) as unknown,
-            content: [{ type: 'text', text: prompt }],
-          }) as unknown,
-        }))
+        const userSource: unknown = expect.objectContaining({ kind: 'user' })
+        const promptData: unknown = expect.objectContaining({ source: userSource, content: [{ type: 'text', text: prompt }] })
+        expect(session?.snapshotEvents()).toContainEqual(expect.objectContaining({ type: 'user/message', data: promptData }))
         await assertFinalWorkspaceSnapshot(fileURLToPath(new URL('../../../snapshots/web/default-workspace', import.meta.url)), workspace.path)
         await page.getByText('DONE', { exact: true }).waitFor()
         await compareOrRefreshGolden(EXPECTED, await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd), MODE)

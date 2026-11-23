@@ -130,7 +130,7 @@ function chatEvents(sessionId: string, createdAt: number, chat: (typeof CHATS)[n
     { type: 'step/end', data: { turn: 1, step: 1 } },
     { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } },
   ]
-  return drafts.map((draft, seq) => ({ ...draft, seq, time: createdAt + seq * 1000 }) as unknown as SessionEvent)
+  return drafts.map((draft, seq): SessionEvent => ({ ...draft, seq, time: createdAt + seq * 1000 }) as never)
 }
 
 interface WorkspaceFile {

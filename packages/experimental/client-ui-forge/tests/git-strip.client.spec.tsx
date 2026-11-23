@@ -26,7 +26,7 @@ function strip(state: ForgePanelState | null, blank = false) {
   return { root, publish, viewChanges }
 }
 
-const file = (path: string, additions: number, deletions: number) => ({ path, additions, deletions }) as unknown as ForgeChangedFile
+const file = (path: string, additions: number, deletions: number): ForgeChangedFile => ({ path, additions, deletions }) as never
 
 describe('GitStrip', () => {
   it('stays hidden outside a Git checkout and until the first inspection', () => {

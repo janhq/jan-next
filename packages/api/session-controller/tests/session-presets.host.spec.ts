@@ -26,7 +26,7 @@ afterEach(async () => {
 function stubAgent(session: Session): Agent {
   let selected: { provider: string; model: string } | undefined
   const model = { current: () => selected, select: (selection: typeof selected) => { selected = selection } }
-  return { id: session.id, session, status: 'idle', model } as unknown as Agent
+  return { id: session.id, session, status: 'idle', model } as never
 }
 
 /** A stored Session the persistence double serves until an Agent resumes it. */

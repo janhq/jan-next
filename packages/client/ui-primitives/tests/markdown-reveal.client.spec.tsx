@@ -10,10 +10,10 @@ describe('streamed word reveal', () => {
   it('fades each new word once, and resumes rather than replays a word whose block froze', () => {
     const started: Array<{ word: string; at: number | null }> = []
     vi.spyOn(performance, 'now').mockReturnValue(1000)
-    HTMLElement.prototype.animate = function (this: HTMLElement) {
+    HTMLElement.prototype.animate = function (this: HTMLElement): Animation {
       const animation = { currentTime: null as number | null, cancel: () => {} }
       started.push({ word: this.textContent, get at() { return animation.currentTime } })
-      return animation as unknown as Animation
+      return animation as never
     }
     const reveal = createStreamReveal()
     const view = render(<MarkdownText text="Hello world" streaming reveal={reveal} />)

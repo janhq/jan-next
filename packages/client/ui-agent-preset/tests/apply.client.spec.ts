@@ -1046,8 +1046,8 @@ describe('ui-agent-preset apply', () => {
     ctx.provide('sessions', sessionsDouble(ctx, { byId: {} }) as never)
     ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
     await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
-    const label = (slots.entries('conversation.composer.agentPreset')[0]!
-      .inject as unknown as () => AgentPresetLabelInjected)()
+    const injectLabel: () => AgentPresetLabelInjected = slots.entries('conversation.composer.agentPreset')[0]!.inject as never
+    const label = injectLabel()
 
     await label.load()
 

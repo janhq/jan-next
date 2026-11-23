@@ -248,9 +248,6 @@
   "packages/api/session-controller/tests/session-pending-submissions.client.spec.ts": {
     "f35467810e1f7bd9ea7659c947c274c48d310411d0eabcf528366708ea3b7ca1": 1
   },
-  "packages/api/session-controller/tests/session-presets.host.spec.ts": {
-    "c051663ae60f381f30367e71bae4da0ea88c490453bbc1d86230b71c0fde8d6f": 1
-  },
   "packages/api/session-controller/tests/session.client.spec.ts": {
     "52faf4558fcd91bd27dbdfa7e497843e8eeb75ea5f68ee231335018d5b3f2053": 3
   },
@@ -402,8 +399,7 @@
     "5c8c41ba658c0576bea6c34b1226c27e7b0328c03c9eea0d6c920f940c9d8f5b": 1,
     "b2fb53c6878d75d54e2d39be30f77cd5e08810261e513fe15f3d687e2313fbd7": 1,
     "c2369bc12a9476816900a58b06dd52c2f53bc92658559a076cdd70ae3d15f30b": 9,
-    "c595e4648d474f3a9538ab1e2140c25255bb4675c6e7bae8043adf9158915b69": 10,
-    "ddca8a18cd7755688ea48674c48c3c8a6107186815ea91f516424bbed0e1c518": 1
+    "c595e4648d474f3a9538ab1e2140c25255bb4675c6e7bae8043adf9158915b69": 10
   },
   "packages/client/ui-approval/tests/ui-approval.client.spec.tsx": {
     "3e392ff0165a51a6ac716515b99af35ec152f89607cff72080cb9afbcff63f46": 1
@@ -674,9 +670,7 @@
     "6adc289cf963470891b9b4aea9e09db4c98d96d09a245bf41bf679f8f608ba49": 1
   },
   "packages/client/ui-tool/tests/image-card.client.spec.tsx": {
-    "1a5ae4c2528dae3d43a3decbe30410647b6e60104341e070fd4de2c6a668a607": 1,
-    "7266b2c682605ac318dad266d9371b6061a73746beac20f2fd94e9391eca5d4a": 1,
-    "a4968fcd795d3444b0896dcd7e9688e84335d4fcc72e138c46f951d157a421c7": 1
+    "7266b2c682605ac318dad266d9371b6061a73746beac20f2fd94e9391eca5d4a": 1
   },
   "packages/client/ui-tool/tests/read-card.client.spec.tsx": {
     "ad325101d9586299adfd569b444e203060197b4613a9ca3b36671b96a635c569": 1

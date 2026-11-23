@@ -97,6 +97,7 @@ describe('ui-sidebar-documentpreview apply', () => {
     expect(dictionaries.get('sidebarDocumentPreview')).toEqual({ zh, en, ja, es, fr, de, ru, pt })
     // The seat key is the implementation's id, not the kind: an extension may
     // take the kind over, and the seat must still find this body.
+    const anyFunction: unknown = expect.any(Function)
     expect(registered.map(entry => [entry.name, entry.key, entry.locale, entry.component])).toEqual([
       ['sidebar.right.pane.tab', TEXTPREVIEW_ID, 'sidebarDocumentPreview', TextPreview],
       ['sidebar.right.pane.tab.title', TEXTPREVIEW_ID, undefined, TextTitle],
@@ -116,11 +117,11 @@ describe('ui-sidebar-documentpreview apply', () => {
       ['sidebar.right.tab.document', '@janhq/jan-client-ui-sidebar-documentpreview/code', 'sidebarCodePreview', CodeBody],
     ])
     expect(registered[0]!.children).toEqual({
-      'sidebar.right.tab.document': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: expect.any(Function) as unknown } } },
+      'sidebar.right.tab.document': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: anyFunction } } },
       'sidebar.right.tab.document.view-actions': { kind: 'list', scope: 'session' },
       'sidebar.right.tab.document.actions': { kind: 'list', scope: 'session' },
       'sidebar.right.tab.document.unpreviewable': { kind: 'list', scope: 'session' },
-      'sidebar.right.tab.document.action': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: expect.any(Function) as unknown } } },
+      'sidebar.right.tab.document.action': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: anyFunction } } },
     })
     expect(registered[0]?.store).toBeDefined()
     expect(typeof registered[0]?.inject).toBe('function')

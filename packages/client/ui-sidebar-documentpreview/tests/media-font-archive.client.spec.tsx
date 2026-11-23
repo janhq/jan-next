@@ -37,7 +37,10 @@ describe('media, font, and archive routing', () => {
 describe('zip listing', () => {
   const bytes = (text: string) => new TextEncoder().encode(text)
   // The body reads only its bytes and `t`; the rest of the preview props stay out of the fixture.
-  const body = (data: Uint8Array) => <ArchiveBody {...({ content: { kind: 'bytes', data }, t } as unknown as ComponentProps<typeof ArchiveBody>)} />
+  const body = (data: Uint8Array) => {
+    const props: ComponentProps<typeof ArchiveBody> = { content: { kind: 'bytes', data }, t } as never
+    return <ArchiveBody {...props} />
+  }
   afterEach(cleanup)
 
   it('lists files by name with sizes and a summary, leaving out directories', () => {

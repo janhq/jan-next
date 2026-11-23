@@ -80,7 +80,7 @@ describe('pi-ai thread cache', () => {
     streamSimple.mockReset()
     streamSimple.mockImplementation(() => { throw new Error('mock SDK boundary') })
     // `purpose` keys are declared by their producer packages, which this suite does not load.
-    const request = { provider: 'local-gateway', model: 'local-model', messages: [], ...options } as unknown as Parameters<PiAiAdapter['stream']>[0]
+    const request: Parameters<PiAiAdapter['stream']>[0] = { provider: 'local-gateway', model: 'local-model', messages: [], ...options } as never
     for await (const _ of adapter.stream(request)) { /* drain */ }
     return (streamSimple.mock.calls[0]?.[2] as { samplingParams?: unknown } | undefined)?.samplingParams
   }

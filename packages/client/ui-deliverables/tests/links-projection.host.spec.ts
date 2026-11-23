@@ -6,10 +6,10 @@ import { applySharedLinks, linkMentions, MAX_SESSION_LINKS, type SharedLinksStat
 const empty = (inherited = 0): SharedLinksState => ({ inheritedEventCount: inherited as SessionLogOffset, links: [] })
 const text = (value: string) => [{ type: 'text', text: value }]
 function user(seq: number, value: string, kind = 'user'): SessionEvent {
-  return { type: 'user/message', seq, time: seq * 1_000, data: { role: 'user', source: { kind }, content: text(value) } } as unknown as SessionEvent
+  return { type: 'user/message', seq, time: seq * 1_000, data: { role: 'user', source: { kind }, content: text(value) } } as never
 }
 function assistant(seq: number, value: string): SessionEvent {
-  return { type: 'assistant/message', seq, time: seq * 1_000, data: { turn: 1, step: 0, message: { role: 'assistant', content: text(value) }, stream: [] } } as unknown as SessionEvent
+  return { type: 'assistant/message', seq, time: seq * 1_000, data: { turn: 1, step: 0, message: { role: 'assistant', content: text(value) }, stream: [] } } as never
 }
 
 describe('linkMentions', () => {

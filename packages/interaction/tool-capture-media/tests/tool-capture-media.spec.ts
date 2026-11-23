@@ -58,9 +58,12 @@ it.each(['video', 'audio'] as const)('returns a stored %s with its read path and
   const file = { attachmentId: 'file-1', name: `${mode}.webm`, bytes: 42 }
   f.request.mockResolvedValue({ status: 'captured', mode, file, path, note: 'Listen at the end.' })
   const result = await f.run()
+  const pathText: unknown = expect.stringContaining(path)
   expect(result).toMatchObject({ isError: false, value: { path, note: 'Listen at the end.' }, content: [
-    { type: 'text', text: expect.stringContaining(path) as unknown },
+    { type: 'text', text: pathText },
     { type: 'file', attachment: file },
   ] })
-  expect(result).toMatchObject({ content: [{ text: expect.stringContaining('Listen at the end.') as unknown }, expect.anything() as unknown] })
+  const noteText: unknown = expect.stringContaining('Listen at the end.')
+  const anyBlock: unknown = expect.anything()
+  expect(result).toMatchObject({ content: [{ text: noteText }, anyBlock] })
 })

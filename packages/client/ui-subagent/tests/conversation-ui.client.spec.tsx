@@ -294,10 +294,10 @@ describe('composer subagent roster', () => {
 })
 
 describe('turn header subagents', () => {
-  const turn = (status: TurnLocation['status']) => ({ status, start: { time: 10 }, end: { time: 20 } }) as unknown as TurnLocation
-  const turnProps = (input: ReturnType<typeof props>, location: TurnLocation) => ({
+  const turn = (status: TurnLocation['status']): TurnLocation => ({ status, start: { time: 10 }, end: { time: 20 } }) as never
+  const turnProps = (input: ReturnType<typeof props>, location: TurnLocation): TurnSubagentsProps => ({
     ...input, turn: location, t: makeTranslate(en),
-  }) as unknown as TurnSubagentsProps
+  }) as never
   const spawned = props(catalog({ entries: [
     { id: 'before' as SessionId, mode: 'continuable', label: 'Earlier turn', activity: 'inactive', createdAt: 5 },
     { id: CHILD, mode: 'continuable', label: 'This turn', activity: 'inactive', createdAt: 15 },
