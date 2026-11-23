@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -100,7 +100,7 @@ async function archiveFixture(directory) {
 }
 
 function runInstall(home, script, input) {
-  return spawnSync('sh', ['-c', script], { input, env: { ...process.env, HOME: home }, encoding: 'utf8' })
+  return spawnSync('sh', ['-c', script], { input, env: { ...process.env, HOME: home }, encoding: 'utf8', timeout: 5000 })
 }
 
 test('the install script publishes a checked archive and restores its programs', { skip: SKIP_POSIX }, async (t) => {
@@ -128,7 +128,22 @@ test('a damaged copy leaves the installed build and its identity in place', { sk
   assert.equal(result.status, 3)
   assert.match(installFailure({ code: result.status, stdout: result.stdout, stderr: result.stderr }), /arrived damaged/)
   assert.equal(await readFile(join(home, VERSION_FILE), 'utf8'), 'first')
-  assert.equal(execFileSync('sh', ['-c', 'ls -A "$HOME/.jan/hosts-runtime"'], { env: { ...process.env, HOME: home }, encoding: 'utf8' }).split('\n').filter(Boolean).sort().join(','), 'VERSION,current')
+  assert.equal(execFileSync('sh', ['-c', 'ls -A "$HOME/.jan/hosts-runtime"'], { env: { ...process.env, HOME: home }, encoding: 'utf8' }).split('\n').filter(Boolean).sort().join(','), '.install.lock,VERSION,current')
+})
+
+test('a retry recovers an abandoned install lock without waiting out its timeout', { skip: SKIP_POSIX }, async (t) => {
+  const directory = await temporary(t)
+  const home = join(directory, 'home')
+  const legacyLock = join(home, '.jan/hosts-runtime/.lock')
+  await mkdir(legacyLock, { recursive: true })
+  const old = new Date(Date.now() - 60 * 60_000)
+  await utimes(legacyLock, old, old)
+  await writeFile(join(home, '.jan/hosts-runtime/.install.lock'), '')
+  const { bytes, digest } = await archiveFixture(directory)
+  const result = runInstall(home, installScript({ identity: 'recovered', sha256: digest }), bytes)
+  assert.ifError(result.error)
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(await readFile(join(home, VERSION_FILE), 'utf8'), 'recovered')
 })
 
 test('a copy cut off before it ends is refused like a damaged one', { skip: SKIP_POSIX }, async (t) => {

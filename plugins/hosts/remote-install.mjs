@@ -10,6 +10,7 @@ import { createReadStream, existsSync, readdirSync, readFileSync } from 'node:fs
 import { stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { missingTool, parseProbe, probeScript, selectTarget } from './install-target.mjs'
+import { parseSshTarget } from './store.mjs'
 
 /** Everything Hosts installs lives under this directory of the remote user's home. */
 export const REMOTE_ROOT = '.jan/hosts-runtime'
@@ -67,12 +68,12 @@ export function runtimeIdentity(runtime) {
  * @returns {string[]} ssh arguments up to and including the destination.
  */
 export function sshArgs(ssh) {
-  const [target, port] = String(ssh).split(/:(?=\d+$)/)
   // Entries saved before ssh config aliases were supported start with `@` when they have no user.
-  const destination = target.startsWith('@') ? target.slice(1) : target
+  const { user, host, port } = parseSshTarget(String(ssh).replace(/^@/, ''))
+  const destination = user === undefined ? host : `${user}@${host}`
   return [
     '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=15',
-    '-o', 'ServerAliveInterval=15', ...(port === undefined ? [] : ['-p', port]), destination,
+    '-o', 'ServerAliveInterval=15', ...(port === undefined ? [] : ['-p', String(port)]), destination,
   ]
 }
 
@@ -158,22 +159,17 @@ export async function probeRemote(ssh, supported, signal) {
 /**
  * The remote script that receives one archive on stdin. It saves the bytes, checks the SHA-256,
  * unpacks into a fresh staging directory, swaps it in for the previous build and writes the
- * identity file last. A second Connect at the same moment waits on the lock directory.
+ * identity file last. A second Connect at the same moment waits for the installer lock.
  * @param {{ identity: string, sha256: string }} build - the archive's identity and digest.
  * @returns {string} the remote command.
  */
 export function installScript({ identity, sha256 }) {
   const root = `"$HOME"/${REMOTE_ROOT}`
-  return [
+  const install = [
     'set -e',
-    'umask 077',
-    `mkdir -p ${root}`,
-    `lock=${root}/.lock`,
-    // mkdir is atomic: the first Connect holds the lock; one older than 30 minutes is a crashed install.
-    'tries=0; until mkdir "$lock" 2>/dev/null; do tries=$((tries + 1)); if [ "$tries" -gt 1800 ]; then rm -rf "$lock"; tries=0; fi; sleep 1; done',
     `stage=${root}/.stage-$$`,
     `part=${root}/.part-$$`,
-    'trap \'rm -rf "$lock" "$stage" "$part"\' EXIT',
+    'trap \'rm -rf "$stage" "$part"\' EXIT',
     'mkdir -p "$stage"',
     'cat > "$part"',
     'if command -v sha256sum >/dev/null 2>&1; then got=$(sha256sum "$part" | cut -d " " -f 1); else got=$(shasum -a 256 "$part" | cut -d " " -f 1); fi',
@@ -190,6 +186,19 @@ export function installScript({ identity, sha256 }) {
     `mv ${root}/VERSION.part ${root}/VERSION`,
     'echo JAN_HOSTS_INSTALL_OK',
   ].join('\n')
+  // Keep the same lock inode across runs. The kernel releases it on process exit, even
+  // if the installer is killed. Do not race a recent mkdir lock from an older Jan.
+  return [
+    'set -e',
+    'umask 077',
+    `mkdir -p ${root}`,
+    'if command -v flock >/dev/null 2>&1; then locker=flock; elif command -v lockf >/dev/null 2>&1; then locker=lockf; else echo JAN_HOSTS_INSTALL_NO_LOCK_TOOL >&2; exit 4; fi',
+    `exec 9>>${root}/.install.lock`,
+    '"$locker" -t 60 9 || { echo JAN_HOSTS_INSTALL_BUSY >&2; exit 4; }',
+    `legacy=${root}/.lock`,
+    'if [ -d "$legacy" ] && [ -z "$(find "$legacy" -prune -mmin +30 -print 2>/dev/null)" ]; then echo JAN_HOSTS_INSTALL_BUSY >&2; exit 4; fi',
+    `exec sh -c ${shellQuote(install)}`,
+  ].join('\n')
 }
 
 /**
@@ -205,6 +214,8 @@ export function installFailure(result, copied = true) {
   if (/closed by remote host|Connection reset|Broken pipe|client_loop: send disconnect/.test(result.stderr)) return dropped
   if (result.code === 255) return sshFailure(result.stderr)
   if (/JAN_HOSTS_INSTALL_CORRUPT/.test(result.stderr)) return 'The copy of Jan arrived damaged on that computer. Connect again to resend it.'
+  if (/JAN_HOSTS_INSTALL_BUSY/.test(result.stderr)) return 'Another connection is installing Jan on that computer. Try again once it finishes.'
+  if (/JAN_HOSTS_INSTALL_NO_LOCK_TOOL/.test(result.stderr)) return 'That computer has neither flock nor lockf, which Jan needs to coordinate installs.'
   if (/No space left on device|Disk quota exceeded/.test(result.stderr)) {
     return 'That computer ran out of disk space while unpacking Jan. It needs about 600 MB free in your home folder.'
   }

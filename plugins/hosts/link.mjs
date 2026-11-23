@@ -149,23 +149,26 @@ export function createHostLink({ root, token, onState = () => { } }) {
    * failure (`LinkRemoteError`) or a carrier loss (plain `Error` named `RemoteStreamCarrierError`).
    */
   async function* stream(endpoint, payload, signal) {
+    if (signal?.aborted) return
     const carrier = await connectSocket()
+    if (signal?.aborted) return
     const streamId = randomUUID()
     const queue = []
     let wake
     streams.set(streamId, (message) => { queue.push(message); wake?.() })
-    const abort = () => { queue.push({ type: 'aborted' }); wake?.() }
+    const abort = () => { wake?.() }
     signal?.addEventListener('abort', abort, { once: true })
     let terminal = false
     try {
       carrier.send(JSON.stringify({ type: 'open', streamId, endpoint, payload }))
-      while (true) {
-        while (queue.length === 0) await new Promise((resolve) => { wake = resolve })
+      while (!signal?.aborted) {
+        while (queue.length === 0 && !signal?.aborted) await new Promise((resolve) => { wake = resolve })
         wake = undefined
+        if (signal?.aborted) return
         const message = queue.shift()
         if (message.type === 'item') { yield message.value; continue }
         terminal = true
-        if (message.type === 'end' || message.type === 'aborted') return
+        if (message.type === 'end') return
         if (message.type === 'error') throw new LinkRemoteError(message.error)
         const lost = new Error('The live connection to the other Jan dropped.')
         lost.name = 'RemoteStreamCarrierError'
@@ -174,9 +177,7 @@ export function createHostLink({ root, token, onState = () => { } }) {
     } finally {
       signal?.removeEventListener('abort', abort)
       streams.delete(streamId)
-      if (!terminal || queue.at(-1)?.type === 'aborted') {
-        if (carrier.readyState === WebSocket.OPEN) carrier.send(JSON.stringify({ type: 'cancel', streamId }))
-      }
+      if (!terminal && carrier.readyState === WebSocket.OPEN) carrier.send(JSON.stringify({ type: 'cancel', streamId }))
     }
   }
 
