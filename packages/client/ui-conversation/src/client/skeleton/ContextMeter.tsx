@@ -50,7 +50,7 @@ interface InventoryRow {
  * preset composition. Tools are one list: Jan's own first, then each MCP tool
  * under its server, every item tagged with where it comes from like a skill.
  */
-function inventoryRows(inventory: SessionInventory): InventoryRow[] {
+function inventoryRows(inventory: SessionInventory, t: ComposerBarProps['t']): InventoryRow[] {
   const rows: InventoryRow[] = []
   if (inventory.plugins !== undefined) {
     rows.push({ key: 'plugins', label: 'context.inventory.plugins', items: inventory.plugins.map(text => ({ text })) })
@@ -62,7 +62,7 @@ function inventoryRows(inventory: SessionInventory): InventoryRow[] {
       label: 'context.inventory.tools',
       items: [
         ...inventory.tools.map(text => ({ text, origin: { kind: 'bundled' } as const })),
-        ...inventory.mcpTools.map(tool => ({ text: `MCP ${tool.server} · ${tool.name}`, origin: tool.origin })),
+        ...inventory.mcpTools.map(tool => ({ text: t('context.inventory.mcpTool', { server: tool.server, name: tool.name }), origin: tool.origin })),
       ],
     },
   )
@@ -253,7 +253,7 @@ export function ContextMeter({ useProjection, selectedWindow, previewContext, t 
           {inventory !== undefined && (
             <section className={css.inventory} aria-label={t('context.inventory.title')}>
               <div className={css.inventoryTitle}>{t('context.inventory.title')}</div>
-              {inventoryRows(inventory).map(row => (
+              {inventoryRows(inventory, t).map(row => (
                 <details key={row.key} className={css.inventoryRow} data-inventory={row.key}>
                   <summary>
                     <IconChevronRightOutlineRegular className={css.chevron} aria-hidden />
