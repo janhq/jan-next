@@ -14,6 +14,7 @@ export const FONT_EXTENSIONS = ['ttf', 'otf', 'woff', 'woff2'] as const
 /**
  * Describe the builtin font renderer.
  * @param title - locale-owned implementation name.
+ * @returns metadata that requests the complete font bytes before mounting the preview body.
  */
 export function fontBodyDefinition(title: () => string): DocumentPreviewDefinition {
   return { id: FONT_BODY_ID, extensions: FONT_EXTENSIONS, binaryExtensions: FONT_EXTENSIONS, priority: 'builtin', title, loading: 'bytes-complete', wrap: false }

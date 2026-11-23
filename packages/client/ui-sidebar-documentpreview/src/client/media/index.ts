@@ -20,6 +20,7 @@ export const AUDIO_EXTENSIONS = ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac
  * @param id - implementation identity.
  * @param extensions - claimed binary suffixes.
  * @param title - locale-owned implementation name.
+ * @returns metadata that leaves loading to the media renderer.
  */
 export function mediaBodyDefinition(id: string, extensions: readonly string[], title: () => string): DocumentPreviewDefinition {
   return { id, extensions, binaryExtensions: extensions, priority: 'builtin', title, loading: 'renderer', wrap: false }
