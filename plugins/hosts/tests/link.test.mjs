@@ -31,3 +31,28 @@ test('aborting an idle federated subscription cancels it on the remote carrier',
   assert.equal((await next).done, true)
   assert.equal(await cancelled.promise, streamId)
 })
+
+test('negotiates local-only federation before opening the workspace stream', { timeout: 2000 }, async (t) => {
+  const server = createServer((req, res) => {
+    assert.equal(new URL(req.url, 'http://127.0.0.1').searchParams.get('forward'), 'local')
+    res.writeHead(302, { 'set-cookie': 'jan-auth=owner' }).end()
+  })
+  const mux = new WebSocketServer({ server })
+  mux.on('connection', socket => socket.once('message', data => {
+    const { streamId } = JSON.parse(String(data))
+    socket.send(JSON.stringify({ type: 'item', streamId, value: 'ready' }))
+    socket.send(JSON.stringify({ type: 'end', streamId }))
+  }))
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  const link = createHostLink({ root: `http://127.0.0.1:${server.address().port}/`, token: 'test' })
+  t.after(() => {
+    link.close()
+    for (const socket of mux.clients) socket.terminate()
+    mux.close()
+    server.close()
+  })
+  const frames = []
+  for await (const value of link.stream('workspace/follow', {}, new AbortController().signal)) frames.push(value)
+  assert.deepEqual(frames, ['ready'])
+})
