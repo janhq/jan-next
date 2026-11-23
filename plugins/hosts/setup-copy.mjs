@@ -85,6 +85,11 @@ export async function setupState({ settings, credentials, llm }) {
   return { untouched: userProviders(providers).length === 0 && !userSet(section(settings, DEFAULT_MODEL_NS)), keyBindingVersion: KEY_BINDING_VERSION, routes }
 }
 
+/** @param {string} value - raw stored value. @returns {boolean} Whether the value requires a local vault. */
+export function isPasswordManagerReference(value) {
+  return value.startsWith('op://') || value.startsWith('bw://')
+}
+
 /**
  * Add what the request carries and this Jan lacks: answered by the other computer. A provider
  * route with the same name, a key that already resolves (stored or from the environment) and a
@@ -116,7 +121,7 @@ export async function receiveSetup({ settings, credentials, llm }, request) {
   const endpoints = catalogEndpoints(llm)
   for (const [route, key] of requestedKeys) {
     const { ref, value } = key
-    if ((await credentials.describe(ref)).configured) continue
+    if (isPasswordManagerReference(value) || (await credentials.describe(ref)).configured) continue
     const routes = providersOf(section(settings, PROVIDERS_NS))
     if (!Object.hasOwn(routes, route) || !sameBinding(key, keyBinding(routes[route], endpoints.get(route)))) continue
     // Keys are looked up by reference, not by route. A second route using the same reference
