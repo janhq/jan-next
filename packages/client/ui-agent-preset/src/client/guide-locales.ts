@@ -22,7 +22,7 @@ export const guideEn = {
     '> Read the Markdown notes in this project. Summarize the agreed decisions and open questions, with links to the source files.',
     'Expected output: a summary with references that you can check against the original notes.',
   ].join('\n\n'),
-  guidePtcIntro: 'Choose PTC mode when starting a new task. Specify the input files, processing rules, and output format. The agent writes the code.',
+  guidePtcIntro: 'Choose Code Mode when starting a new task. Specify the input files, processing rules, and output format. The agent writes the code.',
   guidePtcExplanation: [
     '### How tools are called',
     'PTC means Programmatic Tool Calling. In this built-in preset, the agent uses run_code to write a TypeScript program that calls tools through a generated SDK. The program can use loops, conditions, error handling, and concurrent calls where appropriate.',
@@ -100,7 +100,7 @@ export const guideZh: Record<PresetGuideKey, string> = {
     '> 阅读项目中的 Markdown 记录，整理已经达成的结论和仍待确认的问题，并附上对应文件链接。',
     '预期产出：一份带来源引用的总结，方便回到原文核对。',
   ].join('\n\n'),
-  guidePtcIntro: '新建任务时选择「PTC 模式」，说明输入文件、处理规则和输出格式。代码由 Agent 编写。',
+  guidePtcIntro: '新建任务时选择「Code Mode」，说明输入文件、处理规则和输出格式。代码由 Agent 编写。',
   guidePtcExplanation: [
     '### 怎样调用工具',
     'PTC 是 Programmatic Tool Calling，即通过程序调用工具。当前内置预设让 Agent 通过 run_code 编写 TypeScript 程序，使用生成的工具 SDK 发起调用。程序可以组织循环、条件判断、错误处理，以及适合并发执行的调用。',
@@ -163,7 +163,7 @@ export const guideJa = {
   'guideStandardIntro': '新しいタスクを始めるときは標準モードを選びます。達成したいことを説明し、関連するファイルを示し、結果の確認方法を伝えてください。',
   'guideStandardExplanation': '### 仕組み\n\nエージェントはツールを直接呼び出してファイルの読み取りや編集、検索、ターミナルコマンドの実行を行います。スキル、計画、目標、サブエージェント、ワークフロー、プラグイン管理、コンテキストの圧縮に対応しています。\n\n### 選ぶべき場面\n\n日々のコーディング、ファイル作業、調査はまずここから始めてください。標準モードではスクリプトの作成やファイルの一括処理も行えます。PTC はツール呼び出しの構成を変えるものであり、一括処理に必須ではありません。',
   'guideStandardUsage': '### バグを修正する\n\n> 検索フォームを二度送信すると結果が消える原因を調べてください。修正して関連するテストを実行し、原因と変更内容を説明してください。\n\n期待される出力: コードの変更、関連するテスト結果、原因の説明。\n\n### プロジェクトのメモを整理する\n\n> このプロジェクト内の Markdown メモを読み、合意された決定と未解決の課題を、元ファイルへのリンク付きで要約してください。\n\n期待される出力: 元のメモと照合できる参照付きの要約。',
-  'guidePtcIntro': '新しいタスクを始めるときは PTC モードを選びます。入力ファイル、処理ルール、出力形式を指定してください。コードはエージェントが書きます。',
+  'guidePtcIntro': '新しいタスクを始めるときは Code Modeを選びます。入力ファイル、処理ルール、出力形式を指定してください。コードはエージェントが書きます。',
   'guidePtcExplanation': '### ツールの呼び出され方\n\nPTC は Programmatic Tool Calling の略です。この組み込みプリセットでは、エージェントは run_code を使い、生成された SDK 経由でツールを呼び出す TypeScript プログラムを書きます。プログラムではループ、条件分岐、エラー処理、必要に応じて並行呼び出しを利用できます。\n\n### モデルに届くもの\n\nツールの結果はまずプログラムに届き、そこでフィルタリングや結合ができます。モデルが受け取るのはプログラムが出力または返した内容です。画像の結果は別途添付されます。ネストされたツール呼び出しも記録され、ツール権限の対象のままです。\n\n### 標準モードとの比較\n\nどちらのモードもコーディングや一括処理のタスクを扱えます。標準モードは個々のツールを直接公開し、PTC はツール呼び出しをコードで整理します。現在の PTC プリセットではワークフローとプラグイン管理ツールが無効になっています。速度とトークン消費はタスクやプログラムの結果の扱い方によって変わります。',
   'guidePtcUsage': '### 設定ファイルのセットを検証する\n\n> configs/ 内のすべての JSON ファイルを検査してください。schema.json に基づき、必須フィールドの欠落と無効な値を一覧にしてください。問題ごとに 1 行の CSV を保存してください。読み取れないファイルもレポートに含め、残りの検査は続けてください。元のファイルは変更しないでください。\n\n期待される出力: 問題の要約と CSV レポート。プログラムは同じ検査を繰り返し、個々の失敗に対処し、結果を集約できます。\n\n### エラーログを要約する\n\n> logs/ 内のログファイルを分析してください。エラーをサービスとエラー種別でグループ化し、頻度上位 10 グループと各 1 件の例を示してください。完全な件数を CSV に保存してください。\n\n期待される出力: 上位のエラーグループと完全な件数表。中間データは要約がモデルに届く前にプログラム内で集約できます。',
   'guideMinimalIntro': '新しいタスクには最小モードを選びます。比較を行う場合は、モデル、権限、入力、開始時のワークスペース状態を実行間で一定に保ってください。',
@@ -198,7 +198,7 @@ export const guideEs = {
     '> Lea las Markdown notas de este proyecto. Resuma las decisiones acordadas y las preguntas abiertas, con enlaces a los archivos fuente.',
     'Resultado esperado: un resumen con referencias que puede comparar con las notas originales.',
   ].join('\n\n\n\n'),
-  guidePtcIntro: 'Elija el modo PTC al iniciar una nueva tarea. Especifique los archivos de entrada, las reglas de procesamiento y el formato de salida. El agente escribe el código.',
+  guidePtcIntro: 'Elija el Code Mode al iniciar una nueva tarea. Especifique los archivos de entrada, las reglas de procesamiento y el formato de salida. El agente escribe el código.',
   guidePtcExplanation: [
     '### Cómo se llaman las herramientas',
     'PTC significa llamada a herramientas programáticas. En este ajuste preestablecido integrado, el agente usa run_code para escribir un programa TypeScript que llama a herramientas a través de un SDK generado. El programa puede utilizar bucles, condiciones, manejo de errores y llamadas simultáneas cuando corresponda.',
@@ -273,7 +273,7 @@ export const guideFr = {
     '> Lisez les Markdown notes de ce projet. Résumez les décisions convenues et les questions ouvertes, avec des liens vers les fichiers sources.',
     'Résultat attendu : un résumé avec des références que vous pouvez vérifier par rapport aux notes originales.',
   ].join('\n\n\n\n'),
-  guidePtcIntro: "Choisissez le mode PTC lorsque vous démarrez une nouvelle tâche. Spécifiez les fichiers d'entrée, les règles de traitement et le format de sortie. L'agent écrit le code.",
+  guidePtcIntro: "Choisissez le Code Mode lorsque vous démarrez une nouvelle tâche. Spécifiez les fichiers d'entrée, les règles de traitement et le format de sortie. L'agent écrit le code.",
   guidePtcExplanation: [
     '### Comment sont appelés les outils',
     "PTC signifie appel d'outil de programmation. Dans ce préréglage intégré, l'agent utilise run_code pour écrire un programme TypeScript qui appelle des outils via un SDK généré. Le programme peut utiliser des boucles, des conditions, une gestion des erreurs et des appels simultanés, le cas échéant.",
@@ -348,7 +348,7 @@ export const guideDe = {
     '> Lesen Sie die Markdown-Hinweise in diesem Projekt. Fassen Sie die vereinbarten Entscheidungen und offenen Fragen zusammen, mit Links zu den Quelldateien.',
     'Erwartete Ausgabe: eine Zusammenfassung mit Referenzen, die Sie mit den Originalnotizen vergleichen können.',
   ].join('\n\n\n\n'),
-  guidePtcIntro: 'Wählen Sie den Modus PTC, wenn Sie eine neue Aufgabe starten. Geben Sie die Eingabedateien, Verarbeitungsregeln und das Ausgabeformat an. Der Agent schreibt den Code.',
+  guidePtcIntro: 'Wählen Sie den Code Mode, wenn Sie eine neue Aufgabe starten. Geben Sie die Eingabedateien, Verarbeitungsregeln und das Ausgabeformat an. Der Agent schreibt den Code.',
   guidePtcExplanation: [
     '### Wie Werkzeuge heißen',
     'PTC bedeutet Programmatic Tool Calling. In dieser integrierten Voreinstellung verwendet der Agent run_code, um ein TypeScript-Programm zu schreiben, das Tools über ein generiertes SDK aufruft. Das Programm kann gegebenenfalls Schleifen, Bedingungen, Fehlerbehandlung und gleichzeitige Aufrufe verwenden.',
@@ -423,7 +423,7 @@ export const guideRu = {
     '> Прочтите примечания Markdown в этом проекте. Кратко изложите согласованные решения и открытые вопросы со ссылками на исходные файлы.',
     'Ожидаемый результат: резюме со ссылками, которые вы можете сверить с исходными заметками.',
   ].join('\n\n\n\n'),
-  guidePtcIntro: 'Выберите режим PTC при запуске новой задачи. Укажите входные файлы, правила обработки и выходной формат. Агент пишет код.',
+  guidePtcIntro: 'Выберите Code Mode при запуске новой задачи. Укажите входные файлы, правила обработки и выходной формат. Агент пишет код.',
   guidePtcExplanation: [
     '### Как называются инструменты',
     'PTC означает программный вызов инструмента. В этой встроенной настройке агент использует run_code для написания программы TypeScript, которая вызывает инструменты через сгенерированный SDK. Программа может использовать циклы, условия, обработку ошибок и параллельные вызовы, где это необходимо.',
@@ -498,7 +498,7 @@ export const guidePt = {
     '> Leia as Markdown notas deste projeto. Resuma as decisões acordadas e as questões abertas, com links para os arquivos originais.',
     'Resultado esperado: um resumo com referências que você pode comparar com as notas originais.',
   ].join('\n\n\n\n'),
-  guidePtcIntro: 'Escolha o modo PTC ao iniciar uma nova tarefa. Especifique os arquivos de entrada, regras de processamento e formato de saída. O agente escreve o código.',
+  guidePtcIntro: 'Escolha o Code Mode ao iniciar uma nova tarefa. Especifique os arquivos de entrada, regras de processamento e formato de saída. O agente escreve o código.',
   guidePtcExplanation: [
     '### Como as ferramentas são chamadas',
     'PTC significa chamada de ferramenta programática. Nesta predefinição integrada, o agente usa run_code para escrever um programa TypeScript que chama ferramentas por meio de um SDK gerado. O programa pode usar loops, condições, tratamento de erros e chamadas simultâneas quando apropriado.',

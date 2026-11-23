@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import type {} from '@janhq/jan-tools'
+import type { } from '@janhq/jan-tools'
 import {
   assertFinalWorkspaceSnapshot, assertFixtureInventory, captureExpandedTurnProcessAria, compareOrRefreshGolden,
   fixtureUserPrompts, launchWebScaffold, recordFixture, selectedSessionFixture, watchConsole, webSnapshotMode, type WebScaffold,
@@ -40,8 +40,8 @@ describe('web snapshot: standalone string editor through PTC', () => {
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
     await page.getByRole('button', { name: 'Standard mode', exact: true }).click()
-    await page.getByRole('menuitem', { name: /^PTC mode/ }).click()
-    await page.getByRole('button', { name: 'PTC mode', exact: true }).waitFor({ state: 'visible' })
+    await page.getByRole('menuitem', { name: /^Code Mode/ }).click()
+    await page.getByRole('button', { name: 'Code Mode', exact: true }).waitFor({ state: 'visible' })
   })
 
   afterAll(async () => {

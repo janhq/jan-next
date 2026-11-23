@@ -1,7 +1,7 @@
 /** Coding Tools persist while Standard, Creator, and custom presets remain selectable when disabled. */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type {} from '@janhq/jan-api-session-controller'
+import type { } from '@janhq/jan-api-session-controller'
 import { chromium } from 'playwright'
 import { expect, it, onTestFinished } from 'vitest'
 import { launchWebScaffold, watchConsole } from './scaffold.ts'
@@ -55,7 +55,7 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   const menu = page.getByRole('menu')
   await page.getByRole('button', { name: 'Standard mode', exact: true }).click()
   await expect.poll(() => menu.getByRole('menuitem').count()).toBe(3)
-  expect(await menu.getByRole('menuitem', { name: /^PTC mode|^Minimal mode/ }).count()).toBe(0)
+  expect(await menu.getByRole('menuitem', { name: /^Code Mode|^Minimal mode/ }).count()).toBe(0)
   expect(await menu.getByRole('menuitem', { name: /^Custom mode/ }).count()).toBe(1)
   await menu.getByRole('menuitem', { name: /^Creator mode/ }).click()
   await expect.poll(livePresets, { timeout: 15_000 }).toEqual(['cordis'])
@@ -66,7 +66,7 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   await menu.waitFor({ state: 'detached' })
   await page.getByRole('button', { name: 'Creator mode', exact: true }).click()
   await expect.poll(() => menu.getByRole('menuitem').count()).toBe(5)
-  expect(await menu.getByRole('menuitem', { name: /^PTC mode/ }).count()).toBe(1)
+  expect(await menu.getByRole('menuitem', { name: /^Code Mode/ }).count()).toBe(1)
   expect(await menu.getByRole('menuitem', { name: /^Minimal mode/ }).count()).toBe(1)
   expect(await livePresets()).toEqual(['cordis'])
   await scaffold.ctx.settings.update('ui-settings', { enabled: false })
@@ -77,15 +77,15 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   await scaffold.ctx.settings.update('ui-settings', { enabled: true })
   await menu.waitFor({ state: 'detached' })
   await page.getByRole('button', { name: 'Creator mode', exact: true }).click()
-  await menu.getByRole('menuitem', { name: /^PTC mode/ }).click()
+  await menu.getByRole('menuitem', { name: /^Code Mode/ }).click()
   await expect.poll(livePresets, { timeout: 15_000 }).toEqual(['ptc'])
-  await page.getByRole('button', { name: 'PTC mode', exact: true }).click()
+  await page.getByRole('button', { name: 'Code Mode', exact: true }).click()
   await scaffold.ctx.settings.update('ui-settings', { enabled: false })
   await menu.waitFor({ state: 'detached' })
   expect(await livePresets()).toEqual(['ptc'])
-  await page.getByRole('button', { name: 'PTC mode', exact: true }).click()
+  await page.getByRole('button', { name: 'Code Mode', exact: true }).click()
   await expect.poll(() => menu.getByRole('menuitem').count()).toBe(3)
-  expect(await menu.getByRole('menuitem', { name: /^PTC mode|^Minimal mode/ }).count()).toBe(0)
+  expect(await menu.getByRole('menuitem', { name: /^Code Mode|^Minimal mode/ }).count()).toBe(0)
   await menu.getByRole('menuitem', { name: /^Standard mode/ }).click()
   await expect.poll(livePresets, { timeout: 15_000 }).toEqual(['standard'])
 

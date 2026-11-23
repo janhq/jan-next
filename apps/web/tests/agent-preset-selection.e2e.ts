@@ -377,7 +377,7 @@ describe('web e2e: agent-preset selection', () => {
     await expect.poll(() => livePreset(scaffold), { timeout: 15_000 }).toBe('minimal')
     await page.getByRole('button', { name: 'Minimal mode', exact: true }).click()
     await page.getByRole('menu').waitFor()
-    expect(await page.getByRole('menuitem', { name: /^PTC mode|^Minimal mode/ }).count()).toBe(0)
+    expect(await page.getByRole('menuitem', { name: /^Code Mode|^Minimal mode/ }).count()).toBe(0)
     expect(await page.getByRole('menuitem', { name: /^Standard mode|^Creator mode/ }).count()).toBe(2)
     await page.keyboard.press('Escape')
     await expect.poll(async () => (await scaffold.ctx.agentPresets.remoteExportList()).presets.find(preset => preset.isDefault)?.id).toBe('standard')
