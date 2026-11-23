@@ -42,6 +42,11 @@ const RECENT_VIEW_LIMIT = 3
 export interface StartSessionOptions extends DraftInitializationOptions {
   /** Agent preset the Session runs; the Host default when omitted. */
   readonly agentPreset?: string
+  /**
+   * Called with the Session this request opens, just before it is selected; not called when a later
+   * navigation supersedes the request or creation fails.
+   */
+  readonly onOpen?: (sessionId: SessionId) => void
 }
 
 type WorkspaceConnectionOptions = Pick<StartSessionOptions, 'agentPreset'> & {
@@ -489,15 +494,18 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   startSession(workspaceId?: WorkspaceId, options?: StartSessionOptions): void {
-    const { agentPreset, ...draft } = options ?? {}
+    const { agentPreset, onOpen, ...draft } = options ?? {}
     const draftOptions = options === undefined ? undefined : draft
     const initializeDraft = draftOptions !== undefined && (draftOptions.prompt !== undefined
       || (draftOptions.whenDraftExists ?? (draftOptions.clearPreviousDraft === true ? 'replace' : 'keep')) === 'replace')
     const target = workspaceId ?? this.activeProject?.workspaceId
-    const beforeOpen = initializeDraft ? (id: SessionId) => {
-      const binding = this.sessions.binding(id)
-      if (binding === undefined) this.draftPreparationFailed()
-      this.prepareDraft(binding, draftOptions)
+    const beforeOpen = initializeDraft || onOpen !== undefined ? (id: SessionId) => {
+      if (initializeDraft) {
+        const binding = this.sessions.binding(id)
+        if (binding === undefined) this.draftPreparationFailed()
+        this.prepareDraft(binding, draftOptions)
+      }
+      onOpen?.(id)
     } : undefined
     const reuse = agentPreset === undefined ? {} : { agentPreset }
     const opening = this.openWorkspace(target, beforeOpen, reuse)
