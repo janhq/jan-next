@@ -50,7 +50,7 @@ import { executorTools, type ExecutorToolsHost } from './tools/executor.ts'
 // Source plugins interact with dsh-superagent exclusively through the `SourceHost` service interface.
 declare module '@deepseek-ai/cordis' { interface Context { orchestrator: SourceHost } }
 const now = (): string => new Date().toISOString()
-type ShellOverrides = { registerOverrides(resolve: (execution: { agent?: Agent }) => Readonly<NodeJS.ProcessEnv> | undefined): () => void }
+type ShellOverrides = { registerOverrides(resolve: (execution: { agent?: Agent }) => Readonly<Record<string, string | undefined>> | undefined): () => void }
 
 /**
  * Composition root of dsh-superagent that connects `Store`, `Setup`, `Engine`, `SourceRegistry`, `Effects`, `Outbox`, `Passes`, `Sessions`, `Settings`, `Prompts`, `DshExecutor`, and `MasterAssessor`.

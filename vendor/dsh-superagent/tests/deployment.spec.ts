@@ -50,8 +50,12 @@ describe('configuration schema', () => {
     expect(() => Config(minimal({ stateDir: 'relative/dir' }))).toThrow()
     expect(() => Config(minimal({ stateDir: '~/dir' }))).toThrow()
   })
-  it.each([String.raw`C:\Users\Jan\superagent`, String.raw`\\server\share\superagent`])('accepts the absolute Windows state path %s', (stateDir) => {
+  const windowsPaths = [String.raw`C:\Users\Jan\superagent`, String.raw`\\server\share\superagent`]
+  it.runIf(process.platform === 'win32').each(windowsPaths)('accepts the absolute Windows state path %s on Windows', (stateDir) => {
     expect(machineOf(Config(minimal({ stateDir }))).stateDir).toBe(stateDir)
+  })
+  it.skipIf(process.platform === 'win32').each(windowsPaths)('rejects the Windows state path %s on a POSIX Host, where it would be relative', (stateDir) => {
+    expect(() => Config(minimal({ stateDir }))).toThrow('stateDir')
   })
   it('rejects drive-relative Windows state paths', () => {
     expect(() => Config(minimal({ stateDir: String.raw`C:superagent` }))).toThrow('stateDir')

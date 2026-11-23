@@ -1,7 +1,7 @@
 /** Plugin configuration and startup verification for repository access and agent CLI identities. */
 import { LIMITS } from './limits.ts'
 import { accessSync, constants, statSync } from 'node:fs'
-import { delimiter, isAbsolute, join, win32 } from 'node:path'
+import { delimiter, isAbsolute, join } from 'node:path'
 import type { Volatile } from '@deepseek-ai/cordis'
 import s from '@deepseek-ai/schemastery'
 import { z } from 'zod'
@@ -9,8 +9,9 @@ import { sameDirectory, workerBin } from './infra/environment.ts'
 import { SetupError } from './setup.ts'
 
 const reason = (error: unknown): string => error instanceof Error ? error.message : String(error)
+// Judged by the Host's own platform: a drive-qualified Windows path is relative on Linux and macOS.
 const absolute = (description: string) => s.transform(s.string(), (value) => {
-  if (!isAbsolute(value) && !win32.isAbsolute(value)) throw new TypeError('stateDir must be an absolute path')
+  if (!isAbsolute(value)) throw new TypeError('stateDir must be an absolute path')
   return value
 }, true).description(`${description} Absolute path.`)
 /** Plugin configuration of the dsh-superagent entry. Volatile fields apply without a restart because dsh-superagent reads them on each use; changing `stateDir` remounts the plugin. */
