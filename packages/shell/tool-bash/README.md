@@ -105,7 +105,7 @@ The tool resolves the workdir before `ctx.shell.resolve()` runs: an explicit rel
 
 ### Parallel scheduling
 
-A foreground call whose command only reads may run beside sibling parallel-safe calls in the same step (`read`, `grep`, `glob`, other read-only `bash`). `src/read-only-command.ts` accepts a command only when every pipeline stage and list member is an allowlisted reader (`ls`, `cat`, `grep`, `rg`, `find` without actions, read-only `git` subcommands, ...) with read-only arguments, and output redirects only to `/dev/null` or a file descriptor. Command or parameter substitution, subshells, braces, here documents, `&`, leading assignments, path-named programs and unterminated quotes all fail closed. Background calls, sandbox escalation and every other command stay exclusive barriers. A false negative only costs overlap, so the allowlist stays small.
+A foreground call whose command only reads may run beside sibling parallel-safe calls in the same step (`read`, `grep`, `glob`, other read-only `bash`). `src/read-only-command.ts` accepts a command only when every pipeline stage and list member is an allowlisted reader (`ls`, `cat`, `grep`, `rg`, `find` without actions, read-only `git` subcommands, ...) with read-only arguments, and output redirects only to `/dev/null` or a file descriptor. Arguments with shell expansion, including variables and unquoted globs, stay exclusive, as does `uniq` with an output operand. Subshells, braces, here documents, `&`, leading assignments, path-named programs and unterminated quotes all fail closed. Background calls, sandbox escalation and every other command stay exclusive barriers. A false negative only costs overlap, so the allowlist stays small.
 
 ### Rendering story
 

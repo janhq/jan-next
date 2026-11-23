@@ -6,7 +6,7 @@
  * the call. Output redirection is allowed only to `/dev/null` or another file
  * descriptor; input redirection from a file is allowed. Anything the lexer
  * does not fully understand (command substitution, subshells, braces, here
- * documents, background `&`, parameter expansion with `${`, unterminated
+ * documents, background `&`, shell expansions, unterminated
  * quotes, leading variable assignments, a command named by path) is not
  * read-only. A false negative only costs parallelism; a false positive could
  * let two commands race, so every unknown fails closed.
@@ -45,8 +45,20 @@ const git: ArgRule = (args) => {
 const sort: ArgRule = args => !args.some(arg =>
   /^-[A-Za-z]*o/.test(arg) || arg.startsWith('--output') || arg.startsWith('--compress-program'))
 
-/** `uniq` with at most one operand; a second operand names an output file. Option values count as operands, failing closed. */
-const uniq: ArgRule = args => args.filter(arg => !arg.startsWith('-')).length <= 1
+/** A second operand names an output file; after the first operand, count even option-looking words. */
+const uniq: ArgRule = (args) => {
+  let options = true
+  let operands = 0
+  for (const arg of args) {
+    if (options && arg.startsWith('-') && arg !== '-') {
+      if (arg === '--') options = false
+    } else {
+      options = false
+      if (++operands > 1) return false
+    }
+  }
+  return true
+}
 
 const READ_ONLY: Readonly<Record<string, ArgRule>> = {
   ls: ANY, cat: ANY, head: ANY, tail: ANY, wc: ANY, pwd: ANY, echo: ANY, printf: ANY, sleep: ANY, true: ANY, false: ANY,
@@ -115,7 +127,8 @@ function lex(command: string): Segments | undefined {
       index += 2
     } else if (char === '`' || char === '(' || char === ')' || char === '{' || char === '}') {
       return undefined
-    } else if (char === '$' && (next === '(' || next === '{')) {
+    } else if ('$*?~'.includes(char)
+      || (char === '[' && (inWord || (next !== undefined && !METACHARACTERS.includes(next))))) {
       return undefined
     } else if (char === '#' && !inWord) {
       const end = command.indexOf('\n', index)
@@ -163,15 +176,16 @@ function lex(command: string): Segments | undefined {
   return segments.filter(segment => segment.length > 0)
 }
 
-/** Read a double-quoted string starting at `start`; command or `${` expansion inside it is rejected. */
+/** Read a literal double-quoted word; any interpolation requires exclusive scheduling. */
 function readDoubleQuoted(command: string, start: number): { text: string; next: number } | undefined {
   let text = ''
   let index = start + 1
   while (index < command.length && command[index] !== '"') {
     const char = command.charAt(index)
-    if (char === '`' || (char === '$' && (command[index + 1] === '(' || command[index + 1] === '{'))) return undefined
-    if (char === '\\' && index + 1 < command.length) {
-      text += command.charAt(index + 1)
+    if (char === '`' || char === '$') return undefined
+    const escaped = command[index + 1]
+    if (char === '\\' && escaped !== undefined && '"\\$`\n'.includes(escaped)) {
+      if (escaped !== '\n') text += escaped
       index += 2
     } else {
       text += char
