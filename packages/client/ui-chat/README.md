@@ -65,6 +65,7 @@ Text and reasoning contribute to Assistant visibility only when they contain a n
 A live reply types out on the animation-frame clock instead of jumping by network chunk. Each render that leaves text unrevealed restarts a stopped reveal loop, so text landing just after the loop caught up still types out. Revealed progress is keyed by the reply's opening, so the settled message continues from the live position instead of retyping. Reduced motion, a hidden document, or a replacement that does not extend the shown text show the full text at once.
 
 Each newly shown word fades in from a slight blur through `MarkdownText`'s `reveal`, one per reply, so words that remount as their paragraph freezes keep their place in the fade. Once the reply settles, the text renders without reveal spans.
+Pacing carries over when the renderer remounts for the same Session, reply, and text block. Historical replies with identical text are shown in full.
 
 <a id="command-and-failure-rows"></a>
 ## Command and failure rows

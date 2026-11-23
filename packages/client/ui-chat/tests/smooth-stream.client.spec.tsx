@@ -60,16 +60,25 @@ describe('useSmoothText', () => {
 
   it('continues from the shown position when the settled message replaces the live one', () => {
     const reply = `Carried reply ${'word '.repeat(200)}`
-    const live = renderHook(() => useSmoothText(reply.slice(0, 400), true))
+    const live = renderHook(() => useSmoothText(reply.slice(0, 32), true, 'session:1:1:0'))
     act(() => { vi.advanceTimersByTime(32) })
     const shown = live.result.current.text.length
     expect(shown).toBeGreaterThan(0)
-    expect(shown).toBeLessThan(400)
+    expect(shown).toBeLessThanOrEqual(32)
     live.unmount()
-    const settled = renderHook(() => useSmoothText(reply, false))
+    const settled = renderHook(() => useSmoothText(reply, false, 'session:1:1:0'))
     expect(settled.result.current.text.length).toBe(shown)
     act(() => { vi.advanceTimersByTime(2_000) })
     expect(settled.result.current).toEqual({ text: reply, settled: true })
+  })
+
+  it.each(['another-session:1:1:0', 'session:2:1:0', 'session:1:1:1'])('does not pace historical block %s from a live block with identical prose', (identity) => {
+    const text = 'A shared opening. ' + 'word '.repeat(200)
+    const live = renderHook(() => useSmoothText(text, true, 'session:1:1:0'))
+    act(() => { vi.advanceTimersByTime(32) })
+    expect(live.result.current.text.length).toBeLessThan(text.length)
+    const history = renderHook(() => useSmoothText(text, false, identity))
+    expect(history.result.current).toEqual({ text, settled: true })
   })
 
   it('shows the whole reply when the window is hidden mid-reveal, since hidden pages get no frames', () => {

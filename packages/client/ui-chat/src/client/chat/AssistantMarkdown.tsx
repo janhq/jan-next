@@ -37,6 +37,8 @@ export interface AssistantMarkdownProps extends
   useDisclosure: UseDisclosure
   blocks: readonly AssistantBlock[]
   streaming: boolean
+  /** Session and Assistant step identity shared by live and settled views. */
+  replyIdentity?: string
   /** Only finalized durable Assistant messages supply selection sources. */
   textInteractionSource?: boolean
   /** Frozen partial of a cut reply: `stopped` by Stop, or `steered` when the user's steer cut it and the turn went on. */
@@ -57,7 +59,7 @@ export interface AssistantMarkdownProps extends
 
 /** Renders non-blank reasoning blocks as independent disclosures alongside the response. */
 export const AssistantMarkdown = memo(function AssistantMarkdown({
-  blocks, streaming, textInteractionSource = false, interrupted, loadImage, groupPart, useDisclosure,
+  blocks, streaming, replyIdentity, textInteractionSource = false, interrupted, loadImage, groupPart, useDisclosure,
   reasoningHidden = false, usePresentation, revealProcess, mentions, renderSlot, useGroupAction, t,
 }: AssistantMarkdownProps) {
   // Stable per locale revision (t identity changes on switch): a fresh object
@@ -82,10 +84,12 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
     if (groupPart === 'reasoning' && block.kind !== 'reasoning') continue
     if (groupPart === 'response' && block.kind === 'reasoning') continue
     switch (block.kind) {
-      case 'text':
+      case 'text': {
+        const identity = replyIdentity === undefined ? undefined : `${replyIdentity}:${i}`
         rendered.push(
           <PacedMarkdown
-            key={i}
+            key={identity ?? i}
+            identity={identity}
             text={block.text}
             streaming={streaming}
             labels={labels}
@@ -95,6 +99,7 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
           />,
         )
         break
+      }
       case 'reasoning':
         if (block.text.trim() === '') break
         rendered.push(
@@ -162,8 +167,11 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
  * Streamed prose released at a steady pace with each new word fading in from a
  * slight blur; the settled render takes over once the paced text has caught up with a finished stream.
  */
-function PacedMarkdown({ text, streaming, ...markdown }: Omit<Parameters<typeof MarkdownText>[0], 'variant' | 'omitHtml' | 'reveal'> & { streaming: boolean }) {
-  const paced = useSmoothText(text, streaming)
+function PacedMarkdown({ text, streaming, identity, ...markdown }: Omit<Parameters<typeof MarkdownText>[0], 'variant' | 'omitHtml' | 'reveal'> & {
+  streaming: boolean
+  identity: string | undefined
+}) {
+  const paced = useSmoothText(text, streaming, identity)
   // One reveal per reply, so words that remount as their block freezes resume their fade.
   const [reveal] = useState(createStreamReveal)
   return <MarkdownText {...markdown} text={paced.text} streaming={!paced.settled} reveal={reveal} />

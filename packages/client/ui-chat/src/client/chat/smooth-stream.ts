@@ -42,24 +42,21 @@ export function revealStep(shown: number, text: string, elapsed: number, finishi
   return next
 }
 
-/** Characters of a reply's opening that identify it across renderer remounts. */
-const KEY_CHARS = 48
-/** Progress older than this belongs to a different reply. */
+/** Drop unclaimed handoffs once a renderer has been away for a while. */
 const PROGRESS_TTL_MS = 5_000
 /** A live reply first seen longer than this shows at once instead of typing out from the start. */
 const CATCH_UP_LIMIT = 4_000
 
 /**
- * Shown length per reply opening. The streaming partial and the settled message are separate
- * renderer instances, and a running reply can remount when its Turn regroups; the paced
- * position carries over so the text neither jumps ahead nor types out again.
+ * Shown length per Session, reply, and text block. A reply can remount when its
+ * Turn regroups or settles; carry its position across that handoff only.
  */
 const progress = new Map<string, { shown: number; at: number }>()
 
-function initialShown(text: string, streaming: boolean): number {
+function initialShown(text: string, streaming: boolean, identity: string | undefined): number {
   const now = Date.now()
   for (const [key, entry] of progress) if (now - entry.at > PROGRESS_TTL_MS) progress.delete(key)
-  const carried = progress.get(text.slice(0, KEY_CHARS))
+  const carried = identity === undefined ? undefined : progress.get(identity)
   if (carried !== undefined) return Math.min(carried.shown, text.length)
   return streaming && text.length <= CATCH_UP_LIMIT ? 0 : text.length
 }
@@ -68,15 +65,18 @@ function initialShown(text: string, streaming: boolean): number {
  * Pace `text` for display. A live reply types out from where it was last shown, also
  * across remounts and the swap to the settled message; settled history shows at once;
  * a non-append replacement shows at once.
+ * @param text - The text received so far.
+ * @param streaming - Whether the reply is still arriving.
+ * @param identity - Stable key that carries typing progress across remounts.
  * @returns the text to render and whether it has caught up with a finished stream.
  */
-export function useSmoothText(text: string, streaming: boolean): { text: string; settled: boolean } {
+export function useSmoothText(text: string, streaming: boolean, identity?: string): { text: string; settled: boolean } {
   const [, rerender] = useState(0)
   const shown = useRef<number | undefined>(undefined)
   const source = useRef(text)
   const streamingRef = useRef(streaming)
   streamingRef.current = streaming
-  shown.current ??= initialShown(text, streaming)
+  shown.current ??= initialShown(text, streaming, identity)
   // Hidden documents get no animation frames; show everything rather than stall the settled swap.
   const skip = reducedMotion() || (typeof document !== 'undefined' && document.visibilityState === 'hidden')
   if (skip || !text.startsWith(source.current.slice(0, shown.current))) shown.current = text.length
@@ -88,7 +88,7 @@ export function useSmoothText(text: string, streaming: boolean): { text: string;
   // leaves `behind` unchanged, so every render that is behind restarts a stopped loop.
   useEffect(() => {
     if (!behind) {
-      if (!streaming) progress.delete(source.current.slice(0, KEY_CHARS))
+      if (!streaming && identity !== undefined) progress.delete(identity)
       return
     }
     if (frame.current !== 0) return
@@ -96,7 +96,7 @@ export function useSmoothText(text: string, streaming: boolean): { text: string;
     const step = (now: number): void => {
       const target = source.current
       shown.current = revealStep(shown.current ?? 0, target, Math.max(0, now - last.current), !streamingRef.current)
-      progress.set(target.slice(0, KEY_CHARS), { shown: shown.current, at: Date.now() })
+      if (identity !== undefined) progress.set(identity, { shown: shown.current, at: Date.now() })
       last.current = now
       frame.current = shown.current < target.length ? requestAnimationFrame(step) : 0
       rerender(value => value + 1)
@@ -110,7 +110,7 @@ export function useSmoothText(text: string, streaming: boolean): { text: string;
       cancelAnimationFrame(frame.current)
       frame.current = 0
       shown.current = source.current.length
-      progress.delete(source.current.slice(0, KEY_CHARS))
+      if (identity !== undefined) progress.delete(identity)
       rerender(value => value + 1)
     }
     document.addEventListener('visibilitychange', hide)
@@ -119,7 +119,7 @@ export function useSmoothText(text: string, streaming: boolean): { text: string;
       frame.current = 0
       document.removeEventListener('visibilitychange', hide)
     }
-  }, [])
+  }, [identity])
   const visible = behind ? text.slice(0, shown.current) : text
   return { text: visible, settled: !streaming && !behind }
 }
