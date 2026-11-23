@@ -1,7 +1,7 @@
 {"type":"session","version":4,"id":"{{session:1}}","createdAt":1788240634286,"cwd":"{{cwd}}","isSeeded":false,"delegationDepth":0,"agentPreset":"minimal"}
-{"type":"permission/preset","data":{"preset":"workspace-write"}}
-{"type":"sandbox/mode","data":{"mode":"workspace-write"}}
-{"type":"approval/policy","data":{"policy":"ask"}}
+{"type":"permission/preset","data":{"preset":"danger-full-access"}}
+{"type":"sandbox/mode","data":{"mode":"danger-full-access"}}
+{"type":"approval/policy","data":{"policy":"never"}}
 {"type":"agent/inbox/spliced","data":{"target":"next-turn","start":0,"inserted":[{"content":[{"type":"text","text":"Remember the project requirements: implement image reading in minimal mode by reusing the existing filesystem tool. Preserve the fixed system prompt and keep standard mode unchanged. The new tool selection configuration must default to the full filesystem suite and reject unknown names, duplicate names, and empty lists. Minimal mode selects read_image only. Image reads must use the inherited filesystem authorization and durable attachment store, and the calling model must explicitly support image input. Do not register text read, write, or edit tools in minimal mode. Enable automatic compaction under context pressure and manual /compact while the agent is idle, using the existing backend to generate the summary. Keep the token meter shared and the compaction service isolated per preset. Preserve balanced tool-call and result pairs when replacing older history, retain recent context, and continue from the checkpoint. Dispose every tool, command, and listener with its owning plugin. Reply exactly MINIMAL_COMPACT_READY and stop."}],"source":{"kind":"user"},"role":"user","id":"{{message:1}}"}]}}
 {"type":"turn/start","data":{"turn":1}}
 {"type":"agent/inbox/spliced","data":{"target":"next-turn","start":0,"removedCount":1,"inserted":[]}}
