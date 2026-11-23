@@ -57,7 +57,7 @@ function mount(local = {}, remote = {}, fetch: (url: string) => Promise<unknown>
     slots: {
       inject: (_: string, run: () => void) => run(),
       register: (options: { name: string; inject?: () => typeof props }, component: typeof panel) => {
-        if (options.name === 'conversation.input.model.options') optionRow = component as unknown as typeof optionRow
+        if (options.name === 'conversation.input.model.options') optionRow = component as never
         if (options.name !== 'main' || options.inject === undefined) return
         panel = component
         props = options.inject()

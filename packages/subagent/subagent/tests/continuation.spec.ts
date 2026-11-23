@@ -1245,10 +1245,10 @@ describe('continuable human steering delivery', () => {
       await started.result
       const child = await loadStoredSession(ctx.sessionPersistence, started.childId)
       const steering = { id: receipt.messageId, content: message('resident steer'), source: { kind: 'user', rpcId: 'request-resident steer' } }
-      expect(child.events).toContainEqual(expect.objectContaining({
-        type: 'agent/inbox/spliced', data: expect.objectContaining({ target: 'next-step', inserted: [expect.objectContaining(steering) as unknown] }) as unknown,
-      }))
-      expect(child.events).toContainEqual(expect.objectContaining({ type: 'user/message', data: expect.objectContaining(steering) as unknown }))
+      const steered: unknown = expect.objectContaining(steering)
+      const spliced: unknown = expect.objectContaining({ target: 'next-step', inserted: [steered] })
+      expect(child.events).toContainEqual(expect.objectContaining({ type: 'agent/inbox/spliced', data: spliced }))
+      expect(child.events).toContainEqual(expect.objectContaining({ type: 'user/message', data: steered }))
       expect(child.events.filter(event => event.type === 'turn/start')).toHaveLength(1)
       expect(child.events.flatMap(event => event.type === 'step/start' ? [event.data.step] : [])).toEqual([1, 2])
       expect(adapter.requests).toHaveLength(2)

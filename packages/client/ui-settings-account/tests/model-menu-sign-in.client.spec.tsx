@@ -15,10 +15,10 @@ function mount(view: Pick<AccountView, 'status'> | undefined) {
   } as AccountSnapshot
   const start = vi.fn(async () => {})
   const dismiss = vi.fn()
-  const props = {
+  const props: ModelMenuSignInProps = {
     useAccount: <T,>(select: (value: AccountSnapshot) => T): T => select(snapshot),
     start, dismiss, locked: false, reportFailure: vi.fn(), t: makeTranslate(en),
-  } as unknown as ModelMenuSignInProps
+  } as never
   render(<ModelMenuSignIn {...props} />)
   return { start, dismiss }
 }

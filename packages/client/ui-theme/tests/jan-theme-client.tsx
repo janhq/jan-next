@@ -47,6 +47,7 @@ export function mountAppearance(theme: ThemeRuntime): () => void {
     locale: { bind: () => key => key, register() { } },
     theme,
   }
+  const janTheme: unknown = Reflect.get(globalThis, '__JAN_THEME__')
   runInNewContext(janThemeClient, {
     document,
     // The appearance API echoes the saved params, as the host does on success.
@@ -55,9 +56,12 @@ export function mountAppearance(theme: ThemeRuntime): () => void {
       const params = request !== null && typeof request === 'object' && 'params' in request ? request.params : undefined
       return Promise.resolve(Response.json({ result: params }))
     }),
-    window: { __JAN_THEME__: Reflect.get(globalThis, '__JAN_THEME__') as unknown, __ModuleLoader__: { load({ factory }: { factory: (load: (id: string) => object) => { apply(scope: ClientScope): void } }) {
-      factory(id => id === 'react' ? React : id === '@janhq/jan-client-ui-primitives' ? primitives : {}).apply(scope)
-    } } },
+    window: {
+      __JAN_THEME__: janTheme,
+      __ModuleLoader__: { load({ factory }: { factory: (load: (id: string) => object) => { apply(scope: ClientScope): void } }) {
+        factory(id => id === 'react' ? React : id === '@janhq/jan-client-ui-primitives' ? primitives : {}).apply(scope)
+      } },
+    },
   })
   if (!Component) throw new Error('Jan theme did not register the General accent settings')
   const view = render(<Component />)
