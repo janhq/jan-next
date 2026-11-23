@@ -68,9 +68,18 @@ export interface UiWorkspace {
   openSession(target: SessionTarget): void
   /** Open the sessionless Conversation as a user navigation. */
   showEmptyConversation?(): void
-  /** @param sessionId - Session to open in a separate tab, or normally without a tab owner. */
+  /**
+   * Open a Session through the window's tab opener, or navigate normally if none is registered.
+   * @param sessionId - Session to show.
+   * @returns nothing; the window owns the navigation.
+   */
   openSessionInNewTab?(sessionId: SessionId): void
-  /** @param open - window-local tab opener. @returns its disposer. */
+  /**
+   * Install the sole Session tab opener for this window.
+   * @param open - callback that opens the requested Session in a tab.
+   * @returns a disposer that restores ordinary Session navigation.
+   * @throws Error if an opener is already registered.
+   */
   registerSessionTabOpener?(open: (sessionId: SessionId) => void): () => void
   /**
    * Return to the previous main-view location: the Session and global panel the user
@@ -233,7 +242,12 @@ export interface UiWorkspace {
   addProject(anchor?: HTMLElement): boolean
   /** Active Sessions whose presentation replaces the ordinary sidebar row. */
   readonly hiddenSessions: ObservableSnapshot<ReadonlySet<SessionId>>
-  /** Subscribe to a plugin's alternate presentation IDs until the registration is disposed. */
+  /**
+   * Hide active Sessions from ordinary sidebar rows while a plugin presents them elsewhere.
+   * @param source - observable set of the Session ids the plugin presents.
+   * @returns a disposer that removes this source from the combined hidden set.
+   * @throws Error if this source is already registered.
+   */
   registerSessionPresentation(source: ObservableSnapshot<ReadonlySet<SessionId>>): () => void
 }
 

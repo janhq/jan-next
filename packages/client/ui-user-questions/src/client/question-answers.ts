@@ -1,6 +1,10 @@
 import type { AskUserQuestionItem } from '@janhq/jan-user-questions/types'
 
-/** Split the recommendation suffix for display without changing the submitted label. */
+/**
+ * Split the recommendation suffix for display without changing the submitted label.
+ * @param label - original option label supplied with the question.
+ * @returns the display label and whether a recommendation suffix was removed.
+ */
 export function parseRecommendedLabel(label: string): { label: string; recommended: boolean } {
   const suffix = /\s*(?:\((?:recommended|推荐)\)|（(?:recommended|推荐)）)\s*$/i
   return suffix.test(label)
@@ -8,7 +12,11 @@ export function parseRecommendedLabel(label: string): { label: string; recommend
     : { label, recommended: false }
 }
 
-/** All marked choices in a multi-select question, or the marked first choice otherwise. */
+/**
+ * Derive defaults from all marked choices in a multi-select question, or only the first choice otherwise.
+ * @param question - question with its original options and selection mode.
+ * @returns original labels of the recommended choices, in option order.
+ */
 export function recommendedOptions(question: AskUserQuestionItem): string[] {
   const options = question.options ?? []
   const selected: string[] = []

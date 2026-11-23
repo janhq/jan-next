@@ -16,7 +16,11 @@ function validateTimeout(timeout: number): number {
   return timeout
 }
 
-/** Reject duplicate ids before asking a tracked question batch. */
+/**
+ * Reject duplicate ids before asking a tracked question batch.
+ * @param questions - model-supplied questions for one call.
+ * @throws Error if two questions share an id.
+ */
 export function validateQuestionIds(questions: readonly { readonly id: string }[]): void {
   const ids = new Set<string>()
   for (const question of questions) {
@@ -29,7 +33,7 @@ export function validateQuestionIds(questions: readonly { readonly id: string }[
 export const skippedAnswerGuidance = 'An answer item with empty selected and no custom means the user skipped that question: '
   + 'continue without it, do not ask it again, and do not treat the skip as permission.'
 
-/** Model-visible provenance carried only by automatic answer batches. */
+/** Model-visible notice for an answer batch the Client automatically submitted at its deadline. */
 export const automaticAnswerNotice = 'This answer batch was automatically submitted on timeout. '
   + 'Unanswered questions use their recommended choices or are skipped. Do not treat automatic answers as user permission.'
 

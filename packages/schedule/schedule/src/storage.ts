@@ -61,7 +61,11 @@ const targetSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('plugin'), owner: z.string().min(1) }).strict(),
 ])
 
-/** Stable project binding, including after a create-once target became a reused Session. */
+/**
+ * Read the saved project binding, including after a create-once target became a reused Session.
+ * @param target - stored delivery destination.
+ * @returns the Workspace id, or undefined for a plugin or an unbound Session target.
+ */
 export function targetWorkspaceId(target: ScheduleTarget): WorkspaceId | undefined {
   if (target.kind === 'plugin') return undefined
   return target.kind === 'session' ? target.workspaceId : target.create.workspaceId

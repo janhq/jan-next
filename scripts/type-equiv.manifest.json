@@ -753,7 +753,12 @@
     },
     {
       "doc": "docs/subsystems/session-reference.md",
-      "symbol": "SessionReferenceSource",
+      "symbol": "SessionReferencePointerSource",
+      "source": "packages/context/session-reference/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/session-reference.md",
+      "symbol": "SessionReferenceSnapshotSource",
       "source": "packages/context/session-reference/src/types.ts"
     },
     {

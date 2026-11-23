@@ -42,6 +42,12 @@ interface Workspace {
   /** Display title. Defaults to the final path segment, or a filesystem root's own spelling; duplicates are allowed. */
   readonly title: string
 
+  /** Saved accent, absent for the stock appearance. */
+  readonly color?: WorkspaceColor | undefined
+
+  /** Saved avatar, absent for the default folder appearance. */
+  readonly avatar?: WorkspaceAvatar | undefined
+
   /** ISO-8601 creation instant, stamped at create and never rewritten. */
   readonly createdAt: string
 

@@ -1,7 +1,7 @@
 /** Observe and enable the installed Voice Input bundle through Plugin Manager. */
 import type { Context } from '@janhq/cordis'
 import type {} from '@janhq/jan-api-remotes/client'
-import { createSnapshotStore } from '@janhq/jan-client-store'
+import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
 
 /** The optional bundle's profile selection, separate from preparation state. */
 export type VoiceBundleState = 'checking' | 'disabled' | 'enabled' | 'unmanaged' | 'error' | 'restart'
@@ -14,7 +14,11 @@ export const VOICE_BUNDLE = '@janhq/jan-experimental-voice-input-bundle'
  * @param ctx - client runtime with the Remote service.
  * @returns observable selection and the existing management operations.
  */
-export function observeVoiceBundle(ctx: Context) {
+export function observeVoiceBundle(ctx: Context): {
+  state: SnapshotStore<VoiceBundleState>
+  refresh: () => Promise<void>
+  enable: () => Promise<void>
+} {
   const state = createSnapshotStore<VoiceBundleState>('unmanaged')
   let manager: Context['remote']['pluginManager'] | undefined
   let revision = 0

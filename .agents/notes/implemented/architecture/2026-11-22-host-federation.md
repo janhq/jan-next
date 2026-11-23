@@ -18,6 +18,10 @@ Qualified ids stay ordinary branded `SessionId` and `WorkspaceId` strings, so ta
 
 **Federation inside each controller.** Teaching the Workspace, Session and query controllers to forward their own methods touches every method that takes an id and every future one. One forwarder at the wire sees every endpoint, including ones added later, and keeps the controllers single-Host.
 
-## Limits
+## Consequences
+
+The owner browses connected computers in one window without a second browser login. If a connection drops, the other Host's projects stay listed as Offline and calls to them fail until it reconnects. The Host that runs a chat still owns its Session log; losing the link neither moves nor deletes it.
+
+### Limits
 
 A chat running on another computer reads only that computer's chats, because only this Host holds links to all. Uplinks are not forwarded, so a stream that reads Client items works only on this computer. Binary results are forwarded; binary uploads are not.

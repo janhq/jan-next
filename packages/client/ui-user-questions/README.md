@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-The Web client shows an agent's question beside the chat input. Users choose options, enter text, skip questions, and submit one answer batch. **Settings > Agent loop > Answer questions automatically after** is Off by default. When enabled, a timed card counts down to submitting recommended choices and skips questions without a recommendation. Focus pauses the countdown, and editing or choosing Take time holds it until the user answers. Closing a card linked to a tool call hides it; its tool row reopens it and later shows recorded answers. The Host preserves the question across restart, while this browser preserves unfinished input across reload.
+Answer an agent's question beside the chat input: choose options, enter text, skip questions, and submit one batch. **Settings > Agent loop > Answer questions automatically after** is Off by default. When enabled, the countdown submits recommended choices and skips questions without one. Focus pauses it; editing or choosing Take time holds it until you answer. Closing a card linked to a tool call hides it; the tool row reopens it and shows recorded answers. The Host preserves the question across restart, and this browser preserves unfinished input across reload.
 
 ## Table of Contents
 
