@@ -1975,9 +1975,6 @@ importers:
       '@janhq/jan-deque':
         specifier: workspace:*
         version: link:../../util/deque
-      '@janhq/jan-launch-environment':
-        specifier: workspace:*
-        version: link:../../util/launch-environment
       '@janhq/jan-util-values':
         specifier: workspace:*
         version: link:../../util/values
@@ -2057,6 +2054,9 @@ importers:
       '@janhq/jan-host-plugin-inventory':
         specifier: workspace:*
         version: link:../../host/plugin-inventory
+      '@janhq/jan-launch-environment':
+        specifier: workspace:*
+        version: link:../../util/launch-environment
       '@janhq/jan-llm':
         specifier: workspace:*
         version: link:../../llm/llm
@@ -6027,6 +6027,9 @@ importers:
       diff:
         specifier: ^9.0.0
         version: 9.0.0
+      dompurify:
+        specifier: ^3.4.16
+        version: 3.4.16
       katex:
         specifier: ^0.18.7
         version: 0.18.7
@@ -7100,9 +7103,6 @@ importers:
       clsx:
         specifier: ^2.0.0
         version: 2.1.1
-      dompurify:
-        specifier: ^3.4.16
-        version: 3.4.16
       exceljs:
         specifier: 4.4.0
         version: 4.4.0(patch_hash=c1bf8ac8f319dab382f08e3a669b715e691d46c703ac5a4163eb383fbedd1d48)
@@ -18815,6 +18815,9 @@ importers:
       '@janhq/jan-credentials':
         specifier: workspace:*
         version: link:../../packages/credentials/credentials
+      '@janhq/jan-http-proxy':
+        specifier: workspace:*
+        version: link:../../packages/util/http-proxy
       '@janhq/jan-mcp-client':
         specifier: workspace:*
         version: link:../../packages/mcp/mcp-client
@@ -19524,12 +19527,6 @@ importers:
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.1
-      '@types/react':
-        specifier: ~18.3.1
-        version: 18.3.31
-      '@types/react-dom':
-        specifier: ~18.3.0
-        version: 18.3.7(@types/react@18.3.31)
       '@types/scheduler':
         specifier: ^0.26.0
         version: 0.26.0
@@ -19648,12 +19645,6 @@ importers:
       '@types/proper-lockfile':
         specifier: 4.1.4
         version: 4.1.4
-      '@types/react':
-        specifier: ~18.3.1
-        version: 18.3.31
-      '@types/react-dom':
-        specifier: ~18.3.0
-        version: 18.3.7(@types/react@18.3.31)
       jsdom:
         specifier: 29.1.1
         version: 29.1.1(@noble/hashes@2.4.0)
