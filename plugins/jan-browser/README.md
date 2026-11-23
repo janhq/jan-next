@@ -13,7 +13,7 @@ Jan Desktop ships with the Jan Browser row disabled. Enable it on the **Plugins*
 
 The extension owns its automation group. Chrome stays open when Jan disconnects. One live Session can own the attached profile at a time. Jan will not silently move that Session to a different extension connection after a reconnect or profile change: end the previous Session activation and start a new one. Stop a Session before moving ownership to another. After an interrupted action, inspect Chrome before retrying; the published extension cannot cancel actions it already received.
 
-Use the **Plugins** page to disable the Jan Browser row again or edit its host configuration. `proactiveCapture` is off by default. When enabled, and only after the same live Session received a successful screenshot-bearing browser result, Jan can capture the registered page before a new turn using a model that accepts image input. The capture is recorded as Session context and can be sent to the selected model. The extension also automatically captures the resulting page after navigation and most input actions; no additional snapshot call is needed for those results. Keep sensitive tabs out of the automation group and disconnect when done.
+Use the **Plugins** page to disable the Jan Browser row again or edit its host configuration. `proactiveCapture` is off by default. When enabled, Jan can capture the registered page before a new turn only when the same live Session has Full access, has received a successful screenshot-bearing browser result, and uses a model that accepts image input. The capture is recorded as Session context and can be sent to the selected model. The extension also automatically captures the resulting page after navigation and most input actions; no additional snapshot call is needed for those results. Keep sensitive tabs out of the automation group and disconnect when done.
 
 ## Tools
 
@@ -31,7 +31,7 @@ Use the **Plugins** page to disable the Jan Browser row again or edit its host c
 | `browser_tab_switch` | `tabId: integer` | Focus a tab returned by `browser_tabs`. |
 | `browser_close_tabs` | none | Close every tab in the automation group, including manually assigned tabs. |
 
-Ordinary browser tool calls go through Jan's existing approval and policy pipeline. Image-capable models receive persisted screenshot attachments; text-only models receive the accessibility text and a diagnostic when a returned image cannot be sent. A page can contain misleading instructions; a snapshot is page data, not authorization.
+Ordinary browser tool calls go through Jan's existing approval and policy pipeline. Only Full access skips approval; a Session that rejects prompts without Full access cannot use the browser tools. Image-capable models receive persisted screenshot attachments; text-only models receive the accessibility text and a diagnostic when a returned image cannot be sent. A page can contain misleading instructions; a snapshot is page data, not authorization.
 
 ## Transport and trust boundary
 
