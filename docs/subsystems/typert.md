@@ -705,6 +705,13 @@ async invoke(request: InvokeRemoteRequest): Promise<unknown>
  * @returns a cancellation-aware iterable over the business results.
  */
 async stream(request: InvokeRemoteRequest): Promise<AsyncIterable<unknown>>
+
+/**
+ * Register the sole carrier-level forwarder.
+ * @param forwarder - the hook offered every owner wire call and stream.
+ * @returns disposer restoring direct dispatch.
+ */
+registerForwarder(forwarder: TypertGatewayForwarder): () => void
 ```
 
 Source: [`packages/api/gateway/src/index.ts`](../../packages/api/gateway/src/index.ts)

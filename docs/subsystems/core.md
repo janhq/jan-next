@@ -686,16 +686,30 @@ serviceFor<K extends string & keyof Context>(agent: { ctx: Context }, name: K): 
  */
 async recompose(ctx: Context, id: string): Promise<AgentPreset>
 
-/** Select a preset for a Session at a turn boundary. A Session with no
- * recorded preset that already runs the current revision keeps its
- * composition; nothing is logged or announced. A started Session may switch
- * once no turn is open: messages are never rewritten, the selection is
- * appended to the log, and every later turn runs under the new composition.
+/** Select and pin a preset at a turn boundary. Pinning a preset already in
+ * use records the choice without replacing its composition.
  * @param agent Target Agent.
  * @param agentPreset Requested identity.
  * @returns Committed preset identity.
  */
-@Remote('select') async select(agent: Agent, agentPreset: string): Promise<string>
+@Remote('select') select(agent: Agent, agentPreset: string): Promise<string>
+
+/**
+ * Read whether a Session follows the default for its model provider.
+ * @param session - Session whose latest preset choice is read.
+ * @returns whether the preset was assigned automatically.
+ */
+followsRouteDefault(session: Session): boolean
+
+/**
+ * Apply a route default. On a model change, leave the preset alone unless
+ * the blank Session still follows the previous provider's default.
+ * @param agent - Session running the preset.
+ * @param agentPreset - default for the target provider route.
+ * @param previousDefault - previous provider's default for a conditional route change; omit for blank reuse.
+ * @returns the recorded preset, or undefined if a conditional change was skipped.
+ */
+selectRouteDefault(agent: Agent, agentPreset: string, previousDefault?: string): Promise<string | undefined>
 
 /** Read current registrations for cold transcript presentation.
  * @param id Preset identity or the default.
