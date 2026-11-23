@@ -780,7 +780,7 @@ describe('PluginManagerPage', () => {
       expect(screen.getAllByRole('alert')).toHaveLength(1)
       const toast = screen.getByRole('alert')
       expect(toast.textContent).toBe(dict.refreshError)
-      expect(toast.parentElement).toBe(document.body)
+      expect(toast.closest('[data-jan-notification]')?.parentElement?.parentElement).toBe(document.body)
       expect(document.querySelector('[data-plugin-panel]')?.contains(toast)).toBe(false)
       expect(screen.queryByRole('button', { name: dict.retry })).toBeNull()
       expect(content?.isConnected).toBe(true)
