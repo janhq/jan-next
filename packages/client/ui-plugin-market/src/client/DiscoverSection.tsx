@@ -29,7 +29,7 @@ const ICON = 36
 
 /** Public indexes offered for one-click adding; nothing is requested until the person adds one. */
 const SUGGESTED_INDEXES = [
-  { url: 'https://dsh.works/awesome-dsh-plugins/market/index.json', title: 'awesome-dsh-plugins', description: 'suggestedDsh' },
+  { url: 'https://dsh.works/awesome-dsh-plugins/market/index.json', title: 'awesome-dsh-plugins', descriptionKey: 'suggestedDsh' },
 ] as const
 
 function SuggestedIndexes({ state, t, face }: {
@@ -45,7 +45,7 @@ function SuggestedIndexes({ state, t, face }: {
         <li key={item.url} className={css.sourceRow}>
           <div className={css.main}>
             <span className={css.strong}>{item.title}</span>
-            <span className={css.meta}>{t(item.description)}</span>
+            <span className={css.meta}>{t(item.descriptionKey)}</span>
             <span className={css.meta}>{item.url}</span>
           </div>
           <Button variant="outline" size="sm" icon={<IconPlusOutlineRegular size={13} />} disabled={state.saving}
