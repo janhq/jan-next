@@ -8,7 +8,7 @@ Jan Desktop ships agent-desktop 1.0.2 in `<resources>/runtime/agent-desktop` and
 
 On macOS, enable Accessibility for the app that launches the executable. Window screenshots also require Screen Recording. If access is denied, run `agent-desktop permissions --guide` to see the settings and grant access yourself. Jan never requests or changes system permissions. Use an interactive graphical session on Windows and Linux, and consult `agent-desktop skills get platform` for platform requirements.
 
-Each action and screenshot asks for approval. In a chat set to Full access, which never asks, they run without a prompt. Allow all in this chat on the approval card switches the chat to Full access.
+Each action and screenshot asks for approval unless the chat has Full access. A chat that rejects approval prompts without Full access cannot run these actions. Allow all in this chat on the approval card switches the chat to Full access.
 
 ## Tools
 
