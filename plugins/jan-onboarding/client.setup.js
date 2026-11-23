@@ -71,6 +71,25 @@ async function applySetup(settings, profile, options, checked) {
   await settings.saveProfile({ ...profile, name: profile.name.trim() })
 }
 
-    return { roles, goalsFor, recommend, applySetup }
+/** Goals that need strong tool use or long reasoning: a hosted model serves them best. */
+const demanding = new Set(['code', 'debug', 'analyze', 'report', 'research', 'plan', 'design'])
+
+/**
+ * Which way to connect a model to suggest first. Coding, analysis and other demanding work go to
+ * Tokamak (one-click sign-in, hosted models); a profile whose goals are all light (learning,
+ * drafting, everyday chat) goes to the private local model when this build ships one.
+ * @param {string[]} selectedRoles - chosen roles.
+ * @param {string[]} selectedGoals - chosen goals; when empty, the roles' own goals decide.
+ * @param {boolean} localAvailable - whether this build can run a local model.
+ * @returns {{ route: 'local' | 'account', reason: 'demanding' | 'light' }} the suggestion and why, by goal weight.
+ */
+function recommendModel(selectedRoles, selectedGoals, localAvailable) {
+  const goals = selectedGoals.length > 0 ? selectedGoals : goalsFor(selectedRoles)
+  const light = goals.length > 0 && goals.every(goal => !demanding.has(goal))
+  if (!light) return { route: 'account', reason: 'demanding' }
+  return { route: localAvailable ? 'local' : 'account', reason: 'light' }
+}
+
+    return { roles, goalsFor, recommend, recommendModel, applySetup }
   },
 })
