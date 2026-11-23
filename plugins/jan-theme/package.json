@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@janhq/jan-credentials": "workspace:*",
+    "@janhq/jan-http-proxy": "workspace:*",
     "@janhq/jan-mcp-client": "workspace:*",
     "@janhq/jan-plugin-api": "workspace:*",
     "@janhq/jan-skill-filesystem": "workspace:*",

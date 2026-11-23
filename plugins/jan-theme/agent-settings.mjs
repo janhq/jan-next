@@ -16,6 +16,13 @@ const mcpRegistry = createMcpRegistry()
 // pending flow and the mount that finishes it live at module level.
 const pendingSignIns = new Map()
 let liveMount
+
+function cancelSignIn(name) {
+  const pending = pendingSignIns.get(name)
+  pendingSignIns.delete(name)
+  pending?.cancel?.()
+}
+
 // Hosted servers whose own sign-in does not admit Jan, and the local server that takes the same
 // account's personal access token instead.
 const TOKEN_ROUTES = {
@@ -135,7 +142,9 @@ function guessName(value) {
 // JSON with comments and trailing commas, as VS Code and Zed settings files allow.
 function parseLoose(text) {
   try { return JSON.parse(text) } catch { /* try the relaxed form */ }
-  const stripped = text.replace(/("(?:\\.|[^"\\])*")|\/\/[^\n]*|\/\*[\s\S]*?\*\//g, (match, string) => string ?? '').replace(/,(\s*[}\]])/g, '$1').trim()
+  // Both passes consume quoted strings whole so commas and comment markers inside them stay literal.
+  const stripped = text.replace(/("(?:\\.|[^"\\])*")|\/\/[^\r\n]*|\/\*[\s\S]*?\*\//g, (_match, string) => string ?? ' ')
+    .replace(/("(?:\\.|[^"\\])*")|,(\s*)(?=[}\]])/g, (_match, string, space) => string ?? space).trim()
   try { return JSON.parse(stripped) } catch { /* a fragment such as `"name": { ... }` copied out of a larger file */ }
   return JSON.parse(`{${stripped.replace(/^,|,$/g, '')}}`)
 }
@@ -143,7 +152,7 @@ function parseLoose(text) {
 // A single line that is not JSON: an endpoint URL, or a command such as `npx -y @scope/server`.
 function lineServer(text) {
   const line = text.trim()
-  if (!line || line.includes('\n') || /^[[{"]/.test(line)) return undefined
+  if (!line || /[\r\n]/.test(line) || /^[[{"]|^\/[/*]/.test(line)) return undefined
   if (/^https?:\/\//i.test(line)) return { url: line }
   const words = line.match(/"[^"]*"|'[^']*'|\S+/g)?.map(word => word.replace(/^(["'])(.*)\1$/, '$2')) ?? []
   return words.length ? { command: words[0], args: words.slice(1) } : undefined
@@ -180,7 +189,7 @@ export async function mountAgentSettings(ctx, config) {
   for (const [index, row] of configuredServers.entries()) {
     try {
       const parsed = server(row)
-      servers.push({ ...row, enabled: parsed.enabled, transport: parsed.transport })
+      servers.push({ ...row, enabled: parsed.enabled, transport: parsed.transport, ...(parsed.url && { url: parsed.url }) })
     } catch (error) {
       skippedServers.push(row)
       ctx.logger.warn(`Skipping invalid MCP server configuration at row ${index + 1}: ${error.message}`)
@@ -198,6 +207,13 @@ export async function mountAgentSettings(ctx, config) {
   const refreshTimers = new Map()
   const mcp = await import('@janhq/jan-mcp-client')
   const oauthKey = name => credentialKey('jan-theme', `oauth-${mcpSecretId(name)}`)
+  // Unbound legacy grants cannot prove which endpoint authorized them. Require a new sign-in.
+  const boundGrant = (row, grant) => grant?.endpoint === row.url ? grant : undefined
+  const readGrant = async row => boundGrant(row, (await credentials.readRecord(oauthKey(row.name)))?.payload)
+  const acceptsSignIn = (name, endpoint) => servers.some(row => row.name === name && row.enabled && row.transport === 'streamable-http' && row.url === endpoint)
+  for (const [name, pending] of pendingSignIns) {
+    if (!acceptsSignIn(name, pending.endpoint)) cancelSignIn(name)
+  }
   // Servers start in the background: a slow or broken one must not hold up
   // the rest of Jan. Once every start settles at launch, the failed ones are
   // switched off in one save, so the next launch does not try them again.
@@ -210,18 +226,33 @@ export async function mountAgentSettings(ctx, config) {
     try {
       const secret = (await credentials.readRecord(key(row.name)))?.payload ?? {}
       const headers = { ...secret.headers }
-      let expiresAt
+      let signedIn
       if (row.transport === 'streamable-http' && !Object.keys(headers).some(name => name.toLowerCase() === 'authorization')) {
-        const saved = (await credentials.readRecord(oauthKey(row.name)))?.payload
-        const signedIn = saved && await signedInTokens(row.url, saved, next => credentials.modifyRecord(oauthKey(row.name), () => ({ kind: 'grant', payload: next })))
-        if (signedIn) { headers.Authorization = `Bearer ${signedIn.accessToken}`; expiresAt = signedIn.expiresAt }
+        const saved = await readGrant(row)
+        signedIn = await signedInTokens(row.url, saved, next => credentials.modifyRecord(oauthKey(row.name), current => {
+          const grant = boundGrant(row, current?.payload)
+          if (grant?.tokens?.access_token === saved.tokens.access_token) return { kind: 'grant', payload: next }
+        }))
+        if (signedIn) headers.Authorization = `Bearer ${signedIn.accessToken}`
       }
+      if (!live) return undefined
       handle = ctx.plugin(mcp, { ...row, serverName: row.name, env: secret.env ?? {}, headers, failOnStartupError: true })
       handles.set(row.name, handle)
       await handle
+      if (!live || handles.get(row.name) !== handle) return undefined
       status.set(row.name, { phase: 'connected' })
-      // A sign-in that expires is refreshed and the server restarted shortly before, so tools keep working.
-      if (expiresAt && live) refreshTimers.set(row.name, setTimeout(() => { void restart(row.name) }, Math.max(10_000, expiresAt - Date.now() - 60_000)))
+      // Only refreshable grants can renew before expiry; otherwise let the current token finish.
+      if (signedIn?.expiresAt !== undefined) {
+        const now = Date.now()
+        const reconnectAt = signedIn.refreshable ? Math.max(now + 10_000, signedIn.expiresAt - 60_000) : signedIn.expiresAt
+        const schedule = () => {
+          const delay = reconnectAt - Date.now()
+          // Timers beyond Node's maximum delay run almost immediately instead of waiting.
+          if (delay > 2_147_483_647) refreshTimers.set(row.name, setTimeout(schedule, 2_147_483_647))
+          else refreshTimers.set(row.name, setTimeout(() => { void restart(row.name) }, Math.max(0, delay)))
+        }
+        schedule()
+      }
       return undefined
     } catch (error) {
       if (!live || (handle && handles.get(row.name) !== handle)) return undefined
@@ -246,10 +277,10 @@ export async function mountAgentSettings(ctx, config) {
   }
   const starts = servers.map(start)
   liveMount = {
-    restart, credentials, oauthKey,
-    signInFailed: (name, error) => {
+    restart, credentials, oauthKey, acceptsSignIn,
+    signInFailed: (name, error, signInRefused = false) => {
       const row = servers.find(item => item.name === name)
-      if (row?.transport === 'streamable-http') status.set(name, { phase: 'needs-auth', message: /cancelled/i.test(error?.message ?? '') ? 'Sign-in cancelled.' : signInFailure(row.url, error) })
+      if (row?.transport === 'streamable-http') status.set(name, { phase: 'needs-auth', message: /cancelled/i.test(error?.message ?? '') ? 'Sign-in cancelled.' : signInFailure(row.url, error), signInRefused })
     },
   }
   if (config.skillDirectories?.length) {
@@ -260,13 +291,15 @@ export async function mountAgentSettings(ctx, config) {
   const publicRows = async () => Promise.all(servers.map(async row => {
     const tools = ctx.tools.definitions().filter(tool => tool.name.startsWith(`mcp__${row.name}__`)).map(toolInfo)
     const current = status.get(row.name) ?? { phase: 'connecting' }
-    const signingIn = pendingSignIns.get(row.name)
+    const pending = pendingSignIns.get(row.name)
+    const signingIn = pending?.endpoint === row.url ? pending : undefined
     const state = !row.enabled ? 'disabled'
       : signingIn ? 'signing-in'
         : tools.length ? 'ready'
           : current.phase === 'connected' ? 'empty' : current.phase
     const secret = (await credentials.readRecord(key(row.name)))?.payload
-    const signedIn = row.transport === 'streamable-http' && !!(await credentials.readRecord(oauthKey(row.name)))?.payload?.tokens
+    const grant = row.transport === 'streamable-http' ? await readGrant(row) : undefined
+    const signedIn = !!grant?.tokens?.access_token && (grant.expiresAt === undefined || grant.expiresAt > Date.now())
     const secretConfigured = Object.keys(secret?.env ?? {}).length + Object.keys(secret?.headers ?? {}).length > 0
     const { name, enabled, transport } = row
     const endpoint = transport === 'stdio'
@@ -401,14 +434,14 @@ export async function mountAgentSettings(ctx, config) {
     },
     async toggle({ name, enabled }) {
       if (typeof enabled !== 'boolean' || !servers.some(row => row.name === name)) throw new Error('Choose an existing MCP server.')
-      if (!enabled) pendingSignIns.get(name)?.cancel()
+      if (!enabled) cancelSignIn(name)
       const result = await saveRows(servers.map(row => row.name === name ? { ...row, enabled } : row))
       clearFailure(`mcp:${name}`)
       return result
     },
     async remove({ name, confirmed }) {
       if (confirmed !== true || !servers.some(row => row.name === name)) throw new Error('Confirm removal of an existing server.')
-      pendingSignIns.get(name)?.cancel()
+      cancelSignIn(name)
       await saveRows(servers.filter(row => row.name !== name))
       await credentials.deleteRecord(key(name))
       await credentials.deleteRecord(oauthKey(name))
@@ -425,30 +458,42 @@ export async function mountAgentSettings(ctx, config) {
     // Sign in: returns the page the person opens in their browser; the row waits until it returns.
     async signIn({ name }) {
       const row = servers.find(item => item.name === name)
-      if (!row || row.transport !== 'streamable-http') throw new Error('Only remote MCP servers can sign in.')
-      pendingSignIns.get(name)?.cancel()
+      if (!row?.enabled || row.transport !== 'streamable-http') throw new Error('Only enabled remote MCP servers can sign in.')
+      cancelSignIn(name)
+      const pending = { endpoint: row.url }
+      pendingSignIns.set(name, pending)
+      const isCurrent = () => pendingSignIns.get(name) === pending && liveMount?.acceptsSignIn(name, pending.endpoint)
       let flow
       try {
-        flow = await beginSignIn(row.url, async (record) => {
-          await liveMount.credentials.modifyRecord(liveMount.oauthKey(name), () => ({ kind: 'grant', payload: record }))
+        flow = await beginSignIn(pending.endpoint, async record => {
+          if (!isCurrent()) return
+          const { credentials, oauthKey } = liveMount
+          await credentials.modifyRecord(oauthKey(name), () => {
+            if (isCurrent()) return { kind: 'grant', payload: { ...record, endpoint: pending.endpoint } }
+          })
         })
       } catch (error) {
-        ctx.logger.warn(`Sign-in to ${row.url} could not start: ${error instanceof Error ? error.message : String(error)}`)
-        status.set(name, { phase: 'needs-auth', message: signInFailure(row.url, error), signInRefused: true })
+        if (isCurrent()) {
+          pendingSignIns.delete(name)
+          ctx.logger.warn(`Sign-in to ${row.url} could not start: ${error instanceof Error ? error.message : String(error)}`)
+          liveMount.signInFailed(name, error, true)
+        }
         return { started: false }
       }
-      if (!flow.url) { void restart(name); return { started: true } }
-      const pending = { url: flow.url, cancel: flow.cancel }
-      pendingSignIns.set(name, pending)
-      const settle = () => { if (pendingSignIns.get(name) === pending) pendingSignIns.delete(name) }
+      pending.url = flow.url
+      pending.cancel = flow.cancel
       flow.done.then(
-        () => { settle(); return liveMount?.restart(name) },
-        (error) => { settle(); liveMount?.signInFailed(name, error) },
+        () => { if (isCurrent()) { pendingSignIns.delete(name); return liveMount.restart(name) } },
+        error => { if (isCurrent()) { pendingSignIns.delete(name); liveMount.signInFailed(name, error) } },
       )
-      return { started: true, url: flow.url }
+      if (!isCurrent()) { flow.cancel(); return { started: false } }
+      return { started: true, ...(flow.url && { url: flow.url }) }
     },
     cancelSignIn({ name }) {
-      pendingSignIns.get(name)?.cancel()
+      if (pendingSignIns.has(name)) {
+        cancelSignIn(name)
+        liveMount?.signInFailed(name, new Error('Sign-in cancelled.'))
+      }
       return { cancelled: true }
     },
     // An access token instead of signing in: sent as `Authorization: Bearer`, or, for a hosted server
@@ -459,7 +504,7 @@ export async function mountAgentSettings(ctx, config) {
       if (typeof token !== 'string' || !token.trim() || /\s/.test(token.trim())) throw new Error('Paste the access token, without spaces.')
       const value = token.trim()
       const route = row.transport === 'streamable-http' && TOKEN_ROUTES[hostOf(row.url)]
-      pendingSignIns.get(name)?.cancel()
+      cancelSignIn(name)
       if (route) {
         // Throws a sentence the row shows when Figma rejects the token, before anything is saved.
         await route.verify(value)

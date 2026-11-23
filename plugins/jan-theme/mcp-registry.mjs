@@ -210,9 +210,10 @@ function countedPackages(server) {
  * @param {{ query?: string, since?: 'week' | 'month', cursor?: string }} request
  * @param {{ fetch?: typeof fetch, now?: () => number }} [deps]
  */
-export function createMcpRegistry({ fetch: request = globalThis.fetch, now = Date.now } = {}) {
+export function createMcpRegistry({ fetch: fetchOverride, now = Date.now } = {}) {
+  const request = fetchOverride ?? globalThis.fetch
   const cache = new Map()
-  const logos = createIconFetcher({ fetch: request, now })
+  const logos = createIconFetcher({ fetch: fetchOverride, now })
   // Logo sources of every server a search returned; the client asks for logos by name only.
   const sources = new Map()
   // Last week's downloads by `source:identifier`; an unreadable count is kept as undefined for a while.

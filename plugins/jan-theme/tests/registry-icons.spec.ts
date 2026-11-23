@@ -1,5 +1,14 @@
-import { describe, expect, it, vi } from 'vitest'
+import { lookup } from 'node:dns'
+import { get } from 'node:https'
+import { PassThrough } from 'node:stream'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { proxyRouteFor } from '@janhq/jan-http-proxy'
 import { createIconFetcher, iconSources, linkedIcons, publicHttpsUrl } from '../registry-icons.mjs'
+
+vi.mock('node:dns', () => ({ lookup: vi.fn() }))
+vi.mock('node:https', () => ({ get: vi.fn() }))
+vi.mock('@janhq/jan-http-proxy', () => ({ proxyRouteFor: vi.fn(() => ({ proxied: false })) }))
+afterEach(() => { vi.resetAllMocks(); vi.unstubAllGlobals() })
 
 const png = (bytes = 4) => new Response(new Uint8Array(bytes).fill(7), { status: 200, headers: { 'content-type': 'image/png' } })
 const html = (body: string) => new Response(body, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } })
@@ -62,6 +71,55 @@ describe('logo fetcher', () => {
     expect(await logos.icon('hop', { icons: ['https://a.dev/hop.png'], sites: [] })).toMatch(/^data:image\/png;base64,/)
   })
 
+  it.each([
+    { address: '127.0.0.1', family: 4 },
+    { address: '10.1.2.3', family: 4 },
+    { address: '169.254.1.1', family: 4 },
+    { address: '::1', family: 6 },
+    { address: '::ffff:127.0.0.1', family: 6 },
+    { address: 'fd00::1', family: 6 },
+    { address: 'fe80::1', family: 6 },
+  ])('does not connect to a hostname resolved to $address', async address => {
+    const connect = stubIconTransport({ 'logo.example.com': address })
+    const logos = createIconFetcher()
+    expect(await logos.icon('icon', { icons: ['https://logo.example.com/icon.png'], sites: [] })).toBeUndefined()
+    expect(lookup).toHaveBeenCalledTimes(1)
+    expect(connect).not.toHaveBeenCalled()
+  })
+
+  it('returns the image from a validated public address', async () => {
+    const connect = stubIconTransport({ 'logo.example.com': { address: '2606:4700::1111', family: 6 } })
+    const logos = createIconFetcher()
+    expect(await logos.icon('icon', { icons: ['https://logo.example.com/icon.png'], sites: [] })).toBe('data:image/png;base64,BwcHBw==')
+    expect(connect).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not bypass an applicable proxy for a redirect destination', async () => {
+    vi.mocked(proxyRouteFor).mockImplementation(url => url.hostname === 'other.example.com'
+      ? { proxied: true, proxy: 'https://proxy.example.com', dispatcher: {} as never }
+      : { proxied: false })
+    const connect = stubIconTransport({ 'logo.example.com': { address: '93.184.215.14', family: 4 } })
+    const logos = createIconFetcher()
+    expect(await logos.icon('icon', { icons: ['https://logo.example.com/to-other'], sites: [] })).toBeUndefined()
+    expect(connect).toHaveBeenCalledTimes(1)
+    expect(lookup).toHaveBeenCalledTimes(1)
+  })
+
+  it('rechecks DNS on every redirect and caps the number of hops', async () => {
+    const connect = stubIconTransport({
+      'logo.example.com': { address: '93.184.215.14', family: 4 },
+      'other.example.com': { address: '172.16.0.1', family: 4 },
+    })
+    const logos = createIconFetcher()
+    expect(await logos.icon('redirect', { icons: ['https://logo.example.com/to-other'], sites: [] })).toBeUndefined()
+    expect(connect.mock.calls.map(([url]) => url.hostname)).toEqual(['logo.example.com'])
+    expect(lookup).toHaveBeenLastCalledWith('other.example.com', expect.anything(), expect.any(Function))
+
+    connect.mockClear()
+    expect(await logos.icon('loop', { icons: ['https://logo.example.com/loop'], sites: [] })).toBeUndefined()
+    expect(connect).toHaveBeenCalledTimes(4)
+  })
+
   it('retries a miss caused by a network failure after minutes, and a real absence only after an hour', async () => {
     let clock = 0
     let down = true
@@ -84,3 +142,30 @@ describe('logo fetcher', () => {
     expect(fetch.mock.calls.length).toBe(calls)
   })
 })
+
+// Simulate only the DNS and socket boundaries. No network or external DNS is used here.
+function stubIconTransport(addresses: Record<string, { address: string; family: number }>) {
+  vi.stubGlobal('fetch', vi.fn(async () => png()))
+  const connect = vi.fn((url: URL, respond: (response: PassThrough) => void) => {
+    const location = url.pathname === '/to-other' ? 'https://other.example.com/logo.png' : url.pathname === '/loop' ? '/loop' : undefined
+    const response = Object.assign(new PassThrough(), location ? { statusCode: 302, headers: { location } }
+      : { statusCode: 200, headers: { 'content-type': 'image/png' } })
+    respond(response)
+    response.end(location ? undefined : Buffer.from([7, 7, 7, 7]))
+  })
+  vi.mocked(lookup).mockImplementation(((hostname, options, callback) => {
+    const answer = addresses[hostname]
+    if (!answer) { callback(new Error(`No DNS fixture for ${hostname}`)); return }
+    if (options.all) callback(null, [answer])
+    else callback(null, answer.address, answer.family)
+  }) as typeof lookup)
+  vi.mocked(get).mockImplementation(((url: URL, options, respond) => {
+    const request = new PassThrough()
+    queueMicrotask(() => options.lookup(url.hostname, { all: true }, (error: Error | null) => {
+      if (error) request.destroy(error)
+      else connect(url, respond)
+    }))
+    return request
+  }) as typeof get)
+  return connect
+}
