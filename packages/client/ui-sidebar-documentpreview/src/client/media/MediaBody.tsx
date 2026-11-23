@@ -25,26 +25,26 @@ const SOURCE_NOT_SUPPORTED = 4
  */
 export function MediaBody({ kind, content, resourceAddress, useResource, t }: MediaBodyProps): ReactNode {
   const file = useResource<'file'>(resourceAddress).value
-  const [failure, setFailure] = useState<{ src: string; codec: boolean }>()
+  const [failure, setFailure] = useState<{ key: string; codec: boolean }>()
   const base = typeof document === 'undefined' ? undefined : document.baseURI
   const url = file === undefined || base === undefined ? undefined : fileMediaUrl(base, file.absolutePath)
   // The version keeps the URL off the redirect and changes it when the file changes.
   const src = url === undefined || file === undefined ? undefined : `${url}&v=${encodeURIComponent(file.version)}`
   if (src === undefined || file === undefined) return <p className={css.status} role="status">{t('waiting')}</p>
   const revision = content.kind === 'renderer' ? content.revision : 0
+  const key = `${src}:${revision}`
   const loaded = (): void => { if (content.kind === 'renderer') content.loaded(file.version) }
   const failed = (event: SyntheticEvent<HTMLMediaElement>): void => {
-    setFailure({ src, codec: event.currentTarget.error?.code === SOURCE_NOT_SUPPORTED })
+    setFailure({ key, codec: event.currentTarget.error?.code === SOURCE_NOT_SUPPORTED })
     if (content.kind === 'renderer') content.failed()
   }
-  const shownFailure = failure?.src === src ? failure : undefined
+  const shownFailure = failure?.key === key ? failure : undefined
   const status = shownFailure === undefined ? null : (
     <div className={css.failure} role="alert">
       <p>{t('failed')}</p>
       {shownFailure.codec ? <p className={css.hint}>{t('unsupportedCodec')}</p> : null}
     </div>
   )
-  const key = `${src}:${revision}`
   if (kind === 'video') {
     return (
       <div className={css.video} data-media-kind="video">

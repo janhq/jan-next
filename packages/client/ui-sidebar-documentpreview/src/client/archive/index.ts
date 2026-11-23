@@ -14,6 +14,7 @@ export const ARCHIVE_EXTENSIONS = ['zip'] as const
 /**
  * Describe the builtin zip listing.
  * @param title - locale-owned implementation name.
+ * @returns metadata that requests the complete ZIP bytes before mounting the preview body.
  */
 export function archiveBodyDefinition(title: () => string): DocumentPreviewDefinition {
   return { id: ARCHIVE_BODY_ID, extensions: ARCHIVE_EXTENSIONS, binaryExtensions: ARCHIVE_EXTENSIONS, priority: 'builtin', title, loading: 'bytes-complete', wrap: false }

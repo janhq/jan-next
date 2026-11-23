@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
 /** Media, font, and zip renderers: suffix routing and the zip listing. */
 import type { ComponentProps } from 'react'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { zipSync } from 'fflate'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DocumentPreviewRegistry } from '../src/client/document/registry.ts'
 import { ArchiveBody, ARCHIVE_ROW_LIMIT, archiveEntries } from '../src/client/archive/ArchiveBody.tsx'
 import { ARCHIVE_BODY_ID, ARCHIVE_EXTENSIONS, archiveBodyDefinition } from '../src/client/archive/index.ts'
 import { en } from '../src/client/archive/locales.ts'
 import { FONT_BODY_ID, FONT_EXTENSIONS, fontBodyDefinition } from '../src/client/font/index.ts'
 import { AUDIO_EXTENSIONS, MEDIA_AUDIO_ID, MEDIA_VIDEO_ID, VIDEO_EXTENSIONS, mediaBodyDefinition } from '../src/client/media/index.ts'
+import { MediaBody, type MediaBodyProps } from '../src/client/media/MediaBody.tsx'
 
 const t = (key: keyof typeof en, values?: Record<string, string | number>): string =>
   en[key].replace(/\{(\w+)\}/gu, (_, name: string) => String(values?.[name] ?? ''))
@@ -31,6 +32,34 @@ describe('media, font, and archive routing', () => {
     }
     expect(registry.candidates('/w/clip.avi')).toEqual([])
     expect(registry.getSnapshot().filter(entry => entry.loading === 'renderer').map(entry => entry.id)).toEqual([MEDIA_VIDEO_ID, MEDIA_AUDIO_ID])
+  })
+
+  it('mounts a fresh media player when reloading a failed source at the same URL', () => {
+    const loaded = vi.fn()
+    const failed = vi.fn()
+    const file = { absolutePath: '/w/clip.mp4', version: '1' }
+    const body = (revision: number) => <MediaBody {...{
+      kind: 'video', content: { kind: 'renderer', revision, loaded, failed },
+      useResource: () => ({ value: file }), t: (key: string) => key,
+    } as unknown as MediaBodyProps} />
+    const view = render(body(0))
+    try {
+      const first = view.container.querySelector('video')!
+      const src = first.getAttribute('src')
+      fireEvent.error(first)
+      expect(failed).toHaveBeenCalledOnce()
+      expect(view.getByRole('alert').textContent).toBe('failed')
+
+      view.rerender(body(1))
+      expect(view.queryByRole('alert')).toBeNull()
+      const reloaded = view.container.querySelector('video')!
+      expect(reloaded).not.toBe(first)
+      expect(reloaded.getAttribute('src')).toBe(src)
+      fireEvent.loadedMetadata(reloaded)
+      expect(loaded).toHaveBeenCalledWith(file.version)
+    } finally {
+      view.unmount()
+    }
   })
 })
 
