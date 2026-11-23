@@ -281,7 +281,16 @@ export class ReactLoopAgent implements Agent {
 
   private async kick(): Promise<void> {
     try {
-      while (await this.turn()) {}
+      while (await this.turn()) {
+        /* v8 ignore next -- only this driver changes the running phase */
+        if (this.phase.kind !== 'running') break
+        // Check at the driver boundary, not inside turn(): input can arrive
+        // after turn/end but before the promise returns to this driver.
+        if (this.phase.abort.signal.aborted || !this.inbox.hasPending) break
+        this.phase.abort = new AbortController()
+        this.phase.wakeRequested = false
+        this.phase.step = 0
+      }
     } catch (_error) {
       // Reported failures and cancellation are contained at the driver boundary.
     } finally {
@@ -441,11 +450,6 @@ export class ReactLoopAgent implements Agent {
         this.throwError(error)
       }
     }
-    if (!this.inbox.hasPending) return false
-    phase.abort = new AbortController()
-    // A fresh controller makes a latch set on the old one stale: the live driver claims the queue itself.
-    phase.wakeRequested = false
-    phase.step = 0
     return true
   }
 
