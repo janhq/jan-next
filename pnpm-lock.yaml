@@ -1059,9 +1059,6 @@ importers:
       '@janhq/jan-edge-app':
         specifier: workspace:*
         version: link:../../plugins/edge-app
-      '@janhq/jan-experimental-speech-to-text':
-        specifier: workspace:*
-        version: link:../../packages/experimental/speech-to-text
       '@janhq/jan-file-reference':
         specifier: workspace:*
         version: link:../../packages/context/file-reference
@@ -3717,18 +3714,6 @@ importers:
       '@janhq/jan-deliverable-file-references':
         specifier: workspace:*
         version: link:../../deliverables/deliverable-file-references
-      '@janhq/jan-experimental-api-speech-to-text':
-        specifier: workspace:*
-        version: link:../../experimental/api-speech-to-text
-      '@janhq/jan-experimental-client-ui-voice-input':
-        specifier: workspace:*
-        version: link:../../experimental/client-ui-voice-input
-      '@janhq/jan-experimental-speech-to-text':
-        specifier: workspace:*
-        version: link:../../experimental/speech-to-text
-      '@janhq/jan-experimental-speech-to-text-sensevoice':
-        specifier: workspace:*
-        version: link:../../experimental/speech-to-text-sensevoice
       '@janhq/jan-file-reference':
         specifier: workspace:*
         version: link:../../context/file-reference

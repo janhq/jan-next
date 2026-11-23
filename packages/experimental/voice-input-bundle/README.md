@@ -7,7 +7,7 @@ kind: "package-bundle"
 
 ## Summary
 
-This optional bundle enables dictation in the Web and Desktop composers. Shipped profiles leave it disabled; their microphone opens setup without requiring a visit to Plugins.
+This optional bundle composes a speech Service Definition, local SenseVoice provider, authenticated Remote and browser microphone control. Shipped profiles leave it disabled.
 
 ## Table of Contents
 
@@ -33,7 +33,7 @@ Open Plugins in the Web sidebar and enable Voice Input, marked by a blue wavefor
 <details>
 <summary>Maintainer details — click to expand</summary>
 
-The Web composition owns the speech Service Definition, local SenseVoice provider, authenticated Remote and browser contribution in both Web and Desktop. The optional bundle stores the opt-in through the normal profile selection. The four existing row IDs remain stable, so saved recognition preferences keep applying after an upgrade.
+The static `cordis.patch.yml` adds the four voice rows, selects `sensevoice-local` as the default recognizer and supplies the provider cache directory with `janHomePath`. Optional-bundle installation makes the package available to management without selecting it in default profiles. The browser contribution owns its generated Remote mount; stable API Remotes do not import experimental code.
 
 </details>
 

@@ -1,2 +1,13 @@
-# The Web bundle owns the speech rows. Selecting this bundle enables dictation in Jan.
-[]
+- insert:
+    - id: speech-to-text
+      name: '@janhq/jan-experimental-speech-to-text'
+      config:
+        defaultProvider: sensevoice-local
+    - id: speech-to-text-sensevoice
+      name: '@janhq/jan-experimental-speech-to-text-sensevoice'
+      config:
+        dataRoot: !!js janHomePath('speech-to-text', 'sensevoice')
+    - id: api-speech-to-text
+      name: '@janhq/jan-experimental-api-speech-to-text'
+    - id: ui-voice-input
+      name: '@janhq/jan-experimental-client-ui-voice-input'
