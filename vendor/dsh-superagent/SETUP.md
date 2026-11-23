@@ -25,7 +25,7 @@ grep -l -E 'id: dsh-superagent\b' "${JAN_HOME:-$HOME/.config/jan-alpha}"/profile
 ```
 
 - **Host:** this package runs only on a Jan Host started with the checkout's `pnpm jan`. Do not install DSH or use `scripts/dsh-superagent`, the upstream launcher: it starts `dsh`, which this package does not support.
-- **Prerequisites:** Node.js 22.19+ or 24+, pnpm, git 2.32+, tmux, Python 3.8+ and GitHub CLI 2.48+. A missing one becomes an item of the plan, not a question. Jan also needs a model provider; if the operator has never run Jan with a model, configuring one is an operator step.
+- **Prerequisites:** Node.js 24.9 or later (the Jan checkout's requirement), pnpm, git 2.32+, tmux, Python 3.8+ and GitHub CLI 2.48+. A missing one becomes an item of the plan, not a question. Jan also needs a model provider; if the operator has never run Jan with a model, configuring one is an operator step.
 - **Operator login:** the `gh api user` result is the operator's own GitHub login, used as the recommendation in question 5.
 - **Existing profile:** a profile with a `dsh-superagent` entry is an earlier setup: ask whether to continue it, keep its configuration, and read Upgrade in `docs/006-deployment.md`.
 
