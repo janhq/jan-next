@@ -149,7 +149,8 @@ async function harness(options: HarnessOptions = {}) {
     setup: Parameters<AgentFactory['createAgent']>[1]['setup'],
   ): Promise<{ agent: Agent; dispose: () => Promise<void> }> => {
     const model = new AgentModel(models.readerFor(session), session, agentOptions)
-    const agent = { id: session.id, session, status: 'idle', ctx, model } as Agent
+    const fields: Partial<Agent> = { id: session.id, session, status: 'idle', ctx, model, options: agentOptions }
+    const agent = fields as Agent
     const detach = ctx.effect(() => ctx.sessions.enter(session))
     try {
       ctx.sessions.announce(session)
