@@ -555,15 +555,17 @@ export class ReactLoopAgent implements Agent {
         // the next one carries the steered input.
         const iterator = stream[Symbol.asyncIterator]()
         // One listener per read, removed when the read settles, so a long reply keeps no per-chunk state.
-        const nextOrYield = () => new Promise<Awaited<ReturnType<typeof iterator.next>> | 'yielded'>((resolve, reject) => {
-          if (yielded.aborted) { resolve('yielded'); return }
+        const nextOrYield = async (): Promise<Awaited<ReturnType<typeof iterator.next>> | 'yielded'> => {
+          if (yielded.aborted) return 'yielded'
+          const { promise: gate, resolve } = Promise.withResolvers<'yielded'>()
           const onYield = () => { resolve('yielded') }
           yielded.addEventListener('abort', onYield, { once: true })
-          iterator.next().then(
-            (result) => { yielded.removeEventListener('abort', onYield); resolve(result) },
-            (error: unknown) => { yielded.removeEventListener('abort', onYield); reject(error) },
-          )
-        })
+          try {
+            return await Promise.race([iterator.next(), gate])
+          } finally {
+            yielded.removeEventListener('abort', onYield)
+          }
+        }
         try {
           while (true) {
             const next = await nextOrYield()
