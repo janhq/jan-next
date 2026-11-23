@@ -987,6 +987,14 @@ window.__ModuleLoader__.load({
   .jt-project-add small { color: var(--dsw-alias-label-tertiary); font-size: 12px; }
   .jt-projects .jt-agent-empty p { margin: 0; max-width: 42ch; }
   @media (prefers-reduced-motion: reduce) { .jt-project-tile { transition: none; } .jt-project-tile:hover { transform: none; } }
+  /* List view: one tile per row, the picture leading, title and path stacked, facts at the end. */
+  .jt-projects-grid[data-view='list'] { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .jt-projects-grid[data-view='list'] .jt-project-tile { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; row-gap: 0; align-items: center; min-height: 0; padding: 10px 14px; }
+  .jt-projects-grid[data-view='list'] .jt-project-tile > :first-child { grid-row: 1 / 3; }
+  .jt-projects-grid[data-view='list'] .jt-project-tile-title { grid-column: 2; }
+  .jt-projects-grid[data-view='list'] .jt-project-tile-path { grid-column: 2; width: 100%; }
+  .jt-projects-grid[data-view='list'] .jt-project-tile-meta { grid-column: 3; grid-row: 1 / 3; margin-top: 0; }
+  .jt-projects-grid[data-view='list'] .jt-project-add { min-height: 0; padding: 12px 14px; grid-auto-flow: column; justify-content: start; align-items: center; gap: 8px; }
   .jt-projects-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 64px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; }
   @media (max-width: 600px) { .jt-projects { padding: 24px 16px; } }
   /* Project home: the main column (title, composer, recents) and a details rail. */
@@ -1553,7 +1561,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       empty: ({ row }) => row.sessionIds.length === 0,
     }
     function ProjectsPanel({ useWorkspaces, openProject, addProject, t }) {
-      const { Input, Menu, IconChevronDownOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+      const { Input, Menu, IconChevronDownOutlineRegular, ViewToggle, useViewMode } = require('@janhq/jan-client-ui-primitives')
+      const [view, setView] = useViewMode('projects')
       const items = useWorkspaces((snapshot) => snapshot.items)
       const [query, setQuery] = React.useState('')
       const [filter, setFilter] = React.useState('all')
@@ -1594,7 +1603,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             anchor: h(Button, { variant: 'ghost', size: 'sm', className: 'jt-projects-sort', 'aria-haspopup': 'menu', 'aria-expanded': sortOpen, onClick: () => { setSortOpen(!sortOpen) } },
               h('span', { className: 'jt-projects-sort-label' }, t('projects.sort')), t(`projects.sort.${sort}`),
               h(IconChevronDownOutlineRegular, { size: 14, 'aria-hidden': true })),
-          })),
+          }),
+          h(ViewToggle, { value: view, onChange: setView, labels: { grid: t('projects.view.grid'), list: t('projects.view.list'), group: t('projects.view') } })),
         chips.length > 1 && h('div', { className: 'jt-chips', role: 'group', 'aria-label': t('projects.filter') }, chips.map(([id, count]) =>
           h('button', { key: id, type: 'button', className: 'jt-chip', 'aria-pressed': active === id, onClick: () => { setFilter(id) } },
             t(`projects.filter.${id}`), h('span', { className: 'jt-chip-count' }, count)))),
@@ -1607,7 +1617,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               h(IconSearchOutlineRegular, { size: 20, 'aria-hidden': true }),
               h('p', null, t('projects.noMatch')),
               h(Button, { variant: 'outline', size: 'sm', onClick: clear }, t('projects.clear')))
-            : h('ul', { className: 'jt-projects-grid' }, rows.map(({ row, title }) => h('li', { key: row.workspaceId },
+            : h('ul', { className: 'jt-projects-grid', 'data-view': view }, rows.map(({ row, title }) => h('li', { key: row.workspaceId },
               h('button', { type: 'button', className: 'jt-project-tile', style: { '--jt-hue': nameHue(title) }, title: row.path, onClick: () => { openProject(row.workspaceId) } },
                 ProjectAvatar
                   ? h(ProjectAvatar, { avatar: row.avatar, githubOwner: row.githubOwner, color: row.color, size: 32 })
@@ -2465,6 +2475,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
               'projects.count': '{count} projects', 'projects.countOf': '{shown} of {count}', 'projects.filter': 'Filter projects',
               'projects.filter.all': 'All', 'projects.filter.recent': 'This week', 'projects.filter.empty': 'No chats yet',
+              'projects.view': 'View', 'projects.view.grid': 'Grid', 'projects.view.list': 'List',
               'projects.sort': 'Sort', 'projects.sort.updated': 'Recently updated', 'projects.sort.name': 'Name', 'projects.sort.chats': 'Most chats', 'projects.sort.created': 'Newest',
               'projects.noMatch': 'No projects match your search.', 'projects.clear': 'Clear filters',
               'projects.addTile': 'New project', 'projects.addTileHint': 'Pick or create a folder',
@@ -2553,6 +2564,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.chat': '{count} 个对话', 'projects.chats': '{count} 个对话',
               'projects.count': '{count} 个项目', 'projects.countOf': '{shown} / {count}', 'projects.filter': '筛选项目',
               'projects.filter.all': '全部', 'projects.filter.recent': '本周', 'projects.filter.empty': '暂无对话',
+              'projects.view': '显示方式', 'projects.view.grid': '网格', 'projects.view.list': '列表',
               'projects.sort': '排序', 'projects.sort.updated': '最近更新', 'projects.sort.name': '名称', 'projects.sort.chats': '对话最多', 'projects.sort.created': '最新创建',
               'projects.noMatch': '没有匹配的项目。', 'projects.clear': '清除筛选',
               'projects.addTile': '新建项目', 'projects.addTileHint': '选择或创建一个文件夹',
@@ -2644,6 +2656,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.chat': '{count} 件のチャット', 'projects.chats': '{count} 件のチャット',
               'projects.count': '{count} 件のプロジェクト', 'projects.countOf': '{count} 件中 {shown} 件', 'projects.filter': 'プロジェクトを絞り込む',
               'projects.filter.all': 'すべて', 'projects.filter.recent': '今週', 'projects.filter.empty': 'チャットなし',
+              'projects.view': '表示', 'projects.view.grid': 'グリッド', 'projects.view.list': 'リスト',
               'projects.sort': '並べ替え', 'projects.sort.updated': '最近の更新', 'projects.sort.name': '名前', 'projects.sort.chats': 'チャットが多い順', 'projects.sort.created': '新しい順',
               'projects.noMatch': '一致するプロジェクトはありません。', 'projects.clear': '絞り込みを解除',
               'projects.addTile': '新規プロジェクト', 'projects.addTileHint': 'フォルダーを選ぶか作成します',
@@ -2735,6 +2748,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
               'projects.count': '{count} proyectos', 'projects.countOf': '{shown} de {count}', 'projects.filter': 'Filtrar proyectos',
               'projects.filter.all': 'Todos', 'projects.filter.recent': 'Esta semana', 'projects.filter.empty': 'Sin chats',
+              'projects.view': 'Vista', 'projects.view.grid': 'Cuadrícula', 'projects.view.list': 'Lista',
               'projects.sort': 'Ordenar', 'projects.sort.updated': 'Actualizados recientemente', 'projects.sort.name': 'Nombre', 'projects.sort.chats': 'Más chats', 'projects.sort.created': 'Más nuevos',
               'projects.noMatch': 'Ningún proyecto coincide con tu búsqueda.', 'projects.clear': 'Quitar filtros',
               'projects.addTile': 'Nuevo proyecto', 'projects.addTileHint': 'Elige o crea una carpeta',
@@ -2826,6 +2840,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.chat': '{count} discussion', 'projects.chats': '{count} discussions',
               'projects.count': '{count} projets', 'projects.countOf': '{shown} sur {count}', 'projects.filter': 'Filtrer les projets',
               'projects.filter.all': 'Tous', 'projects.filter.recent': 'Cette semaine', 'projects.filter.empty': 'Sans discussion',
+              'projects.view': 'Affichage', 'projects.view.grid': 'Grille', 'projects.view.list': 'Liste',
               'projects.sort': 'Trier', 'projects.sort.updated': 'Mis à jour récemment', 'projects.sort.name': 'Nom', 'projects.sort.chats': 'Plus de discussions', 'projects.sort.created': 'Plus récents',
               'projects.noMatch': 'Aucun projet ne correspond à votre recherche.', 'projects.clear': 'Effacer les filtres',
               'projects.addTile': 'Nouveau projet', 'projects.addTileHint': 'Choisissez ou créez un dossier',
@@ -2917,6 +2932,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.chat': '{count} Chat', 'projects.chats': '{count} Chats',
               'projects.count': '{count} Projekte', 'projects.countOf': '{shown} von {count}', 'projects.filter': 'Projekte filtern',
               'projects.filter.all': 'Alle', 'projects.filter.recent': 'Diese Woche', 'projects.filter.empty': 'Noch keine Chats',
+              'projects.view': 'Ansicht', 'projects.view.grid': 'Raster', 'projects.view.list': 'Liste',
               'projects.sort': 'Sortieren', 'projects.sort.updated': 'Zuletzt aktualisiert', 'projects.sort.name': 'Name', 'projects.sort.chats': 'Meiste Chats', 'projects.sort.created': 'Neueste',
               'projects.noMatch': 'Keine Projekte entsprechen deiner Suche.', 'projects.clear': 'Filter zurücksetzen',
               'projects.addTile': 'Neues Projekt', 'projects.addTileHint': 'Ordner auswählen oder erstellen',
@@ -3008,6 +3024,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.chat': 'Чатов: {count}', 'projects.chats': 'Чатов: {count}',
               'projects.count': 'Проектов: {count}', 'projects.countOf': '{shown} из {count}', 'projects.filter': 'Фильтр проектов',
               'projects.filter.all': 'Все', 'projects.filter.recent': 'На этой неделе', 'projects.filter.empty': 'Без чатов',
+              'projects.view': 'Вид', 'projects.view.grid': 'Сетка', 'projects.view.list': 'Список',
               'projects.sort': 'Сортировка', 'projects.sort.updated': 'Недавно обновлённые', 'projects.sort.name': 'Название', 'projects.sort.chats': 'Больше всего чатов', 'projects.sort.created': 'Новые',
               'projects.noMatch': 'Нет проектов, подходящих под запрос.', 'projects.clear': 'Сбросить фильтры',
               'projects.addTile': 'Новый проект', 'projects.addTileHint': 'Выберите или создайте папку',
@@ -3099,6 +3116,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.chat': '{count} conversa', 'projects.chats': '{count} conversas',
               'projects.count': '{count} projetos', 'projects.countOf': '{shown} de {count}', 'projects.filter': 'Filtrar projetos',
               'projects.filter.all': 'Todos', 'projects.filter.recent': 'Esta semana', 'projects.filter.empty': 'Sem conversas',
+              'projects.view': 'Visualização', 'projects.view.grid': 'Grade', 'projects.view.list': 'Lista',
               'projects.sort': 'Ordenar', 'projects.sort.updated': 'Atualizados recentemente', 'projects.sort.name': 'Nome', 'projects.sort.chats': 'Mais conversas', 'projects.sort.created': 'Mais recentes',
               'projects.noMatch': 'Nenhum projeto corresponde à sua pesquisa.', 'projects.clear': 'Limpar filtros',
               'projects.addTile': 'Novo projeto', 'projects.addTileHint': 'Escolha ou crie uma pasta',
