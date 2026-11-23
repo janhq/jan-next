@@ -14,6 +14,8 @@ describe('isReadOnlyCommand', () => {
     'uniq -c -- input.txt',
     'sort "\\$SORT_FLAGS"',
     'cat < input.txt',
+    "cat < '*.txt'",
+    'cat < \\*.txt',
     'echo done # trailing comment',
   ])('allows %s', (command) => {
     expect(isReadOnlyCommand(command)).toBe(true)
@@ -28,6 +30,10 @@ describe('isReadOnlyCommand', () => {
     ['names a uniq output file after standard input', 'uniq - out.txt'],
     ['expands a glob into uniq operands', 'uniq *.txt'],
     ['expands a character class into uniq operands', 'uniq report[12].txt'],
+    ['expands a redirection word', 'cat < report{1,2}.txt'],
+    ['expands a redirection glob', 'cat < *.txt'],
+    ['expands a redirection character class', 'cat < report[12].txt'],
+    ['expands a redirection tilde', 'cat < ~/report.txt'],
     ['expands sort arguments', 'sort $SORT_FLAGS input.txt'],
     ['expands a quoted sort argument', 'sort "$SORT_FLAG" input.txt'],
     ['compiles a magic file', 'file -C -m magic'],

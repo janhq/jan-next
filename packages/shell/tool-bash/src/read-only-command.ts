@@ -78,6 +78,9 @@ const READ_ONLY: Readonly<Record<string, ArgRule>> = {
 /** Characters that end an unquoted word. */
 const METACHARACTERS = ' \t\n;&|<>()'
 
+/** Expansion markers that are not literal in an unquoted word. */
+const EXPANSION_MARKERS = '`$*?~{}'
+
 /** A lexed command line: list members and pipeline stages, each a list of words. */
 type Segments = string[][]
 
@@ -125,9 +128,7 @@ function lex(command: string): Segments | undefined {
         inWord = true
       }
       index += 2
-    } else if (char === '`' || char === '(' || char === ')' || char === '{' || char === '}') {
-      return undefined
-    } else if ('$*?~'.includes(char)
+    } else if (char === '(' || char === ')' || EXPANSION_MARKERS.includes(char)
       || (char === '[' && (inWord || (next !== undefined && !METACHARACTERS.includes(next))))) {
       return undefined
     } else if (char === '#' && !inWord) {
@@ -214,7 +215,7 @@ function readRedirect(command: string, start: number): number | undefined {
   let target = ''
   while (index < command.length && !METACHARACTERS.includes(command.charAt(index))) {
     const char = command.charAt(index)
-    if (char === '`' || char === '$') return undefined
+    if (EXPANSION_MARKERS.includes(char) || char === '[') return undefined
     if (char === "'") {
       const end = command.indexOf("'", index + 1)
       if (end < 0) return undefined
@@ -222,9 +223,14 @@ function readRedirect(command: string, start: number): number | undefined {
       index = end + 1
     } else if (char === '"') {
       const quoted = readDoubleQuoted(command, index)
-      if (quoted === undefined || quoted.text.includes('$')) return undefined
+      if (quoted === undefined) return undefined
       target += quoted.text
       index = quoted.next
+    } else if (char === '\\') {
+      const escaped = command[index + 1]
+      if (escaped === undefined) return undefined
+      if (escaped !== '\n') target += escaped
+      index += 2
     } else {
       target += char
       index++
