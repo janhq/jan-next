@@ -12,6 +12,16 @@ import { entryListSchema } from '@janhq/cordis-plugin-include'
 import { evaluate } from '@janhq/cordis-plugin-loader'
 
 describe('jan-base bundle', () => {
+  it('exposes background monitoring in the reviewer preset, not the scout', () => {
+    const parsed = yaml.load(readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf8'), { schema: entryListSchema })
+    const rows = (parsed as { insert?: { id?: string; config?: { toolAllowlist?: string[] } }[] }[])
+      .flatMap(patch => patch.insert ?? [])
+    expect(rows.find(row => row.id === 'preset-reviewer')?.config?.toolAllowlist)
+      .toEqual(expect.arrayContaining(['job_output', 'job_kill', 'job_watch', 'wake_after']))
+    expect(rows.find(row => row.id === 'preset-scout')?.config?.toolAllowlist)
+      .not.toContain('wake_after')
+  })
+
   it('declares a parseable patch list through the jan.bundle.patch manifest field', () => {
     const root = fileURLToPath(new URL('..', import.meta.url))
     const manifest = JSON.parse(
