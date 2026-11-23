@@ -642,6 +642,22 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'UI front ends provide the active human-answer provider; tool-ask-user pauses a tool call on the provider-neutral ask() promise.',
   },
   {
+    key: 'userQuestionSettings',
+    pkg: 'client-ui-user-questions',
+    title: 'Question countdown preference',
+    mode: 'core',
+    consumers: ['tool-ask-user'],
+    note: 'Reads the profile-owned auto-answer countdown live, so a Settings change applies to the next question without a reload.',
+  },
+  {
+    key: 'mediaCapture',
+    pkg: 'tool-capture-media',
+    title: 'Owner camera and microphone capture',
+    mode: 'core',
+    consumers: ['tool-capture-media'],
+    note: 'The Host startup half waits for the owner to allow, capture and send in the chat, stores the bytes as an attachment, then settles the tool call; a decline settles it as declined.',
+  },
+  {
     key: 'planMode',
     pkg: 'plan-mode',
     title: 'Plan collaboration state',

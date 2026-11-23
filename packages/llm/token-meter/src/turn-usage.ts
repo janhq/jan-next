@@ -2,6 +2,7 @@ import { lastAssistantStreamChunk } from '@janhq/jan-llm/assistant-stream'
 import type { AssistantMessage, TokenUsage } from '@janhq/jan-llm/types'
 import type {} from '@janhq/jan-llm-retry/types'
 import type { SessionEvent } from '@janhq/jan-session/types'
+import { estimateContent } from './estimate.ts'
 
 /** One provider/model route that contributed a billed request attempt. */
 export interface TurnTokenUsageRoute {
@@ -9,7 +10,7 @@ export interface TurnTokenUsageRoute {
   readonly model: string
 }
 
-/** Exact provider-reported token accounting for every attempt in one completed Turn. */
+/** Provider-reported token accounting for every attempt in one completed Turn. */
 export interface TurnTokenUsage {
   /** Sum of uncached prompt input across all attempts. */
   readonly uncachedInputTokens: number
@@ -24,6 +25,11 @@ export interface TurnTokenUsage {
   readonly reasoningTokens?: number
   /** Present only when every billed attempt has provider/model attribution. */
   readonly routes?: readonly TurnTokenUsageRoute[]
+  /**
+   * Some reply was cut by Stop or a steer before the provider reported its
+   * output, so that reply's output is estimated from its streamed content.
+   */
+  readonly outputEstimated?: true
 }
 
 interface NormalizedAttempt {
@@ -34,6 +40,7 @@ interface NormalizedAttempt {
   readonly cacheWriteTokens?: number
   readonly reasoningTokens?: number
   readonly route?: TurnTokenUsageRoute
+  readonly outputEstimated?: true
 }
 
 type AttemptState =
@@ -155,7 +162,21 @@ function aggregateAttempts(attempts: readonly NormalizedAttempt[]): TurnTokenUsa
     ...cacheWriteTokens === undefined ? {} : { cacheWriteTokens },
     ...reasoningTokens === undefined ? {} : { reasoningTokens },
     ...routes === undefined ? {} : { routes },
+    ...attempts.some(attempt => attempt.outputEstimated === true) ? { outputEstimated: true as const } : {},
   }
+}
+
+/**
+ * Replace a cut reply's partial output count with an estimate of what it
+ * streamed: providers report output only in the final event, which a cut
+ * stream never receives. The prompt side stays exact.
+ */
+function estimateCutOutput(attempt: NormalizedAttempt, message: AssistantMessage): NormalizedAttempt | undefined {
+  const outputTokens = Math.max(attempt.outputTokens, estimateContent(message.content))
+  const totalTokens = safeSum([attempt.totalTokens - attempt.outputTokens, outputTokens])
+  if (totalTokens === undefined) return undefined
+  const { reasoningTokens: _reported, ...rest } = attempt
+  return { ...rest, outputTokens, totalTokens, outputEstimated: true }
 }
 
 function sameAttempt(
@@ -169,7 +190,9 @@ function sameAttempt(
 /**
  * Fold one complete Turn's durable attempt lifecycle into exact token accounting.
  *
- * No attempt is inferred from a usage sample. Any missing lifecycle boundary,
+ * No attempt is inferred from a usage sample. A reply cut before the provider
+ * reported its output keeps its exact prompt counts and an estimated output.
+ * Any missing lifecycle boundary,
  * incomplete attempt usage, unsafe count, or contradictory exact total makes
  * the whole disclosure unavailable.
  * @param events - Turn-local durable events from `turn/start` through `turn/end`.
@@ -182,11 +205,12 @@ export function deriveTurnTokenUsage(events: readonly SessionEvent[]): TurnToken
   let sawEnd = false
   let invalid = false
 
-  const closeOpen = (route?: TurnTokenUsageRoute): boolean => {
+  const closeOpen = (route?: TurnTokenUsageRoute, cut?: AssistantMessage): boolean => {
     if (state.kind !== 'open' || state.sample === undefined) return false
     const normalized = normalizeUsage(state.sample, route)
-    if (normalized === undefined) return false
-    attempts.push(normalized)
+    const attempt = normalized === undefined || cut === undefined ? normalized : estimateCutOutput(normalized, cut)
+    if (attempt === undefined) return false
+    attempts.push(attempt)
     return true
   }
 
@@ -245,7 +269,8 @@ export function deriveTurnTokenUsage(events: readonly SessionEvent[]): TurnToken
       }
       const sample = event.data.usage ?? streamUsage(event.data.stream)
       if (sample !== undefined) state = { ...state, sample }
-      if (!closeOpen(messageRoute(event.data.message))) invalid = true
+      const cut = event.data.interrupted === true ? event.data.message : undefined
+      if (!closeOpen(messageRoute(event.data.message), cut)) invalid = true
       else state = { kind: 'settled', turn, step: event.data.step, by: 'message' }
       continue
     }

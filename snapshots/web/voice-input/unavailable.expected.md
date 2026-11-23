@@ -1,6 +1,12 @@
-- dialog "Speech recognition is not ready":
-  - heading "Speech recognition is not ready" [level=2]
+- dialog "Set up voice input before recording":
+  - heading "Set up voice input before recording" [level=2]
   - button "Cancel"
-  - paragraph: Open the voice plugin details to check recognition status, preparation progress, or errors.
-  - button "Later"
-  - button "Open voice plugin settings"
+  - text: Recognition language
+  - combobox "Recognition language":
+    - option "Detect automatically" [selected]
+  - paragraph: Local models will be downloaded to the machine running Jan. No Python or compiler is required.
+  - strong: Recorded recognizer
+  - text: Checking local resources…
+  - status: Waiting 1795269555 seconds
+  - button "Cancel preparation"
+  - button "Cancel"

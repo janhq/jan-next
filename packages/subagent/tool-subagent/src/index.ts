@@ -66,6 +66,13 @@ export interface Config extends PresetSelectionConfig {
    * Agent options applied to every child; omitted fields use child-loop defaults.
    */
   agentOptions?: AgentOptions
+  /** Provider/model defaults keyed by an allowed child preset id. */
+  presetAgentOptions?: Record<string, {
+    /** Provider route used for this preset outside an explicit route selection. */
+    provider: string
+    /** Model id on the preset provider route. */
+    model: string
+  }>
   /**
    * Maximum child depth: a non-negative safe integer (`0` forbids delegation),
    * or `'provider-managed'` to send no cap. A numeric cap
@@ -98,6 +105,7 @@ export const Config: z<Config> = z.object({
   }),
   agentPreset: z.string().min(1),
   allowedAgentPresets: (z.array(z.string().min(1)).min(1) as z<string[] | undefined>).default(undefined),
+  presetAgentOptions: z.dict(z.object({ provider: z.string().min(1).required(), model: z.string().min(1).required() })),
   maxDepth: z.union([z.natural().max(Number.MAX_SAFE_INTEGER), z.const('provider-managed' as const)]),
 })
 
@@ -156,6 +164,11 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   if (presets.configured && ctx.get('agentPresets') === undefined) {
     throw new Error('tool-subagent: agent preset selection requires the agent-presets service')
   }
+  for (const id of Object.keys(config.presetAgentOptions ?? {})) {
+    if (id !== config.agentPreset && !presets.choices?.includes(id)) {
+      throw new Error(`tool-subagent: presetAgentOptions names an unavailable preset: ${id}`)
+    }
+  }
   // Direct apply() bypasses Schemastery's numeric constraints. A direct-apply
   // omission stays capless (the schema default only runs through the loader).
   if (config.maxDepth !== 'provider-managed') assertSubagentMaxDepth(config.maxDepth)
@@ -172,7 +185,8 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
         + 'set maxDepth: \'provider-managed\' to leave the recursion budget to the provider',
       )
     }
-    if (config.agentOptions !== undefined && !subagentProvider.capabilities.agentOptions) {
+    if ((config.agentOptions !== undefined || Object.keys(config.presetAgentOptions ?? {}).length > 0)
+      && !subagentProvider.capabilities.agentOptions) {
       throw new Error(
         `tool-subagent: provider "${subagentProvider.name}" does not support child agentOptions`,
       )
@@ -204,14 +218,19 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     const selectionDescription = providerRouteDefaults !== undefined
       ? ' Omit `provider`, `model`, and `reasoning_effort` to use child defaults, falling back to this backend\'s route defaults.'
       : ' Omit `provider`, `model`, and `reasoning_effort` to use child defaults, falling back to compatible parent values.'
+    const roleChoices = presets.choices?.map((id) => {
+      const description = ctx.get('agentPresets')?.descriptionFor(id)
+      return description === undefined ? id : `${id}: ${description}`
+    })
     const definition = defineTool({
       name: toolName,
       description: wording.description
-        + ' This tool starts an independently managed subagent and immediately returns its name. If you are still online when it finishes, the runtime automatically delivers its completion notice. The notice includes the final answer unless the child sent you a message just before finishing.'
+        + ' This tool starts a subagent and returns its name. If you are still online when it finishes, the completion notice delivers its final answer separately from any interim messages.'
         + (subagentProvider.prepareContinuable !== undefined
           ? ' Use `send_message` to steer it while running or continue its conversation after it finishes.'
           : ' This backend does not accept follow-up messages.')
         + (modelSelectionEnabled ? selectionDescription : '')
+        + (roleChoices === undefined ? '' : ` Select a role with agent_preset (${roleChoices.join('; ')}).`)
         + (modelSelectionEnabled && subagentProvider.inheritsParentContext
           ? ' Changing the route can prevent provider-side reuse of the inherited conversation prefix.'
           : ''),
@@ -283,11 +302,13 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
         const agentPreset = presets.resolve(args as PresetSelectionRequest)
         const modelRequest = args as DelegationModelRequest
         const parentOptions = parentAgentOptionsForDelegation(parent)
-        const requiresRoutePreflight = hasDelegationModelRequest(modelRequest)
-          || hasConfiguredLlmSelection(config.agentOptions)
+        const roleRoute = agentPreset === undefined ? undefined : config.presetAgentOptions?.[agentPreset]
+        const configured = roleRoute === undefined ? config.agentOptions
+          : { ...config.agentOptions, ...roleRoute, reasoningEffort: undefined }
+        const requiresRoutePreflight = hasDelegationModelRequest(modelRequest) || hasConfiguredLlmSelection(configured)
         const configuredChildAgentOptions = requiresRoutePreflight && providerRouteDefaults !== undefined
-          ? { ...providerRouteDefaults, ...config.agentOptions }
-          : config.agentOptions
+          ? { ...providerRouteDefaults, ...configured }
+          : configured
         const requestedChildAgentOptions = requestedAgentOptions(
           configuredChildAgentOptions,
           modelRequest,
@@ -373,7 +394,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
         .sort()
       if (visible[0] !== toolName) return ''
       const names = visible.map(name => `\`${name}\``).join(' or ')
-      return `Start independent delegations with ${names} together in one assistant message and continue useful work while they run. When only waiting for their results remains, end your turn instead of sleeping or polling; the next result starts a new turn. Collect the subagent results required to complete the task before giving the user a final answer.\n\nAgents may use different working directories; changes to shared files affect other agents. Split parallel write work into disjoint file or directory scopes. Bash, formatters, code generators, and scripts can overwrite concurrent edits without conflict detection; coordinate their changes explicitly. The agent integrating the work must review the final diff and run relevant tests.`
+      return `Start independent delegations with ${names} together in one assistant message and continue useful work while they run. If \`wait_agent\` is available, use it to wait for messages or results when no useful work remains. Otherwise end your turn instead of sleeping or polling; the next result starts a new turn. A start receipt is not a result. Collect the required results before giving the user a final answer.\n\nAgents may use different working directories; changes to shared files affect other agents. Split parallel write work into disjoint file or directory scopes. Bash, formatters, code generators, and scripts can overwrite concurrent edits without conflict detection; coordinate their changes explicitly. The agent integrating the work must review the final diff and run relevant tests.`
     },
   })
   ctx.systemPrompt.context({

@@ -7,6 +7,7 @@ import { SubagentCatalogAction, SubagentHeaderLineage, type SubagentCatalogInjec
 import {
   SubagentReadOnlyComposer, type SubagentReadOnlyMatch,
 } from './SubagentReadOnlyComposer.tsx'
+import { TurnSubagents } from './TurnSubagents.tsx'
 import { registerSidebarChat, subagentChatAddress } from './sidebar-chat/index.tsx'
 import type {} from '@janhq/jan-client-locale/client'
 import type {} from '@janhq/jan-client-ui-chat/client'
@@ -52,16 +53,14 @@ export function apply(ctx: ClientContext): void {
   ctx.inject(['resources', 'sidebarRightTabs'], (scope) => {
     registerSidebarChat(scope, ctx.locale.bind(NS))
   })
+  const openChildAside = (address: SubagentAddress): void => {
+    ctx.sidebarRight.openResource(subagentChatAddress(address), { kind: 'subagentchat', preferNewPane: true })
+  }
   const catalogActions = (_parentSessionId: SessionId): SubagentCatalogInjected => ({
     openChild(address: SubagentAddress) {
       ctx.uiWorkspace.openSession(address)
     },
-    openChildAside(address: SubagentAddress) {
-      ctx.sidebarRight.openResource(subagentChatAddress(address), {
-        kind: 'subagentchat',
-        preferNewPane: true,
-      })
-    },
+    openChildAside,
     refreshProjection(parentSessionId: SessionId) {
       void ctx.sessions.refreshProjections(parentSessionId)
     },
@@ -79,18 +78,26 @@ export function apply(ctx: ClientContext): void {
     }, SubagentHeaderLineage),
   )
   ctx.slots.inject(
-    'conversation.session.header.actions',
+    'conversation.input.dock',
     () => ctx.slots.register({
-      name: 'conversation.session.header.actions',
+      name: 'conversation.input.dock',
       id: 'subagent-catalog',
-      // Between the preset label (-10) and background tasks (20).
-      order: 10,
+      order: 6,
       locale: NS,
       inject: (sessionId): SubagentCatalogActionInjected => ({
         ...catalogActions(sessionId), hooks: { footerAvailable },
       }),
       children: { 'conversation.session.header.actions.subagent.footer': { kind: 'list', scope: 'session' } },
     }, SubagentCatalogAction),
+  )
+  ctx.slots.inject(
+    'conversation.chat.turn-process.trailing',
+    () => ctx.slots.register({
+      name: 'conversation.chat.turn-process.trailing',
+      id: 'subagents',
+      locale: NS,
+      inject: catalogActions,
+    }, TurnSubagents),
   )
   ctx.slots.inject(
     'conversation.composer',

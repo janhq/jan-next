@@ -175,7 +175,7 @@ describe.skipIf(process.platform === 'win32')('Web sidebar shortcuts', () => {
       await panel.locator('[data-dockkit-tab-close]').last().click()
       await panel.locator('[data-dockkit-tab-close]').click()
       await page.getByRole('button', { name: 'Open right sidebar', exact: true }).click()
-      await bind(page, primary, 'Workspace files', 'Browser')
+      await bind(page, primary, 'Project files', 'Browser')
       await composer.click()
       await page.keyboard.press(`${primary}+Shift+,`)
       await panel.locator('[data-dockkit-tab]').filter({ hasText: 'Files' }).waitFor()
@@ -189,7 +189,7 @@ describe.skipIf(process.platform === 'win32')('Web sidebar shortcuts', () => {
       await expect.poll(() => panel.locator('[data-dockkit-pane][data-sidebar-right-flash]').count()).toBe(0)
       expect(await paneAppearance()).toEqual([plainPane])
 
-      await bind(page, primary, 'Toggle panel fullscreen', 'Workspace files')
+      await bind(page, primary, 'Toggle panel fullscreen', 'Project files')
       await composer.click()
       await page.keyboard.press(`${primary}+Shift+,`)
       expect(await page.locator('[data-sidebar-right-panel="fullscreen"]').count()).toBe(0)
@@ -216,14 +216,14 @@ describe.skipIf(process.platform === 'win32')('Web sidebar shortcuts', () => {
       const splitKeys = primary === 'Meta' ? '⇧ ⌘ ,' : 'Ctrl + Shift + ,'
       await page.getByRole('tooltip', { name: `Two panes is the limit ${splitKeys}`, exact: true }).waitFor()
 
-      await bind(page, primary, 'Workspace files', 'Split')
+      await bind(page, primary, 'Project files', 'Split')
       await right.getByRole('tab').focus()
       await page.keyboard.press(`${primary}+Shift+,`)
       await expect.poll(() => panel.locator('[data-dockkit-tab]').filter({ hasText: 'Files' }).count()).toBe(2)
       await page.keyboard.press(`${primary}+Shift+,`)
       expect(await right.locator('[data-dockkit-tab]').filter({ hasText: 'Files' }).count()).toBe(1)
 
-      await bind(page, primary, 'New terminal', 'Workspace files')
+      await bind(page, primary, 'New terminal', 'Project files')
       await right.locator('[data-dockkit-tab]').filter({ hasText: 'Files' }).focus()
       await page.keyboard.press(`${primary}+Shift+,`)
       await right.locator('[data-sidebar-terminal]').waitFor()

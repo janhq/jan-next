@@ -125,9 +125,17 @@ export type MessageImageSource =
     }
   }
 
+/** One mounted consumer's claim on a durable browser URL. */
+export interface MessageImageLease {
+  readonly url: Promise<string>
+  readonly release: () => void
+}
+
 /** Durable image loader with an optional synchronous cache read. */
 export type MessageImageLoader = ((attachment: ImageAttachmentRef) => Promise<string>) & {
   peek?: (attachment: ImageAttachmentRef) => string | undefined
+  /** Retain a URL only while a mounted consumer needs it. */
+  acquire?: (attachment: ImageAttachmentRef) => MessageImageLease
 }
 
 /** Message image group handed to the optional attachment presentation plugin. */
@@ -142,6 +150,8 @@ export interface MessageImagesOwnerProps {
   compact?: boolean
   /** Fixed, uncropped thumbnail for an attachment list row. */
   thumbnail?: boolean
+  /** Defer reading image bytes until the thumbnail nears the viewport. */
+  lazy?: boolean
 }
 
 /** Message-image strings the owner resolves from its own locale namespace. */
@@ -214,10 +224,29 @@ declare module '@janhq/jan-client-ui-slots' {
       props: MessageImagesContentInput
       inject: { readonly fileDrag: import('@janhq/jan-client-ui-primitives').FileDragActions }
       locale: 'conversation'
+      children: { 'conversation.image.preview.actions': { kind: 'list'; scope: 'session-maybe' } }
     }
   }
 
   interface SlotMap {
+    /** Actions beside a loaded image in the reusable conversation gallery. */
+    'conversation.image.preview.actions': {
+      kind: 'list'
+      scope: 'session-maybe'
+      owner: {
+        /** @returns the mounted image element, or null. */
+        readonly getSurface: () => HTMLImageElement | null
+      }
+    }
+    /** Actions on one draft image thumbnail in the composer, at its top-left corner. */
+    'conversation.input.attachment.actions': {
+      kind: 'list'
+      scope: 'session-maybe'
+      owner: {
+        /** @returns the thumbnail's image element, or null. */
+        readonly getSurface: () => HTMLImageElement | null
+      }
+    }
     /** One business-owned inline renderer for a pure JSON text node. */
     'conversation.user.text.node': {
       kind: 'keyed'
@@ -228,6 +257,12 @@ declare module '@janhq/jan-client-ui-slots' {
     }
     /** Conversation shell beneath its root-scoped main-panel entry. */
     'main.conversation': { kind: 'single'; scope: 'session-maybe' }
+    /**
+     * Rows after **New chat** in the menu a chat tab strip's `+` opens. Each entry renders
+     * menu items (`role="menuitem"`) that open something for the pane's chat and call
+     * `dismiss`; return null with nothing to offer.
+     */
+    'conversation.desk.new-tab.item': { kind: 'list'; scope: 'root'; owner: ConversationNewTabItemOwnerProps }
     /** Strict per-Session Conversation body. */
     'conversation.session': {
       kind: 'single'
@@ -260,6 +295,8 @@ declare module '@janhq/jan-client-ui-slots' {
         hideChrome: boolean
       }
     }
+    /** Persistent Session identity before or after its first turn. */
+    'conversation.session.header.identity': { kind: 'list'; scope: 'session'; owner: { blank: boolean } }
     /** Optional replacement for one Session breadcrumb title; overlays must portal because the title area clips overflow. */
     'conversation.session.header.lineage': {
       kind: 'single'
@@ -312,6 +349,8 @@ declare module '@janhq/jan-client-ui-slots' {
     'conversation.hero.brand.mark': { kind: 'single'; scope: 'root'; owner: HeroBrandMarkOwnerProps }
     /** Agent-preset control staged for a New Session. */
     'conversation.hero.agentPreset': { kind: 'single'; scope: 'session-maybe'; owner: HeroAgentPresetOwnerProps }
+    /** Agent-preset control under a started Session's composer, beside the workspace chip. */
+    'conversation.composer.agentPreset': { kind: 'single'; scope: 'session'; owner: ComposerAgentPresetOwnerProps }
     /** Compact options right-aligned in the New Session row after the workspace and preset controls; rendered only with a Session. */
     'conversation.hero.options': { kind: 'list'; scope: 'session' }
     /**
@@ -345,6 +384,8 @@ declare module '@janhq/jan-client-ui-slots' {
      * docked composer contains them.
      */
     'conversation.input.activity': { kind: 'single'; scope: 'session'; owner: InputActivityOwnerProps }
+    /** Activity that can start in an empty composer and adopt its first Session. */
+    'conversation.input.draftActivity': { kind: 'single'; scope: 'session-maybe'; owner: DraftActivityOwnerProps }
     /**
      * Resident composer body, including the no-Session inert state; fixed overlays must portal to
      * the document body because the docked composer contains them.
@@ -394,6 +435,7 @@ declare module '@janhq/jan-client-ui-slots' {
         'conversation.hero.brand.mark': { kind: 'single'; scope: 'root' }
         'conversation.hero.workspace': { kind: 'single'; scope: 'root' }
         'conversation.hero.agentPreset': { kind: 'single'; scope: 'session-maybe' }
+        'conversation.composer.agentPreset': { kind: 'single'; scope: 'session' }
         'conversation.hero.options': { kind: 'list'; scope: 'session' }
       }
       inject: ConversationInjected
@@ -429,9 +471,23 @@ declare module '@janhq/jan-client-ui-slots' {
   }
 }
 
+/** Owner share of a `+` menu row: the chat of the pane whose `+` was pressed. */
+export interface ConversationNewTabItemOwnerProps {
+  /** The pane's selected chat; undefined while that pane shows a blank new chat. */
+  readonly sessionId: SessionId | undefined
+  /** Close the menu; call it when a row acts. */
+  readonly dismiss: () => void
+}
+
 /** Owner share of the Hero agent-preset control. */
 export interface HeroAgentPresetOwnerProps {
   /** Marker field: the occupant owns its roster and staged selection. */
+  children?: never
+}
+
+/** Owner share of the started Session's agent-preset control. */
+export interface ComposerAgentPresetOwnerProps {
+  /** Marker field: the occupant derives its state from standard Session props. */
   children?: never
 }
 
@@ -488,7 +544,9 @@ export type ConvViewProps = PropsRuntime<'conversation.view'>
 export interface ConversationInjected {
   pickSuggestion: (text: string) => void
   /** Connect and open a blank Session in the selected Workspace. */
-  selectWorkspace: (workspaceId: WorkspaceId) => Promise<void>
+  selectWorkspace: (workspaceId: WorkspaceId, readText?: () => string) => Promise<void>
+  /** Open the default project draft, taking text from the resident editor before it binds. */
+  openDefaultDraft?: (readText: () => string) => Promise<void>
   /** Session-addressed composer block source, or the stable absent source. */
   hooks: {
     composerBlock: ObservableSnapshot<ComposerBlock | undefined>
@@ -581,6 +639,8 @@ export interface ComposerBarOwnerProps {
   blocked?: { readonly reason: string }
   /** Lock all message actions while preserving the resident composer surface. */
   disabled?: boolean
+  /** Materialize the sessionless composer on interaction, preserving browser-entered text. */
+  onActivateDraft?: (readText: () => string) => Promise<void>
   /** Whether the shared Workspace picker is expanded. */
   workspacePickerOpen?: boolean
   /** Open the Workspace picker from the inert composer surface. */
@@ -588,6 +648,8 @@ export interface ComposerBarOwnerProps {
   placeholder?: string
   /** Optional content rendered above the composer surface. */
   accessory?: ReactNode
+  /** Optional content at the start of the row under the card, beside the model and context readings. */
+  dockStart?: ReactNode
 }
 
 /** Package-private operations injected into the resident composer bar. */
@@ -644,6 +706,12 @@ export interface InputActivityOwnerProps extends InputControlOwnerProps {
   onActiveChange: (active: boolean) => void
 }
 
+/** A toolbar activity that can request a draft before it needs Session actions. */
+export interface DraftActivityOwnerProps extends InputActivityOwnerProps {
+  /** Open the default draft, preserving any composer text; absent once the Session is ready. */
+  openDraft?: () => Promise<void>
+}
+
 /** Full props of the resident composer bar. */
 export type ComposerBarProps =
   PropsRuntime<'conversation.composer.bar'>
@@ -653,6 +721,7 @@ export type ComposerBarProps =
     | 'conversation.input.left' | 'conversation.input.plan'
     | 'conversation.input.placeholder'
     | 'conversation.input.right' | 'conversation.input.model' | 'conversation.input.activity'
+    | 'conversation.input.draftActivity'
     | 'conversation.composer.dock'
   >
   & InjectFace<ComposerBarInjected>
@@ -727,6 +796,7 @@ export type ConversationSessionSlotProps =
 export type ConversationHeaderProps =
   PropsRuntime<'conversation.header'>
   & PropsRenderSlots<'conversation.header.leading' | 'conversation.session.header'>
+  & PropsLocale<'conversation'>
 
 /** Full props of the strict Session header. */
 export type ConversationSessionHeaderSlotProps =
@@ -736,6 +806,7 @@ export type ConversationSessionHeaderSlotProps =
     'conversation.session.header.lineage'
     | 'conversation.session.header.actions'
     | 'conversation.session.header.utilities'
+    | 'conversation.session.header.identity'
     | 'conversation.session.header.corner'
     | 'conversation.session.header.views.actions'
   >

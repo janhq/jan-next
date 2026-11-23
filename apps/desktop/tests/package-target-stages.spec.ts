@@ -229,13 +229,27 @@ it.each(['mac-arm64', 'mac-x64', 'win-x64'] as const)('selects branding from the
     expect(stages.some(stage => stage.startsWith('run release:pack --family jan'))).toBe(!unsigned)
     const preparePackages = stages.indexOf('run prepare:packages')
     for (const directory of [
-      'plugins/desktop-app', 'plugins/downloads', 'plugins/jan-theme', 'plugins/legacy-import', 'plugins/plugin-api',
+      'plugins/agent-desktop', 'plugins/agent-settings', 'plugins/status-bar', 'plugins/wall-of-quotes',
+      'plugins/annotate',
+      'plugins/desktop-app', 'plugins/diagnostics', 'plugins/downloads', 'plugins/jan-theme', 'plugins/legacy-import', 'plugins/plugin-api',
+      'plugins/hosts', 'plugins/jan-always-on',
+      'plugins/jan-browser', 'plugins/jan-onboarding', 'plugins/notifications', 'plugins/tokamak',
       'plugins/preset-square', 'packages/credentials/tokamak-account', 'packages/llm/llama-cpp',
       'packages/api/llama-cpp-controller', 'packages/client/ui-settings-local-model', 'packages/web/web-search',
     ]) {
       expect(stages.slice(0, preparePackages).filter(stage => stage.startsWith(`--dir ${directory} pack `))).toHaveLength(1)
     }
   }
+})
+
+it('builds the complete Linux addon payload before packing and preparing the runtime', async () => {
+  const { run, stages } = supervisor()
+  await packageTarget(parseDesktopPackageInvocation(['linux-x64', '--unsigned'], 'linux', 'x64'), environment, run)
+  const build = stages.indexOf('--dir native/system run build:native')
+  const pack = stages.findIndex(stage => stage.startsWith('--dir native/system/packages/linux-x64 pack '))
+  expect(build).toBeGreaterThan(stages.indexOf('run build --profile local'))
+  expect(pack).toBeGreaterThan(build)
+  expect(stages.indexOf('run prepare:runtime')).toBeGreaterThan(pack)
 })
 
 it.each([

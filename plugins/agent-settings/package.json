@@ -1,0 +1,12 @@
+{
+  "name": "@janhq/jan-agent-settings",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "description": "Host tools for reading public Jan settings and approving saved or chat-only changes.",
+  "type": "module",
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.mjs", "README.md"]
+}

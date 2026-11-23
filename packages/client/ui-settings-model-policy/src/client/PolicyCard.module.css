@@ -1,20 +1,27 @@
-.card {
+/* Agent loop groups follow the General settings row system. */
+.group { display: flex; flex-direction: column; }
+.group + .group { margin-top: 24px; }
+.intro { margin: 4px 0 12px; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); text-wrap: pretty; }
+
+.row {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 24px;
-  padding: 16px;
-  border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: var(--dsw-radius-lg);
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
 }
-.title { margin: 0; font-size: 14px; font-weight: 600; line-height: 22px; }
-.muted { margin: 0; font-size: 13px; line-height: 20px; color: var(--dsw-alias-label-secondary); }
-.field { display: flex; flex-direction: column; gap: 6px; }
-.fieldTitle { font-size: 13px; font-weight: 600; line-height: 20px; }
-.switchRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); }
-.row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
-.row + .row { border-top: 0.5px solid var(--dsw-alias-border-l2); }
+.group > .row:last-child { border-bottom: none; }
+.rowText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-right: 48px; }
+/* Narrow settings panel: the 48px gutter only squeezes the label here. */
+@media (max-width: 767px) {
+  :global(html:not([data-windows-titlebar]):not([data-platform='darwin'])) .rowText { padding-right: 16px; }
+}
+.title { font-size: 14px; font-weight: 400; line-height: 22px; color: var(--dsw-alias-label-primary); }
+.description { font-size: 12px; font-weight: 400; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+
+.list { display: flex; flex-direction: column; margin: 0 0 12px; padding: 0; list-style: none; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); }
+.listRow { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+.listRow + .listRow { border-top: 0.5px solid var(--dsw-alias-border-l2); }
 .name { flex: 1; min-width: 0; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .number { font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .provider { display: block; font-size: 13px; font-weight: 400; color: var(--dsw-alias-label-secondary); }
@@ -22,6 +29,6 @@
 /* Square icon buttons; a disabled arrow fades so it never reads as a label. */
 .iconAction { width: 28px; padding: 0; justify-content: center; }
 .iconAction:disabled { opacity: 0.35; }
-.add { align-self: flex-start; }
-.select { width: 100%; min-height: 32px; padding: 4px 8px; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-primary); color: var(--dsw-alias-label-primary); font: inherit; font-size: 13px; }
-.error { margin: 0; font-size: 13px; color: var(--dsw-alias-label-danger, #d33); }
+.add { align-self: flex-start; margin-bottom: 4px; }
+.note { margin: 0 0 4px; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+.error { margin: 4px 0; font-size: 13px; color: var(--dsw-alias-label-danger, #d33); }

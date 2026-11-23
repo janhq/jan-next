@@ -234,7 +234,7 @@ async function measure(workload: keyof typeof WORKLOADS) {
         return value
       },
     })
-    const controller = new SessionCommandController(observedContext, new ApiSessionAgentController(ctx), '/synthetic-image-history')
+    const controller = new SessionCommandController(observedContext, new ApiSessionAgentController(ctx))
     const baselineMemory = memory()
     const outputs: SessionAttachmentValue[] = []
     const samples = []

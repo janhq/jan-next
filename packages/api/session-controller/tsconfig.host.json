@@ -118,6 +118,9 @@
       "path": "../../skill/skill"
     },
     {
+      "path": "../../mcp/mcp-manager"
+    },
+    {
       "path": "../../subagent/subagent"
     },
     {

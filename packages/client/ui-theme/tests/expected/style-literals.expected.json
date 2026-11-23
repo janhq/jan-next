@@ -1,0 +1,381 @@
+{
+  "client/ui-agent-preset/src/client/AgentPresetSeat.module.css": [
+    ".introIcon: animation: seat-icon-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) both",
+    ".introChar: animation: seat-char-in 0.4s ease-out forwards"
+  ],
+  "client/ui-agent-preset/src/client/AgentPresetSection.module.css": [
+    ".card: transition: border-color .16s, background .16s",
+    ".brokenTip: transition: opacity .12s",
+    ".iconButton::after: transition: opacity .12s"
+  ],
+  "client/ui-attachment/src/AttachmentRail.module.css": [
+    ".remove: transition: opacity 0.2s ease-in-out"
+  ],
+  "client/ui-attachment/src/client/ComposerAttachments.module.css": [
+    ".remove: transition: opacity 0.2s ease-in-out"
+  ],
+  "client/ui-attachment/src/DropOverlay.module.css": [
+    ".mask: animation: fade-in 160ms ease-out"
+  ],
+  "client/ui-attachment/src/FileCard.module.css": [
+    ".remove: transition: opacity 0.2s ease-in-out",
+    ".removeFailed: color: #fff"
+  ],
+  "client/ui-chat/src/client/chat/ChatGroupSeat.module.css": [
+    ".title: transition: color 100ms ease",
+    ".activityIcon, .chevron: transition: opacity 100ms ease",
+    ".tickerIn: animation: process-ticker-in 320ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards",
+    ":global([data-chat-motion]) .content > :not([data-chat-motion]): transition: margin-top 160ms cubic-bezier(0.4, 0, 0.2, 1)"
+  ],
+  "client/ui-chat/src/client/chat/ChatView.module.css": [
+    ".column[data-chat-motion] > :not([data-chat-motion]), .column[data-chat-motion] > :global([data-slot=\"conversation.chat.flow\"]) > :not([data-chat-motion]): transition: margin-top 160ms cubic-bezier(0.4, 0, 0.2, 1)",
+    ":where(.column > :global([data-slot=\"conversation.chat.flow\"]) > .flowItem[data-chat-flow-kind=\"steering\"]) + .running: animation: running-enters-slot 140ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+    ".hint: animation: hint-in 150ms var(--ds-ease-out) 400ms backwards",
+    ".hint: animation-duration: 1ms",
+    ".runningDivider: transition: opacity 160ms ease"
+  ],
+  "client/ui-chat/src/client/chat/MessageIconActions.module.css": [
+    "[data-actions-reveal='hover'] .actions, :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering']):has(\n    ~ :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering'])\n  ) .actions: transition: opacity 80ms ease"
+  ],
+  "client/ui-chat/src/client/chat/MessageItem.module.css": [
+    ".compactionButton: transition: color 100ms ease",
+    ".retrySummary::after: transition: transform 120ms ease"
+  ],
+  "client/ui-chat/src/client/chat/TurnNavigator.module.css": [
+    ".mark::before: transition: transform 140ms ease, background-color 140ms ease",
+    ".preview: animation: jan-turn-preview-enter 120ms ease-out",
+    ".preview: transition: top 140ms cubic-bezier(0.2, 0.8, 0.2, 1)"
+  ],
+  "client/ui-chat/src/client/chat/TurnProcessNodeView.module.css": [
+    ".root: transition: color 100ms ease",
+    ".chevron: transition: transform 100ms ease"
+  ],
+  "client/ui-chat/src/client/chat/TurnTriggerNodeView.module.css": [
+    ".root: transition: background-color 100ms ease",
+    ".header: transition: color 100ms ease"
+  ],
+  "client/ui-conversation/src/client/skeleton/ContextMeter.module.css": [
+    ".colorTools: --meter-tint: rgb(167, 139, 250)",
+    ".chevron: transition: transform 120ms ease"
+  ],
+  "client/ui-conversation/src/client/skeleton/ConversationRoot.module.css": [
+    ":is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child, :is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot] > *: animation: conversation-welcome-in 350ms var(--ds-ease-emphasized) 120ms backwards",
+    ":is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot='conversation.hero.suggestions'] > *: animation-delay: 240ms"
+  ],
+  "client/ui-conversation/src/client/skeleton/InputBar.module.css": [
+    ".cardWorkspaceTrigger::after: transition: color 100ms ease",
+    ".primary: color: #fff",
+    ".primary: transition: background-color 100ms ease"
+  ],
+  "client/ui-deliverables/src/client/ChangedFiles.module.css": [
+    "button.header: transition: background-color 120ms ease"
+  ],
+  "client/ui-deliverables/src/client/Deliverables.module.css": [
+    ".file: transition: background-color 120ms ease",
+    ".inlineFrame: background: #fff"
+  ],
+  "client/ui-dockkit/src/components/dockkit.module.css": [
+    ".divider::after: transition: opacity 120ms ease-out",
+    ".dockScrim: animation: dockScrimIn 140ms ease-out",
+    ".dockHintCard: transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out",
+    ".dockHintCard: animation: dockHintIn 140ms ease-out",
+    ".floatResize::after: transition: opacity 120ms ease-out"
+  ],
+  "client/ui-guidance/src/client/Guidance.module.css": [
+    ":global(html:active-view-transition-type(jan-guidance-step)::view-transition-group(jan-guidance-popover)): animation-duration: 150ms"
+  ],
+  "client/ui-jobs/src/client/JobListAction.module.css": [
+    ".sectionChevron: transition: transform 120ms ease"
+  ],
+  "client/ui-layout/src/client/AppFrame.module.css": [
+    ":global([data-platform='darwin']) .frame:not([data-sidebar-drawer]) .sidebarCol: background: linear-gradient(\n      to bottom,\n      rgb(122 155 240 / 0.1),\n      rgb(122 155 240 / 0) 35%,\n      rgb(143 137 184 / 0) 68%,\n      rgb(143 137 184 / 0.09)\n    ),\n    color-mix(in srgb, color-mix(in srgb, var(--dsw-specific-sidebar-fill) 97%, rgb(122 155 240)) 40%, transparent)",
+    ":global([data-platform='darwin']) :global([data-ds-dark-theme]) .frame:not([data-sidebar-drawer]) .sidebarCol: background: linear-gradient(\n      to bottom,\n      rgb(122 155 240 / 0.08),\n      rgb(122 155 240 / 0) 35%,\n      rgb(143 137 184 / 0) 68%,\n      rgb(143 137 184 / 0.07)\n    ),\n    color-mix(in srgb, var(--dsw-specific-sidebar-fill) 50%, transparent)"
+  ],
+  "client/ui-message-feedback/src/client/FeedbackDialog.module.css": [
+    ".chip: transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease",
+    ".detail: transition: border-color 120ms ease, box-shadow 120ms ease"
+  ],
+  "client/ui-model-selection/src/client/ModelSelect.module.css": [
+    ".chevron: transition: transform 120ms ease"
+  ],
+  "client/ui-permission-presets/src/client/PermissionSelect.module.css": [
+    ".chevron: transition: transform 120ms ease"
+  ],
+  "client/ui-plan/src/client/PlanPreview.module.css": [
+    ".card: transition: background-color 120ms ease"
+  ],
+  "client/ui-plugin-manager/src/client/PluginManagerPage.module.css": [
+    ".guideChevron: transition: transform 160ms ease",
+    ".detailsChevron: transition: transform 160ms ease",
+    ".spotlight: --plugin-a: hsl(var(--plugin-hue) 70% 55%)",
+    ".spotlight: --plugin-b: hsl(calc(var(--plugin-hue) + 60) 70% 45%)",
+    ".spotlightBody: animation: plugin-spotlight-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+    "[data-plugin-tiles] .card: transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.18s, box-shadow 0.18s"
+  ],
+  "client/ui-plugin-market/src/client/DiscoverSection.module.css": [
+    ":global([data-plugin-tiles]) .card: transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.18s, box-shadow 0.18s"
+  ],
+  "client/ui-primitives/src/Coachmark.module.css": [
+    ".card: transition: opacity 150ms ease, transform 150ms ease, display 150ms allow-discrete, overlay 150ms allow-discrete"
+  ],
+  "client/ui-primitives/src/ConnectionIndicator.module.css": [
+    ".indicator: transition: background-color 160ms ease-out,\n    color 160ms ease-out,\n    border-color 160ms ease-out,\n    opacity 150ms ease-out",
+    ".indicator: animation: indicator-enter 150ms ease-out"
+  ],
+  "client/ui-primitives/src/DisclosureRow.module.css": [
+    ".row: transition: color 100ms ease",
+    ".iconIdle: transition: opacity 100ms ease",
+    ".chevronHover: transition: opacity 100ms ease"
+  ],
+  "client/ui-primitives/src/FileTypeIcon.module.css": [
+    ".icon: --jan-file-type-violet: rgb(139, 118, 246)"
+  ],
+  "client/ui-primitives/src/HoverCard.module.css": [
+    ".card: --dsw-hovercard-bg: #2C2C2E",
+    ".copied: color: #FFFFFF"
+  ],
+  "client/ui-primitives/src/JsonTree.module.css": [
+    ".root: --json-tree-property: #881391",
+    ".root: --json-tree-string: #c41a16",
+    ".root: --json-tree-number: #1c00cf",
+    ".root: --json-tree-keyword: #1c00cf",
+    ".root: --json-tree-punctuation: #202124",
+    ".root: --json-tree-icon: #5f6368",
+    ".root: --json-tree-hover: rgb(60 64 67 / 4%)",
+    ":global(body[data-ds-dark-theme]) .root: --json-tree-property: #5db0d7",
+    ":global(body[data-ds-dark-theme]) .root: --json-tree-string: #f28b82",
+    ":global(body[data-ds-dark-theme]) .root: --json-tree-number: #99c8ff",
+    ":global(body[data-ds-dark-theme]) .root: --json-tree-keyword: #99c8ff",
+    ":global(body[data-ds-dark-theme]) .root: --json-tree-punctuation: #e8eaed",
+    ":global(body[data-ds-dark-theme]) .root: --json-tree-icon: #9aa0a6",
+    ":global(body[data-ds-dark-theme]) .root: --json-tree-hover: rgb(232 234 237 / 5%)"
+  ],
+  "client/ui-primitives/src/markdown/CodeBlock.module.css": [
+    ".copyButton: background-color: rgb(255 255 255 / 0)"
+  ],
+  "client/ui-primitives/src/markdown/MarkdownText.module.css": [
+    ".markdown a, .markdown .fileLink: border-left: 3px solid rgb(255 255 255 / 0)",
+    ".markdown a, .markdown .fileLink: border-right: 3px solid rgb(255 255 255 / 0)",
+    ".markdown a, .markdown .fileLink: border-top: 2px solid rgb(255 255 255 / 0)",
+    ".markdown a, .markdown .fileLink: border-bottom: 2px solid rgb(255 255 255 / 0)"
+  ],
+  "client/ui-primitives/src/MenuSurface.module.css": [
+    ".surface[data-menu-phase='enter'] > *, .backing[data-menu-phase='enter']: animation: jan-context-menu-in var(--jan-menu-enter) ease-out",
+    ".surface[data-menu-phase='dismiss'] > *, .backing[data-menu-phase='dismiss'], .surface[data-menu-phase='replace'] > *, .backing[data-menu-phase='replace']: animation: jan-context-menu-out var(--jan-menu-dismiss) ease-in both"
+  ],
+  "client/ui-primitives/src/NotificationLayer.module.css": [
+    ".item: transition: translate 220ms ease-out, scale 220ms ease-out, opacity 220ms ease-out"
+  ],
+  "client/ui-primitives/src/QuotePreview.module.css": [
+    ".quoteMark, .closeMark: transition: opacity 120ms ease"
+  ],
+  "client/ui-primitives/src/SegmentedControl.module.css": [
+    ".indicator: transition: transform 160ms ease",
+    ".tab: transition: color 120ms ease"
+  ],
+  "client/ui-primitives/src/SegmentedTabs.module.css": [
+    ".indicator: transition: transform 180ms ease",
+    ".tab: transition: color 180ms ease"
+  ],
+  "client/ui-primitives/src/Switch.module.css": [
+    ".thumb: transition: transform 120ms ease"
+  ],
+  "client/ui-primitives/src/TextShimmer.module.css": [
+    ".sweep, .highlight: animation-delay: 0.3s"
+  ],
+  "client/ui-primitives/src/Toast.module.css": [
+    ".toast: animation: jan-toast-in 180ms ease-out,\n    jan-toast-fade 1000ms ease var(--jan-toast-hold, 3000ms) forwards"
+  ],
+  "client/ui-primitives/src/Toggletip.module.css": [
+    ".hint: transition: opacity 120ms ease, display 120ms allow-discrete, overlay 120ms allow-discrete"
+  ],
+  "client/ui-primitives/src/Tooltip.module.css": [
+    ".bubble: animation: tooltip-in 150ms var(--ds-ease-in-out)"
+  ],
+  "client/ui-primitives/src/ViewToggle.module.css": [
+    ".indicator: transition: transform 160ms var(--ds-ease-out, ease)",
+    ".segment: transition: color 120ms ease"
+  ],
+  "client/ui-primitives/src/WindowControls.module.css": [
+    ".close:hover: background: #c42b1c",
+    ".close:hover: color: #fff"
+  ],
+  "client/ui-primitives/src/ZoomControls.module.css": [
+    ".panel: box-shadow: 0 8px 24px light-dark(#0000001a, #00000060), 0 2px 5px light-dark(#00000009, #00000035)",
+    ".panel: transition: opacity 160ms ease-in, transform 160ms cubic-bezier(0.4, 0, 1, 1)",
+    ".visible: transition: opacity 140ms ease-out, transform 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+    ".panel, .visible: transition-duration: 0.01ms"
+  ],
+  "client/ui-schedule/src/client/ScheduleCreateCard.module.css": [
+    ".card: transition: background-color 120ms ease"
+  ],
+  "client/ui-schedule/src/client/SessionScheduleMark.module.css": [
+    ".taskIcon: color: #CFD3D6",
+    ".taskName: color: #FFFFFF",
+    ".taskTiming: color: #CFD3D6",
+    ".taskRelative: color: #ADB2B8",
+    ".omitted: color: #ADB2B8"
+  ],
+  "client/ui-schedule/src/client/TaskManagerPage.module.css": [
+    ".searchField: transition: border-color 0.15s",
+    ".ruleValueFace: transition: background 0.15s",
+    ".ruleInput: transition: background 0.15s",
+    ".instruction: transition: border-color 0.15s"
+  ],
+  "client/ui-settings-account/src/client/AccountNotice.module.css": [
+    ".card: transition: transform 250ms ease-out"
+  ],
+  "client/ui-settings-account/src/client/DesktopOnboarding.module.css": [
+    ".page: animation: pageEnter 100ms ease-out",
+    ".page button: transition: background-color 120ms ease, color 120ms ease, opacity 120ms ease",
+    ".card: transition: background-color 120ms ease",
+    ".card::before, .card::after: transition: opacity 120ms ease, border-color 120ms ease",
+    ".iconsEntering > svg:nth-child(2): animation-delay: 30ms",
+    ".iconsEntering > svg:nth-child(3): animation-delay: 50ms",
+    ".iconsEntering > svg:nth-child(4): animation-delay: 62ms",
+    ".iconsEntering > svg:nth-child(5): animation-delay: 70ms",
+    ".inlineProcess .card: transition: background-color 150ms var(--ds-ease-out), box-shadow 150ms var(--ds-ease-out)",
+    ".inlineProcess .processGlyph: transition: background-color 150ms var(--ds-ease-out)",
+    ".demoUser: animation: demoIn 260ms var(--ds-ease-out) both",
+    ".demoStep: animation: demoIn 260ms var(--ds-ease-out) calc(220ms + var(--i) * 140ms) both",
+    ".demoAnswer: animation: demoIn 320ms var(--ds-ease-out) calc(300ms + var(--i) * 140ms) both",
+    ".demoPhotos: animation: demoIn 320ms var(--ds-ease-out) calc(300ms + var(--i) * 140ms) both",
+    ".demoPhoto: box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 8%)",
+    ".demoPhoto: color: #fff",
+    ".demoPhoto: text-shadow: 0 1px 2px rgb(0 0 0 / 35%)",
+    ".demoPhoto[data-photo='0']: background: linear-gradient(180deg, #f6c995 0%, #e98f6f 45%, #6f5f73 46%, #4b4a5c 100%)",
+    ".demoPhoto[data-photo='1']: background: linear-gradient(180deg, #9fd3f0 0%, #6bb2db 55%, #2f6f99 56%, #23577a 100%)",
+    ".demoPhoto[data-photo='2']: background: radial-gradient(circle at 70% 30%, #d9f0a8 0 12%, transparent 13%), linear-gradient(180deg, #bfe3c8 0%, #7fb987 50%, #3f7d4c 51%, #2c5c37 100%)"
+  ],
+  "client/ui-settings-account/src/client/OnboardingSurface.module.css": [
+    ".onboardingOverlay[data-exiting]: animation: onboardingExit 180ms ease-out forwards"
+  ],
+  "client/ui-settings-general/src/client/HostStatusChip.module.css": [
+    "button.chip: transition: background-color 150ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1)"
+  ],
+  "client/ui-settings-models/src/client/ModelsSection.module.css": [
+    ".customizedSummary::before: transition: transform 120ms ease"
+  ],
+  "client/ui-settings-plugin-inventory/src/client/PluginInventorySettingsTab.module.css": [
+    ".chevron: transition: transform 140ms var(--ds-ease-in-out)"
+  ],
+  "client/ui-shortcuts/src/client/Reference.module.css": [
+    ".dialog: box-shadow: 0 0 1px rgba(0, 0, 0, 0.2), 0 0 4px rgba(0, 0, 0, 0.02), 0 12px 32px rgba(0, 0, 0, 0.08)"
+  ],
+  "client/ui-sidebar-documentpreview/src/client/media/MediaBody.module.css": [
+    ".video: background: #000",
+    ".video .failure: color: rgb(255 255 255 / 80%)"
+  ],
+  "client/ui-sidebar-terminal/src/client/TerminalCleanup.module.css": [
+    ".notice: box-shadow: 0 4px 20px #0002"
+  ],
+  "client/ui-sidebar/src/client/SidebarRoot.module.css": [
+    ".fading > *: transition: opacity 150ms var(--ds-ease-in-out)",
+    ".wide: animation: wide-in 200ms var(--ds-ease-in-out)",
+    ".railIn .iconButton, .railIn .newSession, .railIn .panelList, .railIn .regionArea: animation: rail-in 150ms var(--ds-ease-in-out) backwards",
+    ".railIn .footArea: animation: rail-fade-in 150ms var(--ds-ease-in-out) backwards",
+    ":global([data-platform='darwin']) :where(.root:not([role='dialog'])) .newSession: background: rgb(255 255 255 / 0.55)",
+    ":global([data-platform='darwin']) :where(.root:not([role='dialog'])) .newSession:hover: background: rgb(255 255 255 / 0.3)",
+    ":global([data-platform='darwin']) :global([data-ds-dark-theme]) :where(.root:not([role='dialog'])) .newSession: background: rgb(255 255 255 / 0.15)",
+    ":global([data-platform='darwin']) :global([data-ds-dark-theme]) :where(.root:not([role='dialog'])) .newSession:hover: background: rgb(255 255 255 / 0.2)"
+  ],
+  "client/ui-skill/src/client/SkillRow.module.css": [
+    ".row: transition: color 100ms ease",
+    ".iconIdle: transition: opacity 100ms ease",
+    ".chevronHover: transition: opacity 100ms ease",
+    ".inspectButton: transition: opacity 100ms ease"
+  ],
+  "client/ui-subagent/src/client/SubagentHeaderLineage.module.css": [
+    ".switcherTrigger svg: transition: transform 120ms ease",
+    ".disclosure svg: transition: transform 120ms ease"
+  ],
+  "client/ui-tool/src/client/tool/components/QuestionToolRow.module.css": [
+    ".panelButton: transition: background 100ms ease"
+  ],
+  "client/ui-tool/src/client/tool/components/ToolRow.module.css": [
+    ".inspectButton: transition: opacity 100ms ease"
+  ],
+  "client/ui-tool/src/client/tool/toolviews/bash-sample.module.css": [
+    ".root: transition: color 100ms ease",
+    ".iconIdle: transition: opacity 100ms ease",
+    ".chevronHover: transition: opacity 100ms ease",
+    ".inspectButton: transition: opacity 100ms ease"
+  ],
+  "client/ui-trajectory/src/client/TrajectoryTable.module.css": [
+    ".table tbody tr:not([data-collapsed-summary]):not([data-virtual-spacer]):not([data-history-load]): transition: background-color 120ms var(--ds-ease-in-out),\n    opacity 120ms var(--ds-ease-in-out)",
+    ".requestBoundaryControl::before: transition: background 120ms var(--ds-ease-in-out),\n    box-shadow 120ms var(--ds-ease-in-out)",
+    ".requestBoundaryControl::after: box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12)",
+    ".requestBoundaryControl::after: transition: opacity 120ms var(--ds-ease-in-out),\n    transform 120ms var(--ds-ease-in-out)",
+    ".eventColumn, .event, .requestBoundaryControl, .kindSlot, .kindTag, .kindTagIcon, .kindTagLabel, .turnLabelFull, .turnLabelCompact: transition-duration: 180ms",
+    ".table tbody tr[data-collapsed-summary]: transition: background-color 120ms var(--ds-ease-in-out)",
+    ".details: animation: trajectory-details-in 300ms cubic-bezier(0.4, 0, 0.2, 1) backwards",
+    ".thinkingChevron: transition: transform 120ms var(--ds-ease-in-out)",
+    ".toolCatalogChevron: transition: transform 100ms var(--ds-ease-in-out)",
+    ".details: box-shadow: -12px 0 32px rgba(0, 0, 0, 0.14)"
+  ],
+  "client/ui-trajectory/src/client/TrajectoryTimeline.module.css": [
+    ".lanes[data-animate-viewport='true'], .turnBoundaries[data-animate-viewport='true']: transition: left 180ms ease-out"
+  ],
+  "client/ui-trajectory/src/client/TrajectoryToolbar.module.css": [
+    ".controlTrack: transition: background-color 120ms var(--ds-ease-in-out)",
+    ".controlThumb: transition: transform 120ms var(--ds-ease-in-out)"
+  ],
+  "client/ui-user-questions/src/client/QuestionComposer.module.css": [
+    ".optionRow: transition: background-color 120ms ease, border-color 120ms ease",
+    ".checkbox::before: transition: background-color 120ms ease, border-color 120ms ease",
+    ".customRow: transition: background-color 120ms ease, border-color 120ms ease"
+  ],
+  "client/ui-workspace/src/client/rows/Rows.module.css": [
+    ".arrow: transition: transform 150ms var(--ds-ease-in-out)",
+    ".hoverTitle: color: #FFFFFF",
+    ".hoverPath: color: #CFD3D6",
+    ".hoverTime: color: #CFD3D6",
+    ".hoverStatus: color: #ADB2B8"
+  ],
+  "client/ui-workspace/src/client/rows/WorkspaceBrowser.module.css": [
+    ".root:not(.rail) .sectionHeader.searchSpacingMotion: transition: margin-right 180ms var(--ds-ease-in-out),\n    padding-inline 180ms var(--ds-ease-in-out),\n    gap 180ms var(--ds-ease-in-out)",
+    ".sectionLabel: transition: max-width 180ms var(--ds-ease-in-out),\n    margin-right 180ms var(--ds-ease-in-out),\n    opacity 120ms var(--ds-ease-in-out),\n    transform 180ms var(--ds-ease-in-out),\n    visibility 0s linear",
+    ".sectionLabelHidden: transition-delay: 0s, 0s, 0s, 0s, 180ms",
+    ".searchSlot: transition: max-width 180ms var(--ds-ease-in-out),\n    padding-left 180ms var(--ds-ease-in-out)",
+    ".headerActions: transition: max-width 180ms var(--ds-ease-in-out),\n    opacity 120ms var(--ds-ease-in-out),\n    transform 180ms var(--ds-ease-in-out),\n    visibility 0s linear",
+    ".headerActionsHidden: transition-delay: 0s, 0s, 0s, 180ms",
+    ".search: transition: width 180ms var(--ds-ease-in-out),\n    padding 180ms var(--ds-ease-in-out),\n    border-color 180ms var(--ds-ease-in-out),\n    background-color 180ms var(--ds-ease-in-out)",
+    ".searchInput: transition: opacity 120ms var(--ds-ease-in-out)",
+    ".wide: animation: wide-in 200ms var(--ds-ease-in-out)"
+  ],
+  "client/web/src/boot-page.module.css": [
+    ".boot: --jan-boot-label-primary: #0f1115",
+    ".boot: --jan-boot-label-secondary: #61666b",
+    ".boot: --jan-boot-label-tertiary: #81858c",
+    ".boot: --jan-boot-border: rgb(0 0 0 / 10%)",
+    ".boot: --jan-boot-brand: #0f1115",
+    ":global(body[data-ds-dark-theme]) .boot: --jan-boot-label-primary: #f9fafb",
+    ":global(body[data-ds-dark-theme]) .boot: --jan-boot-label-secondary: #cfd3d6",
+    ":global(body[data-ds-dark-theme]) .boot: --jan-boot-label-tertiary: #adb2b8",
+    ":global(body[data-ds-dark-theme]) .boot: --jan-boot-border: rgb(255 255 255 / 12%)",
+    ":global(body[data-ds-dark-theme]) .boot: --jan-boot-brand: #f9fafb",
+    ".progress::after: transition: width 240ms cubic-bezier(0.23, 1, 0.32, 1)"
+  ],
+  "experimental/client-ui-forge/src/client/ChangesTab.module.css": [
+    ".chevron: transition: transform 120ms ease",
+    ".localToggle svg: transition: transform 120ms ease"
+  ],
+  "experimental/client-ui-forge/src/client/ForgeTab.module.css": [
+    ".chevron: transition: transform 120ms ease",
+    ".mergeCaret: transition: transform 120ms ease"
+  ],
+  "experimental/client-ui-forge/src/client/SessionList.module.css": [
+    ".hoverIcon: color: #ADB2B8",
+    ".hoverBranch, .hoverTitle: color: #FFFFFF",
+    ".hoverNote, .hoverMore: color: #ADB2B8"
+  ],
+  "experimental/client-ui-forge/src/client/WorktreeProgress.module.css": [
+    ".chevron, .chevronOpen: transition: transform 120ms ease"
+  ],
+  "experimental/client-ui-forge/src/client/WorktreeToggle.module.css": [
+    ".chevron: transition: transform 120ms ease"
+  ],
+  "experimental/client-ui-plugin-recommendations/src/client/Card.module.css": [
+    ".details: transition: background-color 120ms ease"
+  ]
+}

@@ -85,7 +85,7 @@ function renderTab(state: Partial<DiscoverState> = {}, dictionary: Record<Plugin
   const actions = {
     ensure: vi.fn(), reload: vi.fn(), select: vi.fn(), search: vi.fn(), more: vi.fn(), refresh: vi.fn(), retry: vi.fn(),
     toggleSources: vi.fn(),
-    editDraft: vi.fn(), addSource: vi.fn(), removeSource: vi.fn(),
+    editDraft: vi.fn(), addSource: vi.fn(), removeSource: vi.fn(), addSuggested: vi.fn(),
     loadDetail: vi.fn(), retryDetail: vi.fn(), detailImage: vi.fn(() => undefined),
   }
   const install = vi.fn()
@@ -128,6 +128,16 @@ describe('DiscoverSection', () => {
     expect(document.querySelector('[data-icon="dsw-icon-plugin-index-outline-regular"][aria-hidden="true"]')).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { name: en.addFirstSource }))
     expect(actions.toggleSources).toHaveBeenCalledOnce()
+  })
+
+  it('offers the public DSH index in one click until it is added', () => {
+    const { actions, set } = renderTab({ indexes: [], selected: null, listing: null })
+    const suggested = within(screen.getByRole('list', { name: en.suggestedLabel }))
+    expect(suggested.getByText(en.suggestedDsh)).toBeTruthy()
+    fireEvent.click(suggested.getByRole('button', { name: 'Add awesome-dsh-plugins' }))
+    expect(actions.addSuggested).toHaveBeenCalledWith('https://dsh.works/awesome-dsh-plugins/market/index.json')
+    set({ indexes: [{ url: 'https://dsh.works/awesome-dsh-plugins/market/index.json' }] })
+    expect(screen.queryByRole('list', { name: en.suggestedLabel })).toBeNull()
   })
 
   it('lists entries with one action each: install after confirmation, or open the installed bundle', () => {

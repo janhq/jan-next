@@ -1,0 +1,41 @@
+.specimen {
+  display: flex;
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  padding: 12px;
+  color: var(--dsw-alias-label-primary);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.specimen p {
+  margin: 0;
+}
+
+.name {
+  font-family: var(--dsw-font, sans-serif);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.glyphs {
+  display: grid;
+  gap: 4px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.failed {
+  margin: 0;
+  padding: 24px 12px;
+  font-family: var(--dsw-font, sans-serif);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+  text-align: center;
+}

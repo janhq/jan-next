@@ -233,6 +233,8 @@ type ToolModelInput = Pick<ToolProviderResult, 'schemas' | 'knownNames'>
 interface ToolBatchInput {
   readonly calls: readonly ToolCallBlock[]
   readonly signal: AbortSignal
+  /** Owner's request that long-running calls return early; see `ToolExecutionInput.yieldSignal`. */
+  readonly yieldSignal?: AbortSignal
   /**
    * Positive integer overriding the executor's concurrency limit for this batch.
    * Applies to concurrency-safe root calls; program subcall limits remain separate.
@@ -349,6 +351,14 @@ interface ToolExecutionInput {
   readonly parent?: ToolExecutionToken
   /** Required caller-owned cancellation for this invocation. */
   readonly signal: AbortSignal
+  /**
+   * Fires when the owner wants this call's answer now (the user steered the
+   * running turn). A long-running tool may return what it has, leaving any
+   * still-running work recoverable (a shell command moves to a background
+   * job); a tool that cannot yield ignores it. Unlike {@link signal} it never
+   * asks a tool to stop work. Undefined when no owner can request a yield.
+   */
+  readonly yieldSignal?: AbortSignal
 }
 ```
 
@@ -632,6 +642,24 @@ The full presentation field docs live in [`packages/core/tools/src/presentation.
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxmediacapture--capturerequester"></a>
+
+### `ctx.mediaCapture` — `CaptureRequester`
+
+Interactive Host rendezvous used by a per-Agent tool registration.
+
+```ts cordis-catalog
+/**
+ * Wait for a browser to share or decline one capture.
+ * @param request - Request owner, call identity, mode, and displayed reason.
+ * @param signal - Tool execution cancellation.
+ * @returns The result to persist through the ordinary tool lifecycle.
+ */
+request(request: CaptureRequest, signal: AbortSignal): Promise<CaptureResult>
+```
+
+Source: [`packages/interaction/tool-capture-media/src/types.ts`](../../packages/interaction/tool-capture-media/src/types.ts)
+
 <a id="ctxtools--toolsservice"></a>
 
 ### `ctx.tools` — `ToolsService`
@@ -653,9 +681,10 @@ register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () 
  * names, scope-local names, and reserved transport names fail. Restrictions
  * intersect; scoped registrations remain visible.
  * @param filter - global-tool mask: `allow` (keep only) and/or `deny` (remove).
+ * @param options - permit names whose optional providers have not registered yet.
  * @returns the exact disposer that lifts this restriction.
  */
-restrict(filter: ToolRestriction): () => void
+restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean } = {}): () => void
 
 /**
  * Look up a tool as one scope sees it (scoped

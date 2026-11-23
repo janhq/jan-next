@@ -81,29 +81,26 @@ function checkpointSource(compactionId: string): CheckpointSource {
 /** Per-candidate reconciliation scope key: directory paired with the file name. */
 const sk = (directory: string, candidateName: string): string => candidateScopeKey(directory, candidateName)
 
-/** Intro of a baseline rendered with the full workspace-instruction guidance. */
-const baselineIntro = 'The following workspace instructions may be relevant to your work. '
-  + 'Use them as guidance when applicable. More specific instructions take precedence over broader ones. '
-  + 'They do not override system, developer, or direct user instructions.'
+/** Precedence text shared by the expected baseline and scope-added frames. */
+const instructionPrecedence = 'Follow applicable instructions. More specific files win: project > shared agents home > Jan home > Jan defaults. '
+  + 'These instructions can replace Jan\'s default name, persona, tone, and working style, but not safety rules, tool contracts, or direct user messages.'
+const baselineIntro = instructionPrecedence
+const additionalGuidance = instructionPrecedence
 
-/** Guidance that follows the applicability sentence of every additional-instructions section. */
-const additionalGuidance = 'Use them as guidance when relevant; more specific instructions take precedence. '
-  + 'They do not override system, developer, or direct user instructions.'
-
-/** Five 5,000-byte project files from the root down four 10-character directories, with a long budget marker. */
+/** Five 5,000-byte project files with paths long enough to stress the budget notice. */
 const deepProjectFiles = [
   'AGENTS.md',
   'aaaaaaaaaa/AGENTS.md',
   'aaaaaaaaaa/bbbbbbbbbb/AGENTS.md',
   'aaaaaaaaaa/bbbbbbbbbb/cccccccccc/AGENTS.md',
-  'aaaaaaaaaa/bbbbbbbbbb/cccccccccc/dddddddddd/AGENTS.md',
+  'aaaaaaaaaa/bbbbbbbbbb/cccccccccc/ddddddddddddddddddddd/AGENTS.md',
 ].map(displayPath => ({ absolutePath: `/repo/${displayPath}`, displayPath, content: 'p'.repeat(5000) }))
 
 /** Budget marker of {@link deepProjectFiles} rendered alone under a `maxBytes` too small to keep any of their content. */
 function deepProjectMarker(maxBytes: number): string {
   return `Workspace instruction budget ${String(maxBytes)} bytes: omitted AGENTS.md, aaaaaaaaaa/AGENTS.md, `
     + 'aaaaaaaaaa/bbbbbbbbbb/AGENTS.md, aaaaaaaaaa/bbbbbbbbbb/cccccccccc/AGENTS.md; '
-    + 'truncated aaaaaaaaaa/bbbbbbbbbb/cccccccccc/dddddddddd/AGENTS.md from 5000 to 0 bytes'
+    + `truncated ${deepProjectFiles.at(-1)!.displayPath} from 5000 to 0 bytes`
 }
 
 /** A plain ASCII instruction file of `kib` KiB at a `~/` user-global or project display path. */
@@ -248,7 +245,7 @@ class RecordingFileSystem extends FileSystem {
     this.readTargets.push(target.targetKey)
     if (this.throwOnRead.has(target.targetKey)) throw new Error(`read failed: ${target.displayPath}`)
     const content = this.entries.get(target.targetKey)?.content ?? ''
-    return (async function* () {
+    return (async function*() {
       const midpoint = Math.ceil(content.length / 2)
       yield content.slice(0, midpoint)
       signal?.throwIfAborted()
@@ -276,7 +273,7 @@ class BlockingReadFileSystem extends RecordingFileSystem {
     if (signal !== undefined) this.signals.push(signal)
     this.readTargets.push(target.targetKey)
     this.started.resolve(undefined)
-    return (async function* () {
+    return (async function*() {
       await new Promise<void>((_resolve, reject) => {
         const abortReason = (): Error => signal?.reason instanceof Error ? signal.reason : new Error('aborted')
         if (signal?.aborted) { reject(abortReason()); return }
@@ -956,19 +953,19 @@ describe('workspace context instruction discovery', () => {
 })
 
 describe('workspace context rendering', () => {
-  it('renders familiar system-reminder instructions without custom workspace tags or state markers', () => {
+  it('frames workspace instructions as able to replace the default identity', () => {
     const rendered = renderAgentInstructions([
-      { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'root rules' },
+      { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'Your name is hihihaha.' },
       { absolutePath: '/repo/pkg/CLAUDE.md', displayPath: 'pkg/CLAUDE.md', content: 'package rules' },
     ], { maxBytes: 65536 })
 
     expect(rendered.text).toBe([
       '<system-reminder>',
-      'The following workspace instructions may be relevant to your work. Use them as guidance when applicable. More specific instructions take precedence over broader ones. They do not override system, developer, or direct user instructions.',
+      baselineIntro,
       '',
       'Instructions from: AGENTS.md',
       '',
-      'root rules',
+      'Your name is hihihaha.',
       '',
       'Instructions from: pkg/CLAUDE.md',
       '',
@@ -1198,7 +1195,7 @@ describe('workspace context rendering', () => {
 
   // Each prose-derived budget is the smallest current value that retains the named heading plus a zero-byte marker.
   it.each([
-    { action: 'set' as const, maxBytes: 327, heading: 'Additional instructions from:' },
+    { action: 'set' as const, maxBytes: 439, heading: 'Additional instructions from:' },
     { action: 'replace' as const, maxBytes: 256, heading: 'Updated instructions from:' },
   ])('does not commit a $action change when its heading survives with zero content bytes', ({ action, maxBytes, heading }) => {
     const change = {
@@ -1333,20 +1330,20 @@ describe('workspace context rendering', () => {
       { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'root rule' },
       { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: 'package rule' },
     ]
-    const truncated = [{ displayPath: '$JAN_HOME/AGENTS.md', originalBytes: 71680, includedBytes: 65123 }]
+    const truncated = [{ displayPath: '$JAN_HOME/AGENTS.md', originalBytes: 71680, includedBytes: 65098 }]
 
     const { rendered, included } = renderAgentInstructionSet(files, { maxBytes: 65536 })
 
     expect(rendered).toEqual({
       text: [
         '<system-reminder>',
-        'Workspace instruction budget 65536 bytes: truncated $JAN_HOME/AGENTS.md from 71680 to 65123 bytes',
+        'Workspace instruction budget 65536 bytes: truncated $JAN_HOME/AGENTS.md from 71680 to 65098 bytes',
         '',
         baselineIntro,
         '',
         'Instructions from: $JAN_HOME/AGENTS.md',
         '',
-        userGlobal.content.slice(0, 65123),
+        userGlobal.content.slice(0, 65098),
         '',
         'Instructions from: AGENTS.md',
         '',
@@ -1382,7 +1379,7 @@ describe('workspace context rendering', () => {
     expect(rendered.truncated).toEqual(projectAlone.truncated)
     expect(rendered.text).toBe([
       '<system-reminder>',
-      'Workspace instruction budget 600 bytes: omitted AGENTS.md; truncated pkg/AGENTS.md from 500 to 186 bytes',
+      'Workspace instruction budget 600 bytes: omitted AGENTS.md; truncated pkg/AGENTS.md from 500 to 161 bytes',
       '',
       baselineIntro,
       '',
@@ -1392,7 +1389,7 @@ describe('workspace context rendering', () => {
       '',
       'Instructions from: pkg/AGENTS.md',
       '',
-      'leaf '.repeat(100).slice(0, 186),
+      'leaf '.repeat(100).slice(0, 161),
       '</system-reminder>',
     ].join('\n'))
     expect(Buffer.byteLength(rendered.text, 'utf8')).toBeLessThanOrEqual(2 * 600)
@@ -1400,24 +1397,25 @@ describe('workspace context rendering', () => {
 
   it('keeps a user-global file that fills its budget exactly while the project chain fits only its notice and empty heading', () => {
     const userGlobal = { absolutePath: '/home/user/jan-home/AGENTS.md', displayPath: '$JAN_HOME/AGENTS.md', content: 'Use uv' }
+    const deepestPath = 'packages/app/src/feature-component/AGENTS.md'
     const project = [
       { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'r'.repeat(1000) },
       { absolutePath: '/repo/packages/app/AGENTS.md', displayPath: 'packages/app/AGENTS.md', content: 'a'.repeat(1000) },
       {
-        absolutePath: '/repo/packages/app/src/feature/AGENTS.md',
-        displayPath: 'packages/app/src/feature/AGENTS.md',
+        absolutePath: `/repo/${deepestPath}`,
+        displayPath: deepestPath,
         content: 'f'.repeat(1000),
       },
     ]
-    expect(Buffer.byteLength(renderAgentInstructions([userGlobal], { maxBytes: 320 }).text, 'utf8')).toBe(320)
-    expect(renderAgentInstructions(project, { maxBytes: 320 }).text).toMatch(/^Workspace instruction budget 320 bytes: /)
+    expect(Buffer.byteLength(renderAgentInstructions([userGlobal], { maxBytes: 345 }).text, 'utf8')).toBe(345)
+    expect(renderAgentInstructions(project, { maxBytes: 345 }).text).toMatch(/^Workspace instruction budget 345 bytes: /)
 
-    const { rendered, included } = renderAgentInstructionSet([userGlobal, ...project], { maxBytes: 320 })
+    const { rendered, included } = renderAgentInstructionSet([userGlobal, ...project], { maxBytes: 345 })
 
     expect(rendered.text).toBe([
       '<system-reminder>',
-      'Workspace instruction budget 320 bytes: omitted AGENTS.md, packages/app/AGENTS.md; '
-      + 'truncated packages/app/src/feature/AGENTS.md from 1000 to 0 bytes',
+      'Workspace instruction budget 345 bytes: omitted AGENTS.md, packages/app/AGENTS.md; '
+      + `truncated ${deepestPath} from 1000 to 0 bytes`,
       '',
       baselineIntro,
       '',
@@ -1425,69 +1423,74 @@ describe('workspace context rendering', () => {
       '',
       'Use uv',
       '',
-      'Instructions from: packages/app/src/feature/AGENTS.md',
+      `Instructions from: ${deepestPath}`,
       '',
       '',
       '</system-reminder>',
     ].join('\n'))
     expect(rendered.text.split(baselineIntro)).toHaveLength(2)
     expect(included).toEqual([userGlobal])
-    expect(Buffer.byteLength(rendered.text, 'utf8')).toBeLessThanOrEqual(2 * 320)
+    expect(Buffer.byteLength(rendered.text, 'utf8')).toBeLessThanOrEqual(2 * 345)
   })
 
   it('keeps a user-global file that fills its budget exactly while the project chain fits only its bare notice', () => {
-    const userGlobal = { absolutePath: '/home/user/jan-home/AGENTS.md', displayPath: '$JAN_HOME/AGENTS.md', content: 'g'.repeat(2) }
-    expect(Buffer.byteLength(renderAgentInstructions([userGlobal], { maxBytes: 316 }).text, 'utf8')).toBe(316)
-    expect(renderAgentInstructions(deepProjectFiles, { maxBytes: 316 }).text).toBe(deepProjectMarker(316))
+    const userGlobal = { absolutePath: '/home/user/jan-home/AGENTS.md', displayPath: '$JAN_HOME/AGENTS.md', content: 'g'.repeat(4) }
+    expect(Buffer.byteLength(renderAgentInstructions([userGlobal], { maxBytes: 343 }).text, 'utf8')).toBe(343)
+    const deepestPath = 'aaaaaaaaaa/bbbbbbbbbb/cccccccccc/extra-long-instruction-directory/AGENTS.md'
+    const project = [...deepProjectFiles.slice(0, -1), {
+      absolutePath: `/repo/${deepestPath}`,
+      displayPath: deepestPath,
+      content: 'p'.repeat(5000),
+    }]
+    const marker = deepProjectMarker(343).replace(deepProjectFiles.at(-1)!.displayPath, deepestPath)
+    expect(renderAgentInstructions(project, { maxBytes: 343 }).text).toBe(marker)
 
-    const { rendered, included } = renderAgentInstructionSet([userGlobal, ...deepProjectFiles], { maxBytes: 316 })
+    const { rendered, included } = renderAgentInstructionSet([userGlobal, ...project], { maxBytes: 343 })
 
     expect(rendered.text).toBe([
       '<system-reminder>',
-      deepProjectMarker(316),
+      marker,
       '',
       baselineIntro,
       '',
       'Instructions from: $JAN_HOME/AGENTS.md',
       '',
-      'g'.repeat(2),
+      userGlobal.content,
       '</system-reminder>',
     ].join('\n'))
     expect(included).toEqual([userGlobal])
-    expect(Buffer.byteLength(rendered.text, 'utf8')).toBeLessThanOrEqual(2 * 316)
+    expect(Buffer.byteLength(rendered.text, 'utf8')).toBeLessThanOrEqual(2 * 343)
   })
 
   it('merges a frameless project chain at exactly twice the budget and falls back to one budget one byte above', () => {
     const userGlobal = (bytes: number): { absolutePath: string; displayPath: string; content: string } => (
       { absolutePath: '/home/user/jan-home/AGENTS.md', displayPath: '$JAN_HOME/AGENTS.md', content: 'g'.repeat(bytes) }
     )
-    const deepestHeading = 'Instructions from: aaaaaaaaaa/bbbbbbbbbb/cccccccccc/dddddddddd/AGENTS.md'
-    expect(renderAgentInstructions(deepProjectFiles, { maxBytes: 318 }).text).toBe(`${deepProjectMarker(318)}\n\n${deepestHeading}\n\n`)
-    expect(renderAgentInstructions([userGlobal(3)], { maxBytes: 318 })).toMatchObject({ omitted: [], truncated: [] })
+    const deepestHeading = `Instructions from: ${deepProjectFiles.at(-1)!.displayPath}`
+    expect(renderAgentInstructions(deepProjectFiles, { maxBytes: 341 }).text).toBe(`${deepProjectMarker(341)}\n\n${deepestHeading}\n\n`)
+    expect(renderAgentInstructions([userGlobal(2)], { maxBytes: 341 })).toMatchObject({ omitted: [], truncated: [] })
 
-    const atBound = renderAgentInstructionSet([userGlobal(2), ...deepProjectFiles], { maxBytes: 318 })
-    const overBound = renderAgentInstructionSet([userGlobal(3), ...deepProjectFiles], { maxBytes: 318 })
+    const atBound = renderAgentInstructionSet([userGlobal(1), ...deepProjectFiles], { maxBytes: 341 })
+    const overBound = renderAgentInstructionSet([userGlobal(2), ...deepProjectFiles], { maxBytes: 341 })
 
     expect(atBound.rendered.text).toBe([
       '<system-reminder>',
-      deepProjectMarker(318),
+      deepProjectMarker(341),
       '',
       baselineIntro,
       '',
       'Instructions from: $JAN_HOME/AGENTS.md',
       '',
-      'g'.repeat(2),
+      'g',
       '',
       deepestHeading,
       '',
       '',
       '</system-reminder>',
     ].join('\n'))
-    expect(Buffer.byteLength(atBound.rendered.text, 'utf8')).toBe(2 * 318)
-    expect(atBound.included).toEqual([userGlobal(2)])
-    expect(overBound.rendered.text).toBe('Workspace instruction budget 318 bytes: omitted $JAN_HOME/AGENTS.md, AGENTS.md, aaaaaaaaaa/AGENTS.md, '
-      + 'aaaaaaaaaa/bbbbbbbbbb/AGENTS.md, aaaaaaaaaa/bbbbbbbbbb/cccccccccc/AGENTS.md; '
-      + 'truncated aaaaaaaaaa/bbbbbbbbbb/cccccccccc/dddddddddd/AGENTS.md from 5000 to 0 bytes')
+    expect(Buffer.byteLength(atBound.rendered.text, 'utf8')).toBe(2 * 341)
+    expect(atBound.included).toEqual([userGlobal(1)])
+    expect(overBound.rendered.text).toBe(deepProjectMarker(341).replace('omitted ', 'omitted $JAN_HOME/AGENTS.md, '))
     expect(overBound.rendered.omitted[0]).toEqual({ absolutePath: '/home/user/jan-home/AGENTS.md', displayPath: '$JAN_HOME/AGENTS.md' })
     expect(overBound.included).toEqual([])
   })
@@ -1498,21 +1501,21 @@ describe('workspace context rendering', () => {
       { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'p'.repeat(296) },
     ]
     for (const file of files) {
-      expect(Buffer.byteLength(renderAgentInstructions([file], { maxBytes: 600 }).text, 'utf8')).toBe(600)
+      expect(Buffer.byteLength(renderAgentInstructions([file], { maxBytes: 625 }).text, 'utf8')).toBe(625)
     }
 
-    const exact = renderAgentInstructionSet(files, { maxBytes: 600 })
-    const below = renderAgentInstructionSet(files, { maxBytes: 599 })
+    const exact = renderAgentInstructionSet(files, { maxBytes: 625 })
+    const below = renderAgentInstructionSet(files, { maxBytes: 624 })
 
-    expect(exact.rendered).toEqual({ text: renderAgentInstructions(files, { maxBytes: 928 }).text, omitted: [], truncated: [] })
-    expect(Buffer.byteLength(exact.rendered.text, 'utf8')).toBe(928)
+    expect(exact.rendered).toEqual({ text: renderAgentInstructions(files, { maxBytes: 953 }).text, omitted: [], truncated: [] })
+    expect(Buffer.byteLength(exact.rendered.text, 'utf8')).toBe(953)
     expect(exact.included).toEqual(files)
     expect(below.rendered.text.split('\n')[1]).toBe(
-      'Workspace instruction budget 599 bytes: truncated $JAN_HOME/AGENTS.md from 286 to 192 bytes, AGENTS.md from 296 to 212 bytes',
+      'Workspace instruction budget 624 bytes: truncated $JAN_HOME/AGENTS.md from 286 to 192 bytes, AGENTS.md from 296 to 212 bytes',
     )
     expect(below.rendered.omitted).toEqual([])
     expect(below.included).toEqual(files)
-    expect(Buffer.byteLength(below.rendered.text, 'utf8')).toBeLessThanOrEqual(2 * 599)
+    expect(Buffer.byteLength(below.rendered.text, 'utf8')).toBeLessThanOrEqual(2 * 624)
   })
 
   it('frames both chains under the compact intro when neither chain fits the full intro', () => {
@@ -1603,17 +1606,17 @@ describe('workspace context rendering', () => {
     const rendered = renderAgentInstructions(files, { maxBytes: 700 })
 
     expect(rendered.truncated).toEqual([
-      { displayPath: '$JAN_HOME/AGENTS.md', originalBytes: 1200, includedBytes: 291 },
-      { displayPath: 'AGENTS.md', originalBytes: 1200, includedBytes: 312 },
+      { displayPath: '$JAN_HOME/AGENTS.md', originalBytes: 1200, includedBytes: 267 },
+      { displayPath: 'AGENTS.md', originalBytes: 1200, includedBytes: 284 },
     ])
     expect(rendered.text).toContain([
       'Instructions from: $JAN_HOME/AGENTS.md',
       '',
-      '规'.repeat(97),
+      '规'.repeat(89),
       '',
       'Instructions from: AGENTS.md',
       '',
-      '😀'.repeat(78),
+      '😀'.repeat(71),
       '</system-reminder>',
     ].join('\n'))
     for (let maxBytes = 640; maxBytes <= 720; maxBytes += 1) {
@@ -1652,7 +1655,7 @@ describe('workspace context rendering', () => {
         file: { absolutePath: '/repo/b/AGENTS.md', displayPath: 'b/AGENTS.md', content: 'Rule b.' },
       },
     ]
-    const rendered = renderInstructionChanges(items, 560)
+    const rendered = renderInstructionChanges(items, 784)
 
     expect(rendered.changes).toEqual(items.map(item => item.change))
     expect(rendered.text).toBe([
@@ -1676,8 +1679,8 @@ describe('workspace context rendering', () => {
       'Rule b.',
       '</system-reminder>',
     ].join('\n'))
-    expect(Buffer.byteLength(rendered.text, 'utf8')).toBeGreaterThan(560)
-    expect(Buffer.byteLength(rendered.text, 'utf8')).toBeLessThanOrEqual(2 * 560)
+    expect(Buffer.byteLength(rendered.text, 'utf8')).toBeGreaterThan(784)
+    expect(Buffer.byteLength(rendered.text, 'utf8')).toBeLessThanOrEqual(2 * 784)
   })
 
   it('drops a user-global change that cannot fit its own budget while retaining the project changes', () => {
@@ -1748,14 +1751,14 @@ describe('workspace context rendering', () => {
     const large = items(1000)
 
     const fits = renderInstructionChanges(small, 65536)
-    const split = renderInstructionChanges(small, 400)
-    const truncated = renderInstructionChanges(large, 400)
+    const split = renderInstructionChanges(small, 512)
+    const truncated = renderInstructionChanges(large, 512)
 
     expect(fits).toEqual({ text: batchText([], 10, 10), changes: small.map(item => item.change) })
     expect(split).toEqual(fits)
-    expect(Buffer.byteLength(split.text, 'utf8')).toBeGreaterThan(400)
+    expect(Buffer.byteLength(split.text, 'utf8')).toBeGreaterThan(512)
     expect(truncated).toEqual({
-      text: batchText(['Workspace instruction budget 400 bytes: truncated a/AGENTS.md from 1000 to 41 bytes, $JAN_HOME/AGENTS.md from 1000 to 19 bytes', ''], 41, 19),
+      text: batchText(['Workspace instruction budget 512 bytes: truncated a/AGENTS.md from 1000 to 41 bytes, $JAN_HOME/AGENTS.md from 1000 to 19 bytes', ''], 41, 19),
       changes: large.map(item => item.change),
     })
   })
@@ -1772,15 +1775,15 @@ describe('workspace context rendering', () => {
       },
     ]
     const atBoundItems = items(31)
-    expect(renderInstructionChanges(items(32).slice(0, 1), 321).changes).toHaveLength(1)
+    expect(renderInstructionChanges(items(32).slice(0, 1), 433).changes).toHaveLength(1)
 
-    const atBound = renderInstructionChanges(atBoundItems, 321)
-    const overBound = renderInstructionChanges(items(32), 321)
+    const atBound = renderInstructionChanges(atBoundItems, 433)
+    const overBound = renderInstructionChanges(items(32), 433)
 
     expect(atBound.changes).toEqual([atBoundItems[0]!.change])
     expect(atBound.text).toBe([
       '<system-reminder>',
-      'Workspace instruction budget 321 bytes: truncated a/AGENTS.md from 5000 to 0 bytes',
+      'Workspace instruction budget 433 bytes: truncated a/AGENTS.md from 5000 to 0 bytes',
       '',
       'Additional instructions from: $JAN_HOME/AGENTS.md',
       '',
@@ -1795,9 +1798,9 @@ describe('workspace context rendering', () => {
       '',
       '</system-reminder>',
     ].join('\n'))
-    expect(Buffer.byteLength(atBound.text, 'utf8')).toBe(2 * 321)
+    expect(Buffer.byteLength(atBound.text, 'utf8')).toBe(2 * 433)
     expect(overBound).toEqual({
-      text: 'Workspace instruction budget 321 bytes: omitted $JAN_HOME/AGENTS.md; truncated a/AGENTS.md from 5000 to 0 bytes',
+      text: 'Workspace instruction budget 433 bytes: omitted $JAN_HOME/AGENTS.md; truncated a/AGENTS.md from 5000 to 0 bytes',
       changes: [],
     })
   })
@@ -2237,7 +2240,7 @@ describe('workspace context request injection', () => {
       const replacementText = replacement?.type === 'user/message'
         ? blocksText(replacement.data.content)
         : ''
-      expect(replacementText).toContain('replaces all earlier workspace instruction baselines')
+      expect(replacementText).toContain(`This complete workspace instruction baseline replaces all earlier workspace instruction baselines. ${baselineIntro}`)
       expect(replacementText.indexOf('Instructions from: CLAUDE.md'))
         .toBeLessThan(replacementText.indexOf('Instructions from: AGENTS.md'))
       const baselineIdentities = baselines.flatMap(event => event.type === 'user/message'
@@ -2654,6 +2657,41 @@ describe('workspace context request injection', () => {
         changes: [{ action: 'replace', scope: sk(USER_GLOBAL_DIRECTORY, USER_GLOBAL_FILE) }],
       })
       expect(blocksText(pending?.content)).toContain('updated global rule')
+    } finally {
+      vi.unstubAllEnvs()
+      await rm(root, { recursive: true, force: true })
+      await rm(home, { recursive: true, force: true })
+    }
+  })
+
+  it('agent/reload queues a changed instruction as an appended message and keeps the sent prefix', async () => {
+    const root = await tempRepo()
+    const home = await tempRepo()
+    try {
+      await mkdir(join(root, '.git'), { recursive: true })
+      await write(join(home, 'AGENTS.md'), 'global rule')
+      const ctx = new Context()
+      provideWorkingDirectoryFixture(ctx)
+      pinHarnessHome(home)
+      await mountFileToolsAndAgentInstructions(ctx, { maxBytes: 65536 })
+      const agent = await stubAgent(root)
+      const prefix = structuredClone(await composeBaselinePrefix(ctx, agent))
+      const reload = (): Promise<string[]> => agentEvents(ctx, agent).waterfall('agent/reload', { signal: testToolSignal }, () => Promise.resolve([]))
+
+      expect(await reload()).toEqual(['Instructions: no changes.'])
+      await write(join(home, 'AGENTS.md'), 'updated global rule')
+
+      expect(await reload()).toEqual(['Instructions: $JAN_HOME/AGENTS.md updated.'])
+      const pending = await agentInstructionsOf(agent)
+      expect(pending.source).toMatchObject({ changes: [{ action: 'replace', scope: sk(USER_GLOBAL_DIRECTORY, USER_GLOBAL_FILE) }] })
+      expect(blocksText(pending.content)).toContain('updated global rule')
+
+      await write(join(home, 'AGENTS.md'), 'latest global rule')
+      expect(await reload()).toEqual(['Instructions: $JAN_HOME/AGENTS.md updated.'])
+      expect(blocksText((await agentInstructionsOf(agent)).content)).toContain('latest global rule')
+
+      // Earlier messages, which the provider has cached, are byte-identical after the reload.
+      expect(agent.session.deriveMessages().slice(0, prefix.length)).toEqual(prefix)
     } finally {
       vi.unstubAllEnvs()
       await rm(root, { recursive: true, force: true })

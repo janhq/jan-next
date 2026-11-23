@@ -51,6 +51,17 @@ it('routes original-file requests through the trusted application bridge', async
   ])
 })
 
+it('requests capture of only the selected application region', async () => {
+  vi.stubGlobal('location', new URL('jan-app://app/'))
+  await import('../src/preload-app.ts')
+  const api = electron.contextBridge.exposeInMainWorld.mock.calls.find(([name]) => name === 'janDesktop')?.[1] as JanDesktopProductApi
+  const bounds = { x: 10, y: 20, width: 30, height: 40 }
+  const png = Uint8Array.of(137, 80, 78, 71)
+  electron.ipcRenderer.invoke.mockResolvedValueOnce(png)
+  expect(await api.captureRegion(bounds)).toEqual(png)
+  expect(electron.ipcRenderer.invoke).toHaveBeenCalledWith(DESKTOP_IPC.captureRegion, bounds)
+})
+
 it('limits product documents to update status and a native confirmation action', async () => {
   vi.stubGlobal('location', new URL('jan-app://app/index.html'))
   await import('../src/preload-app.ts')

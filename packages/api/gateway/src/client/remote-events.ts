@@ -11,10 +11,11 @@ import type {
   TypertOwnedValue,
   TypertRemoteEvent,
 } from '@janhq/jan-typert-protocol'
-import { isRemoteJsonValue, isTypertOwnedValue } from '@janhq/jan-typert-protocol'
+import { isRemoteJsonValue, isTypertOwnedValue, remoteErrorOf } from '@janhq/jan-typert-protocol'
 import { randomUUID } from '@janhq/jan-util-crypto'
 import {
   REMOTE_EVENT_RESULT_ENDPOINT,
+  REMOTE_EVENT_STREAM_HOST_INFO_PAYLOAD,
   REMOTE_EVENT_STREAM_ENDPOINT,
   REMOTE_EVENT_STREAM_PAYLOAD,
   isRemoteEventAgentId,
@@ -119,6 +120,20 @@ export class ClientRemoteEvents {
       .catch((error: unknown) => { this.reportError(frame.event, error) })
   }
 
+  /** Negotiate display metadata without replaying a stream that already sent a frame. */
+  private async *openEvents(signal: AbortSignal): AsyncGenerator {
+    let received = false
+    try {
+      for await (const frame of this.openStream(REMOTE_EVENT_STREAM_ENDPOINT, REMOTE_EVENT_STREAM_HOST_INFO_PAYLOAD, signal)) {
+        received = true
+        yield frame
+      }
+    } catch (error) {
+      if (received || signal.aborted || remoteErrorOf(error)?.code !== 'gateway/arguments-invalid') throw error
+      yield* this.openStream(REMOTE_EVENT_STREAM_ENDPOINT, REMOTE_EVENT_STREAM_PAYLOAD, signal)
+    }
+  }
+
   /** Run one Connection generation over the forwarded-event logical stream. */
   private async pumpEvents(
     signal: AbortSignal,
@@ -129,11 +144,7 @@ export class ClientRemoteEvents {
     const generationSignal = AbortSignal.any([signal, failed.signal])
     const active = new Map<string, AbortController>()
     const tasks = new Set<Promise<void>>()
-    const source = this.openStream(
-      REMOTE_EVENT_STREAM_ENDPOINT,
-      REMOTE_EVENT_STREAM_PAYLOAD,
-      generationSignal,
-    )
+    const source = this.openEvents(generationSignal)
     let streamFailed = false
     let streamError: unknown
     try {
@@ -270,12 +281,19 @@ function parseRemoteEventReady(value: unknown): {
     || !hasExactRemoteEventKeys(value, ['type', 'clientId', 'host'])
     || value.type !== 'ready'
     || !isRemoteEventClientId(value.clientId)
-    || !isRemoteEventRecord(value.host)
-    || !hasExactRemoteEventKeys(value.host, ['home'])
-    || typeof value.host.home !== 'string') {
+    || !isRemoteEventRecord(value.host)) {
     throw new TypeError('client api: forwarded Remote event stream did not begin with ready')
   }
-  return { clientId: value.clientId, host: { home: value.host.home } }
+  const { host } = value
+  const { home } = host
+  if (typeof home !== 'string') throw new TypeError('client api: forwarded Remote event stream did not begin with ready')
+  if (hasExactRemoteEventKeys(host, ['home'])) {
+    return { clientId: value.clientId, host: { home, name: 'Host', remote: false } }
+  }
+  if (hasExactRemoteEventKeys(host, ['home', 'name', 'remote']) && typeof host.name === 'string' && typeof host.remote === 'boolean') {
+    return { clientId: value.clientId, host: { home, name: host.name, remote: host.remote } }
+  }
+  throw new TypeError('client api: forwarded Remote event stream did not begin with ready')
 }
 
 /** Validate one untrusted value from the Gateway-internal forwarded-event stream. */

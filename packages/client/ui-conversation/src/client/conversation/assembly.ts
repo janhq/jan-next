@@ -14,6 +14,7 @@ import type {
   ConversationViewSnapshotStore,
 } from '../contract/conversation.ts'
 import type { ConversationSnapshot } from '../contract/snapshot.ts'
+import type { MessageImageLease } from '../contract/slots.ts'
 import type {
   ConversationPromptSnapshot, RequestPromptInspection, SystemPromptNode,
 } from '../contract/request-inspection.ts'
@@ -289,6 +290,16 @@ export class UiConversation extends Service {
    */
   imageUrl(sessionId: SessionId, attachment: ImageAttachmentRef): Promise<string> {
     return this.images.resolve(sessionId, attachment)
+  }
+
+  /**
+   * Retain a Gateway-authorized image for a mounted thumbnail without pinning it to the Session.
+   * @param sessionId - Session binding that authorizes the read.
+   * @param attachment - Durable image reference from a Session event.
+   * @returns A URL promise and its release callback.
+   */
+  acquireImageUrl(sessionId: SessionId, attachment: ImageAttachmentRef): MessageImageLease {
+    return this.images.acquire(sessionId, attachment)
   }
 
   /**

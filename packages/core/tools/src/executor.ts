@@ -19,6 +19,8 @@ export interface ToolPromptSection extends Pick<PromptSection, 'name' | 'order' 
 export interface ToolBatchInput {
   readonly calls: readonly ToolCallBlock[]
   readonly signal: AbortSignal
+  /** Owner's request that long-running calls return early; see `ToolExecutionInput.yieldSignal`. */
+  readonly yieldSignal?: AbortSignal
   /**
    * Positive integer overriding the executor's concurrency limit for this batch.
    * Applies to concurrency-safe root calls; program subcall limits remain separate.

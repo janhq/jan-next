@@ -61,7 +61,7 @@ Passing `run_in_background: true` admits a job and returns its id immediately; c
 
 ### Foreground commands as jobs
 
-With a job registry composed, a foreground command is registered with `ctx.jobs` at its start and the call waits on that job: the command is listed, streams through `job.list` and `job.follow`, and can be stopped from the Web task list for as long as it runs. A command that finishes within the timeout returns the ordinary foreground result and its job record leaves the registry with it, so the model never sees an id. A command that outlives the timeout keeps running as the job it already was, and the call returns `[still running after <timeoutMs>ms; moved to background job <id>]`, seeded with one consuming read of the output so far — `job_output` continues exactly after it. A kill from outside the call (the human stopping the job) settles the foreground result with `[stopped: <reason>]` ahead of the signal marker, so the model reads the reason instead of a command failure; cancelling the call itself kills the job. Registration is best-effort: `promoteOnTimeout: false`, a missing job registry, or a registry that refuses the job at its start (the owner's job limit, no controller) run the command under the executor's deadline kill instead, and the `timeoutMs` parameter description advertises the hand-over only when it holds.
+With a job registry composed, a foreground command is registered with `ctx.jobs` at its start and the call waits on that job: the command is listed, streams through `job.list` and `job.follow`, and can be stopped from the Web task list for as long as it runs. A command that finishes within the timeout returns the ordinary foreground result and its job record leaves the registry with it, so the model never sees an id. A command that outlives the timeout keeps running as the job it already was, and the call returns `[still running after <timeoutMs>ms; moved to background job <id>]`, seeded with one consuming read of the output so far — `job_output` continues exactly after it. When the user steers the running turn (the call's `yieldSignal` fires), the wait ends the same way before the timeout: the call returns `[the user steered while this ran; still running as background job <id>]` with the output so far, and the result details carry `steered: true`. A kill from outside the call (the human stopping the job) settles the foreground result with `[stopped: <reason>]` ahead of the signal marker, so the model reads the reason instead of a command failure; cancelling the call itself kills the job. Registration is best-effort: `promoteOnTimeout: false`, a missing job registry, or a registry that refuses the job at its start (the owner's job limit, no controller) run the command under the executor's deadline kill instead, and the `timeoutMs` parameter description advertises the hand-over only when it holds.
 
 ### Sandboxed execution and escalation
 
@@ -97,10 +97,15 @@ This section explains the design decisions behind the tool and points at the cod
 | [`src/index.ts`](src/index.ts) | Plugin entry: tool registration, prompt section, arg validation, escalation, request assembly |
 | [`src/background.ts`](src/background.ts) | Own asynchronous shell preparation, map process settlement onto job outcomes, and render a ring read as a process read |
 | [`src/render.ts`](src/render.ts) | Model-facing result text: streams, markers, truncation notices |
+| [`src/read-only-command.ts`](src/read-only-command.ts) | Conservative read-only classifier that decides whether a call may overlap sibling calls |
 
 ### Request resolution
 
 The tool resolves the workdir before `ctx.shell.resolve()` runs: an explicit relative `workdir` is resolved against the Session's current directory, independently of the sandbox permission root. Sandbox policy resolves per call through `ctx.sandboxPolicy`; an escalation request goes through `ctx.approval` before anything executes, and the tool fails at load if the executor confines but no policy service is mounted.
+
+### Parallel scheduling
+
+A foreground call whose command only reads may run beside sibling parallel-safe calls in the same step (`read`, `grep`, `glob`, other read-only `bash`). `src/read-only-command.ts` accepts a command only when every pipeline stage and list member is an allowlisted reader (`ls`, `cat`, `grep`, `rg`, `find` without actions, read-only `git` subcommands, ...) with read-only arguments, and output redirects only to `/dev/null` or a file descriptor. Arguments with shell expansion, including variables and unquoted globs, stay exclusive, as does `uniq` with an output operand. Subshells, braces, here documents, `&`, leading assignments, path-named programs and unterminated quotes all fail closed. Background calls, sandbox escalation and every other command stay exclusive barriers. A false negative only costs overlap, so the allowlist stays small.
 
 ### Rendering story
 

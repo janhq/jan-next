@@ -164,11 +164,13 @@ async function bench() {
   }, AccountSection))
   runtime.ctx.slots.inject('shell.overlay', () => runtime.ctx.slots.register({
     name: 'shell.overlay', id: 'desktop-onboarding', locale: 'settings.account',
+    children: { 'settings.onboarding.flow': { kind: 'single', scope: 'root' } },
     inject: (): DesktopOnboardingInjected => ({
-      hooks: { onboarding, account },
+      hooks: { onboarding, account, customFlow: { getSnapshot: () => false, subscribe: () => () => {} } },
       setVisible: () => {},
       openPlatformPage: pages.open,
       update: async () => true, complete: async () => true, retry: async () => true,
+      finishCustomFlow: async () => true,
     }),
   }, DesktopOnboardingEntry))
   // Retaining the Session subscribes the Chat source, so live failures publish.

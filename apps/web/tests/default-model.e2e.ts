@@ -213,7 +213,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
       const devicePage = await context.newPage()
       const consoleWatch = watchConsole(devicePage)
       await devicePage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-      await devicePage.getByRole('textbox', { name: 'Choose workspace' }).click()
+      await devicePage.getByRole('textbox', { name: 'Choose project' }).click()
       const composer = devicePage.locator('[data-composer-input][contenteditable="true"]').first()
       await composer.waitFor()
       expect(await composer.evaluate(element => getComputedStyle(element).fontSize)).toBe(automatic ? '14px' : '16px')
@@ -251,7 +251,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
       const devicePage = await context.newPage()
       const consoleWatch = watchConsole(devicePage)
       await devicePage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-      await devicePage.getByRole('textbox', { name: 'Choose workspace' }).click()
+      await devicePage.getByRole('textbox', { name: 'Choose project' }).click()
       const trigger = devicePage.getByRole('button', { name: /^Select model/ })
       const observations: string[] = []
       const observeFocus = async (action: string): Promise<void> => {

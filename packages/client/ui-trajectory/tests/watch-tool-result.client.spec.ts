@@ -13,7 +13,7 @@ function deferred() {
 
 const connection = {
   generation: {
-    getSnapshot: () => ({ id: 1, host: { home: '/fixture' } }),
+    getSnapshot: () => ({ id: 1, host: { home: '/fixture', name: 'fixture-host', remote: false } }),
     subscribe: () => () => {},
   },
 }

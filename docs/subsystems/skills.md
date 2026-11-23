@@ -321,6 +321,13 @@ async snapshot(options: SkillViewOptions = {}): Promise<SkillCatalogSnapshot>
  * @returns the full skill, including body content, or `undefined`.
  */
 async get(name: string, options: SkillViewOptions = {}): Promise<SkillDefinition | undefined>
+
+/**
+ * Drop every completed catalog so the next lookup asks each provider again, for a user who
+ * changed skills outside a provider's own change detection. Notifies `skills/change` like a
+ * provider invalidation; definitions are never cached, so loaded bodies are already current.
+ */
+refresh(): void
 ```
 
 Source: [`packages/skill/skill/src/index.ts`](../../packages/skill/skill/src/index.ts)

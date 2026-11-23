@@ -1,13 +1,14 @@
-import { Fragment, memo, useMemo } from 'react'
+import { Fragment, memo, useMemo, useState } from 'react'
 import { fileMediaUrl } from '@janhq/jan-util-workspace-path'
 import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { ReactNode } from 'react'
-import { JsonBlock, MarkdownText } from '@janhq/jan-client-ui-primitives'
+import { JsonBlock, MarkdownText, createStreamReveal } from '@janhq/jan-client-ui-primitives'
 import type { MarkdownFileMentions, MarkdownPathImages } from '@janhq/jan-client-ui-primitives'
 import type { ChatNodeOwnerProps, ChatViewSlotProps, UseDisclosure, UsePresentation, UseGroupAction } from '../contract/slots.ts'
 import type { AssistantBlock } from '../contract/snapshot.ts'
 import { markdownLabels } from '../markdown-labels.ts'
 import { ReasoningRow } from './ReasoningRow.tsx'
+import { useSmoothText } from './smooth-stream.ts'
 import css from './AssistantMarkdown.module.css'
 
 /**
@@ -36,10 +37,12 @@ export interface AssistantMarkdownProps extends
   useDisclosure: UseDisclosure
   blocks: readonly AssistantBlock[]
   streaming: boolean
+  /** Session and Assistant step identity shared by live and settled views. */
+  replyIdentity?: string
   /** Only finalized durable Assistant messages supply selection sources. */
   textInteractionSource?: boolean
-  /** Frozen partial of an aborted turn: rendered with a stopped marker. */
-  interrupted?: boolean | undefined
+  /** Frozen partial of a cut reply: `stopped` by Stop, or `steered` when the user's steer cut it and the turn went on. */
+  interrupted?: 'stopped' | 'steered' | undefined
   /** Hide reasoning that belongs to the Turn-level process disclosure. */
   reasoningHidden?: boolean | undefined
   /** Process hiding bound by the node slot to its current viewport. */
@@ -56,7 +59,7 @@ export interface AssistantMarkdownProps extends
 
 /** Renders non-blank reasoning blocks as independent disclosures alongside the response. */
 export const AssistantMarkdown = memo(function AssistantMarkdown({
-  blocks, streaming, textInteractionSource = false, interrupted, loadImage, groupPart, useDisclosure,
+  blocks, streaming, replyIdentity, textInteractionSource = false, interrupted, loadImage, groupPart, useDisclosure,
   reasoningHidden = false, usePresentation, revealProcess, mentions, renderSlot, useGroupAction, t,
 }: AssistantMarkdownProps) {
   // Stable per locale revision (t identity changes on switch): a fresh object
@@ -71,7 +74,7 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
   // a node that is only those heads (or empty) would paint an empty root
   // between tool groups — skip the shell unless something visible remains.
   const hasVisible = streaming
-    || interrupted === true
+    || interrupted !== undefined
     || blocks.some(block => block.kind !== 'tool-call')
   if (!hasVisible) return null
   const rendered: ReactNode[] = []
@@ -81,10 +84,12 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
     if (groupPart === 'reasoning' && block.kind !== 'reasoning') continue
     if (groupPart === 'response' && block.kind === 'reasoning') continue
     switch (block.kind) {
-      case 'text':
+      case 'text': {
+        const identity = replyIdentity === undefined ? undefined : `${replyIdentity}:${i}`
         rendered.push(
-          <MarkdownText
-            key={i}
+          <PacedMarkdown
+            key={identity ?? i}
+            identity={identity}
             text={block.text}
             streaming={streaming}
             labels={labels}
@@ -94,6 +99,7 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
           />,
         )
         break
+      }
       case 'reasoning':
         if (block.text.trim() === '') break
         rendered.push(
@@ -149,13 +155,27 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
     <div className={css.root} data-streaming={streaming || undefined}>
       <div className={css.body}>
         {rendered}
-        {interrupted && (groupPart === undefined || groupPart === 'response'
+        {interrupted !== undefined && (groupPart === undefined || groupPart === 'response'
           || !blocks.some(block => block.kind !== 'reasoning' && block.kind !== 'tool-call'))
-          && <span className={css.stopped}>{t('message.stopped')}</span>}
+          && <span className={css.stopped}>{t(interrupted === 'steered' ? 'message.interrupted' : 'message.stopped')}</span>}
       </div>
     </div>
   )
 })
+
+/**
+ * Streamed prose released at a steady pace with each new word fading in from a
+ * slight blur; the settled render takes over once the paced text has caught up with a finished stream.
+ */
+function PacedMarkdown({ text, streaming, identity, ...markdown }: Omit<Parameters<typeof MarkdownText>[0], 'variant' | 'omitHtml' | 'reveal'> & {
+  streaming: boolean
+  identity: string | undefined
+}) {
+  const paced = useSmoothText(text, streaming, identity)
+  // One reveal per reply, so words that remount as their block freezes resume their fade.
+  const [reveal] = useState(createStreamReveal)
+  return <MarkdownText {...markdown} text={paced.text} streaming={!paced.settled} reveal={reveal} />
+}
 
 function ProcessReasoning({ hidden, reveal, useGroupAction, children }: {
   hidden: boolean

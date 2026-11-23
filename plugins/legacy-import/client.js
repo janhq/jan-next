@@ -3,26 +3,16 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    const { Button, Input, Checkbox, Modal } = require('@janhq/jan-client-ui-primitives')
-    async function call(feature, method, params = {}) {
-      const response = await fetch(`/jan-api/${feature}`, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+    const { Button, Input, Checkbox, IconCloseOutlineRegular, NotificationPortal } = require('@janhq/jan-client-ui-primitives')
+    async function api(method, params = {}) {
+      const response = await fetch(new URL('jan-api/legacy-import', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
       const body = await response.json()
       if (!response.ok || body.error) throw new Error(body.error || `HTTP ${response.status}`)
       return body.result
     }
-    const api = (method, params) => call('legacy-import', method, params)
-    // MCP servers go through the MCP settings import, which stores their
-    // secrets as credentials and adds each one turned off.
-    async function importMcp(folder) {
-      const document = await api('mcpDocument', { folder })
-      const servers = JSON.parse(document.text).mcpServers
-      const existing = new Set((await call('agent-settings', 'list')).servers.map(server => server.name))
-      const fresh = Object.fromEntries(Object.entries(servers).filter(([name]) => !existing.has(name)))
-      if (Object.keys(fresh).length) await call('agent-settings', 'importServers', { text: JSON.stringify({ mcpServers: fresh }), confirmed: true })
-      return { imported: Object.keys(fresh).length, already: Object.keys(servers).length - Object.keys(fresh).length, skipped: document.skipped }
-    }
     const RECENT_DAYS = 30
-    const SOURCES = [['jan', 'Jan'], ['claude', 'Claude Code'], ['codex', 'Codex'], ['omp', 'OMP']]
+    const SOURCES = [['jan', 'Jan'], ['orca', 'Orca'], ['claude', 'Claude Code'], ['codex', 'Codex'], ['omp', 'OMP']]
+    const AGENT_NAMES = { claude: 'Claude Code', codex: 'Codex', omp: 'OMP' }
     const sourceName = source => SOURCES.find(([key]) => key === source)[1]
     const sizeOf = bytes => bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`
     const projectOf = path => String(path ?? '').split(/[\\/]/).filter(Boolean).at(-1) ?? ''
@@ -62,6 +52,8 @@ window.__ModuleLoader__.load({
       // Agent lists start with the last 30 days; listing every session reads every file.
       const [allTime, setAllTime] = React.useState(false)
       const [older, setOlder] = React.useState(0)
+      // How many workspaces Orca reported, shown in place of a folder for the Orca source.
+      const [orcaWorkspaces, setOrcaWorkspaces] = React.useState(undefined)
       // Jan's providers, MCP servers and assistants, which ones to bring, and what the last run did with them.
       const [janSettings, setJanSettings] = React.useState(null)
       const [extras, setExtras] = React.useState(NO_EXTRAS)
@@ -100,7 +92,7 @@ window.__ModuleLoader__.load({
         try {
           const value = await api('list', { source: next, folder: nextFolder, ...(next === 'jan' || everything ? {} : { since: Date.now() - RECENT_DAYS * 86400000 }) })
           if (mine !== latestScan.current || !alive.current) return
-          setFolder(value.folder); setListedFolder(value.folder); setThreads(value.threads); setResults({}); setMissing(value.missing === true); setOlder(value.older ?? 0)
+          setFolder(value.folder); setListedFolder(value.folder); setOrcaWorkspaces(value.workspaces); setThreads(value.threads); setResults({}); setMissing(value.missing === true); setOlder(value.older ?? 0)
           // Moving from Jan means bringing everything. A coding agent keeps months of sessions, so the person picks.
           setSelected(new Set(next === 'jan' ? value.threads.filter(importable).map(thread => thread.id) : []))
           setJanSettings(value.settings ?? null); setSettingsResults(null)
@@ -118,14 +110,7 @@ window.__ModuleLoader__.load({
         const chosen = source === 'jan' ? extras : NO_EXTRAS
         setError(''); setResults({}); setSettingsResults(null)
         setJob({ running: true, total: ids.length, done: 0, current: chosen.mcp ? 'MCP servers' : null, results: [] })
-        let mcp
-        if (chosen.mcp) { try { mcp = await importMcp(listedFolder) } catch (error) { mcp = { error: error.message } } }
-        if (!ids.length && !chosen.providers && !chosen.assistants) {
-          setSettingsResults({ mcp }); setExtras(NO_EXTRAS)
-          setJob({ running: false, total: 0, done: 0, current: null, results: [] })
-          return
-        }
-        const request = api('import', { source, folder: listedFolder, ids, providers: chosen.providers, assistants: chosen.assistants })
+        const request = api('import', { source, folder: listedFolder, ids, ...chosen })
         // Start polling only after the Host has the request, so the first read is this run.
         await new Promise(resolve => setTimeout(resolve, 100))
         const [outcome, followed] = await Promise.allSettled([request, follow()])
@@ -140,7 +125,7 @@ window.__ModuleLoader__.load({
         } else {
           showResults(outcome.value.results)
           setJob(previous => ({ ...(previous ?? {}), running: false, results: outcome.value.results }))
-          setSettingsResults({ mcp, ...outcome.value.settings }); setExtras(NO_EXTRAS)
+          setSettingsResults(outcome.value.settings); setExtras(NO_EXTRAS)
           setJanSettings(previous => previous && { ...previous, assistants: previous.assistants.map(item => ({ ...item, alreadyImported: item.alreadyImported || outcome.value.settings.assistants.some(row => row.id === item.id && row.status !== 'failed') })) })
           settle(outcome.value.results)
           if (outcome.value.results.some(result => result.status === 'imported')) await refreshSessions()
@@ -148,7 +133,7 @@ window.__ModuleLoader__.load({
       }
       const eligible = threads.filter(importable)
       return {
-        source, setSource, setJob, missing, allTime, setAllTime, older, folder, setFolder, listedFolder, threads, selected, setSelected, results, scanning, job, error, importing,
+        source, setSource, setJob, missing, allTime, setAllTime, older, orcaWorkspaces, folder, setFolder, listedFolder, threads, selected, setSelected, results, scanning, job, error, importing,
         janSettings, extras, setExtras, settingsResults, canImport: selected.size > 0 || anyExtra(extras),
         busy: scanning || importing, stale: folder !== listedFolder, eligible, scan, importSelected,
       }
@@ -166,7 +151,7 @@ window.__ModuleLoader__.load({
       return h(Checkbox, { label: 'Select all chats', disabled: busy || stale || !eligible.length, checked: eligible.length > 0 && eligible.every(thread => selected.has(thread.id)), onChange: checked => setSelected(new Set(checked ? eligible.map(thread => thread.id) : [])) })
     }
     // The chats come first: a heading with the selection count, then one row per chat.
-    function ChatList({ state, scroll }) {
+    function ChatList({ state }) {
       const { threads, selected, eligible, job, importing } = state
       // Done only when no chat is left to bring; a chat left unticked keeps the choice open.
       const settled = job && !importing && !eligible.length
@@ -176,7 +161,7 @@ window.__ModuleLoader__.load({
           h('h3', { id: 'jan-legacy-import-chats' }, `${state.source === 'jan' ? 'Chats' : 'Sessions'} (${threads.length})`),
           h('span', null, settled ? 'All imported' : `${selected.size} of ${eligible.length} selected`)),
         settled ? null : h(SelectAll, { state }),
-        scroll ? h('div', { className: 'jan-legacy-import-scroll' }, rows) : rows)
+        rows)
     }
     // What an import keeps and leaves behind, folded so it does not crowd the choices.
     const WhatComesOver = ({ source }) => h('details', { className: 'jan-legacy-import-detail' },
@@ -200,7 +185,9 @@ window.__ModuleLoader__.load({
           h(Checkbox, { label: thread.title, title: thread.title, disabled: busy || !importable(thread) || stale, checked: selected.has(thread.id), onChange: checked => setSelected(previous => { const next = new Set(previous); checked ? next.add(thread.id) : next.delete(thread.id); return next }) }),
           h('span', { className: 'jan-legacy-import-meta' },
             thread.kind === 'cowork' ? h('span', { className: 'jan-legacy-import-tag', title: 'A Cowork session from Jan' }, 'Cowork') : null,
-            thread.project ? h('span', { className: 'jan-legacy-import-tag', title: thread.project }, projectOf(thread.project)) : null,
+            thread.workspace ? h('span', { className: 'jan-legacy-import-tag', title: thread.project }, thread.projectName && thread.projectName !== thread.workspace ? `${thread.projectName} · ${thread.workspace}` : thread.workspace)
+              : thread.project ? h('span', { className: 'jan-legacy-import-tag', title: thread.project }, projectOf(thread.project)) : null,
+            thread.agent ? h('span', { className: 'jan-legacy-import-tag' }, AGENT_NAMES[thread.agent]) : null,
             thread.size !== undefined ? sizeOf(thread.size) : plural(thread.messageCount, 'message', 'messages'),
             thread.updated ? h('time', { dateTime: new Date(thread.updated).toISOString() }, shortDate(thread.updated)) : null),
           status || losses.length ? h('div', { role: 'status', className: 'jan-legacy-import-row-state' },
@@ -262,9 +249,9 @@ window.__ModuleLoader__.load({
           }),
           mcp.skipped.length ? h('p', { className: 'jan-legacy-import-meta' }, `Left behind: ${mcp.skipped.map(row => `${row.sourceName} (${row.reason})`).join('; ')}`) : null))
     }
-    const BRINGS = 'Message text, reasoning, tool calls and their results, token counts and local images. Audio, video, per-chat tool settings and streaming timing stay behind. After the import, each chat lists anything it could not bring.'
-    const AGENT_BRINGS = 'Your messages, the assistant’s replies and reasoning, tool calls with their results, and token counts. Images, sub-agent side conversations and encrypted reasoning stay behind. The imported session opens in the folder it ran in, as its own workspace, so you can continue it there; when that folder is gone it opens in the default workspace. After the import, each session lists anything it could not bring.'
-    const emptyMessage = ({ source, missing, listedFolder }) => missing
+    const BRINGS = 'Message text, reasoning, tool calls and their results, token counts and local images. Audio, video, per-chat tool settings and streaming timing stay behind. Chats are imported into the default project when available, or without a project. After the import, each chat lists anything it could not bring.'
+    const AGENT_BRINGS = 'Your messages, the assistant’s replies and reasoning, tool calls with their results, and token counts. Images, sub-agent side conversations and encrypted reasoning stay behind. If the original folder still exists, Jan registers it as a project for the imported chat. Otherwise, the chat uses the default project when available, or is imported without a project. After the import, each chat lists anything it could not bring.'
+    const emptyMessage = ({ source, missing, listedFolder }) => source === 'orca' ? 'No Claude Code, Codex or OMP session ran in an Orca workspace in this range.' : missing
       ? `${sourceName(source)} has no sessions folder at ${listedFolder}. Choose Change if it lives somewhere else.`
       : source === 'jan' ? 'No Jan chats found. Change the folder and scan again.' : `No ${sourceName(source)} sessions in this range.`
     // The source folder as one short line; the path is editable only after Change.
@@ -287,6 +274,9 @@ window.__ModuleLoader__.load({
     function Source({ state }) {
       const { source, folder, setFolder, listedFolder, scanning, busy, scan } = state
       const [editing, setEditing] = React.useState(false)
+      if (source === 'orca') return h('div', { className: 'jan-legacy-import-source' },
+        h('span', { className: 'jan-legacy-import-source-label' }, 'From'),
+        h('span', { className: 'jan-legacy-import-path' }, scanning ? 'Asking Orca for its workspaces…' : state.orcaWorkspaces === undefined ? 'Orca' : `${plural(state.orcaWorkspaces, 'Orca workspace', 'Orca workspaces')} on this computer`))
       return h('div', { className: 'jan-legacy-import-source' },
         h('span', { className: 'jan-legacy-import-source-label' }, 'From'),
         editing
@@ -310,7 +300,9 @@ window.__ModuleLoader__.load({
         h('h2', null, 'Import sessions'),
         h('p', null, state.source === 'jan'
           ? 'Bring your chats and settings from the earlier Jan app. Your Jan folder is only read, never changed, and anything already imported is skipped.'
-          : `Bring sessions from ${sourceName(state.source)} into Jan. The ${sourceName(state.source)} folder is only read, never changed, and anything already imported is skipped.`),
+          : state.source === 'orca'
+            ? 'Bring the Claude Code, Codex and OMP sessions you ran in Orca into Jan. Each opens in a Jan workspace named after its Orca workspace. Nothing in Orca or the agents’ folders is changed, and anything already imported is skipped.'
+            : `Bring sessions from ${sourceName(state.source)} into Jan. The ${sourceName(state.source)} folder is only read, never changed, and anything already imported is skipped.`),
         h(SourcePicker, { state }),
         h(Source, { state }),
         h(Range, { state }),
@@ -323,38 +315,12 @@ window.__ModuleLoader__.load({
         h(SettingsChoices, { state }),
         h(WhatComesOver, { source: state.source }))
     }
-    // The first-launch dialog: source on top, the list in a fixed scroll area,
-    // and the one decision (import or not) in the footer.
-    function ImportDialog({ refreshSessions, onClose, onDone }) {
-      const state = useJanImport(refreshSessions)
-      const { threads, listedFolder, job, error, importing, busy, stale, eligible, canImport, importSelected } = state
-      const finished = job !== null && !importing
-      const footer = finished && !canImport
-        ? h(Button, { variant: 'primary', onClick: onDone }, 'Done')
-        : h(React.Fragment, null,
-          h(Button, { disabled: importing, onClick: onClose }, 'Cancel'),
-          h(Button, { variant: 'primary', disabled: busy || !canImport || stale, onClick: importSelected }, actionLabel(state)))
-      return h(Modal, {
-        open: true, title: 'Import from Jan', closeLabel: 'Close import', onClose: importing ? () => { } : onClose,
-        className: 'jan-legacy-import-dialog', footer,
-        description: !threads.length ? 'Your Jan folder is only read, never changed.'
-          : eligible.length ? `${plural(threads.length, 'chat', 'chats')} found in the earlier Jan app, ${eligible.length} ready to bring over. Your Jan folder is only read, never changed.`
-            : 'Every chat from the earlier Jan app is here. Your Jan folder was only read, never changed.',
-      },
-        h('div', { className: 'jan-legacy-import jan-legacy-import-in-dialog', 'aria-busy': busy },
-          h(Source, { state }),
-          error ? h('p', { role: 'alert' }, error) : null,
-          h(ImportProgress, { state }),
-          threads.length ? h(ChatList, { state, scroll: true }) : listedFolder && !busy ? h('p', { role: 'status' }, emptyMessage(state)) : null,
-          h(SettingsChoices, { state }),
-          h(WhatComesOver, { source: state.source })))
-    }
-    // First-launch offer: a card in the shell overlay layer, so it stays under
-    // Desktop onboarding (a fixed surface above this layer) until that closes.
-    function ImportOffer({ refreshSessions }) {
+    // First-launch offer: a card in the shared bottom-right notification stack,
+    // hidden while Desktop onboarding covers the window.
+    function ImportOffer({ startMigrate }) {
       const [offer, setOffer] = React.useState(null)
-      const [open, setOpen] = React.useState(false)
       const [error, setError] = React.useState('')
+      const [details, setDetails] = React.useState(false)
       // On first launch the client can mount before the Host route is up; ask
       // again a few times before giving up for this launch.
       React.useEffect(() => {
@@ -369,23 +335,40 @@ window.__ModuleLoader__.load({
         ask(1)
         return () => { cancelled = true }
       }, [])
+      // Don't show again (and handing the import to a /migrate chat) is
+      // remembered; Not now hides the card only until the next launch.
       const dismiss = async () => {
-        try { await api('dismissOffer'); setOffer(null); setOpen(false) } catch (error) { setError(error.message) }
+        try { await api('dismissOffer'); setOffer(null) } catch (error) { setError(error.message) }
       }
       if (!offer?.show) return null
-      if (open) return h(ImportDialog, { refreshSessions, onClose: () => setOpen(false), onDone: dismiss })
-      return h('section', { className: 'jan-legacy-import-offer', role: 'dialog', 'aria-labelledby': 'jan-legacy-import-offer-title' },
-        h('h2', { id: 'jan-legacy-import-offer-title' }, offer.extras?.length ? 'Bring over your Jan chats and settings' : 'Bring over your Jan chats'),
-        h('p', null, `Found ${plural(offer.count, 'chat', 'chats')}${offer.extras?.length ? ` plus your ${listOf(offer.extras)}` : ''} from the earlier Jan app. Import them here? Your Jan folder stays unchanged.`),
+      const migrate = () => { startMigrate(); void dismiss() }
+      // Compact by design, in the shared Coachmark shape: a title with a close
+      // button (Not now), one short line, and Details, Don't show again / Import.
+      // What else was found, the read-only promise and where to import later sit
+      // behind Details.
+      return h(NotificationPortal, null, h('section', { className: 'jan-legacy-import-offer', role: 'dialog', 'aria-labelledby': 'jan-legacy-import-offer-title' },
+        h('div', { className: 'jan-legacy-import-offer-head' },
+          h('h2', { id: 'jan-legacy-import-offer-title' }, 'Import your chats from Jan'),
+          h(Button, { size: 'sm', className: 'jan-legacy-import-offer-close', 'aria-label': 'Not now', title: 'Not now', icon: h(IconCloseOutlineRegular), onClick: () => setOffer(null) })),
+        h('p', null, `${plural(offer.count, 'chat', 'chats')}${offer.extras?.length ? ' and settings' : ''} found.`),
+        details ? h('p', { id: 'jan-legacy-import-offer-details' }, `${offer.extras?.length ? `Settings means your ${listOf(offer.extras)}. ` : ''}Your Jan folder stays unchanged. Import opens a chat where Jan finds what to bring and asks before importing. You can also type /migrate in any chat.`) : null,
         error ? h('p', { role: 'alert' }, error) : null,
-        h('div', { className: 'jan-legacy-import-actions' },
-          h(Button, { variant: 'primary', onClick: () => setOpen(true) }, 'Review and import'),
-          h(Button, { onClick: dismiss }, 'Not now')),
-        h('p', { className: 'jan-legacy-import-detail' }, 'You can import later from Settings -> Built-in plugins -> Import from Jan.'))
+        h('div', { className: 'jan-legacy-import-offer-foot' },
+          h('div', { className: 'jan-legacy-import-offer-quiet' },
+            h(Button, { size: 'sm', 'aria-expanded': details, 'aria-controls': 'jan-legacy-import-offer-details', onClick: () => setDetails(value => !value) }, details ? 'Hide details' : 'Details'),
+            h(Button, { size: 'sm', onClick: dismiss }, "Don't show again")),
+          h(Button, { size: 'sm', variant: 'primary', onClick: migrate }, 'Import'))))
+    }
+    // The Settings page starts the same agent-led import, above the manual picker.
+    function MigrateCard({ startMigrate }) {
+      return h('section', { className: 'jan-legacy-import', 'aria-labelledby': 'jan-legacy-migrate-title' },
+        h('h2', { id: 'jan-legacy-migrate-title' }, 'Migrate in a chat'),
+        h('p', null, 'Jan looks for chats and settings from the earlier Jan app, Claude Code, Codex and OMP, asks what to bring, and imports after you approve.'),
+        h('div', { className: 'jan-legacy-import-actions' }, h(Button, { variant: 'primary', onClick: startMigrate }, 'Start /migrate')))
     }
     return {
       name: '@janhq/jan-legacy-import',
-      inject: ['slots', 'sessions'],
+      inject: ['slots', 'sessions', 'uiWorkspace'],
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement('style')
@@ -421,11 +404,6 @@ window.__ModuleLoader__.load({
 .jan-legacy-import-footer .jan-legacy-import-progress{flex:1;min-width:240px;padding:8px 12px}
 .jan-legacy-import details.jan-legacy-import-detail summary{cursor:pointer;width:fit-content;color:var(--dsw-alias-label-secondary)}
 .jan-legacy-import details.jan-legacy-import-detail p{margin-top:6px;font-size:13px}
-.jan-legacy-import-dialog{width:min(720px,100%);max-height:100%}
-.jan-legacy-import-dialog > :first-child,.jan-legacy-import-dialog > :first-child > :last-child{flex:1 1 auto;min-height:0}
-.jan-legacy-import-dialog > :first-child > :last-child{overflow-y:auto;overscroll-behavior:contain}
-.jan-legacy-import-in-dialog{gap:14px;height:100%;min-height:0}
-.jan-legacy-import-in-dialog > *{flex:none}
 .jan-legacy-import .jan-legacy-import-range{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;font-size:13px}
 .jan-legacy-import-link{padding:0;border:0;background:none;color:var(--dsw-alias-label-primary);font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .jan-legacy-import-link:disabled{opacity:.5;cursor:default}
@@ -439,7 +417,6 @@ window.__ModuleLoader__.load({
 .jan-legacy-import-source-label{font-size:13px;color:var(--dsw-alias-label-secondary)}
 .jan-legacy-import-path{flex:1;min-width:0;padding:6px 10px;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-interactive-bg-hover);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jan-legacy-import-list-head{display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:13px;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-secondary)}
-.jan-legacy-import-scroll{flex:1 1 auto;min-height:120px;max-height:min(400px,32vh);overflow:auto;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg)}
 .jan-legacy-import-settings{display:flex;flex-direction:column;gap:8px;margin:0;padding:10px 12px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);min-width:0}
 .jan-legacy-import-settings legend{padding:0 4px;font-size:13px;color:var(--dsw-alias-label-secondary)}
 .jan-legacy-import-setting{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -447,16 +424,31 @@ window.__ModuleLoader__.load({
 .jan-legacy-import-setting > label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jan-legacy-import-setting .jan-legacy-import-meta{padding-inline-start:26px;white-space:normal}
 .jan-legacy-import .jan-legacy-import-setting .jan-legacy-import-row-state{padding-inline-start:26px;margin:2px 0 0;list-style:disc;padding-left:40px}
-.jan-legacy-import-offer{position:absolute;top:56px;right:16px;width:min(360px,calc(100% - 32px));display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-base);box-shadow:0 8px 24px rgb(0 0 0 / 0.12);color:var(--dsw-alias-label-primary)}
-.jan-legacy-import-offer h2{margin:0;font-size:15px;text-wrap:balance}
-.jan-legacy-import-offer p{margin:0;text-wrap:pretty;color:var(--dsw-alias-label-secondary)}
+.jan-legacy-import-offer{box-sizing:border-box;width:min(300px,calc(100vw - 40px));animation:jan-legacy-import-offer-in 180ms ease-out;display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-bg-layer-3);box-shadow:var(--dsw-elevation-prominent);color:var(--dsw-alias-label-primary)}
+body:has([data-onboarding-overlay]) .jan-legacy-import-offer{display:none}
+@keyframes jan-legacy-import-offer-in{from{opacity:0;transform:translateX(16px)}}
+@media (prefers-reduced-motion:reduce){.jan-legacy-import-offer{animation:none}}
+.jan-legacy-import-offer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:-6px}
+.jan-legacy-import-offer h2{margin:0;font-size:14px;line-height:20px;font-weight:500}
+.jan-legacy-import-offer-close{flex:none;width:28px;padding:0;margin-inline-end:-6px}
+.jan-legacy-import-offer p{margin:0;font-size:13px;line-height:18px;text-wrap:pretty;color:var(--dsw-alias-label-secondary)}
+.jan-legacy-import-offer-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.jan-legacy-import-offer-quiet{display:flex;align-items:center;gap:4px;margin-inline-start:-10px}
+.jan-legacy-import-offer-quiet > *{color:var(--dsw-alias-label-secondary)}
 @media (max-width:560px){.jan-legacy-import-row{grid-template-columns:minmax(0,1fr)}.jan-legacy-import-meta{padding-inline-start:26px}}
 `
           document.head.appendChild(style)
           return () => style.remove()
         }, 'Jan import settings styles')
-        ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({ name: 'settings.plugins.tab', id: 'jan-import', order: 100, label: () => 'Import sessions' }, () => h(ImportCard, { refreshSessions: () => ctx.sessions.refresh() })))
-        ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'jan-import-offer' }, () => h(ImportOffer, { refreshSessions: () => ctx.sessions.refresh() })))
+        // Both entries hand the import to the /migrate skill in a fresh chat; the user only presses Enter.
+        const startMigrate = () => {
+          ctx.get('layout')?.selectPanel(null)
+          ctx.uiWorkspace.startSession(undefined, { prompt: '/migrate', whenDraftExists: 'replace' })
+        }
+        ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({ name: 'settings.plugins.tab', id: 'jan-import', order: 100, label: () => 'Import sessions' }, () => h(React.Fragment, null,
+          h(MigrateCard, { startMigrate }),
+          h(ImportCard, { refreshSessions: () => ctx.sessions.refresh() }))))
+        ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'jan-import-offer' }, () => h(ImportOffer, { startMigrate })))
       },
     }
   },

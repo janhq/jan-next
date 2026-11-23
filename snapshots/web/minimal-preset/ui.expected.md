@@ -1,6 +1,8 @@
-- banner:
-  - navigation "Session hierarchy": Use the bash tool to
-  - 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
+- tablist "Chat tabs":
+  - tab "Use the bash tool to Close chat tab" [selected]:
+    - text: Use the bash tool to
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
 - text: "Use the bash tool to run exactly: printf 'MINIMAL_BASH_CARD_OK\\n'. Then reply exactly MINIMAL_PRESET_REQUEST_OK and stop. {{clock}}"
@@ -8,7 +10,7 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Ran commands" [expanded]
-- button "Context injection runtime-context"
+- button "Inject context runtime-context"
 - button "Bash printf 'MINIMAL_BASH_CARD_OK\\n'" [expanded]
 - text: "IN { \"command\": \"printf 'MINIMAL_BASH_CARD_OK\\\\n'\" } OUT MINIMAL_BASH_CARD_OK [Command finished with exit code 0]"
 - paragraph: MINIMAL_PRESET_REQUEST_OK
@@ -17,9 +19,11 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
+- 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
-- button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
+- button "Choose project" [disabled]
+- 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
+- button "1 turns 2 steps"
 - button "28 tok · Cache hit 0%": 28 tokCache hit 0%
 - button "0% of context used": 0%

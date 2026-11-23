@@ -1,6 +1,10 @@
 /** Host-wide management of Host tasks: identities, listing, atomic edits, revision checks, notices, and manual runs. */
+import { mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { SessionId } from '@janhq/jan-session'
+import { WorkspaceId } from '@janhq/jan-workspace'
 import {
   createAfterScheduleRecord, createAtScheduleRecord, createCronScheduleRecord, createDailyScheduleRecord,
   createEveryScheduleRecord, createWeeklyScheduleRecord, ScheduleId,
@@ -11,6 +15,7 @@ import { agentFor, boundTask, gatedScheduleBackend, harness, seededTask, seedTas
 import { MemoryMediaPool } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
 
 const active: Awaited<ReturnType<typeof harness>>[] = []
+const roots: string[] = []
 const once = 'DTSTART:20260916T010000Z\nRRULE:FREQ=DAILY;COUNT=1'
 const daily = 'DTSTART:20260916T010000Z\nRRULE:FREQ=DAILY'
 
@@ -19,6 +24,7 @@ afterEach(async () => {
   await Promise.all(active.splice(0).map(test => test.ctx.fiber.dispose()))
   vi.restoreAllMocks()
   vi.useRealTimers()
+  await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true })))
 })
 
 async function setup() {
@@ -26,6 +32,34 @@ async function setup() {
   active.push(test)
   return test
 }
+
+async function temporaryDirectory() {
+  const root = await mkdtemp(join(tmpdir(), 'jan-schedule-projects-'))
+  roots.push(root)
+  return realpath(root)
+}
+
+it('binds a project by ID or canonical cwd and exposes the identity in the catalog', async () => {
+  const { ctx, service } = await setup()
+  const cwd = await temporaryDirectory()
+  const alias = join(await temporaryDirectory(), 'alias')
+  await symlink(cwd, alias, 'junction')
+  const workspaceId = WorkspaceId('project')
+  const project = { id: workspaceId, path: cwd }
+  ctx.provide('workspaceRegistry', { get: (id: string) => id === workspaceId ? project : undefined, list: () => [project] })
+  for (const create of [{ cwd: alias }, { workspaceId, cwd: alias }]) {
+    const entry = await service.remoteCreate({
+      title: 'Project task', prompt: 'Check the project', timing: { kind: 'rrule', rrule: daily }, target: { kind: 'new', create },
+    })
+    expect(entry).toMatchObject({ workspaceId, target: { kind: 'new', create: { workspaceId, cwd } } })
+    expect(await service.view({ id: entry.id })).toEqual(entry)
+  }
+  await expect(service.remoteCreate({
+    title: 'Missing project', prompt: 'Check the project', timing: { kind: 'rrule', rrule: daily },
+    target: { kind: 'new', create: { workspaceId: WorkspaceId('missing'), cwd } },
+  })).rejects.toMatchObject({ code: 'schedule/input-invalid' })
+  expect(await service.catalog()).toHaveLength(2)
+})
 
 /** Text of every change notice queued for one live Agent. */
 function notices(agent: HarnessAgent): string[] {
@@ -153,12 +187,13 @@ it('keeps a pending per-run Session identity across descriptive edits and drops 
   const first = await reserved()
   await test.service.edit({ id: created.id, action: 'update', patch: { title: 'After', target: { kind: 'new' } } })
   expect(await reserved()).toBe(first)
-  await test.service.edit({ id: created.id, action: 'update', patch: { target: { kind: 'new', create: { cwd: '/other' } } } })
+  const cwd = await temporaryDirectory()
+  await test.service.edit({ id: created.id, action: 'update', patch: { target: { kind: 'new', create: { cwd } } } })
   const retargeted = await reserved()
   expect(retargeted).not.toBe(first)
   await test.service.edit({ id: created.id, action: 'update', patch: { timing: { kind: 'rrule', rrule: 'DTSTART:20260916T020000Z\nRRULE:FREQ=DAILY' } } })
   expect(await reserved()).not.toBe(retargeted)
-  expect(test.createSession).toHaveBeenLastCalledWith({ sessionId: expect.any(String) as string, cwd: '/other' })
+  expect(test.createSession).toHaveBeenLastCalledWith({ sessionId: expect.any(String) as string, cwd })
 })
 
 it('rejects a missing designated Session before storing the task', async () => {
@@ -197,7 +232,7 @@ it.each(['session', 'new_once'] as const)('refuses to re-arm an archived %s targ
   const test = await setup()
   const created = await test.service.remoteCreate({ title: 'Before', prompt: 'Prompt', timing: { kind: 'rrule', rrule: daily },
     target: kind === 'session' ? { kind, sessionId: SessionId('existing') } : { kind } })
-  if (created.target.kind === 'new') throw new Error('expected a stable target')
+  if (created.target.kind !== 'session' && created.target.kind !== 'new_once') throw new Error('expected a stable target')
   test.ctx.provide('workspaceRegistry', { archivedSessionIds: [created.target.sessionId] })
   const paused = await test.service.edit({ id: created.id, action: 'update', patch: { active: false, title: 'Paused' } })
   expect(paused).toMatchObject({ title: 'Paused', status: 'paused' })
@@ -297,7 +332,7 @@ it.each(['new_once', 'new'] as const)('refuses a queued %s destination when its 
   expect(await test.service.catalog()).toMatchObject([{ target: { kind: 'session' } }])
 })
 
-it('rejects invalid rules, empty creation values, empty updates, and pagination outside the supported range', async () => {
+it('rejects invalid rules, invalid creation values, empty updates, and pagination outside the supported range', async () => {
   const { service } = await setup()
   await expect(service.remoteCreate({
     title: 'Floating', prompt: 'No zone',
@@ -305,8 +340,8 @@ it('rejects invalid rules, empty creation values, empty updates, and pagination 
   })).rejects.toMatchObject({
     code: 'schedule/input-invalid', message: expect.stringContaining('explicit TZID') as string, details: { code: 'invalid_rule' },
   })
-  for (const create of [{ cwd: '' }, { agentPreset: '' }]) {
-    await expect(service.remoteCreate({ title: 'Empty', prompt: 'Empty', timing: { kind: 'rrule', rrule: daily }, target: { kind: 'new_once', create } }))
+  for (const create of [{ cwd: '' }, { cwd: 'relative/project' }, { agentPreset: '' }]) {
+    await expect(service.remoteCreate({ title: 'Invalid', prompt: 'Invalid', timing: { kind: 'rrule', rrule: daily }, target: { kind: 'new_once', create } }))
       .rejects.toMatchObject({ code: 'schedule/input-invalid', details: { code: 'invalid_rule' } })
   }
   const created = await service.remoteCreate({ title: 'Valid', prompt: 'Valid', timing: { kind: 'rrule', rrule: daily }, target: { kind: 'new' } })
@@ -345,9 +380,10 @@ it('orders historical ended tasks by creation time or the saved occurrence when 
 
 it('lists all target kinds in operational order with stable tie breakers', async () => {
   const { service } = await setup()
+  const cwd = await temporaryDirectory()
   const first = await service.remoteCreate({ title: 'First', prompt: 'First', timing: { kind: 'rrule', rrule: daily }, target: { kind: 'new_once' } })
   const second = await service.remoteCreate({
-    title: 'Second', prompt: 'Second', timing: { kind: 'rrule', rrule: daily }, target: { kind: 'new', create: { cwd: '/work', agentPreset: 'minimal' } },
+    title: 'Second', prompt: 'Second', timing: { kind: 'rrule', rrule: daily }, target: { kind: 'new', create: { cwd, agentPreset: 'minimal' } },
   })
   const designated = await service.remoteCreate({
     title: 'Designated', prompt: 'Designated', timing: { kind: 'rrule', rrule: daily },
@@ -355,7 +391,7 @@ it('lists all target kinds in operational order with stable tie breakers', async
   })
   expect(first.target).toEqual({ kind: 'new_once', sessionId: expect.stringMatching(/^session-/) as string, create: {} })
   expect(first.involvedSessionIds).toEqual([first.target.kind === 'new_once' ? first.target.sessionId : undefined])
-  expect(second.target).toEqual({ kind: 'new', create: { cwd: '/work', agentPreset: 'minimal' } })
+  expect(second.target).toEqual({ kind: 'new', create: { cwd, agentPreset: 'minimal' } })
   // Equal next occurrences order by identity.
   expect((await service.list({ active: true })).items.map(item => item.id)).toEqual([first.id, second.id, designated.id].sort())
   // The Session-bound catalog lists only tasks that the Session-bound API created.

@@ -22,6 +22,7 @@ import {
   wrapBlockChildren,
 } from './render.tsx'
 import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages, MarkdownRenderContext, ReferenceTargets } from './render.tsx'
+import type { StreamReveal } from './reveal.tsx'
 import 'katex/dist/katex.min.css'
 import css from './MarkdownText.module.css'
 
@@ -81,7 +82,7 @@ class StreamingRenderer {
    * @param labels - Localized Markdown chrome baked into cached elements; the owner replaces the renderer when it changes.
    * @param omitHtml - Whether raw HTML renders nothing; the owner replaces the renderer when it changes.
    */
-  constructor(private readonly labels: MarkdownLabels, readonly omitHtml: boolean) {}
+  constructor(private readonly labels: MarkdownLabels, readonly omitHtml: boolean, readonly reveal: StreamReveal | undefined) {}
 
   /**
    * Render the current accumulated text. Idempotent per text value, so React
@@ -120,6 +121,7 @@ class StreamingRenderer {
         targets: frameTargets,
         footnoteOrder: this.frozenFootnoteOrder,
         footnoteCounts: this.frozenFootnoteCounts,
+        reveal: this.reveal,
       }
       // Separator newlines are cached alongside the elements so the
       // assembled children match the settled pipeline's block wrapping.
@@ -140,6 +142,7 @@ class StreamingRenderer {
       targets: frameTargets,
       footnoteOrder: [...this.frozenFootnoteOrder],
       footnoteCounts: new Map(this.frozenFootnoteCounts),
+      reveal: this.reveal,
     }
     const children = [...this.frozenElements]
     for (const element of renderBlocks(tail, tailContext)) {
@@ -175,7 +178,9 @@ class StreamingRenderer {
  * `body` variant uses the full document typography. `omitHtml` renders raw
  * HTML as nothing instead of literal text, for documents written for HTML
  * renderers, such as package READMEs. `textInteractionSource` marks the
- * existing root as a source for text selection interactions.
+ * existing root as a source for text selection interactions. `reveal`, while
+ * streaming, fades each new word in from a slight blur; keep one per reply
+ * (see {@link createStreamReveal}) so words that remount resume their fade.
  * The provider's `openFile` enables local Markdown links in settled messages,
  * including `#L24` / `#L24-L30` fragments and `:24` / `:24-30` / `:24:5` suffixes
  * (ranges open at their first line, columns are ignored, and invalid locations
@@ -187,7 +192,7 @@ class StreamingRenderer {
  * absolute HTTP(S) images render directly.
  */
 export const MarkdownText = memo(function MarkdownText({
-  text, streaming = false, labels, fileMentions, pathImages, variant = 'body', omitHtml = false, textInteractionSource = false,
+  text, streaming = false, labels, fileMentions, pathImages, variant = 'body', omitHtml = false, textInteractionSource = false, reveal,
 }: {
   text: string
   streaming?: boolean
@@ -197,6 +202,7 @@ export const MarkdownText = memo(function MarkdownText({
   variant?: 'body' | 'compact'
   omitHtml?: boolean
   textInteractionSource?: boolean
+  reveal?: StreamReveal | undefined
 }) {
   const streamRef = useRef<StreamingRenderer | null>(null)
   const streamLabelsRef = useRef<MarkdownLabels>(labels)
@@ -205,12 +211,13 @@ export const MarkdownText = memo(function MarkdownText({
       streamRef.current = null
       return renderSettled(text, labels, fileMentions, pathImages, omitHtml)
     }
-    if (streamRef.current === null || streamLabelsRef.current !== labels || streamRef.current.omitHtml !== omitHtml) {
-      streamRef.current = new StreamingRenderer(labels, omitHtml)
+    const current = streamRef.current
+    if (current === null || streamLabelsRef.current !== labels || current.omitHtml !== omitHtml || current.reveal !== reveal) {
+      streamRef.current = new StreamingRenderer(labels, omitHtml, reveal)
       streamLabelsRef.current = labels
     }
-    return streamRef.current.render(text)
-  }, [text, streaming, labels, fileMentions, pathImages, omitHtml])
+    return (streamRef.current as StreamingRenderer).render(text)
+  }, [text, streaming, labels, fileMentions, pathImages, omitHtml, reveal])
   return <div className={clsx(css.markdown, variant === 'compact' && css.compact)}
     data-text-interaction-source={textInteractionSource ? '' : undefined}
     data-markdown-variant={variant === 'compact' ? variant : undefined}

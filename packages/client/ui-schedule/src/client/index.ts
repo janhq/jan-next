@@ -43,7 +43,7 @@ import type { RemoteFailure, RemoteResult } from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-client-connection/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { ScheduleId, ScheduleCatalogEntry, ScheduleDeleteResult } from '@janhq/jan-schedule/client'
-import { createCatalogSource, type CatalogDeleteOutcome } from './catalog-source.ts'
+import { createCatalogSource, type CatalogDeleteOutcome, type CatalogInjected } from './catalog-source.ts'
 import { createClearEnded } from './clear-ended.ts'
 import { createDeleteToastSource, ScheduleDeleteToast } from './DeleteToast.tsx'
 import { SCHEDULE_TASK_ID, SCHEDULE_TASK_KIND, scheduleTaskDefinition } from './definition.ts'
@@ -65,6 +65,16 @@ import { en as managerEn, ja as managerJa, es as managerEs, fr as managerFr, de 
 
 const MANAGER_NS = 'schedule.manager'
 const PANEL_ID = 'schedules' as MainPanelId
+
+declare module '@janhq/cordis' {
+  interface Context {
+    /** Shared Host task catalog, available while the Peer may read it. */
+    hostTaskCatalog: {
+      readonly catalog: CatalogInjected<ScheduleCatalogEntry>['hooks']['catalog']
+      readonly refresh: () => Promise<void>
+    }
+  }
+}
 
 declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -133,6 +143,11 @@ export function apply(ctx: ClientContext): void {
       subscribeChanged: listener => ctx.remote.$on('schedule/changed', listener),
       subscribeReset: listener => ctx.on('connection/reset', listener),
     })
+    // The Host answered, so this readback must not join a read that was sent
+    // before it: naming every request seen so far makes the source issue a new
+    // one, the way the post-deletion readback supersedes.
+    const refresh = (): Promise<void> => manager.onRetry(manager.hooks.catalog.getSnapshot().readRequest)
+    yield ctx.provide('hostTaskCatalog', { catalog: manager.hooks.catalog, refresh })
     // One outcome store behind one `shell.overlay` entry announces every deletion
     // this plugin's surfaces settle, so the notice outlives the panel, popover, or
     // tab the deletion started in.
@@ -147,10 +162,6 @@ export function apply(ctx: ClientContext): void {
       name: 'shell.overlay', id: 'schedule.delete-toast', locale: MANAGER_NS,
       inject: () => ({ hooks: deleteToast.hooks, dismiss: deleteToast.dismiss }),
     }, ScheduleDeleteToast))
-    // The Host answered, so this readback must not join a read that was sent
-    // before it: naming every request seen so far makes the source issue a new
-    // one, the way the post-deletion readback supersedes.
-    const refresh = (): Promise<void> => manager.onRetry(manager.hooks.catalog.getSnapshot().readRequest)
     const openSession = (id: SessionId): void => {
       if (sessionLinkState(id, ctx.sessions.list.getSnapshot(), ctx.workspaces.list.getSnapshot()) === 'available') {
         ctx.uiWorkspace.openSession(id)

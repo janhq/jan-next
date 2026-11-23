@@ -70,6 +70,10 @@ const TARGET_SCHEMA = {
         create: { ...SESSION_CREATE_SCHEMA, required: true },
       },
     },
+    {
+      type: 'object', additionalProperties: false,
+      properties: { kind: { type: 'string', required: true, const: 'plugin' }, owner: { type: 'string', required: true } },
+    },
   ],
 } as const
 
@@ -79,7 +83,9 @@ const DELIVERY_SCHEMA = {
   properties: {
     scheduledAt: { type: 'string', required: true },
     deliveredAt: { type: 'string', required: true },
-    targetSessionId: { type: 'string', required: true },
+    targetSessionId: { type: 'string' },
+    owner: { type: 'string' },
+    outcome: { type: 'string', const: 'accepted' },
   },
 } as const
 
@@ -261,18 +267,17 @@ function renderValue(_args: unknown, value: unknown): ContentBlock[] {
 /** Authoritative timing and management fields, without Host delivery bookkeeping. */
 type ModelTask = ScheduleRecord & Pick<ScheduleCatalogEntry, 'target' | 'status' | 'updatedAt'> & {
   readonly scheduledAtLocal: string
-  readonly lastDelivery?: Pick<ScheduleDeliveryReceipt, 'scheduledAt' | 'deliveredAt' | 'targetSessionId'>
+  readonly lastDelivery?: Omit<ScheduleDeliveryReceipt, 'messageId'>
 }
 
 /** Preserve timing, destination, and edit revision while withholding Host bookkeeping. */
 function modelTask(task: ScheduleCatalogEntry): ModelTask {
   const { involvedSessionIds: _involved, createdAt: _created, executionActive: _execution,
     deliveryFloorEndsAt: _floor, lastDelivery, ...record } = task
+  const { messageId: _, ...receipt } = lastDelivery ?? {}
   return {
     ...record, scheduledAtLocal: formatScheduleLocalTime(task, task.scheduledAt),
-    ...lastDelivery === undefined ? {} : { lastDelivery: {
-      scheduledAt: lastDelivery.scheduledAt, deliveredAt: lastDelivery.deliveredAt, targetSessionId: lastDelivery.targetSessionId,
-    } },
+    ...(lastDelivery === undefined ? {} : { lastDelivery: receipt as Omit<ScheduleDeliveryReceipt, 'messageId'> }),
   }
 }
 

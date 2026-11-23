@@ -3,3 +3,5 @@
   - option "System default (Fake Default Audio Input)"
   - option "Fake Audio Input 1 — Unavailable" [disabled] [selected]
   - option "Fake Audio Input 2"
+- paragraph: The microphone stays off until you start a test or recording. A test only shows the live input level; it does not save or send audio. Your browser may ask for permission.
+- button "Stop microphone test" [pressed]

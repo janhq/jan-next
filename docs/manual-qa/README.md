@@ -44,7 +44,7 @@ export JAN_DESKTOP_HOST_INSPECT_PORT=$((BASE+2)) JAN_DESKTOP_OPEN_DEVTOOLS=0 JAN
 export JAN_LLAMA_WORKER=$REPO/native/llama-worker/dist/jan-llama-worker
 export MOCK_MESSAGES_API_KEY=mock QA_MOCK_BASE_URL=http://127.0.0.1:$((BASE+3))/v1
 cd $REPO/apps/desktop
-"$REPO/apps/desktop/.desktop-build/development/Harness Dev.app/Contents/MacOS/Electron" \
+"$REPO/apps/desktop/.desktop-build/development/Jan Next Dev.app/Contents/MacOS/Electron" \
   --inspect=127.0.0.1:$((BASE+1)) --remote-debugging-port=$BASE --user-data-dir=$Q/ud .
 ```
 

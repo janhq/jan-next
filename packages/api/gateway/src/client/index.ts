@@ -110,8 +110,8 @@ export interface ClientRemote extends TypertClientRemote {
   $stream<Item>(options: RemoteStreamOptions<Item>): RemoteStream<Item>
   /**
    * Fixed Host facts as plain reads: no store, no subscription, no generation
-   * counter. `home` stays undefined until the first ready frame and reflects
-   * the latest one afterwards.
+   * counter. `home` and `name` stay undefined until the first ready frame and
+   * reflect the latest one afterwards.
    */
   readonly $host: RemoteHostFacts
 }
@@ -120,6 +120,10 @@ export interface ClientRemote extends TypertClientRemote {
 export interface RemoteHostFacts {
   /** Host home directory from the ready frame, undefined before it. */
   readonly home: string | undefined
+  /** Name of the computer the Host runs on, from the ready frame; undefined before it. */
+  readonly name: string | undefined
+  /** Whether the Host was started over SSH, so this window works on another computer; false before the ready frame. */
+  readonly remote: boolean
   /** Whether the carrier connects to the local Host. */
   readonly isLoopback: boolean
 }
@@ -204,9 +208,11 @@ class ClientRemoteService extends Service implements ClientRemote {
     // Identity-stable: readers (useSyncExternalStore snapshots, memo inputs)
     // compare by reference, so a fresh object is minted only when the fact
     // itself changed. isLoopback is fixed for the page lifetime.
-    const home = this.connection.generation.getSnapshot()?.host.home
-    if (this.hostFacts === undefined || this.hostFacts.home !== home) {
-      this.hostFacts = { home, isLoopback: this.connection.isLoopback }
+    const host = this.connection.generation.getSnapshot()?.host
+    const remote = host?.remote ?? false
+    if (this.hostFacts === undefined || this.hostFacts.home !== host?.home || this.hostFacts.name !== host?.name
+      || this.hostFacts.remote !== remote) {
+      this.hostFacts = { home: host?.home, name: host?.name, remote, isLoopback: this.connection.isLoopback }
     }
     return this.hostFacts
   }

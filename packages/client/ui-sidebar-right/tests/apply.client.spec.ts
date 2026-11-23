@@ -27,6 +27,7 @@ import * as sidebarStores from '../src/client/stores.ts'
 import { RightbarSeat } from '../src/client/shell/SidebarRight.tsx'
 import { RightbarRoot } from '../src/client/shell/RightbarRoot.tsx'
 import { ExpandButton } from '../src/client/shell/ExpandButton.tsx'
+import { NewTabItems } from '../src/client/shell/NewTabItems.tsx'
 import { GuideBody } from '../src/client/tabs/guide/GuideBody.tsx'
 import { GuideTitle } from '../src/client/tabs/guide/GuideTitle.tsx'
 import { GUIDE_ID } from '../src/client/tabs/guide/definition.ts'
@@ -144,10 +145,11 @@ describe('ui-sidebar-right apply', () => {
       ['conversation.session.header.corner', undefined, 'sidebarRight', ExpandButton],
       ['sidebar.right.pane.tab', GUIDE_ID, 'sidebarRight', GuideBody],
       ['sidebar.right.pane.tab.title', GUIDE_ID, undefined, GuideTitle],
+      ['conversation.desk.new-tab.item', undefined, 'sidebarRight', NewTabItems],
     ])
     // The panel declares the extension seats; the guide declares its chain child.
     expect(Object.keys(seat('rightbar.session').children as object)).toEqual([
-      'sidebar.right.pane.tab', 'sidebar.right.pane.tab.title',
+      'sidebar.right.pane.tab', 'sidebar.right.pane.tab.title', 'sidebar.right.pane.tab.actions',
     ])
     expect(seat('sidebar.right.pane.tab').children).toMatchObject({ 'sidebar.right.tab.guide': { kind: 'chain', scope: 'session' } })
     // Both seats read one store: the button only needs to know whether the panel is expanded.
@@ -346,7 +348,7 @@ describe('ui-sidebar-right apply', () => {
     expect(dictionaries.size).toBe(0)
     await ctx.plugin({ inject: [...inject], apply }).await()
     expect(ctx.sidebarRightTabs.get('guide')?.id).toBe(GUIDE_ID)
-    expect(registered).toHaveLength(7)
+    expect(registered).toHaveLength(8)
   })
 })
 

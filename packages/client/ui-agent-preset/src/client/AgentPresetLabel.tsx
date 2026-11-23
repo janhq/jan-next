@@ -1,5 +1,5 @@
 /**
- * The session header's agent-preset control.
+ * The started session's agent-preset chip, under its composer.
  *
  * A started session keeps every message it already has; what a switch changes
  * is the composition its NEXT turn runs under. The Host accepts the selection
@@ -12,24 +12,29 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
-  IconAgentPresetOutlineRegular, IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
+  IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
 } from '@janhq/jan-client-ui-primitives'
 import type { SessionId } from '@janhq/jan-session/types'
-// Type-only: pulls the ui-conversation SlotMap merge (the header actions).
+// Type-only: pulls the ui-conversation SlotMap merge (the composer preset seat).
 import type { } from '@janhq/jan-client-ui-conversation/client'
 import type { } from '@janhq/jan-agent-preset-registry/types'
 import type { AgentPresetSettingsState } from './settings-store.ts'
 import { presetDisplayText } from './locales.ts'
 import { requiresCodingTools } from './settings-store.ts'
-import css from './AgentPresetLabel.module.css'
+import css from './AgentPresetSeat.module.css'
+import { modeActionItems, runModeAction } from './mode-actions.tsx'
+import type { AgentPresetModeAction } from './index.ts'
+import { PresetIcon } from './PresetIcon.tsx'
 
-/** Registration-side business face for the header control. */
+/** Registration-side business face for the composer chip. */
 export interface AgentPresetLabelInjected {
   hooks: {
     /** Roster snapshot bound by the renderer as useAgentPresets. */
     agentPresets: SnapshotStore<AgentPresetSettingsState>
     /** Shared Developer tools preference; off hides the PTC and Minimal choices. */
     developerTools: ObservableSnapshot<boolean>
+    /** Additional mode entries with their own start flow. */
+    modeActions: ObservableSnapshot<readonly AgentPresetModeAction[]>
   }
   /** Read the roster, so the control can show a name rather than an id. */
   load: () => Promise<void>
@@ -44,7 +49,7 @@ export interface AgentPresetLabelInjected {
 
 /** Full component props. */
 export type AgentPresetLabelProps =
-  PropsRuntime<'conversation.session.header.actions'>
+  PropsRuntime<'conversation.composer.agentPreset'>
   & PropsLocale<'settings.agentPreset'>
   & InjectFace<AgentPresetLabelInjected>
 
@@ -57,7 +62,7 @@ const REFUSAL_HOLD_MS = 8000
  * @returns the control, or null when the session records no preset.
  */
 export function AgentPresetLabel({
-  sessionId, useSessions, useAgentPresets, useDeveloperTools, load, select, t,
+  sessionId, useSessions, useAgentPresets, useDeveloperTools, useModeActions, load, select, t,
 }: AgentPresetLabelProps) {
   const preset = useSessions((state) => {
     const value = state.byId[sessionId]?.projectionValues?.agentPreset
@@ -65,6 +70,7 @@ export function AgentPresetLabel({
   })
   const running = useSessions(state => state.byId[sessionId]?.running === true)
   const options = useAgentPresets(state => state.options)
+  const modeActions = useModeActions(value => value)
   const developerTools = useDeveloperTools(value => value)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -87,7 +93,7 @@ export function AgentPresetLabel({
   // hidden default or a session that starts running leaves nothing to pick.
   useEffect(() => {
     setOpen(false)
-  }, [developerTools, choices.length, running])
+  }, [developerTools, choices.length, modeActions.length, running])
 
   if (preset === undefined) return null
 
@@ -101,10 +107,11 @@ export function AgentPresetLabel({
       <Menu
         open={open && !running}
         onClose={() => { setOpen(false) }}
-        items={choices.map((entry) => {
+        items={[...choices.map((entry) => {
           const display = presetDisplayText(entry, t)
           return {
             id: entry.id,
+            icon: <PresetIcon icon={entry.icon} size={14} />,
             label: (
               <span className={css.item}>
                 <span className={css.itemName}>{display.name}</span>
@@ -112,11 +119,11 @@ export function AgentPresetLabel({
               </span>
             ),
           }
-        })}
+        }), ...modeActionItems(modeActions)]}
         selectedId={preset}
         onSelect={(id) => {
           setOpen(false)
-          if (id === preset) return
+          if (runModeAction(modeActions, id, sessionId)) return
           setBusy(true)
           void select(sessionId, id).then((reason) => {
             if (reason === undefined) return
@@ -127,24 +134,24 @@ export function AgentPresetLabel({
             setRefusal({ seq: refusalSeq.current, id, reason: error instanceof Error ? error.message : String(error) })
           }).finally(() => { setBusy(false) })
         }}
-        align="end"
+        align="start"
         portal
         className={css.menuAnchor}
         anchor={(
           <button
             type="button"
             ref={control}
-            className={css.label}
+            className={css.seat}
             aria-haspopup="menu"
             aria-expanded={open && !running}
             aria-label={`${hint}: ${name}`}
             title={hint}
-            disabled={busy || running || choices.length === 0}
+            disabled={busy || running || (choices.length === 0 && modeActions.length === 0)}
             onClick={() => { setOpen(value => !value) }}
           >
-            <IconAgentPresetOutlineRegular size={14} className={css.icon} />
-            <span className={css.name}>{name}</span>
-            <IconChevronDownOutlineRegular size={12} className={css.chevron} />
+            <PresetIcon icon={option?.icon} className={css.seatIcon} />
+            <span className={css.seatLabel}>{name}</span>
+            <IconChevronDownOutlineRegular className={css.chevron} />
           </button>
         )}
       />
@@ -157,7 +164,6 @@ export function AgentPresetLabel({
           })}
           icon={<IconWarningOutlineRegular />}
           holdMs={REFUSAL_HOLD_MS}
-          anchor={control.current}
           onDone={() => { setRefusal(null) }}
         />
       )}

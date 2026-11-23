@@ -203,6 +203,8 @@ export default class McpServerManager extends TypertRemoteService {
   private readonly statuses = new Map<string, McpManagedServerStatus>()
   /** Plugin-contributed entries, each owned by its registering plugin's effect. */
   private readonly registrations = new Map<string, ResolvedEntry>()
+  /** The plugin that registered each entry in {@link registrations}. */
+  private readonly registrants = new Map<string, string>()
   /** Wake callbacks of active `watch` streams. */
   private readonly watchers = new Set<() => void>()
   /** Aborted at service dispose so `watch` streams end. */
@@ -268,12 +270,16 @@ export default class McpServerManager extends TypertRemoteService {
    */
   list(): McpManagedServerView[] {
     const entries = this.entries()
-    return [...new Set([...Object.keys(entries), ...this.instances.keys()])].map(name => ({
-      name,
-      configured: Object.hasOwn(entries, name),
-      status: this.statuses.get(name)
-        ?? (entries[name]?.enabled ? { state: 'connecting', attempt: 0 } : { state: 'disabled' }),
-    }))
+    return [...new Set([...Object.keys(entries), ...this.instances.keys()])].map((name) => {
+      const plugin = this.registrants.get(name)
+      return {
+        name,
+        configured: Object.hasOwn(entries, name),
+        origin: plugin === undefined ? { kind: 'config' as const } : { kind: 'plugin' as const, plugin },
+        status: this.statuses.get(name)
+          ?? (entries[name]?.enabled ? { state: 'connecting', attempt: 0 } : { state: 'disabled' }),
+      }
+    })
   }
 
   /**
@@ -294,9 +300,11 @@ export default class McpServerManager extends TypertRemoteService {
         throw new Error(`mcp-manager: server "${name}" is already configured or registered`)
       }
       this.registrations.set(name, resolved)
+      this.registrants.set(name, this.ctx.fiber.name)
       void this.entriesChanged(`registration of "${name}"`)
       return () => {
         this.registrations.delete(name)
+        this.registrants.delete(name)
         // A stopping manager unmounts every instance itself.
         if (!this.stopped) return this.entriesChanged(`removal of "${name}"`)
       }

@@ -92,8 +92,8 @@ export type {
   ConversationSessionInjected, ConversationSessionSlotProps, ConversationSlotProps,
   ConversationViewActionEntry, ConversationViewActionsOwnerProps, ConversationViewsProps,
   ConversationWidthControlsInputProps, ConversationWidthControlsProps,
-  ConversationStore, ConvViewOwnerProps, ConvViewProps, EmptyWorkspaceOwnerProps,
-  HeroAgentPresetOwnerProps, HeroBrandMarkOwnerProps, HeroFrameOwnerProps, InputControlOwnerProps, InputZone,
+  ConversationStore, ConvViewOwnerProps, ConvViewProps, EmptyWorkspaceOwnerProps, ConversationNewTabItemOwnerProps,
+  ComposerAgentPresetOwnerProps, HeroAgentPresetOwnerProps, HeroBrandMarkOwnerProps, HeroFrameOwnerProps, InputControlOwnerProps, InputZone,
   MessageImageLabels, MessageImageLoader, MessageImageSource, MessageImagesContentInput, MessageImagesOwnerProps, UseConversation,
   UserTextInput, UserTextInjected, UserTextNodeOwnerProps, UserTextNodeProps,
   UseConversationViews,
@@ -104,7 +104,10 @@ export type {
   InputState, InsertReferenceRequest, InsertTextRequest, PickOutcome, SessionInput,
   SendCheck, SessionInputResolver, SubmitAttachment, SubmitOutcome,
 } from './contract/input.ts'
-export type { ArbitrateKey, ArbitrateOutcome, DraftInput, DraftQuote, DraftReference, DraftSnapshot, ReferenceInsert, TokenSpan } from './contract/draft-editor.ts'
+export type {
+  ArbitrateKey, ArbitrateOutcome, DraftContext, DraftContextInsert, DraftInput, DraftQuote, DraftReference, DraftSnapshot,
+  ReferenceInsert, TokenSpan,
+} from './contract/draft-editor.ts'
 export type { ComposerBlock, ComposerBlocks } from './contract/composer-blocks.ts'
 
 declare module '@janhq/cordis' {

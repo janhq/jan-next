@@ -138,6 +138,44 @@ flowchart LR
   cfg --> plugin_jan_base_command_compact
   plugin_jan_base_subagent["subagent<br/>@janhq/jan-subagent"]
   cfg --> plugin_jan_base_subagent
+  plugin_jan_base_agent_preset_registry["agent-preset-registry<br/>@janhq/jan-agent-preset-registry"]
+  cfg --> plugin_jan_base_agent_preset_registry
+  plugin_jan_base_preset_scout["preset-scout<br/>@janhq/jan-agent-preset"]
+  cfg --> plugin_jan_base_preset_scout
+  plugin_jan_base_tool_fs["tool-fs<br/>@janhq/jan-tool-fs"]
+  cfg --> plugin_jan_base_tool_fs
+  plugin_jan_base_tool_fs_search["tool-fs-search<br/>@janhq/jan-tool-fs-search"]
+  cfg --> plugin_jan_base_tool_fs_search
+  plugin_jan_base_tool_subagent_control["tool-subagent-control<br/>@janhq/jan-tool-subagent-control"]
+  cfg --> plugin_jan_base_tool_subagent_control
+  plugin_jan_base_preset_reviewer["preset-reviewer<br/>@janhq/jan-agent-preset"]
+  cfg --> plugin_jan_base_preset_reviewer
+  plugin_jan_base_tool_fs["tool-fs<br/>@janhq/jan-tool-fs"]
+  cfg --> plugin_jan_base_tool_fs
+  plugin_jan_base_tool_fs_search["tool-fs-search<br/>@janhq/jan-tool-fs-search"]
+  cfg --> plugin_jan_base_tool_fs_search
+  plugin_jan_base_tool_bash["tool-bash<br/>@janhq/jan-tool-bash"]
+  cfg --> plugin_jan_base_tool_bash
+  plugin_jan_base_tool_pwsh["tool-pwsh<br/>@janhq/jan-tool-pwsh"]
+  cfg --> plugin_jan_base_tool_pwsh
+  plugin_jan_base_tool_jobs["tool-jobs<br/>@janhq/jan-tool-jobs"]
+  cfg --> plugin_jan_base_tool_jobs
+  plugin_jan_base_tool_subagent_control["tool-subagent-control<br/>@janhq/jan-tool-subagent-control"]
+  cfg --> plugin_jan_base_tool_subagent_control
+  plugin_jan_base_preset_worker["preset-worker<br/>@janhq/jan-agent-preset"]
+  cfg --> plugin_jan_base_preset_worker
+  plugin_jan_base_tool_fs["tool-fs<br/>@janhq/jan-tool-fs"]
+  cfg --> plugin_jan_base_tool_fs
+  plugin_jan_base_tool_fs_search["tool-fs-search<br/>@janhq/jan-tool-fs-search"]
+  cfg --> plugin_jan_base_tool_fs_search
+  plugin_jan_base_tool_bash["tool-bash<br/>@janhq/jan-tool-bash"]
+  cfg --> plugin_jan_base_tool_bash
+  plugin_jan_base_tool_pwsh["tool-pwsh<br/>@janhq/jan-tool-pwsh"]
+  cfg --> plugin_jan_base_tool_pwsh
+  plugin_jan_base_tool_jobs["tool-jobs<br/>@janhq/jan-tool-jobs"]
+  cfg --> plugin_jan_base_tool_jobs
+  plugin_jan_base_tool_subagent_control["tool-subagent-control<br/>@janhq/jan-tool-subagent-control"]
+  cfg --> plugin_jan_base_tool_subagent_control
   plugin_jan_base_agent_team["agent-team<br/>@janhq/jan-agent-team"]
   cfg --> plugin_jan_base_agent_team
   plugin_jan_base_tool_agent_team["tool-agent-team<br/>@janhq/jan-tool-agent-team"]
@@ -267,6 +305,25 @@ flowchart LR
 | `compaction-basic` | `@janhq/jan-compaction-basic` |
 | `command-compact` | `@janhq/jan-command-compact` |
 | `subagent` | `@janhq/jan-subagent` |
+| `agent-preset-registry` | `@janhq/jan-agent-preset-registry` |
+| `preset-scout` | `@janhq/jan-agent-preset` |
+| `tool-fs` | `@janhq/jan-tool-fs` |
+| `tool-fs-search` | `@janhq/jan-tool-fs-search` |
+| `tool-subagent-control` | `@janhq/jan-tool-subagent-control` |
+| `preset-reviewer` | `@janhq/jan-agent-preset` |
+| `tool-fs` | `@janhq/jan-tool-fs` |
+| `tool-fs-search` | `@janhq/jan-tool-fs-search` |
+| `tool-bash` | `@janhq/jan-tool-bash` |
+| `tool-pwsh` | `@janhq/jan-tool-pwsh` |
+| `tool-jobs` | `@janhq/jan-tool-jobs` |
+| `tool-subagent-control` | `@janhq/jan-tool-subagent-control` |
+| `preset-worker` | `@janhq/jan-agent-preset` |
+| `tool-fs` | `@janhq/jan-tool-fs` |
+| `tool-fs-search` | `@janhq/jan-tool-fs-search` |
+| `tool-bash` | `@janhq/jan-tool-bash` |
+| `tool-pwsh` | `@janhq/jan-tool-pwsh` |
+| `tool-jobs` | `@janhq/jan-tool-jobs` |
+| `tool-subagent-control` | `@janhq/jan-tool-subagent-control` |
 | `agent-team` | `@janhq/jan-agent-team` |
 | `tool-agent-team` | `@janhq/jan-tool-agent-team` |
 | `subagent-spawn-in-process` | `@janhq/jan-subagent-spawn-in-process` |

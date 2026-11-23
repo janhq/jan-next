@@ -1,16 +1,17 @@
 /**
  * Agent-preset surface plugin, browser half — three surfaces over one roster:
- * a chip on the new-session screen for the session about to start, a
- * read-only label in the session header, and a settings section that lists
+ * a chip on the new-session screen for the session about to start, the same
+ * chip under a started session's composer, and a settings section that lists
  * the roster (selection, the new-task default, a read-only view of each
  * declared composition, and the way into Creator mode).
  *
- * A running session keeps the composition it began with (the host switches a
- * session's preset only before its first turn). That is what splits
- * the choice from the display: the hero chip is before-the-fact, while the
- * header only reports what a session already runs. The default preset is
- * edited where the roster is visible — the settings section's "make default"
- * — so General settings carries no duplicate control for the same field.
+ * A started session keeps every message it already has; a switch there
+ * applies from its next turn, and the Host accepts it only at a turn boundary.
+ * That is what splits the two chips: the hero chip stages a choice before the
+ * session exists, while the composer chip commits one for a session that
+ * already runs. The default preset is edited where the roster is visible —
+ * the settings section's "make default" — so General settings carries no
+ * duplicate control for the same field.
  *
  * Coding Tools (General settings) hide PTC and Minimal from the hero menu
  * and Settings roster when off. Hidden saved defaults fall back to Standard;
@@ -20,6 +21,7 @@
 // Type-only: pulls the Session Controller service merge (ctx.sessions).
 import type { SessionBinding } from '@janhq/jan-api-session-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { WeakMapWithValues } from '@janhq/jan-util-values'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@janhq/jan-client-locale/client'
@@ -63,13 +65,29 @@ export type { AgentPresetSectionState, PresetView } from './section-store.ts'
 export type { AgentPresetOption, AgentPresetSettingsState } from './settings-store.ts'
 export { AGENT_PRESET_SETTINGS_NS, writeDefaultPreset } from './settings-store.ts'
 
+/** A mode that owns its entry flow instead of composing a capability preset. */
+export interface AgentPresetModeAction {
+  readonly id: string
+  /** Menu icon: a product glyph name such as `users-outline`, or one emoji. */
+  readonly icon?: string
+  name(): string
+  description(): string
+  run(sessionId: SessionId | undefined): void
+}
+
+declare module '@janhq/cordis' {
+  interface Context {
+    uiAgentPreset: { registerModeAction(action: AgentPresetModeAction): () => void }
+  }
+}
+
 /** Required services (cordis fiber inject). */
 export const inject = [
   'slots', 'sessions', 'locale', 'remote', 'remote.agentPresets', 'remote.settings', 'configForms',
 ]
 
 /**
- * Mount the roster surfaces: hero chip, session-header label, settings section.
+ * Mount the roster surfaces: hero chip, composer chip, settings section.
  * @param ctx - the browser plugin context.
  */
 export function apply(ctx: ClientContext): void {
@@ -80,6 +98,15 @@ export function apply(ctx: ClientContext): void {
   const codingToolsDisabled = (): boolean => active && toolsSettings.getSnapshot().value?.enabled === false
   const controller = new AgentPresetSettingsController(ctx)
   const staged: AgentPresetStage = { id: undefined, introduce: false }
+  const modeActions = createSnapshotStore<readonly AgentPresetModeAction[]>([])
+  ctx.provide('uiAgentPreset', {
+    registerModeAction(action) {
+      const current = modeActions.getSnapshot()
+      if (current.some(entry => entry.id === action.id)) throw new Error(`Duplicate agent preset action: ${action.id}`)
+      modeActions.set([...current, action])
+      return () => { modeActions.set(modeActions.getSnapshot().filter(entry => entry !== action)) }
+    },
+  })
   const seats = new WeakMapWithValues<SessionBinding, AgentPresetSeatController>()
   const boundSeatDisposers = new Set<() => Promise<void>>()
   ctx.effect(() => async () => {
@@ -116,6 +143,7 @@ export function apply(ctx: ClientContext): void {
     if (developerTools.getSnapshot()) return
     staged.id = undefined
     staged.introduce = false
+    delete staged.explicit
     void unboundSeat.apply()
     for (const seat of seats.values) void seat.apply()
   }), 'ui-agent-preset: Developer tools gate')
@@ -188,7 +216,7 @@ export function apply(ctx: ClientContext): void {
       const binding = sessionId === undefined ? undefined : ctx.sessions.binding(sessionId)
       const seat = binding === undefined ? unboundSeat : seatFor(binding)
       return {
-        hooks: { agentPresetSeat: seat.store, developerTools: ctx.configForms.developerTools.enabled },
+        hooks: { agentPresetSeat: seat.store, developerTools: ctx.configForms.developerTools.enabled, modeActions },
         load: () => seat.load(),
         select: async (id: string) => {
           const state = seat.store.getSnapshot()
@@ -198,6 +226,9 @@ export function apply(ctx: ClientContext): void {
           const outcome = await seat.select(id)
           // A bound pick counts once the Host applies it; an unbound pick counts when staged for the next Session.
           const accepted = outcome.kind === 'applied' || (outcome.kind === 'staged' && sessionId === undefined)
+          // The last picked mode becomes the default for the next new chat. The section serializes
+          // this write with the Coding Tools reset, so turning tools off still lands on Standard.
+          if (accepted && id !== state.current) void section.makeDefault(id)
           if (accepted && from !== undefined && to !== undefined && to !== 'other' && from !== to && enabled !== undefined) {
             ctx.get('productAnalytics')?.track('agent_preset_switch', {
               switch_from: from, switch_to: to, code_work_view_enabled: enabled,
@@ -214,6 +245,7 @@ export function apply(ctx: ClientContext): void {
       hooks: {
         agentPresets: controller.store,
         developerTools: ctx.configForms.developerTools.enabled,
+        modeActions,
       },
       load: () => controller.load(),
       select: async (sessionId, id) => {
@@ -247,10 +279,7 @@ export function apply(ctx: ClientContext): void {
         inject: seatInjected,
       }, AgentPresetSeat)
       const label = scope.slots.register({
-        name: 'conversation.session.header.actions',
-        id: 'agent-preset',
-        // Static session context occupies the header's leading negative-order band.
-        order: -10,
+        name: 'conversation.composer.agentPreset',
         locale: 'settings.agentPreset',
         inject: labelInjected,
       }, AgentPresetLabel)
@@ -259,7 +288,7 @@ export function apply(ctx: ClientContext): void {
         chip()
         label()
       }
-    }, 'ui-agent-preset: new-session chip and header label')
+    }, 'ui-agent-preset: new-session and composer chips')
 
     scope.slots.inject('plugins.add.actions', () => scope.slots.register({
       name: 'plugins.add.actions',

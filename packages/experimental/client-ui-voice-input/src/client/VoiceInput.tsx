@@ -1,6 +1,6 @@
 /** Click-to-record toolbar activity; transcripts remain in the original Session draft. */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type { HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { TokenSpan } from '@janhq/jan-client-ui-conversation/client'
 import type { TranscriptionRequest } from '@janhq/jan-experimental-api-speech-to-text/types'
 import type { SpeechPreparationOptions, SpeechProviderId, SpeechSelection, SpeechSelectionPatch, Transcript } from '@janhq/jan-experimental-speech-to-text/types'
@@ -8,9 +8,10 @@ import type { RemoteResult } from '@janhq/jan-typert-protocol'
 import { audioBase64, type Recording } from './audio.ts'
 import { failureText } from './failure-text.ts'
 import type { MicrophoneDevice } from './microphone-device.ts'
-import type { SpeechReadiness } from './readiness.ts'
+import { canRecord, type SpeechReadiness } from './readiness.ts'
 import { Waveform } from './Waveform.tsx'
-import { VoiceSetupDialog } from './VoiceSetupDialog.tsx'
+import { ComposerVoiceSetup } from './ComposerVoiceSetup.tsx'
+import type { VoiceBundleState } from './voice-bundle.ts'
 import { NS } from './locales.ts'
 import { Button, IconCloseOutlineRegular, IconStopFillRegular, IconMicrophoneOutlineRegular, StateDot, Tooltip } from '@janhq/jan-client-ui-primitives'
 import css from './VoiceInput.module.css'
@@ -19,6 +20,12 @@ import css from './VoiceInput.module.css'
 export interface VoiceInputActions {
   /** Open the voice bundle details without starting preparation. */
   openSettings: () => void
+  /** Enable the voice bundle through Plugin Manager. */
+  enableVoice: () => Promise<void>
+  /** Re-read the bundle selection after a connection error. */
+  refreshVoiceBundle: () => Promise<void>
+  /** Connect to speech readiness when setup opens or dictation is enabled. */
+  connectReadiness: () => void
   /** @returns one microphone operation owned by the plugin lifecycle. */
   createRecording: () => Recording
   /** Remember the browser microphone used by previews and subsequent recordings. */
@@ -36,12 +43,28 @@ export interface VoiceInputInjected extends VoiceInputActions {
     microphoneDevice: HostObservable<MicrophoneDevice>
     /** Whether the Plugins page navigation service is present; the setup dialog offers the details only while it is. */
     pluginNavigation: HostObservable<boolean>
+    voiceBundle: HostObservable<VoiceBundleState>
   }
 }
 
+/** Alternate voice controls share the composer's microphone activity. */
+export interface VoiceOptionsOwnerProps {
+  /** Prevent starting a second capture while the composer is locked. */
+  locked: boolean
+  /** Disable primary dictation while the alternate voice session owns the microphone. */
+  onActiveChange: (active: boolean) => void
+}
+
 /** Composer-owned expansion and draft actions; preferences stay in plugin settings. */
-export type VoiceInputProps = Pick<PropsRuntime<'conversation.input.activity'>, 'sessionId' | 'inputActions' | 'locked' | 'onActiveChange'>
-  & PropsLocale<typeof NS> & InjectFace<VoiceInputInjected>
+export type VoiceInputProps = Pick<PropsRuntime<'conversation.input.draftActivity'>, 'sessionId' | 'inputActions' | 'locked' | 'onActiveChange' | 'openDraft'>
+  & PropsLocale<typeof NS> & InjectFace<VoiceInputInjected> & Pick<PropsRenderSlots<'voice-input.options'>, 'renderSlot'>
+
+declare module '@janhq/jan-client-ui-slots' {
+  interface SlotMap {
+    /** Optional alternate voice actions on the composer's microphone control. */
+    'voice-input.options': { kind: 'single'; scope: 'session'; owner: VoiceOptionsOwnerProps }
+  }
+}
 
 type Phase = 'idle' | 'requesting' | 'recording' | 'transcribing' | 'feedback'
 interface ActiveRecording {
@@ -49,6 +72,7 @@ interface ActiveRecording {
   readonly abort: AbortController
   readonly span: TokenSpan
   readonly selection: SpeechSelection
+  readonly input: NonNullable<VoiceInputProps['inputActions']>
   readonly maxDurationSeconds: number
   readonly maxAudioBytes: number
   phase: 'requesting' | 'recording' | 'transcribing'
@@ -62,21 +86,29 @@ async function disposeRecording(capture: Recording): Promise<void> {
 }
 
 /** Render a compact microphone or an expanded capture, transcription, or retry row. */
-export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
-  createRecording, transcribe, openSettings, useSpeechReadiness, usePluginNavigation, t }: VoiceInputProps) {
+export function VoiceInput(props: VoiceInputProps) {
+  const { sessionId, inputActions, openDraft, locked, onActiveChange, createRecording, transcribe,
+    useSpeechReadiness, useVoiceBundle, renderSlot, t } = props
   const readiness = useSpeechReadiness(value => value), catalog = readiness.catalog
-  const navigable = usePluginNavigation(present => present)
+  const bundle = useVoiceBundle(value => value)
   const provider = catalog?.providers.find(item => item.id === catalog.selection.providerId)
-  const usable = readiness.connected && (provider?.preparation.phase === 'ready' || provider?.preparation.phase === 'standby'
-    || provider?.preparation.phase === 'waking')
+  const speechReady = readiness.connected && canRecord(provider?.preparation.phase)
+  const usable = speechReady && (bundle === 'enabled' || bundle === 'unmanaged')
   const [phase, setPhase] = useState<Phase>('idle'), [message, setMessage] = useState(''), [pending, setPending] = useState('')
   const [setupOpen, setSetupOpen] = useState(false)
-  useEffect(() => { if (usable) setSetupOpen(false) }, [usable])
+  useEffect(() => { if (setupOpen || bundle === 'enabled') props.connectReadiness() },
+    [setupOpen, bundle, props.connectReadiness])
+  const [alternateActive, setAlternateActive] = useState(false)
   const current = useRef<ActiveRecording>(), generation = useRef(0)
+  const bootstrap = useRef<SpeechSelection>()
+  const [openingDraft, setOpeningDraft] = useState(false)
+  const previousSession = useRef(sessionId)
   const expanded = phase !== 'idle'
   useLayoutEffect(() => { onActiveChange(expanded); return () => { onActiveChange(false) } }, [expanded, onActiveChange])
 
   const cancel = (): void => {
+    bootstrap.current = undefined
+    setOpeningDraft(false)
     generation.current++
     const active = current.current
     current.current = undefined
@@ -84,7 +116,13 @@ export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
     setPending(''); setMessage(''); setPhase('idle'); setSetupOpen(false)
   }
   useEffect(() => {
-    setPending(''); setMessage(''); setPhase('idle'); setSetupOpen(false)
+    if (previousSession.current !== undefined && previousSession.current !== sessionId) {
+      cancel()
+      setAlternateActive(false)
+    }
+    previousSession.current = sessionId
+  }, [sessionId])
+  useEffect(() => {
     const blur = (): void => { if (current.current?.phase === 'recording') cancel() }
     const visibility = (): void => {
       if (document.hidden && current.current && current.current.phase !== 'transcribing') cancel()
@@ -97,12 +135,13 @@ export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
     return () => {
       window.removeEventListener('blur', blur); document.removeEventListener('visibilitychange', visibility)
       document.removeEventListener('keydown', escape)
+      bootstrap.current = undefined
       generation.current++
       const active = current.current
       current.current = undefined
       if (active) { clearTimeout(active.timer); active.abort.abort(); void disposeRecording(active.capture) }
     }
-  }, [sessionId])
+  }, [])
 
   const feedback = (text: string): void => { setMessage(text); setPhase('feedback') }
   const finish = async (): Promise<void> => {
@@ -119,18 +158,31 @@ export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
       if (run !== generation.current) return
       if (!result.ok) { feedback(t('failed', { message: result.error.message })); return }
       if (result.value.text === '') { feedback(t('empty')); return }
-      if (!inputActions.insertText(result.value.text, active.span)) { setPending(result.value.text); feedback(t('conflict')); return }
+      if (!active.input.insertText(result.value.text, active.span)) { setPending(result.value.text); feedback(t('conflict')); return }
       setPhase('idle')
     } catch (failure) {
       await disposeRecording(active.capture)
       if (run === generation.current) feedback(failureText(failure, t))
     } finally { if (run === generation.current) current.current = undefined }
   }
-  const start = async (): Promise<void> => {
-    if (!catalog || !usable || locked || current.current) return
+  const start = async (selection: SpeechSelection | undefined): Promise<void> => {
+    if (!catalog || !selection || locked || alternateActive || current.current) return
+    if (!inputActions) {
+      if (!openDraft || bootstrap.current) return
+      bootstrap.current = selection
+      setOpeningDraft(true)
+      try { await openDraft() } catch {
+        if (bootstrap.current === selection) {
+          bootstrap.current = undefined
+          setOpeningDraft(false)
+          feedback(t('draftUnavailable'))
+        }
+      }
+      return
+    }
     const run = ++generation.current
     const active: ActiveRecording = { capture: createRecording(), abort: new AbortController(),
-      span: inputActions.captureInsertion(), selection: catalog.selection,
+      span: inputActions.captureInsertion(), selection, input: inputActions,
       maxDurationSeconds: catalog.maxDurationSeconds, maxAudioBytes: catalog.maxAudioBytes, phase: 'requesting' }
     current.current = active
     setMessage(''); setPending(''); setPhase('requesting')
@@ -150,17 +202,27 @@ export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
       if (run === generation.current) { current.current = undefined; feedback(failureText(failure, t)) }
     }
   }
+  useEffect(() => {
+    if (!inputActions || !bootstrap.current) return
+    const selection = bootstrap.current
+    bootstrap.current = undefined
+    setOpeningDraft(false)
+    if (locked) feedback(t('draftUnavailable')); else void start(selection)
+  })
   if (!expanded) return <>
-    <Tooltip label={t('dictate')} disabled={!usable} side="top" portal>
-      <span className={css.triggerAnchor}><Button className={css.trigger} size="sm" disabled={locked}
-        aria-label={t(usable ? 'start' : 'setupPrompt.trigger')} aria-haspopup={usable ? undefined : 'dialog'}
-        onMouseDown={(event) => { event.preventDefault() }}
-        onClick={() => { if (usable) void start(); else setSetupOpen(true) }}><IconMicrophoneOutlineRegular size={18} /></Button></span>
-    </Tooltip>
-    <VoiceSetupDialog open={setupOpen && !usable}
-      needsInstallation={readiness.connected && provider?.location === 'host-local' && provider.preparation.phase === 'unprepared'}
-      onDismiss={() => { setSetupOpen(false) }}
-      onOpenDetails={navigable ? () => { setSetupOpen(false); openSettings() } : undefined} t={t} />
+    <div className={css.voiceControl}>
+      <Tooltip label={t(usable ? 'dictate' : 'setupPrompt.trigger')} disabled={!usable} side="top" portal>
+        <span className={css.triggerAnchor}><Button className={css.trigger} size="sm" disabled={locked || alternateActive || openingDraft}
+          aria-label={t(usable ? 'start' : 'setupPrompt.trigger')} aria-haspopup={usable ? undefined : 'dialog'}
+          onMouseDown={(event) => { event.preventDefault() }}
+          onClick={() => { if (usable) void start(catalog?.selection); else setSetupOpen(true) }}>
+          <IconMicrophoneOutlineRegular size={18} />
+        </Button></span>
+      </Tooltip>
+      {sessionId !== undefined && renderSlot('voice-input.options', { locked, onActiveChange: setAlternateActive })}
+    </div>
+    {setupOpen && <ComposerVoiceSetup {...props} readiness={readiness} bundle={bundle}
+      onDismiss={() => { setSetupOpen(false) }} onStart={(selection) => { setSetupOpen(false); void start(selection) }} />}
   </>
   return <div className={css.captureRow} data-voice-activity={phase}>
     <Button type="button" className={css.roundButton} size="sm" aria-label={t(pending ? 'discard' : 'cancel')}
@@ -174,9 +236,9 @@ export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
       onClick={() => { void finish() }}><IconStopFillRegular size={14} /></Button>}
     {phase === 'feedback' && (pending
       ? <Button className={css.inlineAction} size="sm" type="button" onClick={() => {
-        if (inputActions.insertText(pending, inputActions.captureInsertion())) { setPending(''); setPhase('idle') }
+        if (inputActions?.insertText(pending, inputActions.captureInsertion())) { setPending(''); setPhase('idle') }
       }}>{t('insert')}</Button>
       : <Button className={css.roundButton} size="sm" type="button" aria-label={t('retryRecording')} disabled={!usable || locked}
-        onClick={() => { void start() }}><IconMicrophoneOutlineRegular size={18} /></Button>)}
+        onClick={() => { void start(catalog?.selection) }}><IconMicrophoneOutlineRegular size={18} /></Button>)}
   </div>
 }

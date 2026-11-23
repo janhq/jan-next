@@ -77,6 +77,13 @@ declare module '@janhq/jan-client-ui-slots' {
       inject: SidebarRightTabInjected
     }
     /**
+     * Controls for the tab a pane shows, at the end of its strip (a floating
+     * panel's header for a float), in registration order, for every tab kind.
+     * An entry acts on what the tab shows through `getSurface`, never on the
+     * tab type's internals.
+     */
+    'sidebar.right.pane.tab.actions': { kind: 'list'; scope: 'session'; owner: SidebarRightTabActionsOwnerProps }
+    /**
      * The guide tab's body. Selectors run in chain order and the first
      * non-declining entry replaces the shipped guide entirely; with no entry, or
      * with every entry declining, the shipped guide renders.
@@ -231,6 +238,14 @@ export interface SidebarRightTabMenuOwnerProps {
    * over content the action may have just replaced.
    */
   dismiss: () => void
+}
+
+/** Owner share of one tab-actions entry. */
+export interface SidebarRightTabActionsOwnerProps {
+  /** The tab its pane shows. */
+  readonly tab: TabRecord
+  /** @returns the tab's rendered body while it is mounted, or null. */
+  readonly getSurface: () => Element | null
 }
 
 /** Resolved guide copy and entry identity supplied to a provider's card renderer. */

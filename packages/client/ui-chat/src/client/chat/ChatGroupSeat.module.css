@@ -2,8 +2,23 @@
   min-width: 0;
 }
 
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.heightToggle {
+  flex-shrink: 0;
+  max-width: 50%;
+  white-space: normal;
+  text-align: start;
+}
+
 .title {
   display: flex;
+  min-width: 0;
   max-width: 100%;
   align-items: center;
   gap: 6px;
@@ -24,6 +39,19 @@
   .title:hover {
     color: var(--dsw-alias-label-secondary);
   }
+}
+
+/* A live header carries the running status's colour and shimmer, since it is the
+   Turn's running indicator while it shows. */
+.root[data-process-live] .title {
+  --dsw-alias-label-shimmer: var(--dsw-alias-label-deep-diving-shimmer);
+  color: var(--dsw-alias-label-deep-diving);
+}
+
+/* Rows sit one step in under the header, on the title's text column, so the group
+   reads as a parent and its children. */
+.content {
+  padding-inline-start: calc(22px + var(--jan-content-font-delta, 0px));
 }
 
 /* The leading box and its glyph ride the body font-size delta so the icon
@@ -104,13 +132,74 @@
   max-height: min(400px, 50vh);
   overflow-y: auto;
   overscroll-behavior-y: auto;
+  overflow-anchor: none;
   scrollbar-gutter: stable;
+}
+
+/* A live, unopened group shows only its newest rows (about three), bottom-aligned
+   so new output pushes older rows up under a fade. Rows are a preview: a click
+   anywhere opens the group instead of acting on the row. */
+.peekBody {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  max-height: calc(3 * (24px + var(--jan-content-font-delta, 0px)) + 8px);
+  overflow: hidden;
+  scrollbar-gutter: auto;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 100%);
+  cursor: pointer;
+}
+
+.peekBody > * {
+  pointer-events: none;
 }
 
 .label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The live label's one-line window (OpenUI's behind-the-scenes ticker): a
+   new label rises in from below and the window clips it until it lands. */
+.ticker {
+  display: flex;
+  min-width: 0;
+  overflow: clip;
+}
+
+.tickerLine {
+  display: flex;
+  min-width: 0;
+}
+
+.tickerIn {
+  animation: process-ticker-in 320ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+
+@keyframes process-ticker-in {
+  from { transform: translateY(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tickerIn { animation: none; }
+}
+
+/* A live header's Turn clock, as on the running status it replaces. */
+.duration {
+  flex: none;
+  white-space: pre;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A closed step's duration or context cost: a trailing caption, styled like each context row's figure. */
+.meta {
+  flex: none;
+  padding-left: 8px;
+  color: var(--dsw-alias-label-caption);
+  font-size: var(--jan-content-font-size-secondary, 13px);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 

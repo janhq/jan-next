@@ -57,7 +57,7 @@
     "@janhq/jan-package-manifest": "workspace:*",
     "@janhq/jan-client-ui-action-cards": "workspace:*",
     "@janhq/jan-action-cards": "workspace:*",
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "@janhq/jan-client-test-runtime": "workspace:*"
   },
   "files": [

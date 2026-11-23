@@ -12,12 +12,14 @@ type MessageImagesProps = MessageImagesOwnerProps & PropsRenderFactories
  * @param props - image sources, authorized loader, layout hints, optional labels, and Factory locale seat.
  * @returns the official gallery; no Session binding is needed by this component.
  */
-export function MessageImagesContent({ images, loadImage, align, compact = false, thumbnail = false, labels, t, fileDrag, useContextMenu }:
-FactoryComponentPropsOf<'conversation.images.content'>) {
+export function MessageImagesContent({
+  images, loadImage, align, compact = false, thumbnail = false, lazy = false, labels, t, fileDrag, useContextMenu, renderSlot,
+}: FactoryComponentPropsOf<'conversation.images.content'>) {
   const { getTriggerProps } = useContextMenu()
   const resolved = useMemo(() => labels ?? messageImageLabels(t), [labels, t])
   return <ImageGallery images={images} load={loadImage} align={align}
-    compact={compact} thumbnail={thumbnail} labels={resolved} fileDrag={fileDrag} getTriggerProps={getTriggerProps} />
+    compact={compact} thumbnail={thumbnail} lazy={lazy} labels={resolved} fileDrag={fileDrag}
+    getTriggerProps={getTriggerProps} renderSlot={renderSlot} />
 }
 
 /**
@@ -25,10 +27,11 @@ FactoryComponentPropsOf<'conversation.images.content'>) {
  * @param props - Slot owner image data, authorized loader, and framework Factory renderer.
  * @returns the official gallery occurrence.
  */
-export function MessageImages({ images, loadImage, align, compact, thumbnail, renderFactorySlot }: MessageImagesProps) {
+export function MessageImages({ images, loadImage, align, compact, thumbnail, lazy, renderFactorySlot }: MessageImagesProps) {
   return renderFactorySlot('conversation.images.content', {
     images, loadImage, align,
     ...compact === undefined ? {} : { compact },
     ...thumbnail === undefined ? {} : { thumbnail },
+    ...lazy === undefined ? {} : { lazy },
   })
 }

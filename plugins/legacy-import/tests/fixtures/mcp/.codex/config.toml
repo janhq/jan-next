@@ -1,0 +1,21 @@
+model = "not-migrated"
+
+[mcp_servers."Quoted Server"]
+command = 'node'
+args = [
+  '-y', # Real TOML comments and multiline arrays
+  'test#server',
+]
+env_vars = ['INHERITED', { name = 'REMOTE_SECRET', source = 'remote' }]
+[mcp_servers."Quoted Server".env]
+PRIVATE = 'codex-fixture-token'
+
+[mcp_servers.remote]
+url = 'https://example.com/codex-mcp'
+bearer_token_env_var = 'CODEX_BEARER'
+http_headers = { 'X-Static' = 'codex-static-token' }
+env_http_headers = { 'X-Env' = 'CODEX_HEADER' }
+
+[mcp_servers.missing]
+url = 'https://example.com/needs-env'
+bearer_token_env_var = 'NOT_AVAILABLE'

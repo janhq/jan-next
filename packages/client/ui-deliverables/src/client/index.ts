@@ -11,6 +11,7 @@ import type {} from '@janhq/jan-client-ui-context-menu/client'
  */
 import './file-actions.ts'
 import type { Context as ClientContext } from '@janhq/cordis'
+import type {} from '@janhq/jan-api-workspace-files/remote'
 import type {} from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-client-connection/client'
 import type { ChatFileMentions } from '@janhq/jan-client-ui-chat/client'
@@ -25,6 +26,8 @@ import { ChangesSummaryStore } from './changes-summary.ts'
 import { PresentedOpenController } from './present-open.ts'
 import { PresentRow } from './PresentRow.tsx'
 import { DeliverablesTail, type DeliverablesInjected } from './Deliverables.tsx'
+import { DeliverablesLive, type InlineViewerInjected } from './InlineViewer.tsx'
+import type { ReadPresented } from './PresentedInlinePreview.tsx'
 import { ReviewTab, type ReviewInjected } from './ReviewTab.tsx'
 import { CHANGES_REVIEW_ID, changesReviewDefinition } from './review-definition.ts'
 import { createReviewStore } from './review-store.ts'
@@ -39,6 +42,26 @@ export type { PresentedOpenOutcome, PresentedOpenFailure } from './present-open.
 export { ARTIFACTS_PANEL_ID }
 
 declare module '@janhq/jan-client-ui-slots' {
+  interface SlotMap {
+    /** Controls beside a lone file's inline preview or the Sidebar viewer drawn in place. */
+    'deliverables.preview.actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: {
+        /** @returns the current inline image, page frame, or viewer container, or null before mount. */
+        readonly getSurface: () => HTMLElement | null
+      }
+    }
+    /** Controls beside the live viewer under a running turn. */
+    'deliverables.live.actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: {
+        /** @returns the live viewer's container, or null before mount. */
+        readonly getSurface: () => HTMLElement | null
+      }
+    }
+  }
   interface LocaleNamespaceMap {
     /** Changed-files card, review tab, delivery card, and file-mention copy. */
     'deliverables': DeliverablesKey
@@ -65,13 +88,28 @@ export function apply(ctx: ClientContext): void {
   ctx.uiConversation.events.register(deliverablesDefinition)
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-deliverables: dictionaries')
   registerArtifacts(ctx, opener)
+  // Inline previews read bytes only while the workspace Remote is composed in.
+  let readBytes: ReadPresented | undefined
+  ctx.inject(['remote', 'remote.workspaceFiles'], (child) => {
+    readBytes = (sessionId, path, signal) => child.remote.workspaceFiles.readBytes(sessionId, path, {}, signal)
+    child.effect(() => () => { readBytes = undefined }, 'ui-deliverables: inline preview reader')
+  })
+  // Stable across renders, so a mounted viewer is not withdrawn and redrawn on every turn-tail render.
+  const viewers: InlineViewerInjected = {
+    inlineViewer: address => ctx.sidebarRight.inlineViewer(address),
+    inlinePageForTools: tools => ctx.sidebarRight.inlinePageForTools(tools),
+    embed: (sessionId, address, container, rank) => ctx.sidebarRight.embed(sessionId, address, container, rank),
+  }
   ctx.slots.inject(
     'conversation.chat.turnTail',
     () => ctx.slots.register({
       name: 'conversation.chat.turnTail',
       id: '@janhq/jan-client-ui-deliverables',
       locale: NS,
-      children: { 'deliverables.file.actions': { kind: 'list', scope: 'session' } },
+      children: {
+        'deliverables.file.actions': { kind: 'list', scope: 'session' },
+        'deliverables.preview.actions': { kind: 'list', scope: 'session' },
+      },
       inject: (): DeliverablesInjected => ({
         hooks: { changesDiff: diffs.state, presentedOpen: opener.state, presentedHost: opener.host, changesSummary: summaries.state,
           showCodeDiff: ctx.configForms.developerTools.enabled },
@@ -83,9 +121,21 @@ export function apply(ctx: ClientContext): void {
         openChangesReview: (coordinates, index) => {
           ctx.sidebarRight.openResource(changesReviewAddress(coordinates), { params: { index } })
         },
+        // Without the workspace Remote the read rejects, which only drops the preview.
+        readPresented: async (sessionId, path, signal) => {
+          if (readBytes === undefined) throw new Error('ui-deliverables: workspace files unavailable')
+          return readBytes(sessionId, path, signal)
+        },
+        ...viewers,
       }),
     }, DeliverablesTail),
   )
+  ctx.slots.inject('conversation.chat.running-tail', () => ctx.slots.register({
+    name: 'conversation.chat.running-tail',
+    id: '@janhq/jan-client-ui-deliverables',
+    children: { 'deliverables.live.actions': { kind: 'list', scope: 'session' } },
+    inject: (): InlineViewerInjected => viewers,
+  }, DeliverablesLive))
   ctx.slots.inject('tool.call.toolview', () => ctx.slots.register(
     { name: 'tool.call.toolview', key: 'present', locale: NS }, PresentRow,
   ))

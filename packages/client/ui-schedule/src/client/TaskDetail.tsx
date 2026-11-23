@@ -218,7 +218,9 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
   const dirty = base === undefined
     ? props.template !== undefined || JSON.stringify(draft) !== JSON.stringify({ ...initial, cwd: initial.cwd || projects.defaultCwd })
     : storedDirty
-  const issue = dirty ? taskDraftIssue(draft, changes) : undefined
+  const projectRemoved = task?.deliveryFailure?.code === 'project-removed'
+  const issue = dirty ? projectRemoved && changes?.target !== undefined && draft.target !== 'session' && draft.cwd === ''
+    ? 'incomplete' : taskDraftIssue(draft, changes) : undefined
   const valid = issue === undefined
   const [actionPending, setPending] = useState(false)
   const [actionFailure, setFailure] = useState<HostEditFailure | HostRunFailure | null>(null)
@@ -259,7 +261,7 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
   // The Host refuses to deliver to an archived target Session.
   const targetArchived = task?.target.kind !== 'new' && linkedState === 'archived'
   // Only the interval needs the row to explain itself: each other cause shows in the detail or is transient.
-  const runHeld = busy || dirty || executionActive || targetArchived || !props.authoritative
+  const runHeld = busy || dirty || executionActive || targetArchived || projectRemoved || !props.authoritative
   const nextRunAt = task === undefined ? '' : taskNextRunAt(task)
   const next = task === undefined ? undefined : nextRunParts(nextRunAt, t('time.locale'), now, t)
   // SessionListState gives every listed id a byId row.
@@ -338,7 +340,8 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
               onClick={() => { void run(task.id) }}>{t('host.run')}</Button></span>
           </Tooltip>
           <Tooltip label={t(task.status === 'active' ? 'host.pause' : 'host.resume')} side="bottom" delayMs={500} portal>
-            <span><Button size="sm" className={css.detailIconButton} disabled={busy || dirty || executionActive || task.status === 'ended' || !props.authoritative}
+            <span><Button size="sm" className={css.detailIconButton}
+              disabled={busy || dirty || executionActive || projectRemoved || task.status === 'ended' || !props.authoritative}
               aria-label={t(task.status === 'active' ? 'host.pause' : 'host.resume')} onClick={() => { void setActive(task) }}>
               {task.status === 'active' ? <IconPauseOutlineRegular /> : <IconPlayOutlineRegular />}
             </Button></span>
@@ -376,6 +379,9 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
               ? <>{t('detail.nextRun')} <time dateTime={nextRunAt}>{next?.absolute}</time>{' '}
                 <span className={css.nextRunRelative}>{next?.relative}</span></>
               : t(`status.${task.status}`)}</p></div>
+            {task.deliveryFailure !== undefined && <p className={css.detailNotice} role="status">
+              {t(projectRemoved ? 'detail.projectRemoved' : 'detail.deliveryFailed')}
+            </p>}
             {linkedId !== undefined && linkedState !== 'available' && task.target.kind === 'session'
               && <p className={css.detailNotice} role="status">{t(linkedState === 'archived' ? 'detail.sessionArchived'
                 : linkedState === 'loading' ? 'detail.sessionLoading' : 'detail.sessionUnavailable')}</p>}
@@ -409,7 +415,7 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
           sessionTitles={Object.fromEntries(choices.map(choice => [choice.value, choice.label]))}
           availableSessionIds={sessions.ids.filter(value => sessionLinkState(value, sessions, workspaces) === 'available')} t={t} />}
       </div>
-      {task !== undefined && (task.target.kind !== 'new' || linkedId !== undefined) && <footer className={css.hostSessionFooter}>
+      {task !== undefined && task.target.kind !== 'plugin' && (task.target.kind !== 'new' || linkedId !== undefined) && <footer className={css.hostSessionFooter}>
         <span>{t(task.target.kind === 'new' ? 'host.latestConversation' : 'detail.session')}</span>
         {linkedId === undefined || (task.target.kind === 'new_once' && linkedState === 'unavailable')
           ? <span className={css.hostSessionEmpty}>{t('host.sessionAfterFirstRun')}</span>

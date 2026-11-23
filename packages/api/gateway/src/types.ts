@@ -88,6 +88,51 @@ export type TypertRemoteEventSource = (
   signal: AbortSignal,
 ) => AsyncIterable<TypertRemoteEventDispatch>
 
+/** One wire call as the carrier received it, offered to the registered forwarder. */
+export interface ForwardedRemoteRequest {
+  /** Canonical endpoint, or a Gateway-owned name such as `$events` or `$events/result`. */
+  readonly endpoint: string
+  /** Undecoded carrier payload (`{ args }`). */
+  readonly payload: unknown
+  /** Peer the call speaks for. */
+  readonly peer: PeerScope
+  /** Carrier cancellation. */
+  readonly signal: AbortSignal
+}
+
+/** Wire answer of one unary call: the encoded value or a Remote failure. */
+export type ForwardedRemoteResult =
+  | {
+    readonly ok: true
+    readonly value?: unknown
+    readonly attachments?: readonly { readonly path: readonly (string | number)[]; readonly bytes: Uint8Array }[]
+  }
+  | { readonly ok: false; readonly error: { readonly code: string; readonly message: string; readonly details: object } }
+
+/**
+ * Carrier-level hook that may answer a wire call somewhere else (another Host)
+ * or reshape this Host's answer. Each method receives `local`, which runs the
+ * call on this Host exactly as it would run without a forwarder; a forwarder
+ * that does not claim a call returns `local()`. Values in both directions are
+ * wire values, already encoded.
+ */
+export interface TypertGatewayForwarder {
+  /**
+   * Answer one unary wire call.
+   * @param request - the call as the carrier received it.
+   * @param local - runs the call on this Host.
+   * @returns the wire result delivered to the Client.
+   */
+  call(request: ForwardedRemoteRequest, local: () => Promise<ForwardedRemoteResult>): Promise<ForwardedRemoteResult>
+  /**
+   * Open one logical stream. A forwarded stream receives no uplink.
+   * @param request - the call as the carrier received it.
+   * @param local - opens the stream on this Host.
+   * @returns the wire items delivered to the Client.
+   */
+  stream(request: ForwardedRemoteRequest, local: () => Promise<AsyncIterable<unknown>>): Promise<AsyncIterable<unknown>>
+}
+
 /** Carrier-facing access to decoded Remote streams and their stable failures. */
 export interface TypertGatewayWireStream {
   /**
@@ -189,6 +234,15 @@ export interface TypertGateway {
    * @returns a cancellation-aware iterable over the business results.
    */
   stream(request: InvokeRemoteRequest): Promise<AsyncIterable<unknown>>
+
+  /**
+   * Register the sole carrier-level forwarder (Host federation). Only owner
+   * Peers whose `forward` is not `'local'` pass through it; every other Peer reaches this Host directly.
+   * @param forwarder - the hook offered every owner wire call and stream.
+   * @returns disposer restoring direct dispatch.
+   * @throws Error when a forwarder is already registered.
+   */
+  registerForwarder(forwarder: TypertGatewayForwarder): () => void
 }
 
 declare module '@janhq/cordis' {

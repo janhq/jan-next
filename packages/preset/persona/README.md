@@ -38,6 +38,7 @@ Mount this row inside a preset composition to give that preset's sessions their 
 | `prefix` | required | Persona prose rendered as the `deployment:persona-prefix` section |
 | `suffix` | `''` | Template for `deployment:persona-suffix`; omitted or empty text shadows the global suffix away |
 | `complete` | `false` | Use only the rendered prefix as the system prompt; ignore the suffix |
+| `keep` | `[]` | With `complete`, prompt section names kept after the prefix whenever a mounted plugin registers them |
 | `includeRuntimeContext` | `true` | Include optional runtime context for this agent scope; false suppresses optional contributions without disabling their owning services; required contributions remain |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-persona) is the exhaustive source for every accepted field and its JSDoc.

@@ -63,7 +63,7 @@
   "dependencies": {
     "@janhq/jan-util-crypto": "workspace:*",
     "@janhq/schemastery": "workspace:~",
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "@janhq/jan-timeout": "workspace:*",
     "@janhq/jan-brand": "workspace:*",
     "@janhq/jan-util-values": "workspace:*",

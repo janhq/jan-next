@@ -3,9 +3,9 @@
 //
 // Two surfaces, one host rule: a session's composition can change only at a
 // turn boundary. Before the first turn the new-session chip stages the choice
-// beside the workspace picker; after it, the session header names what the
-// session runs and offers the switch menu, which the host accepts between
-// turns and refuses while a reply is running.
+// beside the workspace picker; after it, the same chip under the composer
+// names what the session runs and offers the switch menu, which the host
+// accepts between turns and refuses while a reply is running.
 //
 // Zero model calls: no replay fixture mounts, so a stray stream fails loud.
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -427,13 +427,12 @@ describe('web e2e: agent-preset selection', () => {
     const snapshot = await captureStableAria(page, '[class*="titleRow"]', scaffold.workspaceCwd)
 
     await compareOrRefreshGolden(HEADER_EXPECTED, snapshot, MODE)
-    expect(snapshot).toContain('Minimal mode')
-    expect(snapshot).toContain('button "Switch the agent preset for this task: Minimal mode"')
-    expect(snapshot).toContain('button "1 subagent"')
-    expect(snapshot.indexOf('Minimal mode')).toBeLessThan(snapshot.indexOf('button "1 subagent"'))
+    expect(snapshot).not.toContain('Minimal mode')
     expect(snapshot.indexOf('button "1 subagent"')).toBeLessThan(snapshot.indexOf('button "More actions"'))
-    // The header reports the composition and switches it: a resumed, idle
+    // The composer reports the composition and switches it: a resumed, idle
     // session accepts a new preset without losing the turn above it.
+    await page.locator('[data-composer-dock]')
+      .getByRole('button', { name: 'Switch the agent preset for this task: Minimal mode', exact: true }).waitFor()
   })
 
   it('drove every surface without a page error or a stream warning', () => {

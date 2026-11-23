@@ -386,6 +386,16 @@ describe('local model setup', () => {
     expect(view.api.skip).toHaveBeenCalledOnce()
   })
 
+  it('opens the Hub from the local download page while the download continues', async () => {
+    const view = mount('en')
+    view.api.readLocalModel.mockResolvedValue(downloading(1_000_000_000))
+    await act(async () => { fireEvent.click(view.button('#local-model')) })
+    await act(async () => { await Promise.resolve() })
+    await act(async () => { fireEvent.click(view.button('#local-hub')) })
+    expect(view.api.skip).toHaveBeenCalledExactlyOnceWith('hub')
+    expect(view.api.cancelLocalModel).not.toHaveBeenCalled()
+  })
+
   it('cancels a running download and returns to the entry', async () => {
     const view = mount('en')
     view.api.startLocalModel.mockResolvedValue(downloading(10_000_000))

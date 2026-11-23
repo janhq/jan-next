@@ -1,0 +1,52 @@
+/* One atomic plugin context chip; stays inside the composer line. */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  max-width: min(80%, 300px);
+  padding: 0 2px 0 6px;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-bg-mask-1, color-mix(in srgb, currentColor 6%, transparent));
+  color: var(--dsw-alias-label-primary);
+  vertical-align: baseline;
+  user-select: none;
+}
+
+.icon {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  corner-shape: round;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .remove:hover {
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+.remove:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);
+}

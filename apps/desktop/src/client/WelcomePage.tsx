@@ -4,7 +4,7 @@ import type { FormEvent } from 'react'
 import { Toast } from '@janhq/jan-client-ui-primitives/src/Toast.tsx'
 import { StateDot } from '@janhq/jan-client-ui-primitives/src/StateDot.tsx'
 import type { AccountView } from '@janhq/jan-tokamak-account/types'
-import type { WelcomeApi, WelcomeLocalModel } from '../welcome-api.ts'
+import type { WelcomeApi, WelcomeDestination, WelcomeLocalModel } from '../welcome-api.ts'
 
 type Page = 'entry' | 'key' | 'account' | 'local'
 
@@ -175,13 +175,13 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       if (mounted.current) setBusy(false)
     }
   }
-  async function skip() {
+  async function skip(open?: WelcomeDestination) {
     if (busyRef.current) return
     busyRef.current = true
     setBusy(true)
     setError('')
     try {
-      await api.skip()
+      await api.skip(open)
       if (mounted.current) setDraft('')
     } catch {
       if (mounted.current) setError(m.welcomeContinueFailed)
@@ -320,6 +320,8 @@ export function Welcome({ api }: { api: WelcomeApi }) {
         {localPhase === 'running' && <button id="local-start" className="primary" type="button" onClick={() => { void skip() }}>{m.welcomeLocalStart}</button>}
         {localPhase === 'failed' && <button id="local-retry" className="primary" type="button" onClick={() => { void startLocal() }}>{m.welcomeLocalRetry}</button>}
         {localBusy && <button id="local-background" className="secondary" type="button" disabled={busy} onClick={() => { void skip() }}>{m.welcomeLocalBackground}</button>}
+        {/* The first-run model keeps downloading; the Hub lists it beside the rest of the catalog. */}
+        {localPhase !== 'failed' && <button id="local-hub" className="back" type="button" disabled={busy} onClick={() => { void skip('hub') }}>{m.welcomeLocalHub}</button>}
         {localPhase === 'downloading' && <button id="local-cancel" className="back" type="button" disabled={busy || cancellingLocal} onClick={() => { void cancelLocal() }}>{m.welcomeLocalCancel}</button>}
         {!localBusy && localPhase !== 'running' && <button id="local-back" className="back" type="button" onClick={() => { navigate('entry') }}>{m.welcomeLocalBack}</button>}
       </div>

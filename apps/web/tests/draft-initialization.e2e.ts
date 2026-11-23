@@ -576,7 +576,7 @@ it('carries all reference capsules through the real Workspace picker and leaves 
   const draft = structuredDraft(firstId, '切换工作区携带')
   await restoreStoredDrafts(page, [{ sessionId: firstId, draft }])
   await assertDraft(page, firstId, draft)
-  await page.getByRole('button', { name: 'Choose workspace', exact: true }).click()
+  await page.getByRole('button', { name: 'Choose project', exact: true }).click()
   await page.getByRole('menuitem', { name: second.title, exact: true }).click()
   await expect.poll(() => second.sessionIds.length, SETTLE).toBe(1)
   const secondId = second.sessionIds[0]!

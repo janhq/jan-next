@@ -543,11 +543,8 @@ describe('jan-tool-subagent-control interrupt_agent', () => {
     })
     await vi.waitFor(() => { expect(adapter.requests).toHaveLength(1) })
     const child = ctx.agents.get(started.childId)!
-    const queued = await callTool(ctx, 'send_message', {
-      agent: started.childId,
-      message: 'parked follow-up',
-    }, parent)
-    expect(queued.isError).toBe(false)
+    // Passive context does not yield the active step before interrupt_agent runs.
+    child.inject(createUserMessage({ content: [{ type: 'text', text: 'parked follow-up' }], source: { kind: 'user' } }))
     const cancelSpy = vi.spyOn(child, 'cancel')
 
     const result = await callTool(ctx, 'interrupt_agent', { agent: started.name }, parent)
@@ -557,7 +554,7 @@ describe('jan-tool-subagent-control interrupt_agent', () => {
     expect(cancelSpy).toHaveBeenCalledExactlyOnceWith({ kind: 'parent' }, { keepInbox: true })
     releaseFirst.resolve(undefined)
     await child.whenIdle()
-    // Parked, not resumed: the steering waits for another waking send.
+    // Interruption preserves passive context until another message wakes the child.
     expect(adapter.requests).toHaveLength(1)
     expect(child.inbox.nextStep).toHaveLength(1)
 
@@ -576,7 +573,6 @@ describe('jan-tool-subagent-control interrupt_agent', () => {
       : [])
     expect(prompts).toEqual([
       'long work',
-      'Agent lead sent a message: ',
       'parked follow-up',
       'Agent lead sent a message: ',
       'wake up',

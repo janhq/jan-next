@@ -18,12 +18,6 @@
       "path": "../../../vendor/schemastery"
     },
     {
-      "path": "../../spill/spill"
-    },
-    {
-      "path": "../../util/output-retention"
-    },
-    {
       "path": "../../llm/llm"
     },
     {
@@ -31,6 +25,9 @@
     },
     {
       "path": "../../core/agent"
+    },
+    {
+      "path": "../../core/tools"
     },
     {
       "path": "../../core/system-prompt"

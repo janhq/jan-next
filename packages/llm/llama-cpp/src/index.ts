@@ -180,6 +180,8 @@ interface RouteModel {
   maxTokens: number
   /** `image` only for a model whose projector encodes images. */
   input: Array<'text' | 'image'>
+  /** Whether the model's chat template renders tools; selectors warn before a tool task on `false`. */
+  toolUse?: boolean
 }
 
 /** Worker-side fields of the state; the model list, downloads and catalog are derived on publish. */
@@ -546,7 +548,7 @@ export class LlamaCpp extends Service {
     const active = this.activeModel()
     const offered = active ?? { id: this.firstModel.id, name: this.firstModel.name, bytes: this.firstModel.bytes }
     const downloads: LlamaCppDownload[] = [...this.jobs.values()].map(job => ({
-      id: job.spec.id, name: job.spec.name,
+      id: job.spec.id, name: job.spec.name, repo: job.spec.repo,
       ...job.progress === undefined ? {} : { progress: job.progress },
       ...job.error === undefined ? {} : { error: job.error },
       ...job.paused === undefined ? {} : { paused: job.paused },
@@ -568,6 +570,7 @@ export class LlamaCpp extends Service {
         const settled = this.contexts.get(model.id)
         return {
           id: model.id, name: model.name, bytes: installedBytes(model), source: model.source, vision: model.mmproj?.vision === true,
+          ...model.repo === undefined ? {} : { repo: model.repo },
           active: model.id === this.record.active,
           status: this.running?.resident.get(model.id) ?? 'unloaded',
           ...settled === undefined ? {} : { contextSize: settled },
@@ -639,7 +642,8 @@ export class LlamaCpp extends Service {
   /**
    * Load the record, keeping only models whose files are still present at their recorded size; a
    * model whose projector is missing or changed stays without it. Records of earlier builds gain the
-   * header facts of each file. A changed record is written back once.
+   * header facts of each file, and facts read before tool support was recorded are read again. A
+   * changed record is written back once.
    */
   private async readInstall(): Promise<void> {
     // Earlier builds downloaded a llama-server engine here; the bundled worker replaces it.
@@ -651,6 +655,7 @@ export class LlamaCpp extends Service {
       : raw.version === 1 ? this.fromV1(raw)
         : Array.isArray(raw.models) ? raw : { version: 3, models: [] }
     const models: ModelRecord[] = []
+    let factsRead = false
     let projectorDropped = false
     for (const model of record.models) {
       const size = await stat(this.storedPath(model)).then(info => info.size, () => undefined)
@@ -659,13 +664,18 @@ export class LlamaCpp extends Service {
         continue
       }
       let kept: ModelRecord
-      if ('facts' in model) kept = model
+      if ('facts' in model && model.facts.toolCalls !== undefined) kept = model
       else {
         try { kept = { ...model, facts: await readModelFacts(this.storedPath(model)) } }
         catch (error) {
-          this.ctx.logger.warn(`llama-cpp: ${model.name} cannot be served (${messageOf(error)}); it is no longer listed`)
-          continue
+          // Facts already recorded keep the model served; only the tool answer stays unknown.
+          if ('facts' in model) kept = model
+          else {
+            this.ctx.logger.warn(`llama-cpp: ${model.name} cannot be served (${messageOf(error)}); it is no longer listed`)
+            continue
+          }
         }
+        if (kept !== model) factsRead = true
       }
       if (kept.mmproj !== undefined) {
         const projector = this.storedPath(kept.mmproj)
@@ -692,7 +702,7 @@ export class LlamaCpp extends Service {
     }
     if (!models.some(model => model.id === active)) active = models[0]?.id
     this.record = { version: 3, models, ...active === undefined ? {} : { active } }
-    if (record.version !== 3 || clash !== undefined || projectorDropped) await this.writeRecord()
+    if (record.version !== 3 || clash !== undefined || projectorDropped || factsRead) await this.writeRecord()
   }
 
   /** Convert the one-model record of earlier builds; its model file stays where it is. */
@@ -1348,22 +1358,25 @@ export class LlamaCpp extends Service {
     const entry = (id: string, name: string, model: ModelRecord): RouteModel => ({
       id, name, contextWindow: this.routeContext(model), maxTokens: this.config.routeMaxTokens,
       input: model.mmproj?.vision === true ? ['text', 'image'] : ['text'],
+      ...model.facts.toolCalls === undefined ? {} : { toolUse: model.facts.toolCalls },
     })
     const models = [
       entry(this.config.routeModelId, `${active.name} (local default)`, active),
       ...this.record.models.map(model => entry(model.id, `${model.name} (local)`, model)),
     ]
     try {
-      type Section = { providers?: Record<string, { models?: unknown; promptProgress?: unknown }> } | undefined
+      type Section = { providers?: Record<string, { models?: unknown; promptProgress?: unknown; threadCache?: unknown }> } | undefined
       const value = settings.describe().find(row => row.ns === ns)?.value as Section
       const route = value?.providers?.[this.config.provider]
       if (route === undefined) return
       const path = (key: string): string[] => ['providers', this.config.provider, key]
       const ops = [
         ...JSON.stringify(route.models) === JSON.stringify(models) ? [] : [{ op: 'set' as const, path: path('models'), value: models }],
-        // The worker is llama.cpp's server, which reports prompt reading when asked; a route saved
-        // before the flag existed gains it, an explicit choice stays.
+        // The worker is llama.cpp's server, which reports prompt reading when asked and parks each
+        // Session's KV state by thread; a route saved before a flag existed gains it, an explicit
+        // choice stays.
         ...route.promptProgress === undefined ? [{ op: 'set' as const, path: path('promptProgress'), value: true }] : [],
+        ...route.threadCache === undefined ? [{ op: 'set' as const, path: path('threadCache'), value: true }] : [],
       ]
       if (ops.length > 0) await settings.mutate(ns, ops)
     } catch (error) {

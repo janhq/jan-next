@@ -83,6 +83,8 @@ Client features may call `ctx.settingsNavigation.open('models')` to open the Set
 
 The shell is an explicit recovery consumer, so it injects Connection directly rather than adding lifecycle controls to `ctx.remote`. Its private hooks compartment binds `ctx.connection.state`, while the component receives only the selected state and an injected callback for `ctx.connection.reconnect()`. `ConnectionIndicator` owns the inline presentation and receives all visible and accessible copy from the `settings` locale namespace; the shell owns the 800ms minimum-visible hold for the connecting state and the two-second recovered-state timer, which starts when the recovered pill becomes visible after the hold.
 
+A window whose Host was started over SSH (`ctx.remote.$host.remote`) also shows `HostStatusChip` in `sidebar.toggle.actions`: the Host's computer name with a green, amber, or red dot for connected, reconnecting, and disconnected. While the link is down the chip is a button that calls `ctx.connection.reconnect()`. A window on this computer renders no chip.
+
 ### Host release changes
 
 The `shell.overlay` entry `host-release-change` binds `ctx.modules.entries.releaseChange` in its hooks compartment and receives two callbacks: one calls `ctx.modules.entries.dismissRelease()`, the other reloads the page. Release identities are Host data and render verbatim; [Client Modules](../modules/README.md#host-release-changes) owns which release counts as current.

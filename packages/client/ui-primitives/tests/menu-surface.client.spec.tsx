@@ -21,6 +21,14 @@ it('keeps each backing after its menu anchor and removes it when unmounted', () 
   expect(document.querySelector('[data-menu-backing]')).toBeNull()
 })
 
+it('shares a caller-provided anchor between the menu and its backing', () => {
+  render(<MenuSurface role="menu" anchorName="--parent-menu" />)
+  const menu = screen.getByRole('menu')
+  const backing = document.querySelector<HTMLElement>('[data-menu-backing]')!
+  expect(menu.style.getPropertyValue('--jan-menu-anchor')).toBe('--parent-menu')
+  expect(backing.style.getPropertyValue('--jan-menu-anchor')).toBe('--parent-menu')
+})
+
 it('gives simultaneously open menus independent anchors and follows visibility changes', () => {
   const view = render(<><MenuSurface role="menu" /><MenuSurface role="menu" /></>)
   const anchors = screen.getAllByRole('menu').map(menu => menu.style.getPropertyValue('--jan-menu-anchor'))

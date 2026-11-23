@@ -29,7 +29,7 @@ export const en = {
   'loading': 'Loading',
   'unavailable': 'Unavailable',
   'preset.readOnly': 'Read Only',
-  'preset.workspaceWrite': 'Workspace Write',
+  'preset.workspaceWrite': 'Project Write',
   'preset.fullAccess': 'Full access',
   'confirm.title': 'Enable Full access?',
   'confirm.description': 'Full access lets new sessions reduce confirmation steps and perform more actions directly, including sensitive operations, file changes, or external commands. Only use it when you trust subsequent tasks.',
@@ -57,6 +57,10 @@ export const accessZh = {
   'auto.confirm.description': '自动审查不使用沙箱。每次原生工具调用和 PTC 内层调用前，都会由与当前 agent 相同的模型进行审查；审查拒绝的调用由你批准或拒绝。此功能仍属实验性，可能误放行或误拒绝，并会消耗额外 token。',
   'auto.confirm.acknowledge': '我已了解这些风险，并愿意继续',
   'auto.confirm.enable': '启用自动审查',
+  'notice.title': '默认使用完全权限',
+  'notice.body': '新会话默认以完全权限运行：智能体无需确认即可修改文件和运行命令。你可以在“设置 > 通用”中更改新会话的默认权限，或在此处切换当前会话。',
+  'notice.settings': '更改默认设置',
+  'notice.dismiss': '知道了',
 } satisfies Record<string, string>
 
 /** Current-session popup-gate key union. */
@@ -67,7 +71,7 @@ export const accessEn = {
   'mode': 'Access mode, current: {name}',
   'close': 'Close',
   'preset.readOnly': 'Read Only',
-  'preset.workspaceWrite': 'Workspace Write',
+  'preset.workspaceWrite': 'Project Write',
   'preset.fullAccess': 'Full access',
   'confirm.title': 'Enable Full access?',
   'confirm.description': 'Full access reduces confirmation steps and lets the agent perform more actions directly, including sensitive operations, file changes, or external commands. Only use it when you trust the current task.',
@@ -81,6 +85,10 @@ export const accessEn = {
   'auto.confirm.description': 'Auto review runs without a sandbox. Before every native tool call and PTC inner call, the same model as the current agent reviews whether to allow it; you approve or reject each call it denies. This feature is experimental, can falsely allow or deny actions, and uses additional tokens.',
   'auto.confirm.acknowledge': 'I understand these risks and want to continue',
   'auto.confirm.enable': 'Enable Auto review',
+  'notice.title': 'New chats use Full access',
+  'notice.body': 'New chats start with Full access: the agent can change files and run commands without asking. Change the default for new chats in Settings > General, or switch this chat here.',
+  'notice.settings': 'Change default',
+  'notice.dismiss': 'Got it',
 } satisfies Record<PermissionAccessKey, string>
 
 /** Japanese copy, checked against the English keys. */
@@ -198,6 +206,10 @@ export const accessJa = {
   'auto.confirm.description': '自動認可レビューはサンドボックスなしで実行されます。ネイティブツール呼び出しと PTC 内部呼び出しのたびに、現在のエージェントと同じモデルが許可可否をレビューし、拒否された呼び出しはあなたが承認または却下します。この機能は実験的であり、操作を誤って許可・拒否する可能性があり、追加のトークンを消費します。',
   'auto.confirm.acknowledge': 'これらのリスクを理解し、続行します',
   'auto.confirm.enable': '自動認可レビューを有効にする',
+  'notice.title': '新しいチャットはフルアクセスで開始します',
+  'notice.body': '新しいチャットはフルアクセスで開始し、エージェントは確認なしでファイルの変更やコマンドの実行ができます。新しいチャットの既定は「設定 > 一般」で変更でき、このチャットはここで切り替えられます。',
+  'notice.settings': '既定を変更',
+  'notice.dismiss': 'OK',
 } satisfies Record<keyof typeof accessEn, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -219,6 +231,10 @@ export const accessEs = {
   'auto.confirm.description': 'Auto review se ejecuta sin zona de pruebas. Antes de cada llamada a la herramienta nativa y llamada interna PTC, el mismo modelo que el agente actual revisa si se permite; usted aprueba o rechaza cada llamada que rechaza. Esta característica es experimental, puede permitir o denegar acciones falsamente y utiliza tokens adicionales.',
   'auto.confirm.acknowledge': 'Entiendo estos riesgos y quiero continuar',
   'auto.confirm.enable': 'Habilitar Auto review',
+  'notice.title': 'Los chats nuevos usan acceso completo',
+  'notice.body': 'Los chats nuevos empiezan con acceso completo: el agente puede cambiar archivos y ejecutar comandos sin preguntar. Cambie el valor predeterminado para chats nuevos en Ajustes > General, o cambie este chat aquí.',
+  'notice.settings': 'Cambiar predeterminado',
+  'notice.dismiss': 'Entendido',
 } satisfies typeof accessEn
 
 /** French dictionary, checked against the English keys. */
@@ -240,6 +256,10 @@ export const accessFr = {
   'auto.confirm.description': "Auto review fonctionne sans bac à sable. Avant chaque appel d'outil natif et appel interne PTC, le même modèle que l'agent actuel vérifie s'il doit l'autoriser ; vous approuvez ou rejetez chaque appel qu'il refuse. Cette fonctionnalité est expérimentale, peut autoriser ou refuser à tort des actions et utilise des jetons supplémentaires.",
   'auto.confirm.acknowledge': 'Je comprends ces risques et je veux continuer',
   'auto.confirm.enable': 'Activer Auto review',
+  'notice.title': "Les nouveaux chats utilisent l'accès complet",
+  'notice.body': "Les nouveaux chats démarrent avec l'accès complet : l'agent peut modifier des fichiers et exécuter des commandes sans demander. Changez la valeur par défaut des nouveaux chats dans Paramètres > Général, ou changez ce chat ici.",
+  'notice.settings': 'Changer la valeur par défaut',
+  'notice.dismiss': "J'ai compris",
 } satisfies typeof accessEn
 
 /** German dictionary, checked against the English keys. */
@@ -261,6 +281,10 @@ export const accessDe = {
   'auto.confirm.description': 'Auto review läuft ohne Sandbox. Vor jedem nativen Tool-Aufruf und PTC-Innenaufruf überprüft dasselbe Modell wie der aktuelle Agent, ob dies zulässig ist. Sie genehmigen oder lehnen jeden abgelehnten Aufruf ab. Diese Funktion ist experimentell, kann Aktionen fälschlicherweise zulassen oder verweigern und verwendet zusätzliche Token.',
   'auto.confirm.acknowledge': 'Ich verstehe diese Risiken und möchte weitermachen',
   'auto.confirm.enable': 'Aktivieren Sie Auto review',
+  'notice.title': 'Neue Chats nutzen Vollzugriff',
+  'notice.body': 'Neue Chats starten mit Vollzugriff: Der Agent kann ohne Nachfrage Dateien ändern und Befehle ausführen. Ändern Sie die Vorgabe für neue Chats unter Einstellungen > Allgemein oder wechseln Sie hier für diesen Chat.',
+  'notice.settings': 'Vorgabe ändern',
+  'notice.dismiss': 'Verstanden',
 } satisfies typeof accessEn
 
 /** Russian dictionary, checked against the English keys. */
@@ -282,6 +306,10 @@ export const accessRu = {
   'auto.confirm.description': 'Auto review работает без песочницы. Перед каждым вызовом собственного инструмента и внутренним вызовом PTC та же модель, что и текущий агент, проверяет, разрешить ли это; вы одобряете или отклоняете каждый вызов, который он отклоняет. Эта функция является экспериментальной, может ошибочно разрешать или запрещать действия и использует дополнительные токены.',
   'auto.confirm.acknowledge': 'Я понимаю эти риски и хочу продолжить',
   'auto.confirm.enable': 'Включить Auto review',
+  'notice.title': 'Новые чаты используют полный доступ',
+  'notice.body': 'Новые чаты запускаются с полным доступом: агент может изменять файлы и выполнять команды без запроса. Измените значение по умолчанию для новых чатов в разделе «Настройки > Общие» или переключите этот чат здесь.',
+  'notice.settings': 'Изменить по умолчанию',
+  'notice.dismiss': 'Понятно',
 } satisfies typeof accessEn
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -303,4 +331,8 @@ export const accessPt = {
   'auto.confirm.description': 'Auto review é executado sem sandbox. Antes de cada chamada de ferramenta nativa e chamada interna PTC, o mesmo modelo do agente atual analisa se deve permitir isso; você aprova ou rejeita cada chamada negada. Este recurso é experimental, pode permitir ou negar ações falsamente e usa tokens adicionais.',
   'auto.confirm.acknowledge': 'Entendo esses riscos e quero continuar',
   'auto.confirm.enable': 'Ativar Auto review',
+  'notice.title': 'Novos chats usam acesso total',
+  'notice.body': 'Novos chats começam com acesso total: o agente pode alterar arquivos e executar comandos sem perguntar. Altere o padrão para novos chats em Configurações > Geral ou mude este chat aqui.',
+  'notice.settings': 'Alterar padrão',
+  'notice.dismiss': 'Entendi',
 } satisfies typeof accessEn

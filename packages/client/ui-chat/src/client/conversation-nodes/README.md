@@ -190,7 +190,15 @@ Group headers show a category icon, replace it with a down arrow on hover or key
 
 An open capped group follows content growth only while its own scroll position is at the bottom. Scrolling away pauses that group's following; returning to the bottom resumes it, independently of outer transcript following. Manually opening an unclosed group starts at the bottom and follows growth; manually opening a closed group starts at the top with following disabled, even when its initial content fits without scrolling. Closing the group in the data or restoring its height cap through a mode change does not reset an already-open reader's position. Browser find retains its own reveal position.
 
-Only reasoning blocks with non-whitespace text produce individual rows; each retains its original text and expands independently. A blank streaming tail produces no row and does not transfer its running state to an earlier block. Individual reasoning starts collapsed, including while streaming. All modes preview the latest paragraph whose first line ends with a newline; an unfinished single line has no preview. Later text in that paragraph does not change the preview. After settlement, the mode table applies. Expanded reasoning uses compact Markdown typography.
+Only non-blank reasoning blocks produce rows. Each retains its original text, starts collapsed, and expands independently.
+
+A blank streaming tail produces no row and does not transfer its running state to an earlier block.
+
+In every mode, a collapsed streaming row previews the last non-blank line on each published update, without waiting for a newline.
+
+The preview strips `**`, collapses whitespace, and truncates from the start to keep the latest words visible on one line.
+
+After settlement, the mode table applies. Expanded reasoning uses compact Markdown typography.
 
 Switching modes retains manually opened groups and inner disclosures. It changes visibility and sizing without recreating the message rows. Detailed and Verbose do not open every individual disclosure. Only Verbose keeps the whole Turn open.
 

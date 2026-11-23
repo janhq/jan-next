@@ -35,6 +35,9 @@ export const ASK_USER_QUESTION_TOOL = 'ask_user_question'
  */
 export const TIMED_WAIT_PARAMETER = 'timeout'
 
+/** Root schema annotation identifying questions managed by the user preference. */
+export const AUTO_ANSWER_SCHEMA_DESCRIPTION = 'The user controls whether this question has an automatic answer deadline.'
+
 const toolOptionSchema = z.object({
   label: z.string(),
   description: z.string().optional(),
@@ -121,12 +124,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /**
  * Whether one logged tool schema is the timed `ask_user_question` tool's.
  * @param tool - One entry of a request header's assembled tool schemas.
- * @returns True only for an `ask_user_question` schema whose parameters declare {@link TIMED_WAIT_PARAMETER}.
+ * @returns Whether this definition supports a foreground deadline or a continued question.
  */
 export function isTimedAskUserQuestionSchema(tool: Pick<ToolSchema, 'name' | 'parameters'>): boolean {
   if (tool.name !== ASK_USER_QUESTION_TOOL) return false
   const properties: unknown = tool.parameters['properties']
-  return isRecord(properties) && TIMED_WAIT_PARAMETER in properties
+  return tool.parameters.description === AUTO_ANSWER_SCHEMA_DESCRIPTION
+    || (isRecord(properties) && TIMED_WAIT_PARAMETER in properties)
 }
 
 /**
@@ -327,5 +331,5 @@ export const userQuestionProjectionDefinition = {
     return fold === state ? state : { ...state, ...fold }
   },
   wire: { viewSchema: projectionViewSchema, view: state => state.questions },
-  stateVersion: 2,
+  stateVersion: 3,
 } satisfies ProjectionDefinition<'userQuestions', UserQuestionProjectionState>

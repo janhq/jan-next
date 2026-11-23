@@ -113,7 +113,7 @@ export function createElectronBuilderConfig(
   const packaged = resolveDesktopBuildCommit(env)
   return {
     appId,
-    protocols: [{ name: 'Jan Alpha', schemes: ['jan'] }],
+    protocols: [{ name: 'Jan Next', schemes: ['jan'] }],
     extraMetadata: {
       // Electron reports this as the Linux app_id / WM_CLASS; syncDesktopName names the .desktop entry to match.
       desktopName: 'jan-alpha.desktop',
@@ -124,7 +124,7 @@ export function createElectronBuilderConfig(
       ...packaged === undefined ? {} : { janBuildCommit: packaged.commit, janBuildDirty: packaged.dirty },
     },
     // tokamak-harness: the bundle, menu bar, Dock and installer name.
-    productName: 'Jan Alpha',
+    productName: 'Jan Next',
     // The default copyright uses author.name; this line names the product instead.
     copyright: `Copyright © ${new Date().getFullYear()} \${productName}`,
     // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
@@ -178,7 +178,8 @@ export function createElectronBuilderConfig(
       // macOS matches the application locale against this bundle, not Electron Framework resources.
       extendInfo: {
         CFBundleLocalizations: ['en', 'zh_CN', 'ja', 'es', 'fr', 'de', 'ru', 'pt'],
-        NSMicrophoneUsageDescription: 'Jan Alpha uses your microphone to transcribe speech into message drafts.',
+        NSCameraUsageDescription: 'Jan Next uses your camera when you choose to capture a photo or video in a chat.',
+        NSMicrophoneUsageDescription: 'Jan Next uses your microphone to transcribe speech into message drafts.',
       },
       // Ad-hoc signing keeps the modified Electron executable runnable without a Developer ID.
       identity: unsigned ? '-' : macOSSigning?.signingIdentity,

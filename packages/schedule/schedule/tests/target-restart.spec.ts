@@ -1,5 +1,5 @@
 /** Real JSON task files keep Host tasks of every target kind across Host restarts without a Session owner. */
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Context } from '@janhq/cordis'
@@ -31,7 +31,7 @@ it('reopens Host tasks of every target kind byte-identical without activating a 
       title: 'Existing', prompt: 'Check state', timing: { kind: 'rrule', rrule: RRULE }, target: { kind: 'session', sessionId: owner },
     }),
     await first.service.remoteCreate({
-      title: 'Once', prompt: 'Check once', timing: { kind: 'rrule', rrule: RRULE }, target: { kind: 'new_once', create: { cwd: '/work' } },
+      title: 'Once', prompt: 'Check once', timing: { kind: 'rrule', rrule: RRULE }, target: { kind: 'new_once', create: { cwd: await realpath(root) } },
     }),
     await first.service.remoteCreate({
       title: 'Every run', prompt: 'Check each', timing: { kind: 'rrule', rrule: RRULE }, target: { kind: 'new', create: { agentPreset: 'reviewer' } },
@@ -41,7 +41,7 @@ it('reopens Host tasks of every target kind byte-identical without activating a 
   const file = join(root, 'schedule.json')
   const bytes = await readFile(file, 'utf8')
   const document = storedUnit(bytes)
-  expect(document.unit).toEqual({ name: 'schedule', version: 2 })
+  expect(document.unit).toEqual({ name: 'schedule', version: 3 })
   expect(document.global).toBeNull()
   expect(Object.keys(document.tables.tasks).sort()).toEqual(created.map(entry => entry.id).sort())
   for (const entry of created) {

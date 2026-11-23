@@ -47,6 +47,7 @@ For layout changes, read the alignment and spacing references. Read the icon ref
 | Shared axes, text starts, centering, tree indentation, complete icon boxes | [Alignment](references/alignment.md) |
 | Semantic groups, inner/outer gaps, repeated rhythm, section separation | [Spacing and grouping](references/spacing.md) |
 | Interface icon selection and artwork; icon buttons and icon-only actions, tooltips, informational hover content, accessible labels and focus | [Icons](references/icons.md) |
+| Jan's own values: Mimi's colors, type, radii, spacing steps, motion tokens and the pre-handoff checklist | [Jan design contract](../../../plugins/jan-theme/design/DESIGN.md); read it before any visual change |
 | Color, typography and existing treatments | [Visual foundation](#visual-foundation); [Web styling](../../../docs/web-styling.md) owns tokens/materials |
 | Component geometry, nested contours and state fills | [Geometry decisions](#component-geometry); [radius standard](../../../docs/ui-radius.md) owns values and exceptions |
 | Feedback lifetime, loading, overlays, scrolling and platform clearance | [Interaction and feedback](#interaction-and-feedback); [error handling](../jan-error-handling/SKILL.md) owns failure guarantees |
@@ -61,7 +62,7 @@ Extend existing components, containers and interactions when the capability fits
 
 ## Visual foundation
 
-- Reuse tokens, values and complete treatments from the target page or nearest established sibling before adding literals; Plugins is the usual full-page reference.
+- Take values from the [Jan design contract](../../../plugins/jan-theme/design/DESIGN.md) first, then tokens and complete treatments from the target page or nearest established sibling, before adding literals; Plugins is the usual full-page reference. A sibling's literal is not a precedent: motion and color literals fail `style-literals.client.spec.ts`.
 - Verify colors in light and dark themes; keep ink/background pairs readable, especially dimmed text.
 - Feature CSS you add or change uses **font weight ≤500**; emphasize with size or ink. ui-theme markdown typography tokens are the exception.
 - Use theme typography roles, then the page's scale, then a comparable page's size/spacing ratios. Do not invent a size for a single element. Peers share sizes; keep the scale small (13px is the established row/detail size).

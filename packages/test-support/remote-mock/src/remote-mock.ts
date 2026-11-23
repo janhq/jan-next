@@ -20,7 +20,7 @@ export interface RemoteTable {
 /** Construction options. */
 export interface RemoteMockOptions {
   /** Host facts the built-in `$events` ready frame carries; default `{ home: '/home/mock' }`. */
-  readonly host?: { readonly home: string }
+  readonly host?: { readonly home: string; readonly name?: string; readonly remote?: boolean }
 }
 
 /** Filter over the args a stream was opened with. */
@@ -101,7 +101,7 @@ export class RemoteMock {
    */
   static create(options: RemoteMockOptions = {}): RemoteMock {
     const mock = new RemoteMock()
-    const host = options.host ?? { home: '/home/mock' }
+    const host = { home: options.host?.home ?? '/home/mock', name: options.host?.name ?? 'mock-host', remote: options.host?.remote ?? false }
     let generation = 0
     return mock.stream(EVENTS_ENDPOINT, (_args, stream) => {
       generation += 1

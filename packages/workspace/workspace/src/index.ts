@@ -18,7 +18,7 @@ export { WorkspaceMoveInvalidError } from './entity.ts'
 import { defaultWorkspaceTitle, fullyQualifiedWorkspacePath, realpathNormalize } from './paths.ts'
 import { workspaceDomainSpec } from './spec.ts'
 import type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
-import type { SessionActivity, Workspace, WorkspaceId as WorkspaceIdBrand } from './types.ts'
+import type { SessionActivity, Workspace, WorkspaceId as WorkspaceIdBrand, WorkspaceIdentityPatch } from './types.ts'
 
 export type {
   SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, Workspace,
@@ -117,6 +117,14 @@ declare module '@janhq/cordis' {
 
   interface Events {
     /**
+     * Resolve the Host's default project directory without creating it.
+     * @param signal - Caller lifetime.
+     * @param next - Delegate to the next configured directory provider.
+     * @mode waterfall
+     */
+    'workspace/default-directory'(signal: AbortSignal, next: () => Promise<string>): Promise<string>
+
+    /**
      * Ask the composed providers what still runs for a session before it is
      * archived. A listener prepends its own {@link SessionActivity} entries to
      * the result of `next()`; the registry's innermost callback returns an
@@ -159,6 +167,12 @@ const sameIds = (left: readonly WorkspaceId[], right: readonly WorkspaceId[]): b
 
 const compareHeaders = (left: SessionHeader, right: SessionHeader): number =>
   right.createdAt - left.createdAt || String(left.id).localeCompare(String(right.id))
+
+/** Result from the registry's serialized directory adoption. */
+export interface WorkspaceAdoption {
+  readonly workspace: Workspace
+  readonly created: boolean
+}
 
 /**
  * Durable workspace registry. Startup waits for `sessionPersistence`, builds
@@ -230,10 +244,17 @@ export class WorkspaceRegistry extends Service {
    * @param title - Display title used only when a new record is created.
    * @returns the existing or newly durable workspace.
    */
-  // TODO: `title` lost its last production caller when the gateway's
-  // create-by-name branch was deleted; drop the parameter with its @param
-  // clause and the `create(path, title?)` lines in this package's README pair.
   async create(path: string, title?: string): Promise<Workspace> {
+    return (await this.adopt(path, title)).workspace
+  }
+
+  /**
+   * Adopt an existing directory and report whether this call registered it.
+   * @param path - Fully qualified directory path.
+   * @param title - Display title used only for a new registration.
+   * @returns the Workspace and whether its registration was created by this call.
+   */
+  async adopt(path: string, title?: string): Promise<WorkspaceAdoption> {
     const canonical = await realpathNormalize(path)
     if (!(await stat(canonical)).isDirectory()) {
       throw new Error(`cannot create a workspace at '${canonical}': path is not a directory`)
@@ -242,34 +263,54 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
-   * Initialize the default Workspace only while both the registry and Session
-   * history are empty. Repeated requests reuse its durable identity; deleting
-   * that registration permanently disables automatic creation.
-   * @param resolveDirectory - resolve the absolute directory; called only for
-   * eligible creation, inside the registry mutation queue. Missing directories
-   * are created recursively before registration, and the initial title is the
-   * requested directory's own final segment — not the canonical one, so a
-   * symlink at that path does not retitle the Workspace after its target.
-   * After resolution, caller cancellation does not roll back creation or registration.
-   * @returns the initialized Workspace, or undefined when automatic creation is ineligible.
+   * Ensure the default Workspace exists, beginning a fresh registration after deletion.
+   * @param resolveDirectory - Resolve the directory inside the mutation queue when no active default exists.
+   * @returns the registered default without changing any existing Session membership.
    */
-  initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace | undefined> {
+  initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace> {
     return this.enqueueOperation(async () => {
-      const state = this.requireState()
-      if (state.defaultWorkspaceId !== undefined) return this.entities.get(state.defaultWorkspaceId)
-      const sessions = this.ctx.get('sessions')
-      if (sessions === undefined) throw new Error('default Workspace initialization requires the Session store')
-      if (state.workspaceIds.length > 0 || state.archivedSessionIds.length > 0
-        || sessions.list().length > 0 || (await this.listStoredHeaders()).length > 0) return undefined
+      const existing = this.defaultWorkspace
+      if (existing !== undefined) {
+        let canonical: string
+        try {
+          canonical = await realpathNormalize(existing.path)
+        } catch (error: unknown) {
+          if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error
+          await mkdir(existing.path, { recursive: true })
+          canonical = await realpathNormalize(existing.path)
+        }
+        if (canonical !== existing.path || !(await stat(canonical)).isDirectory()) {
+          throw new Error(`default Workspace directory '${existing.path}' is unavailable at its registered path`)
+        }
+        return existing
+      }
 
       const path = await resolveDirectory()
       if (!fullyQualifiedWorkspacePath(path)) throw new TypeError(`Workspace path is not fully qualified: '${path}'`)
       await mkdir(path, { recursive: true })
       const canonical = await realpathNormalize(path)
-      // A Session can start outside the registry queue while directory preparation awaits I/O.
-      if ((await this.listStoredHeaders()).length > 0 || sessions.list().length > 0) return undefined
-      return this.createCanonical(canonical, defaultWorkspaceTitle(path), true)
+      if (!(await stat(canonical)).isDirectory()) throw new Error(`default Workspace path '${canonical}' is not a directory`)
+      return (await this.createCanonical(canonical, defaultWorkspaceTitle(path), true)).workspace
     })
+  }
+
+  /**
+   * Ensure the default through the embedding's directory policy.
+   * @param signal - Caller lifetime.
+   * @returns the active or newly registered default Workspace.
+   */
+  ensureDefault(signal: AbortSignal = new AbortController().signal): Promise<Workspace> {
+    return this.initializeDefault(() => this.ctx.waterfall('workspace/default-directory', signal, () =>
+      Promise.reject(new Error('default Workspace directory provider is unavailable'))))
+  }
+
+  /**
+   * The active default Workspace, if one has been registered.
+   * @returns the active default Workspace or `undefined`.
+   */
+  get defaultWorkspace(): Workspace | undefined {
+    const id = this.requireState().defaultWorkspaceId
+    return id === undefined ? undefined : this.entities.get(id)
   }
 
   /**
@@ -279,6 +320,20 @@ export class WorkspaceRegistry extends Service {
    */
   get(id: WorkspaceId): Workspace | undefined {
     return this.entities.get(id)
+  }
+
+  /**
+   * Apply one durable project identity edit without changing its path or ID.
+   * @param id - Target Workspace id.
+   * @param patch - Already validated title and appearance changes.
+   * @returns the changed Workspace, or `undefined` when it no longer exists.
+   */
+  updateIdentity(id: WorkspaceId, patch: WorkspaceIdentityPatch): Promise<Workspace | undefined> {
+    return this.enqueueOperation(async () => {
+      const entity = this.entities.get(id)
+      if (entity !== undefined) await entity.updateIdentity(patch)
+      return entity
+    })
   }
 
   /**
@@ -505,9 +560,11 @@ export class WorkspaceRegistry extends Service {
     return undefined
   }
 
-  private async createCanonical(canonical: string, title?: string, firstUse = false): Promise<WorkspaceEntity> {
+  private async createCanonical(canonical: string, title?: string, makeDefault = false): Promise<WorkspaceAdoption> {
     for (const entity of this.entities.values()) {
-      if (entity.path === canonical) return entity
+      if (entity.path !== canonical) continue
+      if (makeDefault) await this.setState({ ...this.requireState(), defaultWorkspaceId: entity.id })
+      return { workspace: entity, created: false }
     }
 
     const workspaceName = title ?? defaultWorkspaceTitle(canonical)
@@ -554,7 +611,7 @@ export class WorkspaceRegistry extends Service {
         ...state,
         pendingMutation: undefined,
         initialized: true,
-        ...(firstUse ? { defaultWorkspaceId: id } : {}),
+        ...(makeDefault ? { defaultWorkspaceId: id } : {}),
         workspaceIds: [id, ...state.workspaceIds],
       })
     } catch (error) {
@@ -577,7 +634,7 @@ export class WorkspaceRegistry extends Service {
       }
       throw error
     }
-    return entity
+    return { workspace: entity, created: true }
   }
 
   private async deleteKnown(id: WorkspaceId): Promise<boolean> {
@@ -588,6 +645,7 @@ export class WorkspaceRegistry extends Service {
       ...state,
       pendingMutation: undefined,
       initialized: true,
+      ...(state.defaultWorkspaceId === id ? { defaultWorkspaceId: undefined } : {}),
       workspaceIds: state.workspaceIds.filter(workspaceId => workspaceId !== id),
     }
     await this.setState({
@@ -865,13 +923,12 @@ export class WorkspaceRegistry extends Service {
     const cached = this.headers.get(id)
     if (cached !== undefined) return cached
 
-    const headers = await this.listStoredHeaders()
-    await this.indexHeaders(headers)
-    const header = this.headers.get(id)
-    if (header === undefined) {
+    const snapshot = await this.ctx.sessionPersistence.stat(id)
+    if (snapshot === undefined) {
       throw new Error(`cannot validate session '${id}': session persistence holds no such session`)
     }
-    return header
+    this.headers.set(id, snapshot.header)
+    return snapshot.header
   }
 
   private requireTable(): KvTable<WorkspaceId, WorkspaceRecord> {

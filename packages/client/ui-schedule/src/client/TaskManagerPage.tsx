@@ -84,6 +84,7 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
   // A chosen template seeds the create form; a new choice remounts it.
   const [template, setTemplate] = useState<{ readonly id: TaskTemplateId; readonly draft: TaskEditorDraft } | null>(null)
   const workspaces = props.useWorkspaces(snapshot => snapshot.items)
+  const projectsByPath = useMemo(() => new Map(workspaces.map(item => [item.path, item])), [workspaces])
   const sessions = props.useSessions(snapshot => snapshot.byId)
   const catalog = useCatalog(snapshot => snapshot)
   const { records, status } = catalog
@@ -374,11 +375,14 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
                     // both halves, from one formatting call.
                     const nextRunAt = taskNextRunAt(record)
                     const nextRun = nextRunParts(nextRunAt, t('time.locale'), now, t)
-                    const cwd = record.target.kind === 'session' ? sessions[record.target.sessionId]?.cwd : record.target.create.cwd
-                    const workspace = cwd === undefined ? t('host.defaultProject')
-                      : workspaces.find(item => item.path === cwd)?.title ?? cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? cwd
+                    const target = record.target
+                    const cwd = target.kind === 'session' ? sessions[target.sessionId]?.cwd : target.kind === 'plugin' ? undefined : target.create.cwd
+                    const project = cwd === undefined ? undefined : projectsByPath.get(cwd)
+                    const workspace = project === undefined
+                      ? (cwd === undefined ? t('host.ungrouped') : cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? cwd)
+                      : workspaceDisplayTitle(project, t('host.defaultProject'))
                     const lastRun = record.lastDelivery
-                    const lastSession = lastRun === undefined ? undefined : sessions[lastRun.targetSessionId]
+                    const lastSession = lastRun?.targetSessionId === undefined ? undefined : sessions[lastRun.targetSessionId]
                     // A run's Session ends its turn in an error the conversation can continue; that is the failed state shown here.
                     const lastFailed = lastRun !== undefined
                       && typeof lastSession?.projectionValues?.conversationContinuation === 'number'
@@ -413,7 +417,8 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
                               </span>}
                             </span>
                             <span className={css.rowSummary}>
-                              <span className={css.metadata}>{workspaceDisplayTitle(workspace, t('host.defaultProject'))}</span>
+                              <span className={css.metadata}>{target.kind === 'plugin' ? t('host.pluginOwner', { owner: target.owner })
+                                : workspace}</span>
                               <span className={clsx(css.metadata, lastFailed && css.lastRunFailed)}>
                                 {lastRun === undefined ? t('list.neverRun') : t(lastFailed ? 'list.lastRunFailed' : 'list.lastRun', {
                                   time: formatScheduleAgo(lastRun.deliveredAt, now, t('time.locale')),

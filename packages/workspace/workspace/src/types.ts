@@ -15,6 +15,83 @@ import type { TypertResource } from '@janhq/jan-typert-protocol'
  */
 export type WorkspaceId = Branded<'WorkspaceId'>
 
+/** Palette tokens for Workspace identity; rendering belongs to the Client. */
+export const WORKSPACE_COLORS = ['gray', 'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink'] as const
+
+/** Supported Workspace avatar glyph names. */
+export const WORKSPACE_ICONS = ['folder', 'star', 'globe', 'code', 'sparkle', 'target', 'layers', 'image'] as const
+
+/** One named Workspace accent. */
+export type WorkspaceColor = (typeof WORKSPACE_COLORS)[number]
+
+/** One glyph from the curated Workspace avatar set. */
+export type WorkspaceIcon = (typeof WORKSPACE_ICONS)[number]
+
+/**
+ * One built-in glyph, one Unicode emoji sequence, an uploaded picture, or a website's favicon.
+ * No avatar means the automatic one: the GitHub owner's picture for a GitHub checkout, else the folder.
+ */
+export type WorkspaceAvatar =
+  | { readonly kind: 'icon'; readonly name: WorkspaceIcon }
+  | { readonly kind: 'emoji'; readonly value: string }
+  /** A square PNG `data:` URL the Client scaled down, at most {@link MAX_WORKSPACE_IMAGE_LENGTH} characters. */
+  | { readonly kind: 'image'; readonly url: string }
+  /** A bare host name such as `example.com`, whose favicon the Client loads. */
+  | { readonly kind: 'favicon'; readonly domain: string }
+
+/** Longest accepted uploaded-avatar `data:` URL; a 64px PNG stays far below it. */
+export const MAX_WORKSPACE_IMAGE_LENGTH = 65_536
+
+/** A partial edit; null clears the optional appearance field and omission preserves it. */
+export interface WorkspaceIdentityPatch {
+  readonly title?: string
+  readonly color?: WorkspaceColor | null
+  readonly avatar?: WorkspaceAvatar | null
+}
+
+/**
+ * Validate the text for a Workspace emoji avatar.
+ * @param value - candidate avatar text, without surrounding whitespace.
+ * @returns whether it is exactly one Unicode RGI emoji, including complete flags, keycaps and joined sequences.
+ */
+export function isWorkspaceEmoji(value: string): boolean {
+  return /^\p{RGI_Emoji}$/v.test(value) && !/^\p{Emoji_Modifier}$/u.test(value)
+}
+
+/**
+ * Check a Workspace image avatar's URL format and length without decoding its contents.
+ * @param value - candidate uploaded avatar.
+ * @returns whether it is a base64 PNG `data:` URL within {@link MAX_WORKSPACE_IMAGE_LENGTH}.
+ */
+export function isWorkspaceImage(value: string): boolean {
+  return value.length <= MAX_WORKSPACE_IMAGE_LENGTH && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value)
+}
+
+/**
+ * Validate the host name used to look up a Workspace favicon.
+ * @param value - candidate favicon host, already trimmed and lower-cased.
+ * @returns whether it is a dotted DNS host name such as `example.com`, without scheme, port or path.
+ */
+export function isWorkspaceDomain(value: string): boolean {
+  return value.length <= 253 && /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,62}$/.test(value)
+}
+
+/**
+ * Compare saved avatar choices by kind and value rather than object identity.
+ * @param left - one avatar, or undefined for the automatic one.
+ * @param right - the other.
+ * @returns whether both show the same choice.
+ */
+export function sameWorkspaceAvatar(left: WorkspaceAvatar | undefined, right: WorkspaceAvatar | undefined): boolean {
+  if (left === undefined || right === undefined) return left === right
+  switch (left.kind) {
+    case 'icon': return right.kind === 'icon' && left.name === right.name
+    case 'emoji': return right.kind === 'emoji' && left.value === right.value
+    case 'image': return right.kind === 'image' && left.url === right.url
+    case 'favicon': return right.kind === 'favicon' && left.domain === right.domain
+  }
+}
+
 declare module '@janhq/jan-typert-protocol' {
   interface TypertResourceMap {
     /** One Workspace; the Workspace Controller registers its default `workspaceId` wire field. */
@@ -79,6 +156,12 @@ export interface Workspace {
 
   /** Display title. Defaults to the final path segment, or a filesystem root's own spelling; duplicates are allowed. */
   readonly title: string
+
+  /** Saved accent, absent for the stock appearance. */
+  readonly color?: WorkspaceColor | undefined
+
+  /** Saved avatar, absent for the default folder appearance. */
+  readonly avatar?: WorkspaceAvatar | undefined
 
   /** ISO-8601 creation instant, stamped at create and never rewritten. */
   readonly createdAt: string

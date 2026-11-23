@@ -6,12 +6,6 @@
   color: var(--dsw-alias-label-primary);
 }
 
-.title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
 .intro {
   margin: 0;
   font-size: 13px;
@@ -219,6 +213,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.cardIcon {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
 }
 
 .cardName {

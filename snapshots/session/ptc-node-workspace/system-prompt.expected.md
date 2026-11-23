@@ -31,7 +31,7 @@ create_goal may infer goal intent from a direct human request in any language. A
 
 Use the workflow tool ONLY when the user explicitly asks for a workflow or for large multi-agent orchestration: you write a JavaScript script (the tool description documents the exact format) that fans work out across many subagents with phases and structured results. For one or two delegations, prefer plain subagent calls.
 
-Start independent delegations with `subagent` or `subagent_fork` together in one assistant message and continue useful work while they run. When only waiting for their results remains, end your turn instead of sleeping or polling; the next result starts a new turn. Collect the subagent results required to complete the task before giving the user a final answer.
+Start independent delegations with `subagent` or `subagent_fork` together in one assistant message and continue useful work while they run. If `wait_agent` is available, use it to wait for messages or results when no useful work remains. Otherwise end your turn instead of sleeping or polling; the next result starts a new turn. A start receipt is not a result. Collect the required results before giving the user a final answer.
 
 Agents may use different working directories; changes to shared files affect other agents. Split parallel write work into disjoint file or directory scopes. Bash, formatters, code generators, and scripts can overwrite concurrent edits without conflict detection; coordinate their changes explicitly. The agent integrating the work must review the final diff and run relevant tests.
 
@@ -143,6 +143,17 @@ interface ToolArgsMap {
     /** Max wait in milliseconds with wait: true. Defaults to and is capped by configuration. */
     timeout_ms?: number;
   } & Record<string, JsonValue>;
+  /** Watch new output from a running background job without polling. Matching lines arrive in batched notices, waking you when idle if enabled. Does not consume job_output. */
+  job_watch: {
+    /** ID of a running background job owned by this session. */
+    job_id: string;
+    /** JavaScript regular expression source (no delimiters or flags) to match each line. Omit to watch every line. */
+    pattern?: string;
+    /** Maximum live batches before the watch stops (1-100, default 20). The normal completion notice is separate. */
+    max_events?: number;
+    /** Milliseconds to collect matches after the first match in a batch (1-60000, default 1000). */
+    debounce_ms?: number;
+  } & Record<string, JsonValue>;
   /** List your entire subagent tree: the root agent and all reachable continuable descendants, including yourself. Rows carry names, descriptions, and status. A descendant's name is its path from the root, such as reviewer/checker. You can message any other agent in the subagent tree. running means it is working; inactive means no turn is executing; it does not indicate task completion, success, or failure. corrupt, unsupported, or unavailable means this row's own descendants could not be read; the row itself is still a member you can message. While you remain active, you will be notified when a direct child finishes; there is no need to keep checking its status. Use send_message to continue the conversation. */
   list_agents: Record<string, JsonValue>;
   /** Read a UTF-8 text file and return line-numbered content. */
@@ -171,7 +182,7 @@ interface ToolArgsMap {
     /** The exact skill name from the available skills list. */
     name: string;
   } & Record<string, JsonValue>;
-  /** Delegate a self-contained task to a subagent (a separate agent that works in its own context) to offload focused, independent work — research, a scoped implementation, an analysis — so it does not consume this conversation's context. The subagent returns its result, not its intermediate steps. This tool starts an independently managed subagent and immediately returns its name. If you are still online when it finishes, the runtime automatically delivers its completion notice. The notice includes the final answer unless the child sent you a message just before finishing. Use `send_message` to steer it while running or continue its conversation after it finishes. */
+  /** Delegate a self-contained task to a subagent (a separate agent that works in its own context) to offload focused, independent work — research, a scoped implementation, an analysis — so it does not consume this conversation's context. The subagent returns its result, not its intermediate steps. This tool starts a subagent and returns its name. If you are still online when it finishes, the completion notice delivers its final answer separately from any interim messages. Use `send_message` to steer it while running or continue its conversation after it finishes. */
   subagent: {
     /** Initial child working directory. Relative paths use your current directory; omitted inherits it. Later directory changes in either agent are independent. */
     cwd?: string;
@@ -182,7 +193,7 @@ interface ToolArgsMap {
     /** The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs. */
     prompt: string;
   } & Record<string, JsonValue>;
-  /** Delegate a task to a subagent that inherits this conversation: a child agent seeded with all completed turns so far (it does not see the current in-flight turn). Use this when the subtask builds on this conversation's context — a follow-up analysis, a review, a continuation — without consuming this conversation's context for the work itself. You receive its result, not its intermediate steps. This tool starts an independently managed subagent and immediately returns its name. If you are still online when it finishes, the runtime automatically delivers its completion notice. The notice includes the final answer unless the child sent you a message just before finishing. Use `send_message` to steer it while running or continue its conversation after it finishes. */
+  /** Delegate a task to a subagent that inherits this conversation: a child agent seeded with all completed turns so far (it does not see the current in-flight turn). Use this when the subtask builds on this conversation's context — a follow-up analysis, a review, a continuation — without consuming this conversation's context for the work itself. You receive its result, not its intermediate steps. This tool starts a subagent and returns its name. If you are still online when it finishes, the completion notice delivers its final answer separately from any interim messages. Use `send_message` to steer it while running or continue its conversation after it finishes. */
   subagent_fork: {
     /** Initial child working directory. Relative paths use your current directory; omitted inherits it. Later directory changes in either agent are independent. */
     cwd?: string;
@@ -226,6 +237,13 @@ interface ToolArgsMap {
   wait_agent: {
     /** Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000. */
     timeout_ms?: number;
+  } & Record<string, JsonValue>;
+  /** Schedule a one-time reminder to resume work later without polling or blocking. Returns a timer job ID you can list or cancel with job_kill. Completion wakes you if enabled. */
+  wake_after: {
+    /** Delay in seconds, from 1 to 86400. */
+    seconds: number;
+    /** Non-blank reminder to include in the completion notice (up to 1024 UTF-8 bytes). */
+    note: string;
   } & Record<string, JsonValue>;
   /** Fetch the content of a specific HTTP(S) URL and return it decoded to text. */
   web_fetch: {
@@ -315,6 +333,7 @@ interface ToolOutputMap {
     cwd: string;
     jobId: string;
     timeoutMs: number;
+    steered?: boolean;
     output: string;
   } | {
     kind: "foreground";
@@ -429,6 +448,12 @@ interface ToolOutputMap {
       finishedAt?: number;
     };
   };
+  job_watch: {
+    watch_id: string;
+    job_id: string;
+    max_events: number;
+    debounce_ms: number;
+  };
   list_agents: ({
     name: string;
     status: "running" | "inactive" | "corrupt" | "unsupported" | "unavailable";
@@ -517,6 +542,10 @@ interface ToolOutputMap {
   };
   wait_agent: {
     timedOut: boolean;
+  };
+  wake_after: {
+    job_id: string;
+    seconds: number;
   };
   web_fetch: {
     url: string;

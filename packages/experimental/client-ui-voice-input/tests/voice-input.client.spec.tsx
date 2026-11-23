@@ -31,8 +31,11 @@ function fixture(recording?: Recording, navigable = true) {
   } })
   const transcribe = vi.fn<(request: unknown, signal: AbortSignal) => Promise<RemoteResult<Transcript>>>(
     async () => ({ ok: true, value: transcript }))
+  const bundle = createSnapshotStore<'enabled'>('enabled')
   const props: VoiceInputProps = { sessionId: 'one' as SessionId, inputActions, transcribe, locked: false, onActiveChange: vi.fn(),
     openSettings: vi.fn(), prepare: vi.fn(async () => {}), cancelPreparation: vi.fn(async () => {}), configure: vi.fn(async () => {}),
+    enableVoice: vi.fn(async () => {}), refreshVoiceBundle: vi.fn(async () => {}), connectReadiness: vi.fn(),
+    useVoiceBundle: bindSnapshotSelector(bundle), renderSlot: () => null,
     selectMicrophone: vi.fn(), useMicrophoneDevice: bindSnapshotSelector(createSnapshotStore({ id: '', label: '' })),
     useSpeechReadiness: bindSnapshotSelector(readiness), createRecording: () => recording ?? capture,
     usePluginNavigation: bindSnapshotSelector(createSnapshotStore(navigable)),
@@ -298,7 +301,7 @@ it.each(['escape', 'hidden', 'session'])('discards pending permission after %s',
   expect(b.transcribe).not.toHaveBeenCalled()
 })
 
-it('offers installation on click without a preparation tooltip', () => {
+it('offers language and model preparation on click without starting automatically', () => {
   const b = fixture(), state = b.readiness.getSnapshot()
   act(() => { b.readiness.set({ ...state, catalog: { ...state.catalog!, providers: [
     { ...state.catalog!.providers[0]!, preparation: { phase: 'unprepared' } },
@@ -309,12 +312,21 @@ it('offers installation on click without a preparation tooltip', () => {
   fireEvent.pointerEnter(mic.parentElement!)
   expect(screen.queryByRole('tooltip')).toBeNull()
   fireEvent.click(mic)
-  expect(screen.getByRole('dialog').textContent).toContain(zh['setupPrompt.body'])
+  expect(within(screen.getByRole('dialog')).getByRole('combobox', { name: zh.language })).toBeTruthy()
   expect(b.capture.start).not.toHaveBeenCalled()
   expect(b.props.prepare).not.toHaveBeenCalled()
-  fireEvent.click(screen.getByRole('button', { name: zh['setupPrompt.open'] }))
-  expect(b.props.openSettings).toHaveBeenCalledOnce()
-  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(screen.getByRole('button', { name: zh.prepare })).toBeTruthy()
+  expect(b.props.configure).not.toHaveBeenCalled()
+})
+
+it('states the local download once when the setup estimate explains it', () => {
+  const b = fixture(), state = b.readiness.getSnapshot()
+  act(() => { b.readiness.set({ ...state, catalog: { ...state.catalog!, providers: [{ ...state.catalog!.providers[0]!, location: 'host-local',
+    setupEstimate: { recommendedDiskBytes: 1_000_000_000, expectedMemoryBytes: 1_000_000_000, minimumMinutes: 1, maximumMinutes: 5 },
+    preparation: { phase: 'unprepared', steps: [{ kind: 'check', status: 'complete' }, { kind: 'model', status: 'pending' }] } }] } }) })
+  fireEvent.click(screen.getByRole('button', { name: zh['setupPrompt.trigger'] }))
+  expect(within(screen.getByRole('dialog')).getAllByText(zh['setup.local'])).toHaveLength(1)
+  expect(screen.queryByText(zh['preparation.unprepared'])).toBeNull()
 })
 
 it.each<SpeechPreparationState>([
@@ -322,50 +334,45 @@ it.each<SpeechPreparationState>([
   { phase: 'downloading', resource: 'model', completedBytes: 0 },
   { phase: 'failed', message: 'download failed' },
   { phase: 'cancelled' },
-])('guides $phase recognition to its status page without starting recording or preparation', (preparation) => {
+])('shows $phase recognition status in the mic setup without starting recording or preparation', (preparation) => {
   const b = fixture(), state = b.readiness.getSnapshot()
   act(() => { b.readiness.set({ ...state, catalog: { ...state.catalog!, providers: [
     { ...state.catalog!.providers[0]!, preparation },
   ] } }) })
   fireEvent.click(screen.getByRole('button', { name: zh['setupPrompt.trigger'] }))
-  expect(screen.getByRole('dialog').textContent).toContain(zh['setupPrompt.unavailableBody'])
-  expect(screen.queryByText(zh['setupPrompt.body'])).toBeNull()
+  expect(screen.getByRole('dialog', { name: zh['setupPrompt.title'] })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: zh.start })).toBeNull()
   expect(b.capture.start).not.toHaveBeenCalled()
   expect(b.props.prepare).not.toHaveBeenCalled()
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: zh['setupPrompt.details'] }))
-  expect(b.props.openSettings).toHaveBeenCalledOnce()
+  if (preparation.phase === 'failed') expect(screen.getByRole('button', { name: zh.retryPrepare })).toBeTruthy()
 })
 
-it('offers no plugin details from setup guidance while the Plugins page navigation is absent', () => {
-  const b = fixture(undefined, false), state = b.readiness.getSnapshot()
-  act(() => { b.readiness.set({ ...state, catalog: { ...state.catalog!, providers: [
-    { ...state.catalog!.providers[0]!, preparation: { phase: 'unprepared' } },
-  ] } }) })
+it('tells the user how to recover when the speech service is offline', () => {
+  const b = fixture()
+  act(() => { b.readiness.set({ catalog: null, connected: false, error: 'offline' }) })
   fireEvent.click(screen.getByRole('button', { name: zh['setupPrompt.trigger'] }))
-  const dialog = within(screen.getByRole('dialog'))
-  expect(dialog.queryByRole('button', { name: zh['setupPrompt.open'] })).toBeNull()
-  expect(dialog.getByRole('button', { name: zh['setupPrompt.later'] })).toBeTruthy()
-  expect(b.props.openSettings).not.toHaveBeenCalled()
+  expect(screen.getByRole('alert').textContent).toBe(zh['setup.offline'])
+  expect(b.capture.start).not.toHaveBeenCalled()
 })
 
 it('moves focus into setup guidance, contains Tab traversal, and restores the draft focus on dismissal', () => {
   const b = fixture()
   render(<textarea aria-label="draft" defaultValue="Keep this draft" />)
   const draft = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'draft' })
-  act(() => { b.readiness.set({ catalog: null, connected: false, error: 'offline' }) })
+  const initial = b.readiness.getSnapshot()
+  act(() => { b.readiness.set({ ...initial, catalog: { ...initial.catalog!, providers: [{ ...initial.catalog!.providers[0]!, preparation: { phase: 'unprepared' } }] } }) })
   draft.focus()
   const mic = screen.getByRole('button', { name: zh['setupPrompt.trigger'] })
   fireEvent.mouseDown(mic)
   fireEvent.click(mic)
   const dialog = screen.getByRole('dialog')
-  const details = within(dialog).getByRole('button', { name: zh['setupPrompt.details'] })
-  const close = within(dialog).getByRole('button', { name: zh.cancel })
-  expect(document.activeElement).toBe(details)
-  fireEvent.keyDown(details, { key: 'Tab' })
-  expect(document.activeElement).toBe(close)
-  fireEvent.keyDown(close, { key: 'Tab', shiftKey: true })
-  expect(document.activeElement).toBe(details)
-  fireEvent.keyDown(details, { key: 'Escape' })
+  const language = within(dialog).getByRole('combobox', { name: zh.language })
+  expect(document.activeElement).toBe(language)
+  const [firstButton] = within(dialog).getAllByRole('button', { name: zh.cancel })
+  dialog.focus()
+  fireEvent.keyDown(dialog, { key: 'Tab' })
+  expect(document.activeElement).toBe(firstButton)
+  fireEvent.keyDown(dialog, { key: 'Escape' })
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(draft)
   expect(draft.value).toBe('Keep this draft')
@@ -373,26 +380,74 @@ it('moves focus into setup guidance, contains Tab traversal, and restores the dr
   expect(b.props.openSettings).not.toHaveBeenCalled()
 })
 
-it.each(['later', 'escape', 'ready', 'session'])('dismisses unavailable recognition guidance on %s without changing the draft', (reason) => {
+it('still asks for confirmation when readiness recovers while the mic dialog is open', () => {
   const b = fixture(), ready = b.readiness.getSnapshot()
   act(() => { b.readiness.set({ catalog: null, connected: false, error: 'offline' }) })
-  const open = () => { fireEvent.click(screen.getByRole('button', { name: zh['setupPrompt.trigger'] })) }
-  open()
-  expect(screen.getByRole('dialog').textContent).toContain(zh['setupPrompt.unavailableTitle'])
-  if (reason === 'later') fireEvent.click(screen.getByRole('button', { name: zh['setupPrompt.later'] }))
-  if (reason === 'escape') fireEvent.keyDown(document, { key: 'Escape' })
-  if (reason === 'ready') act(() => { b.readiness.set(ready) })
-  if (reason === 'session') b.view.rerender(<VoiceInput {...b.props} sessionId={'two' as SessionId} />)
+  fireEvent.click(screen.getByRole('button', { name: zh['setupPrompt.trigger'] }))
+  act(() => { b.readiness.set(ready) })
+  expect(within(screen.getByRole('dialog')).getByRole('button', { name: zh.start })).toBeTruthy()
+  expect(b.capture.start).not.toHaveBeenCalled()
+  b.view.rerender(<VoiceInput {...b.props} sessionId={'two' as SessionId} />)
   expect(screen.queryByRole('dialog')).toBeNull()
-  expect(b.props.openSettings).not.toHaveBeenCalled()
+  expect(b.inputActions.insertText).not.toHaveBeenCalled()
+})
+
+it('downloads before enabling and starts dictation with the chosen language only after confirmation', async () => {
+  const b = fixture(), ready = b.readiness.getSnapshot(), catalog = ready.catalog!
+  const bundle = createSnapshotStore<'disabled' | 'enabled'>('disabled')
+  const enableVoice = vi.fn(async () => { bundle.set('enabled') })
+  const configure = vi.fn(async () => {})
+  const prepare = vi.fn(async () => {})
+  const provider = catalog.providers[0]!
+  act(() => { b.readiness.set({ ...ready, catalog: { ...catalog, providers: [
+    { ...provider, preparation: { phase: 'unprepared' } },
+  ] } }) })
+  const props = { ...b.props, useVoiceBundle: bindSnapshotSelector(bundle), enableVoice, configure, prepare }
+  b.view.rerender(<VoiceInput {...props} />)
+  fireEvent.click(screen.getByRole('button', { name: zh['setupPrompt.trigger'] }))
+  const dialog = within(screen.getByRole('dialog'))
+  fireEvent.change(dialog.getByRole('combobox', { name: zh.language }), { target: { value: 'ja' } })
+  fireEvent.click(dialog.getByRole('button', { name: zh.prepare }))
+  await waitFor(() => { expect(prepare).toHaveBeenCalledOnce() })
+  expect(enableVoice).not.toHaveBeenCalled()
+  expect(configure).not.toHaveBeenCalled()
+  expect(b.capture.start).not.toHaveBeenCalled()
+  act(() => { b.readiness.set({ ...ready, catalog: { ...catalog, providers: [
+    { ...provider, preparation: { phase: 'downloading', resource: 'model', completedBytes: 100, totalBytes: 200 } },
+  ] } }) })
+  expect(dialog.getByRole('progressbar', { name: zh.downloadProgress })).toBeTruthy()
+  act(() => { b.readiness.set(ready) })
+  fireEvent.click(dialog.getByRole('button', { name: zh['setup.enableRecord'] }))
+  await screen.findByRole('button', { name: zh.stop })
+  expect(enableVoice).toHaveBeenCalledOnce()
+  expect(configure).toHaveBeenCalledWith({ providerId: id, language: 'ja' })
+  stop()
+  await waitFor(() => { expect(b.transcribe).toHaveBeenCalledWith(expect.objectContaining({ language: 'ja' }), expect.any(AbortSignal)) })
+})
+
+it('cancels an in-progress first setup without changing language, activation, or the draft', async () => {
+  const b = fixture(), ready = b.readiness.getSnapshot(), catalog = ready.catalog!
+  const bundle = createSnapshotStore<'disabled'>('disabled')
+  const enableVoice = vi.fn(async () => {})
+  const cancelPreparation = vi.fn(async () => {})
+  const provider = catalog.providers[0]!
+  act(() => { b.readiness.set({ ...ready, catalog: { ...catalog, providers: [
+    { ...provider, preparation: { phase: 'unprepared' } },
+  ] } }) })
+  const props = { ...b.props, useVoiceBundle: bindSnapshotSelector(bundle), enableVoice, cancelPreparation }
+  b.view.rerender(<VoiceInput {...props} />)
+  fireEvent.click(screen.getByRole('button', { name: zh['setupPrompt.trigger'] }))
+  const dialog = within(screen.getByRole('dialog'))
+  fireEvent.change(dialog.getByRole('combobox', { name: zh.language }), { target: { value: 'ja' } })
+  fireEvent.click(dialog.getByRole('button', { name: zh.prepare }))
+  act(() => { b.readiness.set({ ...ready, catalog: { ...catalog, providers: [
+    { ...provider, preparation: { phase: 'downloading', resource: 'model', completedBytes: 100 } },
+  ] } }) })
+  fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+  await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull() })
+  expect(cancelPreparation).toHaveBeenCalledWith(id)
+  expect(enableVoice).not.toHaveBeenCalled()
+  expect(b.props.configure).not.toHaveBeenCalled()
   expect(b.capture.start).not.toHaveBeenCalled()
   expect(b.inputActions.setDraft).not.toHaveBeenCalled()
-  expect(b.inputActions.insertText).not.toHaveBeenCalled()
-  if (reason === 'ready') {
-    act(() => { b.readiness.set({ ...ready, connected: false }) })
-    expect(screen.queryByRole('dialog')).toBeNull()
-  } else {
-    open()
-    expect(screen.getByRole('dialog')).toBeTruthy()
-  }
 })

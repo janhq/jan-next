@@ -67,7 +67,7 @@ export interface SessionNode {
 export type SessionOrderBy = 'manual' | 'updated'
 
 /** One workspace group section: header row facts + visible top-level session rows. */
-export interface GroupNode {
+export interface GroupNode extends Pick<WorkspaceView, 'avatar' | 'color' | 'githubOwner' | 'hostName' | 'hostState'> {
   /** Group key: the workspace id or {@link UNGROUPED_KEY}. */
   key: string
   /** Backing Workspace id; absent only for the ungrouped bucket. */
@@ -115,7 +115,7 @@ export interface TreeView {
   ungroupedOrder?: readonly string[]
 }
 
-interface Group {
+interface Group extends Pick<WorkspaceView, 'avatar' | 'color' | 'githubOwner' | 'hostName' | 'hostState'> {
   key: string
   workspaceId: WorkspaceId | undefined
   cwd: string | undefined
@@ -231,9 +231,11 @@ function sessionVisible(
   current: SessionId | undefined,
   archived: ReadonlySet<SessionId>,
   archivedFilter: ArchivedFilter,
+  hidden?: ReadonlySet<SessionId>,
 ): boolean {
   if (session.origin === 'subagent') return false
-  if (session.blank && session.id !== current) return false
+  if (!archived.has(session.id) && hidden?.has(session.id)) return false
+  if (session.blank && session.id !== current && !archived.has(session.id)) return false
   switch (archivedFilter) {
     case 'default':
       return !archived.has(session.id)
@@ -255,6 +257,8 @@ export interface SessionRowState {
   archivedSessionIds: readonly SessionId[]
   /** Archived-row visibility choice applied to lists and search alike. */
   archivedFilter: ArchivedFilter
+  /** Sessions presented elsewhere while active; their archives remain visible. */
+  hiddenSessionIds?: ReadonlySet<SessionId>
 }
 
 /**
@@ -328,6 +332,7 @@ function groupByWorkspace(
   archived: ReadonlySet<SessionId>,
   archivedFilter: ArchivedFilter,
   ungroupedOrder: readonly string[] | undefined,
+  hidden?: ReadonlySet<SessionId>,
 ): Group[] {
   const current = mainSessionId(list)
   const groups: Group[] = []
@@ -338,21 +343,27 @@ function groupByWorkspace(
       const summary = list.byId[id]
       if (summary === undefined) continue // account may lead the list pull; the row appears when the summary lands
       accounted.add(id)
-      if (!sessionVisible(summary, current, archived, archivedFilter)) continue
+      if (!sessionVisible(summary, current, archived, archivedFilter, hidden)) continue
       members.push(summary)
     }
     // The archived-only view lists archives, not the Workspace inventory, so
     // a Workspace without archived Sessions contributes no group.
     if (archivedFilter === 'only' && members.length === 0) continue
-    groups.push(buildGroup(
-      workspace.workspaceId, workspace.workspaceId, workspace.path,
-      Date.parse(workspace.createdAt), workspace.title, members,
-    ))
+    groups.push({
+      ...buildGroup(
+        workspace.workspaceId, workspace.workspaceId, workspace.path, Date.parse(workspace.createdAt), workspace.title, members,
+      ),
+      ...(workspace.color === undefined ? {} : { color: workspace.color }),
+      ...(workspace.avatar === undefined ? {} : { avatar: workspace.avatar }),
+      ...(workspace.githubOwner === undefined ? {} : { githubOwner: workspace.githubOwner }),
+      ...(workspace.hostName === undefined ? {} : { hostName: workspace.hostName }),
+      ...(workspace.hostState === undefined ? {} : { hostState: workspace.hostState }),
+    })
   }
   const stray = list.ids
     .map(id => list.byId[id])
     .filter((s): s is SessionSummary =>
-      s !== undefined && !accounted.has(s.id) && sessionVisible(s, current, archived, archivedFilter))
+      s !== undefined && !accounted.has(s.id) && sessionVisible(s, current, archived, archivedFilter, hidden))
   if (stray.length > 0) {
     groups.push(buildGroup(
       UNGROUPED_KEY,
@@ -440,7 +451,7 @@ export function deriveGroups(
     ? undefined
     : owningGroupKey(workspaces, current)
   const groups: GroupNode[] = []
-  for (const g of groupByWorkspace(list, workspaces, archived, rowState.archivedFilter, view.ungroupedOrder)) {
+  for (const g of groupByWorkspace(list, workspaces, archived, rowState.archivedFilter, view.ungroupedOrder, rowState.hiddenSessionIds)) {
     const expanded = expandedGroups.has(g.key)
     groups.push({
       key: g.key,
@@ -448,6 +459,11 @@ export function deriveGroups(
       cwd: g.cwd,
       createdAt: g.createdAt,
       label: g.label,
+      ...(g.color === undefined ? {} : { color: g.color }),
+      ...(g.avatar === undefined ? {} : { avatar: g.avatar }),
+      ...(g.githubOwner === undefined ? {} : { githubOwner: g.githubOwner }),
+      ...(g.hostName === undefined ? {} : { hostName: g.hostName }),
+      ...(g.hostState === undefined ? {} : { hostState: g.hostState }),
       sessionCount: g.sessions.length,
       expanded,
       containsCurrent: g.key === currentGroup,
@@ -509,7 +525,7 @@ export function deriveFlat(
   const current = mainSessionId(list)
   const members = sessionIds.flatMap((id) => {
     const session = list.byId[id]
-    return session !== undefined && sessionVisible(session, current, archived, rowState.archivedFilter)
+    return session !== undefined && sessionVisible(session, current, archived, rowState.archivedFilter, rowState.hiddenSessionIds)
       ? [session]
       : []
   })
@@ -529,6 +545,7 @@ export function deriveFlat(
  * @param statuses - unified UI status by Session.
  * @param content - ranked Host content-search page.
  * @param limit - protocol-owned maximum merged row count.
+ * @param hidden - Sessions with alternate presentations, excluded while unarchived.
  * @returns bounded deduplicated flat rows and a refine-query hint bit.
  */
 export function deriveSearchResults(
@@ -540,6 +557,7 @@ export function deriveSearchResults(
   statuses: SessionStatuses,
   content: { items: readonly SessionSearchResultItem[]; hasMore: boolean },
   limit: number,
+  hidden?: ReadonlySet<SessionId>,
 ): SearchResultSet {
   const q = query.trim().toLowerCase()
   if (q === '') return { items: [], hasMore: false }
@@ -564,7 +582,7 @@ export function deriveSearchResults(
     const summary = list.byId[id]
     // Blank placeholders never match a query (their canonical title displays
     // localized, so matching it would tie search to one language).
-    if (summary === undefined || summary.blank || !sessionVisible(summary, current, archived, archivedFilter)) continue
+    if (summary === undefined || summary.blank || !sessionVisible(summary, current, archived, archivedFilter, hidden)) continue
     if (
       sessionTitle(summary).toLowerCase().includes(q)
       || labelOf(summary).toLowerCase().includes(q)
@@ -587,7 +605,7 @@ export function deriveSearchResults(
   for (const summary of orderedLocal) include(summary)
   for (const item of content.items) {
     const summary = list.byId[item.sessionId]
-    if (summary !== undefined && !summary.blank && sessionVisible(summary, current, archived, archivedFilter)) include(summary)
+    if (summary !== undefined && !summary.blank && sessionVisible(summary, current, archived, archivedFilter, hidden)) include(summary)
   }
 
   return {

@@ -615,7 +615,8 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
   )
   expect(scaffold.ctx.sandboxPolicy.defaultMode).toBe('workspace-write')
   expect(scaffold.ctx.approval.config.policy).toBe('ask')
-  expect(scaffold.ctx.permissionPresets.defaultPreset).toBe('workspace-write')
+  // The app pins Full access into new sessions; the composition-wide sandbox and approval stay confined.
+  expect(scaffold.ctx.permissionPresets.defaultPreset).toBe('danger-full-access')
   expect(scaffold.ctx.permissionPresets.names).toEqual([
     'read-only',
     'workspace-write',

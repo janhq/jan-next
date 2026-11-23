@@ -35,6 +35,7 @@ import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
 import { createSettingsShellStore } from './shell-store.ts'
 import { SettingsRoot } from './SettingsRoot.tsx'
 import { DesktopUpdateBadge } from './DesktopUpdateIndicator.tsx'
+import { HostStatusChip, type HostStatusChipInjected } from './HostStatusChip.tsx'
 import type { DesktopUpdateBridge } from '../types.ts'
 import { DesktopChannelSource } from './desktop-channel-source.ts'
 import { DesktopChannelRow, DesktopChannelToast } from './DesktopChannelRow.tsx'
@@ -43,6 +44,7 @@ import { CloseLabel, HeaderContent, TriggerContent } from './chrome.tsx'
 import { GeneralSection } from './GeneralSection.tsx'
 import { CurrentVersionRow } from './CurrentVersionRow.tsx'
 import { DeveloperToolsRow, type DeveloperToolsRowInjected } from './DeveloperToolsRow.tsx'
+import { FactoryResetRow, type FactoryResetRowInjected } from './FactoryResetRow.tsx'
 import { SettingsDocumentAction } from './SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from './SettingsDocumentAction.tsx'
 import { SettingsDocumentStore } from './settings-document-store.ts'
@@ -130,7 +132,16 @@ export function apply(ctx: ClientContext): void {
   }, CurrentVersionRow))
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-settings-general: dictionaries')
   const connection = ctx.get('connection') as ConnectionHandle
-  const carrier = (globalThis as typeof globalThis & { janDesktop?: { protocolVersion: number; updates?: DesktopUpdateBridge } }).janDesktop
+  type DesktopCarrier = { protocolVersion: number; updates?: DesktopUpdateBridge; factoryReset?: FactoryResetRowInjected['reset'] }
+  const carrier = (globalThis as typeof globalThis & { janDesktop?: DesktopCarrier }).janDesktop
+  const factoryReset = carrier?.protocolVersion === 1 ? carrier.factoryReset : undefined
+  // Desktop owns the data and the relaunch, so the row exists only there; it closes the General list.
+  if (factoryReset !== undefined) {
+    ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+      name: 'settings.general.item', id: 'factory-reset', order: 110, locale: NS,
+      inject: (): FactoryResetRowInjected => ({ reset: categories => factoryReset(categories) }),
+    }, FactoryResetRow))
+  }
   const desktopUpdate = new DesktopUpdateSource(carrier?.protocolVersion === 1 ? carrier.updates : undefined)
   ctx.effect(() => () => { desktopUpdate.dispose() }, 'ui-settings-general: desktop update carrier')
   const channelBridge = carrier?.protocolVersion === 1 ? carrier.updates?.channels : undefined
@@ -143,10 +154,24 @@ export function apply(ctx: ClientContext): void {
     }, DesktopChannelRow))
     ctx.slots.inject('shell.overlay', () => ctx.slots.register({
       name: 'shell.overlay', id: 'desktop-channel-toast', locale: NS,
-      inject: () => ({ hooks: { channel: channel.store },
-        dismiss: (sequence: number) => { channel.dismissNotice(sequence) }, openConfiguration: () => { desktopUpdate.open() } }),
+      inject: () => ({
+        hooks: { channel: channel.store },
+        dismiss: (sequence: number) => { channel.dismissNotice(sequence) }, openConfiguration: () => { desktopUpdate.open() },
+      }),
     }, DesktopChannelToast))
   }
+
+  // A window on another computer names it beside the sidebar toggle, with the link state.
+  ctx.slots.inject('sidebar.toggle.actions', () => ctx.slots.register({
+    name: 'sidebar.toggle.actions', id: 'host-status', locale: NS,
+    inject: (): HostStatusChipInjected => ({
+      reconnect: () => { connection.reconnect() },
+      hooks: {
+        hostInfo: { getSnapshot: () => ctx.remote.$host, subscribe: listener => ctx.on('connection/reset', listener) },
+        connectionState: connection.state,
+      },
+    }),
+  }, HostStatusChip))
 
   ctx.slots.inject('sidebar.toggle.badge', () => ctx.slots.register({
     name: 'sidebar.toggle.badge', locale: NS,
@@ -249,10 +274,12 @@ export function apply(ctx: ClientContext): void {
         regions: ['page', 'editable', 'terminal'], modals: ['settings'],
         resolve: ({ modal }) => {
           if (modal !== null && modal !== 'settings') return { status: 'blocked', reason: 'modal' }
-          return { status: 'handled', run: () => {
-            if (modal === 'settings') closeTopModal(document)
-            else shellInstance.actions.open()
-          } }
+          return {
+            status: 'handled', run: () => {
+              if (modal === 'settings') closeTopModal(document)
+              else shellInstance.actions.open()
+            },
+          }
         },
       })
 

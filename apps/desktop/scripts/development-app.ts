@@ -34,8 +34,11 @@ function quote(value: string): string { return `'${value.replaceAll("'", "'\\''"
  */
 export function prepareDevelopmentApp(options: DevelopmentAppOptions): string {
   const source = dirname(dirname(dirname(options.electron)))
-  const bundle = join(options.directory, 'Harness Dev.app')
-  const executable = join(bundle, 'Contents', 'MacOS', 'HarnessDev')
+  // The Dock and the launch bounce show the bundle's file name, not CFBundleDisplayName.
+  const bundle = join(options.directory, 'Jan Next Dev.app')
+  const executable = join(bundle, 'Contents', 'MacOS', 'JanNextDev')
+  // Bundles from before the rename stay registered with Launch Services under the old name.
+  rmSync(join(options.directory, 'Harness Dev.app'), { recursive: true, force: true })
   const stamp = join(bundle, 'Contents', 'Resources', 'jan-development.json')
   const launcher = developmentLauncher(options, bundle)
   const identity = JSON.stringify({
@@ -48,10 +51,10 @@ export function prepareDevelopmentApp(options: DevelopmentAppOptions): string {
     const plist = join(bundle, 'Contents', 'Info.plist')
     const values = {
       CFBundleIdentifier: `com.janhq.harness.dev.${createHash('sha256').update(options.appRoot).digest('hex').slice(0, 12)}`,
-      CFBundleName: 'Jan Alpha Dev',
-      CFBundleDisplayName: 'Jan Alpha Dev',
-      CFBundleExecutable: 'HarnessDev',
-      CFBundleURLTypes: [{ CFBundleURLName: 'Jan Alpha', CFBundleURLSchemes: ['jan'], CFBundleTypeRole: 'Viewer' }],
+      CFBundleName: 'Jan Next Dev',
+      CFBundleDisplayName: 'Jan Next Dev',
+      CFBundleExecutable: 'JanNextDev',
+      CFBundleURLTypes: [{ CFBundleURLName: 'Jan Next', CFBundleURLSchemes: ['jan'], CFBundleTypeRole: 'Viewer' }],
     }
     for (const [key, value] of Object.entries(values)) {
       execFileSync('/usr/bin/plutil', ['-replace', key, '-json', JSON.stringify(value), plist])

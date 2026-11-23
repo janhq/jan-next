@@ -42,7 +42,7 @@ it('keeps settings and expanded plugin dialogs clear of the Windows caption acro
       expect(await page.evaluate(() => document.elementFromPoint(300, 20)?.getAttribute('role'))).toBe('presentation')
       await page.mouse.click(300, 20)
       expect(await settings.isVisible()).toBe(true)
-      await settings.getByRole('button', { name: 'Workspace Write', exact: true }).click()
+      await settings.getByRole('button', { name: 'Project Write', exact: true }).click()
       const menu = page.getByRole('menu')
       await menu.waitFor()
       const menuRect = await menu.boundingBox()

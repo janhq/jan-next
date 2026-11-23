@@ -457,12 +457,16 @@ export class PiAiAdapter extends LlmAdapter {
         if (error instanceof LlmError && error.code === 'MISSING_CREDENTIAL') return []
         throw error
       }
-      return snapshot.models.getModels(provider).map(model => ({
-        provider,
-        id: model.id,
-        name: model.name,
-        inputModalities: [...model.input],
-      }))
+      return snapshot.models.getModels(provider).map((model) => {
+        const toolUse = profile.declaredToolUse?.get(model.id)
+        return {
+          provider,
+          id: model.id,
+          name: model.name,
+          inputModalities: [...model.input],
+          ...toolUse === undefined ? {} : { toolUse },
+        }
+      })
     })
   }
 
@@ -481,11 +485,13 @@ export class PiAiAdapter extends LlmAdapter {
     // Only a cap the deployment configured is a request default; the
     // catalog's `maxTokens` sizes the model and stops there.
     const configuredMaxTokens = profile.configuredMaxTokens.get(model)
+    const toolUse = profile.declaredToolUse?.get(model)
     return {
       provider,
       id: model,
       name: resolvedModel.name,
       inputModalities: [...resolvedModel.input],
+      ...toolUse === undefined ? {} : { toolUse },
       context: { contextWindow: resolvedModel.contextWindow },
       ...configuredMaxTokens === undefined ? {} : { defaultMaxTokens: configuredMaxTokens },
       ...reasoningInfo(resolvedModel, defaultLevel),
@@ -506,7 +512,7 @@ export class PiAiAdapter extends LlmAdapter {
   }
 
   private async * streamWithSnapshot(
-    options: GenerateOptions,
+    options: GenerateOptions<string>,
     snapshot: PiAiSnapshot,
   ): AsyncIterable<StreamChunk> {
     if (options.stop !== undefined) {
@@ -570,6 +576,16 @@ export class PiAiAdapter extends LlmAdapter {
           },
         }, onReplayDegrade, updates.systemPromptUpdate === 'in-history')
       const onPromptProgress = profile.promptProgress === true ? this.config.onPromptProgress : undefined
+      // The conversation names its Session as the thread, in slot 0 as Jan pins chat. An auxiliary
+      // request (title, compaction) names no thread, so it parks nothing over the Session's saved
+      // state, and runs in slot 1 beside the conversation instead of queueing it behind slot 0;
+      // with one slot llama.cpp wraps the index back to 0, which only costs prefix reuse.
+      const thread = profile.threadCache !== true || options.sessionId === undefined
+        ? undefined
+        : options.purpose === undefined ? { thread_id: String(options.sessionId), id_slot: 0 } : { id_slot: 1 }
+      const samplingParams = onPromptProgress === undefined && thread === undefined
+        ? undefined
+        : { ...onPromptProgress === undefined ? {} : { return_progress: true }, ...thread }
       const progressRoute = {
         provider: options.provider, model: options.model,
         ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
@@ -583,8 +599,8 @@ export class PiAiAdapter extends LlmAdapter {
         ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
         signal: watchdog.signal,
         headers: requestHeaders(profile.headers, options, model.baseUrl, this.config.prepareHeaders),
+        ...samplingParams === undefined ? {} : { samplingParams },
         ...onPromptProgress === undefined ? {} : {
-          samplingParams: { return_progress: true },
           onProviderStreamEvent: (chunk: unknown) => {
             const progress = promptProgressOf(chunk)
             if (progress === undefined) return

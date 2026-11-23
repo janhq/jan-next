@@ -205,26 +205,37 @@ export class TurnRecorder {
 
   /**
    * Wait for a safe tool start, or cancel the baseline and leave before Git drains.
+   * A yield (the user steered) also stops the wait, but leaves the baseline
+   * running: the call has not started, so skipping it loses nothing, and the
+   * turn's record still gets its snapshot.
    * @param signal - the tool call's cancellation.
-   * @returns true once queued work settled, false when the signal aborted first.
+   * @param yieldSignal - the owner's request that this call return now.
+   * @returns true once queued work settled, false when either signal fired first.
    */
-  async waitForTool(signal: AbortSignal): Promise<boolean> {
+  async waitForTool(signal: AbortSignal, yieldSignal?: AbortSignal): Promise<boolean> {
     const { baselineAbort } = this.state
     if (signal.aborted) {
       baselineAbort.abort(signal.reason)
       return false
     }
+    // Read through a call: the signal can fire while the queue is awaited.
+    const yielded = (): boolean => yieldSignal?.aborted === true
+    if (yielded()) return false
     const stopped = Promise.withResolvers<void>()
     const onAbort = (): void => {
       baselineAbort.abort(signal.reason)
       stopped.resolve()
     }
+    const onYield = (): void => { stopped.resolve() }
     signal.addEventListener('abort', onAbort, { once: true })
+    yieldSignal?.addEventListener('abort', onYield, { once: true })
     try {
       await Promise.race([this.chain, stopped.promise])
-      return !signal.aborted
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- the signal can abort while the queue is awaited.
+      return !signal.aborted && !yielded()
     } finally {
       signal.removeEventListener('abort', onAbort)
+      yieldSignal?.removeEventListener('abort', onYield)
     }
   }
 
@@ -305,13 +316,18 @@ export class TurnRecorder {
     return this.scratch
   }
 
-  /** The repository enclosing the working directory, located once; null keeps retrying each turn. */
+  /**
+   * The repository enclosing the working directory, located once; null keeps retrying each turn. A repository
+   * rooted at the home directory or above it (a dotfiles repo) is treated as none: snapshotting it means `git add`
+   * over the whole home folder, which stalls every file tool behind the snapshot.
+   */
   private async locate(cwd: string, signal: AbortSignal): Promise<Repository | null> {
     if (this.repository !== null) return this.repository
     const git = await this.env.git
     if (git === null) return null
     const workspace = await locateGitWorkspace(git, cwd, () => this.scratchDir(), signal)
     if (workspace === null) return null
+    if (this.paths !== undefined && isInside(workspace.root, this.paths.home)) return null
     this.repository = { git, workspace }
     return this.repository
   }

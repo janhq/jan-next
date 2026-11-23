@@ -14,12 +14,13 @@
  * are slot entries with their own behavior, so this component threads no
  * action callbacks and hosts no action surface.
  */
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { WorkspaceDialogs } from './WorkspaceDialogs.tsx'
 import {
   AnimatedRows, HoverCardGroup, IconArchiveCheckOutlineRegular, IconArchiveOffOutlineRegular, IconArchiveOutlineRegular,
-  IconChevronsUpDownOutlineRegular, IconClockOutlineRegular, IconCloseFillRegular,
+  IconChevronDownOutlineRegular, IconChevronsUpDownOutlineRegular, IconChevronUpOutlineRegular, IconClockOutlineRegular,
+  IconCloseFillRegular,
   IconFlatListOutlineRegular, IconFolderCloseRegular, IconProjectAddOutlineRegular,
   IconQueueOutlineRegular, IconSearchOutlineRegular, IconSlidersTwoOutlineRegular,
   IconWorkspaceTreeOutlineRegular, Menu, Tooltip,
@@ -41,6 +42,7 @@ import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './Rows.tsx'
 import { FLAT_SESSION_ORDER_KEY, type SessionGroupBy } from '../stores.ts'
 import { WorkspacePickFlow } from '../WorkspacePicker.tsx'
 import { FolderDrop } from './FolderDrop.tsx'
+import { ProjectIdentityDialog } from './ProjectIdentityDialog.tsx'
 import css from './WorkspaceBrowser.module.css'
 
 /**
@@ -251,6 +253,23 @@ function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }):
   return e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
 }
 
+/** One project row's actions as the latest render defines them. */
+interface HeaderLogic {
+  toggle: () => void
+  create: () => void
+  open: () => void
+  dragStart: () => void
+  dragEnd: () => void
+}
+
+/** The identity-stable callbacks one project row receives, forwarding to its {@link HeaderLogic}. */
+interface HeaderHandles {
+  toggle: () => void
+  create: () => void
+  open: () => void
+  drag: { start: () => void; end: () => void }
+}
+
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
   'useSessionStatus' | 'startSession' | 'open' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu'
@@ -258,6 +277,7 @@ type SessionTreeProps = Pick<
   | 'useRemoteAccess' | 'useSessionAccess' | 'useWorkspaceAccess'
 > & PropsRenderSlots<
   | 'sidebar.workspaces.session.row.action'
+  | 'sidebar.workspaces.group.leading'
   | 'sidebar.session.row.trailing'
   | 'sidebar.session.row.leading'
   | 'sidebar.session.row.hover'
@@ -267,6 +287,8 @@ type SessionTreeProps = Pick<
   list: SessionListState
   /** Host account home for POSIX hover-path abbreviation. */
   home?: string | undefined
+  /** Computer a remote window's projects live on; omitted in a local window. */
+  machine?: string | undefined
   /** Workspaces in Host group order with browser-projected Session order. */
   workspaces: readonly WorkspaceView[]
   /** Browser-projected order for Sessions outside every Workspace. */
@@ -322,7 +344,7 @@ function SessionTree({
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
   insertWorkspaceBefore,
   nestWorkspaces, groupExpansion, setGroupExpanded,
-  setSessionOrder, home, t,
+  setSessionOrder, home, machine, t,
   revealSessionId, onSessionRevealed, shortcuts, openProject, projectSurface,
 }: SessionTreeProps) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
@@ -344,6 +366,21 @@ function SessionTree({
   const workspaceDropCommitted = useRef(false)
   const nativeDragActive = drag !== null || workspaceDrag !== null
   useNativeDragAcceptance(nativeDragActive)
+  // Project rows are memoized, so their callbacks keep one identity per group and
+  // call into the latest committed render's logic, which every event follows.
+  const headerLogic = useRef(new Map<string, HeaderLogic>())
+  const headerHandles = useRef(new Map<string, HeaderHandles>())
+  const nextHeaderLogic = new Map<string, HeaderLogic>()
+  useLayoutEffect(() => { headerLogic.current = nextHeaderLogic })
+  const headerHandlesOf = (key: string): HeaderHandles => {
+    let handles = headerHandles.current.get(key)
+    if (handles === undefined) {
+      const call = (action: keyof HeaderLogic) => () => { headerLogic.current.get(key)?.[action]() }
+      handles = { toggle: call('toggle'), create: call('create'), open: call('open'), drag: { start: call('dragStart'), end: call('dragEnd') } }
+      headerHandles.current.set(key, handles)
+    }
+    return handles
+  }
   const currentGroup = current === undefined || !workspaceReady
     ? undefined
     : owningGroupKey(workspaces, current)
@@ -488,12 +525,24 @@ function SessionTree({
     const workspaceMarker = workspaceId !== undefined && workspaceDrag?.over?.id === workspaceId
       ? workspaceDrag.over.half
       : null
-    const workspaceDragProps = workspaceId === undefined ? undefined : {
-      start: () => {
+    const handles = headerHandlesOf(group.key)
+    nextHeaderLogic.set(group.key, {
+      toggle: () => {
+        if (group.expanded) dropWatermarks(key => withinGroup(key, group.key))
+        setGroupExpanded(group.key, !group.expanded)
+      },
+      create: () => {
+        if (workspaceId === undefined) return
+        setGroupExpanded(group.key, true)
+        startSession(workspaceId)
+      },
+      open: () => { if (workspaceId !== undefined) openProject(workspaceId) },
+      dragStart: () => {
+        if (workspaceId === undefined) return
         workspaceDropCommitted.current = false
         setWorkspaceDrag({ workspaceId, over: null })
       },
-      end: () => {
+      dragEnd: () => {
         if (workspaceDrag?.over !== null && workspaceDrag?.over !== undefined) {
           commitWorkspaceDrag(workspaceDrag, workspaceDrag.over)
         } else {
@@ -501,7 +550,7 @@ function SessionTree({
         }
         workspaceDropCommitted.current = false
       },
-    }
+    })
     const hoverWorkspace = workspaceId === undefined || !compatibleDrag
       ? undefined
       : (half: 'before' | 'after') => {
@@ -562,22 +611,15 @@ function SessionTree({
           useWorkspaceAccess={useWorkspaceAccess}
           containsCurrentDescendant={currentAncestors.has(group.key)}
           home={home}
+          machine={machine}
           t={t}
-          onToggle={() => {
-            if (group.expanded) dropWatermarks(key => withinGroup(key, group.key))
-            setGroupExpanded(group.key, !group.expanded)
-          }}
-          onOpenProject={projectSurface && group.workspaceId !== undefined
-            ? (() => { const id = group.workspaceId; return () => { openProject(id) } })()
-            : undefined}
-          onCreate={() => {
-            if (group.workspaceId !== undefined) {
-              setGroupExpanded(group.key, true)
-              startSession(group.workspaceId)
-            }
-          }}
-          drag={workspaceDragProps}
+          onToggle={handles.toggle}
+          onOpenProject={projectSurface && workspaceId !== undefined ? handles.open : undefined}
+          onCreate={handles.create}
+          drag={workspaceId === undefined ? undefined : handles.drag}
         />
+        {workspaceId !== undefined && group.expanded && rowState.archivedFilter !== 'only'
+          && renderSlot('sidebar.workspaces.group.leading', { workspaceId })}
         {childRows.length > 0 && (
           <div role="group">
             {childRows}
@@ -653,9 +695,14 @@ function SessionTree({
               setWatermarkMotionKey(key => key + 1)
             }}
           >
-            {sessionsExpanded
-              ? t('sessions.collapse')
-              : t('sessions.expand', { n: visible.hiddenCount })}
+            <span className={css.sessionOverflowSlot} aria-hidden>
+              {sessionsExpanded ? <IconChevronUpOutlineRegular size={12} /> : <IconChevronDownOutlineRegular size={12} />}
+            </span>
+            <span className={css.sessionOverflowLabel}>
+              {sessionsExpanded
+                ? t('sessions.collapse')
+                : t('sessions.expand', { n: visible.hiddenCount })}
+            </span>
           </button>
         )}
       </div>
@@ -809,6 +856,7 @@ function SearchResults({
   workspaces,
   archivedSessionIds,
   archivedFilter,
+  hiddenSessionIds,
   query,
   remote,
   resultLimit,
@@ -820,6 +868,7 @@ function SearchResults({
   archivedSessionIds: readonly SessionNode['id'][]
   /** Search matches follow the archived filter selected for the list. */
   archivedFilter: ArchivedFilter
+  hiddenSessionIds: ReadonlySet<SessionId>
   /** Unarchive an archived result row in place. */
   onUnarchive: (id: SessionNode['id']) => void
   query: string
@@ -842,8 +891,9 @@ function SearchResults({
       statuses,
       currentRemote,
       resultLimit,
+      hiddenSessionIds,
     ),
-    [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit],
+    [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit, hiddenSessionIds],
   )
   const pending = currentRemote.status === 'loading'
   const currentId = panelActive
@@ -918,15 +968,18 @@ export function WorkspaceBrowser({
   requestSessionRename,
   notifyArchivedNotOpenable,
   renameWorkspace, useWorkspaceActionRequest, settleWorkspaceAction,
+  updateWorkspaceIdentity, shortcutPlatform,
   deleteWorkspace,
   insertWorkspaceBefore,
   unarchiveSession,
   createWorkspace,
+  createDirectory,
   notifyFolderDrop,
   searchSessions,
   searchResultLimit,
   useDirectoryFlow,
   useHostInfo,
+  useRemoteMachines,
   useShortcuts,
   useWorkspaceShortcuts,
   requestSearch,
@@ -935,11 +988,17 @@ export function WorkspaceBrowser({
   setDirectoryBusy,
   openProject,
   useProjectSurface,
+  useHiddenSessions,
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
   t,
 }: WorkspaceBrowserProps) {
   const home = useHostInfo(info => info.home)
+  // Every project row names its computer. A window on this computer (loopback and not
+  // started over SSH) calls it Local Mac; any other window uses the Host's own name.
+  const localMachine = t(typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? 'workspace.machine.localMac' : 'workspace.machine.local')
+  const machine = useHostInfo(info => info.name === undefined ? undefined : info.remote || !info.isLoopback ? info.name : localMachine)
   const projectSurface = useProjectSurface(present => present)
+  const hiddenSessionIds = useHiddenSessions(ids => ids)
   const shortcuts = useShortcuts(rows => rows)
   const searchShortcut = shortcuts.find(row => row.id === 'session.search')
   const addShortcut = shortcuts.find(row => row.id === 'workspace.add')
@@ -953,7 +1012,7 @@ export function WorkspaceBrowser({
   const workspaces = useMemo(
     () => storedWorkspaces.map(workspace => ({
       ...workspace,
-      title: workspaceDisplayTitle(workspace.title, defaultWorkspaceName),
+      title: workspaceDisplayTitle(workspace, defaultWorkspaceName),
     })),
     [storedWorkspaces, defaultWorkspaceName],
   )
@@ -973,12 +1032,13 @@ export function WorkspaceBrowser({
   const sessionOrderByAccount = useStore(s => s.sessionOrderByAccount)
   // Archived sessions are not openable: the row stays visible under the
   // filter but a click explains instead of navigating.
-  const guardedOpen = (sessionId: SessionId): void => {
+  const guardedOpen: WorkspaceBrowserProps['open'] = (sessionId, modifiers) => {
     if (archivedSessionIds.includes(sessionId)) {
       notifyArchivedNotOpenable()
       return
     }
-    open(sessionId)
+    if (modifiers === undefined) open(sessionId)
+    else open(sessionId, modifiers)
   }
   const leaveArchivedOnly = (): void => { actions.setArchivedFilter('default') }
   const workspaceReady = workspacePhase === 'ready' && workspaceStreamState !== 'loading'
@@ -996,8 +1056,8 @@ export function WorkspaceBrowser({
     [archivedSessionIds, pinnedSessionIds],
   )
   const rowState = useMemo<SessionRowState>(
-    () => ({ ...orderState, archivedFilter }),
-    [orderState, archivedFilter],
+    () => ({ ...orderState, archivedFilter, hiddenSessionIds }),
+    [orderState, archivedFilter, hiddenSessionIds],
   )
   const flatMemberIds = useMemo(() => sessionMemberIds(list), [list])
   const orderedWorkspaces = useMemo(() => workspaces.map((workspace) => {
@@ -1123,13 +1183,16 @@ export function WorkspaceBrowser({
     searchInput.current?.focus({ preventScroll: true })
   }, [])
   // Section-header ＋ opens the picker menu (same popover in wide and rail
-  // states; the menu anchors on this button).
+  // states; the menu anchors on this button). A surface outside the sidebar,
+  // such as a Projects page, may open the same menu from its own control.
   const wsPickerOpen = shortcutState.addRequested
+  const requestAnchor = shortcutState.addAnchor
+  const requestAnchorRef = useMemo(() => requestAnchor === null ? null : { current: requestAnchor }, [requestAnchor])
   const wsPlusRef = addWorkspaceButtonRef
   const primaryActions = usePrimaryActions(value => value)
   const workspaceActionRequest = useWorkspaceActionRequest(value => value)
 
-  const openSearchResult = (sessionId: SessionId): void => {
+  const openSearchResult: WorkspaceBrowserProps['open'] = (sessionId, modifiers) => {
     if (archivedSessionIds.includes(sessionId)) {
       notifyArchivedNotOpenable()
       return
@@ -1137,7 +1200,8 @@ export function WorkspaceBrowser({
     setRevealSessionId(sessionId)
     setQuery('')
     changeSearchExpanded(false)
-    open(sessionId)
+    if (modifiers === undefined) open(sessionId)
+    else open(sessionId, modifiers)
   }
   const acknowledgeSessionReveal = (sessionId: SessionId): void => {
     setRevealSessionId(current => current === sessionId ? undefined : current)
@@ -1341,18 +1405,20 @@ export function WorkspaceBrowser({
           </div>
         ),
       })}
-      {/* Add flow + its error dialog (same package — direct composition). */}
+      {/* The new-project menu and its dialogs (same package — direct composition). */}
       <WorkspacePickFlow
         t={t}
         open={wsPickerOpen}
-        anchorRef={wsPlusRef}
+        anchorRef={requestAnchorRef ?? wsPlusRef}
         useWorkspaces={useWorkspaces}
         createWorkspace={createWorkspace}
+        createDirectory={createDirectory}
         useDirectoryFlow={useDirectoryFlow}
+        useHostInfo={useHostInfo}
+        useRemoteMachines={useRemoteMachines}
         renderDirectoryFlow={owner => renderSlot('sidebar.workspaces.directoryFlow', owner)}
-        addOnly
         onBusyChange={setDirectoryBusy}
-        side="right"
+        side={requestAnchorRef === null ? 'right' : 'bottom'}
         onPick={(workspaceId) => {
           closeAddWorkspace()
           startSession(workspaceId, { clearPreviousDraft: false })
@@ -1393,6 +1459,7 @@ export function WorkspaceBrowser({
               workspaces={workspaces}
               archivedSessionIds={archivedSessionIds}
               archivedFilter={archivedFilter}
+              hiddenSessionIds={hiddenSessionIds}
               query={normalizedQuery}
               remote={remoteSearch}
               resultLimit={searchResultLimit}
@@ -1454,14 +1521,30 @@ export function WorkspaceBrowser({
                 openProject={openProject}
                 projectSurface={projectSurface}
                 home={home}
+                machine={machine}
                 t={t}
               />
             ))}
       </div>
 
-      {workspaceActionRequest !== null && <WorkspaceDialogs key={`${workspaceActionRequest.action}/${workspaceActionRequest.workspaceId}`}
-        request={workspaceActionRequest} workspaces={workspaces} renameWorkspace={renameWorkspace} deleteWorkspace={deleteWorkspace}
-        settleWorkspaceAction={settleWorkspaceAction} t={t} />}
+      {workspaceActionRequest?.action === 'update' ? (
+        <ProjectIdentityEditor
+          key={workspaceActionRequest.workspaceId}
+          request={workspaceActionRequest} workspaces={storedWorkspaces}
+          updateWorkspaceIdentity={updateWorkspaceIdentity} shortcutPlatform={shortcutPlatform}
+          settleWorkspaceAction={settleWorkspaceAction} t={t}
+        />
+      ) : workspaceActionRequest !== null && (
+        <WorkspaceDialogs key={`${workspaceActionRequest.action}/${workspaceActionRequest.workspaceId}`}
+          request={workspaceActionRequest} workspaces={workspaces} renameWorkspace={renameWorkspace} deleteWorkspace={deleteWorkspace}
+          settleWorkspaceAction={settleWorkspaceAction} t={t} />
+      )}
     </div>
   )
+}
+
+function ProjectIdentityEditor(props: Omit<Parameters<typeof ProjectIdentityDialog>[0], 'workspace'>) {
+  const workspace = props.workspaces.find(row => row.workspaceId === props.request.workspaceId)
+  if (workspace === undefined) return null
+  return <ProjectIdentityDialog {...props} workspace={workspace} />
 }

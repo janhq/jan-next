@@ -9,7 +9,7 @@
  * @module @janhq/jan-agent-instructions
  */
 
-import type {} from '@janhq/jan-working-directory'
+import type { } from '@janhq/jan-working-directory'
 import type { Context } from '@janhq/cordis'
 import { isDeepStrictEqual } from 'node:util'
 import type { Agent, PreStepDecision } from '@janhq/jan-agent'
@@ -111,7 +111,7 @@ export function apply(ctx: Context, config: Config): void {
     signal: AbortSignal,
     claimed: readonly UserMessage[],
     pending: readonly UserMessage[],
-    touchedPaths: readonly string[] = [],
+    touchedPaths?: readonly string[],
   ): Promise<UserMessage | undefined> => {
     signal.throwIfAborted()
     if (resolved.maxBytes <= 0 || !Number.isFinite(resolved.maxBytes)) {
@@ -126,7 +126,7 @@ export function apply(ctx: Context, config: Config): void {
     const cwd = await ctx.workingDirectory.ensure(agent, signal)
     const projectRoot = await findProjectRoot(cwd, resolved.projectRootMarkers, fileSystem, signal)
     const identity = workspaceBaselineIdentity(resolved, cwd, projectRoot)
-    if (touchedPaths.length === 0 && pending.length > 0
+    if (touchedPaths === undefined && pending.length > 0
       && baselinePreparations.get(agent.session)?.identity === identity) return pending[0]
     const visibleBaseline = visibleBaselineSource(agent, authorityMessages)
     const baselinePresent = visibleBaseline !== undefined
@@ -215,7 +215,7 @@ export function apply(ctx: Context, config: Config): void {
         scopeMessages: pending,
         includeBaselineScopes: keepVisibleBaseline,
         ...keepVisibleBaseline ? { excludedBaselineScopes } : {},
-        touchedPaths,
+        touchedPaths: touchedPaths ?? [],
         projectRoot,
         signal,
       },
@@ -272,13 +272,12 @@ export function apply(ctx: Context, config: Config): void {
   const composeAndSync = async (
     agent: Agent,
     signal: AbortSignal,
-    claimed: readonly UserMessage[],
-    touchedPaths: readonly string[] = [],
+    touchedPaths: readonly string[],
   ): Promise<void> => {
     const pending = agent.inbox.nextStep.filter(isAgentInstructionsMessage)
-    const desired = await compose(agent, signal, claimed, pending, touchedPaths)
+    const desired = await compose(agent, signal, [], pending, touchedPaths)
     signal.throwIfAborted()
-    syncInbox(agent, claimed, desired)
+    syncInbox(agent, [], desired)
   }
 
   const queueProjection = (
@@ -286,7 +285,7 @@ export function apply(ctx: Context, config: Config): void {
     touchedPath: string,
   ): void => {
     const previous = projectionTails.get(agent) ?? Promise.resolve()
-    const current = previous.then(() => composeAndSync(agent, projectionLifecycle.signal, [], [touchedPath]))
+    const current = previous.then(() => composeAndSync(agent, projectionLifecycle.signal, [touchedPath]))
       .catch((error: unknown) => {
         if (!projectionLifecycle.signal.aborted) ctx.logger.warn('workspace instruction refresh failed: %o', error)
       })
@@ -353,6 +352,19 @@ export function apply(ctx: Context, config: Config): void {
     const lastClaimedIndex = decision.messages.findLastIndex(message => messages.includes(message))
     const entered = decision.messages.toSpliced(lastClaimedIndex + 1, 0, desired)
     return { ...decision, messages: entered }
+  })
+
+  // A changed instruction file is queued as a message appended after the conversation, never an
+  // edit to the system prompt or earlier turns, so the provider's cached prefix stays valid.
+  ctx.on('agent/reload', async ({ agent, signal }, next): Promise<string[]> => {
+    const lines = await next()
+    await waitForProjections(agent)
+    await composeAndSync(agent, signal, [])
+    const update = agent.inbox.nextStep.find(isAgentInstructionsMessage)
+    const changes = update?.source.kind === 'agent-instructions' ? update.source.changes : []
+    return [...lines, changes.length === 0
+      ? 'Instructions: no changes.'
+      : `Instructions: ${changes.map(change => `${change.path} ${change.action === 'remove' ? 'removed' : change.action === 'set' ? 'added' : 'updated'}`).join(', ')}.`]
   })
 
   ctx.on('tools/result', (exec: ToolExecution, result: ToolExecutionResult) => {

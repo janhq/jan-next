@@ -6,12 +6,10 @@
  * settings scope loads and stores the preference in the user-settings
  * document. The plugin also registers the Appearance and font settings rows
  * into the settings General section — the theme feature owns its own settings
- * surface. Desktop shortcuts adjust text, code, and terminal font sizes together.
+ * surface.
  */
 import type { Context as ClientContext } from '@janhq/cordis'
 import type { BoundActions } from '@janhq/jan-client-ui-slots'
-import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
-import type { NormalizedBinding } from '@janhq/jan-client-shortcuts/protocol'
 // Type-only: the ctx.configForms Context merge. Cross-plugin collaboration
 // goes through the service, never a value import (client bundle purity gate).
 import type { ConfigForm } from '@janhq/jan-client-ui-settings/client'
@@ -219,7 +217,6 @@ export class ThemeRuntime {
     }
     ctx.effect(() => host.subscribe(() => { this.adopt() }), 'ui-theme: settings scope adoption')
     this.adopt()
-    installFontSizeShortcuts(ctx, (delta) => { this.adjustFontSizes(delta) })
   }
 
   /**
@@ -277,28 +274,6 @@ export class ThemeRuntime {
     if (this.fontSizes[role] === px) return
     this.fontSizes = Object.freeze({ ...this.fontSizes, [role]: px })
     this.write(() => this.host.set(spec.field, px))
-    this.publish()
-  }
-
-  /**
-   * Step all font sizes within their own ranges and save changed fields in one mutation.
-   * Emits one `theme/change`; no write or event occurs when every role is at its limit.
-   * @param delta - one pixel to add or remove from each role's current size.
-   */
-  private adjustFontSizes(delta: 1 | -1): void {
-    const fontSizes = { ...this.fontSizes }
-    const fields: Record<string, number> = {}
-    for (const role of FONT_ROLES) {
-      const { field, min, max } = FONT_SIZE_SPECS[role]
-      const px = Math.max(min, Math.min(max, fontSizes[role] + delta))
-      if (px === fontSizes[role]) continue
-      fontSizes[role] = px
-      fields[field] = px
-    }
-    const ops = Object.entries(fields).map(([field, value]) => ({ op: 'set' as const, path: [field], value }))
-    if (ops.length === 0) return
-    this.fontSizes = Object.freeze(fontSizes)
-    this.write(() => this.host.mutate(ops))
     this.publish()
   }
 
@@ -546,39 +521,6 @@ function dynamicToken(name: string): ThemeTokenInspection {
   }
 }
 
-/** Register desktop font-size keys when keyboard and locale services are available. */
-function installFontSizeShortcuts(ctx: ClientContext, adjust: (delta: 1 | -1) => void): void {
-  ctx.inject(['shortcuts', 'locale'], (scope) => {
-    if (scope.shortcuts.runtime !== 'desktop') return
-    const t = scope.locale.bind(SETTINGS_NS)
-    const combinations: { binding: NormalizedBinding; delta: 1 | -1 }[] = []
-    // Fixed bindings drive both reservation and matching.
-    for (const [direction, code, delta] of [['increase', 'Equal', 1], ['decrease', 'Minus', -1]] as const) {
-      const binding = { code, modifiers: ['primary'] as const }
-      const bindings = direction === 'increase'
-        ? [binding, { code, modifiers: ['primary', 'shift'] as const }] as const : [binding] as const
-      for (const candidate of bindings) {
-        combinations.push({ binding: scope.shortcuts.describeBinding(candidate).binding as NormalizedBinding, delta })
-      }
-      scope.effect(() => scope.shortcuts.registerFixed({
-        id: `fontSize.${direction}` as ShortcutCommandId, label: () => t(`fontSize.text.${direction}`),
-        keys: scope.shortcuts.describeBinding(binding).keys,
-        bindings, group: 'application',
-      }), `ui-theme: ${direction} font size reference`)
-    }
-    scope.effect(() => scope.shortcuts.observeFixedInput((input) => {
-      if (input.type === 'reset') return
-      const { gesture, context } = input
-      if (gesture.composing || gesture.defaultPrevented || gesture.repeat || context.region === 'terminal') return
-      const matched = combinations.find(({ binding }) => binding.code === gesture.code
-        && (['control', 'alt', 'shift', 'meta'] as const).every(modifier => gesture[modifier] === binding.modifiers.includes(modifier)))
-      if (matched === undefined) return
-      input.consume()
-      adjust(matched.delta)
-    }), 'ui-theme: font size input')
-  })
-}
-
 /**
  * Required services: settings transport plus slots/locale for the Appearance
  * row. `remote` carries the forwarded settings invalidation that
@@ -589,8 +531,7 @@ export const inject = ['slots', 'locale', 'remote', 'configForms']
 /**
  * Client plugin body: provide the theme service and register the
  * feature-owned Appearance and font settings rows into the General section's item
- * slot (a feature owns its settings surface). Desktop font-size shortcuts share
- * all three font-size settings when the keyboard service is available.
+ * slot (a feature owns its settings surface).
  * @param ctx - client cordis context.
  */
 export function apply(ctx: ClientContext): void {

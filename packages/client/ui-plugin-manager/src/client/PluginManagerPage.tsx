@@ -8,17 +8,17 @@
  * the page declares.
  */
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { PluginInstallFailureKind, Registry } from '@janhq/jan-api-remotes/client'
 import {
   Button, IconCheckCircleFillRegular, IconChevronDownOutlineRegular, IconChevronLeftOutlineMedium,
   IconChevronRightOutlineRegular, IconCloseOutlineMedium,
   IconDownloadOutlineRegular, IconGlobeOutlineRegular, IconInfoOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular,
-  IconTrashOutlineRegular,
-  IconWarningOutlineRegular, Input, Menu, MenuItemButton, Modal, pointerModality,
+  IconSparkleRegular, IconTrashOutlineRegular,
+  IconSearchOutlineRegular, IconWarningOutlineRegular, Input, Menu, MenuItemButton, Modal, pointerModality,
   PluginArtworkDefault, PluginArtworkLoop, PluginArtworkSearch, PluginArtworkSubagent, PluginArtworkTerminal,
-  SegmentedTabs, StateDot, Switch, Tag, TerminalBlock, Toast, Tooltip, useDismissOnOutsidePointer,
+  SegmentedTabs, StateDot, Switch, Tag, TerminalBlock, Toast, Tooltip, useDismissOnOutsidePointer, useViewMode, ViewToggle,
   type IconProps, type StateDotState, type TerminalBlockLabels,
 } from '@janhq/jan-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore } from '@janhq/jan-client-ui-slots'
@@ -46,7 +46,7 @@ export type PluginManagerPageProps =
   & PropsLocale<'pluginManager'>
   & PropsRenderSlots<
     | 'plugins.item' | 'plugins.bundle.config' | 'plugins.row.config' | 'plugins.bundle.activation'
-    | 'plugins.add.actions' | 'plugins.tab' | 'plugins.artwork'
+    | 'plugins.add.actions' | 'plugins.tab' | 'plugins.tab.count' | 'plugins.artwork'
     | 'plugins.detail.actions' | 'plugins.detail.badge' | 'plugins.detail.section'
   >
   & InjectFace<PluginManagerFace & PluginHeaderLayoutFace & PluginTranslationFace>
@@ -439,13 +439,14 @@ function packageStatus(pkg: PackageView): 'running' | 'disabled' | 'problem' {
   return pkg.enabled ? 'running' : 'disabled'
 }
 
-/** A saved enablement that is not running remains explicit after its toast disappears. */
+/** A saved enablement that is not running remains explicit after its toast disappears. The toast announces the
+ * failure; the card keeps it as plain text so one failure is not announced twice. */
 function ApplicationStatus({ pkg, t }: { readonly pkg: PackageView; readonly t: Translate }): ReactNode {
   if (pkg.application?.kind === 'restart') {
     return <p className={`${css.reason} ${css.reasonPending}`} role="status">{restartText('restartNotice', pkg.application.reason, t)}</p>
   }
   if (pkg.application?.kind === 'failed') {
-    return <p className={css.reason} role="alert">{t('applicationNotActive', { message: pkg.application.message || t('statusProblem') })}</p>
+    return <p className={css.reason}>{t('applicationNotActive', { message: pkg.application.message || t('statusProblem') })}</p>
   }
   return null
 }
@@ -606,6 +607,52 @@ function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, translatio
     </li>
   )
 }
+
+/** A package's tint: one stable hue per name, shared by its spotlight banner. */
+function nameHue(name: string): number {
+  let hash = 7
+  for (const char of name) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) % 360
+  return hash
+}
+
+/** Optional plugins the person has not turned on, one at a time with a way into each one's page. */
+function PluginSpotlight({ packages, t, resolveText, renderSlot, onOpen }: {
+  readonly packages: readonly PackageView[]
+  readonly t: Translate
+  readonly resolveText: ResolveText
+  readonly renderSlot: RenderConfig
+  readonly onOpen: (pkg: PackageView) => void
+}): ReactNode {
+  const [at, setAt] = useState(0)
+  const index = packages.length === 0 ? 0 : at % packages.length
+  const pkg = packages[index]
+  if (pkg === undefined) return null
+  const { title, description } = packageText(pkg, resolveText)
+  const step = (delta: number): void => { setAt((index + delta + packages.length) % packages.length) }
+  return (
+    <section className={css.spotlight} aria-roledescription="carousel" aria-label={t('spotlightLabel')}
+      style={{ '--plugin-hue': nameHue(pkg.name) } as CSSProperties} data-plugin-spotlight={pkg.name}>
+      <div key={pkg.name} className={css.spotlightBody}>
+        <p className={css.spotlightEyebrow}><IconSparkleRegular size={14} aria-hidden="true" />{t('spotlightEyebrow')}</p>
+        <h2 className={css.spotlightTitle}>{title}</h2>
+        {description === undefined ? null : <p className={css.spotlightDescription}>{description}</p>}
+        <Button variant="primary" size="sm" onClick={() => { onOpen(pkg) }}>{t('spotlightOpen')}</Button>
+      </div>
+      <span className={css.spotlightArt} aria-hidden="true">{packageArtwork(pkg.name, pkg.meta?.icon, renderSlot, false, 72)}</span>
+      {packages.length > 1
+        ? (
+          <div className={css.spotlightNav}>
+            <Button size="sm" aria-label={t('spotlightPrevious')} icon={<IconChevronLeftOutlineMedium size={16} />} onClick={() => { step(-1) }} />
+            <span>{t('spotlightPosition', { index: String(index + 1), total: String(packages.length) })}</span>
+            <Button size="sm" aria-label={t('spotlightNext')} icon={<IconChevronRightOutlineRegular size={16} />} onClick={() => { step(1) }} />
+          </div>
+        )
+        : null}
+    </section>
+  )
+}
+
+type ExploreFilter = 'all' | 'on' | 'off' | 'updates' | 'yours'
 
 /**
  * One official plugin as a card that opens its page: its icon, its title from
@@ -1625,6 +1672,11 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
     const form = props.configForm<Record<string, unknown>>(id)
     return { state: form.getSnapshot(), mutate: (ops, revision) => form.mutate(ops, revision) }
   }
+  // Jan's desktop names this page Customize; the Host row's `customize` flag says so.
+  const [pageForm] = useState(() => props.configForm<{ customize?: boolean }>('ui-plugin-manager'))
+  const customize = useSyncExternalStore(listener => pageForm.subscribe(listener), () => pageForm.getSnapshot().value?.customize === true)
+  // Customize's own preference: tiles (grid) or the Settings rows (list).
+  const [viewMode, setViewMode] = useViewMode('customize-plugins')
   const state = props.usePluginManager(snapshot => snapshot)
   const ledger = props.useConfigLedger(snapshot => snapshot)
   // What is open; a package that leaves the list (uninstalled) drops back to the cards.
@@ -1642,6 +1694,9 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   useEffect(() => { if (tab !== selectedTab) setTab(tab) }, [tab, selectedTab, setTab])
   const tabsId = useId()
   const [activation, setActivation] = useState<string | null>(null)
+  // Customize narrows every plugin, held or optional, by a search and one filter at a time.
+  const [exploreQuery, setExploreQuery] = useState('')
+  const [exploreFilter, setExploreFilter] = useState<ExploreFilter>('all')
   const [headerRef] = useState(props.createHeaderRef)
   useEffect(() => { ensure() }, [ensure])
   // Installation highlights visible cards without changing the user's current page.
@@ -1725,6 +1780,74 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   const basicCards = ledger.items.map(item => (
     <ItemCard key={`item:${item.id}`} item={item} t={t} renderSlot={renderSlot} onOpen={() => { setView({ kind: 'item', id: item.id }) }} />
   ))
+  const updateCount = listed.filter(pkg => versionUpdate(state.versions[pkg.name]) !== undefined).length
+  const exploreFilters: readonly (readonly [ExploreFilter, string])[] = [
+    ['all', t('filterAll')], ['on', t('filterOn')], ['off', t('filterOff')],
+    ...updateCount > 0 ? [['updates', `${t('filterUpdates')} · ${updateCount}`] as const] : [],
+    ...mine.length > 0 ? [['yours', t('filterYours')] as const] : [],
+  ]
+  const filterNow = exploreFilters.some(([id]) => id === exploreFilter) ? exploreFilter : 'all'
+  const needle = exploreQuery.trim().toLowerCase()
+  const exploring = customize && (needle !== '' || filterNow !== 'all')
+  const keeps = (pkg: PackageView): boolean => {
+    if (filterNow === 'on' && !pkg.enabled) return false
+    if (filterNow === 'off' && pkg.enabled) return false
+    if (filterNow === 'updates' && versionUpdate(state.versions[pkg.name]) === undefined) return false
+    if (filterNow === 'yours' && pkg.official) return false
+    const { title, description } = packageText(pkg, resolveText)
+    return needle === '' || [title, description, pkg.name].some(text => text?.toLowerCase().includes(needle))
+  }
+  const matches = exploring
+    ? [
+      ...filterNow === 'all' ? basicCards.filter((_, index) => ledger.items[index]?.label.toLowerCase().includes(needle)) : [],
+      ...[...ordered, ...mine].filter(keeps).map(packageCard),
+    ]
+    : []
+  const featured = ordered.filter(pkg => MORE_BUNDLES.includes(pkg.name) && !pkg.enabled).slice(0, 5)
+  const pageToolbar = (
+    <div className={css.toolbar} data-plugin-toolbar data-plugin-header-part="toolbar" hidden={!onInstalled}>
+      {updates === undefined ? null : <span className={css.updatesNote} data-tone={updates.tone}>{updates.text}</span>}
+      <Tooltip label={t('refresh')} delayMs={500} focusDelayMs={500} side="bottom" portal disabled={!loaded || refreshing}>
+        <Button variant="outline" size="sm" className={css.addButton} aria-label={t('refresh')} aria-busy={refreshing}
+          disabled={!loaded || refreshing} onClick={props.refresh}
+          icon={refreshing ? <StateDot state="ongoing" size={13} /> : <IconRefreshOutlineRegular size={13} />}>
+          <span className={css.toolbarLabel}>{t('refresh')}</span>
+        </Button>
+      </Tooltip>
+      {state.install.requestId === undefined
+        ? <AddPluginMenu t={t} disabled={!loaded} openInstall={props.openInstall} renderSlot={renderSlot}
+          openTranslationSettings={translations !== undefined && translationAllowed && translationSettings
+            ? props.openTranslationSettings : undefined} />
+        : (
+          <Tooltip label={t('installViewTask')} side="bottom" delayMs={500} focusDelayMs={500} portal disabled={!loaded}>
+            <Button variant="primary" size="sm" className={css.addButton} icon={<IconPlusOutlineRegular size={13} />}
+              aria-label={t('installViewTask')} disabled={!loaded} onClick={props.openInstall}>
+              <span className={css.toolbarLabel}>{t('installViewTask')}</span>
+            </Button>
+          </Tooltip>
+        )}
+    </div>
+  )
+  // Customize puts the actions beside the intro, the row its Skills and Connectors tabs open with.
+  const exploreBar = (
+    <div className={css.exploreBar}>
+      <div className={css.customizeHead}>
+        <p className={css.customizeIntro}>{t('customizeIntro')}</p>
+        {pageToolbar}
+      </div>
+      <Input type="search" className={css.exploreSearch as string} icon={<IconSearchOutlineRegular size={16} />}
+        placeholder={t('exploreSearch')} aria-label={t('exploreSearch')} value={exploreQuery}
+        onChange={(event) => { setExploreQuery(event.target.value) }} />
+      <div className={css.exploreRow}>
+        <div className={css.exploreChips} role="group" aria-label={t('exploreFilters')}>
+          {exploreFilters.map(([id, label]) => (
+            <button key={id} type="button" className={css.exploreChip} aria-pressed={filterNow === id} onClick={() => { setExploreFilter(id) }}>{label}</button>
+          ))}
+        </div>
+        <ViewToggle value={viewMode} onChange={setViewMode} labels={{ grid: t('viewGrid'), list: t('viewList'), group: t('viewMode') }} />
+      </div>
+    </div>
+  )
   const renderGroup = (id: 'basic' | 'extensions' | 'bundles', heading: string, cards: readonly ReactNode[]): ReactNode => {
     const offersMore = id === 'extensions' && more.length > 0
     if (cards.length === 0 && !offersMore) return null
@@ -1744,7 +1867,8 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   }
 
   return (
-    <section className={css.page} data-plugin-panel aria-busy={state.status === 'loading' || refreshing}>
+    <section className={css.page} data-plugin-panel {...customize ? { 'data-plugin-customize': '' } : {}}
+      {...customize && viewMode === 'grid' ? { 'data-plugin-tiles': '' } : {}} aria-busy={state.status === 'loading' || refreshing}>
       {showsMoreList ? (
         <header className={css.moreHead} data-window-drag>
           <Button size="sm" className={css.moreBack} aria-label={t('backToList')} onClick={() => { setView({ kind: 'list' }) }}>
@@ -1763,38 +1887,19 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
             >
               <header className={css.pageHead} data-window-drag>
                 <div className={css.pageHeading}>
-                  <h1 className={css.pageTitle} data-plugin-header-part="title">{t('title')}</h1>
-                  <div className={css.pageIntro} data-plugin-header-part="intro">
-                    <span>{t('intro')}</span>
-                    <Tooltip label={t('infoDescription')} side="bottom" delayMs={300} maxWidth={300} portal openOnClick>
-                      <Button variant="ghost" size="sm" className={css.infoButton} aria-label={t('infoLabel')}>
-                        <IconInfoOutlineRegular size={11} aria-hidden="true" />
-                      </Button>
-                    </Tooltip>
-                  </div>
-                </div>
-                <div className={css.toolbar} data-plugin-toolbar data-plugin-header-part="toolbar" hidden={!onInstalled}>
-                  {updates === undefined ? null : <span className={css.updatesNote} data-tone={updates.tone}>{updates.text}</span>}
-                  <Tooltip label={t('refresh')} delayMs={500} focusDelayMs={500} side="bottom" portal disabled={!loaded || refreshing}>
-                    <Button variant="outline" size="sm" className={css.addButton} aria-label={t('refresh')} aria-busy={refreshing}
-                      disabled={!loaded || refreshing} onClick={props.refresh}
-                      icon={refreshing ? <StateDot state="ongoing" size={13} /> : <IconRefreshOutlineRegular size={13} />}>
-                      <span className={css.toolbarLabel}>{t('refresh')}</span>
-                    </Button>
-                  </Tooltip>
-                  {state.install.requestId === undefined
-                    ? <AddPluginMenu t={t} disabled={!loaded} openInstall={props.openInstall} renderSlot={renderSlot}
-                      openTranslationSettings={translations !== undefined && translationAllowed && translationSettings
-                        ? props.openTranslationSettings : undefined} />
-                    : (
-                      <Tooltip label={t('installViewTask')} side="bottom" delayMs={500} focusDelayMs={500} portal disabled={!loaded}>
-                        <Button variant="primary" size="sm" className={css.addButton} icon={<IconPlusOutlineRegular size={13} />}
-                          aria-label={t('installViewTask')} disabled={!loaded} onClick={props.openInstall}>
-                          <span className={css.toolbarLabel}>{t('installViewTask')}</span>
+                  <h1 className={css.pageTitle} data-plugin-header-part="title">{t(customize ? 'customizeTitle' : 'title')}</h1>
+                  {customize ? null : (
+                    <div className={css.pageIntro} data-plugin-header-part="intro">
+                      <span>{t('intro')}</span>
+                      <Tooltip label={t('infoDescription')} side="bottom" delayMs={300} maxWidth={300} portal openOnClick>
+                        <Button variant="ghost" size="sm" className={css.infoButton} aria-label={t('infoLabel')}>
+                          <IconInfoOutlineRegular size={11} aria-hidden="true" />
                         </Button>
                       </Tooltip>
-                    )}
+                    </div>
+                  )}
                 </div>
+                {customize ? null : pageToolbar}
                 {tabs.length > 0
                   ? (
                     <div className={css.pageTabs} data-plugin-header-part="tabs">
@@ -1805,8 +1910,16 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
                         value={tab}
                         onChange={(next) => { setTab(next) }}
                         items={[
-                          { value: INSTALLED_TAB, label: t('installedTab'), id: `${tabsId}-${INSTALLED_TAB}`, panelId: `${tabsId}-${INSTALLED_TAB}-panel` },
-                          ...tabs.map(item => ({ value: item.id, label: item.label, id: `${tabsId}-${item.id}`, panelId: `${tabsId}-${item.id}-panel` })),
+                          {
+                            value: INSTALLED_TAB, id: `${tabsId}-${INSTALLED_TAB}`, panelId: `${tabsId}-${INSTALLED_TAB}-panel`,
+                            label: customize
+                              ? <>{t('pluginsTab')}{loaded ? <span className={css.tabCount}>{basicCards.length + official.length + mine.length}</span> : null}</>
+                              : t('installedTab'),
+                          },
+                          ...tabs.map(item => ({
+                            value: item.id, id: `${tabsId}-${item.id}`, panelId: `${tabsId}-${item.id}-panel`,
+                            label: <>{item.label}<span className={css.tabCount}>{renderSlot('plugins.tab.count', { tab: item.id }, { entryKey: item.id })}</span></>,
+                          })),
                         ]}
                       />
                     </div>
@@ -1918,9 +2031,32 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
                   </section>
                 ) : (
                   <>
-                    {renderGroup('basic', t('basicTitle'), basicCards)}
-                    {renderGroup('extensions', t('extensionsTitle'), extensions.map(packageCard))}
-                    {renderGroup('bundles', t('bundlesTitle'), mine.map(packageCard))}
+                    {customize ? exploreBar : null}
+                    {exploring
+                      ? (
+                        <section className={css.group} data-plugin-scope="global" data-plugin-group="matches">
+                          <p className={css.exploreCount} role="status">{t('exploreCount', { count: String(matches.length) })}</p>
+                          {matches.length > 0
+                            ? <ul className={css.cards}>{matches}</ul>
+                            : (
+                              <div className={css.exploreEmpty}>
+                                <span>{t('exploreEmpty')}</span>
+                                <Button size="sm" variant="outline" onClick={() => { setExploreQuery(''); setExploreFilter('all') }}>{t('exploreClear')}</Button>
+                              </div>
+                            )}
+                        </section>
+                      )
+                      : (
+                        <>
+                          {customize
+                            ? <PluginSpotlight packages={featured} t={t} resolveText={resolveText} renderSlot={renderSlot}
+                              onOpen={(pkg) => { setActivation(null); setView({ kind: 'package', name: pkg.name, from: 'more' }) }} />
+                            : null}
+                          {renderGroup('basic', t('basicTitle'), basicCards)}
+                          {renderGroup('extensions', t('extensionsTitle'), extensions.map(packageCard))}
+                          {renderGroup('bundles', t('bundlesTitle'), mine.map(packageCard))}
+                        </>
+                      )}
                   </>
                 )}
                 {/* A failed package read trails the groups it left incomplete: right under the groups on a

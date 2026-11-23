@@ -48,6 +48,8 @@ export interface AgentPresetStage {
   id: string | undefined
   /** Whether the receiving chip should announce the applied choice once. */
   introduce: boolean
+  /** Whether a direct pick should reach the Host even when it matches. */
+  explicit?: boolean
 }
 
 /**
@@ -94,6 +96,7 @@ export class AgentPresetSeatController {
   private clearStage(): void {
     this.staged.id = undefined
     this.staged.introduce = false
+    delete this.staged.explicit
   }
 
   /**
@@ -139,7 +142,7 @@ export class AgentPresetSeatController {
    */
   async select(id: string): Promise<AgentPresetApplyOutcome> {
     if (this.store.getSnapshot().busy) return UNCHANGED
-    this.stage(id)
+    this.stage(id, false, true)
     return await this.apply()
   }
 
@@ -153,10 +156,12 @@ export class AgentPresetSeatController {
    * @param id - the preset to stage.
    * @param introduce - true when the stage came from another screen and the
    * chip should announce itself on the session it lands on.
+   * @param explicit - whether a matching preset still needs to be pinned on the Host.
    */
-  stage(id: string, introduce = false): void {
+  stage(id: string, introduce = false, explicit = false): void {
     this.staged.id = id
     this.staged.introduce = introduce
+    this.staged.explicit = explicit
     this.set({ current: id, error: null, introduce })
   }
 
@@ -225,7 +230,7 @@ export class AgentPresetSeatController {
     if (session === undefined) return { kind: 'staged' }
     // A started session's history was produced under its own composition; the
     // host refuses the swap, so the stage is no longer meaningful.
-    if (!session.blank || presetOf(session) === staged) {
+    if (!session.blank || (this.staged.explicit !== true && presetOf(session) === staged)) {
       this.clearStage()
       return UNCHANGED
     }

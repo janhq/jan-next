@@ -30,6 +30,7 @@
     "client": {
       "inject": [
         "@janhq/jan-api-session-controller",
+        "@janhq/jan-api-workspace-controller",
         "@janhq/jan-client-file-upload",
         "@janhq/jan-client-locale",
         "@janhq/jan-client-ui-layout",
@@ -63,6 +64,7 @@
     "@janhq/jan-client-file-upload": "workspace:*",
     "@janhq/jan-client-store": "workspace:*",
     "@janhq/jan-client-test-runtime": "workspace:*",
+    "@janhq/jan-client-ui-dockkit": "workspace:*",
     "@janhq/jan-client-ui-layout": "workspace:*",
     "@janhq/jan-client-ui-primitives": "workspace:*",
     "@janhq/jan-client-ui-renderer": "workspace:*",
@@ -99,7 +101,7 @@
     "@janhq/jan-message-quotes": "workspace:*",
     "@janhq/jan-session-projection": "workspace:*",
     "@janhq/jan-brand": "workspace:*",
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "@janhq/jan-client-ui-context-menu": "workspace:*"
   },
   "files": [

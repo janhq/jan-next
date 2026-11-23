@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "title": "Control del escritorio",
+    "description": "Inspecciona ventanas nativas y aprueba acciones y capturas."
+  },
+  "approval": {
+    "action": "¿Permitir que Jan realice esta acción de escritorio una sola vez?",
+    "screenshot": "¿Permitir que Jan capture esta ventana una sola vez?"
+  }
+}

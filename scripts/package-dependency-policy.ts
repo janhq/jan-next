@@ -91,6 +91,8 @@ const PEER_REQUIRED_HOST_EXPORTS = {
   // Stateless; peer resolution keeps Liveshare's default owner-state path on the host's home resolver.
   '@janhq/jan-home-paths': ['janHomePath'],
   '@janhq/jan-scope': ['carrierKeyOf', 'createScope', 'scopeOf', 'scopeTarget'],
+  // The launch snapshot belongs to the Host's own instance; remotes reads it to name the local computer.
+  '@janhq/jan-launch-environment': ['launchEnvironmentOf', 'launchedThroughSsh'],
   // appendPluginRecord writes through the Session class's private log; pluginRecordOf is stateless.
   '@janhq/jan-session': ['SESSION_FORMAT_VERSION', 'appendPluginRecord', 'pluginRecordOf'],
   '@janhq/jan-session-persistence': ['SessionPersistenceNotFoundError'],

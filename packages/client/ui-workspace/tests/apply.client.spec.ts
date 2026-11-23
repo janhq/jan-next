@@ -282,6 +282,7 @@ describe('ui-workspace apply', () => {
     b.initializeDefault.mockRejectedValueOnce(new Error('denied'))
     declare(b.slots, 'shell.overlay')
     await b.ctx.plugin({ inject: [...inject], apply }).await()
+    b.ctx.uiWorkspace.startSession()
     const face = faceOf(entry(b.slots, 'shell.overlay', 'workspace.row-toast')) as RowToastInjected
     await vi.waitFor(() => {
       expect(face.hooks.toast.getSnapshot()).toMatchObject({ kind: 'defaultWorkspaceFailed' })
@@ -940,8 +941,13 @@ it('captures Workspace menu requests, rechecks mutable access, and withdraws reg
   const target = { kind: 'workspace' as const, value: { workspaceId: 'alpha' as WorkspaceId, path: '/projects/alpha', displayTitle: 'Alpha' } }
   const menu = b.ctx.contextMenus.resolve(target)
   await menu.ready
-  expect(menu.source.getSnapshot().map(item => item.id)).toEqual(['workspace.rename/rename', 'workspace.delete/delete'])
-  menu.select('workspace.rename/rename')
+  expect(menu.source.getSnapshot().map(item => item.id)).toEqual(['workspace.edit/edit', 'workspace.rename/rename', 'workspace.delete/delete'])
+  menu.select('workspace.edit/edit')
+  expect(browser.hooks.workspaceActionRequest.getSnapshot()).toEqual({ action: 'update', workspaceId: 'alpha', displayTitle: 'Alpha', storedTitle: 'alpha' })
+  browser.settleWorkspaceAction()
+  const rename = b.ctx.contextMenus.resolve(target)
+  await rename.ready
+  rename.select('workspace.rename/rename')
   expect(browser.hooks.workspaceActionRequest.getSnapshot()).toEqual({ action: 'rename', workspaceId: 'alpha', displayTitle: 'Alpha', storedTitle: 'alpha' })
   browser.settleWorkspaceAction()
   const removed = b.ctx.contextMenus.resolve(target)

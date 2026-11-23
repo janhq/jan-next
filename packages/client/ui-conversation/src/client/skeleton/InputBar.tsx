@@ -16,8 +16,10 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from 'react'
 import clsx from 'clsx'
+import { $getRoot, $onUpdate, UNDO_COMMAND, type LexicalEditor } from 'lexical'
 import {
-  focusWithoutRing, IconPlusOutlineMedium, IconTriangleRightFillRegular, IconWarningOutlineRegular, isMobileDevice, Toast, Tooltip,
+  focusWithoutRing, IconCloseFillRegular, IconCodeOutlineRegular, IconPaperclipOutlineRegular, IconPlusOutlineMedium,
+  IconTriangleRightFillRegular, IconWarningOutlineRegular, isMobileDevice, Menu, MenuItemButton, Toast, Tooltip,
 } from '@janhq/jan-client-ui-primitives'
 // Type-only: the `plan` projection key merge (the TodoDock posture — the
 // composer reads a host-computed value; the domain owns the key).
@@ -43,6 +45,19 @@ import css from './InputBar.module.css'
 
 export type InputBarProps = ComposerBarProps
 
+/** A paste at least this long (characters or lines) is offered as a file attachment. */
+const LARGE_PASTE_CHARS = 2000
+const LARGE_PASTE_LINES = 30
+
+/** The pending offer to turn the last large paste into a text attachment. */
+interface PasteOffer {
+  text: string
+  lines: number
+  /** The exact editor and content revision committed by this paste. */
+  editor: LexicalEditor
+  revision: number
+}
+
 export const InputBar = memo(function InputBar({
   useSession, useInput, inputActions, keyboard, addFiles, removeAttachment, resolveDraftAttachments,
   retryFileUpload,
@@ -50,8 +65,8 @@ export const InputBar = memo(function InputBar({
   renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut, useContextWindow,
   useAccess,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
-  workspacePickerOpen = false, onRequestWorkspace,
-  placeholder, accessory,
+  workspacePickerOpen = false, onRequestWorkspace, onActivateDraft,
+  placeholder, accessory, dockStart,
 }: InputBarProps) {
   const input = useInput(s => s)
   const notice = useNotices(s => s)
@@ -70,7 +85,9 @@ export const InputBar = memo(function InputBar({
   const stopAction = cancelDenied ? undefined : stop
   void useLexicon // hook seat stays bound by the inject compartment; text-ref decoration rides the shell's editor transforms
   const commandMenuOpen = useMenuLauncher(source => source === 'command')
-  const [activity, setActivity] = useState(false)
+  const [sessionActivity, setActivity] = useState(false)
+  const [draftActivity, setDraftActivity] = useState(false)
+  const activity = sessionActivity || draftActivity
   useEffect(() => { setActivity(false) }, [sessionId])
   const promptError = useSession(s => s.promptError) ?? null
   const running = useSession(s => s.running) ?? false
@@ -154,6 +171,23 @@ export const InputBar = memo(function InputBar({
   }, [])
   const cardRef = useRef<HTMLDivElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const draftOpening = useRef<Promise<void> | undefined>(undefined)
+  const [hasBootstrapText, setHasBootstrapText] = useState(false)
+  const openDraft = (element?: HTMLDivElement): Promise<void> => {
+    if (onActivateDraft === undefined) return Promise.resolve()
+    const readText = (): string => {
+      const input = element ?? cardRef.current?.querySelector<HTMLDivElement>('[data-composer-input]')
+      return input?.innerText ?? input?.textContent ?? ''
+    }
+    setHasBootstrapText(readText() !== '')
+    if (draftOpening.current !== undefined) return draftOpening.current
+    const opening = onActivateDraft(readText).finally(() => { draftOpening.current = undefined })
+    draftOpening.current = opening
+    return opening
+  }
+  const activateDraft = (element?: HTMLDivElement): void => {
+    void openDraft(element).catch(() => { /* Navigation reports the failure and leaves the draft intact. */ })
+  }
 
   const continuable = subagent?.address.mode === 'continuable'
   const disabled = removed || inert || !live || blocked !== undefined
@@ -171,8 +205,8 @@ export const InputBar = memo(function InputBar({
   // exists; the trigger itself is read-only rather than disabled so pointer
   // and keyboard users can reach the recovery action.
   const workspaceTrigger = inert && !removed && onRequestWorkspace !== undefined
-  const editorDisabled = removed || (locked && !workspaceTrigger)
-  const editable = live && !locked && !machineBusy
+  const editorDisabled = removed || (locked && !workspaceTrigger && onActivateDraft === undefined)
+  const editable = onActivateDraft !== undefined || (live && !locked && !machineBusy)
   const steeringAvailable = subagent === null || subagent.address.mode === 'continuable'
   const canSteerQueue = !locked && !machineBusy && !commandMenuOpen && empty && running && steeringAvailable
     && input.queue.length > 0
@@ -248,9 +282,9 @@ export const InputBar = memo(function InputBar({
   // client-side size or count limit and upload as soon as they are picked.
   // The host enforces the same image limits at submit for callers that bypass
   // this composer.
-  const intakeFiles = useCallback((files: readonly File[], directories?: ReadonlySet<File>): void => {
+  const intakeFiles = useCallback((files: readonly File[], directories?: ReadonlySet<File>): boolean => {
     if (uploadDenied || locked || machineBusy || (subagent !== null && !continuable)
-      || addFiles === undefined || files.length === 0) return
+      || addFiles === undefined || files.length === 0) return false
     const rejected = ((): string | null => {
       // Child prompts support images, but not generic file receipts or the
       // Desktop path-reference fallback. Refuse mixed batches before intake.
@@ -276,7 +310,52 @@ export const InputBar = memo(function InputBar({
       return addFiles(files, directories)
     })()
     if (rejected !== null) showToast(rejected)
+    return rejected === null
   }, [uploadDenied, locked, machineBusy, subagent, continuable, addFiles, attachments, imageLimits, showToast, t])
+
+  const canAttachPaste = !uploadDenied && !locked && !machineBusy && addFiles !== undefined && subagent === null
+  const [pasteOffer, setPasteOffer] = useState<PasteOffer | null>(null)
+  const pastedText = useCallback((text: string): void => {
+    if (keyboard === undefined || editor === null || locked || machineBusy) return
+    setPasteOffer(null)
+    const lines = text.split('\n').length
+    if (!canAttachPaste || (text.length < LARGE_PASTE_CHARS && lines < LARGE_PASTE_LINES)) {
+      keyboard.paste(text)
+      return
+    }
+
+    // The paste command runs inside Lexical's update. Bind the offer only if
+    // this insertion changed the text and was the only edit in that commit.
+    const before = $getRoot().getTextContent()
+    const previous = keyboard.snapshot
+    const cleanStart = before === editor.getEditorState().read(() => $getRoot().getTextContent())
+    keyboard.paste(text)
+    const after = $getRoot().getTextContent()
+    if (!cleanStart || before === after) return
+    $onUpdate(() => {
+      const next = keyboard.snapshot
+      if (next.draftRev !== previous.draftRev + 1 || next.draft === previous.draft
+        || after !== editor.getEditorState().read(() => $getRoot().getTextContent())) return
+      setPasteOffer({ text, lines, editor, revision: next.draftRev })
+    })
+  }, [canAttachPaste, editor, keyboard, locked, machineBusy])
+  const activePaste = pasteOffer !== null && pasteOffer.editor === editor && pasteOffer.revision === input?.draftRev
+    ? pasteOffer
+    : null
+  useEffect(() => {
+    if (activePaste === null) setPasteOffer(null)
+  }, [activePaste])
+  const attachPaste = (): void => {
+    if (activePaste === null || keyboard === undefined || !canAttachPaste) return
+    setPasteOffer(null)
+    const { editor, revision, text } = activePaste
+    // Flush any edit not yet visible to React. PASTE_TAG gives the accepted
+    // paste its own history step, and the revision prevents undoing a later edit.
+    editor.read(() => {})
+    if (keyboard.snapshot.draftRev !== revision) return
+    if (intakeFiles([new File([text], 'pasted-text.txt', { type: 'text/plain' })])
+      && keyboard.snapshot.draftRev === revision) editor.dispatchCommand(UNDO_COMMAND, undefined)
+  }
 
   const canAcceptDrop = !uploadDenied && (subagent === null || continuable) && !locked && !machineBusy && addFiles !== undefined
 
@@ -292,11 +371,11 @@ export const InputBar = memo(function InputBar({
   // registration survives re-renders without re-arming per keystroke.
   const gate = useRef({
     locked, machineBusy, canSteerQueue, running, steeringAvailable, busyEnter,
-    intakeFiles, uploadsPending, uploadsHeldText, showToast, canAcceptDrop,
+    intakeFiles, uploadsPending, uploadsHeldText, showToast, canAcceptDrop, pastedText,
   })
   gate.current = {
     locked, machineBusy, canSteerQueue, running, steeringAvailable, busyEnter,
-    intakeFiles, uploadsPending, uploadsHeldText, showToast, canAcceptDrop,
+    intakeFiles, uploadsPending, uploadsHeldText, showToast, canAcceptDrop, pastedText,
   }
 
   useEffect(() => {
@@ -345,6 +424,11 @@ export const InputBar = memo(function InputBar({
     if (editor !== null) focusDraftEditor(editor, revealSelection)
     toggleCommandMenu?.(keyboard.caretSpan())
   }
+
+  // The plus button keeps to the two things people reach for: attach files, or browse the
+  // `/` commands. The full command list lives behind `/`, not in this menu.
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const closeAddMenu = (): void => { setAddMenuOpen(false) }
 
   // The no-session Workspace trigger: the resident editable div acts as the
   // picker trigger for keyboard users (no editor is bound in this state).
@@ -434,13 +518,30 @@ export const InputBar = memo(function InputBar({
           key={toast.seq}
           text={toast.text}
           icon={<IconWarningOutlineRegular />}
-          anchor={cardRef.current}
           onDone={dismissToast}
         />
       )}
       {notice?.level === 'info' && (
         <div className={css.notice} role="status">
           {notice.text}
+        </div>
+      )}
+      {activePaste !== null && canAttachPaste && (
+        <div className={clsx(css.notice, css.pasteOffer)} role="status">
+          <span className={css.pasteOfferText}>{t('paste.large', { count: activePaste.lines })}</span>
+          <button type="button" className={css.pasteOfferAction} onMouseDown={keepFocus} onClick={attachPaste}>
+            {t('paste.attach')}
+          </button>
+          <button
+            type="button"
+            className={css.pasteOfferDismiss}
+            aria-label={t('paste.keepText')}
+            title={t('paste.keepText')}
+            onMouseDown={keepFocus}
+            onClick={() => { setPasteOffer(null) }}
+          >
+            <IconCloseFillRegular size={12} />
+          </button>
         </div>
       )}
       {/* Trigger clicks land on the card, not the editor: the toolbar row's
@@ -494,25 +595,39 @@ export const InputBar = memo(function InputBar({
           workspaceTrigger={workspaceTrigger}
           workspacePickerOpen={workspacePickerOpen}
           onWorkspaceKeyDown={onWorkspaceKeyDown}
+          onDraftInteraction={onActivateDraft === undefined ? undefined : activateDraft}
           hint={hint}
-          showPlaceholder={draft === '' && attachments.length === 0 && !claimActive}
+          showPlaceholder={!(onActivateDraft !== undefined && hasBootstrapText) && draft === '' && attachments.length === 0 && !claimActive}
         />
         <div ref={rowRef} className={css.row}>
           <div className={css.tools} hidden={activity}>
-            <Tooltip label={t('input.commands')} side="top" delayMs={500} portal>
-              <button
-                type="button"
-                className={css.add}
-                aria-label={t('input.commands')}
-                aria-haspopup="listbox"
-                aria-expanded={commandMenuOpen}
-                disabled={locked || toggleCommandMenu === undefined}
-                onMouseDown={keepFocus}
-                onClick={onToggleCommandMenu}
-              >
-                <IconPlusOutlineMedium size={14} />
-              </button>
-            </Tooltip>
+            <Menu open={addMenuOpen} onClose={closeAddMenu} side="top" portal autoFocus
+              anchor={(
+                <Tooltip label={t('input.commands')} side="top" delayMs={500} portal disabled={addMenuOpen}>
+                  <button
+                    type="button"
+                    className={css.add}
+                    aria-label={t('input.commands')}
+                    aria-haspopup="menu"
+                    aria-expanded={addMenuOpen || commandMenuOpen}
+                    disabled={locked && onActivateDraft === undefined}
+                    onMouseDown={keepFocus}
+                    onClick={() => { if (!addMenuOpen) activateDraft(); setAddMenuOpen(open => !open) }}
+                  >
+                    <IconPlusOutlineMedium size={14} />
+                  </button>
+                </Tooltip>
+              )}>
+              <MenuItemButton icon={<IconPaperclipOutlineRegular size={14} />} disabled={!canAcceptDrop || subagent !== null}
+                onSelect={() => { closeAddMenu(); fileInputRef.current?.click() }}>
+                {t('input.addFiles')}
+              </MenuItemButton>
+              {toggleCommandMenu === undefined ? null : (
+                <MenuItemButton icon={<IconCodeOutlineRegular size={14} />} onSelect={() => { closeAddMenu(); onToggleCommandMenu() }}>
+                  {t('input.browseCommands')}
+                </MenuItemButton>
+              )}
+            </Menu>
             <input
               ref={fileInputRef}
               type="file"
@@ -536,9 +651,20 @@ export const InputBar = memo(function InputBar({
                 : renderSlot('conversation.input.right', {})}
               {sessionId === undefined ? null : renderSlot('conversation.input.model', { locked: modelSeatLocked })}
             </div>
-            {input === undefined || sessionId === undefined ? null : <div className={activity ? css.activityExpanded : css.activity}>
-              {renderSlot('conversation.input.activity', { locked, onActiveChange: setActivity })}
-            </div>}
+            {input !== undefined && sessionId !== undefined && !draftActivity && (
+              <div className={sessionActivity ? css.activityExpanded : css.activity}>
+                {renderSlot('conversation.input.activity', { locked, onActiveChange: setActivity })}
+              </div>
+            )}
+            {!sessionActivity && (sessionId !== undefined || onActivateDraft !== undefined) && (
+              <div className={draftActivity ? css.activityExpanded : css.activity}>
+                {renderSlot('conversation.input.draftActivity', {
+                  locked: sessionId !== undefined ? locked : promptDenied,
+                  onActiveChange: setDraftActivity,
+                  ...(sessionId === undefined && onActivateDraft !== undefined ? { openDraft } : {}),
+                })}
+              </div>
+            )}
             {interruptible && !cancelDenied && (
               <Tooltip label={t('input.stop')} shortcutKeys={stopKeys} side="top" delayMs={500} disabled={stopAction === undefined} portal>
                 <button
@@ -590,6 +716,7 @@ export const InputBar = memo(function InputBar({
         </div>
       </div>
       <div className={css.dock} data-composer-dock>
+        {dockStart === undefined ? null : <div className={css.dockStart}>{dockStart}</div>}
         {input !== undefined && sessionId !== undefined
           ? renderSlot('conversation.composer.dock', { locked: modelSeatLocked })
           : null}

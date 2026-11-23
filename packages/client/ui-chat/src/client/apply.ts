@@ -227,6 +227,7 @@ export function apply(ctx: Context): void {
     children: {
       'conversation.chat.node': { kind: 'keyed', scope: 'session', inject: CHAT_NODE_INJECT },
       'conversation.chat.running-detail': { kind: 'list', scope: 'session' },
+      'conversation.chat.running-tail': { kind: 'list', scope: 'session' },
     },
     inject: (sessionId: SessionId): ChatFlowDataInjected => {
       const binding = ctx.sessions.binding(sessionId)
@@ -245,6 +246,7 @@ export function apply(ctx: Context): void {
       children: {
         'conversation.chat.flow': { kind: 'single', scope: 'session', inject: CHAT_FLOW_INJECT },
         'conversation.chat.text-interaction': { kind: 'keyed', scope: 'session' },
+        'conversation.chat.image.actions': { kind: 'list', scope: 'session' },
       },
       store: chatStore,
       inject: (sessionId: SessionId): ChatViewInjected => {
@@ -275,8 +277,12 @@ export function apply(ctx: Context): void {
             const cwd = ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd
             const current = session.projections.faceOf('workingDirectory').getSnapshot() as string | null | undefined
             const url = fileAddressFor(sessionId, cwd, resolveWorkspacePath(current ?? undefined, path))
-            if (options?.line === undefined) ctx.sidebarRight.openResource(url)
-            else ctx.sidebarRight.openResource(url, { params: { line: options.line } })
+            const sidebar = ctx.sidebarRight
+            // A card that toggles its preview hides the column when that file is already in front.
+            const active = options?.toggle === true && sidebar.isExpanded() ? sidebar.active() : undefined
+            if (active?.contentId === url) { sidebar.hide(active.id); return }
+            if (options?.line === undefined) sidebar.openResource(url)
+            else sidebar.openResource(url, { params: { line: options.line } })
             await Promise.resolve()
           },
           resolveFilePath: sessionFilePath(ctx, sessionId),
@@ -291,7 +297,10 @@ export function apply(ctx: Context): void {
           loadThrough: seq => session.loadThrough(seq),
           loadImage: Object.assign(
             (attachment: ImageAttachmentRef) => ctx.uiConversation.imageUrl(sessionId, attachment),
-            { peek: (attachment: ImageAttachmentRef) => ctx.uiConversation.peekImageUrl(sessionId, attachment) },
+            {
+              peek: (attachment: ImageAttachmentRef) => ctx.uiConversation.peekImageUrl(sessionId, attachment),
+              acquire: (attachment: ImageAttachmentRef) => ctx.uiConversation.acquireImageUrl(sessionId, attachment),
+            },
           ),
           chatScroll: {
             save: (position) => {

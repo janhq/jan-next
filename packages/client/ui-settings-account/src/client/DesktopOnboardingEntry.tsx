@@ -1,9 +1,9 @@
 /** Framework-hook projection into the desktop introduction's pure view. */
 import { useEffect, useLayoutEffect, useState } from 'react'
-import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type { HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type {} from '@janhq/jan-client-ui-layout/client'
 import type { AccountSnapshot } from './AccountSection.tsx'
-import type { DesktopOnboardingProps, DesktopOnboardingState } from './onboarding-contract.ts'
+import type { DesktopOnboardingProps, DesktopOnboardingState, OnboardingFlowOwner } from './onboarding-contract.ts'
 import { OnboardingSurface } from './OnboardingSurface.tsx'
 import { DesktopOnboarding } from './DesktopOnboarding.tsx'
 
@@ -11,9 +11,12 @@ import { DesktopOnboarding } from './DesktopOnboarding.tsx'
 export interface DesktopOnboardingInjected extends Omit<DesktopOnboardingProps, 'state' | 'account' | 't' | 'exiting' | 'locale'> {
   /** Publish whether onboarding covers the workspace. @param visible - includes loading, saving, and exit animation. */
   setVisible: (visible: boolean) => void
+  /** Completion command for the replacement flow. */
+  finishCustomFlow: OnboardingFlowOwner['finish']
   hooks: {
     onboarding: HostObservable<DesktopOnboardingState>
     account: HostObservable<AccountSnapshot>
+    customFlow: HostObservable<boolean>
   }
 }
 
@@ -22,11 +25,12 @@ export interface DesktopOnboardingInjected extends Omit<DesktopOnboardingProps, 
  * @param props - shell overlay bindings and account-owned actions.
  * @returns the unfinished flow, retained briefly after successful completion unless motion is reduced.
  */
-export function DesktopOnboardingEntry({ useOnboarding, useAccount, setVisible, ...props }:
-  PropsRuntime<'shell.overlay'> & PropsLocale<'settings.account'> & InjectFace<DesktopOnboardingInjected>) {
+export function DesktopOnboardingEntry({ useOnboarding, useAccount, useCustomFlow, setVisible, finishCustomFlow, renderSlot, ...props }:
+  PropsRuntime<'shell.overlay'> & PropsLocale<'settings.account'> & PropsRenderSlots<'settings.onboarding.flow'> & InjectFace<DesktopOnboardingInjected>) {
   const locale = props.t('onboardingArtworkLocale')
   const state = useOnboarding(value => value)
   const account = useAccount(value => value)
+  const customFlow = useCustomFlow(value => value)
   useLayoutEffect(() => {
     if (!state.visible) return
     const bridge = (globalThis as typeof globalThis & {
@@ -37,7 +41,7 @@ export function DesktopOnboardingEntry({ useOnboarding, useAccount, setVisible, 
   }, [state.visible])
   const [lastVisible, setLastVisible] = useState(state.visible ? state : null)
   const done = !state.visible && state.progress.step === 'done'
-    && account.view?.status === 'credential-stored'
+    && (customFlow || account.view?.status === 'credential-stored')
   const pendingCompletion = done && state.status === 'saving'
   const completed = done && state.status === 'ready'
   const exiting = completed && lastVisible !== null
@@ -59,6 +63,12 @@ export function DesktopOnboardingEntry({ useOnboarding, useAccount, setVisible, 
   useLayoutEffect(() => { setVisible(visible) }, [setVisible, visible])
   if (displayed === null) return state.status === 'loading'
     ? <OnboardingSurface><div role="status">{props.t('onboardingLoading')}</div></OnboardingSurface> : null
+  if (customFlow) return <OnboardingSurface exiting={exiting}>
+    {renderSlot('settings.onboarding.flow', {
+      busy: pendingCompletion || exiting || displayed.status === 'saving',
+      settingsError: displayed.error !== null, finish: finishCustomFlow, retry: props.retry,
+    })}
+  </OnboardingSurface>
   return <DesktopOnboarding {...props} locale={locale} state={pendingCompletion ? { ...displayed, status: 'saving' } : displayed}
     account={account} exiting={exiting} />
 }

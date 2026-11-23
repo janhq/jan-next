@@ -400,7 +400,7 @@ it('keeps output attached after an input refusal and stops further input', async
 
 it('discards the old generation budget and never replays unacknowledged input after reconnect', async () => {
   const h = fixture()
-  h.generation.set({ id: 1, host: { home: '/home/fixture' } })
+  h.generation.set({ id: 1, host: { home: '/home/fixture', name: 'fixture-host', remote: false } })
   await connected(h.model)
   h.model.write('unconfirmed')
   await expect.poll(() => h.sent[0]?.length).toBe(1)
@@ -408,7 +408,7 @@ it('discards the old generation budget and never replays unacknowledged input af
   h.attachments[0]!.fail(new RemoteStreamCarrierError('connection lost'))
   await expect.poll(() => h.model.state.getSnapshot().phase).toBe('disconnected')
   h.model.write('offline')
-  h.generation.set({ id: 2, host: { home: '/home/fixture' } })
+  h.generation.set({ id: 2, host: { home: '/home/fixture', name: 'fixture-host', remote: false } })
   await expect.poll(() => h.attachments.length).toBe(2)
   await expect.poll(() => h.model.state.getSnapshot().writable).toBe(true)
   acknowledge(h.model)

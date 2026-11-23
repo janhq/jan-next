@@ -1283,15 +1283,15 @@ describe('TypertGatewayService', () => {
         if (signal.aborted) resolve()
         else signal.addEventListener('abort', () => { resolve() }, { once: true })
       })
-    })(), { home: '/home/fixture' })
+    })(), { home: '/home/fixture', name: 'fixture-host', remote: false })
     const carrier = new AbortController()
     const events = (await ctx.typertGateway.wireStream.open(
       '$events', { args: {} }, (async function* () {})(), connection.browserPeer, carrier.signal,
     ))[Symbol.asyncIterator]()
     const opening = await events.next()
-    expect(opening).toMatchObject({
+    expect(opening).toEqual({
       done: false,
-      value: { type: 'ready', host: { home: '/home/fixture' } },
+      value: { type: 'ready', clientId: expect.any(String) as string, host: { home: '/home/fixture' } },
     })
     if (opening.done) throw new Error('Remote event stream ended before ready')
     const clientId: unknown = Reflect.get(opening.value as object, 'clientId')

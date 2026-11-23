@@ -86,6 +86,7 @@ function props(overrides: Partial<ComposerAttachmentsOwnerProps> = {}): Paramete
     t,
     ...overrides,
     readFileDrag: () => undefined,
+    renderSlot: () => null,
   }
 }
 

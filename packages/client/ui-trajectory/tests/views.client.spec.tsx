@@ -845,6 +845,7 @@ describe('timeline projection', () => {
                   completedTime: 3_000,
                   usageProvided: false,
                   outputTokens: null,
+                  streamedChars: 9,
                 },
               }],
             }],

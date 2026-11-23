@@ -19,6 +19,18 @@ packages:
 
 overrides:
   'extract-zip>yauzl': '3.4.0'
+  'selfsigned>node-forge': '1.4.3'
+  '@modelcontextprotocol/sdk': '1.32.0'
+  'express@5>body-parser': '2.4.0'
+  'node-gyp>undici': '6.29.1'
+  '@electron/get>undici': '7.30.1'
+  '@yao-pkg/pkg-fetch>undici': '7.30.1'
+  'jsdom>undici': '7.30.1'
+  '@botiverse/oar>undici': '8.12.2'
+  '@earendil-works/pi-coding-agent>undici': '8.12.2'
+  'http-proxy>follow-redirects': '1.16.2'
+  happy-dom: '21.0.4'
+  'zod@>=4 <4.6.6': '4.6.6'
   '@janhq/cosmokit': 'link:vendor/cosmokit'
   '@janhq/schemastery': 'link:vendor/schemastery'
 
@@ -56,6 +68,9 @@ allowBuilds:
   electron-winstaller: false
   # Store-index rewriting only needs msgpackr's portable JavaScript codec.
   msgpackr-extract: false
+  # Desktop packaging copies agent-desktop's prebuilt, checksummed executables
+  # from the tarball; its postinstall would only download the same files again.
+  agent-desktop: false
 
 minimumReleaseAgeExclude:
   # Native Codex and Claude tests qualify this exact release with its local patches.

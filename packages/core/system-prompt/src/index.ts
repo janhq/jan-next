@@ -69,10 +69,16 @@ export interface PromptSection {
   /**
    * Treat this contribution as the complete system prompt. Assembly still
    * runs the cooperative waterfall so tools, contexts, and variables can be
-   * resolved, then restores this exact section as the sole prompt section.
+   * resolved, then restores this exact section as the sole prompt section,
+   * followed only by the sections named in {@link keep}.
    * More than one effective complete section makes assembly fail.
    */
   readonly complete?: boolean
+  /**
+   * With {@link complete}, names of other sections kept after it when they are
+   * registered, in their own order. An absent name contributes nothing.
+   */
+  readonly keep?: readonly string[]
 }
 
 /** Dynamic model context materialized as a durable user-role snapshot. */
@@ -612,7 +618,7 @@ export class SystemPrompt extends Service {
    * canonical ordering, then run the presentation waterfall. Scoped sections
    * and variables shadow globals. The waterfall's text is authoritative except
    * that an effective complete section is restored afterwards as the sole
-   * prompt section; tool declarations stay provider-owned.
+   * prompt section, plus the registered sections it keeps; tool declarations stay provider-owned.
    * @param context - the optional scope, step tool set, and plugin-defined assembly fields.
    * @returns the post-waterfall assembly with ordered tool declarations and any complete prompt enforced.
    */
@@ -661,6 +667,8 @@ export class SystemPrompt extends Service {
       throw new Error(`multiple complete prompt sections are active: ${completeSections.map(section => JSON.stringify(section.name)).join(', ')}`)
     }
     let completeSection: AssembledSection | undefined
+    const keep = new Set(completeSections[0]?.keep)
+    const kept: AssembledSection[] = []
     const sections = sectionDefinitions
       .map((section) => {
         const assembled = {
@@ -669,6 +677,7 @@ export class SystemPrompt extends Service {
           ...section.interpolate !== undefined ? { interpolate: section.interpolate } : {},
         }
         if (section.complete === true) completeSection = { ...assembled }
+        else if (keep.has(section.name)) kept.push({ ...assembled })
         return assembled
       })
     const tools = orderTools(collected, this.toolOrder, knownNames)
@@ -689,7 +698,7 @@ export class SystemPrompt extends Service {
     return {
       ...transformed,
       tools,
-      sections: completeSection === undefined ? transformed.sections : [completeSection],
+      sections: completeSection === undefined ? transformed.sections : [completeSection, ...kept],
       contexts: runtimeContextSuppressed ? transformed.contexts.filter(entry => requiredContexts.has(entry.name)) : transformed.contexts,
     }
   }

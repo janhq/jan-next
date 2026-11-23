@@ -40,6 +40,8 @@ interface DraftViewGate {
   uploadsHeldText: string
   showToast: (text: string) => void
   canAcceptDrop: boolean
+  /** Insert clipboard text and optionally offer to attach that edit instead. */
+  pastedText: (text: string) => void
 }
 
 /**
@@ -158,10 +160,7 @@ export function installDraftKeymap(
       ), 'enter')
     },
     intakeFiles: (files, directories) => { gate.current.intakeFiles(files, directories) },
-    pasteText: (text) => {
-      if (gate.current.machineBusy || gate.current.locked) return
-      keyboard.paste(text)
-    },
+    pasteText: (text) => { gate.current.pastedText(text) },
   })
 }
 

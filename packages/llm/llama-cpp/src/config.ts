@@ -113,8 +113,9 @@ export interface Config {
   cacheRamMiB?: number | undefined
   /**
    * Disk budget, in MiB, for per-thread KV state under `<dataRoot>/slots` (`--slot-cache-mib`);
-   * `0` saves nothing. A request is cached only when it names its thread, which the `llm-pi-ai`
-   * route does not send yet.
+   * `0` saves nothing. The `local` route names each conversation request's Session as its thread,
+   * so returning to a Session after another one used the slot, or after a restart, restores its
+   * cache instead of reading the conversation again. 8192, as Jan's conversation cache.
    */
   slotCacheMiB: number
   /** Deadline from spawn until the handshake and the active model's load complete. */
@@ -176,7 +177,7 @@ export const Config: z<Partial<Config>, Config> = z.object({
   loadMode: z.union([z.union(['none', 'mmap', 'mlock', 'mmap+mlock']), z.const(undefined)]),
   mmprojOffload: z.boolean().default(true),
   cacheRamMiB: z.union([z.number().step(1).min(-1), z.const(undefined)]),
-  slotCacheMiB: z.natural().default(0),
+  slotCacheMiB: z.natural().default(8192),
   startTimeoutMs: z.natural().min(1).default(120_000),
   feedRetryMs: z.natural().min(1).default(1000),
   stopTimeoutMs: z.natural().min(1).default(15_000),

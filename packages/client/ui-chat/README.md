@@ -54,9 +54,17 @@ Settings → General → Open chat links in selects the destination for ordinary
 
 Chat omits system-prompt and `permission` command rows in every work-details mode. It also hides pending and successful `/team on` and `/team off` receipts, identified by their recorded name and trimmed arguments; failures and commands with missing or unrecognized arguments remain visible. Context injections remain visible as collapsed rows that use the tool-call disclosure row; within a Turn they join its process group like tool calls. The filter changes neither recorded Session events nor Trajectory inspection and excludes hidden receipts from flow spacing and process summaries. Non-human Turn triggers remain independent, bordered notices with a contrasting neutral background; other command rows remain in Chat.
 
+An injected context row is titled `Inject context`, followed by its producer, such as `Inject context · skill-catalog`. An attributed row ends with its estimated token cost, such as `~2.4K tok`, priced with the same `estimateContent` heuristic the context meter uses; the tooltip gives the exact estimate. The figure is hidden from assistive technology, so the row's accessible name stays its role and producer. Tool-list changes and unattributed context show no figure. An expandable row ends with a chevron that points right while closed and down while open.
+
+A closed step header ends with one caption: a context-only step shows the sum of its rows' estimated token figures, such as `~2.9K tok`; any other step shows its wall-clock span, from its first tool call or reasoning start to its last result, such as `36s`. Both are hidden from assistive technology.
+
 When an Assistant attempt retires without a visible message, Chat hides its already-published Node instead of removing its key. A retry in the same Step reuses that key when visible content returns. This also applies when the loaded window lacks the Step start.
 
 Text and reasoning contribute to Assistant visibility only when they contain a non-whitespace character. Streaming appends reuse each block's visibility; block replacement and finalized messages recalculate it while preserving the original text.
+
+A live reply types out on the animation-frame clock instead of jumping by network chunk. Each render that leaves text unrevealed restarts a stopped reveal loop, so text landing just after the loop caught up still types out. Pacing carries over when the renderer remounts for the same Session, reply, and text block, so the settled message continues from the live position instead of retyping; historical replies with identical text are shown in full. Reduced motion, a hidden document, or a replacement that does not extend the shown text show the full text at once.
+
+Each newly shown word fades in from a slight blur through `MarkdownText`'s `reveal`, one per reply, so words that remount as their paragraph freezes keep their place in the fade. Once the reply settles, the text renders without reveal spans.
 
 <a id="command-and-failure-rows"></a>
 ## Command and failure rows
@@ -69,6 +77,8 @@ Missing-credential turn failures show localized setup guidance instead of provid
 
 On a `CONTEXT_WINDOW_EXCEEDED` turn, Chat follows `conversationContinuation` to offer recovery on the current failure only, even when the composer cannot retry it yet. A local llama.cpp model gets **Increase context size**: the controller grows (8k -> 32k -> x1.5, capped at the GGUF maximum) and reloads the model before the Session checks the new window and admits the empty retry. At the maximum, and on cloud routes whose window cannot grow, **Compact chat and retry** runs `/compact` and retries only when a summary was written. A compaction failure or lack of older history stays on the card without retrying. Both recovery actions leave the draft and attachments untouched.
 
+Plugins add their own actions to a terminal Turn failure through the `conversation.chat.turn-error-actions` list Slot, a child of the `turn-error` row. Each entry receives the failed Turn's `turn/end` seq, the Turn number, the failure code when known, and the sanitized message, and renders after the card's own recovery actions; an entry with nothing to offer returns null. With no entries the card is unchanged.
+
 Chat adapts Markdown targets at `MarkdownDelegateProvider.getTriggerProps`. The assistant-node Slot obtains `useContextMenu` directly and passes a file-path adapter to the optional mention service; intermediate flow and node owners carry no menu callbacks. Paths resolve against the originating Session’s current working directory when the gesture begins. Menus retain that captured path and line even if focus changes. Undeclared plugin links keep native behavior.
 
 -----
@@ -76,9 +86,9 @@ Chat adapts Markdown targets at `MarkdownDelegateProvider.getTriggerProps`. The 
 <a id="turn-token-usage"></a>
 ## Turn token usage
 
-A completed Turn shows an expandable usage row only when the loaded window includes `turn/start` and every started model attempt reports safe, exact usage. The row omits unavailable optional buckets. Incomplete or contradictory accounting hides the complete disclosure instead of presenting a partial total.
+A completed Turn shows an expandable usage row only when the loaded window includes `turn/start` and every started model attempt reports safe usage: exact prompt counts, and an exact output count unless the reply was cut before the provider reported it. The row omits unavailable optional buckets. Incomplete or contradictory accounting hides the complete disclosure instead of presenting a partial total.
 
-**Settings > General > Performance & usage** appears before Session Log upload and stores `ui-chat.performanceUsage` as `detailed` (default) or `compact`. Compact shows only available output speed and cache-hit percentage beneath the composer, without interactive statistic dialogs or per-Turn usage. Detailed exposes session statistics and per-Turn token usage. Neither mode shows elapsed time in the completed-turn footer. The preference changes presentation only; accounting and Session events remain intact.
+**Settings > General > Performance & usage** appears before Session Log upload and stores `ui-chat.performanceUsage` as `detailed` (default) or `compact`. Compact shows only available output speed and cache-hit percentage beneath the composer, without interactive statistic dialogs or per-Turn usage. Detailed exposes session statistics and per-Turn token usage. When a reply was cut by Stop or a steer before the provider reported its output, per-Turn usage marks the output figure `~` and labels it estimated. Neither mode shows elapsed time in the completed-turn footer. The preference changes presentation only; accounting and Session events remain intact.
 
 The composer statistics are two `conversation.composer.dock` list entries: `activity` (order 0, turn and step counts and output speed, with LLM time, tool time, and TTFT) and `usage` (order 1, token total and cache hit). The controls follow the shared [statistics-control radius](../../../docs/ui-radius.md#radius-scale). Another plugin replaces one control by registering the same id and the same `order`; the dock orders rows by `order`, while a lower `priority` picks the replacement: a dynamic plugin receives one automatically, and a statically composed plugin passes it explicitly. A new id adds a control. Each control carries its id in `data-composer-stat`. An open statistics dialog closes on Escape or on a pointerdown or click outside it, so activating another control by pointer or keyboard swaps dialogs instead of stacking them. When an ellipsis cuts off a reading, a tooltip shows the full reading. A dialog control shows it on hover or keyboard focus, but not while its dialog is open; a reading without a dialog shows it on hover, click, or tap. The session statistics dialog heads its rows with the turn and step counts. Statistics dialogs use CSS anchors and layout-viewport size limits; browser zoom and panning move them with the page, so they may extend beyond the visual viewport. Taller dialog content scrolls internally.
 
@@ -95,12 +105,16 @@ Artifact extensions can subscribe to one Turn and Node kind through `ChatNodeSto
 
 The completed-turn action footer follows the recorded Turn end. Its action row starts 20px below preceding prose or extension content. Actions remain visible only on the latest Turn when its final visible content is a reply; other endings and historical Turns reveal actions on hover or keyboard focus. Devices without hover keep actions visible. An unavailable branch action opens its explanation on click or tap without creating a branch.
 
+A reply cut short keeps its partial text with a marker: "Stopped" after Stop, or "Interrupted" when the user's steer cut it and the turn went on.
+
 -----
 
 <a id="turn-process-folding"></a>
 ## Turn Process Folding
 
 Empty `user/message` records with `source.kind: 'retry'` remain in Session history while Chat renders a compact continuation-request receipt instead of a user bubble. Ordinary empty user messages and retry messages containing content retain their normal presentation.
+
+Agent relays received mid-turn show the first line of the recorded message in the collapsed process row. Expanding keeps the original message and sender Session id available.
 
 During uninterrupted following, local transcript and steering echoes remain mounted through Inbox acceptance and claim until the durable message arrives, without triggering tail following twice. Pending steering follows Inbox order across clients, using matching local echoes in place. Admitted local steering also suppresses matching stale Inbox rows until the claim projection arrives; steering without a locally tracked submission continues to follow the Inbox projection. After reconnect, Host-owned rows replace receipt-confirmed local echoes; a claim awaiting admission may briefly have no bubble.
 
@@ -125,9 +139,11 @@ Live tool deltas share reasoning's frame-batched publication; durable calls and 
 
 The process group uses a stable `div` layout box, a scroll body, and an uncapped content box that reports growth inside the body. Business styles must adapt spacing within and across groups, including hidden or empty members and the answer-spacing exception. The `conversation.chat.flow` slot adds a `display: contents` DOM anchor; row selectors match that anchor directly, without repeating its column ancestry. The running status shares the rows' parent, so its divider uses the same visible-sibling rules. The anchor contributes no spacing of its own. The earlier-history control directly precedes the flow anchor; their sibling relationship supplies the leading gap. CSS variables do not belong in the Group Definition.
 
-Running group titles, reasoning previews, tool and command rows, the active retry line, and the bottom running status use the shared [TextShimmer](../ui-primitives/README.md#component-catalog). Each row’s text shares one left-to-right highlight, including collapsed group titles; icons and hover chevrons retain their base appearance. Ordinary flow rows sit 4px apart. An expanded group title has 8px before its content, Assistant responses have 12px from adjacent process rows, and completed-Turn duration/status controls have 16px from their input and from a directly following visible row. A reply that follows the control after folded rows keeps the 12px reply gap, so folding never changes its spacing. Hidden and empty rows, including retained empty slot anchors, add no gap. The running “Deep diving” text retains its blue base while its theme-specific highlight sweeps across it.
+Running group titles, reasoning previews, tool and command rows, the active retry line, and the bottom running status use the shared [TextShimmer](../ui-primitives/README.md#component-catalog). Each row’s text shares one left-to-right highlight, including collapsed group titles; icons and hover chevrons retain their base appearance. Ordinary flow rows sit 4px apart. An expanded group title has 8px before its content, Assistant responses have 12px from adjacent process rows, and completed-Turn duration/status controls have 16px from their input and from a directly following visible row. A reply that follows the control after folded rows keeps the 12px reply gap, so folding never changes its spacing. Hidden and empty rows, including retained empty slot anchors, add no gap.
 
 The running status shows a whale whose APNG mask inherits the text color. CSS selects the static SVG when reduced motion or forced colors are active, or alpha masks are unsupported. The APNG is a [package asset](../AGENTS.md#dependency-declaration) referenced by the plugin stylesheet; React does not pass image data through DOM styles.
+
+The footer shows the observed Step phase and elapsed Turn time on one line. The live region announces the phase without clock ticks.
 
 Scroll-edge fades initialize when `ResizeObserver` reports the open group's layout; opening the group performs no immediate scroll-dimension read in a layout effect.
 
@@ -179,6 +195,8 @@ While the pointer is outside the rail, automatic follow keeps the rail still whe
 Within a process group, wheel, touchstart, and any pointerdown interrupt an active smooth animation, including presses on tool cards. ArrowUp/ArrowDown, PageUp/PageDown, Home/End, and Space keys also interrupt it unless a child has prevented the key's default action; editable controls are not excluded. These events stop the animation without requiring a scroll displacement. Subsequent position sampling determines whether following continues.
 
 `useScrollFollow` supplies independent controllers for shared bottom thresholds, follow intent, and native scrolling. `useProcessScroll` owns group observation, initial placement, and edge fades. Outer following remains immediate; group growth uses native smooth scrolling unless reduced motion is requested. Growth retains an in-flight target until `scrollend`; arrival at that target or its shrink-clamped position continues toward the latest floor, while another endpoint releases following. Opening placement remains immediate. A bottom-follow request within tolerance uses immediate positioning when no animation is outstanding, so a fractional no-op cannot leave a pending smooth target.
+
+Open a process trace to see live tool input and result thumbnails. The capped trace follows new content while pinned at its bottom. Scrolling up pauses follow until the reader returns to the bottom. When the trace overflows, **Show full trace** removes the cap; **Limit trace height** restores it and the previous position or bottom pin.
 
 `useChatViewport` owns turn-aware DOM reads, clamped writes, native events, and one retained paging anchor. For Load older, Node and Group seats mark eligible anchors from their existing disclosure state. The viewport selects the first nonempty, unhidden marker in transcript order without hit testing or geometry-based search, then measures that element and its scroll containers. It compensates the anchor's capped group first, then gives the remaining displacement to the transcript scrollport. An inner compensation write cancels that group's animation through its bound controller and pauses following; reader scrolling back to the bottom resumes it. Commits and later content resizes reuse that anchor; a remounted row is resolved by the same semantic key. Compensation stays within the actual scroll ranges without adding bottom space.
 

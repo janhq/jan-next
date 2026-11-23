@@ -425,6 +425,29 @@ describe('foreground commands as jobs', () => {
     for (const settle of settlers) settle({ status: 'killed' })
   })
 
+  it('returns at once when the owner yields, keeping the command as a background job', async () => {
+    const ctx = await setup()
+    const yielding = new AbortController()
+    const started = Date.now()
+    const pending = executeToolFixture(ctx, {
+      signal: testToolSignal,
+      yieldSignal: yielding.signal,
+      callId: ToolCallId('background-yield'),
+      name: 'bash',
+      arguments: { command: 'printf "before steer\\n"; sleep 30', description: 'test command', timeoutMs: 20_000 },
+    })
+    const job = await until(() => ctx.jobs.list()[0])
+    await until(() => retainedText(ctx, job.id).includes('before steer') ? true : undefined)
+    yielding.abort()
+    const result = await pending
+    expect(Date.now() - started).toBeLessThan(5_000)
+    expect(result.value).toMatchObject({ kind: 'promoted', jobId: job.id, steered: true })
+    expect(text(result)).toBe(`before steer\n[the user steered while this ran; still running as background job ${job.id}]`)
+    expect(ctx.jobs.get(job.id).status).toBe('running')
+    expect(ctx.jobs.kill(job.id, undefined, 'test cleanup')).toBe('requested')
+    await until(() => ctx.jobs.get(job.id).status === 'killed' ? true : undefined)
+  })
+
   it('keeps the plain timeout kill when keeping timed-out commands is configured off', async () => {
     const ctx = new Context()
     provideWorkingDirectoryFixture(ctx)

@@ -101,6 +101,11 @@ export function Tooltip({ label, shortcutKeys, side = 'right', align = 'center',
   const [suppressed, setSuppressed] = useState(false)
   const announce = useCallback((active: boolean) => { suppressAncestors?.(active) }, [suppressAncestors])
   const visible = pos !== null && !disabled
+  // The scroll handler below runs after render; refs carry the latest state
+  // and the withdraw callback declared further down.
+  const pinnedRef = useRef(pinned)
+  pinnedRef.current = pinned
+  const withdrawRef = useRef<() => void>(() => {})
   // ResizeObserver supplies the laid-out border box; fitting never reads
   // geometry after a position write or needs a React commit to flip sides.
   useEffect(() => {
@@ -126,15 +131,38 @@ export function Tooltip({ label, shortcutKeys, side = 'right', align = 'center',
       if (anchor.current !== null) anchorRect = anchor.current.getBoundingClientRect()
       fit()
     }
+    // The bubble is fixed to the anchor's rect at show time, so a scrolling
+    // ancestor would strand it. It hides while scrolling and, once scrolling
+    // settles, returns at the anchor's new place if the pointer still rests
+    // on it (or the bubble is pinned or focus-held); otherwise it withdraws.
+    let settle: ReturnType<typeof setTimeout> | undefined
+    const onScroll = (event: Event) => {
+      if (event.target === el || (event.target instanceof Node && el.contains(event.target))) return
+      el.style.visibility = 'hidden'
+      clearTimeout(settle)
+      settle = setTimeout(() => {
+        const target = anchor.current
+        if (target === null || !target.isConnected) return
+        if (target.matches(':hover') || pinnedRef.current || triggers.current.focus) {
+          onResize()
+          return
+        }
+        triggers.current.hover = false
+        withdrawRef.current()
+      }, 120)
+    }
     const observer = new ResizeObserver((entries) => {
       size = entries[0]?.borderBoxSize[0]
       fit()
     })
     observer.observe(el, { box: 'border-box' })
     window.addEventListener('resize', onResize)
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true })
     return () => {
+      clearTimeout(settle)
       observer.disconnect()
       window.removeEventListener('resize', onResize)
+      window.removeEventListener('scroll', onScroll, { capture: true })
     }
   }, [align, gap, pos, side, suppressed, visible])
   useEffect(() => {
@@ -184,6 +212,7 @@ export function Tooltip({ label, shortcutKeys, side = 'right', align = 'center',
     setPos(null)
     announce(false)
   }, [announce])
+  withdrawRef.current = withdraw
   const hide = () => {
     cancelShow()
     if (!triggers.current.hover && !triggers.current.focus && !pinned) withdraw()

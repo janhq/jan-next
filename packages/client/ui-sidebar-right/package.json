@@ -70,7 +70,7 @@
     "picomatch": "^4.0.7",
     "clsx": "^2.0.0",
     "@janhq/jan-util-crypto": "workspace:*",
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "@janhq/jan-client-shortcuts": "workspace:*",
     "@janhq/jan-brand": "workspace:*",
     "@janhq/jan-client-ui-context-menu": "workspace:*"

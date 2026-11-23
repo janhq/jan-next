@@ -9,9 +9,13 @@
     "src/client",
     "src/changes.ts",
     "src/presented.ts",
+    "src/links.ts",
     "src/css-modules.d.ts"
   ],
   "references": [
+    {
+      "path": "../../session/session-projection"
+    },
     {
       "path": "../ui-settings/tsconfig.client.json"
     },
@@ -47,6 +51,9 @@
     },
     {
       "path": "../ui-sidebar-right"
+    },
+    {
+      "path": "../ui-sidebar-browser/tsconfig.client.json"
     },
     {
       "path": "../ui-slots"

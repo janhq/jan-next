@@ -56,13 +56,15 @@
   text-overflow: ellipsis;
 }
 
-.summary[data-streaming] {
-  mask-image: linear-gradient(to right, black calc(100% - 48px), transparent);
+.summary[data-streaming] .summaryText {
+  direction: rtl;
+  text-align: left;
 }
 
-.summary[data-streaming] .summaryText {
-  overflow: visible;
-  text-overflow: clip;
+/* Move the ellipsis to the left without reordering the preview's words and punctuation. */
+.liveSummaryText {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .root:not([data-preview]) .separator,

@@ -185,10 +185,12 @@ it.each([en, zh])('offers settings, contact and sign-in from the signed-out acco
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={openSettings}
     t={key => key in copy ? copy[key as AccountKey] : key} />)
+  // Signed out, the wide footer leads with Log in, which starts sign-in at once;
+  // the gear beside it opens the account menu.
+  fireEvent.click(screen.getByRole('button', { name: copy.logIn }))
+  expect(operations.start).toHaveBeenCalledOnce()
   const trigger = screen.getByRole('button', { name: copy.menu })
-  // Signed out, the row reads "Jan · Local": answers come from this computer.
-  expect(trigger.textContent).toBe(`${copy.localAccount}${copy.local}`)
-  expect(trigger.querySelector('svg')).not.toBeNull()
+  expect(trigger.textContent).toBe('')
   fireEvent.click(trigger)
   expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([copy.settings, copy.signIn])
   await expect(`${screen.getByRole('menu').textContent}\n`).toMatchFileSnapshot(`./expected/menu-signed-out-${copy === en ? 'en' : 'zh'}.txt`)
@@ -244,10 +246,10 @@ it('reports a failed start in the login dialog, not as a sidebar alert', async (
     useAccount={selector => selector(snapshot)} useTheme={selector => selector(operations.hooks.theme.getSnapshot())}
     wide openOnboarding={() => {}} openSettings={() => {}}
     t={key => key in en ? en[key as AccountKey] : key} />)
-  expect(screen.getByRole('dialog').textContent).toContain(en.failed)
+  expect(screen.getByRole('dialog').textContent).toContain(en.failureGeneric)
   expect(screen.queryByRole('alert')).toBeNull()
   // The dialog is the only place that reports the failure, so its copy appears once.
-  expect(document.body.textContent.split(en.failed)).toHaveLength(2)
+  expect(document.body.textContent.split(en.failureGeneric)).toHaveLength(2)
   await expect(`${document.body.textContent}\n`).toMatchFileSnapshot('./expected/login-failed-en.txt')
 })
 

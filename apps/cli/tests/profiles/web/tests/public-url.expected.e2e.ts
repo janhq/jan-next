@@ -100,7 +100,10 @@ async function bootWeb(root: string, flags: string[]): Promise<RunningWeb> {
     '',
   ].join('\n'))
   const patch = join(root, 'extra.yml')
-  writeFileSync(patch, `- insert:\n    - name: ${JSON.stringify(pathToFileURL(marker).href)}\n`)
+  // Untargeted session/create opens the default project; keep its Documents folder in this root
+  // instead of the account's (Linux CI has no XDG Documents directory).
+  writeFileSync(patch, `- insert:\n    - name: ${JSON.stringify(pathToFileURL(marker).href)}\n`
+    + `- id: workspace-controller\n  config:\n    documentsDirectory: ${JSON.stringify(join(root, 'Documents'))}\n`)
   const child = spawnWeb(root, patch, interrupt, flags)
   const lines = createInterface({ input: child.stdout })
   const ready = Promise.withResolvers<RunningWeb>()

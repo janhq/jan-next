@@ -60,6 +60,22 @@ export interface SubagentTimingProjection {
   lastTurnCompleted?: boolean
 }
 
+/** One observed activity, with only a safe tool identifier on tool calls. */
+export type SubagentActivityEntry = {
+  readonly at: number
+  /** Sequence number in the child's log; orders events sharing a timestamp. */
+  readonly seq: number
+} & (
+  | { readonly kind: 'calling-tool'; readonly tool: string | null }
+  | { readonly kind: 'preparing' | 'requesting-model' | 'working' | 'waiting-inbox' | 'messaging-parent' | 'finished' | 'failed' | 'stopped' }
+)
+
+/** Current stage and the last six observed stage starts, oldest first. */
+export interface SubagentActivityProjection {
+  readonly current: SubagentActivityEntry
+  readonly recent: readonly SubagentActivityEntry[]
+}
+
 /**
  * Durable identity of one descriptor-backed subagent session: lifecycle mode
  * plus creation label, folded last-wins from `subagent/descriptor` events.
@@ -95,6 +111,8 @@ declare module '@janhq/jan-session-projection/types' {
     subagentCatalog: SubagentCatalogEntry[]
     /** Active-turn duration and latest closed-turn completion for a descriptor-backed subagent session. */
     subagentTiming: SubagentTimingProjection
+    /** Bounded activity of a session-backed child; null until its own descriptor is observed. */
+    subagentActivity: SubagentActivityProjection | null
     /**
      * Identity of a descriptor-backed subagent session. `null` ⟺ no valid
      * descriptor (missing, malformed, or unrecognized-version — deliberately

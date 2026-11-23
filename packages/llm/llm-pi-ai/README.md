@@ -139,6 +139,8 @@ Until a listing succeeds the route offers no models: `listModels` fails with the
 
 `reasoningEfforts` declares a model's selectable thinking levels: each key is a level selectors offer, its value the spelling dispatch sends on the wire, so `max: ultra` renames a level for a gateway with its own vocabulary. Omitting the field keeps the installed catalog entry's capability; `false` declares a non-reasoning model. `compat` switches reshape the request for endpoints pi-ai cannot recognize — which role carries the system prompt, which field caps output, how a thinking level travels — configurable per route and per model. A model neither the entry nor the installed catalog sizes takes the route's `defaultContextWindow` and `defaultMaxTokens` fallbacks.
 
+`toolUse` on a model entry or override states whether the model calls tools. It is metadata for selectors, not a request switch: tools are still declared to the model. `false` is what a managed local route writes for a model whose chat template has no tool support; an entry without it reports no answer, never a guessed one.
+
 Exact-model metadata lists `reasoning.efforts` from least to greatest selectable effort. A configuration function can select from that list before `prepareCall()` validates the concrete effort. The adapter receives only the resolved controls. Selecting `off` does not guarantee disabled reasoning: a protocol that expresses it by omitting the reasoning field leaves the gateway's default in effect. Reasoning tokens at any selected level count toward the request's output cap.
 
 For self-hosted Chat Completions endpoints, `thinkingTokenBudgetField` selects the reasoning-budget parameter, and `vllmPriority` sets an integer scheduler priority when the server enables priority scheduling. Template arguments accept `$var: thinking.budget`. `openai-responses` gateways can set `supportsMaxOutputTokens: false` to omit `max_output_tokens`; Azure and Codex transports ignore this shared compatibility field. These controls are opt-in; catalog-owned Anthropic effort and fallback capabilities are not configurable switches.
@@ -267,7 +269,7 @@ Later system messages supplied to the adapter stay out of the initial prompt, pr
 
 #### What the model sees
 
-pi-ai events become harness reasoning, text, tool-call, usage, and finish chunks. The adapter passes parsed tool arguments to the harness as raw JSON strings. If pi-ai reports invalid completed arguments, the attempt fails with `MALFORMED_RESPONSE` before tool dispatch and publishes no successful replay state. The default normal retry policy excludes this code; an explicit retry policy still controls recovery.
+pi-ai events become harness reasoning, text, tool-call, usage, and finish chunks. Usage a provider reports before the terminal event (Anthropic's `message_start` carries exact input and cache counts) is emitted as soon as it changes, so a reply cut by Stop or a steer still records what the provider billed for its prompt. The adapter passes parsed tool arguments to the harness as raw JSON strings. If pi-ai reports invalid completed arguments, the attempt fails with `MALFORMED_RESPONSE` before tool dispatch and publishes no successful replay state. The default normal retry policy excludes this code; an explicit retry policy still controls recovery.
 
 #### Token effect
 

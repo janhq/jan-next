@@ -32,6 +32,7 @@ export const zh = {
   application: '应用操作', input: '消息输入', menus: '菜单与弹层', approval: '审批区域', unbound: '暂无快捷键',
   empty: '没有匹配的快捷键',
   move: '移动菜单选择', select: '选择菜单项', dismiss: '关闭菜单或顶层弹窗',
+  zoomIn: '放大', zoomOut: '缩小', actualSize: '实际大小',
 }
 /** Typed English counterpart. */
 export const en: Record<keyof typeof zh, string> = {
@@ -67,6 +68,7 @@ export const en: Record<keyof typeof zh, string> = {
   application: 'Application', input: 'Message input', menus: 'Menus and dialogs', approval: 'Approval area', unbound: 'No shortcut',
   empty: 'No matching shortcuts',
   move: 'Move menu selection', select: 'Select menu item', dismiss: 'Close menu or top dialog',
+  zoomIn: 'Zoom in', zoomOut: 'Zoom out', actualSize: 'Actual size',
 }
 
 /** Japanese copy, checked against the English keys. */
@@ -127,6 +129,9 @@ export const ja = {
   'move': 'メニュー選択を移動',
   'select': 'メニュー項目を選択',
   'dismiss': 'メニューまたは最上位ダイアログを閉じる',
+  'zoomIn': '拡大',
+  'zoomOut': '縮小',
+  'actualSize': '実際のサイズ',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -163,6 +168,7 @@ export const es = {
   application: 'Solicitud', input: 'Entrada de mensaje', menus: 'Menús y cuadros de diálogo', approval: 'Área de aprobación', unbound: 'Sin atajos',
   empty: 'No hay atajos coincidentes',
   move: 'Mover selección de menú', select: 'Seleccionar elemento del menú', dismiss: 'Cerrar menú o cuadro de diálogo superior',
+  zoomIn: 'Acercar', zoomOut: 'Alejar', actualSize: 'Tamaño real',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
@@ -199,6 +205,7 @@ export const fr = {
   application: 'Demande', input: 'Saisie des messages', menus: 'Menus et boîtes de dialogue', approval: "Zone d'approbation", unbound: 'Pas de raccourci',
   empty: 'Aucun raccourci correspondant',
   move: 'Déplacer la sélection du menu', select: 'Sélectionner un élément de menu', dismiss: 'Fermer le menu ou la boîte de dialogue supérieure',
+  zoomIn: 'Zoom avant', zoomOut: 'Zoom arrière', actualSize: 'Taille réelle',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
@@ -235,6 +242,7 @@ export const de = {
   application: 'Anwendung', input: 'Nachrichteneingabe', menus: 'Menüs und Dialoge', approval: 'Genehmigungsbereich', unbound: 'Keine Abkürzung',
   empty: 'Keine passenden Verknüpfungen',
   move: 'Menüauswahl verschieben', select: 'Menüpunkt auswählen', dismiss: 'Menü oder oberen Dialog schließen',
+  zoomIn: 'Vergrößern', zoomOut: 'Verkleinern', actualSize: 'Originalgröße',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -271,6 +279,7 @@ export const ru = {
   application: 'Приложение', input: 'Ввод сообщения', menus: 'Меню и диалоги', approval: 'Область утверждения', unbound: 'Нет ярлыка',
   empty: 'Нет подходящих ярлыков',
   move: 'Переместить выбор меню', select: 'Выберите пункт меню', dismiss: 'Закрыть меню или верхний диалог',
+  zoomIn: 'Увеличить', zoomOut: 'Уменьшить', actualSize: 'Фактический размер',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -307,4 +316,5 @@ export const pt = {
   application: 'Aplicação', input: 'Entrada de mensagem', menus: 'Menus e caixas de diálogo', approval: 'Área de aprovação', unbound: 'Sem atalho',
   empty: 'Nenhum atalho correspondente',
   move: 'Mover seleção de menu', select: 'Selecione o item do menu', dismiss: 'Fechar menu ou caixa de diálogo superior',
+  zoomIn: 'Ampliar', zoomOut: 'Reduzir', actualSize: 'Tamanho real',
 } satisfies Record<keyof typeof en, string>

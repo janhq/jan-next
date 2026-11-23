@@ -7,7 +7,7 @@ import type { SessionId } from '@janhq/jan-session/types'
 import type { ScheduleCatalogEntry, SchedulePatch, ScheduleTargetRequest } from '@janhq/jan-schedule/client'
 import { Cron, RRule } from '@janhq/jan-util-time'
 import clsx from 'clsx'
-import { DEFAULT_WORKSPACE_DIRECTORY, workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
+import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
 import { IconClockOutlineRegular, Input, PathLabel } from '@janhq/jan-client-ui-primitives'
 import { ClockPicker } from './ClockPicker.tsx'
 import { DatePicker } from './DatePicker.tsx'
@@ -25,7 +25,7 @@ import css from './TaskManagerPage.module.css'
 export interface TaskEditorDraft extends TimingDraft {
   readonly title: string
   readonly prompt: string
-  readonly target: 'session' | 'new_once' | 'new'
+  readonly target: 'session' | 'new_once' | 'new' | 'plugin'
   readonly sessionId: string
   readonly cwd: string
 }
@@ -40,8 +40,11 @@ interface ProjectChoices {
 /** Label Workspaces as the Workspace list does and select the directory a new destination starts with. */
 export function projectChoices(workspaces: WorkspaceSnapshot['items'], defaultName: string): ProjectChoices {
   return {
-    items: workspaces.map(workspace => ({ value: workspace.path, label: workspaceDisplayTitle(workspace.title, defaultName) })),
-    defaultCwd: (workspaces.find(workspace => workspace.title === DEFAULT_WORKSPACE_DIRECTORY) ?? workspaces[0])?.path ?? '',
+    items: workspaces.map(workspace => ({
+      value: workspace.path,
+      label: workspaceDisplayTitle(workspace, defaultName),
+    })),
+    defaultCwd: (workspaces.find(workspace => workspace.isDefault === true) ?? workspaces[0])?.path ?? '',
   }
 }
 
@@ -55,7 +58,8 @@ export function taskDraft(task: ScheduleCatalogEntry): TaskEditorDraft {
   return {
     ...timingFromRecord(task), title: task.title, prompt: task.prompt,
     target: task.target.kind, sessionId: task.target.kind === 'session' ? task.target.sessionId : '',
-    cwd: task.target.kind === 'session' ? '' : task.target.create.cwd ?? '',
+    cwd: task.deliveryFailure?.code !== 'project-removed' && (task.target.kind === 'new' || task.target.kind === 'new_once')
+      ? task.target.create.cwd ?? '' : '',
   }
 }
 
@@ -88,7 +92,7 @@ export function taskDraftIssue(draft: TaskEditorDraft, changes?: SchedulePatch):
 export function taskDraftPatch(draft: TaskEditorDraft, original: ScheduleCatalogEntry, intervalFromNow = false): SchedulePatch {
   const seeded = taskDraft(original)
   const timingChanged = JSON.stringify(timingFromDraft(draft)) !== JSON.stringify(timingFromDraft(seeded))
-  const targetChanged = draft.target !== seeded.target || draft.sessionId !== seeded.sessionId || draft.cwd !== seeded.cwd
+  const targetChanged = seeded.target !== 'plugin' && (draft.target !== seeded.target || draft.sessionId !== seeded.sessionId || draft.cwd !== seeded.cwd)
   return {
     ...(draft.title.trim() === seeded.title.trim() ? {} : { title: draft.title.trim() }),
     ...(draft.prompt.trim() === seeded.prompt.trim() ? {} : { prompt: draft.prompt.trim() }),
@@ -113,7 +117,8 @@ export function reapplyTaskDraft(draft: TaskEditorDraft, latest: ScheduleCatalog
 /** Resolve the explicit destination, preserving an existing preset when the project is unchanged. */
 export function draftTarget(draft: TaskEditorDraft, original?: ScheduleCatalogEntry): ScheduleTargetRequest {
   if (draft.target === 'session') return { kind: 'session', sessionId: draft.sessionId as SessionId }
-  const previous = original?.target.kind === 'session' ? undefined : original?.target.create
+  if (draft.target === 'plugin') throw new Error('A plugin-owned task keeps its destination')
+  const previous = original?.target.kind === 'new' || original?.target.kind === 'new_once' ? original.target.create : undefined
   const create = {
     ...(draft.cwd === '' ? {} : { cwd: draft.cwd }),
     ...((previous?.cwd ?? '') === draft.cwd && previous?.agentPreset !== undefined ? { agentPreset: previous.agentPreset } : {}),
@@ -152,7 +157,7 @@ export function TaskEditorFields({ draft, onChange, projects, disabled, original
     { id: 'once', label: t('rule.once') }, { id: 'advanced', label: t('host.frequency.advanced') },
   ]
   const frequencyValue = weekdays ? 'weekdays' : draft.frequency
-  // The directory line tells which folder a Workspace title such as Default workspace stands for.
+  // Show the literal folder path alongside the project name.
   const workspaceItems = projects.items.map(choice => ({
     id: choice.value, label: <span className={css.workspaceMenuItem}><span>{choice.label}</span>
       <PathLabel path={choice.value} className={css.workspaceMenuPath} /></span>,
@@ -168,21 +173,28 @@ export function TaskEditorFields({ draft, onChange, projects, disabled, original
     <label className={css.editorField}>{t('detail.instruction')}<textarea className={css.instruction} aria-required placeholder={t('detail.instructionPlaceholder')}
       value={draft.prompt} onChange={(event) => { change({ prompt: event.target.value }) }} /></label>
     <div className={css.ruleRows}>
-      <RuleSelectRow label={t('host.target')} value={draft.target} current={targetLabel(draft.target)} disabled={disabled}
-        listClassName={css.targetMenu} items={[
-          ...(currentSessionId === '' ? [] : [{ id: 'session', label: targetLabel('session') }]),
-          ...(['new_once', 'new'] as const).map(value => ({
-            id: value, label: <span className={css.targetMenuItem}><span>{targetLabel(value)}</span>
-              <span className={css.targetMenuDescription}>{t(value === 'new_once' ? 'host.targetNewOnceHelp' : 'host.targetNewHelp')}</span></span>,
-          })),
-        ]}
-        onChange={(value) => { change({ target: value as TaskEditorDraft['target'],
-          sessionId: value === 'session' ? currentSessionId : draft.sessionId,
-          cwd: value === 'session' ? '' : draft.target === 'session' ? projects.defaultCwd : draft.cwd }) }} />
-      {draft.target !== 'session' && <RuleSelectRow label={t('host.project')} value={draft.cwd} disabled={disabled}
-        current={projects.items.find(choice => choice.value === draft.cwd)?.label ?? (draft.cwd || t('host.ungrouped'))}
-        listClassName={css.workspaceMenu} items={workspaceItems.length === 0 ? [{ id: '', label: t('host.ungrouped'), disabled: true }]
-          : workspaceItems} onChange={(cwd) => { change({ cwd }) }} />}
+      {original?.target.kind === 'plugin' ? <div className={css.ruleRow}>
+        <span className={css.ruleLabel}>{t('host.target')}</span>
+        <span className={css.ruleValue}>{t('host.pluginOwner', { owner: original.target.owner })}</span>
+      </div> : <>
+        <RuleSelectRow label={t('host.target')} value={draft.target} current={targetLabel(draft.target)} disabled={disabled}
+          listClassName={css.targetMenu} items={[
+            ...(currentSessionId === '' ? [] : [{ id: 'session', label: targetLabel('session') }]),
+            ...(['new_once', 'new'] as const).map(value => ({
+              id: value, label: <span className={css.targetMenuItem}><span>{targetLabel(value)}</span>
+                <span className={css.targetMenuDescription}>{t(value === 'new_once' ? 'host.targetNewOnceHelp' : 'host.targetNewHelp')}</span></span>,
+            })),
+          ]}
+          onChange={(value) => { change({ target: value as TaskEditorDraft['target'],
+            sessionId: value === 'session' ? currentSessionId : draft.sessionId,
+            cwd: value === 'session' ? '' : draft.target === 'session' && original?.deliveryFailure?.code !== 'project-removed'
+              ? projects.defaultCwd : draft.cwd }) }} />
+        {draft.target !== 'session' && <RuleSelectRow label={t('host.project')} value={draft.cwd} disabled={disabled}
+          current={projects.items.find(choice => choice.value === draft.cwd)?.label
+            ?? (draft.cwd || t(original?.deliveryFailure?.code === 'project-removed' ? 'detail.pickProject' : 'host.ungrouped'))}
+          listClassName={css.workspaceMenu} items={workspaceItems.length === 0 ? [{ id: '', label: t('host.ungrouped'), disabled: true }]
+            : workspaceItems} onChange={(cwd) => { change({ cwd }) }} />}
+      </>}
     </div>
     <section className={css.editorField} aria-label={t('rule.title')}><h3>{t('rule.title')}</h3><div className={css.ruleRows}>
       <RuleSelectRow label={t('rule.repeat')} value={frequencyValue} disabled={disabled} items={frequencyItems}

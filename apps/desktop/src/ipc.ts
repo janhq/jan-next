@@ -8,10 +8,16 @@ import type { IpcMainInvokeEvent } from 'electron'
 import type { DesktopBrowserBridge } from '@janhq/jan-client-ui-sidebar-browser/types'
 import type { DesktopFileDrag } from '@janhq/jan-util-file-drag'
 
+/** Preload argument carrying a secondary conversation window's id. */
+export const CONVERSATION_WINDOW_ARG = '--jan-conversation-window='
+/** Preload argument carrying the Session a new secondary window opens first. */
+export const CONVERSATION_SESSION_ARG = '--jan-conversation-session='
+
 /** IPC channel names kept private to the desktop application bundle. */
 export const DESKTOP_IPC = {
   fileSave: 'jan-desktop:file-save',
   clipboardImageRead: 'jan-desktop:clipboard-image-read',
+  captureRegion: 'jan-desktop:capture-region',
   shortcutsInput: 'jan-desktop:shortcuts-input',
   shortcutsCloseWindow: 'jan-desktop:shortcuts-close-window',
   shortcutsGet: 'jan-desktop:shortcuts-get',
@@ -21,6 +27,7 @@ export const DESKTOP_IPC = {
   boot: 'jan-desktop:boot',
   enterWorkspace: 'jan-desktop:enter-workspace',
   onboardingActive: 'jan-desktop:onboarding-active',
+  conversationWindowMove: 'jan-desktop:conversation-window-move',
   onboardingApiKey: 'jan-desktop:onboarding-api-key',
   bootFailed: 'jan-desktop:boot-failed',
   browserAcquire: 'jan-desktop:browser-acquire',
@@ -32,6 +39,7 @@ export const DESKTOP_IPC = {
   fileDragStart: 'jan-desktop:file-drag-start',
   fileDragRelease: 'jan-desktop:file-drag-release',
   deviceInfo: 'jan-desktop:device-info',
+  factoryReset: 'jan-desktop:factory-reset',
   localeBootstrap: 'jan-desktop:locale-bootstrap',
   localeChanged: 'jan-desktop:locale-changed',
   updatesChannelGet: 'jan-desktop:updates-channel-get',
@@ -44,6 +52,9 @@ export const DESKTOP_IPC = {
   windowFullscreen: 'jan-desktop:window-fullscreen',
   windowsAppearance: 'jan-desktop:windows-appearance',
   windowsMenu: 'jan-desktop:windows-menu',
+  notificationShow: 'jan-desktop:notification-show',
+  notificationClicked: 'jan-desktop:notification-clicked',
+  notificationWindowActive: 'jan-desktop:notification-window-active',
 } as const
 
 /** Desktop release update state rendered by desktop-owned UI. */
@@ -92,6 +103,8 @@ export interface DesktopUpdatePresentation {
 /** Product documents cannot supply update versions, package URLs, or installation authorization. */
 export interface JanDesktopProductApi {
   readonly fileActions: DesktopFileActions
+  /** @param bounds - rectangle in main-renderer CSS pixels. @returns a PNG of visible application content. */
+  captureRegion(bounds: { x: number; y: number; width: number; height: number }): Promise<Uint8Array>
   readonly protocolVersion: 1
   readonly browser: DesktopBrowserBridge
   readonly fileDrag: DesktopFileDrag
@@ -102,6 +115,26 @@ export interface JanDesktopProductApi {
    * @returns `name=value` fields separated by `; `, with no hostname, user name, or serial number.
    */
   deviceInfo(): Promise<string>
+  /**
+   * Stop Jan, remove the chosen data, and relaunch. Invalid selections reject before removal.
+   * The shell warns before relaunching if it cannot start or finish removing the selected data.
+   * @param categories - nonempty subset of chats, settings, plugins, credentials, skills and logs.
+   */
+  factoryReset(categories: readonly string[]): Promise<void>
+  readonly notifications: {
+    /**
+     * @param request - `id` is echoed to click listeners; `title` and `body` are display text.
+     * @returns whether the platform accepted the notification.
+     */
+    show(request: { id: string; title: string; body: string }): Promise<boolean>
+    /**
+     * Native window state; the document's own visibility and focus stay true while a Linux window is minimized.
+     * @returns whether the main window is shown, not minimized, and focused.
+     */
+    windowActive(): Promise<boolean>
+    /** @param listener - receives the id of a clicked notification after the window is focused. @returns the unsubscribe function. */
+    subscribe(listener: (id: string) => void): () => void
+  }
   readonly updates: {
     readonly channels: DesktopChannelBridge
     status(): Promise<DesktopUpdatePresentation>

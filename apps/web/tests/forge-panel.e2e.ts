@@ -405,7 +405,7 @@ it.skipIf(MODE === 'record')('reads local Git with full access when the sandbox 
   await page.locator('[data-forge-diff-file="README.md"]').getByText('changed', { exact: true }).waitFor()
 
   await permission.click()
-  await page.getByRole('menuitem', { name: 'Workspace Write', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Project Write', exact: true }).click()
   if (!await panel.isVisible()) await page.locator('[data-forge-header]').click()
   await panel.getByText('Git information could not be read', { exact: true }).waitFor({ timeout: 20_000 })
   await expect.poll(async () => (await readPersistedEvents(scaffold, sessionId))

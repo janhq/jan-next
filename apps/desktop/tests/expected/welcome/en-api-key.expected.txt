@@ -1,4 +1,4 @@
-Jan Alpha
+Jan Next
 Jan
 Add an API key to get started
 Add your Tokamak API key to start using Jan

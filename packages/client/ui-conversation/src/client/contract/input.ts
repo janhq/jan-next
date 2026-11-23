@@ -12,7 +12,7 @@ import type { InboxState } from '@janhq/jan-agent/types'
 import type { SessionId, SessionSeq } from '@janhq/jan-session/types'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
 import type { Branded } from '@janhq/jan-brand'
-import type { ArbitrateKey, ArbitrateOutcome, DraftQuote, Occurrence, ReferenceInsert, TokenSpan } from './draft-editor.ts'
+import type { ArbitrateKey, ArbitrateOutcome, DraftContextInsert, DraftQuote, Occurrence, ReferenceInsert, TokenSpan } from './draft-editor.ts'
 import type { InputSubmitMode, MessageSubmission } from './composer-submission.ts'
 
 /** Attachment payload passed to a claimed command submission. */
@@ -188,6 +188,14 @@ export interface SessionInput extends InputTarget {
 
   /** Replace the whole draft with plain text, removing inline reference chips. */
   setDraft(text: string): void
+  /**
+   * Append text, atomic contexts, and ordered attachment ids while editable.
+   * @param text - plain draft text.
+   * @param ids - new file ids.
+   * @param contexts - atomic contexts placed after the text, each on its own line.
+   * @returns whether the draft accepted the addition.
+   */
+  appendDraft(text: string, ids: readonly DraftAttachmentId[], contexts?: readonly DraftContextInsert[]): boolean
   /** Append ordered browser-owned attachment ids; busy admission phases refuse. */
   addAttachments(ids: readonly DraftAttachmentId[]): boolean
   /** Remove one browser-owned attachment id; busy admission phases refuse. @returns whether the id was removed. */
@@ -281,8 +289,9 @@ export interface DraftInitializationOptions {
   /**
    * Handling of a target that already has text or attachments: `replace` swaps the text and
    * inline references for the prompt (or clears them without one), `append` adds the prompt
-   * as new paragraphs after the existing text, and `keep` leaves the draft unchanged. Omitted,
-   * it is `replace` when `clearPreviousDraft` is true and `keep` otherwise.
+   * as new paragraphs after the existing text unless the text already contains it, and `keep`
+   * leaves the draft unchanged. Omitted, it is `replace` when `clearPreviousDraft` is true and
+   * `keep` otherwise.
    */
   readonly whenDraftExists?: 'replace' | 'append' | 'keep'
 }

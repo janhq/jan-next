@@ -61,11 +61,13 @@ Each session gets a session-owned directory under a readable project directory. 
       session.jsonl.zstd         # released v0, compressed root
       session.v1.jsonl.zstd      # released v1, compressed root
       session.v2.jsonl.zstd      # released v2, compressed root
-      session.v3.jsonl.zstd      # released v3/current, compressed root
+      session.v3.jsonl.zstd      # released v3, compressed root
+      session.v4.jsonl.zstd      # released v4/current, compressed root
       session.jsonl              # released v0, raw root
       session.v1.jsonl           # released v1, raw root
       session.v2.jsonl           # released v2, raw root
-      session.v3.jsonl           # released v3/current, raw root; later versions use vN
+      session.v3.jsonl           # released v3, raw root
+      session.v4.jsonl           # released v4/current, raw root; later versions use vN
 ```
 
 Session ids are injectively escaped to one safe path segment before use (no traversal, no collision). The normalized cwd keeps the project directory readable for navigation; cwd strings that normalize alike share a project directory while session ids still select distinct session directories. Runtime operations select the numerically highest canonical generation, and format-refusal diagnostics name that absolute path so an operator can find the raw log a build refused to interpret.
@@ -83,6 +85,8 @@ Unloading the backend waits for the consumer unloads it triggers through `sessio
 Materialized `stat` and `list` snapshots include the format catalog's header classification as `formatStatus`, alongside the translated logical `header`. They also include `location: { kind: 'jsonl', path }` for the selected physical generation. A read-only preparation leaves the selected historical version unchanged; the status becomes `current` after publication of the successor. Unmaterialized pending Sessions omit `formatStatus` and `location`.
 
 `open(id, 'read'|'write')` selects the highest canonical generation. Current input follows the ordinary fast path. For historical input, a read open decodes and migrates the source once, validates the current logical result, and returns it without publishing a successor. A write open reuses that revision-keyed preparation when available, or performs the same preparation, then encodes a same-directory temporary file in bounded chunks, verifies it in a Worker Thread, rechecks the source revision, and publishes the current successor without overwrite before returning. The source remains byte-identical. Source drift after preparation rejects that write open without replacing the logical history already returned to readers; a later write open prepares the new revision. The backend marks decoded event graphs `shared-frozen` when it freezes them before memoization; every nested object and array is frozen, and handle reads and slices preserve that state, including empty slices. Only an unmaterialized pending log reports `detached`. `stat(id)` and `list()` select and translate only the highest generation header without reading event rows or starting migration; snapshots carry the selected file’s `sizeBytes` and a best-effort revision. Current revisions identify that file; historical revisions also fingerprint the selected files across the persistence root, so child changes invalidate cached logical events. Fingerprinting reads filesystem metadata only; unrelated changes conservatively invalidate historical revisions. One `list()` call shares a corpus fingerprint across its historical entries. With `compression: 'none'`, the log is newline-delimited text an external reader can consume directly; the compressed default must be read through the backend.
+
+Finding a Session by id reads one directory per project the first time. The backend then remembers the project directory where the id was found, from that lookup, from a `list()`, or from creating the Session, and tries it first. If that directory no longer holds the id, it falls back to the full scan. The full scan and every `list()` still refuse an id stored in two projects. An id stored again in a second project by another writer is reported by the next `list()` rather than by an open that finds it in the remembered directory.
 
 Verification accepts a successful Worker response only after the Worker exits naturally with code 0. Its concurrency slot remains held through that exit; cancellation and Worker errors terminate and join the Worker before rejecting.
 

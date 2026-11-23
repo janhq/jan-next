@@ -4,7 +4,7 @@ import type { FileSaveResult } from '@janhq/jan-client-ui-file-actions/types'
 import type { DesktopChannelState, DesktopChannelChangeResult } from '@janhq/jan-client-ui-settings-general/types'
 import type { DesktopShortcutInput, ShortcutConfigSnapshot, ShortcutSaveResult } from '@janhq/jan-client-shortcuts/protocol'
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { DESKTOP_IPC, SCHEME, type JanDesktopProductApi, type DesktopUpdatePresentation } from './ipc.ts'
+import { CONVERSATION_SESSION_ARG, CONVERSATION_WINDOW_ARG, DESKTOP_IPC, SCHEME, type JanDesktopProductApi, type DesktopUpdatePresentation } from './ipc.ts'
 import { PLATFORM_IPC } from './platform-ipc.ts'
 import { markDocumentPlatform, syncWindowFullscreen } from './preload-platform.ts'
 import { syncNativeTheme } from './preload-theme.ts'
@@ -21,6 +21,7 @@ function createProductApi(): JanDesktopProductApi {
       readClipboardImage: url => ipcRenderer.invoke(DESKTOP_IPC.clipboardImageRead, url) as
         Promise<{ bytes: Uint8Array; mediaType: string }>,
     },
+    captureRegion: bounds => ipcRenderer.invoke(DESKTOP_IPC.captureRegion, bounds) as Promise<Uint8Array>,
     browser: createDesktopBrowserBridge(),
     fileDrag: {
       prepare: (source, requestId) => ipcRenderer.invoke(DESKTOP_IPC.fileDragPrepare, source, requestId) as
@@ -34,6 +35,16 @@ function createProductApi(): JanDesktopProductApi {
       }) },
     },
     deviceInfo: () => ipcRenderer.invoke(DESKTOP_IPC.deviceInfo) as Promise<string>,
+    factoryReset: categories => ipcRenderer.invoke(DESKTOP_IPC.factoryReset, categories) as Promise<void>,
+    notifications: {
+      show: request => ipcRenderer.invoke(DESKTOP_IPC.notificationShow, request) as Promise<boolean>,
+      windowActive: () => ipcRenderer.invoke(DESKTOP_IPC.notificationWindowActive) as Promise<boolean>,
+      subscribe(listener) {
+        const handle = (_event: Electron.IpcRendererEvent, id: string): void => { listener(id) }
+        ipcRenderer.on(DESKTOP_IPC.notificationClicked, handle)
+        return () => { ipcRenderer.off(DESKTOP_IPC.notificationClicked, handle) }
+      },
+    },
     keyboard: {
       closeWindow: revision => ipcRenderer.invoke(DESKTOP_IPC.shortcutsCloseWindow, revision) as Promise<void>,
       subscribe: (listener) => {
@@ -91,7 +102,13 @@ if (location.protocol === `${SCHEME}:` && location.hostname === 'app') {
     hasApiKey: () => ipcRenderer.invoke(DESKTOP_IPC.onboardingApiKey) as Promise<boolean>,
     setActive: (active: boolean) => { ipcRenderer.send(DESKTOP_IPC.onboardingActive, active) },
   })
-  ipcRenderer.on(DESKTOP_IPC.enterWorkspace, () => {
+  ipcRenderer.on(DESKTOP_IPC.enterWorkspace, (_event, open: unknown) => {
+    // Welcome asked for the Hub: the model-hub plugin takes this one-shot request
+    // when it mounts, or from the event when it is already mounted.
+    if (open === 'hub') {
+      sessionStorage.setItem('jan:open-panel', 'jan-model-hub')
+      window.dispatchEvent(new Event('jan:open-panel'))
+    }
     const body = document.body
     const previous = body.getAttribute('tabindex')
     body.tabIndex = -1
@@ -119,6 +136,17 @@ if (location.protocol === `${SCHEME}:` && location.hostname === 'app') {
     setBounds: (bounds: { x: number; y: number; width: number; height: number }) => ipcRenderer.invoke(PLATFORM_IPC.bounds, bounds),
     close: () => ipcRenderer.invoke(PLATFORM_IPC.close),
   })
+  if (process.isMainFrame) {
+    // A secondary window's id scopes its tab layout and selection; the main window has none.
+    const argument = (prefix: string): string | undefined => process.argv.find(value => value.startsWith(prefix))?.slice(prefix.length)
+    const id = argument(CONVERSATION_WINDOW_ARG)
+    const sessionId = argument(CONVERSATION_SESSION_ARG)
+    contextBridge.exposeInMainWorld('janConversationWindow', {
+      ...(id === undefined ? {} : { id }),
+      ...(sessionId === undefined ? {} : { sessionId }),
+      moveSession: (session: string) => ipcRenderer.invoke(DESKTOP_IPC.conversationWindowMove, session) as Promise<void>,
+    })
+  }
 }
 
 markDocumentPlatform()

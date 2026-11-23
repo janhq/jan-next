@@ -31,6 +31,7 @@
       "inject": [
         "@janhq/jan-api-remotes",
         "@janhq/jan-api-session-controller",
+        "@janhq/jan-api-workspace-controller",
         "@janhq/jan-client-connection",
         "@janhq/jan-client-locale",
         "@janhq/jan-client-ui-conversation",
@@ -53,6 +54,7 @@
   "devDependencies": {
     "@janhq/jan-api-remotes": "workspace:*",
     "@janhq/jan-api-session-controller": "workspace:*",
+    "@janhq/jan-api-workspace-controller": "workspace:*",
     "@janhq/jan-client-connection": "workspace:*",
     "@janhq/jan-client-locale": "workspace:*",
     "@janhq/jan-client-test-runtime": "workspace:*",

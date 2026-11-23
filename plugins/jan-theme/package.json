@@ -11,15 +11,20 @@
   },
   "dependencies": {
     "@janhq/jan-credentials": "workspace:*",
+    "@janhq/jan-http-proxy": "workspace:*",
     "@janhq/jan-mcp-client": "workspace:*",
     "@janhq/jan-plugin-api": "workspace:*",
     "@janhq/jan-skill-filesystem": "workspace:*",
     "@janhq/schemastery": "workspace:~",
-    "js-yaml": "^4.3.2"
+    "js-yaml": "^4.3.2",
+    "@modelcontextprotocol/client": "2.2.0"
   },
   "jan": {
     "client": {
       "platform": "web",
+      "external": [
+        "@janhq/jan-api-workspace-controller/client"
+      ],
       "inject": []
     }
   }

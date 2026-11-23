@@ -1,5 +1,7 @@
 /** Agent loop Settings section and model policy contributions. */
+import { createElement } from 'react'
 import type { Context } from '@janhq/cordis'
+import { IconRefreshOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type {} from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-client-locale/client'
 import type {} from '@janhq/jan-client-ui-renderer/client'
@@ -24,6 +26,10 @@ export function apply(ctx: Context): void {
       name: 'settings.section', id: 'agent-loop', order: 12, label: () => t('nav'),
       children: { 'settings.agentLoop.item': { kind: 'list', scope: 'root' } },
     }, AgentLoopSection))), 'ui-settings-model-policy: Agent loop section')
+  // The section's own nav glyph; Settings falls back to the gear without it.
+  ctx.effect(() => ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
+    name: 'settings.section.icon', id: 'agent-loop',
+  }, ({ size }) => createElement(IconRefreshOutlineRegular, { size }))), 'ui-settings-model-policy: Agent loop icon')
   ctx.effect(() => ctx.configForms.whileServed(['model-fallback'], () => ctx.slots.inject('settings.agentLoop.item', () => ctx.slots.register({
     name: 'settings.agentLoop.item', id: 'model-fallback', order: 0, locale: NS,
     inject: () => ({ form: fallback, loadCatalog }),

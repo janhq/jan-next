@@ -251,6 +251,13 @@ export interface PiAiProviderProfile {
    */
   promptProgress?: boolean
   /**
+   * Name the Session on each conversation request as llama.cpp's `thread_id`, so a server that keys
+   * saved KV state by thread (Jan's `jan-llama-worker`) restores it instead of reading the whole
+   * conversation again after another Session or a restart used the slot. Auxiliary requests, such
+   * as titles and compaction, send no thread. Only for servers that accept the field.
+   */
+  threadCache?: boolean
+  /**
    * Maximum base64-encoded image payload per request. When a request's
    * accumulated images exceed it, the oldest images are replaced by text
    * placeholders until the request fits, so a long session keeps completing
@@ -322,6 +329,8 @@ export interface ResolvedPiAiProviderProfile
    * own, so a catalog capability must not appear here.
    */
   configuredMaxTokens: ReadonlyMap<string, number>
+  /** Tool-use answers the profile's model entries declared, by model id; absent or missing means unknown. */
+  declaredToolUse?: ReadonlyMap<string, boolean>
 }
 
 /** Plugin configuration: the provider routes this instance owns. */
@@ -414,6 +423,7 @@ const modelFields = {
   // materializes `[]` for an absent array, and resolution reads that as "no
   // answer here" so the catalog entry below still applies.
   input: z.array(z.union(MODALITIES)),
+  toolUse: z.boolean(),
   // The union, not a bare dict: schemastery materializes an absent dict as
   // `{}`, and absent must stay distinguishable — it means "inherit the
   // installed catalog's capability", while `false` disables reasoning.
@@ -463,6 +473,7 @@ const profile = z.object({
   websocketConnectTimeoutMs: z.natural(),
   streamIdleTimeoutMs: z.number().min(Number.MIN_VALUE).max(MAX_TIMER_DELAY_MS).default(DEFAULT_STREAM_IDLE_TIMEOUT_MS),
   promptProgress: z.boolean(),
+  threadCache: z.boolean(),
   maxRequestImageBytes: z.number().step(1).min(1).default(DEFAULT_MAX_REQUEST_IMAGE_BYTES),
   maxRequestImages: z.number().step(1).min(1).default(DEFAULT_MAX_REQUEST_IMAGES),
   imageOffloadCountQuantum: z.number().step(1).min(1),
@@ -752,6 +763,7 @@ export function resolveProfiles(
         // A listing's output size describes the model; only a configured entry sets a request default.
         : new Map([...catalog?.configuredMaxTokens ?? []].filter(([id]) =>
           source.models?.some(entry => entry.id === id && entry.maxTokens !== undefined))),
+      declaredToolUse: catalog?.declaredToolUse ?? new Map(),
       modelErrors: catalog?.modelErrors ?? new Map(),
       ...piProvider === undefined ? {} : { piProvider },
       ...catalogError === undefined ? {} : { catalogError },

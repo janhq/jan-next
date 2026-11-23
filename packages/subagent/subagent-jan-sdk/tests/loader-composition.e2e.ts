@@ -113,7 +113,10 @@ describe('SDK subagent routing and diagnostics through the production profile', 
       })
       expect(stderr).not.toContain('UNHANDLED')
 
-      expect(settlementText(events)).toEqual(['Its closing message:', `child route: mock/mock-routed/max/777; cwd: ${workspace}`])
+      expect(settlementText(events)).toEqual([
+        'Status: completed\nSummary: See closing message below.\nEvidence: Not reported.\nBlockers: Not reported.\nChanged files: Not reported.',
+        'Its closing message:', `child route: mock/mock-routed/max/777; cwd: ${workspace}`,
+      ])
       expect(parentResolvedRoutes).toContain('mock/mock-routed')
 
       // The child ran a real turn with the model-selected route and tool-configured cap.
@@ -189,9 +192,11 @@ describe('SDK subagent routing and diagnostics through the production profile', 
       })
       expect(stderr).not.toContain('UNHANDLED')
       expect(settlementText(events)).toEqual([
+        'Status: failed\nSummary: See closing message below.\nEvidence: Not reported.\n'
+        + 'Blockers: Subagent failure (provider: Jan SDK; stage: session-run; category: child-error)\n'
+        + 'Changed files: Not reported.',
         'Its closing message:',
         'partial child loader answer',
-        'Subagent failure (provider: Jan SDK; stage: session-run; category: child-error)',
       ])
     } finally {
       await rm(child.childHome, { recursive: true, force: true })

@@ -1721,7 +1721,8 @@ describe('FaceModelEmitter', { timeout: 60_000 }, () => {
         noEmit: true,
         skipLibCheck: false,
         target: ts.ScriptTarget.ES2024,
-        lib: ['lib.es2024.d.ts'],
+        // zod 4.6 declarations reference the URL global, which DOM lib provides without node types.
+        lib: ['lib.es2024.d.ts', 'lib.dom.d.ts'],
         types: [],
         module: ts.ModuleKind.ESNext,
         moduleResolution: ts.ModuleResolutionKind.Bundler,

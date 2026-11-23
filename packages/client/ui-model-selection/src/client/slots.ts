@@ -11,8 +11,8 @@ export interface ModelLabelOwner {
   provider: Pick<ModelProviderGroup, 'id' | 'name'>
   /** The exact provider's model catalog entry. */
   model: ModelCatalogModel
-  /** Trigger caption, root-menu current value, or selectable model row. */
-  placement: 'trigger' | 'menu' | 'option'
+  /** Trigger caption or selectable model row. */
+  placement: 'trigger' | 'option'
   /** Whether this provider/model pair is the current selection. */
   selected: boolean
 }
@@ -27,6 +27,18 @@ export interface ModelOptionsOwner {
   reportFailure: (message: string) => void
 }
 
+/** Owner share of the details card beside the model menu, for the highlighted model. */
+export interface ModelDetailsOwner {
+  /** Provider identity and localized display name. */
+  provider: Pick<ModelProviderGroup, 'id' | 'name'>
+  /** The highlighted model's catalog entry. */
+  model: ModelCatalogModel
+  /** Whether this model is the current selection. */
+  selected: boolean
+  /** Whether the composer currently refuses changes. */
+  locked: boolean
+}
+
 declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     /** Session options appended after model and reasoning controls in the root menu. */
@@ -34,6 +46,16 @@ declare module '@janhq/jan-client-ui-slots' {
       kind: 'list'
       scope: 'session'
       owner: ModelOptionsOwner
+    }
+    /**
+     * Provider-owned controls on the details card of the highlighted model,
+     * below its catalog facts and reasoning levels. A contribution renders
+     * nothing for models it does not serve.
+     */
+    'conversation.input.model.details': {
+      kind: 'list'
+      scope: 'session'
+      owner: ModelDetailsOwner
     }
     /**
      * Non-interactive inline model label; selection controls remain owner-managed.

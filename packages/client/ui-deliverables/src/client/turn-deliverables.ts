@@ -9,7 +9,7 @@ import { isAbsoluteWorkspacePath } from '@janhq/jan-util-workspace-path'
 import { isAppendSurfaceEvent } from '@janhq/jan-session/surface'
 import type { TurnTailOwnerProps } from '@janhq/jan-client-ui-chat/client'
 import type { ConversationNodeDefinition } from '@janhq/jan-client-ui-conversation/client'
-import type { MarkdownFileMentions } from '@janhq/jan-client-ui-primitives'
+import { parseFileLink, type MarkdownFileMentions } from '@janhq/jan-client-ui-primitives'
 import type { PresentedFile } from '@janhq/jan-tool-present/types'
 import { isChangesEvent } from '../changes.ts'
 import { basename, isPresentedData, isPresentedFile } from '../presented.ts'
@@ -35,6 +35,10 @@ export interface DeliverablesTurnData {
   readonly produced: readonly ProducedPath[]
   readonly presented?: readonly PresentedPath[]
   readonly changes?: ChangesTurnData
+  /** Local files the turn's latest reply links in Markdown, in first-seen order. */
+  readonly linked?: readonly string[]
+  /** Distinct wire names of the tools the turn called, in first-call order. */
+  readonly tools?: readonly string[]
 }
 
 declare module '@janhq/jan-client-ui-conversation/client' {
@@ -47,6 +51,27 @@ declare module '@janhq/jan-client-ui-conversation/client' {
 interface DeliverablesState extends DeliverablesTurnData {
   readonly turn: number
   readonly calls: ReadonlyMap<string, string | null>
+}
+
+const MARKDOWN_LINK = /\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/gu
+
+/**
+ * Local file destinations a reply links in Markdown, as the chat renders them clickable.
+ * @param content - the reply's content blocks.
+ * @returns distinct paths in first-seen order.
+ */
+function linkedFiles(content: readonly { readonly type: string; readonly text?: unknown }[]): string[] {
+  const paths = new Set<string>()
+  for (const block of content) {
+    if (block.type !== 'text' || typeof block.text !== 'string') continue
+    for (const [, destination = ''] of block.text.matchAll(MARKDOWN_LINK)) {
+      let decoded = destination
+      try { decoded = decodeURI(decoded) } catch { /* keep the raw destination */ }
+      const file = parseFileLink(decoded)
+      if (file !== undefined) paths.add(file.path)
+    }
+  }
+  return [...paths]
 }
 
 /**
@@ -176,6 +201,7 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
     if (event.type === 'turn/start') return { id: String(event.data.turn), role: 'start' }
     if (event.type === 'tool/call') return { id: String(event.data.turn), role: 'update' }
     if (event.type === 'deliverables/presented') return isPresentedData(event.data) ? { id: String(event.data.turn), role: 'update' } : null
+    if (event.type === 'assistant/message') return { id: String(event.data.turn), role: 'update' }
     if (event.type === 'workspace/changes') return isChangesEvent(event.data) ? { id: String(event.data.turn), role: 'update' } : null
     if (event.type === 'tool/result' && isAppendSurfaceEvent(event)) {
       return { id: String(event.data.turn), role: 'update' }
@@ -188,6 +214,11 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
   },
   update: (context, match) => {
     if (match.event.type === 'workspace/changes') return { ...context.state, changes: { seq: match.event.seq } }
+    // Each reply replaces the last: the closing one is what the reader sees above the tail.
+    if (match.event.type === 'assistant/message') {
+      const linked = linkedFiles(match.event.data.message.content)
+      return linked.length === 0 && context.state.linked === undefined ? context.state : { ...context.state, linked }
+    }
     if (match.event.type === 'deliverables/presented') {
       const { files } = match.event.data
       const seq = match.event.seq
@@ -200,12 +231,11 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
       return { ...context.state, presented: [...context.state.presented ?? [], ...presented] }
     }
     if (match.event.type === 'tool/call') {
+      const { name } = match.event.data
       const calls = new Map(context.state.calls)
-      calls.set(
-        String(match.event.data.callId),
-        mutationPath(match.event.data.name, match.event.data.arguments),
-      )
-      return { ...context.state, calls }
+      calls.set(String(match.event.data.callId), mutationPath(name, match.event.data.arguments))
+      const known = context.state.tools?.includes(name) === true
+      return { ...context.state, calls, ...known ? {} : { tools: [...context.state.tools ?? [], name] } }
     }
     if (match.event.type !== 'tool/result') return context.state
     if (match.event.data.message.isError === true) return context.state
@@ -229,7 +259,9 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
       && previous.key === 'deliverables'
       && previous.value.produced === context.state.produced
       && previous.value.presented === context.state.presented
-      && previous.value.changes === context.state.changes) return previous
+      && previous.value.changes === context.state.changes
+      && previous.value.linked === context.state.linked
+      && previous.value.tools === context.state.tools) return previous
     return {
       kind: 'turn',
       turn: context.state.turn,
@@ -238,6 +270,8 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
         produced: context.state.produced,
         ...context.state.presented === undefined ? {} : { presented: context.state.presented },
         ...context.state.changes === undefined ? {} : { changes: context.state.changes },
+        ...context.state.linked === undefined ? {} : { linked: context.state.linked },
+        ...context.state.tools === undefined ? {} : { tools: context.state.tools },
       },
     }
   },

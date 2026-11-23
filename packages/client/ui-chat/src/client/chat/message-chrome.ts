@@ -64,6 +64,20 @@ export function formatRunDuration(ms: number, t: RunDurationTranslate): RunDurat
 }
 
 /**
+ * Build a finished run's elapsed-time fragments with the precision the usage stats use, so
+ * the duration never reads shorter than its own time to first token: one decimal under 10
+ * seconds (at least 0.1s), whole seconds rounded to nearest from 10 seconds up.
+ * @param ms - elapsed milliseconds; negatives clamp to zero.
+ * @param t - translate seat supplying units and their trailing spacing.
+ * @returns numbers and localized units in display order.
+ */
+export function formatSettledDuration(ms: number, t: RunDurationTranslate): RunDurationPart[] {
+  const tenths = Math.max(1, Math.round(ms / 100))
+  if (tenths >= 100) return formatRunDuration(Math.round(ms / 1000) * 1000, t)
+  return [{ text: String(tenths / 10), numeric: true }, { text: t('duration.secondUnit'), numeric: false }]
+}
+
+/**
  * Decode-throughput figure: whole tokens from ten up, one decimal below.
  * @param tps - Tokens per second.
  * @returns Display number without unit.

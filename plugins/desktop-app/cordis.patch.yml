@@ -15,6 +15,25 @@
   config:
     heroPlaceholder: Ask anything, / for commands, @ for files or chats
 
+# Jan desktop is a chat app first: a new chat starts in Chat mode on every
+# route, including the local model, whose stock `minimal` preset is a coding
+# assistant. A default picked in Settings still wins.
+- id: agent-preset-registry
+  config:
+    default: chat
+    routeDefaults:
+      local: chat
+
+- id: ui-settings-account
+  config:
+    disableStockApiKeyShortcut: true
+
+# The sidebar's Customize opens the Plugins page as Customize, with Skills and
+# Connectors (MCP servers) as tabs beside Plugins.
+- id: ui-plugin-manager
+  config:
+    customize: true
+
 - insert:
     # Jan's palette, sidebar, appearance settings and window controls.
     - id: jan-theme
@@ -31,3 +50,137 @@
     # Every local model download in one page, opened from the More menu.
     - id: jan-downloads
       name: '@janhq/jan-downloads'
+
+    # Find, download and start local models from Jan's model catalog; a sidebar row opens it.
+    - id: jan-model-hub
+      name: '@janhq/jan-model-hub'
+
+    # Off by default; one local queue for background tasks and their notifications.
+    - id: jan-always-on
+      name: '@janhq/jan-always-on'
+
+    # Settings > Hosts: Jan on other computers by address or SSH, and phones
+    # paired by QR code. Device access starts switched off.
+    - id: jan-hosts
+      name: '@janhq/jan-hosts'
+
+    # Let Sessions use the published Chrome extension without an MCP subprocess.
+    # Off until the user enables Jan Browser in Plugins: its loopback bridge
+    # trusts any local process that reaches the port, and an unconnected
+    # extension only adds browser tools the model calls and fails.
+    - id: browser-use
+      name: '@janhq/jan-browser-use'
+    - id: jan-browser
+      name: '@janhq/jan-browser'
+      disabled: true
+
+    # Observe native windows and approve semantic actions through Jan.
+    - id: jan-agent-desktop
+      name: '@janhq/jan-agent-desktop'
+
+    # Tokamak's media and voice APIs: image generation and editing, text to
+    # speech, transcription, Read aloud on replies, voice conversations and
+    # System One classification, all on the signed-in account's key.
+    - id: jan-tokamak
+      name: '@janhq/jan-tokamak'
+
+    # Attach element context and marked-up screenshots to the current draft.
+    - id: jan-annotate
+      name: '@janhq/jan-annotate'
+
+    # System notifications when a chat, including a scheduled run, finishes, fails or waits for you.
+    - id: jan-notifications
+      name: '@janhq/jan-notifications'
+
+    # Copy or save a redacted report and open the logs, from a failed chat and Settings > About.
+    - id: jan-diagnostics
+      name: '@janhq/jan-diagnostics'
+
+    # Read public settings and change them, saved or for this chat only, after one approval.
+    - id: jan-agent-settings
+      name: '@janhq/jan-agent-settings'
+
+    # A random quote on the new-chat page instead of the fixed greeting; lists and switch in Plugins.
+    - id: jan-wall-of-quotes
+      name: '@janhq/jan-wall-of-quotes'
+
+    # VS Code-style status bar: CPU, memory, GPU, keep awake, and items other plugins add.
+    - id: jan-status-bar
+      name: '@janhq/jan-status-bar'
+
+    # Personalize first-run settings for every desktop user.
+    - id: jan-onboarding
+      name: '@janhq/jan-onboarding'
+
+    # Generative UI: a reply can answer with a live React card (a ```ui4a/tsx
+    # fence) inline in the chat, or a canvas file that opens beside it.
+    - id: dsh-generative-ui
+      name: '@janhq/dsh-generative-ui'
+
+    # Chat mode: conversation, web research and simple visual artifacts. The
+    # agent searches and reads the web and can create new files it hands over
+    # with present (SVG, HTML, Markdown, CSV); it cannot read or edit your
+    # files, run commands, manage plugins or start subagents. It names itself,
+    # so its copy is its own rather than a stock preset's.
+    - id: preset-chat
+      name: '@janhq/jan-agent-preset'
+      config:
+        id: chat
+        name: Chat mode
+        description: Talk, research the web, and create simple artifacts like diagrams, charts, SVG images and HTML pages. No terminal and no access to read your files.
+        icon: chat-outline
+        order: 0
+        plugins:
+          - id: persona
+            name: '@janhq/jan-persona'
+            config:
+              prefix: |-
+                You are Jan, a helpful AI assistant powered by the {{model}} model. Talk with the user naturally and answer clearly.
+
+                When a question needs current or specific facts, search the web and read the pages that matter, then cite the sources you used.
+
+                When a picture, diagram, chart, small page or document would help, or the user asks for one, create it as a new file with write, then hand it over with present. Prefer a self-contained SVG for images, icons, diagrams and charts, and a single self-contained HTML file (inline CSS and JavaScript, no external requests) for interactive visualizations and pages. Give each file a new, descriptive name; never overwrite an existing file. Keep short content such as a table or a code snippet in the reply instead of a file.
+
+                You cannot read or edit the user's files or run commands.
+              complete: true
+              # Generative UI's fence instructions, while that plugin is on.
+              keep: ['dsh-generative-ui:inline']
+              includeRuntimeContext: false
+          # Loads the Generative UI authoring guide before the agent drafts a card.
+          - id: tool-skill
+            name: '@janhq/jan-tool-skill'
+          - id: time-context
+            name: '@janhq/jan-time-context'
+          - id: tool-web
+            name: '@janhq/jan-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
+          - id: chat-policy
+            name: '@janhq/jan-desktop-app/chat-policy'
+          - id: tool-fs
+            name: '@janhq/jan-tool-fs'
+            config:
+              read: false
+              readImage: false
+              write: true
+              edit: false
+          - id: present
+            name: '@janhq/jan-tool-present'
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@janhq/jan-compaction-basic'
+              - id: command-compact
+                name: '@janhq/jan-command-compact'
+              - id: tool-result-pruner
+                name: '@janhq/jan-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024

@@ -11,7 +11,7 @@
  */
 
 import { Context, Service } from '@janhq/cordis'
-import type {} from '@janhq/jan-llm'
+import type { } from '@janhq/jan-llm'
 import { assertNever } from '@janhq/jan-util-values'
 import { NamedEntries, ScopedLayers, scopeChainOf, scopeOf } from '@janhq/jan-scope'
 import type { ScopeKey, ScopeLayer } from '@janhq/jan-scope'
@@ -442,7 +442,7 @@ export class SkillRegistry extends Service {
     const existingLayer = scope === undefined ? this.layers.global : this.layers.peek(scope)
     if (existingLayer !== undefined && existingLayer.runtime.has(skill.name)) {
       this.ctx.logger.warn(`runtime skill "${skill.name}" ignored because it is already registered`)
-      return () => {}
+      return () => { }
     }
     const definition: SkillDefinition = {
       ...skill,
@@ -514,6 +514,15 @@ export class SkillRegistry extends Service {
       return undefined
     }
     return definition
+  }
+
+  /**
+   * Drop every completed catalog so the next lookup asks each provider again, for a user who
+   * changed skills outside a provider's own change detection. Notifies `skills/change` like a
+   * provider invalidation; definitions are never cached, so loaded bodies are already current.
+   */
+  refresh(): void {
+    this.invalidateCache()
   }
 
   private async collect(options: SkillViewOptions): Promise<CollectResult> {

@@ -136,7 +136,8 @@ describe('bounded retry through a real HTTP/SSE adapter', () => {
 
   it.each([
     ['stream_disconnect', 2] as const,
-    ['partial_disconnect', 4] as const,
+    // usage reported at stream start, block-start, delta, terminal usage, finish
+    ['partial_disconnect', 5] as const,
   ])('retries %s without committing failed chunks', async (behavior, failedChunkCount) => {
     const server = await start([behavior, 'success'], {
       apiKey: 'mock-key',

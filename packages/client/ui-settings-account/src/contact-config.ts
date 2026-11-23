@@ -11,6 +11,8 @@ export interface ContactConfig {
   bonusAckRetryDelayMs: number
   /** Ceiling for the acknowledgement retry backoff. */
   bonusAckRetryMaxDelayMs: number
+  /** Disable automatic API-key completion even before a replacement has registered. */
+  disableStockApiKeyShortcut: boolean
 }
 /** Validate public questionnaire options. */
 export const ContactConfigFields = {
@@ -18,6 +20,7 @@ export const ContactConfigFields = {
   contactSource: z.string().default(''),
   bonusAckRetryDelayMs: z.number().min(1).default(1_000),
   bonusAckRetryMaxDelayMs: z.number().min(1).default(60_000),
+  disableStockApiKeyShortcut: z.boolean().default(false),
 }
 /** Validate public questionnaire options. */
 export const ContactConfig: z<Partial<ContactConfig>, ContactConfig> = z.object(ContactConfigFields)

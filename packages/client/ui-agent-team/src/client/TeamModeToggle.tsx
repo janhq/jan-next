@@ -1,7 +1,7 @@
 /** Session-owned Agent Teams selection in the model and reasoning menu. */
 
 import { useState } from 'react'
-import { Button, IconInfoOutlineRegular, Switch, Tooltip } from '@janhq/jan-client-ui-primitives'
+import { Button, IconInfoOutlineRegular, IconUsersOutlineRegular, Switch, Tooltip } from '@janhq/jan-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type {} from '@janhq/jan-client-ui-model-selection/client'
 import type {} from '@janhq/jan-agent-team/client'
@@ -57,6 +57,7 @@ function RootTeamModeToggle({
   return (
     <div className={css.row}>
       <span className={css.label}>
+        <IconUsersOutlineRegular size={14} className={css.icon} aria-hidden="true" />
         <span>{t('mode.label')}</span>
         <Tooltip label={t('mode.description')} side="top" delayMs={300} maxWidth={300} portal openOnClick>
           <Button variant="ghost" size="sm" className={css.infoButton} aria-label={t('mode.infoLabel')}>

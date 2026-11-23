@@ -10,13 +10,29 @@
   padding: 0 var(--jan-composer-side-clearance) 4px;
 }
 
+/* An anonymous size container (CSS modules hash container names per module),
+   so the row's extras can drop out before they collide in a narrow pane
+   (ConversationRoot `.heroOptions`, whose nearest container this is). Full
+   width, because an inline-size container cannot size to its content; the
+   items stay centered. */
 .dock {
+  container-type: inline-size;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
+  width: 100%;
   max-width: 100%;
   padding-top: 4px;
+}
+
+/* Owner content at the row start (the hero's Workspace and preset pickers); it takes the
+   free space so the readings stay at the end, wherever the dock justifies them. */
+.dockStart {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-inline-end: auto;
 }
 
 /* The docked composer reserves one statistics row before its readings
@@ -49,6 +65,48 @@
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;
   line-height: 18px;
+}
+
+/* Large-paste offer: the notice strip with an inline action and a dismiss. */
+.pasteOffer {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pasteOfferText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pasteOfferAction,
+.pasteOfferDismiss {
+  flex: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pasteOfferAction {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.pasteOfferDismiss {
+  display: inline-flex;
+  align-items: center;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+@media (hover: hover) {
+  .pasteOfferAction:hover { text-decoration: underline; }
+  .pasteOfferDismiss:hover { color: var(--dsw-alias-label-secondary); }
 }
 
 .card {
@@ -332,7 +390,7 @@
   }
 }
 
-/* Attach circle (figma + control): 28px, selector fill, primary glyph. */
+/* Attach control: 28px ghost circle, primary glyph; the fill appears only on hover or while its menu is open. */
 .add {
   display: grid;
   place-items: center;
@@ -342,9 +400,13 @@
   border: none;
   border-radius: 999px;
   corner-shape: round;
-  background: var(--dsw-specific-selector);
+  background: transparent;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
+}
+
+.add[aria-expanded='true'] {
+  background: var(--dsw-specific-selector);
 }
 
 @media (hover: hover) {

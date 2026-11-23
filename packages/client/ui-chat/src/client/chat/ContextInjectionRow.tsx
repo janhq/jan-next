@@ -1,8 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { estimateContent } from '@janhq/jan-token-meter/client'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
-import { DisclosureRow, IconBrowseOutlineRegular, IconContextInjectionOutlineRegular, ReferenceIconRegular } from '@janhq/jan-client-ui-primitives'
+import {
+  DisclosureRow, IconBrowseOutlineRegular, IconChevronRightOutlineRegular, IconContextInjectionOutlineRegular, ReferenceIconRegular,
+} from '@janhq/jan-client-ui-primitives'
 import type { ContextMessageNode } from '../contract/snapshot.ts'
 import { contextBody } from './ContextBody.tsx'
+import { formatExactTokens, formatTokens } from './token-format.ts'
 import css from './ContextInjectionRow.module.css'
 
 /** Props for the logged non-user message presentation. */
@@ -24,7 +28,8 @@ export interface ContextInjectionRowProps {
  * durable source identifies, so a reader can tell an injected skill catalog
  * from a workspace instruction file or a recalled session without expanding.
  * The expanded body follows the producer-declared form; an absent or unknown
- * form renders the opaque body.
+ * form renders the opaque body. Injected context also shows its estimated
+ * token cost at the row's end, priced like the context meter prices it.
  * @param props - Durable content, its projected producer role/name and form, and the locale seat.
  * @returns A collapsed context row with a bounded, form-specific body.
  */
@@ -33,6 +38,7 @@ export function ContextInjectionRow({ content, source, producer, form, t }: Cont
   // Resolved rather than declared: a form whose fields are unreadable renders
   // the opaque body, and the marker must say what the row actually shows.
   const { rendered, summary, body } = contextBody(form, { content, source, t })
+  const tokens = useMemo(() => estimateContent(content), [content])
 
   const toolBlocks = content.length > 0
     && content.every(block => block.type === 'tool-addition' || block.type === 'tool-removal')
@@ -47,6 +53,12 @@ export function ContextInjectionRow({ content, source, producer, form, t }: Cont
         ? t('message.toolsAddedCount', { count: added.length })
         : t('message.toolsRemovedCount', { count: removed.length })
 
+  // A trailing chevron marks every expandable row and turns down while it is open.
+  const chevron = single === undefined && (
+    <span className={css.trailingChevron} aria-hidden data-open={open || undefined}>
+      <IconChevronRightOutlineRegular size={14} />
+    </span>
+  )
   return (
     <DisclosureRow
       className={css.root}
@@ -54,16 +66,17 @@ export function ContextInjectionRow({ content, source, producer, form, t }: Cont
         ? <span data-context-recall-icon><ReferenceIconRegular kind="session" /></span>
         : <IconContextInjectionOutlineRegular size={14} />}
       chevronClassName={css.chevron}
-      title={single !== undefined ? t(single.type === 'tool-addition' ? 'message.toolAdded' : 'message.toolRemoved', { name: single.toolName }) : t(toolBlocks !== undefined ? 'message.toolsUpdated' : producer.role === 'recall' ? 'message.contextRecall' : 'message.contextInjection')}
+      title={single !== undefined ? t(single.type === 'tool-addition' ? 'message.toolAdded' : 'message.toolRemoved', { name: single.toolName })
+        : t(toolBlocks !== undefined ? 'message.toolsUpdated' : producer.role === 'recall' ? 'message.contextRecall' : 'message.contextInjection')}
       collapsedContent={toolSummary !== null ? (
         <>
           <span className={css.sep} aria-hidden />
           <span className={css.summary}>{toolSummary}</span>
+          {chevron}
         </>
-      ) : toolBlocks !== undefined || producer.label === null ? undefined : (
+      ) : toolBlocks !== undefined || producer.label === null ? chevron || undefined : (
         /* ToolRow's separator shape: an aria-hidden dot, so the accessible name
-           stays the two readable parts and the two disclosure rows expose one
-           name shape. A source that names no producer drops the dot with it. */
+           stays the readable parts. */
         <>
           <span className={css.sep} aria-hidden />
           <span className={css.source} data-context-source>{producer.label}</span>
@@ -73,8 +86,20 @@ export function ContextInjectionRow({ content, source, producer, form, t }: Cont
               <span className={css.summary} data-context-summary>{summary}</span>
             </>
           )}
+          {/* Supplementary and approximate: kept out of the row's accessible name,
+              which stays the role and producer like every disclosure row. */}
+          <span
+            className={css.tokens}
+            aria-hidden
+            data-context-tokens
+            title={t('message.contextTokensTitle', { count: formatExactTokens(tokens, t) })}
+          >
+            {t('message.contextTokens', { count: formatTokens(tokens, t) })}
+          </span>
+          {chevron}
         </>
       )}
+      previewChevron={false}
       keepContentWhenOpen
       open={open && single === undefined}
       expandable={single === undefined}

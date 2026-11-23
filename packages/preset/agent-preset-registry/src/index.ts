@@ -14,7 +14,7 @@ import type { } from '@janhq/jan-tools'
 import type { AgentPresetDocument, AgentPresetRoster } from './types.ts'
 import { entryListProblem, type PresetDefinition } from './definition.ts'
 import type { AgentPreset, Config } from './preset.ts'
-import { agentPresetProjectionDefinition } from './session.ts'
+import { agentPresetProjectionDefinition, agentPresetRouteDefaultProjection } from './session.ts'
 import { auditRows, leakedServices, mountPreset, serviceForMount, type PresetMount } from './mount.ts'
 import { activeCompositionModules, definitionComposition, mountedCompositionRows, type AgentPresetComposition, type AgentPresetInspection } from './composition-inventory.ts'
 
@@ -34,6 +34,7 @@ interface Generation {
   scope: Scope
   key: ScopeKey
   mount: PresetMount
+  readonly readOnlyDelegation: boolean
   users: number
   retired: boolean
 }
@@ -55,9 +56,12 @@ export class AgentPresetRegistry extends TypertRemoteService {
   static inject = ['loader', 'sessionProjections', 'agents']
   static Config = z.object({
     default: z.string().required(),
+    /** Preset for a new Session whose model runs on the named provider route, unless a default was picked in Settings. */
+    routeDefaults: z.dict(z.string()).default({}),
     selectedDefault: z.string().volatile(),
   })
   private agentPresetProjectionHandle!: ProjectionHandle<string | null>
+  private routeDefaultProjectionHandle!: ProjectionHandle<boolean>
   private readonly owner: Context
   private readonly definitions = new Map<string, Definition>()
   private readonly generations = new Map<ScopeKey, Generation>()
@@ -71,6 +75,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
   protected async [Service.init](): Promise<void> {
     const ctx = this.owner
     this.agentPresetProjectionHandle = await ctx.sessionProjections.register(agentPresetProjectionDefinition)
+    this.routeDefaultProjectionHandle = await ctx.sessionProjections.register(agentPresetRouteDefaultProjection)
     ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
     ctx.on('session/event', (session, event) => {
       if (event.type === 'agent-preset/selected') ctx.emit('agent-preset/selected', session.id, event.data.agentPreset)
@@ -79,6 +84,20 @@ export class AgentPresetRegistry extends TypertRemoteService {
 
   /** Default preset for a subsequently created session. */
   get defaultId(): string { return this.config.selectedDefault.get() ?? this.config.default }
+
+  /**
+   * Default preset for a new Session on one provider route. A default picked
+   * in Settings applies to every route; otherwise a route listed in
+   * `routeDefaults` (a small local model, say) gets its lighter preset.
+   * @param provider - provider route of the Session's model.
+   * @returns the preset identity a Session on that route starts with.
+   */
+  defaultFor(provider: string | undefined): string {
+    const picked = this.config.selectedDefault.get()
+    if (picked !== undefined) return picked
+    const routed = provider === undefined ? undefined : this.config.routeDefaults[provider]
+    return routed !== undefined && this.definitions.has(routed) ? routed : this.config.default
+  }
 
   /**
    * Read the preset recorded for a Session, including selections no longer in the roster.
@@ -105,6 +124,22 @@ export class AgentPresetRegistry extends TypertRemoteService {
         { agentPreset: id, available: [...this.definitions.keys()] })
     }
     return { ...record.config, plugins: [...record.config.plugins] }
+  }
+
+  /** Read one preset's description without copying its plugin tree.
+   * @param id Preset identity.
+   * @returns The description, or undefined if the preset has none or is unknown.
+   */
+  descriptionFor(id: string): string | undefined {
+    return this.definitions.get(id)?.config.description
+  }
+
+  /** Check the preset revision retained by an agent's scope.
+   * @param ctx The agent's scoped context.
+   * @returns Whether that revision requires read-only delegation.
+   */
+  requiresReadOnlyDelegation(ctx: Context): boolean {
+    return this.generationFor(ctx)?.readOnlyDelegation === true
   }
 
   /** Register and eagerly load a definition; activation failure remains visible in the roster.
@@ -140,8 +175,15 @@ export class AgentPresetRegistry extends TypertRemoteService {
       const problem = entryListProblem(record.config.plugins)
       if (problem !== undefined) throw new Error(problem)
       const context = scope.ctx.extend({ baseUrl: record.context.baseUrl })
+      if (record.config.toolAllowlist !== undefined) {
+        const tools = context.get('tools')
+        if (tools === undefined) throw new Error('a preset tool allowlist requires the tools service')
+        tools.restrict({ allow: record.config.toolAllowlist }, { allowUnregistered: true })
+      }
       const mount = await mountPreset(context, record.config.id, record.config.plugins)
-      const generation: Generation = { scope, key, mount, users: 0, retired: false }
+      const generation: Generation = {
+        scope, key, mount, readOnlyDelegation: record.config.readOnlyDelegation === true, users: 0, retired: false,
+      }
       context.effect(() => {
         this.generations.set(key, generation)
         return () => { this.generations.delete(key) }
@@ -214,6 +256,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
         id: record.config.id,
         ...(record.config.name === undefined ? {} : { name: record.config.name }),
         ...(record.config.description === undefined ? {} : { description: record.config.description }),
+        ...(record.config.icon === undefined ? {} : { icon: record.config.icon }),
         ...(record.config.order === undefined ? {} : { order: record.config.order }),
         ...(broken === undefined ? {} : { broken }),
       }
@@ -371,28 +414,58 @@ export class AgentPresetRegistry extends TypertRemoteService {
     return preset
   }
 
-  /** Select a preset for a Session at a turn boundary. A Session with no
-   * recorded preset that already runs the current revision keeps its
-   * composition; nothing is logged or announced. A started Session may switch
-   * once no turn is open: messages are never rewritten, the selection is
-   * appended to the log, and every later turn runs under the new composition.
+  /** Select and pin a preset at a turn boundary. Pinning a preset already in
+   * use records the choice without replacing its composition.
    * @param agent Target Agent.
    * @param agentPreset Requested identity.
    * @returns Committed preset identity.
    */
   @Remote('select')
-  async select(agent: Agent, agentPreset: string): Promise<string> {
+  select(agent: Agent, agentPreset: string): Promise<string> {
+    return this.switchPreset(agent, agentPreset, false)
+  }
+
+  /**
+   * Read whether a Session follows the default for its model provider.
+   * @param session - Session whose latest preset choice is read.
+   * @returns whether the preset was assigned automatically.
+   */
+  followsRouteDefault(session: Session): boolean {
+    return this.routeDefaultProjectionHandle.stateOf(session)
+  }
+
+  /**
+   * Apply a route default. On a model change, leave the preset alone unless
+   * the blank Session still follows the previous provider's default.
+   * @param agent - Session running the preset.
+   * @param agentPreset - default for the target provider route.
+   * @param previousDefault - previous provider's default for a conditional route change; omit for blank reuse.
+   * @returns the recorded preset, or undefined if a conditional change was skipped.
+   */
+  selectRouteDefault(agent: Agent, agentPreset: string, previousDefault?: string): Promise<string | undefined> {
+    return this.switchPreset(agent, agentPreset, true, previousDefault)
+  }
+
+  private switchPreset(agent: Agent, agentPreset: string, routeDefault: boolean): Promise<string>
+  private switchPreset(agent: Agent, agentPreset: string, routeDefault: boolean,
+    previousDefault: string | undefined): Promise<string | undefined>
+  private async switchPreset(agent: Agent, agentPreset: string, routeDefault: boolean,
+    previousDefault?: string): Promise<string | undefined> {
     const turn = (this.switches.get(agent.id) ?? Promise.resolve()).then(async () => {
       const busy = (): RemoteError => new RemoteError('agent-preset/locked', 'Wait for the running turn to finish before changing the agent preset.', { sessionId: agent.id, agentPreset })
       const boundary = this.owner.agents.turnBoundaryOf(agent.session)
+      const selectedPreset = this.presetForSession(agent.session)
+      const followsRoute = this.followsRouteDefault(agent.session)
+      if (previousDefault !== undefined && (boundary.lastTurn !== 0 || boundary.openTurnStartSeq !== null
+        || !followsRoute || selectedPreset !== previousDefault || selectedPreset === agentPreset)) return undefined
       if (boundary.openTurnStartSeq !== null) throw busy()
       const current = this.definitions.get(agentPreset)?.generation
-      if (current !== undefined && this.generationFor(agent.ctx) === current
-        && this.agentPresetProjectionHandle.stateOf(agent.session) === agentPreset) return agentPreset
+      const sameComposition = current !== undefined && this.generationFor(agent.ctx) === current
+      if (sameComposition && selectedPreset === agentPreset && followsRoute === routeDefault) return agentPreset
       const swapPreset = async (): Promise<string> => {
-        const preset = await this.recompose(agent.ctx, agentPreset)
-        agent.session.append('agent-preset/selected', { agentPreset: preset.id })
-        return preset.id
+        const id = sameComposition ? agentPreset : (await this.recompose(agent.ctx, agentPreset)).id
+        agent.session.append('agent-preset/selected', { agentPreset: id, ...(routeDefault ? { source: 'route-default' } : {}) })
+        return id
       }
       // Maintenance keeps turns off a half-replaced composition; its synchronous refusal means busy
       // unless creation, which awaits its listeners, owns the Agent. A swap failure keeps its cause.

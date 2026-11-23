@@ -36,6 +36,20 @@ declare module '@janhq/jan-client-ui-sidebar-right/client' {
   }
 }
 
+declare module '@janhq/jan-client-ui-slots' {
+  interface SlotMap {
+    /** Controls for the currently displayed Browser page, independent of its presentation adapter. */
+    'sidebar.right.tab.browser.actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: {
+        /** @returns the mounted page element when the tab is visible, or null. */
+        readonly getSurface: () => Element | null
+      }
+    }
+  }
+}
+
 /** Required Browser services. */
 export const inject = ['slots', 'locale', 'sidebarRight', 'sidebarRightTabs']
 
@@ -81,6 +95,7 @@ export function apply(ctx: Context): void {
     }, 'ui-sidebar-browser.frames')
     scope.effect(() => scope.slots.inject('sidebar.right.pane.tab', () => scope.slots.register({
       name: 'sidebar.right.pane.tab', key: BROWSER_ID, locale: namespace, store,
+      children: { 'sidebar.right.tab.browser.actions': { kind: 'list', scope: 'session' } },
       inject: (sessionId, actions) => {
         const existing = controllers.get(sessionId)
         if (existing !== undefined) {

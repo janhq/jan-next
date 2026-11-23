@@ -19,14 +19,16 @@
    meet at the column edge. The rows add up to it — 10px top inset, the 30px
    title row, the tab strip's 10px margin, and a 25px view row. When the views
    and the More launcher do not fit on one row, the row wraps and the header
-   grows past 76px. */
+   grows past 76px. On macOS the top inset follows the frame's title inset
+   (ui-layout AppFrame `--jan-frame-title-inset`), which centres the title row
+   on the traffic lights; the header grows by the same amount. */
 .header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   flex: none;
   box-sizing: border-box;
-  min-height: 76px;
-  padding: 10px 28px 0 20px;
+  min-height: calc(66px + var(--jan-frame-title-inset, 10px));
+  padding: var(--jan-frame-title-inset, 10px) 28px 0 20px;
   border-bottom: 0.5px solid var(--dsw-alias-border-l3);
 }
 
@@ -79,6 +81,39 @@
      pads 20px of it. Zero everywhere else (the fallback makes the max
      negative). */
   padding-inline-start: max(0px, calc(var(--jan-frame-leading-clearance, 0px) - 20px));
+}
+
+.titleRowEmpty { justify-content: flex-end; }
+
+.stripTitleRow {
+  container-type: normal;
+  min-height: 0;
+  padding: 0;
+}
+
+.stripTitleRow .titleCluster {
+  flex: none;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  mask-image: none;
+}
+
+.stripTitleRow .crumbs { display: none; }
+.stripTitleRow .headerActions:empty { display: none; }
+.stripTitleRow .headerUtilities { margin-left: 4px; }
+/* The title row's icon buttons keep one 8px gap, the rhythm of the window's leading controls. */
+.stripTitleRow .headerCorner { margin-inline: 8px 0; }
+/* Under a chip strip the view tabs' text starts on the chips' text line: the strip's start
+   inset plus the chip's 10px pad (ConversationDesk, ui-dockkit `.tab`). Doubled class:
+   `.tabs` (declared later) would otherwise reset the start inset to 8px. */
+.tabs.stripViews { padding-inline: 18px 12px; }
+:global([data-dockkit-pane]):first-child .tabs.stripViews {
+  padding-inline-start: calc(max(8px, var(--jan-frame-leading-clearance, 0px)) + 10px);
+}
+
+@container (max-width: 370px) {
+  .stripTitleRow .headerActions { max-width: 28px; overflow: clip; }
 }
 
 /* Header actions do not shrink, so on a narrow row they overflow the cluster.
@@ -200,9 +235,10 @@
   color: var(--dsw-alias-label-secondary);
 }
 
+/* Header icon buttons draw their 16px artwork at its own grid, like the left sidebar's. */
 .headerMenuButton svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 
 /* The far-right corner seat reaches 16px into the header's 28px right padding,
@@ -443,9 +479,12 @@
 
 /* Active phase: header is ordinary column chrome above the scrollport (not
    sticky). The scroll body holds the transcript and the sticky composer seat
-   so wheel over the footer moves the flow. */
+   so wheel over the footer moves the flow. `clip`, not `hidden`: in a column
+   narrower than the content width the right width handle sits past the edge,
+   and a scroll container would let focus or scrollIntoView shift the whole
+   column sideways. */
 .root[data-phase='active'] {
-  overflow: hidden;
+  overflow: clip;
 }
 
 .root[data-phase='active'] .header {
@@ -603,16 +642,43 @@
   z-index: 1;
 }
 
+/* The welcome rises in once the phase lands on the hero (settling keeps the
+   seat hidden, so nothing plays unseen): the heading first, the composer
+   120ms later, the suggestions 240ms later; 10px on the emphasized curve.
+   Slot seats are `display: contents`, so their rendered children move. */
+:is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child,
+:is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot] > * {
+  animation: conversation-welcome-in 350ms var(--ds-ease-emphasized) 120ms backwards;
+}
+
+:is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child {
+  animation-delay: 0ms;
+}
+
+:is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot='conversation.hero.suggestions'] > * {
+  animation-delay: 240ms;
+}
+
+@keyframes conversation-welcome-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child,
+  :is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot] > * {
+    animation: none;
+  }
+}
+
+/* Under the hero card, at the start of the model and context row. */
 .heroWorkspaceRow {
   display: flex;
   align-items: center;
   gap: 2px;
   min-width: 0;
-  margin-top: 4px;
-  /* figma drew px 8; left nudged +12 so the chip's folder glyph lines up
-     closer to the card's inner controls below; right keeps the trailing
-     preset seat off the card edge. */
-  padding: 0 16px 0 20px;
 }
 
 /* Plugin options share the row, pushed to its right edge. */
@@ -627,6 +693,15 @@
 
 .heroOptions:empty {
   display: none;
+}
+
+/* A narrow pane has no room for the plugin options beside the project, preset,
+   model and context readings; they overlapped them, so they step aside. The
+   query resolves against the nearest container, the composer dock (InputBar). */
+@container (max-width: 600px) {
+  .heroOptions {
+    display: none;
+  }
 }
 
 /* Hero: the composer sits inside the session scroll body; center there so

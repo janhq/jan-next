@@ -50,6 +50,8 @@ A subprocess backend, then the tools; the spill backend is optional and makes ca
 
 Routine budgets stay out of the model-facing schema: a model that needs surrounding context reads the matched file with `read`, and one that needs later results follows the returned spill locator's retrieval hint.
 
+Both tools only read, so the loop may run them beside sibling parallel-safe calls in the same step. A complete-result spill writes a new, unpredictably named file with an exclusive open, so overlapping calls never share one.
+
 ### Configuration
 
 `sampleOverCapGlobResults` is required; the remaining keys are optional search caps with the defaults below.

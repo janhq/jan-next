@@ -1,0 +1,23 @@
+{
+  "name": "@janhq/jan-notifications",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Notify you when a chat finishes, fails or waits for you while Jan is in the background or another chat is open.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.mjs", "client.js", "client.watch.js", "client.locale.js", "README.md"],
+  "dependencies": {
+    "@janhq/schemastery": "workspace:~"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-primitives"]
+    }
+  }
+}

@@ -122,7 +122,10 @@ interface Agent {
 
   /**
    * Submit steering for the nearest step. An idle driver starts a turn;
-   * a running driver consumes it at its next step boundary.
+   * a running driver consumes it at its next step boundary, and asks the
+   * step in flight to yield: its model stream ends early (the reply is
+   * logged as interrupted and steered) and its tool calls receive
+   * `yieldSignal`. The turn goes on with the steering as the next step.
    * A rejected step leaves steering parked in the inbox until the next
    * wake; cancellation or disposal may discard pending steering.
    * @param message - identified steering content and the source that supplied it.
@@ -577,6 +580,15 @@ Registry of YAML-declared presets and the revisions live Agents retain.
 
 ```ts cordis-catalog
 /**
+ * Default preset for a new Session on one provider route. A default picked
+ * in Settings applies to every route; otherwise a route listed in
+ * `routeDefaults` (a small local model, say) gets its lighter preset.
+ * @param provider - provider route of the Session's model.
+ * @returns the preset identity a Session on that route starts with.
+ */
+defaultFor(provider: string | undefined): string
+
+/**
  * Read the preset recorded for a Session, including selections no longer in the roster.
  * @param session - Session whose committed preset selection is read.
  * @returns the recorded preset, or null when none was selected.
@@ -593,6 +605,18 @@ presetForSession(session: Session): string | null
  * cannot mutate the registry's declaration.
  */
 definitionFor(id: string): PresetDefinition
+
+/** Read one preset's description without copying its plugin tree.
+ * @param id Preset identity.
+ * @returns The description, or undefined if the preset has none or is unknown.
+ */
+descriptionFor(id: string): string | undefined
+
+/** Check the preset revision retained by an agent's scope.
+ * @param ctx The agent's scoped context.
+ * @returns Whether that revision requires read-only delegation.
+ */
+requiresReadOnlyDelegation(ctx: Context): boolean
 
 /** Register and eagerly load a definition; activation failure remains visible in the roster.
  * @param definition Parsed configuration supplied by the declaring plugin.
@@ -662,16 +686,30 @@ serviceFor<K extends string & keyof Context>(agent: { ctx: Context }, name: K): 
  */
 async recompose(ctx: Context, id: string): Promise<AgentPreset>
 
-/** Select a preset for a Session at a turn boundary. A Session with no
- * recorded preset that already runs the current revision keeps its
- * composition; nothing is logged or announced. A started Session may switch
- * once no turn is open: messages are never rewritten, the selection is
- * appended to the log, and every later turn runs under the new composition.
+/** Select and pin a preset at a turn boundary. Pinning a preset already in
+ * use records the choice without replacing its composition.
  * @param agent Target Agent.
  * @param agentPreset Requested identity.
  * @returns Committed preset identity.
  */
-@Remote('select') async select(agent: Agent, agentPreset: string): Promise<string>
+@Remote('select') select(agent: Agent, agentPreset: string): Promise<string>
+
+/**
+ * Read whether a Session follows the default for its model provider.
+ * @param session - Session whose latest preset choice is read.
+ * @returns whether the preset was assigned automatically.
+ */
+followsRouteDefault(session: Session): boolean
+
+/**
+ * Apply a route default. On a model change, leave the preset alone unless
+ * the blank Session still follows the previous provider's default.
+ * @param agent - Session running the preset.
+ * @param agentPreset - default for the target provider route.
+ * @param previousDefault - previous provider's default for a conditional route change; omit for blank reuse.
+ * @returns the recorded preset, or undefined if a conditional change was skipped.
+ */
+selectRouteDefault(agent: Agent, agentPreset: string, previousDefault?: string): Promise<string | undefined>
 
 /** Read current registrations for cold transcript presentation.
  * @param id Preset identity or the default.
@@ -1051,6 +1089,32 @@ Reject a proposed step or replace the messages that enter it. Calling `next()` p
 ```
 
 Types: [Scoped](scope.md) · [UserMessage](session.md)
+
+Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
+
+<a id="agentreload--waterfall"></a>
+
+#### `agent/reload` — waterfall
+
+The user asked to re-read context that lives outside the Session, such as instruction files and skill folders, after editing it outside Jan. A listener re-reads its source, queues any change as a message appended after the conversation (never an edit to sent messages), and returns `[...await next(), ...its report lines]`.
+
+```ts cordis-catalog
+/**
+ * The user asked to re-read context that lives outside the Session, such as
+ * instruction files and skill folders, after editing it outside Jan. A
+ * listener re-reads its source, queues any change as a message appended
+ * after the conversation (never an edit to sent messages), and returns
+ * `[...await next(), ...its report lines]`.
+ * @param payload.agent - the agent whose context is re-read.
+ * @param payload.signal - the dispatching command's cancellation signal.
+ * @returns one human-readable report line per listener that re-read something.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
+ * @mode waterfall
+ */
+'agent/reload'(this: Scoped<Agent>, payload: { agent: Agent; signal: AbortSignal }, next: () => Promise<string[]>): Promise<string[]>
+```
+
+Types: [Scoped](scope.md)
 
 Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
 

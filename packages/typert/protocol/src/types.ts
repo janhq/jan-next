@@ -476,6 +476,12 @@ export interface PeerScope {
   /** Whether the Peer may open a forwarded-event stream; this does not grant business permissions. */
   readonly interactions: 'answer' | 'none'
   /**
+   * `'local'` when the Peer is another Host that federates this one: its calls are answered by
+   * this Host alone and never handed to a registered forwarder, so two Hosts that federate each
+   * other do not echo lists and streams back and forth. Absent means `'all'`.
+   */
+  readonly forward?: 'all' | 'local'
+  /**
    * Tear down every registration made through `ctx`.
    * @returns settles once the scope has quiesced; racing calls share one completion.
    */

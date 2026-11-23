@@ -1,0 +1,31 @@
+{
+  "name": "@janhq/jan-always-on",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "description": "Chat with persistent project bots and run their routines while Jan is open.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["*.mjs", "client.js", "client.bots.js", "client.copy.js", "client.avatar.js", "client.open-bot-avatar.js", "LICENSE.open-bot-avatar", "README.md"],
+  "dependencies": {
+    "@janhq/dsh-superagent": "workspace:~",
+    "@janhq/jan-atomic-write": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-plugin-api": "workspace:*",
+    "@janhq/jan-schedule": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/schemastery": "workspace:~"
+  },
+  "scripts": {
+    "test": "node --test tests/*.spec.mjs"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-agent-preset", "@janhq/jan-client-ui-approval"]
+    }
+  }
+}

@@ -37,12 +37,25 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'packages/api/llama-cpp-controller',
   'packages/client/ui-settings-local-model',
   'packages/web/web-search',
+  'plugins/agent-desktop',
+  'plugins/agent-settings',
+  'plugins/annotate',
   'plugins/desktop-app',
+  'plugins/diagnostics',
   'plugins/downloads',
+  'plugins/hosts',
+  'plugins/jan-always-on',
+  'plugins/jan-browser',
+  'plugins/jan-onboarding',
   'plugins/jan-theme',
   'plugins/legacy-import',
+  'plugins/model-hub',
+  'plugins/notifications',
   'plugins/plugin-api',
   'plugins/preset-square',
+  'plugins/status-bar',
+  'plugins/tokamak',
+  'plugins/wall-of-quotes',
 ] as const
 const WINDOWS_SIGNING_ENV_PREFIX = 'JAN_DESKTOP_WINDOWS_'
 const WINDOWS_SIGNING_ENV_NAMES = [
@@ -534,6 +547,8 @@ export async function packageTarget(
     rmSync(buildPaths.packedLandlock, { recursive: true, force: true })
     mkdirSync(buildPaths.packedLandlock, { recursive: true })
     await executePreparation(['--dir', 'native/system', 'run', 'build:ts'], buildEnv, REPOSITORY_ROOT)
+    // The root build produces only the host addon, but Linux prepack requires both libcs and landlock-run.
+    if (target.platform === 'linux') await executePreparation(['--dir', 'native/system', 'run', 'build:native'], buildEnv, REPOSITORY_ROOT)
     await executePreparation([
       '--dir',
       'native/system/packages/entry',
@@ -541,6 +556,16 @@ export async function packageTarget(
       '--pack-destination',
       buildPaths.packedLandlock,
     ], buildEnv, REPOSITORY_ROOT)
+    // The entry's platform package carries the prebuilt addon and is not on npm; Windows has none.
+    if (target.platform === 'darwin' || target.platform === 'linux') {
+      await executePreparation([
+        '--dir',
+        `native/system/packages/${target.platform}-${target.arch}`,
+        'pack',
+        '--pack-destination',
+        buildPaths.packedLandlock,
+      ], buildEnv, REPOSITORY_ROOT)
+    }
   }
   const prepareRuntime = () => executePreparation(
     ['run', 'prepare:runtime', ...(signPrimaryRuntime ? ['--defer-primary-runtime-smoke'] : [])], downloadEnv)
@@ -576,13 +601,13 @@ export async function packageTarget(
   } else if (target.platform === 'darwin' && !invocation.unsigned && !invocation.skipNotarization) {
     await execute([...desktopElectronBuilderArguments(target, true), '--config.mac.notarize=false'], electronBuilderEnv)
     await execute(['exec', 'tsx', 'scripts/smoke-packaged-runtime.ts'], targetEnv)
-    const appPath = join(buildPaths.artifacts, target.arch === 'arm64' ? 'mac-arm64' : 'mac', 'Jan Alpha.app')
+    const appPath = join(buildPaths.artifacts, target.arch === 'arm64' ? 'mac-arm64' : 'mac', 'Jan Next.app')
     await withMacOSNotarizationProxy(mac?.notarizationProxy,
       () => notarizeMacOS({ appPath, ...resolveMacOSNotarizationEnvironment(environment) }), undefined, undefined, proxyEvent)
   } else {
     if (target.platform === 'darwin' && invocation.skipNotarization && !invocation.directory) {
       await execute(desktopElectronBuilderArguments(target, true), electronBuilderEnv)
-      const appPath = join(artifactsRoot, target.arch === 'arm64' ? 'mac-arm64' : 'mac', 'Jan Alpha.app')
+      const appPath = join(artifactsRoot, target.arch === 'arm64' ? 'mac-arm64' : 'mac', 'Jan Next.app')
       for (const format of ['dmg', 'zip'] as const) {
         await buildMacArtifact({ format, appPath, output: artifactsRoot })
       }

@@ -29,6 +29,7 @@ import { JAN_ENV_PREFIX } from '@janhq/jan-shell'
 import type { ShellExecRequest, ShellExecSpec, ShellExecution, ShellRunResult } from '@janhq/jan-shell'
 import { processJob, processOutcome, processSources, ringDelta } from './background.ts'
 import { parseExitStatus, renderJobRead, renderPromoted, renderResult } from './render.ts'
+import { isReadOnlyCommand } from './read-only-command.ts'
 
 export const name = 'tool-bash'
 export const inject = ['tools', 'shell', 'systemPrompt', 'shellEnv', 'workingDirectory']
@@ -309,17 +310,26 @@ export function apply(ctx: Context, config: Config = {}): void {
         if (settled.status !== 'running' && settled.status !== 'stopping') registry.remove(attached.id, owner)
         return settled
       }
+      // A steer releases the wait the same way the timeout does: the command
+      // keeps running as a job and the model reads the steered input now.
+      const yieldSignal = exec.yieldSignal
+      const waitSignal = yieldSignal === undefined ? exec.signal : AbortSignal.any([exec.signal, yieldSignal])
       let view: JobView
       try {
-        view = await registry.wait(attached.id, timeoutMs, owner, exec.signal)
+        view = await registry.wait(attached.id, timeoutMs, owner, waitSignal)
       } catch {
-        // A wait on the caller's own live job rejects only for the caller's
-        // abort: the model's call is over, so the command goes with it, as
-        // under the deadline kill.
-        await stop('tool call aborted')
-        throw toolAborted()
+        if (!exec.signal.aborted && yieldSignal?.aborted === true) {
+          view = registry.get(attached.id, owner)
+        } else {
+          // A wait on the caller's own live job rejects only for the caller's
+          // abort: the model's call is over, so the command goes with it, as
+          // under the deadline kill.
+          await stop('tool call aborted')
+          throw toolAborted()
+        }
       }
-      if ((view.status === 'running' || view.status === 'stopping') && attached.process() === undefined) {
+      const steered = !exec.signal.aborted && yieldSignal?.aborted === true
+      if ((view.status === 'running' || view.status === 'stopping') && attached.process() === undefined && !steered) {
         // The wait expired while preparation still ran: nothing is running
         // to keep, so this is the deadline's preparation timeout, with the
         // settled empty result the executor's own deadline would have given.
@@ -347,6 +357,7 @@ export function apply(ctx: Context, config: Config = {}): void {
           cwd: spec.workdir,
           jobId: attached.id,
           timeoutMs,
+          ...steered ? { steered: true } : {},
           output: renderJobRead(
             ringDelta(read.chunks), read.lossy, read.job.output.spillPaths ?? [], attached.process()?.sandbox, escalationModes,
           ),
@@ -416,6 +427,7 @@ export function apply(ctx: Context, config: Config = {}): void {
                 cwd: { type: 'string', required: true },
                 jobId: { type: 'string', required: true },
                 timeoutMs: { type: 'number', required: true },
+                steered: { type: 'boolean' },
                 output: { type: 'string', required: true },
               },
             },
@@ -475,6 +487,10 @@ export function apply(ctx: Context, config: Config = {}): void {
         }],
         presentationMeta: (_args, value) => ({ cwd: value.cwd }),
       },
+      // A foreground command that only reads may overlap sibling read-only calls. Background
+      // jobs, sandbox escalation (an approval prompt) and every write stay ordered barriers.
+      isConcurrencySafe: (args: BashToolArgs) => args.run_in_background !== true
+        && args.sandbox_permissions === undefined && isReadOnlyCommand(args.command),
       async execute(args: BashToolArgs, exec) {
         // Description is display metadata; workdir defaults to the caller's session.
         const standingPolicy = resolveSandboxPolicy(exec)

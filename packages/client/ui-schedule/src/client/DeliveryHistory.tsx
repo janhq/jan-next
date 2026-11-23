@@ -156,17 +156,21 @@ export function DeliveryHistory({
           <IconClockOutlineRegular size={24} className={css.emptyGlyph} />
           <h3>{t('delivery.empty')}</h3>
         </div>}
-      {page?.records.map(record => <section key={record.messageId} className={css.delivery} aria-label={t('delivery.label')}>
-        <IconClockOutlineRegular className={css.deliveryGlyph} />
-        <div className={css.deliveryBody}>
-          <div className={css.deliveryHead}>
-            <time className={css.deliveryTime} dateTime={record.scheduledAt}>{formatOccurrence(record.scheduledAt)}</time>
-            <Button size="sm" disabled={!availableSessionIds.includes(record.targetSessionId)}
-              onClick={() => { onOpenSession(record.targetSessionId) }}>{sessionTitles[record.targetSessionId] ?? t('host.openDeliverySession')}</Button>
+      {page?.records.map((record) => {
+        const sessionId = record.targetSessionId
+        return <section key={record.messageId} className={css.delivery} aria-label={t('delivery.label')}>
+          <IconClockOutlineRegular className={css.deliveryGlyph} />
+          <div className={css.deliveryBody}>
+            <div className={css.deliveryHead}>
+              <time className={css.deliveryTime} dateTime={record.scheduledAt}>{formatOccurrence(record.scheduledAt)}</time>
+              {sessionId === undefined ? <span>{t('delivery.pluginAccepted', { owner: record.owner })}</span>
+                : <Button size="sm" disabled={!availableSessionIds.includes(sessionId)}
+                  onClick={() => { onOpenSession(sessionId) }}>{sessionTitles[sessionId] ?? t('host.openDeliverySession')}</Button>}
+            </div>
+            {record.prompt !== undefined && <SavedPrompt prompt={record.prompt} t={t} />}
           </div>
-          {record.prompt !== undefined && <SavedPrompt prompt={record.prompt} t={t} />}
-        </div>
-      </section>)}
+        </section>
+      })}
       {page?.nextBefore !== undefined && failure === undefined && <Button variant="outline" disabled={loading}
         onClick={() => { void load(page.nextBefore) }}>
         {t('delivery.loadMore')}

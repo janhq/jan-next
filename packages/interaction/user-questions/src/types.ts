@@ -83,6 +83,23 @@ export interface AskUserQuestionAnswerItem {
 export interface AskUserQuestionAnswer {
   /** Structured answers keyed by question id. */
   answers: AskUserQuestionAnswerItem[]
+  /** The answering Client automatically submitted the batch at its deadline. */
+  autoSubmitted?: true
+}
+
+/** Live Host preference exposed to presets that opt into automatic answering. */
+export interface UserQuestionSettings {
+  /** Read the current automatic-answer wait for new calls.
+   * @returns The wait in seconds, or zero to wait indefinitely.
+   */
+  autoAnswerSeconds(): number
+}
+
+declare module '@janhq/cordis' {
+  interface Context {
+    /** Live preference, when a UI settings owner is composed. */
+    userQuestionSettings: UserQuestionSettings
+  }
 }
 
 /** `open` while the tool call may still return the answer; `continued` once the answer can only arrive as a new turn. */
@@ -159,6 +176,8 @@ export interface AskUserQuestionRequestEvent {
     callId: ToolCallId
     /** True for a foreground wait that requires a Client claim; absent for indefinite waits. */
     timed?: boolean
+    /** Submit an answer batch instead of returning pending when the Client countdown expires. */
+    autoSubmit?: true
   }
 }
 

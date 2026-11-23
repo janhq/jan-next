@@ -330,7 +330,7 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     await expect.poll(() => input.textContent()).toBe('@folderx/')
     await menu.getByRole('option', { name: /child\.txt/ }).waitFor()
     await expect.poll(() => page.getByRole('navigation', { name: 'Folder navigation' })
-      .getByRole('button').allTextContents()).toEqual(['Workspace', 'folderx'])
+      .getByRole('button').allTextContents()).toEqual(['Project', 'folderx'])
     // The listing knows it was drilled into, so its rows drop the location the
     // header already carries.
     await expect.poll(() => menu.getByRole('option', { name: /child\.txt/ }).textContent())
@@ -359,7 +359,7 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     await menu.getByRole('option', { name: /child\.txt/ }).waitFor()
     await crumbs.waitFor()
     await expect.poll(() => crumbs.getByRole('button').allTextContents())
-      .toEqual(['Workspace', 'folderx'])
+      .toEqual(['Project', 'folderx'])
     // The listed folder is where the menu already is: its crumb is inert, and
     // the rows drop the location the header now carries.
     await expect.poll(() => crumbs.getByRole('button', { name: 'folderx' }).isDisabled()).toBe(true)
@@ -375,14 +375,14 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     await nested.getByRole('button', { name: 'Browse folder' }).click()
     await expect.poll(() => input.textContent()).toBe('@folderx/nested/')
     await expect.poll(() => crumbs.getByRole('button').allTextContents())
-      .toEqual(['Workspace', 'folderx', 'nested'])
+      .toEqual(['Project', 'folderx', 'nested'])
     await crumbs.getByRole('button', { name: 'folderx' }).click()
     await expect.poll(() => input.textContent()).toBe('@folderx/')
     await expect.poll(() => crumbs.getByRole('button').allTextContents())
-      .toEqual(['Workspace', 'folderx'])
+      .toEqual(['Project', 'folderx'])
 
     // Clicking the root crumb rewrites the token back to a bare trigger.
-    await crumbs.getByRole('button', { name: 'Workspace' }).click()
+    await crumbs.getByRole('button', { name: 'Project' }).click()
     await expect.poll(() => input.textContent()).toBe('@')
     await expect.poll(() => crumbs.count()).toBe(0)
     await menu.getByRole('option', { name: /^folderx\// }).waitFor()

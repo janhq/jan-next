@@ -17,6 +17,7 @@ import type {
   WorkspacePinValue,
   WorkspaceUnarchiveSessionRequest,
   WorkspaceUnpinSessionRequest,
+  WorkspaceUpdateRequest,
   WorkspaceValue,
   WorkspaceId,
   WorkspaceView,
@@ -106,9 +107,9 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
    * @param signal - caller lifetime.
    * @returns generated Remote result.
    */
-  async initializeDefault(signal?: AbortSignal): Promise<RemoteResult<WorkspaceValue | undefined>> {
+  async initializeDefault(signal?: AbortSignal): Promise<RemoteResult<WorkspaceValue>> {
     const result = await this.remote.initializeDefault(signal)
-    if (result.ok && result.value !== undefined) this.upsert(result.value.workspace)
+    if (result.ok) this.upsert(result.value.workspace)
     return result
   }
 
@@ -120,6 +121,17 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
    */
   async rename(workspaceId: WorkspaceId, title: string): Promise<RemoteResult<WorkspaceValue>> {
     const result = await this.remote.rename({ workspaceId, title })
+    if (result.ok) this.upsert(result.value.workspace)
+    return result
+  }
+
+  /**
+   * Update project identity and merge the returned row immediately.
+   * @param request - target Workspace and partial identity edit.
+   * @returns generated Remote result.
+   */
+  async update(request: WorkspaceUpdateRequest): Promise<RemoteResult<WorkspaceValue>> {
+    const result = await this.remote.update(request)
     if (result.ok) this.upsert(result.value.workspace)
     return result
   }

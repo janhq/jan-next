@@ -198,6 +198,8 @@ pnpm run dev:desktop     # build, then launch Desktop
 
 Arguments after a Web command reach `jan web`, for example `pnpm run dev:web --no-open --port 3081`; `dev:web` also accepts `--skip-build` to reuse the existing artifact tree and `--no-serve` to run only the rebuild watchers beside a server started elsewhere. Both Web commands use the normal Harness home, while the Desktop commands use the isolated development home described in the [Desktop README](../apps/desktop/README.md). The root `Makefile` names the same commands as `make web`, `make dev-web`, `make desktop`, `make dev-desktop`, and `make build`; `ARGS='--no-open'` forwards options. `make dev-web` and `make dev-desktop` first run `make llama-worker`, which builds and stages the local model worker (`build:llama-worker`, then `stage:llama-worker`) with the cargo features in `LLAMA_WORKER_FEATURES`: `engine-metal` on macOS, `engine-vulkan` when `glslc` is on `PATH`, otherwise `engine`. The first build compiles llama.cpp and takes minutes; later runs only restage.
 
+`make package` builds an unsigned installer for the current machine: it runs `make llama-worker`, then `pnpm run package:desktop:unsigned`, which selects the macOS DMG, Windows installer, or Linux AppImage and Debian package from the host. `make package-check` validates tools first; `make package-dir` stops at the unpacked application. [Desktop packaging](../apps/desktop/packaging/README.md#choose-a-build) lists the per-OS commands and outputs, plus signed release builds.
+
 ### TODO markers
 
 Use one of three comment tags to flag known issues in the code, ordered by urgency:
