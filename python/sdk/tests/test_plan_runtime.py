@@ -98,15 +98,16 @@ def test_plan_body_uses_native_input_then_off_removes_guidance_but_keeps_exit_to
 
 
 def test_plan_body_steers_the_next_step_of_a_running_turn(tmp_path: Path) -> None:
-    first = _Completion("FIRST_REPLY", blocked=True)
+    # The steer ends the pending model request, so its late response may hit a closed connection.
+    first = _Completion("FIRST_REPLY", blocked=True, allow_disconnect=True)
     with _runtime(tmp_path, [first, _Completion("PLANNING_REPLY")], initial_permission="workspace-write") as runtime:
         session = runtime.harness.start_session(_SESSION_ID)
         observing = runtime.workers.submit(session.run, "Start this task without tools.")
         assert first.entered.wait(_WAIT_SECONDS)
         execution = _command(runtime, session, "/plan Design a smaller change.")
-        assert not first.release.is_set() and not observing.done()
-        first.release.set()
+        # The next step answers without the first request ever completing.
         result = observing.result(timeout=_WAIT_SECONDS)
+        assert not first.release.is_set()
         assert isinstance(result, RunResult) and result.final_response == "PLANNING_REPLY"
         a, b = runtime.model.captured()
         assert _GUIDANCE not in _effective_system(a)
