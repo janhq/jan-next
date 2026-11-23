@@ -9,7 +9,7 @@
  * `sidebar.workspaces.session.row.action` list. Session and Workspace
  * hover cards are suppressed while their menu is open.
  */
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import clsx from 'clsx'
 import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import {
@@ -125,7 +125,10 @@ function rowHalf(e: { clientY: number; currentTarget: HTMLElement }): 'before' |
   return e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
 }
 
-/** Owner props of one Workspace header row; the access Hooks are the browser root's own standard seats. */
+/**
+ * Owner props of one Workspace header row; the access Hooks are the browser root's own standard seats.
+ * Callbacks and seats must keep their identity across the owner's renders: the row is memoized on them.
+ */
 type ProjectRowItemProps = {
   group: GroupNode
   newShortcut?: ShortcutCatalogEntry | undefined
@@ -149,6 +152,21 @@ interface ProjectRowAccess {
   readonly reorder: boolean
 }
 
+/** The header facts a project row draws; its group's Session rows are not among them. */
+const HEADER_FACTS = [
+  'key', 'workspaceId', 'cwd', 'createdAt', 'label', 'expanded', 'containsCurrent',
+  'avatar', 'color', 'githubOwner', 'hostName', 'hostState',
+] as const satisfies readonly (keyof GroupNode)[]
+
+/** Same props for a project row: identical except a group whose header facts are all unchanged. */
+function sameProjectRow(previous: ProjectRowItemProps, next: ProjectRowItemProps): boolean {
+  for (const key of Object.keys(next) as (keyof ProjectRowItemProps)[]) {
+    if (key !== 'group' && previous[key] !== next[key]) return false
+  }
+  if (Object.keys(previous).length !== Object.keys(next).length) return false
+  return HEADER_FACTS.every(fact => previous.group[fact] === next.group[fact])
+}
+
 /**
  * Project (workspace) header row: folder + title;
  * hover reveals the chevron and create button, and dwelling on a real
@@ -156,6 +174,9 @@ interface ProjectRowAccess {
  * `containsCurrent` arrives on the node (derivation fact, no renderer scan).
  * Create and drag follow the Workspace access snapshot. Menu providers own
  * their access checks; the ungrouped bucket has no Workspace menu.
+ * Memoized on its header facts: with hundreds of projects, re-rendering every
+ * header for a change inside one group (opening a Session, a status update
+ * while a reply streams) was most of the sidebar's work.
  * @param props.group - derived group node.
  * @param props.containsCurrentDescendant - highlight an ancestor even when its subtree is collapsed.
  * @param props.onToggle - expand/collapse the group.
@@ -165,12 +186,12 @@ interface ProjectRowAccess {
  * @param props.t - the browser root's locale seat.
  * @returns the row element.
  */
-export function ProjectRowItem(props: ProjectRowItemProps) {
+export const ProjectRowItem = memo(function ProjectRowItem(props: ProjectRowItemProps) {
   const workspaceId = props.group.workspaceId
   return workspaceId === undefined
     ? <UngroupedProjectRow {...props} />
     : <WorkspaceProjectRow {...props} workspaceId={workspaceId} />
-}
+}, sameProjectRow)
 
 /** The ungrouped bucket's header: no Workspace resource, so starting a Session there asks the global resource. */
 function UngroupedProjectRow(props: ProjectRowItemProps) {
