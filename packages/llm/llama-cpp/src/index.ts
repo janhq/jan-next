@@ -548,7 +548,7 @@ export class LlamaCpp extends Service {
     const active = this.activeModel()
     const offered = active ?? { id: this.firstModel.id, name: this.firstModel.name, bytes: this.firstModel.bytes }
     const downloads: LlamaCppDownload[] = [...this.jobs.values()].map(job => ({
-      id: job.spec.id, name: job.spec.name,
+      id: job.spec.id, name: job.spec.name, repo: job.spec.repo,
       ...job.progress === undefined ? {} : { progress: job.progress },
       ...job.error === undefined ? {} : { error: job.error },
       ...job.paused === undefined ? {} : { paused: job.paused },
@@ -570,6 +570,7 @@ export class LlamaCpp extends Service {
         const settled = this.contexts.get(model.id)
         return {
           id: model.id, name: model.name, bytes: installedBytes(model), source: model.source, vision: model.mmproj?.vision === true,
+          ...model.repo === undefined ? {} : { repo: model.repo },
           active: model.id === this.record.active,
           status: this.running?.resident.get(model.id) ?? 'unloaded',
           ...settled === undefined ? {} : { contextSize: settled },

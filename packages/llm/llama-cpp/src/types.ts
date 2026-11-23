@@ -77,6 +77,8 @@ export interface LocalModelEntry {
   /** Bytes of the model file plus its vision projector, if any. */
   bytes: number
   source: LocalModelSource
+  /** Hugging Face repository the file came from; absent for an imported file. With `name`, the file's identity. */
+  repo?: string
   /** It has a vision projector that encodes images, so the route accepts image input for it. */
   vision: boolean
   /** The default model, which the route's alias id also serves and which loads when the worker starts. */
@@ -117,6 +119,8 @@ export interface LlamaCppDownload {
   /** Model id the download installs as. */
   id: string
   name: string
+  /** Hugging Face repository the file comes from. With `name`, the file's identity. */
+  repo: string
   /** Present once bytes flow; absent while queued. A paused download keeps the bytes it reached. */
   progress?: LlamaCppProgress
   /** Present when the download failed; retrying starts it again from its partial file. */
