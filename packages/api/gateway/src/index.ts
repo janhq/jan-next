@@ -511,8 +511,9 @@ export class TypertGatewayService extends Service implements TypertGateway {
     peer: PeerScope,
   ): Promise<ConnectionRpcResult> {
     const forwarder = this.forwarder
+    // A federating Host's own Peer is answered here alone, so mutual federation cannot echo.
     // oxlint-disable-next-line typescript/no-unnecessary-condition -- other packages merge non-owner kinds into PrincipalMap.
-    if (forwarder === undefined || peer.principal.kind !== 'owner') return this.dispatchLocalRpc(endpoint, payload, signal, peer)
+    if (forwarder === undefined || peer.principal.kind !== 'owner' || peer.forward === 'local') return this.dispatchLocalRpc(endpoint, payload, signal, peer)
     try {
       const local = () => this.dispatchLocalRpc(endpoint, payload, signal, peer)
       return await forwarder.call({ endpoint, payload, peer, signal }, local) as ConnectionRpcResult
@@ -566,7 +567,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
   ): Promise<AsyncIterable<unknown>> {
     const forwarder = this.forwarder
     // oxlint-disable-next-line typescript/no-unnecessary-condition -- other packages merge non-owner kinds into PrincipalMap.
-    if (forwarder === undefined || peer.principal.kind !== 'owner') {
+    if (forwarder === undefined || peer.principal.kind !== 'owner' || peer.forward === 'local') {
       return this.openLocalWireStream(endpoint, payload, uplink, peer, signal, control, uplinkWindow)
     }
     return forwarder.stream(

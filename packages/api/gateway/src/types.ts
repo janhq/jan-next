@@ -237,7 +237,7 @@ export interface TypertGateway {
 
   /**
    * Register the sole carrier-level forwarder (Host federation). Only owner
-   * Peers pass through it; every other Peer reaches this Host directly.
+   * Peers whose `forward` is not `'local'` pass through it; every other Peer reaches this Host directly.
    * @param forwarder - the hook offered every owner wire call and stream.
    * @returns disposer restoring direct dispatch.
    * @throws Error when a forwarder is already registered.
