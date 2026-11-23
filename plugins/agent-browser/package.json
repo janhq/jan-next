@@ -1,0 +1,26 @@
+{
+  "name": "@janhq/jan-agent-browser",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "description": "Browse the web in Jan's own browser, with sign-ins shared across chats and bots.",
+  "license": "MIT",
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.mjs", "cli.mjs", "tools.mjs"],
+  "jan": {
+    "manifestVersion": 1
+  },
+  "dependencies": {
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-tools": "workspace:*"
+  },
+  "devDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-attachment": "workspace:*",
+    "@janhq/jan-util-values": "workspace:*"
+  }
+}
