@@ -36,20 +36,6 @@
 # `jan.client` rows are the browser roster the modules node half scans into
 # window.__JAN_BOOT__; the modules row is simultaneously a host row.
 - insert:
-    # Setup can prepare a model before the user enables the optional Voice Input bundle.
-    - id: speech-to-text
-      name: '@janhq/jan-experimental-speech-to-text'
-      config:
-        defaultProvider: sensevoice-local
-    - id: speech-to-text-sensevoice
-      name: '@janhq/jan-experimental-speech-to-text-sensevoice'
-      config:
-        dataRoot: !!js janHomePath('speech-to-text', 'sensevoice')
-    - id: api-speech-to-text
-      name: '@janhq/jan-experimental-api-speech-to-text'
-    - id: ui-voice-input
-      name: '@janhq/jan-experimental-client-ui-voice-input'
-
     # tokamak-harness: product telemetry and analytics are never mounted, desktop included.
     - id: desktop-product-telemetry
       name: '@janhq/jan-host-product-telemetry-otel'
