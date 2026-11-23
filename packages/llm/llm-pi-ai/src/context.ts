@@ -6,7 +6,7 @@
 
 import { brandString } from '@janhq/jan-brand'
 import { contentHasImage, IMAGE_OFFLOAD_REQUIRED_CODE, LlmError, offloadedImageText, projectOffloadedImages, requestImageHandleText, requiredImageOffload } from '@janhq/jan-llm'
-import type { ContentBlock, GenerateOptions, ImageAttachmentAccessResolver, Message, RequestMessage, ToolCallId } from '@janhq/jan-llm'
+import type { ContentBlock, GenerateOptions as LlmGenerateOptions, ImageAttachmentAccessResolver, Message, RequestMessage, ToolCallId } from '@janhq/jan-llm'
 import type {
   AttachmentId,
   AttachmentStore,
@@ -18,6 +18,9 @@ import type { Context as PiContext, ImageContent, Message as PiMessage, SystemMe
 import { toPiAssistant } from './replay.ts'
 import { requestImageDimensions } from '@janhq/jan-attachment'
 import { DEFAULT_REQUEST_IMAGE_MAX_BYTES, DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET } from './config.ts'
+
+/** Context building never reads the request purpose, so a request with any producer's purpose converts. */
+type GenerateOptions = LlmGenerateOptions<string>
 
 /** Join the text blocks of a harness message. */
 function flattenText(message: RequestMessage): string {
