@@ -1089,6 +1089,22 @@ describe('ChatView', () => {
     },
   )
 
+  it('expands a live process preview when its surface is clicked without activating its rows', () => {
+    const h = makeCompletionHarness('standard', 'next-input')
+    const view = render(<h.ChatView {...h.props} />)
+    const root = view.container.querySelector<HTMLElement>('[data-chat-group-key][data-chat-turn="2"]')!
+    const header = root.querySelector<HTMLButtonElement>('[data-process-activity]')!
+    const peek = root.querySelector<HTMLElement>('[data-process-peek]')!
+    const rows = peek.querySelector<HTMLElement>('[data-step-process-content]')!
+    // jsdom dispatches synthetic clicks even on inert elements. Check the two
+    // hit-testing boundaries explicitly before clicking the preview surface.
+    expect(peek.closest('[inert]')).toBeNull()
+    expect(rows.hasAttribute('inert')).toBe(true)
+    fireEvent.click(peek)
+    expect(header.getAttribute('aria-expanded')).toBe('true')
+    expect(rows.closest('[inert]')).toBeNull()
+  })
+
   // jsdom applies no CSS, so the cap is observed through the class that carries `max-height`; the fold
   // animation measures the body in the commit that closes it.
   const uncapped = (body: HTMLElement): boolean => body.className.includes('expandedBody')
