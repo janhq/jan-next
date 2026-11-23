@@ -2485,7 +2485,7 @@ export interface LspLocalServerConfig {
 ## `@janhq/jan-mcp-client`
 
 - `inject`: `tools`
-- `source`: [`packages/mcp/mcp-client/src/index.ts:138`](../packages/mcp/mcp-client/src/index.ts)
+- `source`: [`packages/mcp/mcp-client/src/index.ts:140`](../packages/mcp/mcp-client/src/index.ts)
 
 ```ts config-catalog
 /** Configuration for one stdio or Streamable HTTP MCP server. */
@@ -2539,6 +2539,8 @@ export interface StreamableHttpConfig {
   url: string
   /** Additional headers attached to MCP requests. */
   headers: Record<string, string>
+  /** Follow HTTP redirects (default true). Set false to keep credentials on the configured origin. */
+  followRedirects?: boolean
   /** Timeout per tool call or resource request in milliseconds. */
   toolCallTimeoutMs: number
   /** Optional budget for one connection attempt plus its initial tool sync, in milliseconds. */
