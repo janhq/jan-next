@@ -51,30 +51,13 @@ This Host signs in to each other computer with `forward=local`, so that Jan answ
 
 A chat running on another computer reads only chats on that computer with `read_chat`; a chat on this computer reads every connected computer's.
 
-## Copy model providers to the other computer
+## Sync setup to another computer
 
-Once an SSH Host is connected, its row asks the Jan there whether anybody set it up. A Jan with no provider added and no default model picked gets an offer under the row: each provider route this computer can give, ticked, and Copy. Copy sends the chosen routes, their keys and this computer's default model (when its route is among them) to that Jan's own `/jan-api/hosts` through the SSH tunnel, signed in with the tunnel's token, so keys never leave the encrypted session.
+In **Settings → Hosts**, connect to an SSH Host and choose **Sync setup…**. Jan compares the two setups without writing to the destination. Review the changes, then choose **Apply**. For each conflict, **Keep remote** is the default; choose **Use this computer** only for items you want to replace. New items that may contain credentials, including provider keys, are not selected by default. Identical and remote-only items are left untouched.
 
-| Offered | Left out |
-| --- | --- |
-| A route the other Jan lacks, with its key when this computer has one | A route whose endpoint comes from a variable (`baseURLEnv`), such as the local llama.cpp worker: that address belongs to this computer |
-| A key only (shown as "key only"), when both routes use the same fixed endpoint and credential reference and the key is missing there | A route that needs a key this computer does not have, or a route whose key destination cannot be verified |
+Sync covers portable model providers, provider keys, the default model, MCP servers, skills, and plugin bundles. It skips machine-specific entries, unreadable skills, and keys managed by the destination's environment. Chats, projects, downloaded models, and general preferences are outside this flow. Approved values travel through the authenticated SSH tunnel; the preview contains no key values. The receiving Jan only stores a provider key if every route that uses its reference has the same fixed endpoint as the sender.
 
-The receiving Jan adds only what it lacks: a route with the same name, a key that already resolves there (stored or from its environment) and a default model someone picked all stay as they are, and the answer names what it kept. A route is sent as it was saved here; one with a `!!js` field goes as this computer evaluated it, because the expression would read the other computer's environment. Not now hides the offer until the next Connect.
-
-The receiving Jan checks the route's endpoint and credential reference again before storing a key. If something changed or the destination cannot be verified, it does not store the key. Both Jans must support this check to copy keys.
-
-## Bring MCP servers, skills and plugins to the other computer
-
-A connected SSH Host's row has Bring setup. It asks the Jan there what it has and lists, by kind, what this computer can add: MCP servers, skills and plugin bundles it lacks, each with a checkbox. A filter by name shows once the list is long, and a group's checkbox ticks or clears only the rows the filter shows.
-
-| Kind | How it travels | Left unticked |
-| --- | --- | --- |
-| MCP server | One merge into that Jan's `mcp-manager` settings | A server whose command, arguments or folder is an absolute path on this computer: a Windows path, a Unix path starting with `/`, or a home path starting with `~/` |
-| Skill | The folders as one tar stream over SSH. The selected skill's top-level link is resolved, but nested links are never followed. Links that point outside the skill cannot be copied. `.git`, `node_modules`, `__pycache__` and `.venv` stay behind. | None |
-| Plugin bundle | Enabled there when that Jan has it installed, otherwise installed from the same source | A bundle installed here from a local folder |
-
-The other Jan keeps what it has: a server or skill with the same name is not offered, and a skill folder already there is never replaced. Skills unpack into a hidden staging folder there and move into place only once the whole archive arrived, so an interrupted copy leaves no half-copied skill and the next Bring setup offers it again. A plugin that fails is named in the row's note while the rest still land. That Jan's window shows new skills after a reload.
+After applying, check each item's result. If an item changed since review, choose **Review again** before deciding what to apply. If the connection dropped before Jan could confirm a result, review the destination before repeating the change. Some plugin changes need a restart.
 
 ## Versions on the two sides
 

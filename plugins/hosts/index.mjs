@@ -20,6 +20,7 @@ import { createHostLink } from './link.mjs'
 import { createFederation } from './federation.mjs'
 import { copyCustomizations, customizationOffer, customizationState } from './customization-copy.mjs'
 import { resolveAgentsHome } from '@janhq/jan-home-paths'
+import { applySync, createSyncReview, syncFingerprints, syncInventory, syncKey, syncPayload, verifySyncPeer } from './setup-sync.mjs'
 
 export const name = 'jan-hosts'
 export const inject = ['janHomePath', 'webServer', 'connection', 'credentials', 'settings', 'typertGateway']
@@ -69,6 +70,7 @@ async function ownerCookieFor(ctx) {
 export function apply(ctx, config) {
   const store = new HostsStore(join(ctx.janHomePath(), 'hosts'))
   const tunnels = new Map()
+  const syncReviews = createSyncReview()
   // What a running Connect is doing, per Host id; cleared when it ends either way.
   const progress = new Map()
   const connecting = new Map()
@@ -134,6 +136,7 @@ export function apply(ctx, config) {
   function dropTunnel(id, forget = false) {
     tunnels.get(id)?.close()
     tunnels.delete(id)
+    syncReviews.clear(id)
     federation.detach(id, forget)
   }
 
@@ -311,10 +314,11 @@ export function apply(ctx, config) {
     }
     step({ step: 'starting' })
     const proxy = await startedRelay()
+    const syncAccess = syncKey()
     return openTunnel({
       ssh, relayPort: proxy?.port, log,
-      command: ports => startCommand({ port: ports.web, proxy: proxy?.proxyUrl(ports.relay), name: entry.name }),
-    })
+      command: ports => startCommand({ port: ports.web, proxy: proxy?.proxyUrl(ports.relay), name: entry.name, syncAccess }),
+    }).then(tunnel => ({ ...tunnel, syncAccess }))
   }
 
   /** The URL that opens the Host, with its login token so the window signs in on its own. */
@@ -419,6 +423,7 @@ export function apply(ctx, config) {
           void tunnel.exited.then(() => {
             if (tunnels.get(id) !== record) return
             tunnels.delete(id)
+            syncReviews.clear(id)
             federation.detach(id)
           })
           return linkHost(current, record)
@@ -444,6 +449,53 @@ export function apply(ctx, config) {
     },
     async open({ id }) {
       return { url: await openUrl(await find(id)) }
+    },
+    async syncPreview({ id }) {
+      const tunnel = tunnels.get(id)
+      if (!tunnel) throw new HostsError('not-connected', 'Connect first.')
+      const key = syncKey()
+      const local = await syncInventory({ ...customizationSource(), ...providerSource() }, key)
+      const remote = await callRemote(tunnel, 'syncInventory', { key, access: tunnel.syncAccess, refs: local.filter(item => item.kind === 'keys').map(item => item.id) })
+      if (tunnels.get(id) !== tunnel) throw new HostsError('not-connected', 'Reconnect and review the setup again.')
+      return syncReviews.preview(id, tunnel, key, local, remote)
+    },
+    async syncApply({ id, token, choices }) {
+      const tunnel = tunnels.get(id)
+      if (!tunnel) throw new HostsError('not-connected', 'Connect first.')
+      const { key, items } = syncReviews.take(id, tunnel, token, choices)
+      const outcomes = []
+      for (const item of items) {
+        if (tunnels.get(id) !== tunnel) break
+        let payload
+        try {
+          const [current] = await syncInventory({ ...customizationSource(), ...providerSource() }, key, item)
+          if (current?.digest !== item.digest || current.problem) {
+            outcomes.push({ kind: item.kind, id: item.id, status: 'stale' })
+            continue
+          }
+          payload = syncPayload(key, { ...current, expected: item.expected })
+        } catch (error) {
+          outcomes.push({ kind: item.kind, id: item.id, status: error?.code === 'sync-stale' ? 'stale' : 'failed' })
+          continue
+        }
+        if (tunnels.get(id) !== tunnel) break
+        try {
+          outcomes.push(await callRemote(tunnel, 'syncReceive', { key, access: tunnel.syncAccess, item: payload }, 120_000))
+        } catch (error) {
+          outcomes.push({ kind: item.kind, id: item.id, status: 'unknown' })
+          break
+        }
+      }
+      return outcomes
+    },
+    async syncInventory({ access, key, refs }) {
+      verifySyncPeer(process.env.JAN_HOST_SYNC_ACCESS, access)
+      return syncFingerprints(await syncInventory({ ...customizationSource(), ...providerSource(), receiving: true, refs }, key))
+    },
+    async syncReceive({ access, key, item }) {
+      verifySyncPeer(process.env.JAN_HOST_SYNC_ACCESS, access)
+      const [result] = await applySync({ ...customizationSource(), ...providerSource(), receiving: true }, [item], key)
+      return result
     },
     // Answered on the other computer, for the Jan that started it over SSH.
     async setupState() {

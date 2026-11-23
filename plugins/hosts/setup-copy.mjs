@@ -51,6 +51,19 @@ function sameBinding(left, right) {
   return left !== undefined && right !== undefined && left.ref === right.ref && left.endpoint === right.endpoint
 }
 
+/** Return the fixed endpoint shared by every route that uses this credential reference. */
+export function credentialEndpoint(providers, llm, ref) {
+  const endpoints = catalogEndpoints(llm)
+  let endpoint
+  for (const [route, profile] of Object.entries(providers)) {
+    if (profile?.apiKeyEnv !== ref) continue
+    const binding = keyBinding(profile, endpoints.get(route))
+    if (!binding || (endpoint !== undefined && endpoint !== binding.endpoint)) return undefined
+    endpoint = binding.endpoint
+  }
+  return endpoint
+}
+
 function userSet(descriptor) {
   return isRecord(descriptor?.user) && Object.keys(descriptor.user).length > 0
 }
@@ -197,7 +210,7 @@ export async function receiveSetup({ settings, credentials, llm }, request) {
  * @param {object} [params] - its parameters.
  * @returns {Promise<unknown>} the operation's result.
  */
-export async function callRemote(tunnel, method, params = {}) {
+export async function callRemote(tunnel, method, params = {}, timeout = CALL_MS) {
   const connect = new URL('connect', tunnel.root)
   connect.searchParams.set('token', tunnel.token)
   connect.searchParams.set('interactions', 'none')
@@ -206,7 +219,7 @@ export async function callRemote(tunnel, method, params = {}) {
   if (login.status !== 302 || cookie === undefined) throw new Error(`That computer refused the sign-in (HTTP ${login.status}). Disconnect and connect again.`)
   const response = await fetch(new URL('jan-api/hosts', tunnel.root), {
     method: 'POST', headers: { 'content-type': 'application/json', cookie },
-    body: JSON.stringify({ method, params }), signal: AbortSignal.timeout(CALL_MS),
+    body: JSON.stringify({ method, params }), signal: AbortSignal.timeout(timeout),
   })
   const body = await response.json().catch(() => ({}))
   if (!response.ok || body.error) throw new Error(body.error ?? `That computer answered HTTP ${response.status}.`)
