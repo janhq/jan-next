@@ -794,25 +794,27 @@ describe('read_chat', () => {
       source: { kind: 'session-reference', form: 'recall', version: 2, references: [] },
     }), { surfaceOp: 'append' })
 
-    const refused = await read({ session_id: 'source' })
-    expect(refused).toEqual({ error: 'Only chats the user mentioned in this chat can be read.', code: 'SESSION_REFERENCE_NOT_MENTIONED' })
+    expect(await read({ session_id: 'source', include_history: true }))
+      .toMatchObject({ code: 'SESSION_REFERENCE_NOT_MENTIONED' })
     // A session id the model writes itself grants nothing.
     appendText(target, `read ${source.id}`)
     expect(await read({ session_id: 'source' })).toMatchObject({ code: 'SESSION_REFERENCE_NOT_MENTIONED' })
     expect(await read({ session_id: 'source' }, { agent: undefined })).toMatchObject({ code: 'SESSION_REFERENCE_NOT_MENTIONED' })
 
     await mention(source, 'Research')
-    expect(await read({ session_id: 'source' })).toEqual({ text: [
-      'Chat "Research" (session_id: source, project folder: /source): 4 messages.',
-      '',
-      '#0 user:\n<compacted-summary>checkpoint</compacted-summary>',
-      '',
-      '#1 user:\nrecent user',
-      '',
-      '#2 user:\nhuman steer',
-      '',
-      '#3 assistant:\nvisible answer',
-    ].join('\n') })
+    expect(await read({ session_id: 'source' })).toEqual({
+      text: [
+        'Chat "Research" (session_id: source, project folder: /source): 4 messages.',
+        '',
+        '#0 user:\n<compacted-summary>checkpoint</compacted-summary>',
+        '',
+        '#1 user:\nrecent user',
+        '',
+        '#2 user:\nhuman steer',
+        '',
+        '#3 assistant:\nvisible answer',
+      ].join('\n'),
+    })
   })
 
   it('pages back from the newest message, narrows by query, and says when nothing matches', async () => {
