@@ -74,6 +74,11 @@
       name: '@janhq/jan-browser'
       disabled: true
 
+    # Jan's own web browser: per-chat sessions whose sign-ins every chat and bot
+    # shares. Navigation, page actions and screenshots ask before running.
+    - id: jan-agent-browser
+      name: '@janhq/jan-agent-browser'
+
     # Observe native windows and approve semantic actions through Jan.
     - id: jan-agent-desktop
       name: '@janhq/jan-agent-desktop'

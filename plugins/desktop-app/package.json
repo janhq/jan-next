@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@janhq/dsh-generative-ui": "workspace:~",
+    "@janhq/jan-agent-browser": "workspace:*",
     "@janhq/jan-agent-desktop": "workspace:*",
     "@janhq/jan-agent-preset": "workspace:*",
     "@janhq/jan-agent-settings": "workspace:*",
