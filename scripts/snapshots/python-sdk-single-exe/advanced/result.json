@@ -93,44 +93,6 @@
       "seq": 10,
       "time": 0,
       "data": {
-        "id": "{{messageId}}",
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Serial agent creation completed. Ordinary and nested forks are independent; historical fork metadata remains readable."
-          }
-        ],
-        "source": {
-          "kind": "plugin:serial-created-fixture"
-        }
-      },
-      "surfaceOp": "append"
-    },
-    {
-      "type": "user/message",
-      "seq": 11,
-      "time": 0,
-      "data": {
-        "content": [
-          {
-            "type": "text",
-            "text": "Run the advanced packaged-runtime snapshot scenario."
-          }
-        ],
-        "source": {
-          "kind": "user"
-        },
-        "role": "user",
-        "id": "{{messageId}}"
-      },
-      "surfaceOp": "append"
-    },
-    {
-      "type": "user/message",
-      "seq": 12,
-      "time": 0,
-      "data": {
         "content": [
           {
             "type": "text",
@@ -154,6 +116,44 @@
               "text": "Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."
             }
           ]
+        },
+        "role": "user",
+        "id": "{{messageId}}"
+      },
+      "surfaceOp": "append"
+    },
+    {
+      "type": "user/message",
+      "seq": 11,
+      "time": 0,
+      "data": {
+        "id": "{{messageId}}",
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Serial agent creation completed. Ordinary and nested forks are independent; historical fork metadata remains readable."
+          }
+        ],
+        "source": {
+          "kind": "plugin:serial-created-fixture"
+        }
+      },
+      "surfaceOp": "append"
+    },
+    {
+      "type": "user/message",
+      "seq": 12,
+      "time": 0,
+      "data": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Run the advanced packaged-runtime snapshot scenario."
+          }
+        ],
+        "source": {
+          "kind": "user"
         },
         "role": "user",
         "id": "{{messageId}}"
@@ -201,8 +201,10 @@
             "job_kill",
             "job_list",
             "job_output",
+            "job_watch",
             "snapshot_double",
             "subagent",
+            "wake_after",
             "workflow",
             "working_directory"
           ]
@@ -227,7 +229,7 @@
       "data": {
         "title": "Run the advanced packaged-runtime snapsh",
         "messageSeqs": [
-          11
+          12
         ],
         "source": {
           "kind": "fallback"
@@ -291,8 +293,10 @@
             "job_kill",
             "job_list",
             "job_output",
+            "job_watch",
             "snapshot_double",
             "subagent",
+            "wake_after",
             "workflow",
             "working_directory"
           ]
@@ -350,9 +354,33 @@
             "type": "chunk",
             "time": 0,
             "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 0,
+                "totalTokens": 3
+              }
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
               "type": "block-start",
               "index": 0,
               "blockType": "tool-call"
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 3,
+                "totalTokens": 6
+              }
             }
           },
           {
@@ -567,9 +595,33 @@
             "type": "chunk",
             "time": 0,
             "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 0,
+                "totalTokens": 3
+              }
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
               "type": "block-start",
               "index": 0,
               "blockType": "tool-call"
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 3,
+                "totalTokens": 6
+              }
             }
           },
           {
@@ -753,9 +805,33 @@
             "type": "chunk",
             "time": 0,
             "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 0,
+                "totalTokens": 3
+              }
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
               "type": "block-start",
               "index": 0,
               "blockType": "tool-call"
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 3,
+                "totalTokens": 6
+              }
             }
           },
           {
@@ -917,6 +993,10 @@
               },
               {
                 "type": "text",
+                "text": "Status: completed\nSummary: See closing message below.\nEvidence: Not reported.\nBlockers: Not reported.\nChanged files: Not reported."
+              },
+              {
+                "type": "text",
                 "text": "Its closing message:"
               },
               {
@@ -938,12 +1018,99 @@
       }
     },
     {
-      "type": "assistant/message",
+      "type": "assistant/attempt",
       "seq": 39,
       "time": 0,
       "data": {
         "turn": 1,
         "step": 4,
+        "stream": [
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 0,
+                "totalTokens": 3
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "step/end",
+      "seq": 40,
+      "time": 0,
+      "data": {
+        "turn": 1,
+        "step": 4
+      }
+    },
+    {
+      "type": "agent/inbox/spliced",
+      "seq": 41,
+      "time": 0,
+      "data": {
+        "target": "next-step",
+        "start": 0,
+        "removedCount": 1,
+        "inserted": []
+      }
+    },
+    {
+      "type": "step/start",
+      "seq": 42,
+      "time": 0,
+      "data": {
+        "turn": 1,
+        "step": 5
+      }
+    },
+    {
+      "type": "user/message",
+      "seq": 43,
+      "time": 0,
+      "data": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Background subagent agent-1 finished and will do no further work unless you send it more."
+          },
+          {
+            "type": "text",
+            "text": "Status: completed\nSummary: See closing message below.\nEvidence: Not reported.\nBlockers: Not reported.\nChanged files: Not reported."
+          },
+          {
+            "type": "text",
+            "text": "Its closing message:"
+          },
+          {
+            "type": "text",
+            "text": "DIRECT_CHILD_OK"
+          }
+        ],
+        "source": {
+          "kind": "subagent-settled",
+          "form": "notice",
+          "summary": "Background subagent agent-1 finished and will do no further work unless you send it more.",
+          "stopReason": "completed",
+          "senderSessionId": "{{child-1}}"
+        },
+        "role": "user",
+        "id": "{{messageId}}"
+      },
+      "surfaceOp": "append"
+    },
+    {
+      "type": "assistant/message",
+      "seq": 44,
+      "time": 0,
+      "data": {
+        "turn": 1,
+        "step": 5,
         "message": {
           "role": "assistant",
           "content": [
@@ -987,9 +1154,33 @@
             "type": "chunk",
             "time": 0,
             "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 0,
+                "totalTokens": 3
+              }
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
               "type": "block-start",
               "index": 0,
               "blockType": "tool-call"
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 3,
+                "totalTokens": 6
+              }
             }
           },
           {
@@ -1061,11 +1252,11 @@
     },
     {
       "type": "tool/call",
-      "seq": 40,
+      "seq": 45,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 4,
+        "step": 5,
         "callId": "advanced-workflow",
         "name": "workflow",
         "arguments": "{\"script\":\"phase('Delegate')\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\nreturn { reply }\",\"meta\":{\"name\":\"advanced-exe-snapshot\",\"description\":\"exercise one packaged workflow child\"}}"
@@ -1073,7 +1264,7 @@
     },
     {
       "type": "tool-workflow/run-start",
-      "seq": 41,
+      "seq": 46,
       "time": 0,
       "data": {
         "runId": "{{workflow-run}}",
@@ -1082,7 +1273,7 @@
     },
     {
       "type": "subagent/catalog",
-      "seq": 42,
+      "seq": 47,
       "time": 0,
       "data": {
         "version": 3,
@@ -1095,7 +1286,7 @@
     },
     {
       "type": "tool-workflow/agent-start",
-      "seq": 43,
+      "seq": 48,
       "time": 0,
       "data": {
         "runId": "{{workflow-run}}",
@@ -1107,7 +1298,7 @@
     },
     {
       "type": "tool-workflow/agent-end",
-      "seq": 44,
+      "seq": 49,
       "time": 0,
       "data": {
         "runId": "{{workflow-run}}",
@@ -1117,7 +1308,7 @@
     },
     {
       "type": "tool-workflow/run-end",
-      "seq": 45,
+      "seq": 50,
       "time": 0,
       "data": {
         "runId": "{{workflow-run}}",
@@ -1126,11 +1317,11 @@
     },
     {
       "type": "tool/result",
-      "seq": 46,
+      "seq": 51,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 4,
+        "step": 5,
         "message": {
           "role": "tool",
           "source": {
@@ -1149,33 +1340,13 @@
         }
       },
       "sourceEventSeqs": [
-        40
+        45
       ],
       "surfaceOp": "append"
     },
     {
       "type": "step/end",
-      "seq": 47,
-      "time": 0,
-      "data": {
-        "turn": 1,
-        "step": 4
-      }
-    },
-    {
-      "type": "agent/inbox/spliced",
-      "seq": 48,
-      "time": 0,
-      "data": {
-        "target": "next-step",
-        "start": 0,
-        "removedCount": 1,
-        "inserted": []
-      }
-    },
-    {
-      "type": "step/start",
-      "seq": 49,
+      "seq": 52,
       "time": 0,
       "data": {
         "turn": 1,
@@ -1183,43 +1354,21 @@
       }
     },
     {
-      "type": "user/message",
-      "seq": 50,
-      "time": 0,
-      "data": {
-        "content": [
-          {
-            "type": "text",
-            "text": "Background subagent agent-1 finished and will do no further work unless you send it more."
-          },
-          {
-            "type": "text",
-            "text": "Its closing message:"
-          },
-          {
-            "type": "text",
-            "text": "DIRECT_CHILD_OK"
-          }
-        ],
-        "source": {
-          "kind": "subagent-settled",
-          "form": "notice",
-          "summary": "Background subagent agent-1 finished and will do no further work unless you send it more.",
-          "stopReason": "completed",
-          "senderSessionId": "{{child-1}}"
-        },
-        "role": "user",
-        "id": "{{messageId}}"
-      },
-      "surfaceOp": "append"
-    },
-    {
-      "type": "assistant/message",
-      "seq": 51,
+      "type": "step/start",
+      "seq": 53,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 5,
+        "step": 6
+      }
+    },
+    {
+      "type": "assistant/message",
+      "seq": 54,
+      "time": 0,
+      "data": {
+        "turn": 1,
+        "step": 6,
         "message": {
           "role": "assistant",
           "content": [
@@ -1261,9 +1410,33 @@
             "type": "chunk",
             "time": 0,
             "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 0,
+                "totalTokens": 3
+              }
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
               "type": "block-start",
               "index": 0,
               "blockType": "text"
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 3,
+                "totalTokens": 6
+              }
             }
           },
           {
@@ -1331,16 +1504,16 @@
     },
     {
       "type": "step/end",
-      "seq": 52,
+      "seq": 55,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 5
+        "step": 6
       }
     },
     {
       "type": "command/run",
-      "seq": 53,
+      "seq": 56,
       "time": 0,
       "data": {
         "commandId": "{{command:1}}",
@@ -1352,7 +1525,7 @@
     },
     {
       "type": "feedback/record",
-      "seq": 54,
+      "seq": 57,
       "time": 0,
       "data": {
         "text": "The session needs a clearer explanation."
@@ -1360,7 +1533,7 @@
     },
     {
       "type": "command/done",
-      "seq": 55,
+      "seq": 58,
       "time": 0,
       "data": {
         "commandId": "{{command:1}}",
@@ -1370,7 +1543,7 @@
     },
     {
       "type": "feedback/record",
-      "seq": 56,
+      "seq": 59,
       "time": 0,
       "data": {
         "category": "other"
@@ -1378,7 +1551,7 @@
     },
     {
       "type": "feedback/message-put",
-      "seq": 57,
+      "seq": 60,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
@@ -1395,7 +1568,7 @@
     },
     {
       "type": "feedback/message-put",
-      "seq": 58,
+      "seq": 61,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
@@ -1411,7 +1584,7 @@
     },
     {
       "type": "feedback/message-delete",
-      "seq": 59,
+      "seq": 62,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
@@ -1420,7 +1593,7 @@
     },
     {
       "type": "turn/end",
-      "seq": 60,
+      "seq": 63,
       "time": 0,
       "data": {
         "turn": 1,
@@ -1569,56 +1742,6 @@
           "seq": 10,
           "time": 0,
           "data": {
-            "id": "{{messageId}}",
-            "role": "user",
-            "content": [
-              {
-                "type": "text",
-                "text": "Serial agent creation completed. Ordinary and nested forks are independent; historical fork metadata remains readable."
-              }
-            ],
-            "source": {
-              "kind": "plugin:serial-created-fixture"
-            }
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "user/message",
-          "seq": 11,
-          "time": 0,
-          "data": {
-            "content": [
-              {
-                "type": "text",
-                "text": "Run the advanced packaged-runtime snapshot scenario."
-              }
-            ],
-            "source": {
-              "kind": "user"
-            },
-            "role": "user",
-            "id": "{{messageId}}"
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "user/message",
-          "seq": 12,
-          "time": 0,
-          "data": {
             "content": [
               {
                 "type": "text",
@@ -1642,6 +1765,56 @@
                   "text": "Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."
                 }
               ]
+            },
+            "role": "user",
+            "id": "{{messageId}}"
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "user/message",
+          "seq": 11,
+          "time": 0,
+          "data": {
+            "id": "{{messageId}}",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Serial agent creation completed. Ordinary and nested forks are independent; historical fork metadata remains readable."
+              }
+            ],
+            "source": {
+              "kind": "plugin:serial-created-fixture"
+            }
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "user/message",
+          "seq": 12,
+          "time": 0,
+          "data": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Run the advanced packaged-runtime snapshot scenario."
+              }
+            ],
+            "source": {
+              "kind": "user"
             },
             "role": "user",
             "id": "{{messageId}}"
@@ -1701,8 +1874,10 @@
                 "job_kill",
                 "job_list",
                 "job_output",
+                "job_watch",
                 "snapshot_double",
                 "subagent",
+                "wake_after",
                 "workflow",
                 "working_directory"
               ]
@@ -1739,7 +1914,7 @@
           "data": {
             "title": "Run the advanced packaged-runtime snapsh",
             "messageSeqs": [
-              11
+              12
             ],
             "source": {
               "kind": "fallback"
@@ -1821,8 +1996,10 @@
                 "job_kill",
                 "job_list",
                 "job_output",
+                "job_watch",
                 "snapshot_double",
                 "subagent",
+                "wake_after",
                 "workflow",
                 "working_directory"
               ]
@@ -1886,9 +2063,33 @@
                 "type": "chunk",
                 "time": 0,
                 "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 0,
+                    "totalTokens": 3
+                  }
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
                   "type": "block-start",
                   "index": 0,
                   "blockType": "tool-call"
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 3,
+                    "totalTokens": 6
+                  }
                 }
               },
               {
@@ -2145,9 +2346,33 @@
                 "type": "chunk",
                 "time": 0,
                 "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 0,
+                    "totalTokens": 3
+                  }
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
                   "type": "block-start",
                   "index": 0,
                   "blockType": "tool-call"
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 3,
+                    "totalTokens": 6
+                  }
                 }
               },
               {
@@ -2361,9 +2586,33 @@
                 "type": "chunk",
                 "time": 0,
                 "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 0,
+                    "totalTokens": 3
+                  }
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
                   "type": "block-start",
                   "index": 0,
                   "blockType": "tool-call"
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 3,
+                    "totalTokens": 6
+                  }
                 }
               },
               {
@@ -2573,7 +2822,7 @@
                   },
                   {
                     "type": "text",
-                    "text": "Your final answer is delivered automatically if your parent is still online. Include the result and relevant evidence in that answer; the parent does not receive your full transcript, tool output, or reasoning. If your last action is a message to your parent, the completion notice omits your final answer; include the result and relevant evidence in that message."
+                    "text": "Your final answer is delivered automatically if your parent is still online. Follow the requested format. Otherwise use Summary:, Evidence:, Blockers:, and Changed files: in your final answer. Report only checks you ran and files you changed; omit unknown details. Your parent does not receive your transcript. Use messages for interim updates, not as a substitute for your final answer."
                   }
                 ],
                 "source": {
@@ -2783,60 +3032,6 @@
           "seq": 11,
           "time": 0,
           "data": {
-            "id": "{{messageId}}",
-            "role": "user",
-            "content": [
-              {
-                "type": "text",
-                "text": "Serial agent creation completed."
-              }
-            ],
-            "source": {
-              "kind": "plugin:serial-created-fixture"
-            }
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{child-1}}",
-        "event": {
-          "type": "user/message",
-          "seq": 12,
-          "time": 0,
-          "data": {
-            "content": [
-              {
-                "type": "text",
-                "text": "Reply with exactly DIRECT_CHILD_OK and nothing else."
-              },
-              {
-                "type": "text",
-                "text": "Your final answer is delivered automatically if your parent is still online. Include the result and relevant evidence in that answer; the parent does not receive your full transcript, tool output, or reasoning. If your last action is a message to your parent, the completion notice omits your final answer; include the result and relevant evidence in that message."
-              }
-            ],
-            "source": {
-              "kind": "user"
-            },
-            "role": "user",
-            "id": "{{messageId}}"
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{child-1}}",
-        "event": {
-          "type": "user/message",
-          "seq": 13,
-          "time": 0,
-          "data": {
             "content": [
               {
                 "type": "text",
@@ -2881,6 +3076,60 @@
       "payload": {
         "sessionId": "{{child-1}}",
         "event": {
+          "type": "user/message",
+          "seq": 12,
+          "time": 0,
+          "data": {
+            "id": "{{messageId}}",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Serial agent creation completed."
+              }
+            ],
+            "source": {
+              "kind": "plugin:serial-created-fixture"
+            }
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-1}}",
+        "event": {
+          "type": "user/message",
+          "seq": 13,
+          "time": 0,
+          "data": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Reply with exactly DIRECT_CHILD_OK and nothing else."
+              },
+              {
+                "type": "text",
+                "text": "Your final answer is delivered automatically if your parent is still online. Follow the requested format. Otherwise use Summary:, Evidence:, Blockers:, and Changed files: in your final answer. Report only checks you ran and files you changed; omit unknown details. Your parent does not receive your transcript. Use messages for interim updates, not as a substitute for your final answer."
+              }
+            ],
+            "source": {
+              "kind": "user"
+            },
+            "role": "user",
+            "id": "{{messageId}}"
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-1}}",
+        "event": {
           "type": "request/header",
           "seq": 14,
           "time": 0,
@@ -2896,8 +3145,10 @@
                 "job_kill",
                 "job_list",
                 "job_output",
+                "job_watch",
                 "snapshot_double",
                 "subagent",
+                "wake_after",
                 "workflow",
                 "working_directory"
               ]
@@ -2934,7 +3185,7 @@
           "data": {
             "title": "Reply with exactly DIRECT_CHILD_OK and",
             "messageSeqs": [
-              12
+              13
             ],
             "source": {
               "kind": "fallback"
@@ -2995,9 +3246,33 @@
                 "type": "chunk",
                 "time": 0,
                 "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 0,
+                    "totalTokens": 3
+                  }
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
                   "type": "block-start",
                   "index": 0,
                   "blockType": "text"
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 3,
+                    "totalTokens": 6
+                  }
                 }
               },
               {
@@ -3124,6 +3399,10 @@
                   },
                   {
                     "type": "text",
+                    "text": "Status: completed\nSummary: See closing message below.\nEvidence: Not reported.\nBlockers: Not reported.\nChanged files: Not reported."
+                  },
+                  {
+                    "type": "text",
                     "text": "Its closing message:"
                   },
                   {
@@ -3168,12 +3447,129 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "assistant/message",
+          "type": "assistant/attempt",
           "seq": 39,
           "time": 0,
           "data": {
             "turn": 1,
             "step": 4,
+            "stream": [
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 0,
+                    "totalTokens": 3
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "step/end",
+          "seq": 40,
+          "time": 0,
+          "data": {
+            "turn": 1,
+            "step": 4
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "agent/inbox/spliced",
+          "seq": 41,
+          "time": 0,
+          "data": {
+            "target": "next-step",
+            "start": 0,
+            "removedCount": 1,
+            "inserted": []
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "step/start",
+          "seq": 42,
+          "time": 0,
+          "data": {
+            "turn": 1,
+            "step": 5
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "user/message",
+          "seq": 43,
+          "time": 0,
+          "data": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Background subagent agent-1 finished and will do no further work unless you send it more."
+              },
+              {
+                "type": "text",
+                "text": "Status: completed\nSummary: See closing message below.\nEvidence: Not reported.\nBlockers: Not reported.\nChanged files: Not reported."
+              },
+              {
+                "type": "text",
+                "text": "Its closing message:"
+              },
+              {
+                "type": "text",
+                "text": "DIRECT_CHILD_OK"
+              }
+            ],
+            "source": {
+              "kind": "subagent-settled",
+              "form": "notice",
+              "summary": "Background subagent agent-1 finished and will do no further work unless you send it more.",
+              "stopReason": "completed",
+              "senderSessionId": "{{child-1}}"
+            },
+            "role": "user",
+            "id": "{{messageId}}"
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "assistant/message",
+          "seq": 44,
+          "time": 0,
+          "data": {
+            "turn": 1,
+            "step": 5,
             "message": {
               "role": "assistant",
               "content": [
@@ -3217,9 +3613,33 @@
                 "type": "chunk",
                 "time": 0,
                 "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 0,
+                    "totalTokens": 3
+                  }
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
                   "type": "block-start",
                   "index": 0,
                   "blockType": "tool-call"
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 3,
+                    "totalTokens": 6
+                  }
                 }
               },
               {
@@ -3297,11 +3717,11 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/call",
-          "seq": 40,
+          "seq": 45,
           "time": 0,
           "data": {
             "turn": 1,
-            "step": 4,
+            "step": 5,
             "callId": "advanced-workflow",
             "name": "workflow",
             "arguments": "{\"script\":\"phase('Delegate')\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\nreturn { reply }\",\"meta\":{\"name\":\"advanced-exe-snapshot\",\"description\":\"exercise one packaged workflow child\"}}"
@@ -3315,7 +3735,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool-workflow/run-start",
-          "seq": 41,
+          "seq": 46,
           "time": 0,
           "data": {
             "runId": "{{workflow-run}}",
@@ -3515,7 +3935,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "subagent/catalog",
-          "seq": 42,
+          "seq": 47,
           "time": 0,
           "data": {
             "version": 3,
@@ -3534,7 +3954,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool-workflow/agent-start",
-          "seq": 43,
+          "seq": 48,
           "time": 0,
           "data": {
             "runId": "{{workflow-run}}",
@@ -3599,56 +4019,6 @@
           "seq": 11,
           "time": 0,
           "data": {
-            "id": "{{messageId}}",
-            "role": "user",
-            "content": [
-              {
-                "type": "text",
-                "text": "Serial agent creation completed."
-              }
-            ],
-            "source": {
-              "kind": "plugin:serial-created-fixture"
-            }
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{child-2}}",
-        "event": {
-          "type": "user/message",
-          "seq": 12,
-          "time": 0,
-          "data": {
-            "content": [
-              {
-                "type": "text",
-                "text": "Reply with exactly WORKFLOW_CHILD_OK and nothing else."
-              }
-            ],
-            "source": {
-              "kind": "user"
-            },
-            "role": "user",
-            "id": "{{messageId}}"
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{child-2}}",
-        "event": {
-          "type": "user/message",
-          "seq": 13,
-          "time": 0,
-          "data": {
             "content": [
               {
                 "type": "text",
@@ -3693,6 +4063,56 @@
       "payload": {
         "sessionId": "{{child-2}}",
         "event": {
+          "type": "user/message",
+          "seq": 12,
+          "time": 0,
+          "data": {
+            "id": "{{messageId}}",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Serial agent creation completed."
+              }
+            ],
+            "source": {
+              "kind": "plugin:serial-created-fixture"
+            }
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-2}}",
+        "event": {
+          "type": "user/message",
+          "seq": 13,
+          "time": 0,
+          "data": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Reply with exactly WORKFLOW_CHILD_OK and nothing else."
+              }
+            ],
+            "source": {
+              "kind": "user"
+            },
+            "role": "user",
+            "id": "{{messageId}}"
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-2}}",
+        "event": {
           "type": "request/header",
           "seq": 14,
           "time": 0,
@@ -3708,8 +4128,10 @@
                 "job_kill",
                 "job_list",
                 "job_output",
+                "job_watch",
                 "snapshot_double",
                 "subagent",
+                "wake_after",
                 "workflow",
                 "working_directory"
               ]
@@ -3746,7 +4168,7 @@
           "data": {
             "title": "Reply with exactly WORKFLOW_CHILD_OK and",
             "messageSeqs": [
-              12
+              13
             ],
             "source": {
               "kind": "fallback"
@@ -3807,9 +4229,33 @@
                 "type": "chunk",
                 "time": 0,
                 "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 0,
+                    "totalTokens": 3
+                  }
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
                   "type": "block-start",
                   "index": 0,
                   "blockType": "text"
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 3,
+                    "totalTokens": 6
+                  }
                 }
               },
               {
@@ -3939,7 +4385,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool-workflow/agent-end",
-          "seq": 44,
+          "seq": 49,
           "time": 0,
           "data": {
             "runId": "{{workflow-run}}",
@@ -3955,7 +4401,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool-workflow/run-end",
-          "seq": 45,
+          "seq": 50,
           "time": 0,
           "data": {
             "runId": "{{workflow-run}}",
@@ -3970,11 +4416,11 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/result",
-          "seq": 46,
+          "seq": 51,
           "time": 0,
           "data": {
             "turn": 1,
-            "step": 4,
+            "step": 5,
             "message": {
               "role": "tool",
               "source": {
@@ -3993,7 +4439,7 @@
             }
           },
           "sourceEventSeqs": [
-            40
+            45
           ],
           "surfaceOp": "append"
         }
@@ -4005,39 +4451,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/end",
-          "seq": 47,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 4
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "agent/inbox/spliced",
-          "seq": 48,
-          "time": 0,
-          "data": {
-            "target": "next-step",
-            "start": 0,
-            "removedCount": 1,
-            "inserted": []
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "step/start",
-          "seq": 49,
+          "seq": 52,
           "time": 0,
           "data": {
             "turn": 1,
@@ -4051,35 +4465,13 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "user/message",
-          "seq": 50,
+          "type": "step/start",
+          "seq": 53,
           "time": 0,
           "data": {
-            "content": [
-              {
-                "type": "text",
-                "text": "Background subagent agent-1 finished and will do no further work unless you send it more."
-              },
-              {
-                "type": "text",
-                "text": "Its closing message:"
-              },
-              {
-                "type": "text",
-                "text": "DIRECT_CHILD_OK"
-              }
-            ],
-            "source": {
-              "kind": "subagent-settled",
-              "form": "notice",
-              "summary": "Background subagent agent-1 finished and will do no further work unless you send it more.",
-              "stopReason": "completed",
-              "senderSessionId": "{{child-1}}"
-            },
-            "role": "user",
-            "id": "{{messageId}}"
-          },
-          "surfaceOp": "append"
+            "turn": 1,
+            "step": 6
+          }
         }
       }
     },
@@ -4089,11 +4481,11 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "assistant/message",
-          "seq": 51,
+          "seq": 54,
           "time": 0,
           "data": {
             "turn": 1,
-            "step": 5,
+            "step": 6,
             "message": {
               "role": "assistant",
               "content": [
@@ -4135,9 +4527,33 @@
                 "type": "chunk",
                 "time": 0,
                 "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 0,
+                    "totalTokens": 3
+                  }
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
                   "type": "block-start",
                   "index": 0,
                   "blockType": "text"
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 3,
+                    "totalTokens": 6
+                  }
                 }
               },
               {
@@ -4211,11 +4627,11 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/end",
-          "seq": 52,
+          "seq": 55,
           "time": 0,
           "data": {
             "turn": 1,
-            "step": 5
+            "step": 6
           }
         }
       }
@@ -4226,7 +4642,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "command/run",
-          "seq": 53,
+          "seq": 56,
           "time": 0,
           "data": {
             "commandId": "{{command:1}}",
@@ -4244,7 +4660,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/record",
-          "seq": 54,
+          "seq": 57,
           "time": 0,
           "data": {
             "text": "The session needs a clearer explanation."
@@ -4258,7 +4674,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "command/done",
-          "seq": 55,
+          "seq": 58,
           "time": 0,
           "data": {
             "commandId": "{{command:1}}",
@@ -4274,7 +4690,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/record",
-          "seq": 56,
+          "seq": 59,
           "time": 0,
           "data": {
             "category": "other"
@@ -4288,7 +4704,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/message-put",
-          "seq": 57,
+          "seq": 60,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
@@ -4311,7 +4727,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/message-put",
-          "seq": 58,
+          "seq": 61,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
@@ -4333,7 +4749,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/message-delete",
-          "seq": 59,
+          "seq": 62,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
@@ -4348,7 +4764,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "turn/end",
-          "seq": 60,
+          "seq": 63,
           "time": 0,
           "data": {
             "turn": 1,

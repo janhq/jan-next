@@ -69,7 +69,7 @@
         "content": [
           {
             "type": "text",
-            "text": "Exercise the packaged minimal agent's persistent shell."
+            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\"."
           }
         ]
       },
@@ -78,7 +78,7 @@
         "content": [
           {
             "type": "text",
-            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\".",
+            "text": "Exercise the packaged minimal agent's persistent shell.",
             "cache_control": {
               "type": "ephemeral"
             }
@@ -157,7 +157,7 @@
         "content": [
           {
             "type": "text",
-            "text": "Exercise the packaged minimal agent's persistent shell."
+            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\"."
           }
         ]
       },
@@ -166,7 +166,7 @@
         "content": [
           {
             "type": "text",
-            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\"."
+            "text": "Exercise the packaged minimal agent's persistent shell."
           }
         ]
       },
@@ -261,7 +261,7 @@
         "content": [
           {
             "type": "text",
-            "text": "Exercise the packaged minimal agent's persistent shell."
+            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\"."
           }
         ]
       },
@@ -270,7 +270,7 @@
         "content": [
           {
             "type": "text",
-            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\"."
+            "text": "Exercise the packaged minimal agent's persistent shell."
           }
         ]
       },
