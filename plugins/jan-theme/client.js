@@ -2314,7 +2314,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
 
     function OpenSearchPalette({
       initialKind, useScheduleTasks, useSessions, useWorkspaces, useCatalog, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHubAvailable,
-      useSettingsTargets, closePalette, openChat, openProject, openArtifact, openPanel, openSettings, runCommand, t,
+      useSettingsTargets, closePalette, openChat, openProject, openArtifact, openPanel, openSettingsTarget, runCommand, t,
     }) {
       const settingsTargets = useSettingsTargets(value => value)
       const sessions = useSessions(value => value)
@@ -2389,9 +2389,9 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           })),
         ]
         const settings = settingsTargets.map(target => ({
-          kind: 'settings', key: `settings:${target.section}:${target.id}`, title: target.title,
-          detail: target.title === target.sectionTitle ? t('palette.settings') : `${t('palette.settings')} › ${target.sectionTitle}`,
-          keywords: [target.sectionTitle, target.id], open: () => { openSettings(target.section) },
+          kind: 'settings', key: JSON.stringify(['settings', target.sectionId, target.destination]), title: target.title,
+          detail: target.destination.kind === 'page' ? t('palette.settings') : `${t('palette.settings')} › ${target.sectionTitle}`,
+          keywords: target.keywords, open: () => { openSettingsTarget(target) },
         }))
         return { chats, artifacts, projects, scheduled, actions, settings }
       }, [sessions, workspaces, catalog, schedules, settingsTargets, artifactsAvailable, scheduledAvailable, hubAvailable, pluginsAvailable, defaultName, t])
@@ -3508,9 +3508,29 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           scope.effect(() => () => { scheduleTasks.setShared(undefined) }, 'jan-theme: shared schedule catalog')
         })
         let settingsNavigation
+        const noSettingsTargets = []
+        const settingsListeners = new Set()
+        const settingsTargets = {
+          getSnapshot: () => settingsNavigation?.targets.getSnapshot() ?? noSettingsTargets,
+          subscribe: (listener) => {
+            let stop
+            const bind = () => {
+              stop?.()
+              stop = settingsNavigation?.targets.subscribe(listener)
+              listener()
+            }
+            settingsListeners.add(bind)
+            stop = settingsNavigation?.targets.subscribe(listener)
+            return () => { settingsListeners.delete(bind); stop?.() }
+          },
+        }
+        const setSettingsNavigation = (next) => {
+          settingsNavigation = next
+          for (const bind of settingsListeners) bind()
+        }
         ctx.inject(['settingsNavigation'], (scope) => {
-          settingsNavigation = scope.settingsNavigation
-          scope.effect(() => () => { settingsNavigation = undefined }, 'jan-theme: settings search target')
+          setSettingsNavigation(scope.settingsNavigation)
+          scope.effect(() => () => { setSettingsNavigation(undefined) }, 'jan-theme: settings search targets')
         })
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'jt-startup-notices' }, () => h(StartupNotices, {
           openSettings: (section) => {
@@ -3540,36 +3560,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           const t = scope.locale.bind('jan-theme')
           paletteCommand('search.quickOpen', 'all', 'palette.quickOpen', ['quick open', 'go to file', 'search everything'], ['primary'])
           paletteCommand('search.commands', 'commands', 'palette.commandPalette', ['command palette', 'show all commands', 'settings'], ['primary', 'shift'], ['primary', 'shift'])
-          // Settings sections and General rows, read from their live slot registrations.
-          const labelOf = (entry) => typeof entry.options.label === 'function' ? entry.options.label() : entry.options.label
-          let settingsCache
-          const settingsTargets = {
-            getSnapshot: () => {
-              if (settingsCache !== undefined) return settingsCache
-              const sections = scope.slots.entriesOfSlot('settings.section').filter(entry => entry.options.id !== undefined)
-              const general = sections.find(entry => entry.options.id === 'general')
-              const humanize = (id) => id.replace(/[-_.]/g, ' ').replace(/^./, c => c.toUpperCase())
-              settingsCache = [
-                ...sections.map(entry => {
-                  const title = labelOf(entry) ?? humanize(entry.options.id)
-                  return { section: entry.options.id, id: entry.options.id, title, sectionTitle: title }
-                }),
-                ...(general === undefined ? [] : scope.slots.entriesOfSlot('settings.general.item')
-                  .filter(entry => entry.options.id !== undefined)
-                  .map(entry => ({ section: 'general', id: entry.options.id, title: labelOf(entry) ?? humanize(entry.options.id), sectionTitle: labelOf(general) ?? 'General' }))),
-              ]
-              return settingsCache
-            },
-            subscribe: (listener) => {
-              const changed = () => { settingsCache = undefined; listener() }
-              const stops = [
-                scope.slots.subscribe('settings.section', changed),
-                scope.slots.subscribe('settings.general.item', changed),
-                scope.locale.subscribe(changed),
-              ]
-              return () => { for (const stop of stops) stop() }
-            },
-          }
           scope.slots.inject('shell.overlay', () => scope.slots.register({
             name: 'shell.overlay', id: 'jt-search-palette', locale: 'jan-theme',
             inject: () => ({
@@ -3586,8 +3576,8 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
                 settingsTargets,
               },
               closePalette,
-              openSettings: (section) => {
-                if (settingsNavigation?.open(section) !== true) console.warn(`jan-theme: settings section ${section} is unavailable`)
+              openSettingsTarget: (target) => {
+                if (settingsNavigation?.openTarget(target) !== true) console.warn(`jan-theme: settings section ${target.sectionId} is unavailable`)
               },
               openChat: (sessionId) => {
                 scope.layout.selectPanel(null)
