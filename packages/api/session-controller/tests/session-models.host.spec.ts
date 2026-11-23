@@ -220,8 +220,8 @@ it('attributes MCP inventory to the resolved tool even when server names overlap
     { server: 'foo__bar', name: 'other', origin: { kind: 'global' } },
   ]))
 
-  // A tool removed while assembly awaits its waterfall is still the MCP tool assembly priced; its
-  // owning registration is gone, so only the server and name remain to report.
+  // A tool removed while assembly awaits its waterfall is still the MCP tool assembly priced, owned by
+  // the plugin that registered it then.
   const removeDuringAssembly = ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
     removeDuringAssembly()
     await connector.dispose()
@@ -229,7 +229,7 @@ it('attributes MCP inventory to the resolved tool even when server names overlap
   })
   const removed = await previewContext(agent, signal)
   expect(removed?.inventory.mcpTools).toEqual(expect.arrayContaining([
-    expect.objectContaining({ server: 'foo', name: 'bar__baz' }),
+    { server: 'foo', name: 'bar__baz', origin: { kind: 'plugin', plugin: 'fixture-connector' } },
   ]))
   expect(removed?.inventory.tools).not.toContain('mcp__foo__bar__baz')
   await ctx.plugin({
