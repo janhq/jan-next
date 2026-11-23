@@ -2036,8 +2036,19 @@ label.registryOption {
   .spotlightBody { max-width: 100%; }
 }
 
+/* Intro on the left, Refresh and Add plugin on the right: the head row of Skills and Connectors. */
+.customizeHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
 .customizeIntro {
-  margin: 0 0 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
   font-size: 13px;
   line-height: 20px;
   color: var(--dsw-alias-label-secondary);

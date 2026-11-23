@@ -1804,9 +1804,37 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
     ]
     : []
   const featured = ordered.filter(pkg => MORE_BUNDLES.includes(pkg.name) && !pkg.enabled).slice(0, 5)
+  const pageToolbar = (
+    <div className={css.toolbar} data-plugin-toolbar data-plugin-header-part="toolbar" hidden={!onInstalled}>
+      {updates === undefined ? null : <span className={css.updatesNote} data-tone={updates.tone}>{updates.text}</span>}
+      <Tooltip label={t('refresh')} delayMs={500} focusDelayMs={500} side="bottom" portal disabled={!loaded || refreshing}>
+        <Button variant="outline" size="sm" className={css.addButton} aria-label={t('refresh')} aria-busy={refreshing}
+          disabled={!loaded || refreshing} onClick={props.refresh}
+          icon={refreshing ? <StateDot state="ongoing" size={13} /> : <IconRefreshOutlineRegular size={13} />}>
+          <span className={css.toolbarLabel}>{t('refresh')}</span>
+        </Button>
+      </Tooltip>
+      {state.install.requestId === undefined
+        ? <AddPluginMenu t={t} disabled={!loaded} openInstall={props.openInstall} renderSlot={renderSlot}
+          openTranslationSettings={translations !== undefined && translationAllowed && translationSettings
+            ? props.openTranslationSettings : undefined} />
+        : (
+          <Tooltip label={t('installViewTask')} side="bottom" delayMs={500} focusDelayMs={500} portal disabled={!loaded}>
+            <Button variant="primary" size="sm" className={css.addButton} icon={<IconPlusOutlineRegular size={13} />}
+              aria-label={t('installViewTask')} disabled={!loaded} onClick={props.openInstall}>
+              <span className={css.toolbarLabel}>{t('installViewTask')}</span>
+            </Button>
+          </Tooltip>
+        )}
+    </div>
+  )
+  // Customize puts the actions beside the intro, the row its Skills and Connectors tabs open with.
   const exploreBar = (
     <div className={css.exploreBar}>
-      <p className={css.customizeIntro}>{t('customizeIntro')}</p>
+      <div className={css.customizeHead}>
+        <p className={css.customizeIntro}>{t('customizeIntro')}</p>
+        {pageToolbar}
+      </div>
       <Input type="search" className={css.exploreSearch as string} icon={<IconSearchOutlineRegular size={16} />}
         placeholder={t('exploreSearch')} aria-label={t('exploreSearch')} value={exploreQuery}
         onChange={(event) => { setExploreQuery(event.target.value) }} />
@@ -1871,28 +1899,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
                     </div>
                   )}
                 </div>
-                <div className={css.toolbar} data-plugin-toolbar data-plugin-header-part="toolbar" hidden={!onInstalled}>
-                  {updates === undefined ? null : <span className={css.updatesNote} data-tone={updates.tone}>{updates.text}</span>}
-                  <Tooltip label={t('refresh')} delayMs={500} focusDelayMs={500} side="bottom" portal disabled={!loaded || refreshing}>
-                    <Button variant="outline" size="sm" className={css.addButton} aria-label={t('refresh')} aria-busy={refreshing}
-                      disabled={!loaded || refreshing} onClick={props.refresh}
-                      icon={refreshing ? <StateDot state="ongoing" size={13} /> : <IconRefreshOutlineRegular size={13} />}>
-                      <span className={css.toolbarLabel}>{t('refresh')}</span>
-                    </Button>
-                  </Tooltip>
-                  {state.install.requestId === undefined
-                    ? <AddPluginMenu t={t} disabled={!loaded} openInstall={props.openInstall} renderSlot={renderSlot}
-                      openTranslationSettings={translations !== undefined && translationAllowed && translationSettings
-                        ? props.openTranslationSettings : undefined} />
-                    : (
-                      <Tooltip label={t('installViewTask')} side="bottom" delayMs={500} focusDelayMs={500} portal disabled={!loaded}>
-                        <Button variant="primary" size="sm" className={css.addButton} icon={<IconPlusOutlineRegular size={13} />}
-                          aria-label={t('installViewTask')} disabled={!loaded} onClick={props.openInstall}>
-                          <span className={css.toolbarLabel}>{t('installViewTask')}</span>
-                        </Button>
-                      </Tooltip>
-                    )}
-                </div>
+                {customize ? null : pageToolbar}
                 {tabs.length > 0
                   ? (
                     <div className={css.pageTabs} data-plugin-header-part="tabs">
