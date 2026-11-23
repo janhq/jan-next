@@ -10,7 +10,7 @@ import { ARCHIVE_BODY_ID, ARCHIVE_EXTENSIONS, archiveBodyDefinition } from '../s
 import { en } from '../src/client/archive/locales.ts'
 import { FONT_BODY_ID, FONT_EXTENSIONS, fontBodyDefinition } from '../src/client/font/index.ts'
 import { AUDIO_EXTENSIONS, MEDIA_AUDIO_ID, MEDIA_VIDEO_ID, VIDEO_EXTENSIONS, mediaBodyDefinition } from '../src/client/media/index.ts'
-import { MediaBody } from '../src/client/media/MediaBody.tsx'
+import { MediaBody, type MediaBodyProps } from '../src/client/media/MediaBody.tsx'
 
 const t = (key: keyof typeof en, values?: Record<string, string | number>): string =>
   en[key].replace(/\{(\w+)\}/gu, (_, name: string) => String(values?.[name] ?? ''))
@@ -38,10 +38,14 @@ describe('media, font, and archive routing', () => {
     const loaded = vi.fn()
     const failed = vi.fn()
     const file = { absolutePath: '/w/clip.mp4', version: '1' }
-    const body = (revision: number) => <MediaBody {...{
-      kind: 'video', content: { kind: 'renderer', revision, loaded, failed },
-      useResource: () => ({ value: file }), t: (key: string) => key,
-    } as never} />
+    const body = (revision: number) => {
+      const props: Partial<MediaBodyProps> = {
+        kind: 'video', content: { kind: 'renderer', revision, loaded, failed, reload: vi.fn() },
+        useResource: (() => ({ status: 'live', value: file, failure: undefined })) as MediaBodyProps['useResource'],
+      }
+      const locale = { t: (key: string) => key }
+      return <MediaBody {...props as MediaBodyProps} {...locale} />
+    }
     const view = render(body(0))
     try {
       const first = view.container.querySelector('video')!
