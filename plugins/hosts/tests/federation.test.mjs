@@ -1,6 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createServer } from 'node:http'
 import { createFederation, mapIds, qualifyId, splitQualifiedId } from '../federation.mjs'
+import { createHostLink } from '../link.mjs'
 
 const HOST = '9d695f7d-0373-4cd5-b196-f3aeead173bc'
 const logger = { warn() { } }
@@ -90,6 +92,43 @@ test('creating a project on another computer adopts the folder there', async () 
   assert.deepEqual(link.calls[0].payload.args, { request: { path: '/home/me/x' } })
   assert.equal(result.value.workspace.workspaceId, qualifyId(HOST, 'w1'))
   assert.equal(result.value.workspace.hostName, 'homelab')
+})
+
+test('a raw upload for another computer\'s chat is staged on that computer', async (t) => {
+  // The other Jan: signs the link in, then stages the upload under its own Session id.
+  const received = []
+  const remote = createServer((req, res) => {
+    const url = new URL(req.url, 'http://remote')
+    if (url.pathname === '/connect') { res.writeHead(302, { 'set-cookie': 'jan-auth=t; Path=/', location: '/' }).end(); return }
+    const chunks = []
+    req.on('data', chunk => chunks.push(chunk))
+    req.on('end', () => {
+      received.push({ path: url.pathname, sessionId: url.searchParams.get('sessionId'), name: url.searchParams.get('name'), cookie: req.headers.cookie, body: Buffer.concat(chunks).toString() })
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ ok: true, value: { receiptId: 'r1', file: { name: 'a.txt' } } }))
+    })
+  })
+  await new Promise(resolve => remote.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise(resolve => remote.close(resolve)))
+  const link = createHostLink({ root: `http://127.0.0.1:${remote.address().port}/`, token: 'secret' })
+  t.after(() => link.close())
+  const federation = createFederation({ logger })
+  federation.attach(HOST, 'homelab', link)
+  // This Jan's upload route: the federation answers another computer's upload, the rest falls through.
+  let local = 0
+  const here = createServer(async (req, res) => {
+    if (!await federation.upload(req, res)) { local++; req.resume(); res.writeHead(204).end() }
+  })
+  await new Promise(resolve => here.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise(resolve => here.close(resolve)))
+  const post = sessionId => fetch(`http://127.0.0.1:${here.address().port}/api/session/uploadFileBinary?${new URLSearchParams({ sessionId, name: 'a.txt' })}`, {
+    method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: 'hello there',
+  })
+
+  const response = await post(qualifyId(HOST, 'session-9'))
+  assert.deepEqual(await response.json(), { ok: true, value: { receiptId: 'r1', file: { name: 'a.txt' } } })
+  assert.deepEqual(received, [{ path: '/api/session/uploadFileBinary', sessionId: 'session-9', name: 'a.txt', cookie: 'jan-auth=t', body: 'hello there' }])
+  assert.equal((await post('session-1')).status, 204)
+  assert.equal(local, 1)
 })
 
 test('the sidebar stream lists this computer\'s projects, then the connected computer\'s', async () => {

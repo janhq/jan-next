@@ -11,6 +11,8 @@ const SEP = '~'
 const ID_KEYS = new Set(['sessionId', 'workspaceId', 'parentSessionId', 'childSessionId', 'agentId', 'beforeSessionId', 'beforeWorkspaceId'])
 /** Wire fields holding a list of those ids. */
 const ID_LIST_KEYS = new Set(['sessionIds', 'workspaceIds', 'archivedSessionIds', 'pinnedSessionIds'])
+/** The composer's raw upload route; it names its Session in the query, outside the gateway call path. */
+const UPLOAD_PATH = '/api/session/uploadFileBinary'
 
 export function qualifyId(hostId, id) {
   return `${hostId}${SEP}${id}`
@@ -369,8 +371,46 @@ export function createFederation(ctx) {
     })()
   }
 
+  /**
+   * Send a raw composer upload for another Jan's chat to that Jan, so the receipt is staged
+   * where the conversation lives.
+   * @param {import('node:http').IncomingMessage} request - authenticated upload request.
+   * @param {import('node:http').ServerResponse} response
+   * @returns {Promise<boolean>} true when the upload belonged to another Jan and was answered here.
+   */
+  async function upload(request, response) {
+    const url = new URL(request.url ?? '/', 'http://local')
+    if (url.pathname !== UPLOAD_PATH) return false
+    const split = splitQualifiedId(url.searchParams.get('sessionId'))
+    if (split === undefined || (!hosts.has(split.hostId) && !lastWorkspaces.has(split.hostId))) return false
+    const answer = (result) => {
+      response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+      response.end(JSON.stringify(result))
+    }
+    const host = hosts.get(split.hostId)
+    if (host === undefined) {
+      request.resume()
+      answer(failure('gateway/service-unavailable', 'That computer is offline. Connect it in Settings, Hosts.'))
+      return true
+    }
+    url.searchParams.set('sessionId', split.id)
+    const controller = new AbortController()
+    const abort = () => { if (!response.writableEnded) controller.abort() }
+    response.once('close', abort)
+    try {
+      const result = await host.link.upload(url.searchParams, request, controller.signal)
+      answer(result.ok ? { ...result, value: mapIds(result.value, qualifier(split.hostId)) } : result)
+    } catch (error) {
+      if (!controller.signal.aborted) answer(wireFailure(error))
+    } finally {
+      response.off('close', abort)
+    }
+    return true
+  }
+
   return {
     forwarder: { call, stream },
+    upload,
     /** Add or replace one connected Jan. */
     attach(id, name, link) {
       hosts.set(id, { id, name, link, eventClients: new Map() })
