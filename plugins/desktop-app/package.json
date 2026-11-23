@@ -5,10 +5,12 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./chat-policy": "./chat-policy.mjs",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
   "files": [
+    "chat-policy.mjs",
     "cordis.patch.yml"
   ],
   "license": "MIT",
