@@ -21,7 +21,8 @@ export function DeveloperToolsRow({ useDeveloperTools, setEnabled, t }:
   const enabled = useDeveloperTools(value => value)
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
-  return <div className={css.row}>
+  return <div className={css.row} role="group" aria-label={t('developerTools.title')}
+    data-settings-search-row="developer-tools" tabIndex={-1}>
     <div>
       <div className={css.title}>{t('developerTools.title')}</div>
       <div className={css.description}>{t('developerTools.description')}</div>

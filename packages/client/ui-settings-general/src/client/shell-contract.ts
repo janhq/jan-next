@@ -16,9 +16,10 @@ import type {} from '@janhq/jan-client-ui-sidebar/client'
 // Type-only: pulls the settings slot declarations the shell renders into.
 import type {} from '@janhq/jan-client-ui-settings/client'
 import type { PropsStore } from '@janhq/jan-client-store'
-import type { createSettingsShellStore } from './shell-store.ts'
+import type { SettingsShellStore } from './shell-store.ts'
 import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
 import type { DesktopUpdateView } from '../types.ts'
+import type { SettingsSearchTarget } from './settings-search.ts'
 
 /** One nav row projected from a settings.section registration's options. */
 export interface SettingsSectionRow {
@@ -43,6 +44,10 @@ export type SettingsRootInjected = {
   openDesktopUpdate: () => void
   /** Request a fresh logical generation and physical WebSocket immediately. */
   reconnect: () => void
+  /** Accessible names of the search field's fixed keyboard shortcuts. */
+  searchShortcut: string
+  /** Select a live search result, or reject it if the catalog has changed. */
+  openSearchTarget: (target: SettingsSearchTarget) => boolean
   hooks: {
     /** Effective command presentation, shared with the reference. */
     shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
@@ -52,6 +57,8 @@ export type SettingsRootInjected = {
     connectionState: HostObservable<ConnectionState | undefined>
     /** settings.section ledger projected into ordered nav rows. */
     sections: HostObservable<readonly SettingsSectionRow[]>
+    /** Live localized search results, shared with the command palette. */
+    searchTargets: HostObservable<readonly SettingsSearchTarget[]>
     /** settings.onboarding ledger projected into coordinator order. */
     onboardingSteps: HostObservable<readonly SettingsOnboardingStep[]>
   }
@@ -77,4 +84,4 @@ export type SettingsRootComponentProps =
   >
   & InjectFace<SettingsRootInjected>
   & PropsLocale<'settings'>
-  & PropsStore<ReturnType<typeof createSettingsShellStore>>
+  & PropsStore<SettingsShellStore>

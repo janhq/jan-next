@@ -18,6 +18,7 @@ import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import {
   ConnectionIndicator, Tooltip, useModalLayer,
+  modalSelector, observeComposition,
   IconAgentPresetOutlineMedium, IconArchiveOutlineMedium, IconCloseOutlineRegular, IconDataOutlineMedium,
   IconPersonalizationOutlineMedium, IconSettingsOutlineMedium, IconUserOutlineMedium,
 } from '@janhq/jan-client-ui-primitives'
@@ -25,6 +26,9 @@ import type { ConnectionIndicatorState } from '@janhq/jan-client-ui-primitives'
 import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-contract.ts'
 import css from './SettingsRoot.module.css'
 import { DesktopUpdateIndicator } from './DesktopUpdateIndicator.tsx'
+import { SettingsSearch } from './SettingsSearch.tsx'
+import { revealSettingsTarget } from './settings-reveal.ts'
+import type { SettingsSearchTarget } from './settings-search.ts'
 
 const RECOVERY_CONFIRMATION_MS = 2_000
 
@@ -47,6 +51,12 @@ type PanelProps = {
   activeId: string | undefined
   onSelect: (id: string) => void
   onClose: () => void
+  useSearchTargets: SettingsRootComponentProps['useSearchTargets']
+  openSearchTarget: SettingsRootComponentProps['openSearchTarget']
+  searchShortcut: string
+  reveal: SettingsSearchTarget | undefined
+  revealSequence: number
+  t: SettingsRootComponentProps['t']
 }
 
 /**
@@ -54,14 +64,48 @@ type PanelProps = {
  * header button, a mask click, and document-level Escape (mounted only while
  * open, so the listener lifetime is the panel's).
  */
-function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelProps) {
+function SettingsPanel({
+  rows, renderSlot, activeId, onSelect, onClose, useSearchTargets, openSearchTarget, searchShortcut, reveal, revealSequence, t,
+}: PanelProps) {
   // Entries can unmount underneath the requested id, so the render-time
   // projection falls back to the first row when the id is gone.
-  const active = rows.find(r => r.id === activeId)?.id ?? rows[0]?.id
+  const activeRow = rows.find(r => r.id === activeId) ?? rows[0]
+  const active = activeRow?.id
   const titleId = useId()
 
   const panel = useRef<HTMLDivElement>(null)
+  const pane = useRef<HTMLDivElement>(null)
+  const input = useRef<HTMLInputElement>(null)
+  const composition = useRef<{ guards(event: KeyboardEvent): boolean }>()
+  const [query, setQuery] = useState('')
+  const [failedSelection, setFailedSelection] = useState(false)
+  const [unavailableSequence, setUnavailableSequence] = useState<number>()
+  const targets = useSearchTargets(value => value)
+  const searching = query.trim() !== ''
   useModalLayer(panel, true, onClose)
+  useLayoutEffect(() => {
+    const observer = observeComposition(document)
+    composition.current = observer
+    return () => { observer.dispose(); composition.current = undefined }
+  }, [])
+  useLayoutEffect(() => {
+    if (reveal === undefined || pane.current === null) return
+    if (reveal.sectionId !== active) {
+      setUnavailableSequence(revealSequence)
+      return
+    }
+    return revealSettingsTarget(pane.current, reveal, () => { setUnavailableSequence(revealSequence) })
+  }, [active, reveal, revealSequence])
+
+  const isComposing = (event: KeyboardEvent) => composition.current?.guards(event) ?? event.isComposing
+  const changeQuery = (next: string) => { setFailedSelection(false); setQuery(next) }
+  const choose = (target: SettingsSearchTarget) => {
+    if (!openSearchTarget(target)) {
+      setFailedSelection(true)
+      return
+    }
+    changeQuery('')
+  }
 
   // Portalled beside #root like the Modal primitive: a covering surface mounted
   // inside the root would precede the columns' chrome in document order, so a
@@ -70,14 +114,26 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
   return createPortal((
     <div className={css.overlay} role="presentation">
       <div className={css.mask} aria-hidden="true" onClick={onClose} />
-      <div ref={panel} tabIndex={-1} data-shortcut-modal="settings" className={css.panel} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div ref={panel} tabIndex={-1} data-shortcut-modal="settings" className={css.panel} role="dialog" aria-modal="true" aria-labelledby={titleId}
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape' || query === '' || event.defaultPrevented
+            || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey
+            || !(event.target instanceof Node) || !event.currentTarget.contains(event.target) || isComposing(event.nativeEvent)) return
+          if ([...document.querySelectorAll(modalSelector)].at(-1) !== event.currentTarget) return
+          event.preventDefault()
+          if (event.repeat) return
+          changeQuery('')
+          input.current?.focus()
+        }}>
         {/* The four seats stay direct children of the panel and take their
             places from its grid: title and header share the first row, the
             navigation and the active section the second. */}
         <div className={css.navTitle} id={titleId} tabIndex={-1}
           data-modal-autofocus={active === undefined ? '' : undefined}>{renderSlot('settings.header', {})}</div>
-        <nav className={css.nav}>
-          <div className={css.navList}>
+        <div className={css.nav}>
+          <SettingsSearch targets={targets} t={t} inputRef={input} query={query} setQuery={changeQuery}
+            isComposing={isComposing} shortcut={searchShortcut} onSelect={choose} />
+          {!searching && <nav className={css.navList}>
             {rows.map(row => (
               <button
                 key={row.id}
@@ -86,7 +142,7 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
                 aria-current={row.id === active ? 'true' : undefined}
                 data-modal-autofocus={row.id === active ? '' : undefined}
                 onFocus={(event) => { event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }}
-                onClick={() => { onSelect(row.id) }}
+                onClick={() => { setFailedSelection(false); onSelect(row.id) }}
               >
                 <span className={css.navIcon} aria-hidden="true">
                   {renderSlot('settings.section.icon', { size: 16, active: row.id === active }, {
@@ -96,8 +152,8 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
                 <span className={css.navLabel}>{row.label}</span>
               </button>
             ))}
-          </div>
-        </nav>
+          </nav>}
+        </div>
         <div className={css.header}>
           <div className={css.actions}>{renderSlot('settings.action', {})}</div>
           <button type="button" className={css.close} onClick={onClose}>
@@ -105,7 +161,10 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
             <span className={css.hiddenLabel}>{renderSlot('settings.close', {})}</span>
           </button>
         </div>
-        <div className={css.options}>
+        <div ref={pane} className={css.options} tabIndex={-1} role="region"
+          aria-label={activeRow?.label || (reveal?.sectionId === active ? reveal?.sectionTitle : undefined)}>
+          {(failedSelection || (reveal !== undefined && unavailableSequence === revealSequence)) &&
+            <div role="status" className={css.searchMessage}>{t('search.unavailable')}</div>}
           {active !== undefined && renderSlot('settings.section', { close: onClose }, { only: active })}
         </div>
       </div>
@@ -121,9 +180,9 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
 export function SettingsRoot(props: SettingsRootComponentProps) {
   const {
     wide, reconnect, useConnectionState, useSections, useOnboardingSteps, useSessions, renderSlot, t,
-    useDesktopUpdate, openDesktopUpdate, useStore, actions, useShortcuts,
+    useDesktopUpdate, openDesktopUpdate, useStore, actions, useShortcuts, useSearchTargets, openSearchTarget, searchShortcut,
   } = props
-  const { open, activeId } = useStore(state => state)
+  const { open, activeId, reveal, revealSequence } = useStore(state => state)
   const shortcut = useShortcuts(rows => rows.find(row => row.id === 'settings.open'))
   const { close, openSection } = actions
   const [requestedOnboarding, setRequestedOnboarding] = useState<string | undefined>()
@@ -257,6 +316,12 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
           rows={rows}
           renderSlot={renderSlot}
           activeId={activeId}
+          reveal={reveal}
+          revealSequence={revealSequence}
+          useSearchTargets={useSearchTargets}
+          openSearchTarget={openSearchTarget}
+          searchShortcut={searchShortcut}
+          t={t}
           onSelect={actions.select}
           onClose={close}
         />

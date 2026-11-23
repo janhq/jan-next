@@ -21,7 +21,8 @@ export function DesktopChannelRow({ useChannel, select, t }:
   const { state, failed, pending } = useChannel(value => value)
   const busy = pending !== undefined || state?.changing === true
   const channel = pending ?? state?.channel
-  return <div className={css.row} role="group" aria-label={t('desktop.channel.title')}>
+  return <div className={css.row} role="group" aria-label={t('desktop.channel.title')}
+    data-settings-search-row="desktop-update-channel" tabIndex={-1}>
     <div className={css.rowText}>
       <div className={css.title}>{t('desktop.channel.title')}</div>
       <div className={css.description}>{t('desktop.channel.description')}</div>
