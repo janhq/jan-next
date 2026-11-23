@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { expect, it } from 'vitest'
+import { assertBundlePlatform, UnsupportedBundlePlatformError } from '../../../packages/boot/app-boot/src/bundle-platform.ts'
 import { ROUTER_PRESET, WORKER_PRESET } from '../src/app/sessions.ts'
 
 interface Row { id?: string; name: string; disabled?: unknown; config?: Record<string, unknown> & { plugins?: Row[] } | Row[] }
@@ -25,6 +26,13 @@ const flat = (rows: readonly Row[]): Row[] => rows.flatMap(row => [row, ...Array
 /** A preset the patch defines, by its id. */
 const presetOf = (rows: readonly Row[], id: string) => rows.map(row => row.config as { id?: string; order?: number; plugins: Row[] })
   .find(config => config?.id === id)!
+
+it('only offers setup on macOS and Linux Hosts', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { jan: { bundle: { platforms: unknown } } }
+  const { platforms } = manifest.jan.bundle
+  expect(() => { assertBundlePlatform(platforms, 'win32') }).toThrow(UnsupportedBundlePlatformError)
+  for (const host of ['darwin', 'linux']) expect(() => { assertBundlePlatform(platforms, host) }).not.toThrow()
+})
 
 it('defines the worker preset Executor Sessions run under, with a shell that moves long commands to the background', async () => {
   const rows = await patched()
