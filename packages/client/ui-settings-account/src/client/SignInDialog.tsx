@@ -34,7 +34,7 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
   const expired = phase === 'expired'
   const localFailure = failed || account.loginFailed || account.failed
   const error = localFailure || phase === 'failed'
-  const failureKey = failureCopy(localFailure ? undefined : attempt?.errorCode)
+  const failureKey = failureKeyOf(localFailure ? undefined : attempt?.errorCode)
   const waiting = active && !error
   const committing = phase === 'committing'
   useEffect(() => { if (account.view?.status === 'credential-stored') close() }, [account.view?.status, close])
@@ -94,7 +94,7 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
 }
 
 /** Name what went wrong when the Host reported a cause; a local action failure has none. */
-function failureCopy(code: SignInErrorCode | undefined): AccountKey {
+function failureKeyOf(code: SignInErrorCode | undefined): AccountKey {
   switch (code) {
     case 'no-response': return 'noResponse'
     case 'network': return 'failureNetwork'
