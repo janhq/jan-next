@@ -8,7 +8,7 @@ Open **Settings -> Built-in plugins -> Import sessions** to select an import, or
 | Claude Code | Yes | `~/.claude.json` (including `projects.*.mcpServers`) and `~/.claude/settings.json` | `~/.claude/skills` and `~/.claude/CLAUDE.md` (honors `CLAUDE_CONFIG_DIR`) | None |
 | Claude Desktop | No | `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, the Claude app-data directory on Windows, or the Claude XDG config directory on Linux | None | None |
 | Codex | Yes | `~/.codex/config.toml` (`mcp_servers`; honors `CODEX_HOME`) | `~/.codex/skills` and `~/.codex/AGENTS.md` | None |
-| OMP | Yes | `~/.omp/agent/mcp.json` | `~/.omp/agent/skills` and `~/.omp/agent/AGENTS.md` | None |
+| OMP | Yes, with bounded starting context for long chats | `~/.omp/agent/mcp.json` | `~/.omp/agent/skills` and `~/.omp/agent/AGENTS.md` | None |
 | Cursor | No | `~/.cursor/mcp.json` | `~/.cursor/skills` | None |
 | Orca (manual import only) | Claude Code, Codex, and OMP chats run in Orca workspaces | Use the source that configured the server | Use the source app | None |
 
