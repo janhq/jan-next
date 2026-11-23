@@ -37,6 +37,7 @@ window.__ModuleLoader__.load({
 }
 .jan-onboarding button { -webkit-app-region: no-drag; }
 .jan-onboarding-rail {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -47,9 +48,11 @@ window.__ModuleLoader__.load({
   background: var(--dsw-alias-bg-base);
   animation: jan-onboarding-fade var(--ob-enter) var(--ob-ease) both;
 }
-.jan-onboarding-brand { display: flex; align-items: center; gap: 8px; height: 32px; margin: 0 0 16px; padding: 0 8px; }
-.jan-onboarding-brand img { width: 20px; height: 20px; flex: none; }
-.jan-onboarding-brand span { font-family: var(--jan-onboarding-heading-font); font-size: 16px; line-height: 20px; font-weight: 500; }
+/* The mark shares the title-bar row with the traffic lights (centred on them at y 38, past their
+ * right edge at x 90), so the steps start where the main window's nav rows do. */
+.jan-onboarding-brand { position: absolute; top: 16px; left: 88px; display: flex; align-items: center; gap: 6px; height: 20px; }
+.jan-onboarding-brand img { width: 18px; height: 18px; flex: none; }
+.jan-onboarding-brand span { font-family: var(--jan-onboarding-heading-font); font-size: 15px; line-height: 20px; font-weight: 500; }
 .jan-onboarding-rail-label { margin: 0 0 6px; padding: 0 8px; font-size: 12px; line-height: 18px; font-weight: 500; color: color-mix(in srgb, var(--dsw-alias-label-primary) 70%, transparent); font-variant-numeric: tabular-nums; }
 .jan-onboarding-steps { position: relative; display: grid; gap: calc(var(--ob-row-pitch) - var(--ob-row)); margin: 0; padding: 0; list-style: none; }
 .jan-onboarding-steps-indicator {
@@ -144,6 +147,7 @@ window.__ModuleLoader__.load({
   .jan-onboarding-rail { flex-direction: row; align-items: center; justify-content: space-between; margin: var(--ob-gap); padding: calc(var(--jan-frame-top-clearance, 0px) + 4px) 9px 4px; }
   .jan-onboarding-steps, .jan-onboarding-rail-note { display: none; }
   .jan-onboarding-rail-label { margin: 0; }
+  .jan-onboarding-brand { position: static; }
   .jan-onboarding-skip { width: auto; margin: 0; }
   .jan-onboarding-main { padding-top: 16px; }
 }
