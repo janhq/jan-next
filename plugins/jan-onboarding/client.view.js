@@ -37,7 +37,6 @@ window.__ModuleLoader__.load({
 }
 .jan-onboarding button { -webkit-app-region: no-drag; }
 .jan-onboarding-rail {
-  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -48,11 +47,6 @@ window.__ModuleLoader__.load({
   background: var(--dsw-alias-bg-base);
   animation: jan-onboarding-fade var(--ob-enter) var(--ob-ease) both;
 }
-/* The mark shares the title-bar row with the traffic lights (centred on them at y 38, past their
- * right edge at x 90), so the steps start where the main window's nav rows do. */
-.jan-onboarding-brand { position: absolute; top: 16px; left: 88px; display: flex; align-items: center; gap: 6px; height: 20px; }
-.jan-onboarding-brand img { width: 18px; height: 18px; flex: none; }
-.jan-onboarding-brand span { font-family: var(--jan-onboarding-heading-font); font-size: 15px; line-height: 20px; font-weight: 500; }
 .jan-onboarding-rail-label { margin: 0 0 6px; padding: 0 8px; font-size: 12px; line-height: 18px; font-weight: 500; color: color-mix(in srgb, var(--dsw-alias-label-primary) 70%, transparent); font-variant-numeric: tabular-nums; }
 .jan-onboarding-steps { position: relative; display: grid; gap: calc(var(--ob-row-pitch) - var(--ob-row)); margin: 0; padding: 0; list-style: none; }
 .jan-onboarding-steps-indicator {
@@ -92,7 +86,7 @@ window.__ModuleLoader__.load({
 .jan-onboarding-splash { display: grid; justify-items: center; gap: 20px; text-align: center; padding-bottom: 6vh; }
 .jan-onboarding-mark { display: flex; align-items: center; gap: 20px; margin: 0; font-family: var(--jan-onboarding-heading-font); font-size: 72px; line-height: 80px; font-weight: 500; letter-spacing: -2px; outline: none; }
 .jan-onboarding-mark img { width: 76px; height: 76px; flex: none; transform-origin: 70% 85%; animation: jan-onboarding-wave 1.1s var(--ds-ease-in-out, ease-in-out) 360ms both; }
-.jan-onboarding-tagline { max-width: 26ch; margin: 0; font-size: 20px; line-height: 28px; color: var(--dsw-alias-label-secondary); text-wrap: balance; }
+.jan-onboarding-tagline { max-width: 40ch; margin: 0; font-size: 22px; line-height: 30px; color: var(--dsw-alias-label-primary); text-wrap: balance; white-space: pre-line; }
 .jan-onboarding-splash-actions { display: grid; justify-items: center; gap: 12px; margin-top: 16px; }
 .jan-onboarding .jan-onboarding-cta { height: 44px; padding: 0 22px 0 26px; gap: 6px; border-radius: 999px; font-size: 16px; }
 .jan-onboarding-cta > svg { transition: transform var(--ob-select) var(--ob-ease-out); }
@@ -156,7 +150,6 @@ window.__ModuleLoader__.load({
   .jan-onboarding-rail { flex-direction: row; align-items: center; justify-content: space-between; margin: var(--ob-gap); padding: calc(var(--jan-frame-top-clearance, 0px) + 4px) 9px 4px; }
   .jan-onboarding-steps, .jan-onboarding-rail-note { display: none; }
   .jan-onboarding-rail-label { margin: 0; }
-  .jan-onboarding-brand { position: static; }
   .jan-onboarding-skip { width: auto; margin: 0; }
   .jan-onboarding-main { padding-top: 16px; }
 }
@@ -336,8 +329,6 @@ window.__ModuleLoader__.load({
 
         return h('div', { className: 'jan-onboarding', 'data-splash': page.step === -1 || undefined, 'aria-busy': busy || working }, h('style', null, css),
           page.step >= 0 && h('nav', { className: 'jan-onboarding-rail', 'aria-labelledby': 'jan-onboarding-counter' },
-            h('div', { className: 'jan-onboarding-brand' },
-              h('img', { src: LOGO, alt: '', draggable: false, onError: event => { event.currentTarget.hidden = true } }), h('span', null, 'Jan')),
             h('p', { id: 'jan-onboarding-counter', className: 'jan-onboarding-rail-label', 'aria-live': 'polite', 'aria-atomic': true },
               t('stepCounter', { step: shown + 1, total: steps.length })),
             h('ol', { className: 'jan-onboarding-steps', style: { '--at': shown } },
