@@ -165,6 +165,27 @@ test('the gateway rejects invalid request-target forms before checking pairing',
   assert.equal(up.seen.length, 0)
 })
 
+test('the gateway refuses a rebound Host or a foreign Origin before rewriting them to loopback', async (t) => {
+  const store = await home(t)
+  const { token } = await store.pairDevice('Phone')
+  const { gateway, up } = await gatewayFor(t, store)
+  const cookie = `jan-device=${token}`
+  const url = new URL(gateway.url)
+  // The certificate covers the gateway's IP; a rebound page's Host is checked after the handshake.
+  const status = headers => new Promise((resolve, reject) => {
+    httpsRequest(url, { path: '/', headers: { cookie, ...headers }, checkServerIdentity: () => undefined }, res => { res.resume(); resolve(res.statusCode) }).once('error', reject).end()
+  })
+  assert.equal(await status({ host: `attacker.example:${url.port}` }), 403)
+  assert.equal(await status({ origin: 'https://attacker.example' }), 403)
+  assert.equal(await status({ 'sec-fetch-site': 'cross-site' }), 403)
+  const opened = new WebSocket(`${gateway.url.replace('http', 'ws')}/api/remote.mux`, { headers: { cookie }, origin: 'https://attacker.example' })
+  await assert.rejects(new Promise((resolve, reject) => { opened.once('open', resolve); opened.once('error', reject) }))
+  assert.equal(up.seen.length, 0)
+
+  assert.equal(await status({ origin: url.origin }), 200)
+  assert.equal(up.seen.length, 1)
+})
+
 test('automatic gateway selection excludes public, link-local and loopback interfaces', () => {
   const ipv4 = (address, internal = false) => [{ family: 'IPv4', address, internal }]
   const ipv6 = (address, internal = false) => [{ family: 'IPv6', address, internal }]
