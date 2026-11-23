@@ -73,8 +73,7 @@
     "@janhq/jan-experimental-cot-translation-bundle": "workspace:*",
     "@janhq/jan-experimental-worktree": "workspace:*",
     "@janhq/jan-experimental-plugin-market-bundle": "workspace:*",
-    "@janhq/jan-experimental-forge-bundle": "workspace:*",
-    "@janhq/dsh-superagent": "workspace:~"
+    "@janhq/jan-experimental-forge-bundle": "workspace:*"
   },
   "dependencies": {
     "@janhq/jan-message-quotes": "workspace:*"

@@ -79,8 +79,6 @@ export const OPTIONAL_BUNDLES: readonly string[] = [
   '@janhq/jan-experimental-plugin-market-bundle',
   '@janhq/jan-experimental-tool-worktree',
   '@janhq/jan-experimental-forge-bundle',
-  // Super Agent needs a state directory and a GitHub repository before it starts, so a person turns it on and sets it up.
-  '@janhq/dsh-superagent',
 ]
 
 /** Public Jan release members available through the ordinary on-demand bundle installer. */
