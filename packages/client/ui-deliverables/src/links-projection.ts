@@ -27,6 +27,9 @@ export interface SharedLinksState {
   readonly links: SharedLinkEntry[]
 }
 
+const inheritedOffsetSchema = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
+  .transform(value => value as SessionLogOffset)
+
 const entrySchema = z.object({
   url: z.string(),
   title: z.string().exactOptional(),
@@ -36,8 +39,7 @@ const entrySchema = z.object({
 }).strict()
 const viewSchema = z.array(entrySchema)
 const stateSchema = z.object({
-  inheritedEventCount: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
-    .transform(value => value as SessionLogOffset),
+  inheritedEventCount: inheritedOffsetSchema,
   links: viewSchema,
 }).strict()
 
