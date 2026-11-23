@@ -25,7 +25,8 @@ async function main(): Promise<void> {
   const runtimeDir = process.argv[2] as string
   const projectDir = process.argv[3] as string
   installOfficeEngineResolution(runtimeDir)
-  const installAnchor = join(runtimeDir, 'node_modules', '@janhq', 'jan', 'package.json')
+  // The Desktop runtime carries bundles outside the CLI's dependency graph.
+  const installAnchor = join(runtimeDir, 'package.json')
   const profile = loadProfileDirectory('jan', projectDir, installAnchor)
   reportSkippedBundles('jan', profile)
   const application = runProfile({
