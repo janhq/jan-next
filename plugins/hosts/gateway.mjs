@@ -138,10 +138,30 @@ export async function startGateway({ host, port, tls, allowInsecureLan = false, 
     socket.once('close', () => set.delete(socket))
   }
 
+  // The device's own authority, set once the listener is bound; a browser fills Host and Origin from it.
+  let ownHost
+  let ownOrigin
+
+  /**
+   * The browser-trust fence the loopback Host would apply, checked here before the rewrite below hides
+   * the device's Host and Origin: Host must name this gateway (a rebound page carries its own domain),
+   * a cross-site fetch is refused, and an Origin, when sent, must be this gateway's.
+   */
+  function trustedBrowser(headers) {
+    const host = headers.host
+    if (typeof host !== 'string' || /[/?#@\\\s]/.test(host)) return false
+    let hostUrl
+    try { hostUrl = new URL(`${secure ? 'https' : 'http'}://${host}`) } catch { return false }
+    if (hostUrl.host !== ownHost) return false
+    if (headers['sec-fetch-site'] === 'cross-site') return false
+    if (headers.origin === undefined) return true
+    try { return new URL(headers.origin).origin === ownOrigin } catch { return false }
+  }
+
   function upstreamHeaders(headers) {
     const next = {}
     for (const [key, value] of Object.entries(headers)) if (!HOP_HEADERS.has(key) && key !== 'cookie') next[key] = value
-    // Jan's Host check accepts loopback; the device's address is the gateway's business.
+    // Jan's Host check accepts loopback; `trustedBrowser` already held the device's Host and Origin to this gateway.
     next.host = target.host
     if (next.origin !== undefined) next.origin = target.origin
     if (next.referer !== undefined) delete next.referer
@@ -203,6 +223,7 @@ export async function startGateway({ host, port, tls, allowInsecureLan = false, 
   function onRequest(req, res) {
     const url = requestUrl(req.url)
     if (url === undefined) { res.writeHead(400).end('Invalid request target.\n'); return }
+    if (!trustedBrowser(req.headers)) { res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' }).end('This request did not come from this Jan\'s own address.\n'); return }
     if (url.pathname === PAIR_PATH) {
       if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }).end(); return }
       void handlePair(res, url).catch(() => badGateway(res, 'Jan could not pair this device.'))
@@ -222,6 +243,7 @@ export async function startGateway({ host, port, tls, allowInsecureLan = false, 
 
   server.on('upgrade', (req, socket, head) => {
     if (requestUrl(req.url) === undefined) { socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n'); return }
+    if (!trustedBrowser(req.headers)) { socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n'); return }
     const id = deviceFor(hashes(), cookieOf(req.headers.cookie, COOKIE))
     if (id === undefined) { socket.end('HTTP/1.1 401 Unauthorized\r\n\r\n'); return }
     track(id, socket)
@@ -249,6 +271,8 @@ export async function startGateway({ host, port, tls, allowInsecureLan = false, 
     server.listen(port, host, () => { server.off('error', reject); resolve() })
   })
   const url = `${secure ? 'https' : 'http'}://${addressHost(host)}:${server.address().port}`
+  ownHost = new URL(url).host
+  ownOrigin = new URL(url).origin
   return {
     url,
     secure,

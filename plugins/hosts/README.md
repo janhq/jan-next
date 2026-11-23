@@ -21,6 +21,8 @@ Set these fields on the `jan-hosts` plugin:
 
 Without TLS, loopback and tailnet IPs (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) are allowed without LAN opt-in. Only use tailnet IPs on an actual tailnet, where WireGuard protects the traffic. Any other address except private IPv4 requires HTTPS. On upgrade, a previously enabled cleartext LAN listener gets a one-time saved opt-in, unless the option was already explicitly set.
 
+The gateway answers 403 to a request whose `Host` is not its own address and port, whose `Origin` is not its own origin, or that a browser marks `Sec-Fetch-Site: cross-site`, before it rewrites `Host` and `Origin` to loopback for this Jan. A page on another site, or one whose domain was rebound to this address, never reaches Jan through it.
+
 Changing an Address Host's normalized URL clears its login unless the new address includes a replacement token. Older saved logins without an address binding need a fresh login link. Changing the destination of a connected SSH Host closes its tunnel.
 
 ## Connect over SSH
