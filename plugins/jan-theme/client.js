@@ -867,6 +867,7 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row > svg,
   html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='workspace:'] svg:not([data-color] svg),
   html[data-jan-theme] [data-slot='sidebar'] .jt-footer-action > svg { color: var(--jt-side-icon); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row[aria-current='page'] > svg { color: var(--jt-side-label); }
   html[data-jan-theme] [data-slot='sidebar'] .jt-list-heading { font-size: 12px; font-weight: 500; color: var(--jt-side-icon); }
   /* Jan sets the shortcut keys in text-xs inside a 90% group; scaling keeps the size on Mimi's scale. */
   html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row [class*='shortcut'] { font-size: 12px; transform: scale(0.9); transform-origin: right center; color: var(--jt-side-muted); }
