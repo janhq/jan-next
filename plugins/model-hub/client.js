@@ -370,7 +370,6 @@ window.__ModuleLoader__.load({
       const controller = new AbortController()
       const listeners = new Set()
       let snapshot = { models: [], downloads: [], catalog: [], provider: 'local', hardware: undefined, phase: 'checking', error: undefined }
-      let timer
       void (async () => {
         while (!controller.signal.aborted) {
           try {
@@ -381,15 +380,18 @@ window.__ModuleLoader__.load({
           } catch {
             if (controller.signal.aborted) return
           }
-          const { promise, resolve } = Promise.withResolvers()
-          timer = setTimeout(resolve, 1000)
-          await promise
+          // Disposal settles the wait too, so the loop ends instead of hanging on a cleared timer.
+          await new Promise((resolve) => {
+            const done = () => { clearTimeout(timer); controller.signal.removeEventListener('abort', done); resolve() }
+            const timer = setTimeout(done, 1000)
+            controller.signal.addEventListener('abort', done, { once: true })
+          })
         }
       })()
       return {
         getSnapshot: () => snapshot,
         subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
-        dispose: () => { controller.abort(); clearTimeout(timer) },
+        dispose: () => controller.abort(),
       }
     }
 
