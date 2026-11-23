@@ -56,6 +56,7 @@ Add one entry per server; nothing else is required. After the harness starts, th
 | `serverName` | required | Namespace for the server's tool names; `[A-Za-z0-9_-]{1,32}`, unique inside one registration scope |
 | `command` / `args` / `env` / `cwd` | — | stdio: executable, arguments, extra env merged over scrubbed ambient env, working directory |
 | `url` / `headers` | — | streamable-http: endpoint URL and extra request headers |
+| `followRedirects` | `true` | streamable-http: set to `false` to reject redirects, preventing custom authentication headers from being forwarded to a redirect destination |
 | `toolCallTimeoutMs` | `60,000` | Timeout per `tools/call` or resource request |
 | `startupTimeoutMs` | unset | Optional budget for template resolution, negotiation, connection, and the initial tool sync |
 | `closeTimeoutMs` | `5,000` | Budget for transport closure and pending local work to settle |

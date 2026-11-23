@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Context } from '@janhq/cordis'
 import { createMcpHandler, McpServer, type CallToolResult } from '@modelcontextprotocol/server'
-import { toNodeHandler, type NodeIncomingMessageLike } from '@modelcontextprotocol/node'
+import { toNodeHandler, toWebRequest, type NodeIncomingMessageLike } from '@modelcontextprotocol/node'
 import { z } from 'zod'
 import LocalAttachmentStore from '@janhq/jan-attachment-local'
 import SystemPrompt from '@janhq/jan-system-prompt'
@@ -562,6 +562,73 @@ describe('streamable-http — in-process MCP server', () => {
   it('sends configured headers on every HTTP request', () => {
     expect(seenAuth.length).toBeGreaterThan(0)
     for (const auth of seenAuth) expect(auth).toBe('Bearer e2e-test-token')
+  })
+
+  it('lists tools from a POST-only API-key server without forwarding redirects', async () => {
+    const apiKey = 'loopback-project-key'
+    const requests: Array<{ method?: string | undefined; key?: string | string[] | undefined }> = []
+    const getRejected = Promise.withResolvers<undefined>()
+    let forwarded = 0
+    const destination = createServer((_req, res) => { forwarded++; res.writeHead(403).end() })
+    const destinationListening = Promise.withResolvers<undefined>()
+    destination.listen(0, '127.0.0.1', () => { destinationListening.resolve(undefined) })
+    await destinationListening.promise
+    const target = destination.address()
+    if (target === null || typeof target === 'string') throw new Error('expected a loopback TCP address')
+    const destinationPort = target.port
+
+    async function handleProjectMcp(req: IncomingMessage, res: ServerResponse): Promise<void> {
+      requests.push({ method: req.method, key: req.headers['x-api-key'] })
+      if (req.headers['x-api-key'] !== apiKey) { res.writeHead(401).end(); return }
+      if (req.url === '/redirect') { res.writeHead(307, { Location: `http://127.0.0.1:${destinationPort}/mcp` }).end(); return }
+      if (req.method !== 'POST') {
+        res.writeHead(405, { Allow: 'POST' }).end()
+        if (req.method === 'GET') getRejected.resolve(undefined)
+        return
+      }
+      const request = req as NodeIncomingMessageLike
+      const body = await (await toWebRequest(request)).json() as { method: string; id?: number }
+      // Exercise the legacy stateless path: modern discovery would skip the GET entirely.
+      if (body.method === 'server/discover') {
+        res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
+          jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'Method not found' },
+        }))
+        return
+      }
+      if (body.method === 'tools/list') await getRejected.promise
+      await handle(request, res, body)
+    }
+    const origin = createServer((req, res) => {
+      handleProjectMcp(req, res).catch((error: unknown) => { res.writeHead(500).end(String(error)) })
+    })
+    const originListening = Promise.withResolvers<undefined>()
+    origin.listen(0, '127.0.0.1', () => { originListening.resolve(undefined) })
+    await originListening.promise
+    try {
+      const address = origin.address()
+      if (address === null || typeof address === 'string') throw new Error('expected a loopback TCP address')
+      const base = `http://127.0.0.1:${address.port}`
+      const config = { transport: 'streamable-http', serverName: 'project-key', headers: { 'x-api-key': apiKey } } as const
+      const postOnly = await probeServer(ctx, Config({ ...config, url: `${base}/mcp`, followRedirects: false }))
+      expect(postOnly).toMatchObject({ ok: true, closeConfirmed: true })
+      if (postOnly.ok) expect(postOnly.toolNames).toContain('ping')
+      expect(requests.map(request => request.method)).toEqual(expect.arrayContaining(['GET', 'POST']))
+      expect(requests.every(request => request.key === apiKey)).toBe(true)
+
+      const url = `${base}/redirect`
+      const blocked = await probeServer(ctx, Config({ ...config, url, followRedirects: false }))
+      expect(blocked).toMatchObject({ ok: false, stage: 'connect', closeConfirmed: true })
+      expect(forwarded).toBe(0)
+      await probeServer(ctx, Config({ ...config, url }))
+      expect(forwarded).toBeGreaterThan(0)
+    } finally {
+      getRejected.resolve(undefined)
+      const originClosed = Promise.withResolvers<undefined>()
+      const destinationClosed = Promise.withResolvers<undefined>()
+      origin.close(() => { originClosed.resolve(undefined) })
+      destination.close(() => { destinationClosed.resolve(undefined) })
+      await Promise.all([originClosed.promise, destinationClosed.promise])
+    }
   })
 })
 
