@@ -22,7 +22,9 @@ const BEARER = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi
 const URL_CREDENTIALS = /(\/\/)[^/\s:@]+:[^/\s@]+@/g
 const SECRET_QUERY = /([?&](?:token|key|api[_-]?key|access[_-]?token|sig|signature|code|secret|password)=)[^&\s#]+/gi
 // `tokens: 4096` and `keyboard=` stay: the name must end where the separator starts.
-const SECRET_ASSIGNMENT = /((?:api[_-]?key|secret|password|passwd|token|authorization|cookie|session[_-]?id)["']?\s*[:=]\s*["']?)(?!<redacted>)[^\s"',;}]+/gi
+const SECRET_ASSIGNMENT = /((?:api[_-]?key|secret|password|passwd|token|session[_-]?id)["']?\s*[:=]\s*["']?)(?!<redacted>)[^\s"',;}]+/gi
+// A credential header's value runs to the end of its line or quote: `Basic <base64>`, every cookie pair.
+const CREDENTIAL_HEADER = /(\b(?:proxy-)?authorization|\b(?:set-)?cookie)(["']?\s*[:=]\s*["']?)(?!<redacted>)[^\r\n"']+/gi
 const EMAIL = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g
 
 /**
@@ -40,6 +42,7 @@ export function redact(text, { home, janHome } = {}) {
   value = value.replace(SECRET_QUERY, `$1${REDACTED}`)
   value = value.replace(BEARER, `Bearer ${REDACTED}`)
   for (const shape of SECRET_SHAPES) value = value.replace(shape, REDACTED)
+  value = value.replace(CREDENTIAL_HEADER, `$1$2${REDACTED}`)
   value = value.replace(SECRET_ASSIGNMENT, `$1${REDACTED}`)
   return value.replace(EMAIL, '<email>')
 }

@@ -32,6 +32,15 @@ describe('redact', () => {
     expect(out).toContain('<email>')
   })
 
+  it('removes the whole value of credential headers', () => {
+    const out = redact([
+      'Authorization: Basic dXNlcjpwYXNz',
+      'cookie: a=one; b=two; c=three',
+      '{"proxy-authorization":"Digest user=x, nonce=y"}',
+    ].join('\n'), places)
+    expect(out).toBe('Authorization: <redacted>\ncookie: <redacted>\n{"proxy-authorization":"<redacted>"}')
+  })
+
   it('keeps ordinary diagnostics that only look similar', () => {
     const text = 'max tokens: 4096, keyboard=us, session 3f2a91c0, CONTEXT_WINDOW_EXCEEDED'
     expect(redact(text, places)).toBe(text)

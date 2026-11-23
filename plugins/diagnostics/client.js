@@ -28,7 +28,7 @@ window.__ModuleLoader__.load({
 .jd-status[data-error] { color: var(--dsw-alias-state-error-primary); }`
 
     async function api(method, params = {}) {
-      const response = await fetch('/jan-api/diagnostics', {
+      const response = await fetch(new URL('jan-api/diagnostics', document.baseURI), {
         method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }),
       })
       if (!response.headers.get('content-type')?.startsWith('application/json')) throw new Error('unavailable')
