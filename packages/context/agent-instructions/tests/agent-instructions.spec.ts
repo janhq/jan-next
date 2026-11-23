@@ -2685,6 +2685,11 @@ describe('workspace context request injection', () => {
       const pending = await agentInstructionsOf(agent)
       expect(pending.source).toMatchObject({ changes: [{ action: 'replace', scope: sk(USER_GLOBAL_DIRECTORY, USER_GLOBAL_FILE) }] })
       expect(blocksText(pending.content)).toContain('updated global rule')
+
+      await write(join(home, 'AGENTS.md'), 'latest global rule')
+      expect(await reload()).toEqual(['Instructions: $JAN_HOME/AGENTS.md updated.'])
+      expect(blocksText((await agentInstructionsOf(agent)).content)).toContain('latest global rule')
+
       // Earlier messages, which the provider has cached, are byte-identical after the reload.
       expect(agent.session.deriveMessages().slice(0, prefix.length)).toEqual(prefix)
     } finally {
