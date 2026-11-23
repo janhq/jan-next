@@ -19338,6 +19338,9 @@ importers:
       '@janhq/jan-tool-call-timeout-policy':
         specifier: workspace:*
         version: link:../../packages/guard/timeout-policy
+      '@janhq/jan-tool-capture-media':
+        specifier: workspace:*
+        version: link:../../packages/interaction/tool-capture-media
       '@janhq/jan-tool-cordis':
         specifier: workspace:*
         version: link:../../packages/extensions/tool-cordis
