@@ -24,7 +24,7 @@ export function useViewMode(key: string, fallback: ViewMode = 'grid'): [ViewMode
   const storageKey = `jan:view:${key}`
   const [mode, setMode] = useState<ViewMode>(() => {
     try {
-      const stored = globalThis.localStorage?.getItem(storageKey)
+      const stored = globalThis.localStorage.getItem(storageKey)
       return isViewMode(stored) ? stored : fallback
     } catch {
       // Storage can be unavailable (sandboxed or disabled); the page still switches for this visit.
@@ -33,7 +33,7 @@ export function useViewMode(key: string, fallback: ViewMode = 'grid'): [ViewMode
   })
   const choose = useCallback((next: ViewMode) => {
     setMode(next)
-    try { globalThis.localStorage?.setItem(storageKey, next) } catch {
+    try { globalThis.localStorage.setItem(storageKey, next) } catch {
       // Unavailable storage only loses the preference, not the switch.
     }
   }, [storageKey])

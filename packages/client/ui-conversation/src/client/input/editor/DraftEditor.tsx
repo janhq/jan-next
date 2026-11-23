@@ -52,8 +52,8 @@ export function DraftEditor({
           aria-expanded={workspaceTrigger ? workspacePickerOpen : undefined}
           tabIndex={workspaceTrigger ? 0 : undefined}
           onKeyDown={workspaceTrigger ? onWorkspaceKeyDown : undefined}
-          onFocus={onDraftInteraction === undefined ? undefined : event => onDraftInteraction(event.currentTarget)}
-          onInput={onDraftInteraction === undefined ? undefined : event => onDraftInteraction(event.currentTarget)}
+          onFocus={onDraftInteraction === undefined ? undefined : (event) => { onDraftInteraction(event.currentTarget) }}
+          onInput={onDraftInteraction === undefined ? undefined : (event) => { onDraftInteraction(event.currentTarget) }}
           style={hint === null ? undefined : { '--jan-composer-hint': JSON.stringify(hint) } as CSSProperties}
         />
         {showPlaceholder && (

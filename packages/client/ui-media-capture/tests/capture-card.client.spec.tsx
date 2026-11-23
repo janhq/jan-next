@@ -51,11 +51,11 @@ it('stops tracks if a permission prompt resolves after the card closes', async (
   getUserMedia.mockReturnValueOnce(pending.promise)
   const f = fixture()
   fireEvent.click(screen.getByRole('button', { name: 'Allow camera' }))
-  await waitFor(() => expect(getUserMedia).toHaveBeenCalledExactlyOnceWith({ audio: false, video: true }))
+  await waitFor(() => { expect(getUserMedia).toHaveBeenCalledExactlyOnceWith({ audio: false, video: true }) })
   f.unmount()
   const stop = vi.fn()
   pending.resolve({ getTracks: () => [{ stop }] } as never)
-  await waitFor(() => expect(stop).toHaveBeenCalledOnce())
+  await waitFor(() => { expect(stop).toHaveBeenCalledOnce() })
 })
 
 it('offers a decline after the OS denies camera permission', async () => {

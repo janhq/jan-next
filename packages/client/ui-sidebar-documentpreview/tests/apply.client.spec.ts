@@ -116,11 +116,11 @@ describe('ui-sidebar-documentpreview apply', () => {
       ['sidebar.right.tab.document', '@janhq/jan-client-ui-sidebar-documentpreview/code', 'sidebarCodePreview', CodeBody],
     ])
     expect(registered[0]!.children).toEqual({
-      'sidebar.right.tab.document': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: expect.any(Function) } } },
+      'sidebar.right.tab.document': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: expect.any(Function) as unknown } } },
       'sidebar.right.tab.document.view-actions': { kind: 'list', scope: 'session' },
       'sidebar.right.tab.document.actions': { kind: 'list', scope: 'session' },
       'sidebar.right.tab.document.unpreviewable': { kind: 'list', scope: 'session' },
-      'sidebar.right.tab.document.action': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: expect.any(Function) } } },
+      'sidebar.right.tab.document.action': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: expect.any(Function) as unknown } } },
     })
     expect(registered[0]?.store).toBeDefined()
     expect(typeof registered[0]?.inject).toBe('function')

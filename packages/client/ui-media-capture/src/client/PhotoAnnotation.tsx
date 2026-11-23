@@ -99,7 +99,7 @@ export function PhotoAnnotation({ blob, exporter, disabled, t }: {
       ctx.drawImage(image, 0, 0)
       setLoaded(true)
     }
-    image.onerror = () => setFailed(true)
+    image.onerror = () => { setFailed(true) }
     image.src = url
     return () => { image.onload = image.onerror = null; URL.revokeObjectURL(url) }
   }, [blob])
@@ -178,8 +178,8 @@ export function PhotoAnnotation({ blob, exporter, disabled, t }: {
   return <>
     <div className={styles.controls} role="group" aria-label={t('annotationTools')}>
       {TOOLS.map(option => <Button key={option} size="sm" variant={tool === option ? 'primary' : 'outline'}
-        disabled={disabled || !loaded} aria-pressed={tool === option} onClick={() => setTool(option)}>{t(option)}</Button>)}
-      <label className={styles.color}>{t('color')}<input type="color" value={color} disabled={disabled || !loaded} onChange={event => setColor(event.currentTarget.value)} /></label>
+        disabled={disabled || !loaded} aria-pressed={tool === option} onClick={() => { setTool(option) }}>{t(option)}</Button>)}
+      <label className={styles.color}>{t('color')}<input type="color" value={color} disabled={disabled || !loaded} onChange={(event) => { setColor(event.currentTarget.value) }} /></label>
       <Button size="sm" variant="outline" disabled={disabled || count === 0} onClick={() => {
         marks.current.pop()
         setCount(marks.current.length)
@@ -187,14 +187,14 @@ export function PhotoAnnotation({ blob, exporter, disabled, t }: {
       }}>{t('undo')}</Button>
     </div>
     {tool === 'text' && <label className={styles.field}>{t('annotationText')}
-      <input type="text" value={text} maxLength={160} disabled={disabled} onChange={event => setText(event.currentTarget.value)} />
+      <input type="text" value={text} maxLength={160} disabled={disabled} onChange={(event) => { setText(event.currentTarget.value) }} />
     </label>}
     {failed && <p role="alert" className={styles.error}>{t('captureFailed')}</p>}
     <div className={styles.canvas} hidden={!loaded}>
       <canvas ref={base} aria-hidden="true" />
       <canvas ref={layer} aria-label={t('photoPreview')} onPointerDown={start} onPointerMove={move}
-        onPointerUp={event => finish(event, true)} onPointerCancel={event => finish(event, false)}
-        onLostPointerCapture={event => finish(event, false)} />
+        onPointerUp={(event) => { finish(event, true) }} onPointerCancel={(event) => { finish(event, false) }}
+        onLostPointerCapture={(event) => { finish(event, false) }} />
     </div>
   </>
 }

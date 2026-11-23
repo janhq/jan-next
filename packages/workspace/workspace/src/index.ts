@@ -300,9 +300,8 @@ export class WorkspaceRegistry extends Service {
    * @returns the active or newly registered default Workspace.
    */
   ensureDefault(signal: AbortSignal = new AbortController().signal): Promise<Workspace> {
-    return this.initializeDefault(() => this.ctx.waterfall('workspace/default-directory', signal, async () => {
-      throw new Error('default Workspace directory provider is unavailable')
-    }))
+    return this.initializeDefault(() => this.ctx.waterfall('workspace/default-directory', signal, () =>
+      Promise.reject(new Error('default Workspace directory provider is unavailable'))))
   }
 
   /**

@@ -401,7 +401,7 @@ describe('WorkspaceController follow', () => {
       await nextFrame(iterator)
       const initialized = await controller.initializeDefault(abort.signal)
       expect(initialized?.workspace.isDefault).toBe(true)
-      const workspaceId = initialized!.workspace.workspaceId
+      const workspaceId = initialized.workspace.workspaceId
       await expect(nextFrame(iterator)).resolves.toMatchObject({
         type: 'upsert', workspace: { workspaceId, isDefault: true },
       })
@@ -654,16 +654,16 @@ describe('first-use Remote', () => {
     const workspace = await ctx.workspaceRegistry.initializeDefault(async () => root)
     const signal = AbortSignal.abort()
     await expect(controller.initializeDefault(signal))
-      .resolves.toMatchObject({ workspace: { workspaceId: workspace!.id, path: root, title: basename(root) } })
+      .resolves.toMatchObject({ workspace: { workspaceId: workspace.id, path: root, title: basename(root) } })
   })
 
   it('returns a durable Workspace named after its fixed directory without allocating a Session', async () => {
     const { controller, ctx, root } = await harness()
     const signal = new AbortController().signal
     const result = await controller.initializeDefault(signal)
-    expect(result!.workspace.path).toBe(join(root, 'jan', DEFAULT_WORKSPACE_DIRECTORY))
-    expect(result!.workspace.title).toBe(DEFAULT_WORKSPACE_DIRECTORY)
-    expect(existsSync(result!.workspace.path)).toBe(true)
+    expect(result.workspace.path).toBe(join(root, 'jan', DEFAULT_WORKSPACE_DIRECTORY))
+    expect(result.workspace.title).toBe(DEFAULT_WORKSPACE_DIRECTORY)
+    expect(existsSync(result.workspace.path)).toBe(true)
     expect(ctx.sessions.list()).toEqual([])
     expect(await controller.initializeDefault(signal)).toEqual(result)
   })

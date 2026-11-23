@@ -29,12 +29,14 @@ it('runs as a standalone page script and answers a point query with the element 
   card.className = 'card'
   document.body.append(card, document.createElement('div'))
   vi.spyOn(card, 'getBoundingClientRect').mockReturnValue(DOMRect.fromRect({ x: 10, y: 20, width: 30, height: 40 }))
-  document.elementFromPoint = vi.fn(() => card)
+  const elementFromPoint = vi.fn(() => card)
+  document.elementFromPoint = elementFromPoint
   const reply = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined)
   // The page script sees only its own globals; serialization must not leave references behind.
+  // oxlint-disable-next-line typescript/no-implied-eval, typescript/no-unsafe-call
   new Function(source as string)()
   window.dispatchEvent(new MessageEvent('message', { source: window, data: { type: 'jan-element-probe', id: 'q1', x: 15, y: 25 } }))
-  expect(document.elementFromPoint).toHaveBeenCalledWith(15, 25)
+  expect(elementFromPoint).toHaveBeenCalledWith(15, 25)
   expect(reply).toHaveBeenCalledWith({ type: 'jan-element-probe-reply', id: 'q1', hit: {
     selector: 'html > body > div:nth-of-type(1)', html: '<div class="card"></div>', bounds: { x: 10, y: 20, width: 30, height: 40 },
   } }, '*')

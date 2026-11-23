@@ -18,6 +18,11 @@ function stopTracks(stream: MediaStream): void {
   for (const track of stream.getTracks()) track.stop()
 }
 
+// A call, not a property read: TypeScript keeps `signal.aborted` narrowed to false across awaits.
+function isAborted(signal: AbortSignal): boolean {
+  return signal.aborted
+}
+
 function LiveCamera({ stream, label, video, onReady }: {
   stream: MediaStream
   label: string
@@ -73,7 +78,7 @@ function RecordingReview({ blob, mode, label }: { blob: Blob; mode: CaptureMode;
   useEffect(() => {
     const url = URL.createObjectURL(blob)
     setPreview(url)
-    return () => URL.revokeObjectURL(url)
+    return () => { URL.revokeObjectURL(url) }
   }, [blob])
   if (preview === undefined) return null
   return mode === 'audio'
@@ -120,8 +125,8 @@ export function CaptureCard({ mode, reason, confirmActive, decline, send, t }: C
   useEffect(() => {
     if (stage !== 'recording') return
     const start = performance.now()
-    const tick = window.setInterval(() => setElapsed(Math.floor((performance.now() - start) / 1000)), 250)
-    return () => window.clearInterval(tick)
+    const tick = window.setInterval(() => { setElapsed(Math.floor((performance.now() - start) / 1000)) }, 250)
+    return () => { window.clearInterval(tick) }
   }, [stage])
 
   useEffect(() => {
@@ -148,30 +153,30 @@ export function CaptureCard({ mode, reason, confirmActive, decline, send, t }: C
     setStream(undefined)
     try {
       if (!await confirmActive(signal)) {
-        if (!signal.aborted) setStage('closed')
+        if (!isAborted(signal)) setStage('closed')
         return
       }
     } catch {
-      if (!signal.aborted) { setError('requestFailed'); setStage('permission') }
+      if (!isAborted(signal)) { setError('requestFailed'); setStage('permission') }
       return
     }
-    if (signal.aborted) return
+    if (isAborted(signal)) return
     const constraint = id === '' ? true : { deviceId: { exact: id } }
     let live: MediaStream
     try {
       live = await navigator.mediaDevices.getUserMedia({ audio: audio ? constraint : false, video: audio ? false : constraint })
     } catch {
-      if (!signal.aborted) { setError('deviceUnavailable'); setStage('permission') }
+      if (!isAborted(signal)) { setError('deviceUnavailable'); setStage('permission') }
       return
     }
-    if (signal.aborted) { stopTracks(live); return }
+    if (isAborted(signal)) { stopTracks(live); return }
     currentStream.current = live
     setStream(live)
     setDeviceId(id)
     setStage('preview')
     try {
       const available = await navigator.mediaDevices.enumerateDevices()
-      if (!signal.aborted && currentStream.current === live) {
+      if (!isAborted(signal) && currentStream.current === live) {
         setDevices(available.filter(device => device.deviceId !== '' && device.kind === (audio ? 'audioinput' : 'videoinput')))
       }
     } catch { /* The active default device still works when enumeration is unavailable. */ }
@@ -261,9 +266,9 @@ export function CaptureCard({ mode, reason, confirmActive, decline, send, t }: C
     setError(undefined)
     try {
       await decline(signal)
-      if (!signal.aborted) setStage('declined')
+      if (!isAborted(signal)) setStage('declined')
     } catch {
-      if (!signal.aborted) { setError('requestFailed'); setStage('permission') }
+      if (!isAborted(signal)) { setError('requestFailed'); setStage('permission') }
     }
   }
 
@@ -274,12 +279,12 @@ export function CaptureCard({ mode, reason, confirmActive, decline, send, t }: C
     setError(undefined)
     try {
       const file = mode === 'photo' ? await photoExport.current?.() : draft
-      if (signal.aborted) return
+      if (isAborted(signal)) return
       if (file == null) { setError('captureFailed'); setStage('review'); return }
       await send(file, mode === 'photo' ? undefined : note.trim(), signal)
-      if (!signal.aborted) { setDraft(undefined); setStage('sent') }
+      if (!isAborted(signal)) { setDraft(undefined); setStage('sent') }
     } catch {
-      if (!signal.aborted) { setError('sendFailed'); setStage('review') }
+      if (!isAborted(signal)) { setError('sendFailed'); setStage('review') }
     }
   }
 
@@ -306,7 +311,7 @@ export function CaptureCard({ mode, reason, confirmActive, decline, send, t }: C
         </select>
       </label>
       {audio ? <LiveLevel stream={stream} label={t('microphoneLevel')} />
-        : <LiveCamera stream={stream} label={t('cameraPreview')} video={video} onReady={() => setPhotoReady(true)} />}
+        : <LiveCamera stream={stream} label={t('cameraPreview')} video={video} onReady={() => { setPhotoReady(true) }} />}
       <div className={styles.controls}>
         {stage === 'recording' ? <>
           <span role="timer" aria-label={t('recordingTime')}>{timer}</span>
@@ -324,7 +329,7 @@ export function CaptureCard({ mode, reason, confirmActive, decline, send, t }: C
       {mode === 'photo' ? <PhotoAnnotation blob={draft} exporter={photoExport} disabled={stage === 'sending'} t={t} /> : <>
         <RecordingReview blob={draft} mode={mode} label={t('recordingPreview')} />
         <label className={styles.field}>{t('recordingNote')}
-          <textarea value={note} disabled={stage === 'sending'} maxLength={1000} rows={2} onChange={event => setNote(event.currentTarget.value)} />
+          <textarea value={note} disabled={stage === 'sending'} maxLength={1000} rows={2} onChange={(event) => { setNote(event.currentTarget.value) }} />
         </label>
       </>}
       <div className={styles.controls}>

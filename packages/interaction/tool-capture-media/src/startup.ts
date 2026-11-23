@@ -104,7 +104,7 @@ export function apply(ctx: Context): void {
       signal.throwIfAborted()
       const id = request.agent.id
       let calls = requests.get(id)
-      if (calls === undefined) requests.set(id, calls = new Map())
+      if (calls === undefined) requests.set(id, calls = new Map<string, Pending>())
       if (calls.has(request.callId)) throw new Error('A capture already owns this tool call.')
       const result = Promise.withResolvers<CaptureResult>()
       const pending: Pending = { request, signal, sending: false, finish: result.resolve }
@@ -125,19 +125,21 @@ export function apply(ctx: Context): void {
     const pending = sessionId !== null && callId !== null ? requests.get(sessionId)?.get(callId) : undefined
     return pending?.signal.aborted === false ? pending : undefined
   }
+  // GET reports whether the card's request is still open; POST declines it.
+  function answerConsent(input: Request): Response {
+    const pending = pendingFor(input)
+    if (pending === undefined) return response(404, 'Capture request is no longer active.')
+    if (pending.sending) return response(409, 'A capture submission is already in progress.')
+    if (input.method === 'POST') {
+      pending.sending = true
+      pending.finish({ status: 'declined' })
+    }
+    return response(204)
+  }
   ctx.provide('mediaCapture', provider)
   ctx.effect(() => ctx.connection.fetch.register({
     path: '/api/session/mediaCapture', methods: ['GET', 'POST'], requestBody: 'buffered',
-    async fetch(input) {
-      const pending = pendingFor(input)
-      if (pending === undefined) return response(404, 'Capture request is no longer active.')
-      if (pending.sending) return response(409, 'A capture submission is already in progress.')
-      if (input.method === 'POST') {
-        pending.sending = true
-        pending.finish({ status: 'declined' })
-      }
-      return response(204)
-    },
+    fetch: input => Promise.resolve(answerConsent(input)),
   }), 'media-capture: consent route')
   ctx.effect(() => ctx.connection.fetch.register({
     path: '/api/session/mediaCapture/upload', methods: ['POST'], requestBody: 'streaming',

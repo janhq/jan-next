@@ -400,7 +400,7 @@ export function ModelSelect(
     if (event.key === 'ArrowRight' && !inFlyout) {
       const onRow = event.target instanceof HTMLElement && groupsRef.current?.contains(event.target) === true
       const search = searchRef.current
-      const atEnd = event.target === search && search !== null && search.selectionStart === search.value.length
+      const atEnd = search !== null && event.target === search && search.selectionStart === search.value.length
       if ((onRow || atEnd) && openDetails()) event.preventDefault()
       return
     }

@@ -17,7 +17,7 @@ function Fixture({ onClose }: { onClose: () => void }) {
   return (
     <Menu open anchor={<button type="button">Open</button>} onClose={onClose}
       header={<input aria-label="Search" value={query} onChange={(event) => { setQuery(event.target.value) }} />}
-      items={entries.filter(entry => !('type' in entry) && String(entry.label).toLowerCase().includes(query))} />
+      items={entries.filter(entry => !('type' in entry) && typeof entry.label === 'string' && entry.label.toLowerCase().includes(query))} />
   )
 }
 

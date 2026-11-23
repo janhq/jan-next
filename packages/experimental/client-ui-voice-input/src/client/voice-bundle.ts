@@ -34,7 +34,7 @@ export function observeVoiceBundle(ctx: Context) {
   }
   ctx.inject(['remote.pluginManager'], (scope) => {
     scope.effect(function* () {
-      manager = scope.get('remote.pluginManager')
+      manager = scope.remote.pluginManager
       state.set('checking')
       yield () => {
         manager = undefined

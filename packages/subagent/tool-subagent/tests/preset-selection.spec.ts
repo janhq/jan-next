@@ -99,7 +99,7 @@ describe('spawn preset selection', () => {
     expect(ctx.tools.schemas().find(schema => schema.name === 'subagent')?.description).toContain('reviewer: reviewer persona')
     expect((await callSubagent(ctx, { ...args, agent_preset: 'reviewer' })).isError).not.toBe(true)
     expect(onStart).toHaveBeenCalledWith(expect.objectContaining({
-      agentPreset: 'reviewer', agentOptions: expect.objectContaining({ provider: 'mock', model: 'mock' }),
+      agentPreset: 'reviewer', agentOptions: expect.objectContaining({ provider: 'mock', model: 'mock' }) as unknown,
     }))
   })
 
