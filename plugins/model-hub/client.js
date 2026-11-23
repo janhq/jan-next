@@ -1001,11 +1001,11 @@ window.__ModuleLoader__.load({
           scope.effect(() => () => feed.dispose(), 'jan-model-hub: local model state')
           const mainBlank = () => Object.values(scope.sessions.list.getSnapshot().byId)
             .find(session => session.blank && (session.retainedBy.mainView ?? 0) > 0)
-          // Open the main blank chat and route it to the local model the Host just made default.
-          const startLocalChat = async (provider) => {
+          // Open the main blank chat; it resolves once the session exists.
+          const openBlank = async () => {
             scope.layout.selectPanel(null)
             scope.uiWorkspace.startSession()
-            const blank = mainBlank() ?? await new Promise((resolve, reject) => {
+            return mainBlank() ?? await new Promise((resolve, reject) => {
               const timeout = setTimeout(() => { stop(); reject(new Error('the new chat did not open')) }, 10000)
               const stop = scope.sessions.list.subscribe(() => {
                 const found = mainBlank()
@@ -1015,6 +1015,10 @@ window.__ModuleLoader__.load({
                 resolve(found)
               })
             })
+          }
+          // Open the main blank chat and route it to the local model the Host just made default.
+          const startLocalChat = async (provider) => {
+            const blank = await openBlank()
             await answer(scope.remote.session.selectModel({ sessionId: blank.id, provider, model: 'local' }))
           }
           // The chat whose model menu opened the Hub; Use and Download return to it. Leaving the Hub, or
@@ -1151,6 +1155,33 @@ window.__ModuleLoader__.load({
           requested()
           window.addEventListener('jan:open-panel', requested)
           scope.effect(() => () => window.removeEventListener('jan:open-panel', requested), 'jan-model-hub: open requests')
+          // A one-shot request from onboarding: a new chat on a local model. An installed model is used at
+          // once; otherwise the chat opens right away and follows the download like any chat that asked for one.
+          const chatRequested = () => {
+            const raw = sessionStorage.getItem('jan:local-model-chat')
+            if (raw === null) return
+            sessionStorage.removeItem('jan:local-model-chat')
+            let target
+            try { target = JSON.parse(raw) } catch { return }
+            void chatOn(target).catch(error => { notify({ text: message(error) }) })
+          }
+          const chatOn = async target => {
+            if (target.installed) {
+              await answer(remote.setDefaultModel(target.id))
+              const after = await settled(feed)
+              if (after.phase === 'failed') throw new Error(t('startFailed', { error: after.error ?? '' }))
+              return startLocalChat(after.provider)
+            }
+            const modelId = target.file !== undefined ? await answer(remote.downloadRepoFile(target.repo, target.file))
+              : (await answer(remote.downloadModel(target.id)), target.id)
+            const blank = await openBlank()
+            pending.set(modelId, { sessionId: blank.id, name: target.name, seen: false })
+            notify({ text: t('downloadingForChat', { name: target.name }), sessionId: blank.id })
+            checkPending()
+          }
+          chatRequested()
+          window.addEventListener('jan:local-model-chat', chatRequested)
+          scope.effect(() => () => window.removeEventListener('jan:local-model-chat', chatRequested), 'jan-model-hub: local chat requests')
         })
       },
     }
