@@ -28,6 +28,7 @@ import { pinOrderAccounts, pinOrderSource } from './pin-order.ts'
 import type { SessionGroupBy, WorkspaceViewStoreActions } from './stores.ts'
 import { createMainSelection } from './window-selection.ts'
 import type { RemoteMachineSource } from './remote-machines.ts'
+import { DirectoryBrowser } from './DirectoryBrowser.tsx'
 
 interface ProjectHandler {
   readonly open: (workspaceId: WorkspaceId) => void
@@ -168,6 +169,8 @@ export interface UiWorkspace {
    * @returns created absolute path.
    */
   createDirectory(path: string, name: string): Promise<string>
+  /** Jan's folder chooser dialog, for packages that browse folders through their own listing calls. */
+  readonly DirectoryBrowser: typeof DirectoryBrowser
   /**
    * Offer other computers in the new-project menu's Remote row.
    * @param source - lists computers and opens one; the latest registration wins.
@@ -256,6 +259,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   private readonly lifetime = new AbortController()
   private readonly history = new NavigationHistory()
   readonly navigationHistory = this.history.availability
+  readonly DirectoryBrowser = DirectoryBrowser
   /** True while Back/Forward replays a location: the replay must not record itself. */
   private replaying = false
   /** True while a navigation writes the Session and the panel as one location. */

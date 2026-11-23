@@ -28,9 +28,6 @@
   },
   "jan": {
     "client": {
-      "external": [
-        "@janhq/jan-client-ui-workspace/client"
-      ],
       "inject": [
         "@janhq/jan-api-remotes",
         "@janhq/jan-client-ui-renderer",
