@@ -162,6 +162,7 @@ export type { QuotePreviewProps, QuotePreviewRemoval } from './QuotePreview.tsx'
 export { formatQuoteText } from './markdown/quote-text.ts'
 export { ELEMENT_PROBE_ATTRIBUTE, describeElement, probeFrameElement, probeFrameGuides, withElementProbe } from './element-probe.ts'
 export type { ElementDescription, ProbedElement } from './element-probe.ts'
+export { createBasicHtmlDocument } from './basic-html-document.ts'
 export { measureGuides } from './layout-guides.ts'
 export type { GuideContainer, GuideEdge, GuideRect } from './layout-guides.ts'
 
