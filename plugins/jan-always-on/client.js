@@ -2,6 +2,7 @@ window.__ModuleLoader__.load({
   id: '@janhq/jan-always-on',
   factory(require) {
     const { createElement: h, useEffect } = require('react')
+    const { Button, IconLoadingOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const { createSnapshotStore } = require('@janhq/jan-client-store')
     // The sidebar draws panel glyphs at 16px on labelled rows and 18px on the rail;
     // labelled rows take the Medium (1.3px) line like Jan's other row icons.
@@ -12,10 +13,14 @@ window.__ModuleLoader__.load({
     const PANEL = 'jan-always-on', PATH = new URL('jan-api/always-on', document.baseURI).href, TAB = 'botDetails'
     const title = { en: 'Bots', zh: '机器人', ja: 'ボット', es: 'Bots', fr: 'Bots', de: 'Bots', ru: 'Боты', pt: 'Bots' }
     const modes = {
-      en: ['Bots mode', 'Create a bot with one ongoing chat.'], zh: ['机器人模式', '创建一个拥有持续聊天的机器人。'],
-      ja: ['ボットモード', '一つのチャットを続けるボットを作成します。'], es: ['Modo Bots', 'Crea un bot con un chat permanente.'],
-      fr: ['Mode Bots', 'Créez un bot avec une conversation continue.'], de: ['Bot-Modus', 'Erstelle einen Bot mit einem fortlaufenden Chat.'],
-      ru: ['Режим ботов', 'Создайте бота с постоянным чатом.'], pt: ['Modo Bots', 'Crie um bot com uma conversa contínua.'],
+      en: ['Bots mode', 'Create a bot with one ongoing chat.', 'Loading bots', 'Bots could not load.', 'Try again'],
+      zh: ['机器人模式', '创建一个拥有持续聊天的机器人。', '正在加载机器人', '无法加载机器人。', '重试'],
+      ja: ['ボットモード', '一つのチャットを続けるボットを作成します。', 'ボットを読み込み中', 'ボットを読み込めませんでした。', '再試行'],
+      es: ['Modo Bots', 'Crea un bot con un chat permanente.', 'Cargando bots', 'No se pudieron cargar los bots.', 'Reintentar'],
+      fr: ['Mode Bots', 'Créez un bot avec une conversation continue.', 'Chargement des bots', 'Impossible de charger les bots.', 'Réessayer'],
+      de: ['Bot-Modus', 'Erstelle einen Bot mit einem fortlaufenden Chat.', 'Bots werden geladen', 'Bots konnten nicht geladen werden.', 'Erneut versuchen'],
+      ru: ['Режим ботов', 'Создайте бота с постоянным чатом.', 'Загрузка ботов', 'Не удалось загрузить ботов.', 'Повторить'],
+      pt: ['Modo Bots', 'Crie um bot com uma conversa contínua.', 'Carregando bots', 'Não foi possível carregar os bots.', 'Tentar de novo'],
     }
     let chunks
     function load() {
@@ -62,18 +67,22 @@ window.__ModuleLoader__.load({
       const controller = new AbortController(), { signal } = controller
       const roster = createSnapshotStore({ rows: null, failed: false, revision: 0 })
       const notices = createSnapshotStore(null), selected = createSnapshotStore(null), ui = createSnapshotStore(null)
+      const uiFailed = createSnapshotStore(false)
       const hidden = createSnapshotStore(new Set())
       const dialogs = createSnapshotStore(null)
       const t = ctx.locale.bind(PANEL)
-      ctx.effect(() => ctx.locale.register(`${PANEL}.navigation`, Object.fromEntries(Object.entries(title).map(([key, value]) => [key,
-        { title: value, modeName: modes[key][0], modeDescription: modes[key][1] }]))))
+      ctx.effect(() => ctx.locale.register(`${PANEL}.navigation`, Object.fromEntries(Object.entries(title).map(([key, title]) => {
+        const [modeName, modeDescription, loading, error, retry] = modes[key]
+        return [key, { title, modeName, modeDescription, loading, error, retry }]
+      }))))
       const tNavigation = ctx.locale.bind(`${PANEL}.navigation`)
-      const hooks = { roster, notices, selected, ui, dialogs, workspaces: ctx.workspaces.list, language: {
+      const hooks = { roster, notices, selected, ui, uiFailed, dialogs, workspaces: ctx.workspaces.list, language: {
         getSnapshot: () => ctx.locale.getSnapshot().active, subscribe: listener => ctx.locale.subscribe(listener),
       } }
       let refreshing, dirty = false, style, uniqueNotice = 0, loading
       const seen = new Set()
       function requireUi() {
+        uiFailed.set(false)
         loading ??= load().then(value => {
           if (signal.aborted) return
           ctx.effect(() => ctx.locale.register(PANEL, value.copy))
@@ -81,7 +90,7 @@ window.__ModuleLoader__.load({
           style.textContent = value.css
           document.head.append(style)
           ui.set(value)
-        }).catch(error => { loading = undefined; notices.set({ id: ++uniqueNotice, error: true }); console.warn('[Bots]', error) })
+        }).catch(error => { if (!signal.aborted) uiFailed.set(true); loading = undefined; console.warn('[Bots]', error) })
         return loading
       }
       function refresh() {
@@ -167,10 +176,13 @@ window.__ModuleLoader__.load({
         }))
       }
       ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PANEL, inject }, function BotsPanel(props) {
-        const loaded = props.useUi(value => value), failed = props.useRoster(value => value.failed)
+        const loaded = props.useUi(value => value), failed = props.useUiFailed(value => value)
         useEffect(() => { void requireUi() }, [])
         return loaded ? h(loaded.Roster, { ...props, t, avatar: loaded })
-          : h('main', { 'aria-busy': !failed }, h('h1', null, tNavigation('title')))
+          : failed ? h('div', { role: 'alert', style: { margin: 'auto' } }, h('p', null, tNavigation('error')),
+            h(Button, { onClick: requireUi }, tNavigation('retry')))
+            : h('div', { role: 'status', 'aria-label': tNavigation('loading'), style: { margin: 'auto' } },
+              h(IconLoadingOutlineRegular, { size: 18, 'aria-hidden': true }))
       }))
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: PANEL, order: 16,
         label: () => tNavigation('title') }, BotGlyph))
@@ -179,6 +191,8 @@ window.__ModuleLoader__.load({
       entry('conversation.session.header.utilities', { component: 'HeaderTools', order: -8 })
       entry('conversation.input.dock', { component: 'Approvals', order: -20 })
       entry('sidebar.right.pane.tab', { key: PANEL, component: 'Details' })
+      ctx.slots.inject('sidebar.right.pane.tab.title', () => ctx.slots.register({ name: 'sidebar.right.pane.tab.title', key: PANEL },
+        () => h('span', { className: 'jao-dock-title' }, h(BotGlyph, { size: 16 }), t('details'))))
       entry('shell.overlay', { component: 'Overlays' })
     } }
   },
