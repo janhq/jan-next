@@ -44,6 +44,9 @@ export function createHostLink({ root, token, onState = () => { } }) {
     connect.searchParams.set('token', token)
     // `answer`: the other Jan's approval and question requests come here and on to this window.
     connect.searchParams.set('interactions', 'answer')
+    // `local`: the other Jan answers with its own projects and chats only. It may federate this
+    // one too, and forwarding these calls back would echo lists and streams between the two.
+    connect.searchParams.set('forward', 'local')
     const response = await fetch(connect, { redirect: 'manual' })
     const value = response.headers.get('set-cookie')?.split(';')[0]
     if (response.status !== 302 || value === undefined) throw new Error(`The other Jan refused the sign-in (HTTP ${response.status}).`)
@@ -112,6 +115,8 @@ export function createHostLink({ root, token, onState = () => { } }) {
       next.on('message', (data) => {
         let message
         try { message = JSON.parse(String(data)) } catch { return }
+        // Any valid JSON parses, `null` included; only an object can name a stream.
+        if (message === null || typeof message !== 'object') return
         streams.get(message.streamId)?.(message)
       })
       next.on('close', () => {

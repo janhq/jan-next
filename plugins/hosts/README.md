@@ -45,6 +45,8 @@ A connected SSH Host's projects appear in this window's sidebar beside this comp
 
 Ids from another computer reach this window as `<hostId>~<id>`; Host ids are UUIDs and Session and Workspace ids never contain `~`. A call naming such an id goes to that computer with the plain id, and its answer comes back qualified. The sidebar's project list, the Session control stream, the Session list and search, and chat activity events merge every connected computer's with this one's; approvals and questions from a chat on another computer come here to be answered. Settings, providers and plugins stay per computer. When a computer disconnects, its projects stay listed, dimmed and marked Offline, until it reconnects or the Host is removed; calls to them fail with an offline message. Chats on another computer are logged only there.
 
+This Host signs in to each other computer with `forward=local`, so that Jan answers from its own projects and chats only. Two computers connected to each other therefore list each other's items once, instead of passing lists and streams back and forth.
+
 A chat running on another computer reads only chats on that computer with `read_chat`; a chat on this computer reads every connected computer's.
 
 ## Copy model providers to the other computer
@@ -66,11 +68,11 @@ A connected SSH Host's row has Bring setup. It asks the Jan there what it has an
 
 | Kind | How it travels | Left unticked |
 | --- | --- | --- |
-| MCP server | One merge into that Jan's `mcp-manager` settings | A server whose command, arguments or folder is a Windows path on this computer |
+| MCP server | One merge into that Jan's `mcp-manager` settings | A server whose command, arguments or folder is an absolute path on this computer: a Windows path, a Unix path starting with `/`, or a home path starting with `~/` |
 | Skill | The folders as one tar stream over SSH. The selected skill's top-level link is resolved, but nested links are never followed. Links that point outside the skill cannot be copied. `.git`, `node_modules`, `__pycache__` and `.venv` stay behind. | None |
 | Plugin bundle | Enabled there when that Jan has it installed, otherwise installed from the same source | A bundle installed here from a local folder |
 
-The other Jan keeps what it has: a server or skill with the same name is not offered, and tar never overwrites existing files. A plugin that fails is named in the row's note while the rest still land. That Jan's window shows new skills after a reload.
+The other Jan keeps what it has: a server or skill with the same name is not offered, and a skill folder already there is never replaced. Skills unpack into a hidden staging folder there and move into place only once the whole archive arrived, so an interrupted copy leaves no half-copied skill and the next Bring setup offers it again. A plugin that fails is named in the row's note while the rest still land. That Jan's window shows new skills after a reload.
 
 ## Versions on the two sides
 

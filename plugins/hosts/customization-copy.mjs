@@ -21,9 +21,9 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-/** A path written for this computer's file system names nothing on another one. */
+/** A path written for this computer's file system (Windows, Unix or home-relative) names nothing on another one. */
 function localPath(value) {
-  return typeof value === 'string' && (/^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\'))
+  return typeof value === 'string' && (/^[A-Za-z]:[\\/]/.test(value) || /^(?:\\\\|\/|~\/)/.test(value))
 }
 
 /** Why a server cannot run as written on the other computer, or undefined when it can. */
@@ -121,7 +121,7 @@ export async function customizationOffer({ settings, skillRoots, pluginManager }
       const theirs = remote.bundles[bundle.name]
       if (theirs?.enabled) continue
       const source = bundle.source ?? bundle.installTarget?.spec ?? (bundle.optional ? undefined : bundle.name)
-      const problem = typeof source === 'string' && (localPath(source) || source.startsWith('/') || source.startsWith('file:')) ? 'local-path' : undefined
+      const problem = typeof source === 'string' && (localPath(source) || source.startsWith('file:')) ? 'local-path' : undefined
       plugins.push({
         id: bundle.name, name: bundle.meta?.title ?? bundle.name, detail: bundle.version ?? '',
         install: theirs?.installed === true || bundle.optional ? undefined : source,
@@ -180,7 +180,9 @@ export async function copyCustomizations({ settings, skillRoots }, target, offer
 
 /**
  * Stream skill folders into the other Jan's `skills` folder as one tar archive, without
- * following nested links or overwriting existing files.
+ * following nested links or replacing a skill it already has. The archive unpacks into a hidden
+ * staging folder first, so an interrupted transfer never leaves a half-copied skill that the
+ * next inventory would count as installed.
  * @param {string[]} ssh - ssh arguments.
  * @param {Array<{ name: string, dir: string }>} skills - folders to send, by skill name.
  */
@@ -203,11 +205,23 @@ async function sendSkills(ssh, skills) {
     tar.once('close', code => resolve(code === 0 ? undefined : new Error(`Packing the skills failed: ${stderr.trim().split('\n').at(-1) ?? code}`)))
   })
   const dest = `"$HOME"/${REMOTE_ROOT}/home/skills`
-  // BSD tar supports -k; GNU tar uses --skip-old-files to skip without a failing exit status.
-  const result = await runRemote({ ssh, command: `mkdir -p ${dest} && (case "$(tar --version)" in *"GNU tar"*) tar -x --skip-old-files -f - -C ${dest};; *) tar -xkf - -C ${dest};; esac)`, timeoutMs: SKILL_COPY_MS, input: tar.stdout })
-    .finally(() => { if (tar.exitCode === null) tar.kill() })
+  // Names match SKILL_NAME, so single quotes keep them literal. A skill that appeared there in
+  // the meantime is kept; the staging folder goes however the shell ends.
+  const names = skills.map(skill => `'${skill.name}'`).join(' ')
+  const command = [
+    `mkdir -p ${dest}`,
+    `stage=$(mktemp -d ${dest}/.incoming.XXXXXX)`,
+    `trap 'rm -rf "$stage"' EXIT`,
+    `trap 'exit 1' HUP INT TERM`,
+    `tar -xf - -C "$stage"`,
+    `for name in ${names}; do [ -e ${dest}/"$name" ] || mv "$stage/$name" ${dest}/"$name" || exit 1; done`,
+  ].join(' && ')
+  // Once the other side has ended, nothing reads the archive: drop the pipe so this tar can close.
+  const result = await runRemote({ ssh, command, timeoutMs: SKILL_COPY_MS, input: tar.stdout })
+    .finally(() => { tar.stdout.destroy(); if (tar.exitCode === null) tar.kill() })
   const packFailure = await packed
-  if (packFailure !== undefined) throw packFailure
+  // A tar stopped here only reflects the other side's failure, which says more.
+  if (packFailure !== undefined && !tar.killed) throw packFailure
   if (result.code !== 0) throw new Error(`The skills could not be unpacked there: ${result.stderr.trim().split('\n').at(-1) ?? result.code}`)
 }
 
