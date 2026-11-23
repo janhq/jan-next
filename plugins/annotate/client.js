@@ -2,7 +2,7 @@ window.__ModuleLoader__.load({
   id: '@janhq/jan-annotate',
   factory(require) {
     const React = require('react')
-    const { Button, Tooltip, IconListPenOutlineRegular, IconInspectOutlineRegular, IconPenOutlineRegular,
+    const { Button, Menu, Tooltip, IconListPenOutlineRegular, IconInspectOutlineRegular, IconPenOutlineRegular,
       IconPaperclipOutlineRegular, IconGuidesOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const { createElement: h, useEffect, useRef, useState } = React
     const id = 'jan-annotate'
@@ -90,8 +90,10 @@ window.__ModuleLoader__.load({
 
     function Launcher({ sessionId, getSurface, t, watch, activate, setGrab, getKeys, append, compact, badge, loadOverlay }) {
       const current = useRef()
+      const trigger = useRef(null)
       const [view, setView] = useState()
       const [error, setError] = useState(false)
+      const [open, setOpen] = useState(false)
       const elements = useElements(getSurface)
       const close = () => {
         current.current?.abort()
@@ -140,20 +142,34 @@ window.__ModuleLoader__.load({
       }, [getSurface, watch, compact, sessionId])
       if (sessionId === undefined) return null
       const Overlay = view?.Overlay
-      // Every action is one visible control: nothing hides behind a menu. 8px between them, as between
-      // the turn's own actions and the strip's split and panel controls.
+      const actions = ACTIONS.filter(action => badge ? action.id === 'draw' : elements || !action.element)
+      const button = (props, icon) => h(Button, { type: 'button', variant: 'ghost', size: 'sm', style: compact ? inlineSquare : square,
+        'data-annotate-inline': (compact && !badge) || undefined, 'data-annotate-badge': badge || undefined, ...props },
+      h(icon, { size: 16, 'aria-hidden': true }))
+      const showing = view?.props?.mode === 'guides'
+      // The composer badge is the one place a single action shows bare; everywhere else the actions share one
+      // Annotate control and its menu, so a reply's own row (copy, replay, share) stays short.
+      const control = badge
+        ? h(Tooltip, { label: t('draw'), side: 'bottom', delayMs: 300, portal: true },
+          button({ 'aria-label': t('draw'), 'data-annotate-action': 'draw', 'aria-busy': view?.pending === 'draw' || undefined,
+            onClick: () => start('draw') }, IconPenOutlineRegular))
+        : h(Menu, {
+          open, anchorRef: trigger, side: 'bottom', align: 'start', portal: true, autoFocus: true,
+          selection: 'check', selectedIds: showing ? ['guides'] : [], returnFocus: () => trigger.current,
+          items: actions.flatMap((action, index) => [
+            // Element actions, then whole-surface actions, then the guides toggle.
+            ...(index > 0 && (action.element !== actions[index - 1].element || action.toggle) ? [{ type: 'separator', id: `sep-${action.id}` }] : []),
+            { id: action.id, label: t(action.id), icon: h(action.icon, { size: 16, 'aria-hidden': true }),
+              shortcut: action.binding && { keys: getKeys(action.binding) } }]),
+          onClose: () => setOpen(false), onSelect: (mode) => { setOpen(false); start(mode) },
+          anchor: h(Tooltip, { label: t('title'), side: 'bottom', delayMs: 300, portal: true },
+            button({ ref: trigger, 'aria-label': t('title'), 'aria-haspopup': 'menu', 'aria-expanded': open,
+              'aria-busy': view?.pending !== undefined || undefined, 'aria-pressed': showing || undefined,
+              'data-annotate-action': 'menu', onClick: () => setOpen(value => !value) }, IconListPenOutlineRegular)),
+        })
       return h('span', { role: 'group', 'aria-label': t('title'),
         style: { display: 'inline-flex', alignItems: 'center', gap: '8px', alignSelf: 'start' } },
-        ACTIONS.filter(action => badge ? action.id === 'draw' : elements || !action.element).map(action => h(Tooltip, {
-          key: action.id, label: t(action.id), side: 'bottom', delayMs: 300, portal: true,
-          shortcutKeys: action.binding && getKeys(action.binding) },
-        // Ghost everywhere: inline, the strip sits beside the turn's own ghost actions (copy, replay, share) and must read as one row.
-        h(Button, { type: 'button', variant: 'ghost', size: 'sm', style: compact ? inlineSquare : square,
-          'aria-label': t(action.id), 'aria-busy': view?.pending === action.id || undefined,
-          'aria-pressed': action.toggle ? view?.props?.mode === action.id : undefined,
-          'data-annotate-action': action.id, 'data-annotate-inline': (compact && !badge) || undefined,
-          'data-annotate-badge': badge || undefined, onClick: () => start(action.id) },
-        h(action.icon, { size: 16, 'aria-hidden': true })))),
+        control,
         error && h(Tooltip, { label: t('openError'), side: 'bottom', portal: true },
           h('span', { role: 'alert', 'aria-label': t('openError'), tabIndex: 0,
             style: { width: '8px', height: '8px', borderRadius: '50%', background: 'var(--dsw-alias-state-error-primary)' } })),
