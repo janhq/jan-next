@@ -78,7 +78,11 @@ export async function performFactoryReset(categories: readonly FactoryResetCateg
     const removals = factoryResetTargets(category, roots).map(path => rm(path, { recursive: true, force: true, maxRetries: 3 }))
     if (category === 'settings') removals.push(Promise.resolve().then(clearBrowserStorage))
     const results = await Promise.allSettled(removals)
-    return { category, failures: results.flatMap(result => result.status === 'rejected' ? [result.reason] : []) }
+    const failures: unknown[] = []
+    for (const result of results) {
+      if (result.status === 'rejected') failures.push(result.reason)
+    }
+    return { category, failures }
   }))
   const completed: FactoryResetCategory[] = []
   const incomplete = new Map<FactoryResetCategory, readonly unknown[]>()
