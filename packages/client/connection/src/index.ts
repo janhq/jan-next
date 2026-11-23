@@ -42,7 +42,7 @@ export type { PeerId, PeerScope, Principal, RemoteInvocation } from '@janhq/jan-
 export { RpcId, transportError } from './rpc.ts'
 export { Peer } from './peer.ts'
 export type { PeerOptions } from './peer.ts'
-export { CONNECT_PATH, type ConnectionInteractions } from './connect-protocol.ts'
+export { CONNECT_PATH, type ConnectionForward, type ConnectionInteractions } from './connect-protocol.ts'
 export {
   clientRequestSchema,
   rpcErrorSchema,

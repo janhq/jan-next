@@ -4,7 +4,7 @@ import { queryObjects } from 'node:v8'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import WebSocket, { type RawData } from 'ws'
 import { Context, symbols } from '@janhq/cordis'
-import { apply as applyConnection, inject as connectionInject } from '@janhq/jan-client-connection'
+import { apply as applyConnection, inject as connectionInject, Peer } from '@janhq/jan-client-connection'
 import WebServer from '@janhq/jan-host-webserver'
 import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
 import type { AppReady } from '@janhq/jan-cmdline'
@@ -389,6 +389,33 @@ describe('Typert Remote streams', () => {
       await unregister()
       await first.return?.()
       await second.return?.()
+    }
+  })
+
+  it('hands owner streams to the forwarder unless the Peer is a federating Host', async () => {
+    const { ctx } = await setup(false)
+    const source = new RemoteEventSourceProbe()
+    const unregister = ctx.effect(() => ctx.typertGateway.registerRemoteEvents(source.source, REMOTE_HOST))
+    const forwarded: string[] = []
+    const unforward = ctx.typertGateway.registerForwarder({
+      call: (request, local) => { forwarded.push(request.endpoint); return local() },
+      stream: (request, local) => { forwarded.push(request.endpoint); return local() },
+    })
+    const federating = new Peer(ctx.root, { principal: { kind: 'owner' }, forward: 'local' })
+    try {
+      for (const peer of [federating, ownerPeer(ctx)]) {
+        const abort = new AbortController()
+        const events = await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), peer, abort.signal)
+        const reader = events[Symbol.asyncIterator]()
+        await reader.next()
+        abort.abort()
+        await reader.return?.()
+      }
+      expect(forwarded).toEqual(['$events'])
+    } finally {
+      unforward()
+      await federating.dispose()
+      await unregister()
     }
   })
 

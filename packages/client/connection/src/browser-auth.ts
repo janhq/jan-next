@@ -2,7 +2,7 @@
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { PeerId } from '@janhq/jan-typert-protocol'
-import { CONNECT_PATH, type ConnectionInteractions } from './connect-protocol.ts'
+import { CONNECT_PATH, type ConnectionForward, type ConnectionInteractions } from './connect-protocol.ts'
 import { credentialKey } from '@janhq/jan-credentials'
 import type { CredentialProvider, CredentialRecord } from '@janhq/jan-credentials'
 import type {
@@ -305,8 +305,9 @@ export class BrowserAuth {
   }
 
   /**
-   * Exchange the launch token for an independent API operator; omitted interactions default to none.
-   * @param req - trusted GET request on /connect with at most one interactions declaration.
+   * Exchange the launch token for an independent API operator; omitted interactions default to
+   * none and omitted forward to all.
+   * @param req - trusted GET request on /connect with at most one interactions and one forward declaration.
    * @param res - response owned to completion, redirecting to the API mux on success.
    * @param secure - whether the receiving listener serves TLS.
    * @param publish - synchronously create the operator before exposing its signed credential.
@@ -315,7 +316,7 @@ export class BrowserAuth {
     req: ConnectionIndexRequest,
     res: ConnectionIndexResponse,
     secure: boolean,
-    publish: (interactions: ConnectionInteractions) => PeerId,
+    publish: (interactions: ConnectionInteractions, forward: ConnectionForward) => PeerId,
   ): void {
     const url = new URL(req.url ?? '/', 'http://jan.invalid')
     const declarations = url.searchParams.getAll('interactions')
@@ -323,6 +324,13 @@ export class BrowserAuth {
     if (declarations.length > 1 || (interactions !== 'answer' && interactions !== 'none')) {
       res.writeHead(400, { 'cache-control': 'no-store', 'content-type': 'text/plain; charset=utf-8' })
       res.end('interactions must be declared once as answer or none\n')
+      return
+    }
+    const forwards = url.searchParams.getAll('forward')
+    const forward = forwards[0] ?? 'all'
+    if (forwards.length > 1 || (forward !== 'all' && forward !== 'local')) {
+      res.writeHead(400, { 'cache-control': 'no-store', 'content-type': 'text/plain; charset=utf-8' })
+      res.end('forward must be declared once as all or local\n')
       return
     }
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
@@ -334,7 +342,7 @@ export class BrowserAuth {
     }
     const issuedAt = Date.now()
     const expiresAt = issuedAt + this.maxAgeMilliseconds
-    const id = publish(interactions)
+    const id = publish(interactions, forward)
     const value = encodeCookie({ version: 2, authority, id, issuedAt, expiresAt }, this.secret)
     res.writeHead(302, {
       'cache-control': 'no-store',
