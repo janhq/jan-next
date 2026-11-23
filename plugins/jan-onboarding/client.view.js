@@ -6,7 +6,7 @@ window.__ModuleLoader__.load({
     const {
       Button, Checkbox, Input,
       IconCheckOutlineRegular, IconChevronRightOutlineRegular, IconGoalOutlineRegular,
-      IconPluginPinwheelOutlineRegular, IconSlidersTwoOutlineRegular, IconUserOutlineRegular,
+      IconPluginPinwheelOutlineRegular, IconSearchOutlineRegular, IconShieldOutlineRegular, IconSlidersTwoOutlineRegular, IconSparkleRegular, IconUserOutlineRegular,
     } = require('@janhq/jan-client-ui-primitives')
 
     // The flow wears the main window's shell: a floating sidebar card listing the steps as nav
@@ -134,6 +134,49 @@ window.__ModuleLoader__.load({
 .jan-onboarding-default[aria-pressed='true'] { background: color-mix(in srgb, var(--ob-accent) 12%, transparent); color: var(--ob-accent); cursor: default; }
 .jan-onboarding-hint, .jan-onboarding-status { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 18px; }
 .jan-onboarding-list { display: grid; gap: 16px; }
+.jan-onboarding-routes { display: grid; gap: 10px; }
+.jan-onboarding-route {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 12px; width: 100%; padding: 14px 16px; box-sizing: border-box;
+  border: 0; border-radius: var(--dsw-radius-lg, 16px); background: var(--dsw-specific-input-major); box-shadow: inset 0 0 0 0.5px var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-primary); font: inherit; text-align: start; cursor: pointer;
+  transition: background-color var(--ob-select) var(--ob-ease-out), box-shadow var(--ob-select) var(--ob-ease-out);
+}
+@media (hover: hover) {
+  .jan-onboarding-route:not(:disabled):hover { background: linear-gradient(var(--dsw-alias-interactive-bg-hover), var(--dsw-alias-interactive-bg-hover)), var(--dsw-specific-input-major); }
+  .jan-onboarding-route-key:not(:disabled):hover { color: var(--dsw-alias-label-primary); }
+}
+.jan-onboarding-route[aria-checked='true'] {
+  background: color-mix(in srgb, var(--ob-accent) 8%, var(--dsw-specific-input-major));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ob-accent) 60%, transparent);
+}
+.jan-onboarding-route:disabled, .jan-onboarding-route-key:disabled { opacity: 0.45; cursor: default; }
+.jan-onboarding-route-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: color-mix(in srgb, var(--ob-accent) 12%, transparent); color: var(--ob-accent); }
+.jan-onboarding-route-text { display: grid; gap: 2px; min-width: 0; }
+.jan-onboarding-route-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-weight: 500; line-height: 20px; }
+.jan-onboarding-route-detail { color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 18px; }
+.jan-onboarding-route-reason { color: var(--ob-accent); font-size: 12px; line-height: 18px; }
+.jan-onboarding-badge { padding: 0 8px; border-radius: 999px; background: color-mix(in srgb, var(--ob-accent) 14%, transparent); color: var(--ob-accent); font-size: 11px; line-height: 18px; font-weight: 500; }
+.jan-onboarding-route-check { display: grid; place-items: center; width: 20px; height: 20px; margin-top: 6px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--dsw-alias-border-l3); color: #fff; }
+.jan-onboarding-route[aria-checked='true'] .jan-onboarding-route-check { background: var(--ob-accent); box-shadow: none; }
+.jan-onboarding-route-key {
+  justify-self: start; display: inline-flex; align-items: center; gap: 6px; margin-inline-start: -10px; padding: 4px 10px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; line-height: 18px; cursor: pointer;
+}
+.jan-onboarding-route-key[aria-checked='true'] { color: var(--ob-accent); }
+.jan-onboarding-models { display: grid; gap: 8px; margin-top: -2px; padding: 12px; border-radius: var(--dsw-radius-lg, 16px); background: var(--dsw-specific-input-major); box-shadow: inset 0 0 0 0.5px var(--dsw-alias-border-l2); }
+.jan-onboarding-models input::placeholder { color: var(--dsw-alias-label-tertiary); }
+.jan-onboarding-model-list { display: grid; max-height: 232px; overflow-y: auto; }
+.jan-onboarding-model {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 12px; padding: 8px 10px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--dsw-alias-label-primary); font: inherit; text-align: start; cursor: pointer;
+  transition: background-color var(--ob-select) var(--ob-ease-out);
+}
+@media (hover: hover) { .jan-onboarding-model:not(:disabled):hover { background: var(--dsw-alias-interactive-bg-hover); } }
+.jan-onboarding-model[aria-checked='true'] { background: color-mix(in srgb, var(--ob-accent) 10%, transparent); }
+.jan-onboarding-model > svg { grid-column: 2; grid-row: 1 / span 2; color: var(--ob-accent); }
+.jan-onboarding-model-name { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jan-onboarding-model-meta { grid-column: 1; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jan-onboarding-model-meta[data-fit='too-large'] { color: var(--dsw-alias-label-error, #d93f3f); }
 /* Back is a ghost button nested into the corner: its label, not its box, sits on the text line. */
 .jan-onboarding-actions { display: flex; align-items: center; gap: 8px; }
 .jan-onboarding-actions > :first-child:not(.jan-onboarding-primary) { margin-inline-start: -14px; }
@@ -162,16 +205,21 @@ window.__ModuleLoader__.load({
 @media (prefers-reduced-motion: reduce) {
   .jan-onboarding :is(.jan-onboarding-rail, [data-enter], [data-onboarding-entrance], .jan-onboarding-mark img, .jan-onboarding-nav > svg), .jan-onboarding-step[data-exit] { animation: none; }
   .jan-onboarding-cta > svg { transition: none; }
-  .jan-onboarding :is(.jan-onboarding-steps-indicator, .jan-onboarding-nav, .jan-onboarding-chip, .jan-onboarding-default) { transition: none; }
+  .jan-onboarding :is(.jan-onboarding-steps-indicator, .jan-onboarding-nav, .jan-onboarding-chip, .jan-onboarding-default, .jan-onboarding-route) { transition: none; }
 }
 `
 
-    const steps = ['about', 'goals', 'detail', 'setup']
-    const stepIcons = [IconUserOutlineRegular, IconGoalOutlineRegular, IconSlidersTwoOutlineRegular, IconPluginPinwheelOutlineRegular]
+    const steps = ['about', 'goals', 'detail', 'setup', 'model']
+    const stepIcons = [IconUserOutlineRegular, IconGoalOutlineRegular, IconSlidersTwoOutlineRegular, IconPluginPinwheelOutlineRegular, IconSparkleRegular]
+    // The two ways to get a model shown as cards; an own API key stays a quiet link under them.
+    const routes = [
+      { id: 'account', title: 'modelAccount', detail: 'modelAccountDetail', Icon: IconSparkleRegular },
+      { id: 'local', title: 'modelLocal', detail: 'modelLocalDetail', Icon: IconShieldOutlineRegular },
+    ]
     // Jan's waving-hand mark, served by jan-theme; hidden if that plugin is absent.
     const LOGO = '/jan-theme/assets/jan-original.png'
 
-    function createFlow({ roles, goalsFor, recommend, applySetup }, operations) {
+    function createFlow({ roles, goalsFor, recommend, recommendModel, applySetup }, operations) {
       return function OnboardingFlow({ t, busy, finish, retry, settingsError, renderFactorySlot }) {
         // Step -1 is the start screen: the mark, one line on what Jan is, and one way in.
         const [page, setPage] = useState({ step: -1, back: false })
@@ -186,6 +234,14 @@ window.__ModuleLoader__.load({
         const [working, setWorking] = useState(false)
         const [applyError, setApplyError] = useState(false)
         const [finalize, setFinalize] = useState(null)
+        // null follows the recommendation, so changing earlier answers keeps it current.
+        const [route, setRoute] = useState(null)
+        // Local model picker: the Host's curated list, then Jan's public catalog once the user searches.
+        const [curated, setCurated] = useState(null)
+        const [hubRows, setHubRows] = useState(null)
+        const [hubError, setHubError] = useState(false)
+        const [query, setQuery] = useState('')
+        const [localPick, setLocalPick] = useState(null)
         const heading = useRef(null)
         const section = useRef(null)
         const writing = useRef(false)
@@ -234,6 +290,18 @@ window.__ModuleLoader__.load({
           if (page.step === 3 && catalog === null && !catalogError) void readCatalog()
         }, [page.step])
 
+        useEffect(() => {
+          if (page.step !== 4 || curated !== null || !operations.localAvailable()) return
+          operations.localModels().then(setCurated, () => { setCurated({ budget: 0, models: [] }) })
+        }, [page.step])
+
+        function search(text) {
+          setQuery(text)
+          if (text.trim() === '' || hubRows !== null) return
+          setHubError(false)
+          operations.searchCatalog().then(setHubRows, () => { setHubError(true) })
+        }
+
         const goals = goalsFor(selectedRoles)
         const options = catalog === null ? null : recommend(selectedRoles, catalog)
         const checked = setup ?? (options === null ? null : {
@@ -241,6 +309,23 @@ window.__ModuleLoader__.load({
           defaultMode: options.modes[0]?.id ?? '',
         })
         const defaultMode = checked?.modes.includes(checked.defaultMode) ? checked.defaultMode : checked?.modes[0]
+        const localAvailable = operations.localAvailable()
+        const suggestion = recommendModel(selectedRoles, selectedGoals, localAvailable)
+        // The suggested route is listed first; a route the build cannot run is not offered.
+        const offered = routes.filter(item => item.id !== 'local' || localAvailable)
+          .sort((a, b) => Number(b.id === suggestion.route) - Number(a.id === suggestion.route))
+        const chosen = route !== null && (route === 'api-key' || offered.some(item => item.id === route)) ? route : suggestion.route
+        const curatedModels = curated?.models ?? []
+        const picked = localPick ?? curatedModels.find(model => model.recommended) ?? curatedModels[0]
+        const terms = query.toLowerCase().match(/[\p{L}\p{N}.]+/gu) ?? []
+        const matching = model => terms.every(term => `${model.name} ${model.detail} ${model.repo}`.toLowerCase().includes(term))
+        // Curated models first, then the catalog's most downloaded matches; a curated repo is not listed twice.
+        const listed = terms.length === 0 ? curatedModels : [
+          ...curatedModels.filter(matching),
+          ...(hubRows ?? []).filter(model => matching(model) && !curatedModels.some(entry => entry.repo === model.repo)),
+        ].slice(0, 8)
+        const fitOf = model => model.fit ?? (curated?.budget > 0 && model.bytes > curated.budget ? 'too-large' : undefined)
+        const size = bytes => bytes > 0 ? `${(bytes / 1e9).toLocaleString(undefined, { maximumFractionDigits: 1 })} GB` : ''
 
         function toggleRole(role) {
           const next = selectedRoles.includes(role) ? selectedRoles.filter(item => item !== role) : [...selectedRoles, role]
@@ -258,11 +343,13 @@ window.__ModuleLoader__.load({
           try {
             if (finalize !== null) {
               if (!await retry()) setApplyError(true)
+              else if (finalize === 'finish') operations.connect(chosen, picked)
               return
             }
             if (!skip) await applySetup(operations, { name, roles: selectedRoles, goals: selectedGoals }, options, checked)
             setFinalize(skip ? 'skip' : 'finish')
             if (!await finish(skip ? null : detail)) setApplyError(true)
+            else if (!skip) operations.connect(chosen, picked)
           } catch {
             setApplyError(true)
           } finally {
@@ -324,13 +411,61 @@ window.__ModuleLoader__.load({
         else if (page.step === 2) content = h(Fragment, null, renderFactorySlot('settings.onboarding.detail', {
           busy: disabled, process: detail, continueLabel: t('continue'), onSelect: setDetail, onContinue: () => { move(3) },
         }), actions(null))
-        else content = h(Fragment, null, title('setup', 'setupHint'),
+        else if (page.step === 3) content = h(Fragment, null, title('setup', 'setupHint'),
           options === null ? catalogError ? h('div', { className: 'jan-onboarding-status', role: 'alert' }, t('catalogError'), ' ',
             h(Button, { size: 'sm', disabled, onClick: () => { void readCatalog() } }, t('retry')))
             : h('p', { role: 'status', className: 'jan-onboarding-status' }, t('loading')) : h('div', { className: 'jan-onboarding-list' },
             options.modes.length > 0 && rows('modes', options.modes),
             options.plugins.length > 0 && rows('plugins', options.plugins),
             options.plugins.length === 0 && h('p', { className: 'jan-onboarding-hint', 'data-enter': 'body' }, t('noPlugins'))),
+          actions({ label: 'continue', action: () => { move(4) }, unavailable: options === null }))
+        // Local is chosen: search the curated list and Jan's catalog, one row per model.
+        const picker = () => h('div', { className: 'jan-onboarding-models', role: 'group', 'aria-label': t('modelPick') },
+          h(Input, {
+            type: 'search', value: query, placeholder: t('modelSearch'), 'aria-label': t('modelSearch'), disabled,
+            icon: h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }), onChange: event => { search(event.target.value) },
+          }),
+          h('div', { className: 'jan-onboarding-model-list', role: 'radiogroup', 'aria-label': t('modelPick') },
+            listed.map(model => {
+              const fit = fitOf(model)
+              const on = picked?.key === model.key
+              return h('button', {
+                key: model.key, type: 'button', role: 'radio', 'aria-checked': on, className: 'jan-onboarding-model', disabled,
+                onClick: () => { setLocalPick(model) },
+              },
+              h('span', { className: 'jan-onboarding-model-name' }, model.name,
+                model.installed && h('span', { className: 'jan-onboarding-badge' }, t('installed'))),
+              h('span', { className: 'jan-onboarding-model-meta', 'data-fit': fit },
+                [model.detail, size(model.bytes), fit && fit !== 'fits' ? t(`fit.${fit}`) : ''].filter(Boolean).join(' · ')),
+              on && h(IconCheckOutlineRegular, { size: 14, 'aria-hidden': true }))
+            })),
+          curated === null ? h('p', { role: 'status', className: 'jan-onboarding-hint' }, t('loading'))
+            : terms.length > 0 && hubError ? h('p', { role: 'alert', className: 'jan-onboarding-hint' }, t('modelSearchError'))
+            : terms.length > 0 && hubRows === null ? h('p', { role: 'status', className: 'jan-onboarding-hint' }, t('loading'))
+            : listed.length === 0 && h('p', { role: 'status', className: 'jan-onboarding-hint' }, t('modelSearchEmpty')))
+        if (page.step === 4) content = h(Fragment, null, title('model', 'modelHint'),
+          h('div', { className: 'jan-onboarding-routes', role: 'radiogroup', 'aria-labelledby': 'jan-onboarding-title', 'data-enter': 'body' },
+            offered.map((item, i) => {
+              const on = chosen === item.id
+              const suggested = item.id === suggestion.route
+              return h(Fragment, { key: item.id }, h('button', {
+                type: 'button', role: 'radio', 'aria-checked': on, className: 'jan-onboarding-route',
+                'data-enter': 'item', style: { '--i': i }, disabled, onClick: () => { setRoute(item.id) },
+              },
+              h('span', { className: 'jan-onboarding-route-icon' }, h(item.Icon, { size: 18 })),
+              h('span', { className: 'jan-onboarding-route-text' },
+                h('span', { className: 'jan-onboarding-route-title' }, t(item.title),
+                  suggested && h('span', { className: 'jan-onboarding-badge' }, t('recommended'))),
+                h('span', { className: 'jan-onboarding-route-detail' },
+                  item.id === 'local' && picked ? `${picked.name} · ${size(picked.bytes)} · ${t(item.detail)}` : t(item.detail)),
+                suggested && h('span', { className: 'jan-onboarding-route-reason' }, t(`reason.${suggestion.reason}`))),
+              h('span', { className: 'jan-onboarding-route-check', 'aria-hidden': true }, on && h(IconCheckOutlineRegular, { size: 14 }))),
+              item.id === 'local' && on && picker())
+            }),
+            h('button', {
+              type: 'button', role: 'radio', 'aria-checked': chosen === 'api-key', className: 'jan-onboarding-route-key', disabled,
+              onClick: () => { setRoute('api-key') },
+            }, chosen === 'api-key' && h(IconCheckOutlineRegular, { size: 14 }), t('modelKey'))),
           actions({ label: working && finalize === null ? 'working' : 'start', action: () => { void submit(false) }, unavailable: options === null }))
 
         return h('div', { className: 'jan-onboarding', 'data-splash': page.step === -1 || undefined, 'aria-busy': busy || working }, h('style', null, css),

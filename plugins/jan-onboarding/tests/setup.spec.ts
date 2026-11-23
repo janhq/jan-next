@@ -14,6 +14,7 @@ type Setup = {
   roles: string[]
   goalsFor(roles: string[]): string[]
   recommend(roles: string[], catalog: Catalog): Selection
+  recommendModel(roles: string[], goals: string[], localAvailable: boolean): { route: string; reason: string }
   applySetup(operations: Operations, profile: Profile, options: Selection,
     checked: { plugins: string[]; modes: string[]; defaultMode: string }): Promise<void>
 }
@@ -100,5 +101,12 @@ describe('onboarding setup', () => {
     await expect(setup.applySetup({ ...settings, enable: async () => 'overridden' }, { name: '', roles: ['developer'], goals: [] },
       setup.recommend(['developer'], catalog), { plugins: [worktrees], modes: ['standard'], defaultMode: 'standard' })).rejects.toThrow()
     expect(settings.data).toEqual({ mode: 'chat', profile: undefined })
+  })
+
+  it('suggests a hosted model for demanding work and the local model only for light work it can run', () => {
+    expect(setup.recommendModel(['developer'], [], true)).toEqual({ route: 'account', reason: 'demanding' })
+    expect(setup.recommendModel(['writer'], ['draft'], true)).toEqual({ route: 'local', reason: 'light' })
+    expect(setup.recommendModel(['student'], ['learn', 'research'], true).route).toBe('account')
+    expect(setup.recommendModel(['writer'], ['draft'], false)).toEqual({ route: 'account', reason: 'light' })
   })
 })
