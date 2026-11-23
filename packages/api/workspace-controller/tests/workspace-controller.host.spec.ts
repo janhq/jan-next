@@ -354,7 +354,7 @@ describe('WorkspaceController follow', () => {
     const { ctx, root } = await harness()
     const existing = await ctx.workspaceRegistry.create(stageDir(root, 'existing'))
     const feed = new WorkspaceFeed(ctx)
-    expect(feed.baseline()).toMatchObject({
+    await expect(feed.baseline()).resolves.toMatchObject({
       items: [{ workspaceId: existing.id }],
     })
 

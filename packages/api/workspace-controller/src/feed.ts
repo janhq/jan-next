@@ -25,7 +25,11 @@ type WorkspaceFeedFrame = Exclude<WorkspaceFollowFrame, { readonly type: 'replac
  * @param defaultId - identity of the registered default, if any.
  * @returns detached Workspace projection for Remote consumers.
  */
-export function workspaceView(workspace: Workspace, defaultId: Workspace['id'] | undefined): WorkspaceView {
+export function workspaceView(workspace: Workspace, defaultId: Workspace['id'] | undefined): Promise<WorkspaceView> {
+  return withGithubOwner(projectWorkspace(workspace, defaultId))
+}
+
+function projectWorkspace(workspace: Workspace, defaultId: Workspace['id'] | undefined): WorkspaceView {
   return {
     workspaceId: workspace.id,
     ...(workspace.id === defaultId ? { isDefault: true } : {}),
@@ -33,7 +37,6 @@ export function workspaceView(workspace: Workspace, defaultId: Workspace['id'] |
     title: workspace.title,
     ...(workspace.color === undefined ? {} : { color: workspace.color }),
     ...(workspace.avatar === undefined ? {} : { avatar: { ...workspace.avatar } }),
-    ...withGithubOwner(workspace.path),
     sessionIds: [...workspace.sessionIds],
     createdAt: workspace.createdAt,
     updatedAt: workspace.updatedAt,
@@ -49,16 +52,15 @@ function changedWorkspaceView(workspaceId: string, value: unknown, defaultId: Wo
     title: record.title,
     ...(record.color === undefined ? {} : { color: record.color }),
     ...(record.avatar === undefined ? {} : { avatar: record.avatar }),
-    ...withGithubOwner(record.path),
     sessionIds: [...record.sessionIds],
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   }
 }
 
-function withGithubOwner(path: string): { githubOwner?: string } {
-  const githubOwner = githubOwnerOf(path)
-  return githubOwner === undefined ? {} : { githubOwner }
+async function withGithubOwner(workspace: WorkspaceView): Promise<WorkspaceView> {
+  const githubOwner = await githubOwnerOf(workspace.path)
+  return githubOwner === undefined ? workspace : { ...workspace, githubOwner }
 }
 
 /** Owns Workspace domain observation and all active follow generations. */
@@ -86,17 +88,18 @@ export class WorkspaceFeed {
   }
 
   /**
-   * Read the complete current projection synchronously.
+   * Capture the current projection before enriching it with optional Git metadata.
    * @returns all active Workspaces plus archived and pinned Session identities.
    */
-  baseline(): WorkspaceBaseline {
+  async baseline(): Promise<WorkspaceBaseline> {
     const registry = this.ctx.workspaceRegistry
     const defaultId = registry.defaultWorkspace?.id
-    return {
-      items: registry.list().map(workspace => workspaceView(workspace, defaultId)),
+    const baseline = {
+      items: registry.list().map(workspace => projectWorkspace(workspace, defaultId)),
       archivedSessionIds: [...registry.archivedSessionIds],
       pinnedSessionIds: [...registry.pinnedSessionIds],
     }
+    return { ...baseline, items: await Promise.all(baseline.items.map(withGithubOwner)) }
   }
 
   /**
@@ -109,8 +112,10 @@ export class WorkspaceFeed {
     const follower = new WorkspaceFollower()
     this.followers.add(follower)
     try {
-      yield { type: 'baseline', value: this.baseline() }
-      yield* follower.read(signal)
+      yield { type: 'baseline', value: await this.baseline() }
+      for await (const frame of follower.read(signal)) {
+        yield frame.type === 'upsert' ? { ...frame, workspace: await withGithubOwner(frame.workspace) } : frame
+      }
     } finally {
       this.followers.delete(follower)
       follower.close()
@@ -131,7 +136,7 @@ export class WorkspaceFeed {
           throw new Error(`committed Workspace registry references missing Workspace "${id}"`)
         }
         this.knownIds.add(id)
-        this.publish({ type: 'upsert', workspace: workspaceView(workspace, state.defaultWorkspaceId) })
+        this.publish({ type: 'upsert', workspace: projectWorkspace(workspace, state.defaultWorkspaceId) })
       }
       this.defaultId = state.defaultWorkspaceId
       this.order = nextOrder
