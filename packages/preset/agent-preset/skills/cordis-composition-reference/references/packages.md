@@ -88,6 +88,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-ui-input-trigger` | no | Input trigger pipeline: '/' and '@' detection, candidate menu, pick routing to registered sources |
 | `@janhq/jan-client-ui-jobs` | no | Session-header background-job list with on-demand streaming record panels |
 | `@janhq/jan-client-ui-layout` | no | Shell plugin: three-column AppFrame with drag handles, ctx.layout viewing-state service (navigation + panels) |
+| `@janhq/jan-client-ui-media-capture` | no | Inline browser consent, camera and microphone capture for model requests |
 | `@janhq/jan-client-ui-message-feedback` | no | The Web feedback surface: per-message Like/Dislike in the assistant-message action strip and the feedback dialog behind both ratings and /feedback, backed by the messageFeedback and sessionFeedback Host Remotes |
 | `@janhq/jan-client-ui-model-selection` | no | Model selection over the shared model catalog, Session projection, and session.selectModel |
 | `@janhq/jan-client-ui-open-in-app` | no | Session application submenus and native opening controls for directories and previewed files |
@@ -125,7 +126,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-ui-theme` | yes | Theme plugin: Host bootstrap for the pre-plugin palette; ThemeRuntime for light/dark/system state and icon replacements; --dsw-* token styles and Appearance settings row |
 | `@janhq/jan-client-ui-tool` | no | Client Tool call-tree renderer and keyed per-tool presentation slot |
 | `@janhq/jan-client-ui-trajectory` | yes | Trajectory event ledger and timing overview with live tool-result inspection |
-| `@janhq/jan-client-ui-user-questions` | no | Web ask_user_question composer takeover and plan-review presentation UI |
+| `@janhq/jan-client-ui-user-questions` | yes | Web ask_user_question composer takeover and plan-review presentation UI |
 | `@janhq/jan-client-ui-workflow-run` | no | Durable workflow-run Conversation Node and nested member disclosure for jan web |
 | `@janhq/jan-client-ui-workspace` | no | Workspace picker plugin: one WorkspacePicker registered into the sidebar and empty-state workspace slots |
 
@@ -303,6 +304,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-commands` | no | Plugin-owned human command registry for Jan UIs |
 | `@janhq/jan-permission-presets` | yes | User-facing permission presets (ctx.permissionPresets) for the Jan: one product-level Permissions select bundling the sandbox-mode and approval-policy knobs, written through to their own session events |
 | `@janhq/jan-tool-ask-user` | yes | Model-facing ask_user_question tool over the ctx.userQuestions seam |
+| `@janhq/jan-tool-capture-media` | no | User-approved camera and microphone capture tools and Host intake |
 | `@janhq/jan-user-approval` | yes | User-approval seam (ctx.approval) for the Jan: one-shot permission decisions dispatched to composed answerers over the approval/request waterfall, fail-closed by default |
 | `@janhq/jan-user-questions` | no | Abstract user-questions seam (ctx.userQuestions) for asking the human during agent runs |
 

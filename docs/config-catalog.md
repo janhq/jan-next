@@ -205,7 +205,7 @@ export interface Config {
 ## `@janhq/jan-api-gateway`
 
 - `inject`: `typert` · `remoteAccess`
-- `source`: [`packages/api/gateway/src/index.ts:158`](../packages/api/gateway/src/index.ts)
+- `source`: [`packages/api/gateway/src/index.ts:162`](../packages/api/gateway/src/index.ts)
 
 ```ts config-catalog
 /** Gateway transport configuration. */
@@ -2629,7 +2629,7 @@ export interface Config {
 
 ## `@janhq/jan-office-to-pdf`
 
-- `source`: [`packages/document/office-to-pdf/src/index.ts:31`](../packages/document/office-to-pdf/src/index.ts)
+- `source`: [`packages/document/office-to-pdf/src/index.ts:34`](../packages/document/office-to-pdf/src/index.ts)
 
 ```ts config-catalog
 /** Provider concurrency and kit rendering/font configuration. */

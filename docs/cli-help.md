@@ -12,10 +12,10 @@ Run `pnpm run gen-cli-help` to regenerate; run `pnpm run verify-cli-help` to che
 - [`jan`](#jan)
 - [`jan plugin`](#jan-plugin)
 - [`jan acp`](#jan-acp)
+- [`jan edge`](#jan-edge)
 - [`jan headless`](#jan-headless)
 - [`jan sdk`](#jan-sdk)
 - [`jan sdk-minimal`](#jan-sdk-minimal)
-- [`jan web`](#jan-web)
 
 <a id="jan"></a>
 ## `jan`
@@ -97,6 +97,46 @@ Example:
 
 ```
 
+<a id="jan-edge"></a>
+## `jan edge`
+
+Invocations: `jan edge --help`, `jan --profile edge --help`, `jan web --help`, `jan --profile web --help`
+
+```text
+Usage: jan --profile web [options]
+
+Serve the Jan browser UI.
+
+Options:
+  --host <host>                  bind address: one concrete IPv4 or IPv6 literal
+                                 of a local interface; wildcard addresses are
+                                 rejected
+  --no-open                      do not open the Web UI in the default browser
+  --port <port>                  listen port; pass 0 to let the OS pick a free
+                                 one
+  --public-url <url>             advertise this HTTP(S) root in the printed,
+                                 opened, runtime-context, and JAN_WEB_URL forms;
+                                 grants no trust
+  --trusted-host <authority...>  extra authority the /api browser-trust fence
+                                 accepts (host or host:port; repeatable)
+  --tls-cert <file>              PEM server certificate chain; requires
+                                 --tls-key
+  --tls-key <file>               unencrypted PEM private key; requires
+                                 --tls-cert
+  -h, --help                     show this help
+
+Examples:
+  jan --profile web                          serve on the composed host and port
+  jan --profile web --no-open                serve without opening a browser
+  jan --profile web --port 8080              serve on another port
+  jan --profile web --host 10.0.0.7          bind one local interface address
+  jan --profile web --public-url https://app.example/ui/ --trusted-host app.example
+                                             advertise a prefix-stripping HTTPS proxy entry and admit its authority
+  jan --profile web --tls-cert ./server-chain.pem --tls-key ./server-key.pem
+                                             serve HTTPS with an existing certificate and key
+
+```
+
 <a id="jan-headless"></a>
 ## `jan headless`
 
@@ -167,45 +207,5 @@ Options:
 
 Example:
   jan --profile sdk-minimal     serve one SDK runtime until its client disconnects
-
-```
-
-<a id="jan-web"></a>
-## `jan web`
-
-Invocations: `jan web --help`, `jan --profile web --help`
-
-```text
-Usage: jan --profile web [options]
-
-Serve the Jan browser UI.
-
-Options:
-  --host <host>                  bind address: one concrete IPv4 or IPv6 literal
-                                 of a local interface; wildcard addresses are
-                                 rejected
-  --no-open                      do not open the Web UI in the default browser
-  --port <port>                  listen port; pass 0 to let the OS pick a free
-                                 one
-  --public-url <url>             advertise this HTTP(S) root in the printed,
-                                 opened, runtime-context, and JAN_WEB_URL forms;
-                                 grants no trust
-  --trusted-host <authority...>  extra authority the /api browser-trust fence
-                                 accepts (host or host:port; repeatable)
-  --tls-cert <file>              PEM server certificate chain; requires
-                                 --tls-key
-  --tls-key <file>               unencrypted PEM private key; requires
-                                 --tls-cert
-  -h, --help                     show this help
-
-Examples:
-  jan --profile web                          serve on the composed host and port
-  jan --profile web --no-open                serve without opening a browser
-  jan --profile web --port 8080              serve on another port
-  jan --profile web --host 10.0.0.7          bind one local interface address
-  jan --profile web --public-url https://app.example/ui/ --trusted-host app.example
-                                             advertise a prefix-stripping HTTPS proxy entry and admit its authority
-  jan --profile web --tls-cert ./server-chain.pem --tls-key ./server-key.pem
-                                             serve HTTPS with an existing certificate and key
 
 ```
