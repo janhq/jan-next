@@ -72,17 +72,21 @@ window.__ModuleLoader__.load({
 .jan-onboarding-nav:focus-visible, .jan-onboarding-chip:focus-visible, .jan-onboarding-default:focus-visible { outline: 2px solid var(--dsw-focus-ring-color, var(--ob-accent)); outline-offset: 1px; }
 .jan-onboarding-rail-note { margin: 12px 0 0; padding: 0 8px; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .jan-onboarding-skip { margin-top: auto; }
+/* Each step sits in the optical middle of the window (a little above true centre); a step taller
+ * than the window starts at the top and scrolls. */
 .jan-onboarding-main {
   position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; overflow: auto; box-sizing: border-box;
   padding: calc(var(--jan-frame-top-clearance, 0px) + 16px) clamp(24px, 6vw, 72px) 32px;
   background: radial-gradient(70% 55% at 50% 0%, color-mix(in srgb, var(--ob-accent) 9%, transparent), transparent 70%),
     radial-gradient(50% 40% at 85% 100%, color-mix(in srgb, #FFC928 6%, transparent), transparent 70%);
 }
-.jan-onboarding-step { position: relative; display: grid; gap: 20px; width: min(100%, 600px); }
+.jan-onboarding-step { position: relative; display: grid; align-content: start; gap: 20px; width: min(100%, 600px); margin-bottom: 6vh; }
 .jan-onboarding-step[data-exit] { animation: jan-onboarding-out var(--ob-exit) var(--ob-ease-out) both; }
+.jan-onboarding[data-splash] .jan-onboarding-step { margin-bottom: 0; }
 /* Start screen: no rail, one centred column. The mark is the biggest thing on it, the tagline says
  * what Jan is in one line, and a single pill leads in; skipping stays available but quiet. */
 .jan-onboarding[data-splash] { grid-template-columns: minmax(0, 1fr); }
+.jan-onboarding[data-splash] .jan-onboarding-main { place-items: center; padding-top: calc(var(--jan-frame-top-clearance, 0px) + 16px); }
 .jan-onboarding-splash { display: grid; justify-items: center; gap: 20px; text-align: center; padding-bottom: 6vh; }
 .jan-onboarding-mark { display: flex; align-items: center; gap: 20px; margin: 0; font-family: var(--jan-onboarding-heading-font); font-size: 72px; line-height: 80px; font-weight: 500; letter-spacing: -2px; outline: none; }
 .jan-onboarding-mark img { width: 76px; height: 76px; flex: none; transform-origin: 70% 85%; animation: jan-onboarding-wave 1.1s var(--ds-ease-in-out, ease-in-out) 360ms both; }
@@ -130,7 +134,9 @@ window.__ModuleLoader__.load({
 .jan-onboarding-default[aria-pressed='true'] { background: color-mix(in srgb, var(--ob-accent) 12%, transparent); color: var(--ob-accent); cursor: default; }
 .jan-onboarding-hint, .jan-onboarding-status { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 18px; }
 .jan-onboarding-list { display: grid; gap: 16px; }
+/* Back is a ghost button nested into the corner: its label, not its box, sits on the text line. */
 .jan-onboarding-actions { display: flex; align-items: center; gap: 8px; }
+.jan-onboarding-actions > :first-child:not(.jan-onboarding-primary) { margin-inline-start: -14px; }
 .jan-onboarding-primary { margin-inline-start: auto; min-width: 120px; }
 .jan-onboarding-step[data-step='2'] .jan-onboarding-actions { position: absolute; inset: auto auto 0 0; }
 .jan-onboarding-alert { position: absolute; inset: auto 0 24px; display: flex; justify-content: center; align-items: center; gap: 8px; color: var(--dsw-alias-label-secondary); font-size: 13px; }
