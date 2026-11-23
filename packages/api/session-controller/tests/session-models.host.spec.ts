@@ -224,7 +224,8 @@ it('attributes MCP inventory to the resolved tool even when server names overlap
   await ctx.plugin({
     inject: ['tools', 'systemPrompt', 'mcpManager'],
     async apply(inner: Context) {
-      agent.ctx = createScope(inner, agent).ctx
+      // Bind the agent to an ACP-style scope that owns its own MCP client.
+      ;(agent as { ctx: Context }).ctx = createScope(inner, agent).ctx
       await agent.ctx.plugin(McpClient, { ...entry('baz'), serverName: 'foo__bar', failOnStartupError: true })
     },
   })
