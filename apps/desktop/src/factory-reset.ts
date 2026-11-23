@@ -39,7 +39,7 @@ export function factoryResetTargets(category: FactoryResetCategory, roots: Facto
     ]
     // The profile manifest is rewritten with only the shipped bundles at the next launch.
     case 'plugins': return [join(profile, 'package.json'), join(profile, 'node_modules'), join(profile, 'pnpm-lock.yaml')]
-    case 'credentials': return [join(janHome, '.credentials.yaml'), join(janHome, 'hosts', 'devices.json')]
+    case 'credentials': return [join(janHome, 'hosts', 'devices.json')]
     case 'skills': return [join(janHome, 'skills')]
     case 'logs': return [...new Set([join(janHome, 'logs'), desktopLogs])]
   }
@@ -70,13 +70,15 @@ export interface FactoryResetResult {
  * @param categories - validated selection.
  * @param roots - data roots of this installation.
  * @param clearBrowserStorage - clear Electron's persisted browser settings for the Settings category.
+ * @param resetCredentials - remove the credential index only after its OS keychain entries are gone.
  * @returns categories that finished and categories where selected data may remain.
  */
 export async function performFactoryReset(categories: readonly FactoryResetCategory[], roots: FactoryResetRoots,
-  clearBrowserStorage: () => Promise<void>): Promise<FactoryResetResult> {
+  clearBrowserStorage: () => Promise<void>, resetCredentials: () => Promise<void>): Promise<FactoryResetResult> {
   const outcomes = await Promise.all(categories.map(async (category) => {
     const removals = factoryResetTargets(category, roots).map(path => rm(path, { recursive: true, force: true, maxRetries: 3 }))
     if (category === 'settings') removals.push(Promise.resolve().then(clearBrowserStorage))
+    if (category === 'credentials') removals.push(Promise.resolve().then(resetCredentials))
     const results = await Promise.allSettled(removals)
     const failures: unknown[] = []
     for (const result of results) {

@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vitest'
 import { parseFactoryResetRequest, performFactoryReset } from '../src/factory-reset.ts'
 
 /** A populated installation: Jan home, desktop profile, userData, and a workspace folder beside them. */
@@ -41,7 +42,9 @@ function installation() {
 
 it('removes only the chosen data and never the workspace or the profile root', async () => {
   const { roots, files } = installation()
-  await performFactoryReset(parseFactoryResetRequest(['settings', 'chats']), roots, async () => {})
+  const resetCredentials = vi.fn(async () => {})
+  await performFactoryReset(parseFactoryResetRequest(['settings', 'chats']), roots, async () => {}, resetCredentials)
+  expect(resetCredentials).not.toHaveBeenCalled()
   const left = Object.entries(files).filter(([, path]) => existsSync(path)).map(([name]) => name)
   expect(left.sort()).toEqual([
     'agents', 'connections', 'credentials', 'desktopLog', 'log', 'manifest', 'model', 'pairedDevices', 'plugin', 'profileRoot', 'skill', 'workspace',
@@ -50,9 +53,20 @@ it('removes only the chosen data and never the workspace or the profile root', a
 
 it('resets everything on the list while the workspace and the profile root stay', async () => {
   const { roots, files } = installation()
-  await performFactoryReset(parseFactoryResetRequest(['logs', 'skills', 'credentials', 'plugins', 'settings', 'chats']), roots, async () => {})
+  await performFactoryReset(parseFactoryResetRequest(['logs', 'skills', 'credentials', 'plugins', 'settings', 'chats']), roots,
+    async () => {}, () => rm(files.credentials))
   const left = Object.entries(files).filter(([, path]) => existsSync(path)).map(([name]) => name)
   expect(left.sort()).toEqual(['agents', 'connections', 'model', 'profileRoot', 'workspace'])
+})
+
+it('preserves the credentials index and reports an incomplete reset when keychain cleanup fails', async () => {
+  const { roots, files } = installation()
+  const error = new Error('Cannot read keychain')
+  const result = await performFactoryReset(['credentials', 'logs'], roots, async () => {}, async () => { throw error })
+  expect(result.completed).toEqual(['logs'])
+  expect(result.incomplete.get('credentials')).toEqual([error])
+  expect(existsSync(files.credentials)).toBe(true)
+  expect(existsSync(files.pairedDevices)).toBe(false)
 })
 
 it('rejects an empty or unknown selection before anything is removed', () => {
