@@ -504,10 +504,12 @@ export function apply(ctx: Context, config: Config = {}): void {
         const cwd = exec.agent === undefined ? undefined : await ctx.workingDirectory.ensure(exec.agent, exec.signal)
         const workdir = resolveWorkdir(args.workdir, cwd)
         const janEnv = ctx.shellEnv.collect(exec)
+        const env = ctx.shellEnv.collectOverrides(exec)
         const request: ShellExecRequest = {
           command: args.command,
           ...workdir !== undefined ? { workdir } : {},
           ...args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {},
+          ...env !== undefined ? { env } : {},
           janEnv,
           ...policy !== undefined ? { sandboxPolicy: policy } : {},
         }

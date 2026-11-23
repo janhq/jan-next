@@ -164,6 +164,28 @@ describe('bash tool through the agent loop', () => {
     await handle.dispose()
   })
 
+  it('passes scoped overrides and removals only to the matching session subprocess', async () => {
+    vi.stubEnv('GIT_CONFIG_GLOBAL', '/host.gitconfig')
+    vi.stubEnv('GIT_DIR', '/host/.git')
+    const ctx = await harness(new MockAdapter([]))
+    try {
+      ctx.shellEnv.registerOverrides(exec => exec.agent?.id === 'managed-shell'
+        ? { GIT_CONFIG_GLOBAL: '/worker.gitconfig', GIT_DIR: undefined }
+        : undefined)
+      for (const [id, output] of [['managed-shell', '/worker.gitconfig\nunset\n'], ['ordinary-shell', '/host.gitconfig\n/host/.git\n']]) {
+        const agent = await ctx.agentLoop.create(SessionId(id!), { provider: 'mock', model: 'mock' })
+        const result = await executeModelToolFixture(ctx, {
+          agent, name: 'bash', callId: ToolCallId(id!), signal: new AbortController().signal,
+          arguments: { command: 'printf \'%s\\n\' "$GIT_CONFIG_GLOBAL" "${GIT_DIR-unset}"', description: 'inspect git environment' },
+        })
+        expect(result.isError).toBe(false)
+        expect(result.content).toEqual([{ type: 'text', text: output }])
+      }
+      expect(process.env.GIT_CONFIG_GLOBAL).toBe('/host.gitconfig')
+      expect(process.env.GIT_DIR).toBe('/host/.git')
+    } finally { await ctx.fiber.dispose() }
+  })
+
   it('foreground: model calls bash, sees the result, replies', async () => {
     const adapter = new MockAdapter([
       toolCallResponse('call-1', 'bash', { command: 'echo integration-ok', description: 'test command' }, 'Running it.'),

@@ -115,6 +115,26 @@ describe('ShellEnvRegistry', () => {
     ])
   })
 
+  it('leaves shell requests unchanged without a matching override and removes overrides on plugin disposal', async () => {
+    const ctx = new Context()
+    const registry = new ShellEnvRegistry(ctx)
+    const managed = execution('managed')
+    expect(registry.collectOverrides(managed)).toBeUndefined()
+
+    const fiber = await ctx.plugin({
+      inject: ['shellEnv'],
+      apply(inner: Context) {
+        inner.shellEnv.registerOverrides(exec => exec.agent?.session.header.id === 'managed'
+          ? { PATH: '/worker-bin:/usr/bin', GIT_DIR: undefined }
+          : undefined)
+      },
+    })
+    expect(registry.collectOverrides(managed)).toStrictEqual({ PATH: '/worker-bin:/usr/bin', GIT_DIR: undefined })
+    expect(registry.collectOverrides(execution('ordinary'))).toBeUndefined()
+    await fiber.dispose()
+    expect(registry.collectOverrides(managed)).toBeUndefined()
+  })
+
   it('rejects duplicate variable ownership at registration time', () => {
     const ctx = new Context()
     const registry = new ShellEnvRegistry(ctx, { janHome: './test-jan-home' })

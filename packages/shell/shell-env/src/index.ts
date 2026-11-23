@@ -4,6 +4,7 @@
  * tools (`jan-tool-bash`, `jan-tool-pwsh`). Built-in shell facts are owned by
  * the registry itself while plugins can register additional, enumerable facts
  * with effect-scoped disposal.
+ * Trusted plugins may also scope ordinary environment overrides to a shell call.
  *
  * @module @janhq/jan-shell-env
  */
@@ -92,6 +93,7 @@ const BASH_ENV_KEY_SUFFIX = /^[A-Z][A-Z0-9_]*$/
  */
 export class ShellEnvRegistry extends Service {
   private readonly contributors = new Map<string, BashEnvContributor>()
+  private readonly overrides = new Set<{ resolve: (execution: ToolExecution) => Readonly<NodeJS.ProcessEnv> | undefined }>()
   private readonly keyOwners = new Map<JanEnvironmentKey, string>()
   private readonly janHome: string
 
@@ -146,6 +148,34 @@ export class ShellEnvRegistry extends Service {
       }
     }.bind(this), 'bashEnv.register()')
     return () => void dispose()
+  }
+
+  /**
+   * Register trusted subprocess environment overrides for matching shell calls.
+   * @param resolve - returns ordinary environment entries or tombstones for a call; returns undefined to leave it unchanged.
+   * @returns the disposer, also invoked automatically with the registering plugin.
+   */
+  registerOverrides(resolve: (execution: ToolExecution) => Readonly<NodeJS.ProcessEnv> | undefined): () => void {
+    const entry = { resolve }
+    const dispose = this.ctx.effect(() => {
+      this.overrides.add(entry)
+      return () => { this.overrides.delete(entry) }
+    }, 'shellEnv.registerOverrides()')
+    return () => void dispose()
+  }
+
+  /**
+   * Collect ordinary environment overrides without changing the managed `JAN_*` snapshot.
+   * @param execution - the current tool execution.
+   * @returns a caller-owned overlay, or undefined if no resolver supplied one.
+   */
+  collectOverrides(execution: ToolExecution): NodeJS.ProcessEnv | undefined {
+    let env: NodeJS.ProcessEnv | undefined
+    for (const entry of this.overrides) {
+      const resolved = entry.resolve(execution)
+      if (resolved !== undefined) env = { ...env, ...resolved }
+    }
+    return env
   }
 
   /**

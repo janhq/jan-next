@@ -463,6 +463,18 @@ describe('execution through the bash seam', () => {
     expect(bash.specs[0]?.workdir).toBe('/sessions/s1')
   })
 
+  it('passes ordinary environment overrides only for the selected session', async () => {
+    const { ctx, bash } = await setup()
+    bash.handler = () => runResult('ok\n')
+    const agent = await registerFakeAgent(ctx, 'managed-shell')
+    ctx.shellEnv.registerOverrides(exec => exec.agent === agent ? { GIT_DIR: undefined } : undefined)
+    const args = { command: 'Write-Output ok', description: 'ok' }
+    await call(ctx, 'pwsh', args, agent)
+    await call(ctx, 'pwsh', args)
+    expect(bash.specs[0]?.env).toStrictEqual({ GIT_DIR: undefined })
+    expect(bash.specs[1]).not.toHaveProperty('env')
+  })
+
   it('resolves a relative workdir against the session cwd, absolute ones verbatim', async () => {
     const { ctx, bash } = await setup()
     bash.handler = () => runResult('ok\n')
