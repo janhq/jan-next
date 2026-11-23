@@ -6,7 +6,7 @@ import {
   clientSecretBody, decodeTranscription, speechBody, systemOneBody, transcriptionForm, wavSeconds,
 } from './audio.mjs'
 import { BACKGROUNDS, DEFAULT_MODEL, MAX_IMAGES, QUALITIES, SIZES, decodeReply, editForm, generationBody, imageOptions } from './images.mjs'
-import { defaultPath, outputPaths, readInside, sessionWorkspace, writeInside } from './session-files.mjs'
+import { defaultPath, readInside, sessionWorkspace, writeOutputs } from './session-files.mjs'
 
 /** Cordis identity for Jan's Tokamak capabilities. */
 export const name = 'jan-tokamak'
@@ -162,9 +162,8 @@ export function apply(ctx, config = {}) {
     const { reply, fallback } = await call(at, options)
     exec.signal.throwIfAborted()
     const extension = `.${reply.images[0]?.mediaType.slice('image/'.length) ?? 'png'}`
-    const paths = await outputPaths(ctx, at, typeof args.path === 'string' ? args.path : undefined, fallback, extension, reply.images.length, exec.signal)
-    const files = []
-    for (const [index, path] of paths.entries()) files.push(await writeInside(ctx, at, path, /** @type {ImageReply['images'][number]} */(reply.images[index]).data, exec.signal))
+    const files = await writeOutputs(ctx, at, typeof args.path === 'string' ? args.path : undefined,
+      fallback, extension, reply.images.map(image => image.data), exec)
     const images = await attachmentsFor(at, reply, exec.signal)
     return {
       files,
@@ -264,9 +263,8 @@ export function apply(ctx, config = {}) {
         const at = await sessionWorkspace(ctx, exec)
         const started = Date.now()
         const audio = await speak(input, exec.signal)
-        const [path] = await outputPaths(ctx, at, typeof input.path === 'string' ? input.path : undefined,
-          defaultPath('audio', String(input.text), '.wav'), '.wav', 1, exec.signal)
-        const file = await writeInside(ctx, at, /** @type {string} */(path), audio, exec.signal)
+        const [file] = await writeOutputs(ctx, at, typeof input.path === 'string' ? input.path : undefined,
+          defaultPath('audio', String(input.text), '.wav'), '.wav', [audio], exec)
         const seconds = wavSeconds(audio)
         return `Saved ${seconds === undefined ? 'audio' : `${seconds.toFixed(1)} s of audio`} in ${((Date.now() - started) / 1000).toFixed(1)} s:\n${file}\nCall present with the file so the user can play it.`
       },
