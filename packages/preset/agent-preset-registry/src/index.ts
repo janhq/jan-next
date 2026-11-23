@@ -14,7 +14,7 @@ import type { } from '@janhq/jan-tools'
 import type { AgentPresetDocument, AgentPresetRoster } from './types.ts'
 import { entryListProblem, type PresetDefinition } from './definition.ts'
 import type { AgentPreset, Config } from './preset.ts'
-import { agentPresetProjectionDefinition } from './session.ts'
+import { agentPresetProjectionDefinition, agentPresetRouteDefaultProjection } from './session.ts'
 import { auditRows, leakedServices, mountPreset, serviceForMount, type PresetMount } from './mount.ts'
 import { activeCompositionModules, definitionComposition, mountedCompositionRows, type AgentPresetComposition, type AgentPresetInspection } from './composition-inventory.ts'
 
@@ -61,6 +61,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
     selectedDefault: z.string().volatile(),
   })
   private agentPresetProjectionHandle!: ProjectionHandle<string | null>
+  private routeDefaultProjectionHandle!: ProjectionHandle<boolean>
   private readonly owner: Context
   private readonly definitions = new Map<string, Definition>()
   private readonly generations = new Map<ScopeKey, Generation>()
@@ -74,6 +75,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
   protected async [Service.init](): Promise<void> {
     const ctx = this.owner
     this.agentPresetProjectionHandle = await ctx.sessionProjections.register(agentPresetProjectionDefinition)
+    this.routeDefaultProjectionHandle = await ctx.sessionProjections.register(agentPresetRouteDefaultProjection)
     ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
     ctx.on('session/event', (session, event) => {
       if (event.type === 'agent-preset/selected') ctx.emit('agent-preset/selected', session.id, event.data.agentPreset)
@@ -412,28 +414,58 @@ export class AgentPresetRegistry extends TypertRemoteService {
     return preset
   }
 
-  /** Select a preset for a Session at a turn boundary. A Session with no
-   * recorded preset that already runs the current revision keeps its
-   * composition; nothing is logged or announced. A started Session may switch
-   * once no turn is open: messages are never rewritten, the selection is
-   * appended to the log, and every later turn runs under the new composition.
+  /** Select and pin a preset at a turn boundary. Pinning a preset already in
+   * use records the choice without replacing its composition.
    * @param agent Target Agent.
    * @param agentPreset Requested identity.
    * @returns Committed preset identity.
    */
   @Remote('select')
-  async select(agent: Agent, agentPreset: string): Promise<string> {
+  select(agent: Agent, agentPreset: string): Promise<string> {
+    return this.switchPreset(agent, agentPreset, false)
+  }
+
+  /**
+   * Read whether a Session follows the default for its model provider.
+   * @param session - Session whose latest preset choice is read.
+   * @returns whether the preset was assigned automatically.
+   */
+  followsRouteDefault(session: Session): boolean {
+    return this.routeDefaultProjectionHandle.stateOf(session)
+  }
+
+  /**
+   * Apply a route default. On a model change, leave the preset alone unless
+   * the blank Session still follows the previous provider's default.
+   * @param agent - Session running the preset.
+   * @param agentPreset - default for the target provider route.
+   * @param previousDefault - previous provider's default for a conditional route change; omit for blank reuse.
+   * @returns the recorded preset, or undefined if a conditional change was skipped.
+   */
+  selectRouteDefault(agent: Agent, agentPreset: string, previousDefault?: string): Promise<string | undefined> {
+    return this.switchPreset(agent, agentPreset, true, previousDefault)
+  }
+
+  private switchPreset(agent: Agent, agentPreset: string, routeDefault: boolean): Promise<string>
+  private switchPreset(agent: Agent, agentPreset: string, routeDefault: boolean,
+    previousDefault: string | undefined): Promise<string | undefined>
+  private async switchPreset(agent: Agent, agentPreset: string, routeDefault: boolean,
+    previousDefault?: string): Promise<string | undefined> {
     const turn = (this.switches.get(agent.id) ?? Promise.resolve()).then(async () => {
       const busy = (): RemoteError => new RemoteError('agent-preset/locked', 'Wait for the running turn to finish before changing the agent preset.', { sessionId: agent.id, agentPreset })
       const boundary = this.owner.agents.turnBoundaryOf(agent.session)
+      const selectedPreset = this.presetForSession(agent.session)
+      const followsRoute = this.followsRouteDefault(agent.session)
+      if (previousDefault !== undefined && (boundary.lastTurn !== 0 || boundary.openTurnStartSeq !== null
+        || !followsRoute || selectedPreset !== previousDefault || selectedPreset === agentPreset)) return undefined
       if (boundary.openTurnStartSeq !== null) throw busy()
       const current = this.definitions.get(agentPreset)?.generation
-      if (current !== undefined && this.generationFor(agent.ctx) === current
-        && this.agentPresetProjectionHandle.stateOf(agent.session) === agentPreset) return agentPreset
+      const sameComposition = current !== undefined && this.generationFor(agent.ctx) === current
+      if (sameComposition && selectedPreset === agentPreset && followsRoute === routeDefault) return agentPreset
       const swapPreset = async (): Promise<string> => {
-        const preset = await this.recompose(agent.ctx, agentPreset)
-        agent.session.append('agent-preset/selected', { agentPreset: preset.id })
-        return preset.id
+        const id = sameComposition ? agentPreset : (await this.recompose(agent.ctx, agentPreset)).id
+        agent.session.append('agent-preset/selected', { agentPreset: id, ...(routeDefault ? { source: 'route-default' } : {}) })
+        return id
       }
       // Maintenance keeps turns off a half-replaced composition; its synchronous refusal means busy
       // unless creation, which awaits its listeners, owns the Agent. A swap failure keeps its cause.

@@ -214,7 +214,7 @@ export class ApiSessionAgentController {
   /**
    * Create a Session for a new conversation, reusing the named blank Session
    * while it is still reusable. A reused Session runs the requested preset, or
-   * the configured default when the request names none; the preset it recorded
+   * the default for the Session's model provider when the request names none; the preset it recorded
    * is not resolved, and a change is logged as `agent-preset/selected` before
    * the Agent is published. A named Session that has started a turn, fails the
    * caller's placement rule, or is written by another owner stays unchanged,
@@ -228,13 +228,9 @@ export class ApiSessionAgentController {
    * @throws ApiSessionPresetConflict when no roster is composed and the request names a preset for a reused Session.
    */
   async createSession(request: ApiSessionCreateRequest): Promise<ApiSessionCreated> {
-    // Without a requested preset, a new Session takes the default for the route its model runs on.
-    const agentPreset = request.agentPreset
-      ?? this.ctx.get('agentPresets')?.defaultFor(this.ctx.agentDefaultModel.currentSelection().provider)
-    const routed = agentPreset === undefined ? request : { ...request, agentPreset }
-    const named = routed.sessionId
-    if (named === undefined) return this.created(await this.createMinted(routed, await this.composeAgent(routed.agentPreset)))
-    return this.created(await this.claim(named, routed))
+    const named = request.sessionId
+    if (named === undefined) return this.created(await this.createMinted(request))
+    return this.created(await this.claim(named, request))
   }
 
   /**
@@ -333,15 +329,14 @@ export class ApiSessionAgentController {
       if (live.session.header.cwd !== request.cwd) {
         throw new ApiSessionCwdConflict(live.id, request.cwd, live.session.header.cwd)
       }
-      const composition = await this.composeAgent(request.agentPreset)
-      return await this.reuseLive(live, request, composition) ?? this.createMinted(request, composition)
+      return await this.reuseLive(live, request) ?? this.createMinted(request)
     }
     let observation: SessionObservation
     try {
       observation = await this.ctx.sessionQuery.observeSession(sessionId)
     } catch (error: unknown) {
       if (!(error instanceof SessionQueryError) || error.code !== 'SESSION_QUERY_SESSION_NOT_FOUND') throw error
-      return this.createAgent(sessionId, request, await this.composeAgent(request.agentPreset))
+      return this.createAgent(sessionId, request)
     }
     let reusable: boolean
     {
@@ -354,21 +349,21 @@ export class ApiSessionAgentController {
       }
       reusable = request.reusable(sessionId) && !observed.events.some(event => event.type === 'turn/start')
     }
-    const composition = await this.composeAgent(request.agentPreset)
-    if (!reusable) return this.createMinted(request, composition)
+    if (!reusable) return this.createMinted(request)
     this.assertPresetApplicable(sessionId, request.agentPreset)
+    const explicit = request.agentPreset === undefined ? undefined : await this.composeAgent(request.agentPreset)
     try {
       return (await this.ctx.agents.resume({
         resumeSessionId: sessionId,
         agentOptions: this.agentOptions(),
-        setup: this.reuseSetup(composition),
+        setup: this.reuseSetup(explicit),
       })).agent
     } catch (error: unknown) {
-      if (error instanceof ApiSessionStartedSinceObserved) return this.createMinted(request, composition)
+      if (error instanceof ApiSessionStartedSinceObserved) return this.createMinted(request)
       if (!(error instanceof Error) || error.name !== 'SessionAlreadyOwnedError') throw error
       // Another resume in this process may hold the writer for the Agent it published.
       return this.ctx.agents.get(sessionId) === undefined
-        ? this.createMinted(request, composition)
+        ? this.createMinted(request)
         : this.claim(sessionId, request)
     }
   }
@@ -377,16 +372,19 @@ export class ApiSessionAgentController {
   private async reuseLive(
     live: Agent,
     request: ApiSessionCreateRequest,
-    composition: ApiSessionComposition,
   ): Promise<Agent | undefined> {
     if (!request.reusable(live.id) || !this.isBlank(live.session)) return undefined
     this.assertPresetApplicable(live.id, request.agentPreset)
-    const current = this.presetForSession(live.session)
     const presets = this.ctx.get('agentPresets')
+    if (presets === undefined) return live
+    const routeDefault = request.agentPreset === undefined
+    const composition = await this.composeAgent(request.agentPreset ?? presets.defaultFor(live.model.current()?.provider))
     const target = composition.agentPreset
-    if (presets === undefined || target === undefined || target === current) return live
+    if (target === undefined || !this.isBlank(live.session)) return undefined
+    if (this.presetForSession(live.session) === target && presets.followsRouteDefault(live.session) === routeDefault) return live
     try {
-      await presets.select(live, target)
+      if (routeDefault) await presets.selectRouteDefault(live, target)
+      else await presets.select(live, target)
     } catch (error: unknown) {
       if (remoteErrorOf(error)?.code !== 'agent-preset/locked') throw error
       return undefined
@@ -395,13 +393,17 @@ export class ApiSessionAgentController {
   }
 
   /** Setup that re-checks blankness under the acquired writer, then records a preset change before publication. */
-  private reuseSetup(composition: ApiSessionComposition): AgentSetup {
+  private reuseSetup(explicit: ApiSessionComposition | undefined): AgentSetup {
     return async (agentCtx, agent) => {
       if (!this.isBlank(agent.session)) throw new ApiSessionStartedSinceObserved()
+      // Read the route under the acquired writer: it may differ from the earlier observation.
+      const composition = explicit ?? await this.composeRouteDefault(agent.model.current()?.provider)
       const commit = await composition.setup(agentCtx, agent)
       const target = composition.agentPreset
-      if (target !== undefined && this.presetForSession(agent.session) !== target) {
-        agent.session.append('agent-preset/selected', { agentPreset: target })
+      const routeDefault = explicit === undefined
+      if (target !== undefined && (this.presetForSession(agent.session) !== target
+        || this.ctx.agentPresets.followsRouteDefault(agent.session) !== routeDefault)) {
+        agent.session.append('agent-preset/selected', { agentPreset: target, ...(routeDefault ? { source: 'route-default' } : {}) })
       }
       return commit
     }
@@ -414,9 +416,8 @@ export class ApiSessionAgentController {
   }
 
   /**
-   * Move a blank Session to the new route's default preset when its model
-   * changes route, as long as it still runs the old route's default; a preset
-   * the user picked stays. A failed switch keeps the current preset.
+   * Move a blank Session to the new route's default preset only when its
+   * current preset follows the old route's default. A failed switch keeps the current preset.
    * @param agent - Session whose model selection just changed.
    * @param from - provider route before the change.
    * @param to - provider route after the change.
@@ -424,13 +425,11 @@ export class ApiSessionAgentController {
   async followRouteDefault(agent: Agent, from: string | undefined, to: string): Promise<void> {
     const presets = this.ctx.get('agentPresets')
     if (presets === undefined || from === to || !this.isBlank(agent.session)) return
-    const current = this.presetForSession(agent.session)
     const target = presets.defaultFor(to)
-    if (current !== presets.defaultFor(from) || current === target) return
     try {
-      await presets.select(agent, target)
+      await presets.selectRouteDefault(agent, target, presets.defaultFor(from))
     } catch (error: unknown) {
-      this.ctx.logger.warn(`session-controller: kept preset "${current}" after the model moved to ${to}: ${String(error)}`)
+      this.ctx.logger.warn(`session-controller: kept preset "${this.presetForSession(agent.session)}" after the model moved to ${to}: ${String(error)}`)
     }
   }
 
@@ -444,11 +443,15 @@ export class ApiSessionAgentController {
     return { agent, agentPreset: this.presetForSession(agent.session) }
   }
 
-  private createMinted(request: ApiSessionCreateRequest, composition: ApiSessionComposition): Promise<Agent> {
-    return this.createAgent(brandString<SessionId>(`session-${randomUUID()}`), request, composition)
+  private createMinted(request: ApiSessionCreateRequest): Promise<Agent> {
+    return this.createAgent(brandString<SessionId>(`session-${randomUUID()}`), request)
   }
 
-  private async createAgent(sessionId: SessionId, request: ApiSessionCreateRequest, composition: ApiSessionComposition): Promise<Agent> {
+  private async createAgent(sessionId: SessionId, request: ApiSessionCreateRequest): Promise<Agent> {
+    const composition = request.agentPreset === undefined
+      ? await this.composeRouteDefault(undefined)
+      : await this.composeAgent(request.agentPreset)
+    const routeDefault = request.agentPreset === undefined ? composition.agentPreset : undefined
     const { cwd, workspaceId } = request
     if (workspaceId === undefined) {
       try {
@@ -475,8 +478,17 @@ export class ApiSessionAgentController {
         cwd,
         ...(composition.agentPreset === undefined ? {} : { agentPreset: composition.agentPreset }),
       },
-      setup: composition.setup,
+      setup: routeDefault === undefined ? composition.setup : async (agentCtx, agent) => {
+        const commit = await composition.setup(agentCtx, agent)
+        agent.session.append('agent-preset/selected', { agentPreset: routeDefault, source: 'route-default' })
+        return commit
+      },
     })).agent
+  }
+
+  private composeRouteDefault(provider: string | undefined): Promise<ApiSessionComposition> {
+    const presets = this.ctx.get('agentPresets')
+    return this.composeAgent(presets?.defaultFor(provider ?? this.ctx.agentDefaultModel.currentSelection().provider))
   }
 
   private agentOptions(): AgentOptions {

@@ -11,6 +11,7 @@ import { notifySubscribers } from '@janhq/jan-client-store'
  */
 export const BACKGROUND_MS = 250
 
+/** Batch Session snapshot rebuilds and subscriber notifications independently of snapshot reads. */
 export class Notifier {
   private listeners = new Set<() => void>()
   private dirty = false

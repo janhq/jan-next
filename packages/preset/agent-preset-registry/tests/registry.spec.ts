@@ -387,6 +387,24 @@ it('keeps a blank Session that already runs the current revision of the selected
   expect(notified).toBe(0)
 })
 
+it('pins the current route default when the user selects that same preset', async () => {
+  const ctx = await setup()
+  await declare(ctx, contribution('standard'))
+  await declare(ctx, contribution('minimal'))
+  const agent = await agentOn(ctx, 'pinned-default')
+  await ctx.agentPresets.selectRouteDefault(agent, 'standard')
+  expect(ctx.agentPresets.followsRouteDefault(agent.session)).toBe(true)
+  let notified = 0
+  ctx.on('tools/change', () => { notified++ })
+
+  await ctx.agentPresets.select(agent, 'standard')
+  await ctx.agentPresets.selectRouteDefault(agent, 'minimal', 'standard')
+
+  expect(ctx.agentPresets.presetForSession(agent.session)).toBe('standard')
+  expect(ctx.agentPresets.followsRouteDefault(agent.session)).toBe(false)
+  expect(notified).toBe(0)
+})
+
 it('logs the default preset a blank Session runs once it is selected without a recorded preset', async () => {
   const ctx = await setup()
   await declare(ctx, contribution('standard'))
