@@ -1894,6 +1894,7 @@ label.registryOption {
   padding: 3px 12px;
   border: 0;
   border-radius: 999px;
+  corner-shape: round;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
@@ -1936,7 +1937,7 @@ label.registryOption {
   gap: 12px;
   padding: 48px 24px;
   border: 0.5px dashed var(--dsw-alias-border-l1);
-  border-radius: var(--dsw-radius-lg, 12px);
+  border-radius: var(--dsw-radius-md);
   color: var(--dsw-alias-label-secondary);
   font-size: 13px;
   line-height: 20px;
@@ -1957,7 +1958,7 @@ label.registryOption {
   margin-bottom: 4px;
   padding: 24px;
   border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: var(--dsw-radius-lg, 12px);
+  border-radius: var(--dsw-radius-md);
   background: linear-gradient(135deg,
     color-mix(in oklab, var(--plugin-a) 22%, var(--dsw-alias-settings-card-fill)),
     color-mix(in oklab, var(--plugin-b) 8%, var(--dsw-alias-settings-card-fill)));
@@ -2012,7 +2013,7 @@ label.registryOption {
   place-items: center;
   width: 120px;
   height: 120px;
-  border-radius: 28px;
+  border-radius: var(--dsw-radius-panel);
   background: var(--dsw-alias-settings-card-fill);
   color: var(--dsw-alias-label-primary);
   box-shadow: 0 12px 32px color-mix(in oklab, var(--plugin-a) 35%, transparent);
@@ -2056,8 +2057,8 @@ label.registryOption {
 [data-plugin-tiles] .card {
   margin: 0;
   padding: 14px;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 12px;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-layer-1);
   transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.18s, box-shadow 0.18s;
 }
@@ -2088,7 +2089,7 @@ label.registryOption {
   grid-area: icon;
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--dsw-radius-sm);
 }
 
 [data-plugin-tiles] .cardMain {
@@ -2107,7 +2108,7 @@ label.registryOption {
 }
 
 [data-plugin-tiles] .cardOpen::after {
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-md);
 }
 
 [data-plugin-tiles] .cardDesc {
