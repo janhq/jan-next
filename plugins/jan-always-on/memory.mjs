@@ -7,6 +7,7 @@ const AUTOMATIC = ['instructions.md', 'index.md', 'reported.md']
 const FOLDERS = ['notes', 'progress']
 const MAX_CONTEXT_BYTES = 4096
 const MAX_FILE_BYTES = 32768
+const MAX_LISTED = 40
 const FILE_NAME = /^(?:notes|progress)\/[a-z0-9][a-z0-9_-]{0,79}\.md$/u
 const DEVICE_NAME = /^(?:aux|con|nul|prn|com[1-9]|lpt[1-9])\.md$/u
 
@@ -73,6 +74,15 @@ export function memoryAt(home, directory = join(home, 'always-on')) {
     },
     async context() {
       return Object.fromEntries(await Promise.all(AUTOMATIC.map(async path => [path, await read(path, MAX_CONTEXT_BYTES)])))
+    },
+    /** @returns The per-step prompt text: nonempty automatic files, then the names of on-demand files; empty when there is nothing. */
+    async contextText() {
+      const [files, entries] = await Promise.all([this.index(), this.context()])
+      const parts = Object.entries(entries).filter(([, { text }]) => text.trim())
+        .map(([path, { text, truncated }]) => `## ${path}\n${text.trim()}${truncated ? '\n[Truncated at 4 KiB; read the file for the rest.]' : ''}`)
+      const more = files.filter(path => !AUTOMATIC.includes(path))
+      if (more.length) parts.push(`## On-demand files (read with memory_read)\n${more.slice(0, MAX_LISTED).join('\n')}${more.length > MAX_LISTED ? `\n[${more.length - MAX_LISTED} more]` : ''}`)
+      return parts.length ? `Bot memory\n\n${parts.join('\n\n')}` : ''
     },
     validate(path, text) {
       if (!isMemoryPath(path)) throw new Error('memory-path')

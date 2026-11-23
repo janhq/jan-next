@@ -2,9 +2,10 @@ import { createHash, randomUUID } from 'node:crypto'
 import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { writeFileAtomic } from '@janhq/jan-atomic-write'
+import { normalizeSources } from './sources.mjs'
 
 const ID = /^(?:jan|[a-f0-9-]{36})$/u
-const FIELDS = ['name', 'role', 'description', 'avatar', 'agentPreset', 'model']
+const FIELDS = ['name', 'role', 'description', 'avatar', 'agentPreset', 'model', 'sources']
 const EMPTY = { version: 1, migrated: false, bots: [] }
 const writeOptions = { mode: 0o600, dirMode: 0o700 }
 
@@ -24,6 +25,7 @@ function profile(input) {
     agentPreset: input.agentPreset == null ? null : text(input.agentPreset, 160, true),
     model: model === null ? null : { provider: text(model.provider, 120, true), model: text(model.model, 300, true),
       ...(model.reasoningEffort === undefined ? {} : { reasoningEffort: text(model.reasoningEffort, 120, true) }) },
+    sources: normalizeSources(input.sources),
   }
 }
 

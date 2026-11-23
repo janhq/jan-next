@@ -6,10 +6,17 @@ import { registerApi } from '@janhq/jan-plugin-api'
 
 export const name = 'jan-always-on'
 export const inject = ['janHomePath', 'webServer', 'connection', 'schedule', 'agents', 'agentDefaultModel', 'agentPresets',
-  'sessionController', 'workspaceController', 'workspaceRegistry', 'sessionPersistence', 'sessions', 'systemPrompt', 'commands', 'llm']
+  'sessionController', 'workspaceController', 'workspaceRegistry', 'sessionPersistence', 'sessions', 'systemPrompt', 'commands', 'llm',
+  'credentials']
 // Keep the existing preference readable until the previous opt-in has been migrated.
 export const Config = schema.object({ enabled: schema.boolean().default(false).volatile() })
 const EMPTY_MEMORY = ['index.md', 'instructions.md', 'reported.md']
+const TOKEN_KINDS = ['github', 'slack', 'discord']
+const tokenKey = kind => `jan-always-on/token-${kind}`
+const BOT_MODEL = { provider: 'tokamak', model: 'anthropic/claude-haiku-5-5[1m]' }
+/** @returns Tokamak's Claude Haiku 5.5 when the catalog offers it, otherwise null (the app default). */
+const botDefaultModel = catalog => catalog.groups.some(group => group.id === BOT_MODEL.provider
+  && group.models.some(model => model.id === BOT_MODEL.model)) ? BOT_MODEL : null
 
 function text(value, limit) {
   if (typeof value !== 'string' || !value.trim() || value.length > limit) throw new Error('invalid-input')
@@ -48,9 +55,15 @@ export function apply(ctx, config) {
     queueMicrotask(() => { changedQueued = false; emit({ kind: 'changed' }) })
   }
   function report(error) { ctx.logger.warn('Bots: %s', String(error)) }
+  // Tokens stay on the Host: the poller adds them to its own requests and the model never sees them.
+  async function sourceToken(kind) {
+    const record = await ctx.credentials.readRecord(tokenKey(kind))
+    return record?.kind === 'grant' && typeof record.payload?.token === 'string' ? record.payload.token : undefined
+  }
   function modules() {
-    runtimeModules ??= Promise.all([import('./background.mjs'), import('./memory.mjs'), import('./agent.mjs'), import('@janhq/dsh-superagent/queue')])
-      .then(([background, memory, agent, queue]) => ({ ...background, ...memory, ...agent, delivery: new queue.AgentDelivery(ctx) }))
+    runtimeModules ??= Promise.all([import('./background.mjs'), import('./memory.mjs'), import('./agent.mjs'), import('./watch.mjs'),
+      import('@janhq/dsh-superagent/queue')])
+      .then(([background, memory, agent, watch, queue]) => ({ ...background, ...memory, ...agent, ...watch, delivery: new queue.AgentDelivery(ctx) }))
     return runtimeModules
   }
   function load() {
@@ -126,11 +139,11 @@ export function apply(ctx, config) {
   async function startBot(bot, resume = false) {
     if (runtimes.has(bot.id)) return runtimes.get(bot.id)
     lifetime.signal.throwIfAborted()
-    const { openBackground, memoryAt, bindBotAgent, runWithJan, appendBotNotice, botPrompt, delivery } = await modules()
+    const { openBackground, memoryAt, bindBotAgent, runWithJan, appendBotNotice, botPrompt, delivery, openWatch } = await modules()
     if (runtimes.has(bot.id)) return runtimes.get(bot.id)
     const directory = registry.directory(bot)
     const memory = memoryAt(home, directory)
-    const initialMemory = JSON.stringify(await memory.context())
+    const initialMemory = await memory.contextText()
     const persona = await registry.persona(bot.id)
     if (runtimes.has(bot.id)) return runtimes.get(bot.id)
     lifetime.signal.throwIfAborted()
@@ -145,7 +158,7 @@ export function apply(ctx, config) {
     }, agent => attach(agent, runtime))
     const queue = openBackground({ directory, sessionId: bot.sessionId, run, activityChanged, report,
       changed() { runtime.clock?.wake(); activityChanged() },
-      async memoryChanged() { runtime.memoryText = JSON.stringify(await memory.context()); activityChanged() },
+      async memoryChanged() { runtime.memoryText = await memory.contextText(); activityChanged() },
       approvalPending(id) { emit({ kind: 'approval', botId: bot.id, id }); activityChanged() },
       async notify(message) {
         const agent = await resolveAgent(bot.sessionId)
@@ -158,6 +171,8 @@ export function apply(ctx, config) {
       },
     })
     runtime.queue = queue
+    runtime.watch = openWatch({ queue, sources: () => registry.get(bot.id)?.sources ?? [], token: sourceToken,
+      changed: activityChanged, report })
     runtimes.set(bot.id, runtime)
     prompts.set(bot.sessionId, botPrompt(bot, persona))
     try {
@@ -169,6 +184,7 @@ export function apply(ctx, config) {
       const agent = ctx.agents.get(bot.sessionId)
       if (agent) await attach(agent, runtime).ready
       if (resume) await queue.setPaused(false)
+      runtime.watch.start()
       return runtime
     } catch (error) {
       await stopBot(bot, runtime)
@@ -177,6 +193,7 @@ export function apply(ctx, config) {
   }
   async function stopBot(bot, runtime) {
     runtime.destination?.()
+    runtime.watch?.close()
     runtime.clock?.dispose()
     await runtime.queue.close()
     const agent = ctx.agents.get(bot.sessionId)
@@ -209,14 +226,17 @@ export function apply(ctx, config) {
     return bot
   }
   async function detail(bot) {
-    const { memory, queue } = runtimes.get(bot.id)
-    const [tasks, files, persona] = await Promise.all([ctx.schedule.catalog(), memory.index(), registry.persona(bot.id)])
-    return { ...roster(bot), ...queue.snapshot(), files, persona, routines: tasks.filter(task => ownsTask(task, bot)) }
+    const { memory, queue, watch } = runtimes.get(bot.id)
+    const [tasks, files, persona, tokens] = await Promise.all([ctx.schedule.catalog(), memory.index(), registry.persona(bot.id),
+      Promise.all(TOKEN_KINDS.map(async kind => [kind, Boolean(await sourceToken(kind))]))])
+    return { ...roster(bot), ...queue.snapshot(), files, persona, routines: tasks.filter(task => ownsTask(task, bot)),
+      sources: watch.status(), tokens: Object.fromEntries(tokens) }
   }
 
   ctx.effect(() => ctx.systemPrompt.section({ name: 'jan-bot-persona', order: 10210, interpolate: false,
     text: ({ agent }) => agent ? prompts.get(agent.id) ?? '' : '' }), 'Bots persona')
-  ctx.effect(() => ctx.systemPrompt.context({ name: 'jan-bot-memory', order: 9000, interpolate: false,
+  // Bot memory is operational state, not optional runtime facts: keep it when a preset turns runtime context off.
+  ctx.effect(() => ctx.systemPrompt.context({ name: 'jan-bot-memory', order: 9000, interpolate: false, required: true,
     text: ({ agent }) => agent ? runtimes.get(registry?.forSession(agent.id)?.id)?.memoryText ?? '' : '' }), 'Bots memory context')
   ctx.on('agent/created', async ({ agent }) => {
     const bot = registry?.forSession(agent.id)
@@ -251,7 +271,8 @@ export function apply(ctx, config) {
     async options() {
       const [models, presets] = await Promise.all([ctx.sessionController.modelCatalog(), ctx.agentPresets.list()])
       return { models: models.groups.map(({ id, name, models: rows }) => ({ id, name, models: rows.map(model => ({ id: model.id, name: model.name })) })),
-        presets: presets.filter(item => !item.broken).map(({ id, name }) => ({ id, name })) }
+        presets: presets.filter(item => !item.broken).map(({ id, name }) => ({ id, name })),
+        defaultModel: botDefaultModel(models) }
     },
     async detail({ id }) { return detail(await botFor(id)) },
     async create(input) {
@@ -260,7 +281,9 @@ export function apply(ctx, config) {
       const workspaceId = source === undefined ? await projectId(input.workspaceId)
         : ctx.workspaceRegistry.list().find(project => project.sessionIds.includes(source))?.id
       if (!workspaceId) throw new Error('bot-session-project-required')
-      const bot = await local.create({ ...input, workspaceId }, candidate => prepareSession(candidate, source))
+      // A new bot runs unattended many times a day, so it starts on the small, fast model; an adopted chat keeps its own.
+      const model = input.model ?? (source === undefined ? botDefaultModel(await ctx.sessionController.modelCatalog()) : null)
+      const bot = await local.create({ ...input, model, workspaceId }, candidate => prepareSession(candidate, source))
       await startBot(bot, true)
       return roster(bot)
     },
@@ -279,6 +302,7 @@ export function apply(ctx, config) {
         if (!await ctx.sessions.flush(agent.session)) throw new Error('bot-session-unsaved')
       })
       prompts.set(bot.sessionId, (await modules()).botPrompt(bot, await registry.persona(id)))
+      void runtimes.get(bot.id)?.watch.tick().catch(report)
       return roster(bot)
     },
     async delete({ id }) {
@@ -298,6 +322,21 @@ export function apply(ctx, config) {
       if (typeof paused !== 'boolean') throw new Error('invalid-input')
       if (!paused && !ctx.workspaceRegistry.get(bot.workspaceId)) throw new Error('project-not-found')
       await runtimes.get(bot.id).queue.setPaused(paused)
+      return true
+    },
+    async setToken({ kind, token }) {
+      if (!TOKEN_KINDS.includes(kind)) throw new Error('invalid-input')
+      if (token === null) await ctx.credentials.deleteRecord(tokenKey(kind))
+      else {
+        const value = text(token, 4000)
+        await ctx.credentials.modifyRecord(tokenKey(kind), () => Promise.resolve({ kind: 'grant', payload: { token: value } }))
+      }
+      activityChanged()
+      return true
+    },
+    async checkNow({ id }) {
+      const bot = await botFor(id)
+      await runtimes.get(bot.id).watch.tick({ force: true, signal: lifetime.signal })
       return true
     },
     async markRead({ id }) { await botFor(id); await registry.read(id) },
