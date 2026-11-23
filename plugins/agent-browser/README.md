@@ -48,5 +48,5 @@ Tool schemas are prefix-stable within the same composition. Tool results append 
 ## Known Limitations
 
 - Calls from one chat run one at a time against its browser.
-- Bot background routines cannot use these tools; they are available in bot chats.
+- Bot background routines can use these tools only when the bot's chat has Full access.
 - Jan Desktop does not bundle agent-browser yet.
