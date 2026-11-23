@@ -378,6 +378,25 @@ export function contentChars(content: readonly ContentBlock[]): number {
   return chars
 }
 
+type StreamedBlock =
+  | { readonly kind: 'text' | 'reasoning'; readonly text: string }
+  | { readonly kind: 'tool-call'; readonly name: string; readonly argsRaw: string }
+  | { readonly kind: 'image' | 'other' }
+
+/**
+ * Count streamed characters after content has been projected into display blocks.
+ * @param blocks - projected assistant content.
+ * @returns characters of text, reasoning, and tool names and arguments.
+ */
+export function streamedBlockChars(blocks: readonly StreamedBlock[]): number {
+  let chars = 0
+  for (const block of blocks) {
+    if (block.kind === 'text' || block.kind === 'reasoning') chars += block.text.length
+    else if (block.kind === 'tool-call') chars += block.name.length + block.argsRaw.length
+  }
+  return chars
+}
+
 /**
  * The span a step's output tokens were generated over, when it is long enough to measure speed
  * from. Usually first token to message; but a provider that reasons without streaming the
