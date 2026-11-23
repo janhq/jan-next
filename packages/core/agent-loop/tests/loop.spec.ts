@@ -791,6 +791,8 @@ describe('agent loop', () => {
       expect(snapshots).toHaveLength(2)
       expect(adapter.requests[1]?.messages.some(message => message.role === 'user' && message.source?.kind === 'runtime-context'
         && message.content.some(block => block.type === 'text' && block.text.includes('/workspace')))).toBe(true)
+      const users = adapter.requests[1]?.messages.filter(message => message.role === 'user') ?? []
+      expect(users.slice(-2).map(message => message.source?.kind)).toEqual(['runtime-context', 'user'])
       expect(agent.session.snapshotEvents().filter(event => event.type === 'user/message' && event.data.source.kind === 'user')).toHaveLength(2)
     } finally {
       await ctx.fiber.dispose()

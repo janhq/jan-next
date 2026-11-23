@@ -507,6 +507,12 @@ export class ReactLoopAgent implements Agent {
       }
       let contextAdmitted = false
       if (firstAttempt) {
+        // A late snapshot has no position reserved by pre-step. Admit it
+        // before the new batch so it does not become the final user message.
+        if (context !== undefined && !decision.messages.some(message => message.source.kind === 'runtime-context')) {
+          this.session.append('user/message', context, { surfaceOp: 'append' })
+          contextAdmitted = true
+        }
         for (const message of decision.messages) {
           if (message.source.kind === 'runtime-context') {
             if (context !== undefined && !contextAdmitted) {
