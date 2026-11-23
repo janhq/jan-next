@@ -46,6 +46,13 @@ declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap { 'settings.account': AccountKey }
 }
 
+declare module '@janhq/cordis' {
+  interface Context {
+    /** Opens the account sign-in dialog, for flows outside the account UI (first-run model choice). */
+    accountSignIn: { start(this: void): Promise<void> }
+  }
+}
+
 /** Services required by account settings. */
 export const inject = ['slots', 'locale', 'remote', 'remote.account', 'theme', 'configForms', 'remoteAccess']
 /** Register account UI in Desktop and plain Web clients. @param ctx - client plugin context. */
@@ -301,6 +308,7 @@ export function apply(ctx: Context): void {
       throw result.error
     },
   }
+  ctx.provide('accountSignIn', { start: () => operations.start() })
   if (desktop) {
     ctx.slots.registerFactory({ name: 'settings.onboarding.detail', scope: 'root', locale: 'settings.account' }, OnboardingDetailFactory)
     const controller = new DesktopOnboardingController(
