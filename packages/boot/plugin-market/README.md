@@ -22,7 +22,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## Use this package
 
-The optional [custom plugin indexes bundle](../../experimental/plugin-market-bundle/README.md) mounts the service as the `plugin-market` row; the shipped Desktop template turns the bundle on for new profiles, and other shipped profiles leave it off. Like `plugin-manager`, the row is disabled without a profile, and it waits for `pluginManager`. No index source is configured by default, so the Host sends no index request until a user adds one; Discover offers the public awesome-dsh-plugins index as a one-click suggestion.
+The optional [custom plugin indexes bundle](../../experimental/plugin-market-bundle/README.md) mounts the service as the `plugin-market` row; shipped profiles leave the bundle off. Like `plugin-manager`, the row is disabled without a profile, and it waits for `pluginManager`. No index source is configured by default, so the Host sends no index request until a user adds one.
 
 | Config | Default | Meaning |
 |---|---|---|
