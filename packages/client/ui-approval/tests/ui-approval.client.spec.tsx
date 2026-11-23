@@ -48,7 +48,11 @@ interface PluginBench {
   }
 }
 
-async function setupPlugin(): Promise<PluginBench> {
+async function setupPlugin({ binding, catalog, execute }: {
+  binding?: (sessionId: SessionId) => unknown
+  catalog?: () => Promise<unknown>
+  execute?: (sessionId: SessionId, line: string, attachments: readonly unknown[]) => Promise<unknown>
+} = {}): Promise<PluginBench> {
   const ctx = new Context()
   let listener: ApprovalListener | undefined
   let registration: {
@@ -81,12 +85,14 @@ async function setupPlugin(): Promise<PluginBench> {
     return () => { void dispose() }
   })
   ctx.provide('remote', {
-    $on: (_event: string, callback: ApprovalListener) => {
-      listener = callback
+    permissionPresets: { catalog },
+    commands: { execute },
+    $on: (event: string, callback: ApprovalListener) => {
+      if (event === 'approval/request') listener = callback
       return () => {}
     },
   } as never)
-  ctx.provide('sessions', { scopeOf } as never)
+  ctx.provide('sessions', { scopeOf, binding } as never)
   ctx.provide('uiSession', { registerPendingInteraction } as never)
   const registerFactory = vi.fn()
   ctx.provide('slots', { inject: injectSlot, register, registerFactory } as never)
@@ -342,7 +348,7 @@ describe('approval Remote Event consumer', () => {
 function panelProps(
   pending: PendingApproval,
   renderSlot: FactoryComponentPropsOf<'conversation.approval.card'>['renderSlot'] = vi.fn(() => null),
-  allowAll: ApprovalComposerProps['allowAll'] = () => undefined,
+  useAllowAll: ApprovalComposerProps['useAllowAll'] = () => undefined,
 ): ApprovalComposerProps {
   const messages: Record<string, string> = {
     waiting: 'Waiting',
@@ -359,7 +365,7 @@ function panelProps(
     renderFactorySlot: (_name: string, input: ApprovalCardInput) => <ApprovalCard {...{ ...input, renderSlot,
       t: (key: string) => messages[key] ?? key } as FactoryComponentPropsOf<'conversation.approval.card'>} />,
     resolveReason: (reason: NonNullable<PendingApproval['displayReason']>) => reason.en,
-    allowAll,
+    useAllowAll,
     t: (key: string) => messages[key] ?? key,
   } as ApprovalComposerProps
 }
@@ -413,7 +419,7 @@ describe('ApprovalPanel', () => {
     })
     const allowAll = vi.fn(() => switchAll)
     render(<ApprovalPanel {...panelProps(pending, undefined, allowAll)} />)
-    expect(allowAll).toHaveBeenCalledWith(id('s1'))
+    expect(allowAll).toHaveBeenCalledWith(pending)
     const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Allow all in this chat' })
     expect(button.title).toBe('Switches this chat to Full access')
 
@@ -431,6 +437,37 @@ describe('ApprovalPanel', () => {
     render(<ApprovalPanel {...panelProps(new PendingApproval(id('s1'), { toolName: 'bash' }))} />)
     expect(screen.queryByRole('button', { name: 'Allow all in this chat' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Allow once' })).toBeTruthy()
+  })
+
+  it.each([false, true])('only offers a catalogued Full access preset (available: %s), and requires success', async (available) => {
+    const command = vi.fn(async () => ({ ok: true, value: { matched: true } }))
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ ok: true, value: { result: { kind: 'error', text: 'unknown preset' } } })
+      .mockResolvedValueOnce({ ok: true, value: { result: { kind: 'success' } } })
+    const catalog = vi.fn(async () => ({ ok: true, value: { options: available ? [{ value: 'danger-full-access' }] : [] } }))
+    const selection = { currentValue: 'default' }
+    const permissions = { getSnapshot: () => selection, subscribe: () => () => {} }
+    const session = { projections: { faceOf: () => permissions }, command }
+    const bench = await setupPlugin({ binding: () => ({ session }), catalog, execute })
+    const pending = new PendingApproval(id('s1'), { toolName: 'desktop_act' })
+    try {
+      render(<ApprovalPanel {...panelProps(pending)} {...bench.registration().options.inject()} />)
+      await waitFor(() => { expect(catalog).toHaveBeenCalledOnce() })
+      if (!available) {
+        expect(screen.queryByRole('button', { name: 'Allow all in this chat' })).toBeNull()
+        expect(screen.getByRole('button', { name: 'Allow once' })).toBeTruthy()
+        return
+      }
+      const button = await screen.findByRole<HTMLButtonElement>('button', { name: 'Allow all in this chat' })
+      fireEvent.click(button)
+      await waitFor(() => { expect(button.disabled).toBe(false) })
+      expect(pending.answerable).toBe(true)
+      expect(execute).toHaveBeenCalledWith(id('s1'), '/permission danger-full-access', [])
+      fireEvent.click(button)
+      await expect(pending.result).resolves.toBe('allowed-once')
+    } finally {
+      await bench.ctx.fiber.dispose()
+    }
   })
 
   it('keeps the audit reason intact and follows the UI language for presentation copy', () => {

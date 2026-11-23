@@ -195,10 +195,10 @@ export interface ApprovalInjected {
   resolveReason(reason: NonNullable<ApprovalPresentationRequest['displayReason']>): string
   /**
    * Switch one Session to Full access so later calls run without asking.
-   * @param sessionId - Session that owns the pending request.
-   * @returns the switch, or undefined when the Session offers no permission presets.
+   * @param request - pending request whose Session owns the permission switch.
+   * @returns the switch, or undefined while Full access is unavailable or already selected.
    */
-  allowAll(sessionId: SessionId): (() => Promise<void>) | undefined
+  useAllowAll(request: PendingApproval): (() => Promise<void>) | undefined
 }
 
 /** Full props of the approval composer takeover. */

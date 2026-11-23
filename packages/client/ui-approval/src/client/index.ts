@@ -1,5 +1,6 @@
 /** Browser approval consumer over the existing scoped Remote Event waterfall. */
 import type { Context as ClientContext } from '@janhq/cordis'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import type {} from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-api-session-controller/client'
 import type { ComposerChainProps } from '@janhq/jan-client-ui-conversation/client'
@@ -30,22 +31,44 @@ const NS = 'approval'
 /** The permission preset that grants every command and action without asking. */
 const FULL_ACCESS_PRESET = 'danger-full-access'
 
-/**
- * Build the Allow all switch for one Session, when it offers permission presets.
- * @param ctx - Client root context.
- * @param sessionId - Session that owns the pending request.
- * @returns The switch, or undefined when the Session cannot change presets or already has Full access.
- */
-function fullAccessSwitch(ctx: ClientContext, sessionId: PendingApproval['sessionId']): (() => Promise<void>) | undefined {
-  const session = ctx.sessions.binding(sessionId)?.session
-  const selection = session?.projections.faceOf('permissions').getSnapshot() as { currentValue?: unknown } | undefined
-  if (session === undefined || selection === undefined || selection.currentValue === FULL_ACCESS_PRESET) return undefined
+function useFullAccessSwitch(ctx: ClientContext, request: PendingApproval): (() => Promise<void>) | undefined {
+  const session = ctx.sessions.binding(request.sessionId)?.session
+  const permissions = session?.projections.faceOf('permissions')
+  const selection = useSyncExternalStore(
+    permissions?.subscribe ?? noSubscription,
+    permissions?.getSnapshot ?? noSelection,
+  ) as { currentValue: string } | undefined
+  const canSwitch = selection !== undefined && selection.currentValue !== FULL_ACCESS_PRESET
+  const [availableFor, setAvailableFor] = useState<PendingApproval>()
+  useEffect(() => {
+    if (!canSwitch) return
+    let current = true
+    let revision = 0
+    const refresh = (): void => {
+      setAvailableFor(undefined)
+      const read = ++revision
+      void ctx.remote.permissionPresets.catalog().then((result) => {
+        if (current && read === revision && result.ok && result.value.options.some(option => option.value === FULL_ACCESS_PRESET)) {
+          setAvailableFor(request)
+        }
+      }, () => undefined)
+    }
+    const release = ctx.remote.$on('permission-presets/catalog-changed', refresh)
+    refresh()
+    return () => { current = false; release() }
+  }, [ctx, request, permissions, canSwitch])
+
+  if (!canSwitch || availableFor !== request) return undefined
   return async () => {
-    const result = await session.command(`/permission ${FULL_ACCESS_PRESET}`)
+    const result = await ctx.remote.commands.execute(request.sessionId, `/permission ${FULL_ACCESS_PRESET}`, [])
     if (!result.ok) throw new Error(`permission switch failed: ${result.error.code}: ${result.error.message}`)
-    if (!result.value.matched) throw new Error('the host offers no /permission command')
+    if (result.value === undefined) throw new Error('the host offers no /permission command')
+    if (result.value.result.kind !== 'success') throw new Error(result.value.result.text ?? 'permission switch failed')
   }
 }
+
+const noSubscription = (): (() => void) => () => {}
+const noSelection = (): undefined => undefined
 
 type ApprovalListener = TypertClientEventListener<'approval/request'>
 type ClientApprovalRequest = Parameters<ApprovalListener>[0]
@@ -121,7 +144,7 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: () => ({
       resolveReason: (reason: NonNullable<PendingApproval['displayReason']>) => ctx.locale.resolveText(reason),
-      allowAll: (sessionId: PendingApproval['sessionId']) => fullAccessSwitch(ctx, sessionId),
+      useAllowAll: (request: PendingApproval) => useFullAccessSwitch(ctx, request),
     }),
   }, ApprovalPanel))
   ctx.remote.$on('approval/request', function (request, next) {

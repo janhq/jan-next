@@ -11,7 +11,7 @@ import type { ApprovalComposerProps } from './contract/slots.ts'
 export function ApprovalPanel(props: ApprovalComposerProps) {
   const approval = props.matched
   const reason = approval.displayReason === undefined ? approval.reason : props.resolveReason(approval.displayReason)
-  const allowAll = props.allowAll(approval.sessionId)
+  const allowAll = props.useAllowAll(approval)
   return props.renderFactorySlot('conversation.approval.card', {
     requestKey: approval.key,
     title: reason ?? props.t('escalation', { toolName: approval.toolName }),
