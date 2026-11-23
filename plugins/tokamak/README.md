@@ -32,14 +32,14 @@ Refusals a user can act on are reworded: an organization whose guardrail policy 
 
 ## Model Experience
 
-Five tools, registered for every Agent:
+Five tools are registered. Chat mode hides `edit_image` and `transcribe_audio` because they read local files.
 
 - `generate_image({ prompt, path?, size?, quality?, background?, n? })` and `edit_image({ prompt, images, mask?, path?, size?, quality?, background?, n? })`. `size` is `auto`, `1024x1024`, `1536x1024` or `1024x1536`; `quality` `auto`, `low`, `medium` or `high`; `background` `auto`, `transparent` or `opaque`; `n` 1 to 4. When the calling model reads images, the images are attached to the result so it can check them.
 - `text_to_speech({ text, path?, voice?, instructions?, speed? })`: up to 4,096 characters, read word for word; voices `marin` (default), `cedar`, `alloy`, `ash`, `ballad`, `coral`, `echo`, `sage`, `shimmer`, `verse`; speed 0.25 to 1.5.
 - `transcribe_audio({ path, language? })`: WAV, MP3, M4A, MP4, FLAC, Ogg, Opus or WebM up to 25 MB.
 - `classify({ state, questions })`: `noul` (yes/no probability), `choice` (criteria maps options to descriptions) and `score` (2 to 10 ordered levels) questions; returns the answers as JSON.
 
-Files are written inside the working directory only. An explicit `path` is overwritten (its extension follows the returned format); without one the file is named after the first words of the prompt or text, with a `-v2`, `-v3` suffix instead of overwriting. Extra images get `-2`, `-3` before the extension.
+Sources, masks and recordings must resolve inside the Session's working directory, and so must all output paths. Output filenames follow the returned format. Outside Chat mode, an explicit `path` can replace an existing file when no filesystem write guard is configured. With no explicit path, Tokamak reserves the output names without overwriting existing files, adding `-v2`, `-v3` on collisions. Extra images get `-2`, `-3` before the extension.
 
 ### Token effect
 
