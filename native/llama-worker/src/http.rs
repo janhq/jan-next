@@ -8,9 +8,10 @@
 //! blocking task feeding an async channel rather than being polled from the
 //! reactor.
 
+use std::collections::HashMap;
 use std::convert::Infallible;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 use bytes::Bytes;
@@ -21,7 +22,7 @@ use hyper::service::service_fn;
 use hyper::{Method, Request, Response as HttpResponse, StatusCode};
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
-use tokio::sync::{broadcast, mpsc, watch, Mutex};
+use tokio::sync::{broadcast, mpsc, watch, Mutex, OwnedMutexGuard};
 
 use super::events::ModelEvent;
 use super::registry::{Registry, RegistryError};
@@ -46,6 +47,7 @@ pub struct EngineServer {
 struct SlotState {
     store: StateStore,
     occupancy: Mutex<SlotOccupancy>,
+    handovers: std::sync::Mutex<HashMap<String, HashMap<i32, Weak<Mutex<()>>>>>,
 }
 
 /// A chat request that names the thread it belongs to, so its KV cache can be
@@ -270,6 +272,7 @@ impl EngineServer {
         self.slots = Some(SlotState {
             store,
             occupancy: Mutex::new(SlotOccupancy::default()),
+            handovers: Default::default(),
         });
         self
     }
@@ -287,8 +290,13 @@ impl EngineServer {
     /// completion task is posted. llama.cpp defers a slot action while that
     /// slot is generating, so each of these calls also serves as the barrier
     /// that keeps them from interleaving with a request already in flight.
-    async fn hand_over_slot(&self, engine: &Arc<super::Engine>, model: &str, hint: &SlotHint) {
-        let Some(state) = &self.slots else { return };
+    async fn hand_over_slot(
+        &self,
+        state: &SlotState,
+        engine: &Arc<super::Engine>,
+        model: &str,
+        hint: &SlotHint,
+    ) {
         let identity = {
             let mut reg = self.registry.lock().await;
             // A model the registry dropped took its slots' KV cache with it, so
@@ -299,24 +307,15 @@ impl EngineServer {
             // record is spent, because it is the only place a claim is made.
             let dropped = reg.take_dropped();
             let identity = reg.state_identity(model);
-            drop(reg);
-            if !dropped.is_empty() {
-                let mut occ = state.occupancy.lock().await;
-                for model in dropped {
-                    occ.release_model(&model);
-                }
+            let mut occ = state.occupancy.lock().await;
+            for model in dropped {
+                occ.release_model(&model);
             }
-            identity
+            identity.map(|identity| (identity, occ.claim(model, hint.slot, &hint.thread)))
         };
-        let Some(identity) = identity else {
+        let Some((identity, claim)) = identity else {
             return;
         };
-
-        let claim = state
-            .occupancy
-            .lock()
-            .await
-            .claim(model, hint.slot, &hint.thread);
 
         match claim {
             // Turn 2 and later of the same thread. The slot already holds this
@@ -738,16 +737,21 @@ impl EngineServer {
 
         // Only a generating route has a KV cache worth keeping; an embedding or
         // a tokenize call leaves nothing behind.
-        let body = if route.caches_prompt() {
-            if let Some(hint) = SlotHint::from_body(&body) {
-                self.hand_over_slot(&engine, &model, &hint).await;
-            }
-            strip_thread_field(&body)
+        let (body, handover) = if route.caches_prompt() {
+            let handover = if let (Some(state), Some(hint)) = (&self.slots, SlotHint::from_body(&body))
+            {
+                let handover = state.lock_handover(&model, hint.slot).await;
+                self.hand_over_slot(state, &engine, &model, &hint).await;
+                Some(handover)
+            } else {
+                None
+            };
+            (strip_thread_field(&body), handover)
         } else {
-            body
+            (body, None)
         };
 
-        run(engine, claim, route, body, STREAM_BUFFER).await
+        run(engine, claim, route, body, STREAM_BUFFER, handover).await
     }
 
     /// For routes with no model in the body: use the first resident engine.
@@ -762,11 +766,37 @@ impl EngineServer {
                 Err(e) => return json_error(StatusCode::SERVICE_UNAVAILABLE, &format!("{e:?}")),
             }
         };
-        run(engine, claim, route, body, STREAM_BUFFER).await
+        run(engine, claim, route, body, STREAM_BUFFER, None).await
     }
 }
 
 impl SlotState {
+    async fn lock_handover(&self, model: &str, slot: i32) -> OwnedMutexGuard<()> {
+        let lock = {
+            let mut handovers = self.handovers.lock().unwrap();
+            if let Some(lock) = handovers
+                .get(model)
+                .and_then(|slots| slots.get(&slot))
+                .and_then(Weak::upgrade)
+            {
+                lock
+            } else {
+                // Keep only gates still owned by a handover or a waiting request.
+                handovers.retain(|_, slots| {
+                    slots.retain(|_, lock| lock.strong_count() > 0);
+                    !slots.is_empty()
+                });
+                let lock = Arc::new(Mutex::new(()));
+                handovers
+                    .entry(model.to_owned())
+                    .or_default()
+                    .insert(slot, Arc::downgrade(&lock));
+                lock
+            }
+        };
+        lock.lock_owned().await
+    }
+
     /// Saves a slot under `thread`'s key, if there is enough in it to be worth
     /// the write.
     ///
@@ -897,6 +927,7 @@ async fn run(
     route: Route,
     body: String,
     buffer: usize,
+    handover: Option<OwnedMutexGuard<()>>,
 ) -> HttpResponse<Body> {
     let name = route.as_shim_name();
 
@@ -905,6 +936,9 @@ async fn run(
     let engine2 = Arc::clone(&engine);
     let head = tokio::task::spawn_blocking(move || {
         let res = engine2.request(name, &body);
+        // Do not let another handover save this slot until this generation is
+        // submitted. Keep the guard here even if the HTTP request is cancelled.
+        drop(handover);
         let is_stream = res.is_stream();
         // Not read on a stream. Upstream prefills `res->data` with the first SSE
         // event and then has its own generator flush that same buffer as chunk
@@ -1378,7 +1412,7 @@ mod tests {
         let Claimed {
             reg, engine, claim, ..
         } = claimed("m").await;
-        let res = run(engine, claim, Route::Health, String::new(), 1).await;
+        let res = run(engine, claim, Route::Health, String::new(), 1, None).await;
         assert_eq!(res.status(), StatusCode::SERVICE_UNAVAILABLE);
         wait_idle(&reg, "m").await;
         assert!(reg.lock().await.unload("m"));
