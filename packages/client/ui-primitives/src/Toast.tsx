@@ -2,6 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { IconCheckCircleOutlineRegular, IconCloseOutlineRegular } from './icons/index.tsx'
 import { NotificationPortal } from './NotificationLayer.tsx'
+import { TOAST_CLOSE_LABELS } from './locales/toast.ts'
 import css from './Toast.module.css'
 
 /** Full-opacity hold before the fade starts, when the owner names none. */
@@ -9,15 +10,10 @@ const HOLD_MS = 3000
 /** Fade duration. Must agree with the stylesheet's toast-fade duration. */
 const FADE_MS = 1000
 
-/** Close-button names for the app's locales, read from `<html lang>`, which
- * the locale runtime keeps current; owners may pass their own `closeLabel`. */
-const CLOSE_LABELS: Record<string, string> = {
-  en: 'Dismiss', zh: '关闭', ja: '閉じる', es: 'Cerrar', fr: 'Fermer', de: 'Schließen', ru: 'Закрыть', pt: 'Fechar',
-}
-
+/** The close button's name in the `<html lang>` locale, which the locale runtime keeps current; English otherwise. */
 function documentCloseLabel(): string {
   const language = document.documentElement.lang.toLowerCase().split('-')[0] ?? ''
-  return CLOSE_LABELS[language] ?? 'Dismiss'
+  return TOAST_CLOSE_LABELS[language] ?? TOAST_CLOSE_LABELS.en
 }
 
 /**
