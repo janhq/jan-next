@@ -10,14 +10,6 @@ export interface DesktopNotificationRequest {
   readonly body: string
 }
 
-/** Shell actions a notification click performs. */
-export interface DesktopNotificationsOptions {
-  /** Show and focus the primary window. */
-  readonly focus: () => void
-  /** Deliver the clicked notification's id to the product document. */
-  readonly clicked: (id: string) => void
-}
-
 const MAX_ID_LENGTH = 256
 const MAX_TITLE_LENGTH = 256
 const MAX_BODY_LENGTH = 1024
@@ -52,28 +44,27 @@ export function isWindowActive(window: Pick<BrowserWindow, 'isVisible' | 'isMini
   return window.isVisible() && !window.isMinimized() && window.isFocused()
 }
 
-/** Owns the shown notifications; a notification with an id already shown replaces the earlier one. */
+/** Owns the shown notifications; a duplicate id replaces only the same window's notification. */
 export class DesktopNotifications {
   private readonly shown = new Map<string, Notification>()
-
-  /** @param options - window focus and click delivery actions. */
-  constructor(private readonly options: DesktopNotificationsOptions) {}
 
   /**
    * Show one notification when the platform supports it.
    * @param request - validated request.
+   * @param senderId - Electron's WebContents id for the posting window.
+   * @param clicked - deliver the id to the posting window when it is still available.
    * @returns whether the notification was handed to the platform.
    */
-  show(request: DesktopNotificationRequest): boolean {
+  show(request: DesktopNotificationRequest, senderId: number, clicked: (id: string) => void): boolean {
     if (!Notification.isSupported()) return false
-    this.release(request.id)
+    const key = `${senderId}:${request.id}`
+    this.release(key)
     const notification = new Notification({ title: request.title, body: request.body })
-    this.shown.set(request.id, notification)
-    const forget = (): void => { if (this.shown.get(request.id) === notification) this.forget(request.id) }
+    this.shown.set(key, notification)
+    const forget = (): void => { if (this.shown.get(key) === notification) this.forget(key) }
     notification.once('click', () => {
       forget()
-      this.options.focus()
-      this.options.clicked(request.id)
+      clicked(request.id)
     })
     notification.once('close', forget)
     notification.once('failed', forget)

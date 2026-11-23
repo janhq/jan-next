@@ -18,49 +18,51 @@ vi.mock('electron', () => ({ Notification: native.FakeNotification }))
 afterEach(() => { native.shown.length = 0; native.FakeNotification.supported = true })
 
 function setup() {
-  const focus = vi.fn()
-  const clicked = vi.fn()
-  return { notifications: new DesktopNotifications({ focus, clicked }), focus, clicked }
+  return { notifications: new DesktopNotifications(), clicked: vi.fn() }
 }
 
-it('shows the title and body and reports the id after focusing the window on click', () => {
+it('shows the title and body and reports the requested id to the posting document', () => {
   const f = setup()
-  expect(f.notifications.show({ id: 'finish:s1:1', title: 'Jan finished the task', body: 'Plan is ready.' })).toBe(true)
+  expect(f.notifications.show({ id: 'finish:s1:1', title: 'Jan finished the task', body: 'Plan is ready.' }, 1, f.clicked)).toBe(true)
   const notification = native.shown[0]!
   expect(notification.options).toEqual({ title: 'Jan finished the task', body: 'Plan is ready.' })
   expect(notification.show).toHaveBeenCalledOnce()
   notification.emit('click')
-  expect(f.focus).toHaveBeenCalledOnce()
-  expect(f.clicked).toHaveBeenCalledWith('finish:s1:1')
-  expect(f.focus.mock.invocationCallOrder[0]).toBeLessThan(f.clicked.mock.invocationCallOrder[0]!)
+  expect(f.clicked).toHaveBeenCalledExactlyOnceWith('finish:s1:1')
 })
 
-it('replaces an earlier notification with the same id', () => {
+it('replaces an earlier notification with the same id only in the posting window', () => {
   const f = setup()
-  f.notifications.show({ id: 'approval:s1', title: 'a', body: 'b' })
-  f.notifications.show({ id: 'approval:s1', title: 'c', body: 'd' })
+  const secondary = vi.fn()
+  f.notifications.show({ id: 'approval:s1', title: 'a', body: 'b' }, 1, f.clicked)
+  f.notifications.show({ id: 'approval:s1', title: 'c', body: 'd' }, 2, secondary)
+  f.notifications.show({ id: 'approval:s1', title: 'e', body: 'f' }, 1, f.clicked)
   expect(native.shown[0]!.close).toHaveBeenCalledOnce()
+  expect(native.shown[1]!.close).not.toHaveBeenCalled()
   native.shown[0]!.emit('click')
+  expect(f.clicked).not.toHaveBeenCalled()
+  native.shown[1]!.emit('click')
+  expect(secondary).toHaveBeenCalledExactlyOnceWith('approval:s1')
   expect(f.clicked).not.toHaveBeenCalled()
 })
 
 it('shows nothing when the platform has no notification support', () => {
   native.FakeNotification.supported = false
-  expect(setup().notifications.show({ id: 'x', title: 'a', body: 'b' })).toBe(false)
+  expect(setup().notifications.show({ id: 'x', title: 'a', body: 'b' }, 1, vi.fn())).toBe(false)
   expect(native.shown).toHaveLength(0)
 })
 
 it('closes every shown notification on dispose', () => {
   const f = setup()
-  f.notifications.show({ id: 'one', title: 'a', body: 'b' })
-  f.notifications.show({ id: 'two', title: 'a', body: 'b' })
+  f.notifications.show({ id: 'one', title: 'a', body: 'b' }, 1, f.clicked)
+  f.notifications.show({ id: 'two', title: 'a', body: 'b' }, 2, f.clicked)
   f.notifications.dispose()
   expect(native.shown.map(item => item.close.mock.calls.length)).toEqual([1, 1])
 })
 
 it('keeps at most 32 notifications referenced and drops the oldest first', () => {
   const f = setup()
-  for (let index = 0; index < 33; index++) f.notifications.show({ id: `n${index}`, title: 'a', body: 'b' })
+  for (let index = 0; index < 33; index++) f.notifications.show({ id: `n${index}`, title: 'a', body: 'b' }, 1, f.clicked)
   native.shown[0]!.emit('click')
   expect(f.clicked).not.toHaveBeenCalled()
   native.shown[32]!.emit('click')
