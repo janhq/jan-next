@@ -121,7 +121,7 @@ export class ClientRemoteEvents {
   }
 
   /** Negotiate display metadata without replaying a stream that already sent a frame. */
-  private async *openEvents(signal: AbortSignal): AsyncGenerator<unknown> {
+  private async *openEvents(signal: AbortSignal): AsyncGenerator {
     let received = false
     try {
       for await (const frame of this.openStream(REMOTE_EVENT_STREAM_ENDPOINT, REMOTE_EVENT_STREAM_HOST_INFO_PAYLOAD, signal)) {
