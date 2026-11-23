@@ -356,17 +356,17 @@ class MockModelHandler(BaseHTTPRequestHandler):
         content_length = int(self.headers.get("content-length", "0"))
         body = json.loads(self.rfile.read(content_length))
         self.requests.append(body)
+        # Resolve scripted barriers before opening the response. In particular,
+        # the direct child's notice steers the pending parent request; sending
+        # message_start first races that cancellation with a partial usage event.
+        chunks = completion_chunks(body)
+        response = "".join(
+            f"event: {chunk['type']}\ndata: {json.dumps(chunk)}\n\n" for chunk in chunks
+        ).encode()
         self.send_response(200)
         self.send_header("content-type", "text/event-stream")
         self.end_headers()
-        opening = message_start()
-        self.wfile.write(f"event: {opening['type']}\ndata: {json.dumps(opening)}\n\n".encode())
-        self.wfile.flush()
-        chunks = completion_chunks(body)
-        if chunks[0] != opening:
-            raise AssertionError("model fixture response must begin with message_start")
-        for chunk in chunks[1:]:
-            self.wfile.write(f"event: {chunk['type']}\ndata: {json.dumps(chunk)}\n\n".encode())
+        self.wfile.write(response)
         self.wfile.flush()
 
     def log_message(self, _format: str, *_args: object) -> None:
@@ -809,10 +809,10 @@ def tool_call_chunks(call_id: str, name: str, arguments: dict[str, object]) -> l
 
 
 def message_start() -> dict[str, object]:
-    """Start a Messages response with deterministic token usage."""
+    """Keep usage constant on the wire so the snapshot tests SDK delivery, not SSE batching."""
     return {
         "type": "message_start",
-        "message": {"id": "msg_smoke", "model": "smoke-model", "usage": {"input_tokens": 3, "output_tokens": 0}},
+        "message": {"id": "msg_smoke", "model": "smoke-model", "usage": {"input_tokens": 3, "output_tokens": 3}},
     }
 
 
