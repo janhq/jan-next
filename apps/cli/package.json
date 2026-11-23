@@ -38,7 +38,6 @@
     "@janhq/jan-compaction-basic": "workspace:*",
     "@janhq/jan-compaction-tool-result-pruner": "workspace:*",
     "@janhq/jan-cordis-client-runner": "workspace:*",
-    "@janhq/jan-edge-app": "workspace:*",
     "@janhq/jan-experimental-inspector-profile": "workspace:*",
     "@janhq/jan-fs-local": "workspace:*",
     "@janhq/jan-goal": "workspace:*",

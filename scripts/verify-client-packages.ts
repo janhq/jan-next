@@ -441,9 +441,12 @@ function formatCycle(
   return manifest + ': synchronous jan.client.external cycle: ' + chain + ' ' + (entry?.from ?? '')
 }
 
-/** Whether the dynamic build preset builds this package's browser face, the only face that emits package assets. */
+/**
+ * Whether the dynamic build preset builds this package's browser face, the only face that emits package assets.
+ * Vendored packages build their own client with their own tsdown config, outside the preset and the Client program.
+ */
 function buildsDynamicWebClient(declaration: ClientDeclaration): boolean {
-  return declaration.dynamic && declaration.platform === 'web'
+  return declaration.dynamic && declaration.platform === 'web' && !declaration.manifest.startsWith('vendor/')
 }
 
 function collectAssetViolations(facts: ClientPackageFacts): string[] {
