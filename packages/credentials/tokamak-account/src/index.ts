@@ -339,7 +339,7 @@ export class TokamakAccountProvider extends TokamakAccount {
    */
   private async clearStored(stored: Grant): Promise<void> {
     await this.ctx.credentials.deleteRecord(KEY)
-    const current = await this.ctx.credentials.resolve(this.keyRef).catch(() => undefined)
+    const current = await this.ctx.credentials.resolve(this.keyRef, { dereference: false }).catch(() => undefined)
     // A reference from the environment, or one the user changed since, is left alone.
     if (current?.source !== 'file' || current.value !== stored.token) return
     if (stored.replacedKey !== undefined) await this.ctx.credentials.set(this.keyRef, stored.replacedKey).catch(() => undefined)
@@ -449,7 +449,9 @@ export class TokamakAccountProvider extends TokamakAccount {
       // Signing in again while signed in: the current reference is our own previous key, so carry
       // over whatever *it* replaced, and revoke it once the new key is stored.
       const old = await this.readGrant().catch(() => null)
-      const previous = await this.ctx.credentials.resolve(this.keyRef).catch(() => undefined)
+      const previous = await this.ctx.credentials.resolve(this.keyRef, { dereference: false }).catch(() => {
+        throw new TokamakAuthError('storage')
+      })
       const replacedKey = previous?.source !== 'file' || previous.value === key.key ? undefined
         : old !== null && previous.value === old.token ? old.replacedKey : previous.value
       const payload: Grant = {
