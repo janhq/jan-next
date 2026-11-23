@@ -518,7 +518,8 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
         "check missing plugin package manager",
     }
     prompt = next(
-        (candidate for candidate in user_prompts if candidate in scenario_prompts),
+        (candidate for candidate in user_prompts
+         if candidate in scenario_prompts or candidate.startswith(PLUGIN_INSTALL_PROMPT)),
         turn_texts[0] if turn_texts else message_text(latest.get("content")),
     )
     if prompt.startswith(PLUGIN_INSTALL_PROMPT):
