@@ -76,16 +76,16 @@ window.__ModuleLoader__.load({
         ['Discuta ideias, pesquise na web e crie artefatos simples.', 'Trabalhe com código e arquivos usando um conjunto completo de ferramentas.', 'Revise alterações e isole cada tarefa de código em sua própria árvore de trabalho.', 'Encontre trabalhos relacionados em conversas anteriores da mesma área de trabalho.', 'Mantenha os títulos úteis quando a tarefa mudar.', 'Dite rascunhos e ideias em vez de digitá-los.'],
       ],
     }
-    const progressKeys = ['stepCounter', 'progress.about', 'progress.goals', 'progress.detail', 'progress.setup']
+    const progressKeys = ['stepCounter', 'progress.about', 'progress.goals', 'progress.detail', 'progress.setup', 'rail.about', 'rail.goals', 'rail.detail', 'rail.setup', 'welcome']
     const progress = {
-      en: ['Step {step} of {total}', 'Let’s get you set up', 'Nice, a couple more', 'Almost there…', 'All set'],
-      zh: ['第 {step} 步，共 {total} 步', '我们开始设置吧', '不错，再来两步', '快完成了…', '准备好了'],
-      ja: ['{total} ステップ中 {step} ステップ目', 'セットアップを始めましょう', 'あと少しです', 'もうすぐ完了です…', '準備ができました'],
-      es: ['Paso {step} de {total}', 'Vamos a preparar todo', 'Bien, quedan un par de pasos', 'Ya casi…', 'Todo listo'],
-      fr: ['Étape {step} sur {total}', 'Commençons la configuration', 'Parfait, encore deux étapes', 'On y est presque…', 'Tout est prêt'],
-      de: ['Schritt {step} von {total}', 'Los geht’s mit der Einrichtung', 'Prima, noch zwei Schritte', 'Fast geschafft…', 'Alles bereit'],
-      ru: ['Шаг {step} из {total}', 'Давайте начнём настройку', 'Отлично, ещё пара шагов', 'Почти готово…', 'Всё готово'],
-      pt: ['Etapa {step} de {total}', 'Vamos começar a configuração', 'Ótimo, faltam mais duas', 'Quase lá…', 'Tudo pronto'],
+      en: ['Step {step} of {total}', 'Let’s get you set up', 'Nice, a couple more', 'Almost there…', 'All set', 'About you', 'Goals', 'Detail level', 'Setup', 'Welcome to Jan'],
+      zh: ['第 {step} 步，共 {total} 步', '我们开始设置吧', '不错，再来两步', '快完成了…', '准备好了', '关于你', '目标', '详细程度', '设置', '欢迎使用 Jan'],
+      ja: ['{total} ステップ中 {step} ステップ目', 'セットアップを始めましょう', 'あと少しです', 'もうすぐ完了です…', '準備ができました', 'あなたについて', '目標', '表示の詳しさ', 'セットアップ', 'Jan へようこそ'],
+      es: ['Paso {step} de {total}', 'Vamos a preparar todo', 'Bien, quedan un par de pasos', 'Ya casi…', 'Todo listo', 'Sobre ti', 'Objetivos', 'Nivel de detalle', 'Configuración', 'Te damos la bienvenida a Jan'],
+      fr: ['Étape {step} sur {total}', 'Commençons la configuration', 'Parfait, encore deux étapes', 'On y est presque…', 'Tout est prêt', 'À propos de vous', 'Objectifs', 'Niveau de détail', 'Configuration', 'Bienvenue dans Jan'],
+      de: ['Schritt {step} von {total}', 'Los geht’s mit der Einrichtung', 'Prima, noch zwei Schritte', 'Fast geschafft…', 'Alles bereit', 'Über dich', 'Ziele', 'Detailgrad', 'Einrichtung', 'Willkommen bei Jan'],
+      ru: ['Шаг {step} из {total}', 'Давайте начнём настройку', 'Отлично, ещё пара шагов', 'Почти готово…', 'Всё готово', 'О вас', 'Цели', 'Детализация', 'Настройки', 'Добро пожаловать в Jan'],
+      pt: ['Etapa {step} de {total}', 'Vamos começar a configuração', 'Ótimo, faltam mais duas', 'Quase lá…', 'Tudo pronto', 'Sobre você', 'Objetivos', 'Nível de detalhe', 'Configuração', 'Boas-vindas ao Jan'],
     }
     return { dictionaries: Object.fromEntries(Object.entries(copy).map(([locale, values]) => [locale,
       Object.fromEntries([
