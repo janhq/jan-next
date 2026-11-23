@@ -6,8 +6,8 @@
  * Naming contract (see the mcp-client Agent Note "Naming invariants"): every MCP tool
  * has the stable identity `(serverName, rawName)`; the model-facing public name
  * is `mcp__<serverName>__<rawName>`, normalized to the model function-name
- * constraints. The raw name is only ever sent on the wire (`tools/call`); the
- * public name is never parsed to recover it.
+ * constraints. The raw name is sent on the wire and retained for inventory;
+ * the public name is never parsed to recover it.
  *
  * @module
  */
@@ -15,7 +15,7 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import { specTypeSchemas, type Client, type ImageContent } from '@modelcontextprotocol/client'
-import type { Context } from '@janhq/cordis'
+import type { Context, Fiber } from '@janhq/cordis'
 import { isImageAdmissionError } from '@janhq/jan-attachment'
 import type { AttachmentStore, ImageAttachmentRef, ImageMediaType, SaveImageAttachment } from '@janhq/jan-attachment'
 import type { ContentBlock } from '@janhq/jan-llm'
@@ -44,6 +44,24 @@ export class McpToolRegistrationError extends McpLocalError {}
 
 /** State for one sync generation: the current set of disposers keyed by public name. */
 export type ToolDisposers = Map<string, () => void>
+
+/** Identity of the MCP connection that registered a resolved tool. */
+export interface McpToolOrigin {
+  readonly serverName: string
+  readonly rawName: string
+  readonly connection: Fiber
+}
+
+const toolOrigins = new WeakMap<ToolDefinition, McpToolOrigin>()
+
+/**
+ * Look up an MCP registration without parsing its potentially ambiguous public name.
+ * @param definition - exact definition returned by the tool registry.
+ * @returns the MCP registration identity, or undefined for an ordinary tool.
+ */
+export function mcpToolOrigin(definition: ToolDefinition): McpToolOrigin | undefined {
+  return toolOrigins.get(definition)
+}
 
 /** Canonical MCP result exposed to PTC mode without discarding protocol blocks. */
 export type McpResult<Structured extends JsonValue = JsonValue> = {
@@ -142,7 +160,7 @@ export async function syncTools(
         `mcp-client(${opts.serverName}): server listed tool "${tool.name}" more than once — invalid tool list`,
       )
     }
-    definitions.set(publicName, createMcpToolDefinition(ctx, {
+    const definition = createMcpToolDefinition(ctx, {
       name: publicName,
       rawName: tool.name,
       description: tool.description ?? '',
@@ -163,7 +181,9 @@ export async function syncTools(
           throw new Error(opts.redact(describeError(error)))
         }
       },
-    }))
+    })
+    toolOrigins.set(definition, Object.freeze({ serverName: opts.serverName, rawName: tool.name, connection: ctx.fiber }))
+    definitions.set(publicName, definition)
   }
 
   // Phase 2: swap generations — but only for a generation still entitled to
