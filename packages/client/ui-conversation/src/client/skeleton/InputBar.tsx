@@ -16,7 +16,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from 'react'
 import clsx from 'clsx'
-import { UNDO_COMMAND } from 'lexical'
+import { $getRoot, $onUpdate, UNDO_COMMAND, type LexicalEditor } from 'lexical'
 import {
   focusWithoutRing, IconCloseFillRegular, IconCodeOutlineRegular, IconPaperclipOutlineRegular, IconPlusOutlineMedium,
   IconTriangleRightFillRegular, IconWarningOutlineRegular, isMobileDevice, Menu, MenuItemButton, Toast, Tooltip,
@@ -53,8 +53,9 @@ const LARGE_PASTE_LINES = 30
 interface PasteOffer {
   text: string
   lines: number
-  /** The draft right after the paste committed; any later edit withdraws the offer. */
-  draft: string | null
+  /** The exact editor and content revision committed by this paste. */
+  editor: LexicalEditor
+  revision: number
 }
 
 export const InputBar = memo(function InputBar({
@@ -281,9 +282,9 @@ export const InputBar = memo(function InputBar({
   // client-side size or count limit and upload as soon as they are picked.
   // The host enforces the same image limits at submit for callers that bypass
   // this composer.
-  const intakeFiles = useCallback((files: readonly File[], directories?: ReadonlySet<File>): void => {
+  const intakeFiles = useCallback((files: readonly File[], directories?: ReadonlySet<File>): boolean => {
     if (uploadDenied || locked || machineBusy || (subagent !== null && !continuable)
-      || addFiles === undefined || files.length === 0) return
+      || addFiles === undefined || files.length === 0) return false
     const rejected = ((): string | null => {
       // Child prompts support images, but not generic file receipts or the
       // Desktop path-reference fallback. Refuse mixed batches before intake.
@@ -309,34 +310,54 @@ export const InputBar = memo(function InputBar({
       return addFiles(files, directories)
     })()
     if (rejected !== null) showToast(rejected)
+    return rejected === null
   }, [uploadDenied, locked, machineBusy, subagent, continuable, addFiles, attachments, imageLimits, showToast, t])
 
-  // A large paste lands as text, as always, and is offered as a file instead.
-  // Attaching undoes exactly that paste (PASTE_TAG makes it its own history
-  // step), so the offer is withdrawn as soon as the draft changes again.
+  const canAttachPaste = !uploadDenied && !locked && !machineBusy && addFiles !== undefined && subagent === null
   const [pasteOffer, setPasteOffer] = useState<PasteOffer | null>(null)
   const pastedText = useCallback((text: string): void => {
-    const lines = text.split('\n').length
-    if (text.length < LARGE_PASTE_CHARS && lines < LARGE_PASTE_LINES) return
-    setPasteOffer({ text, lines, draft: null })
-  }, [])
-  useEffect(() => {
-    setPasteOffer((offer) => {
-      if (offer === null) return offer
-      if (offer.draft === null) return draft === '' ? offer : { ...offer, draft }
-      return offer.draft === draft ? offer : null
-    })
-  }, [draft])
-  useEffect(() => { setPasteOffer(null) }, [sessionId])
-  const attachPaste = (): void => {
-    if (pasteOffer === null || editor === null) return
+    if (keyboard === undefined || editor === null || locked || machineBusy) return
     setPasteOffer(null)
-    editor.dispatchCommand(UNDO_COMMAND, undefined)
-    intakeFiles([new File([pasteOffer.text], 'pasted-text.txt', { type: 'text/plain' })])
+    const lines = text.split('\n').length
+    if (!canAttachPaste || (text.length < LARGE_PASTE_CHARS && lines < LARGE_PASTE_LINES)) {
+      keyboard.paste(text)
+      return
+    }
+
+    // The paste command runs inside Lexical's update. Bind the offer only if
+    // this insertion changed the text and was the only edit in that commit.
+    const before = $getRoot().getTextContent()
+    const previous = keyboard.snapshot
+    const cleanStart = before === editor.getEditorState().read(() => $getRoot().getTextContent())
+    keyboard.paste(text)
+    const after = $getRoot().getTextContent()
+    if (!cleanStart || before === after) return
+    $onUpdate(() => {
+      const next = keyboard.snapshot
+      if (next.draftRev !== previous.draftRev + 1 || next.draft === previous.draft
+        || after !== editor.getEditorState().read(() => $getRoot().getTextContent())) return
+      setPasteOffer({ text, lines, editor, revision: next.draftRev })
+    })
+  }, [canAttachPaste, editor, keyboard, locked, machineBusy])
+  const activePaste = pasteOffer !== null && pasteOffer.editor === editor && pasteOffer.revision === input?.draftRev
+    ? pasteOffer
+    : null
+  useEffect(() => {
+    if (activePaste === null) setPasteOffer(null)
+  }, [activePaste])
+  const attachPaste = (): void => {
+    if (activePaste === null || keyboard === undefined || !canAttachPaste) return
+    setPasteOffer(null)
+    const { editor, revision, text } = activePaste
+    // Flush any edit not yet visible to React. PASTE_TAG gives the accepted
+    // paste its own history step, and the revision prevents undoing a later edit.
+    editor.read(() => {})
+    if (keyboard.snapshot.draftRev !== revision) return
+    if (intakeFiles([new File([text], 'pasted-text.txt', { type: 'text/plain' })])
+      && keyboard.snapshot.draftRev === revision) editor.dispatchCommand(UNDO_COMMAND, undefined)
   }
 
   const canAcceptDrop = !uploadDenied && (subagent === null || continuable) && !locked && !machineBusy && addFiles !== undefined
-  const canAttachPaste = canAcceptDrop && subagent === null
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const onPickFiles = (e: ChangeEvent<HTMLInputElement>): void => {
@@ -505,9 +526,9 @@ export const InputBar = memo(function InputBar({
           {notice.text}
         </div>
       )}
-      {pasteOffer !== null && pasteOffer.draft !== null && canAttachPaste && (
+      {activePaste !== null && canAttachPaste && (
         <div className={clsx(css.notice, css.pasteOffer)} role="status">
-          <span className={css.pasteOfferText}>{t('paste.large', { count: pasteOffer.lines })}</span>
+          <span className={css.pasteOfferText}>{t('paste.large', { count: activePaste.lines })}</span>
           <button type="button" className={css.pasteOfferAction} onMouseDown={keepFocus} onClick={attachPaste}>
             {t('paste.attach')}
           </button>

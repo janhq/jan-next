@@ -1046,6 +1046,40 @@ describe('Enter semantics', () => {
     expect(shell.snapshot.draft).toBe('typed one')
   })
 
+  it('does not offer an attachment for an unchanged paste, even after a later edit', async () => {
+    const text = 'x'.repeat(2000)
+    const { textarea, shell, view } = bench({ draft: text })
+    act(() => { shell.editor.update(() => { $getRoot().getAllTextNodes()[0]?.select(0, text.length) }, { discrete: true }) })
+    await act(async () => { fireEvent.paste(textarea, { clipboardData: { items: [], getData: () => text } }) })
+    writeDraft(shell, `${text}!`)
+    expect(view.queryByRole('button', { name: zh['paste.attach'] })).toBeNull()
+    expect(shell.snapshot.draft).toBe(`${text}!`)
+  })
+
+  it('withdraws a paste offer even when later edits return to the same text', async () => {
+    const text = 'x'.repeat(2000)
+    const { textarea, shell, view } = bench()
+    await act(async () => { fireEvent.paste(textarea, { clipboardData: { items: [], getData: () => text } }) })
+    expect(view.getByRole('button', { name: zh['paste.attach'] })).toBeTruthy()
+    act(() => {
+      shell.setDraft(`${text}!`)
+      shell.setDraft(text)
+    })
+    expect(view.queryByRole('button', { name: zh['paste.attach'] })).toBeNull()
+    expect(shell.snapshot.draft).toBe(text)
+  })
+
+  it.each([null, 'Session unavailable'])('only removes the paste when attachment intake accepts it (refusal: %s)', async (refusal) => {
+    const text = 'x'.repeat(2000)
+    const addFiles = vi.fn(() => refusal)
+    const { textarea, shell, view } = bench({ addFiles, draft: 'before' })
+    await act(async () => { fireEvent.paste(textarea, { clipboardData: { items: [], getData: () => text } }) })
+    expect(shell.snapshot.draft).toBe(`before${text}`)
+    await act(async () => { fireEvent.click(view.getByRole('button', { name: zh['paste.attach'] })) })
+    expect(addFiles).toHaveBeenCalledWith([expect.objectContaining({ name: 'pasted-text.txt', size: text.length })], undefined)
+    expect(shell.snapshot.draft).toBe(refusal === null ? 'before' : `before${text}`)
+  })
+
   it('caret-only commits advance neither draftRev nor the published state', () => {
     const { shell } = bench({ draft: 'hello' })
     const before = shell.snapshot

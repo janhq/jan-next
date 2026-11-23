@@ -142,7 +142,7 @@ Disabled Send and Stop buttons suppress their tooltips, including a Stop button 
 
 File chips and editable skill references share a whole-reference hover background and follow the composer's line height and text baseline. The first click delegates preview opening to the registered reference source immediately, including the first click of a double-click sequence. Subsequent clicks retain native text selection; an existing noncollapsed selection suppresses pointer preview activation. Previewing does not change the draft, its clipboard projection, or submission.
 
-A paste of at least 2,000 characters or 30 lines still lands as text, and a status strip above the editor offers **Attach as file** or **Keep as text**. Attaching undoes that paste as its own history step and adds `pasted-text.txt` through the ordinary file intake; any later edit or a Session switch withdraws the offer. The offer appears only where the composer accepts files and not in a subagent view.
+A paste of at least 2,000 characters or 30 lines still lands as text, and a status strip above the editor offers **Attach as file** or **Keep as text**. The offer belongs to the paste's committed edit and disappears after any later draft edit or Session switch. The composer removes the paste only after accepting `pasted-text.txt` through ordinary file intake. The offer appears only where the composer accepts files and not in a subagent view.
 
 When another writer owns the Session, the send-error toast asks the user to quit other running Jan instances and retry.
 
