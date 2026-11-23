@@ -41,6 +41,15 @@ describe('redact', () => {
     expect(out).toBe('Authorization: <redacted>\ncookie: <redacted>\n{"proxy-authorization":"<redacted>"}')
   })
 
+  it('does not leave quoted parameters from credential header values', () => {
+    const out = redact([
+      'debug Authorization: Digest username="ana", response="secret"',
+      'debug Cookie: session="private"; second=remaining',
+      JSON.stringify({ authorization: 'Digest username="ana", response="secret"', level: 'debug' }),
+    ].join('\n'), places)
+    expect(out).toBe('debug Authorization: <redacted>\ndebug Cookie: <redacted>\n{"authorization":"<redacted>","level":"debug"}')
+  })
+
   it('keeps ordinary diagnostics that only look similar', () => {
     const text = 'max tokens: 4096, keyboard=us, session 3f2a91c0, CONTEXT_WINDOW_EXCEEDED'
     expect(redact(text, places)).toBe(text)
