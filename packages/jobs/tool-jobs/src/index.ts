@@ -713,7 +713,7 @@ export function apply(ctx: Context, config: Config): void {
         toolCall: { callId, rootCallId },
         run() {
           const { promise: done, resolve } = Promise.withResolvers<JobOutcome>()
-          const timer = setTimeout(() => resolve({ status: 'completed', detail: note }), seconds * 1_000)
+          const timer = setTimeout(() => { resolve({ status: 'completed', detail: note }) }, seconds * 1_000)
           return {
             done,
             cancel() {
