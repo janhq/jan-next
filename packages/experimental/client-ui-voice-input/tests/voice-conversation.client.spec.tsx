@@ -36,7 +36,7 @@ it('closes the voice menu before showing the guardrail refusal as a dismissible 
     effect: (use: () => (() => void) | undefined) => { const stop = use(); if (stop) dispose.push(stop) },
     conversation: { appendDraft: vi.fn() }, locale: { register: vi.fn() },
     slots: {
-      inject: (_slot: string, register: () => void) => register(),
+      inject: (_slot: string, register: () => void) => { register() },
       register: ({ name }: { name: string }, component: ComponentType<VoiceProps>) => { if (name === 'voice-input.options') Voice = component },
     },
   })

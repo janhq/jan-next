@@ -6,7 +6,7 @@ import { githubOwnerOf } from '../src/github-owner.ts'
 
 function scratch(): string {
   const root = mkdtempSync(join(tmpdir(), 'jan-github-owner-'))
-  onTestFinished(() => rmSync(root, { recursive: true, force: true }))
+  onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
   return root
 }
 

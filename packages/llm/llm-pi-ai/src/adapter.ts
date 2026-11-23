@@ -512,7 +512,7 @@ export class PiAiAdapter extends LlmAdapter {
   }
 
   private async * streamWithSnapshot(
-    options: GenerateOptions,
+    options: GenerateOptions<string>,
     snapshot: PiAiSnapshot,
   ): AsyncIterable<StreamChunk> {
     if (options.stop !== undefined) {

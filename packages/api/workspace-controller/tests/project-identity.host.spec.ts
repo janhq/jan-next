@@ -29,7 +29,7 @@ async function openRegistry(pool: MemoryMediaPool) {
 
 function directories() {
   const root = mkdtempSync(join(tmpdir(), 'jan-project-identity-'))
-  onTestFinished(() => rmSync(root, { recursive: true, force: true }))
+  onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
   return (name: string) => {
     const path = join(root, name)
     mkdirSync(path)

@@ -72,9 +72,8 @@ function mountBrowser(navigation?: { readonly url?: string },
       },
       renderSlot: (name, owner) => {
         if (name !== 'sidebar.right.tab.browser.actions' || !('getSurface' in owner)) return null
-        const getSurface = owner.getSurface
-        return typeof getSurface === 'function'
-          ? <button type="button" onClick={() => { getSurface()?.setAttribute('data-inspected', '') }}>Inspect page</button> : null
+        const { getSurface } = owner as { getSurface: () => Element | null }
+        return <button type="button" onClick={() => { getSurface()?.setAttribute('data-inspected', '') }}>Inspect page</button>
       },
       SessionProvider: ({ children }) => <>{children}</>,
     }

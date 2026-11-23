@@ -6,7 +6,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import * as React from 'react'
 import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest'
 
-type Source<T> = { getSnapshot(): T; subscribe(listener: () => void): () => void }
+type Source<T> = { getSnapshot: () => T; subscribe: (listener: () => void) => () => void }
 type Registration = { key?: string; id?: string; inject?: () => Record<string, unknown> }
 type Entry = { options: Registration; Component: React.ComponentType<Record<string, unknown>> }
 type Plugin = { apply(ctx: object): void }
@@ -20,6 +20,8 @@ const workspaces = { items: rows, archivedSessionIds: [] }
 const source = <T,>(value: T): Source<T> => ({ getSnapshot: () => value, subscribe: () => () => {} })
 const text = (instructions: string) => ({ instructions, memory: '', files: [], truncated: false })
 const reply = (result: unknown) => Response.json({ result })
+// The Workspace id a project read names, from its JSON-RPC body.
+const workspaceOf = (body: RequestInit['body']) => (JSON.parse(body as string) as { params: { workspaceId: string } }).params.workspaceId
 let loadPlugin: () => Plugin
 const scroll = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView')
 
@@ -71,7 +73,7 @@ function theme(tasks: readonly unknown[] = [], shared?: { catalog: Source<{ reco
   let openSearch: (() => void) | undefined
   const services = {
     slots: {
-      inject: (_name: string, register: () => void) => register(),
+      inject: (_name: string, register: () => void) => { register() },
       register: (options: Registration, Component: Entry['Component']) => {
         const key = options.key ?? options.id
         if (key !== undefined) registrations.set(key, { options, Component })
@@ -123,7 +125,7 @@ it('never displays a late read from the previously selected project', async () =
   const alpha = Promise.withResolvers<Response>()
   const beta = Promise.withResolvers<Response>()
   vi.stubGlobal('fetch', vi.fn((_url: string, { body }: RequestInit) =>
-    JSON.parse(String(body)).params.workspaceId === 'alpha' ? alpha.promise : beta.promise))
+    workspaceOf(body) === 'alpha' ? alpha.promise : beta.promise))
   const app = theme()
   try {
     app.openProject('alpha')
@@ -139,7 +141,7 @@ it('never displays a late read from the previously selected project', async () =
 
 it('closes the previous project editor instead of letting its draft save to another project', async () => {
   vi.stubGlobal('fetch', vi.fn(async (_url: string, { body }: RequestInit) =>
-    reply(text(JSON.parse(String(body)).params.workspaceId === 'alpha' ? 'Alpha instructions' : 'Beta instructions'))))
+    reply(text(workspaceOf(body) === 'alpha' ? 'Alpha instructions' : 'Beta instructions'))))
   const app = theme()
   try {
     app.openProject('alpha')

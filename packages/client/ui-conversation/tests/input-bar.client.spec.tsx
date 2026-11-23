@@ -2136,7 +2136,7 @@ describe('command launcher chrome and control seats', () => {
       </button>
     ) })
     const useAbsentSnapshot = bindSnapshotSelector(createSnapshotStore<undefined>(undefined))
-    const useAbsentInput: InputBarProps['useInput'] = () => useAbsentSnapshot(() => undefined)
+    const useAbsentInput: InputBarProps['useInput'] = () => { useAbsentSnapshot(() => undefined) }
     view.rerender(<InputBar {...props} sessionId={undefined} useInput={useAbsentInput}
       inputActions={undefined} keyboard={undefined} onActivateDraft={open} />)
     const mic = view.getByRole('button', { name: 'Open microphone' })

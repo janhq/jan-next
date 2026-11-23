@@ -13,7 +13,7 @@ const fileImages = { fileDrag, resolve: (path: string) => `https://example.com/a
 
 it('gives a settled Markdown image its own action without nesting controls inside links', () => {
   const imageActions = (getSurface: () => HTMLImageElement | null) => <button type="button"
-    onClick={() => expect(getSurface()?.alt).toBe('Outside')}>Image action</button>
+    onClick={() => { expect(getSurface()?.alt).toBe('Outside') }}>Image action</button>
   render(<MarkdownDelegateProvider imageActions={imageActions}>
     <MarkdownText text={'![Outside](https://example.com/a.png) [![Inside](https://example.com/b.png)](https://example.com)'} />
   </MarkdownDelegateProvider>)

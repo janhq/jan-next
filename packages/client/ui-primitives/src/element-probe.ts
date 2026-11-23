@@ -38,11 +38,12 @@ export interface ProbedElement extends ElementDescription {
  */
 export function describeElement(element: Element): ElementDescription {
   const limit = 2400
-  const css = globalThis.CSS
+  // Older WebViews and test DOMs lack CSS.escape.
+  const css = (globalThis as { CSS?: { escape?: (value: string) => string } }).CSS
   const parts: string[] = []
   for (let node: Element | null = element; node !== null; node = node.parentElement) {
     const id = node.id
-    const escaped = css && css.escape ? css.escape(id) : /^[\w-]+$/u.test(id) ? id : ''
+    const escaped = css?.escape ? css.escape(id) : /^[\w-]+$/u.test(id) ? id : ''
     if (escaped && node.ownerDocument.querySelectorAll('#' + escaped).length === 1) {
       parts.unshift('#' + escaped)
       break
@@ -57,7 +58,7 @@ export function describeElement(element: Element): ElementDescription {
       count++
       if (sibling === node) index = count
     }
-    parts.unshift(count > 1 ? name + ':nth-of-type(' + index + ')' : name)
+    parts.unshift(count > 1 ? `${name}:nth-of-type(${index})` : name)
   }
   const html = element.outerHTML
   return { selector: parts.join(' > '), html: html.length <= limit ? html : html.slice(0, limit) + '…' }

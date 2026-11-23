@@ -63,9 +63,9 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
         expect(session?.snapshotEvents()).toContainEqual(expect.objectContaining({
           type: 'user/message',
           data: expect.objectContaining({
-            source: expect.objectContaining({ kind: 'user' }),
+            source: expect.objectContaining({ kind: 'user' }) as unknown,
             content: [{ type: 'text', text: prompt }],
-          }),
+          }) as unknown,
         }))
         await assertFinalWorkspaceSnapshot(fileURLToPath(new URL('../../../snapshots/web/default-workspace', import.meta.url)), workspace.path)
         await page.getByText('DONE', { exact: true }).waitFor()

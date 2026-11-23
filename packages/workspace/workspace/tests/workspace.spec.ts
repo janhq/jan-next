@@ -1463,7 +1463,7 @@ describe('first-use Workspace preparation', () => {
 
   it('recreates a deleted default with a fresh identity after restart, including an old opt-out marker', async () => {
     const h = await firstUse()
-    const workspace = (await h.registry.initializeDefault(h.resolveDirectory))!
+    const workspace = await h.registry.initializeDefault(h.resolveDirectory)
     await workspace.setTitle('Renamed')
     expect((await h.registry.initializeDefault(h.resolveDirectory))?.title).toBe('Renamed')
     await h.registry.delete(workspace.id)

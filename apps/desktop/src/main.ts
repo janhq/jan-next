@@ -1567,7 +1567,7 @@ async function main(): Promise<void> {
       window.setPosition(Math.max(0, point.x - 160), Math.max(0, point.y - 24))
     }
     await window.loadURL(applicationUrl)
-    if (!quitting && !window.isDestroyed()) window.show()
+    if (!isQuitting() && !window.isDestroyed()) window.show()
   }
   ipcMain.handle(DESKTOP_IPC.conversationWindowMove, conversationWindowMoveHandler(
     id => productWindows().some(window => window.webContents.id === id),

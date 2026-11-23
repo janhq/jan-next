@@ -118,7 +118,7 @@ describe('web e2e: Jan theme shell', () => {
       await hoverFresh(page, row)
       expect(await iconMotion(row), name).toEqual(expect.arrayContaining([{ name: animationName, duration, iterations: 1 }]))
       for (const [at, pose] of poses) expect(await poseAt(row, at), `${name} at ${at}`).toEqual(pose)
-      await row.locator('.jt-nav-icon').evaluate(icon => icon.getAnimations().forEach(animation => animation.finish()))
+      await row.locator('.jt-nav-icon').evaluate((icon) => { for (const animation of icon.getAnimations()) animation.finish() })
       expect(await row.locator('.jt-nav-icon').evaluate(icon => getComputedStyle(icon).transform), `${name} at rest`).toBe('none')
     }
   })
@@ -157,11 +157,11 @@ describe('web e2e: Jan theme shell', () => {
     await page.getByRole('button', { name: /^Select model/ }).click()
     const footer = page.getByRole('menu', { name: 'Model options' })
     await footer.waitFor()
-    const rows = await footer.evaluate(menu => [...menu.querySelectorAll('button')].filter(row => row.textContent!.trim() !== '').map((row) => {
+    const rows = await footer.evaluate(menu => [...menu.querySelectorAll('button')].filter(row => row.textContent.trim() !== '').map((row) => {
       const icon = row.querySelector('svg')!.getBoundingClientRect()
       const text = [...row.querySelectorAll('*')].find(node => [...node.childNodes].some(child => child.nodeType === Node.TEXT_NODE && child.textContent!.trim() !== ''))!
       return {
-        text: row.textContent!.trim(),
+        text: row.textContent.trim(),
         height: row.getBoundingClientRect().height,
         icon: [Math.round(icon.left), Math.round(icon.width)],
         label: Math.round(text.getBoundingClientRect().left),

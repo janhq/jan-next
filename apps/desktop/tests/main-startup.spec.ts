@@ -521,10 +521,10 @@ afterEach(async () => {
 const windowsHiddenMenu = [
   { role: 'toggleDevTools', visible: false },
   { role: 'toggleDevTools', visible: false, accelerator: 'F12' },
-  { label: 'Actual Size', accelerator: 'CmdOrCtrl+0', visible: false, click: expect.any(Function) },
-  { label: 'Zoom In', accelerator: 'CmdOrCtrl+=', visible: false, click: expect.any(Function) },
-  { label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', visible: false, acceleratorWorksWhenHidden: true, click: expect.any(Function) },
-  { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', visible: false, click: expect.any(Function) },
+  { label: 'Actual Size', accelerator: 'CmdOrCtrl+0', visible: false, click: expect.any(Function) as unknown },
+  { label: 'Zoom In', accelerator: 'CmdOrCtrl+=', visible: false, click: expect.any(Function) as unknown },
+  { label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', visible: false, acceleratorWorksWhenHidden: true, click: expect.any(Function) as unknown },
+  { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', visible: false, click: expect.any(Function) as unknown },
 ]
 
 describe('desktop main startup', () => {

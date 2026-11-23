@@ -104,6 +104,8 @@ export class ScheduleRuntime {
   private readonly executing = new Set<ScheduleId>()
   private stopping = false
   private requested = false
+  /** A call, not a property read: TypeScript keeps `stopping` narrowed to false across awaits. */
+  private isStopping(): boolean { return this.stopping }
 
   /**
    * @param ctx - Host services used to resume and enqueue.
@@ -280,7 +282,7 @@ export class ScheduleRuntime {
     if (this.stopping) return
     const failedSources = new Set<ScheduleWakeSource>()
     for (const source of this.wakeSources()) {
-      if (this.stopping) return
+      if (this.isStopping()) return
       const now = Date.now()
       try {
         const due = source.next()
@@ -293,7 +295,7 @@ export class ScheduleRuntime {
         this.ctx.logger.warn(`schedule: wake source failed: ${String(error)}`)
       }
     }
-    if (this.stopping) return
+    if (this.isStopping()) return
     let next = this.tasks().filter(task => task.status === 'active'
       && this.available(task)
       && !failed.has(task.record.id)

@@ -17,7 +17,7 @@ it('uses the ordinary schedule catalog, pause, delete, recurrence and history fo
     expect(await test.service.catalog()).toMatchObject([{ id: task.id, target: { kind: 'plugin', owner: 'example' } }])
     await vi.advanceTimersByTimeAsync(60_000)
     expect(receive).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ taskId: task.id,
-      id: expect.any(String), prompt: request.prompt, payload: target.payload }))
+      id: expect.any(String) as unknown, prompt: request.prompt, payload: target.payload }))
     expect(await test.service.history({ id: task.id, limit: 10 })).toMatchObject({ records: [
       { owner: 'example', outcome: 'accepted', messageId: receive.mock.calls[0]?.[0].id },
     ] })

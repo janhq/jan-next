@@ -80,7 +80,7 @@ function StripTarget({ id, setTargets }: {
   const ref = useCallback((element: HTMLDivElement | null) => {
     setTargets((targets) => {
       if (element !== null) return { ...targets, [id]: element }
-      return Object.fromEntries(Object.entries(targets).filter(([key]) => key !== id)) as StripTargets
+      return Object.fromEntries(Object.entries(targets).filter(([key]) => key !== id))
     })
   }, [id, setTargets])
   return <div className={css.stripTarget} ref={ref} />

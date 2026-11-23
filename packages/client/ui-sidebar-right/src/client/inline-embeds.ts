@@ -119,7 +119,7 @@ export class InlineEmbeds {
         bindCommands: () => () => {},
         openResource: (target, options = {}) => {
           navigator.openResourceIn(sessionId, target, {
-            ...options.params === undefined ? {} : { params: options.params },
+            params: options.params,
             ...options.destination === undefined ? {} : { destination: options.destination },
           })
         },
