@@ -8,7 +8,8 @@ window.__ModuleLoader__.load({
     const BotGlyph = ({ size }) => h('svg', { viewBox: '0 0 16 16', width: size, height: size, 'aria-hidden': true },
       h('path', { d: 'M6 2.5h4M8 2.5V5M3 6.5A1.5 1.5 0 014.5 5h7A1.5 1.5 0 0113 6.5v5a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 013 11.5zM5.5 9h1m3 0h1',
         fill: 'none', stroke: 'currentColor', strokeWidth: size < 18 ? 1.3 : 1, strokeLinecap: 'round', strokeLinejoin: 'round' }))
-    const PANEL = 'jan-always-on', PATH = '/jan-api/always-on', TAB = 'botDetails'
+    // Under the document base, so a Jan served below a proxy prefix reaches its own mount.
+    const PANEL = 'jan-always-on', PATH = new URL('jan-api/always-on', document.baseURI).href, TAB = 'botDetails'
     const title = { en: 'Bots', zh: '机器人', ja: 'ボット', es: 'Bots', fr: 'Bots', de: 'Bots', ru: 'Боты', pt: 'Bots' }
     const modes = {
       en: ['Bots mode', 'Create a bot with one ongoing chat.'], zh: ['机器人模式', '创建一个拥有持续聊天的机器人。'],

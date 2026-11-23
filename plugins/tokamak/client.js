@@ -21,7 +21,7 @@ window.__ModuleLoader__.load({
       + '.jan-tokamak-voice[data-live] .jan-tokamak-action{color:var(--dsw-alias-state-business-primary);animation:jan-tokamak-pulse 1.6s ease-in-out infinite}'
 
     async function call(method, params) {
-      const response = await fetch('/jan-api/tokamak', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+      const response = await fetch(new URL('jan-api/tokamak', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`)
       return body.result
