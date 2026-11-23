@@ -28,7 +28,12 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
+- dialog "New chats use Full access":
+  - heading "New chats use Full access" [level=2]
+  - button "Got it"
+  - text: "New chats start with Full access: the agent can change files and run commands without asking. Change the default for new chats in Settings > General, or switch this chat here."
+  - button "Change default"
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
 - button "Choose project" [disabled]
