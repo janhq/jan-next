@@ -50,6 +50,12 @@ describe('configuration schema', () => {
     expect(() => Config(minimal({ stateDir: 'relative/dir' }))).toThrow()
     expect(() => Config(minimal({ stateDir: '~/dir' }))).toThrow()
   })
+  it.each([String.raw`C:\Users\Jan\superagent`, String.raw`\\server\share\superagent`])('accepts the absolute Windows state path %s', (stateDir) => {
+    expect(machineOf(Config(minimal({ stateDir }))).stateDir).toBe(stateDir)
+  })
+  it('rejects drive-relative Windows state paths', () => {
+    expect(() => Config(minimal({ stateDir: String.raw`C:superagent` }))).toThrow('stateDir')
+  })
   it('names keys the configuration does not define, and where the values of older keys live now', () => {
     const raw = minimal({ repository: 'acme/widgets', repositoryPath: '/srv/widgets', blockedCommands: [], author: { name: 'Alice' }, extra: 1 })
     expect(() => machineOf(Config(raw))).toThrow('keys it does not use: repository (now on the GitHub Source), repositoryPath (now in the prepare command of the Execution settings), blockedCommands (now in the Execution settings), author (now prompt text), extra;')

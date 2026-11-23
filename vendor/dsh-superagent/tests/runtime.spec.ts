@@ -76,6 +76,7 @@ async function receive(trigger: Trigger, target = runtime) {
   return result
 }
 let services: Record<string, unknown>
+let shellOverrides: ((execution: { agent?: unknown }) => Readonly<NodeJS.ProcessEnv> | undefined) | undefined
 /** DSH's job registry the Runtime's Executor reads its workers' shell jobs from. */
 let jobs: ReturnType<typeof jobRegistry>
 /** What worker commands of the startup checks print, by argv; an Error makes the command fail with its message. */
@@ -86,10 +87,9 @@ const OTHER = () => join(directory, 'other-gh')
 const BOT = () => join(directory, 'lark-bot')
 const HELPERS = 'git config -z --show-origin --get-all credential.https://github.com.helper'
 const SCOPED = 'git config -z --show-scope --get-regexp ^(credential\\..*|http\\..*extraheader)$'
-const subprocess = { spawn: vi.fn((spec: { argv: readonly string[] }) => {
-  // Strip leading `env` and `KEY=VALUE` arguments before looking up the command response.
-  const argv = [...spec.argv]
-  while (argv[0] === 'env' || /^[A-Z_]+=/.test(argv[0] ?? '')) argv.shift()
+const subprocess = { spawn: vi.fn((spec: { argv: readonly string[]; env?: NodeJS.ProcessEnv }) => {
+  // Feishu starts its CLI with `env` to suppress notifier output during setup.
+  const argv = spec.argv[0] === 'env' ? spec.argv.slice(3) : spec.argv
   const answer = answers[argv.join(' ')] ?? ''
   const reader = (text: string) => ({ readFrom: () => ({ text, nextOffset: text.length, lossy: false }) })
   return { done: Promise.resolve({ exitCode: answer instanceof Error ? 1 : 0, signal: null }), collected: { stdout: reader(answer instanceof Error ? '' : answer), stderr: reader(answer instanceof Error ? answer.message : '') } }
@@ -137,6 +137,7 @@ async function acceptedTicket(trigger = feishu('1', '@bot 修一下回归')) {
 }
 beforeEach(async () => {
   directory = mkdtempSync(join(tmpdir(), 'orchestrator-runtime-'))
+  subprocess.spawn.mockClear()
   vi.spyOn(Commands.prototype, 'gh').mockImplementation(async args => args[1] === 'user' ? { login: 'agent-bot' } : args[1]?.includes('/pulls/') ? { state: 'open', user: { login: 'agent-bot' }, html_url: 'https://github.com/acme/widgets/pull/' + args[1].split('/').at(-1), head: { ref: `agent/${String(runtime.store.tickets.list()[0]?.execution?.name)}`, sha: 'head-1', repo: { full_name: 'acme/widgets' } } } : { default_branch: 'master', permissions: { push: true } })
   vi.spyOn(Commands.prototype, 'lark').mockResolvedValue({ users: [{ member_id: MEMBER, name: 'Alice' }], has_more: false })
   vi.spyOn(Commands.prototype, 'git').mockResolvedValue('')
@@ -203,7 +204,11 @@ beforeEach(async () => {
     prompt: vi.fn(() => { throw new Error('Plugin delivery must not use user RPC') }),
   }
   jobs = jobRegistry()
-  services = { agents, llm: { resolveCallConfig: vi.fn(async value => value) }, sessionController: controller, sessionPersistence: { flush: vi.fn(async () => {}), open: vi.fn(async () => ({ read: async () => ({ events: [] }), [Symbol.asyncDispose]: async () => {} })) }, workspaceRegistry: { create: async (cwd: string) => ({ id: cwd }) }, permissionPresets: { set: () => {} }, subprocess, webServer: { host: '127.0.0.1', port: 3082, register: (route: { handler: HttpHandler }) => { http = route.handler; return () => {} } }, jobs: jobs.service }
+  const shellEnv = { registerOverrides: (resolve: typeof shellOverrides) => {
+    shellOverrides = resolve
+    return () => { shellOverrides = undefined }
+  } }
+  services = { agents, llm: { resolveCallConfig: vi.fn(async value => value) }, sessionController: controller, sessionPersistence: { flush: vi.fn(async () => {}), open: vi.fn(async () => ({ read: async () => ({ events: [] }), [Symbol.asyncDispose]: async () => {} })) }, workspaceRegistry: { create: async (cwd: string) => ({ id: cwd }) }, permissionPresets: { set: () => {} }, subprocess, webServer: { host: '127.0.0.1', port: 3082, register: (route: { handler: HttpHandler }) => { http = route.handler; return () => {} } }, jobs: jobs.service, shellEnv }
   for (const [name, service] of Object.entries(services)) ctx.reflect.provide(name, service)
   for (const cli of [AGENT(), OTHER(), BOT()]) writeFileSync(cli, '#!/bin/sh\n', { mode: 0o755 })
   const store = new Store(join(directory, 'orchestrator.sqlite')); seed(store); store.close()
@@ -215,6 +220,47 @@ beforeEach(async () => {
   deliveries.mockClear()
 })
 afterEach(async () => { expect(controller.prompt).not.toHaveBeenCalled(); await runtime?.stop(); vi.restoreAllMocks(); rmSync(directory, { recursive: true, force: true }) })
+
+it('keeps the host environment intact while startup and ticket subprocesses use the worker environment', async () => {
+  await runtime.stop()
+  vi.stubEnv('GH_TOKEN', 'host-gh-token')
+  vi.stubEnv('GITHUB_TOKEN', 'host-github-token')
+  vi.stubEnv('GIT_DIR', '/host/.git')
+  vi.stubEnv('GIT_CONFIG_GLOBAL', '/host.gitconfig')
+  const names = ['GH_TOKEN', 'GITHUB_TOKEN', 'GIT_DIR', 'GIT_CONFIG_GLOBAL', 'PATH'] as const
+  const host = names.map(name => process.env[name])
+  try {
+    subprocess.spawn.mockClear()
+    const restarted = await restart()
+    await restarted.ready
+    expect(restarted.configured()).toBe(true)
+    expect(names.map(name => process.env[name])).toEqual(host)
+    const check = subprocess.spawn.mock.calls.find(([spec]) => spec.argv.join(' ') === HELPERS)?.[0]
+    expect(check?.env).toMatchObject({ GIT_CONFIG_GLOBAL: workerGitConfig(directory), GIT_DIR: undefined, GH_TOKEN: undefined, GITHUB_TOKEN: undefined })
+    expect(check?.env?.PATH?.split(':')[0]).toBe(join(directory, 'worker-bin'))
+    const probe = subprocess.spawn.mock.calls.find(([spec]) => spec.argv.includes('user'))?.[0]
+    expect(probe?.env?.PATH).toBe(process.env.PATH)
+    restarted.sources.register(feishuKind)
+    const settings = restarted.store.settings()
+    restarted.store.saveSettings({ ...settings, executor: { ...settings.executor, prepare: 'printf ready' } })
+    const { sessionId, ticket } = await acceptedTicket()
+    const prepare = subprocess.spawn.mock.calls.find(([spec]) => spec.argv[0] === 'sh')?.[0]
+    expect(prepare?.env).toMatchObject({ GIT_CONFIG_GLOBAL: workerGitConfig(directory), GIT_DIR: undefined, DSH_SUPERAGENT_TICKET: ticket.id })
+    const verify = subprocess.spawn.mock.calls.find(([spec]) => spec.argv.join(' ') === SCOPED)?.[0]
+    expect(verify?.env).toEqual(check?.env)
+    expect(shellOverrides?.({ agent: agents.get(restarted.masterId) })).toEqual(check?.env)
+    expect(shellOverrides?.({ agent: agents.get(sessionId) })).toEqual(check?.env)
+    expect(shellOverrides?.({ agent: { id: 'unrelated-session' } })).toBeUndefined()
+    expect(shellOverrides?.({})).toBeUndefined()
+    expect(names.map(name => process.env[name])).toEqual(host)
+    await restarted.stop()
+    expect(shellOverrides).toBeUndefined()
+    expect(names.map(name => process.env[name])).toEqual(host)
+  } finally {
+    await runtime.stop()
+    vi.unstubAllEnvs()
+  }
+})
 
 it('relays an explicit member mention as a candidate and creates the ticket, acknowledgement, subscription and worker on accept', async () => {
   const { trigger, ticket, sessionId } = await acceptedTicket()
@@ -850,10 +896,9 @@ it('reports each setup problem where the operator fixes it, and checks the agent
   await needs('github', 'repositoryReadOnly', { account: 'agent-bot', repository: 'acme/widgets' })
   answers[`${AGENT()} api repos/acme/widgets --jq {name: .full_name, push: .permissions.push}`] = '{"name":"acme/widgets","push":true}\n'
   // The agent CLI runs in the workers' environment: without the shims on PATH.
-  const check = subprocess.spawn.mock.calls.map(([spec]) => spec.argv).find(argv => argv.includes(AGENT()))!
-  expect(check[0]).toBe('env')
-  expect(check[1]!.startsWith('PATH=')).toBe(true)
-  expect(check[1]!.slice('PATH='.length).split(':')).not.toContain(join(directory, 'worker-bin'))
+  const check = subprocess.spawn.mock.calls.find(([spec]) => spec.argv[0] === AGENT())?.[0]
+  expect(check?.env?.PATH?.split(':')).not.toContain(join(directory, 'worker-bin'))
+  expect(check?.env?.GIT_CONFIG_GLOBAL).toBe(workerGitConfig(directory))
   const valid = { ...answers }
   // git older than 2.32 ignores GIT_CONFIG_GLOBAL and reads the operator's configuration.
   answers = { ...valid, [HELPERS]: 'file:/home/me/.gitconfig\0!gh auth git-credential\0' }
@@ -954,7 +999,7 @@ it('pauses and resumes processing as its own action, a setting outside every blo
   expect(runtime.store.settings().paused).toBe(false)
 })
 
-it('runs setup again while the Feishu bot check failed, and restores the process environment when git fails its check', async () => {
+it('runs setup again while the Feishu bot check failed, and leaves the process environment unchanged when git fails its check', async () => {
   answers[`${BOT()} config strict-mode`] = 'strict-mode: off (source: profile)'
   const next = await restart()
   await next.ready
@@ -963,14 +1008,16 @@ it('runs setup again while the Feishu bot check failed, and restores the process
   next.checkSetup()
   await vi.waitFor(() => expect(restarts).toHaveBeenCalledTimes(1))
   answers[HELPERS] = 'file:/home/me/.gitconfig\0!gh auth git-credential\0'
+  const path = process.env.PATH
+  const gitConfig = process.env.GIT_CONFIG_GLOBAL
   const broken = await restart()
   await broken.ready
   expect(broken.setupProblem).toMatchObject({ place: 'deployment', code: 'gitTooOld' })
-  expect(process.env.GIT_CONFIG_GLOBAL).toBeUndefined()
-  expect(process.env.PATH?.split(':')).not.toContain(join(directory, 'worker-bin'))
+  expect(process.env.GIT_CONFIG_GLOBAL).toBe(gitConfig)
+  expect(process.env.PATH).toBe(path)
 })
 
-it('writes worker shims and the agent environment from the configuration only, and restores the environment on stop', async () => {
+it('writes worker shims and the agent git configuration from the configuration only', async () => {
   const bin = join(directory, 'worker-bin')
   expect(readdirSync(bin).sort()).toEqual(['gh', 'lark-cli'])
   expect(readFileSync(join(bin, 'lark-cli'), 'utf8')).toContain(`exec '${BOT()}'`)
@@ -982,12 +1029,6 @@ it('writes worker shims and the agent environment from the configuration only, a
   expect(readFileSync(join(bin, 'lark-cli'), 'utf8')).toContain('lark-cli is unavailable: this installation has no Feishu bot.')
   expect(readFileSync(join(bin, 'gh'), 'utf8')).toContain(`exec '${AGENT()}'`)
   expect(readFileSync(workerGitConfig(directory), 'utf8')).toContain(`[credential "https://github.com"]\n\thelper = "${credentialHelper(AGENT())}"`)
-  expect(process.env).toMatchObject({ GIT_CONFIG_GLOBAL: workerGitConfig(directory), GIT_CONFIG_NOSYSTEM: '1' })
-  expect(process.env.GIT_AUTHOR_NAME).toBeUndefined()
-  expect(process.env.PATH?.split(':')[0]).toBe(bin)
-  await next.stop()
-  expect(process.env.GIT_CONFIG_GLOBAL).toBeUndefined()
-  expect(process.env.PATH?.split(':')).not.toContain(bin)
 })
 
 it('waits for setup when the shim directory holds a file dsh-superagent did not write, and leaves the file alone', async () => {
@@ -1719,6 +1760,7 @@ it('gives a subagent of a worker only the worker\'s work tools, and none once th
   await (runtime as unknown as { ctx: Context }).ctx.parallel('agent/created', { agent: child } as never)
   expect(restricts.get('child-1')).toEqual([{ allow: ['read', 'read_image', 'grep', 'bash', 'job_output', 'job_list', 'job_kill', 'web_search', 'skill'] }])
   expect(guards.get('child-1')!()).toBeUndefined()
+  expect(shellOverrides?.({ agent: child })?.GIT_CONFIG_GLOBAL).toBe(workerGitConfig(directory))
   runtime.engine.stopTicket(ticket.id)
   expect(guards.get('child-1')!()).toBe('Ticket ended; new work needs a new authorized ticket')
   // Another Session's subagent is left as it is.
@@ -1727,6 +1769,7 @@ it('gives a subagent of a worker only the worker\'s work tools, and none once th
   other.session.header = { parentSession: 'someone-else' }
   await (runtime as unknown as { ctx: Context }).ctx.parallel('agent/created', { agent: other } as never)
   expect(restricts.get('child-2')).toBeUndefined()
+  expect(shellOverrides?.({ agent: other })).toBeUndefined()
 })
 
 it('gives a subagent of a worker\'s subagent the same work tools and guard', async () => {
@@ -1740,6 +1783,7 @@ it('gives a subagent of a worker\'s subagent the same work tools and guard', asy
     await created.parallel('agent/created', { agent } as never)
   }
   expect(restricts.get('grandchild-1')).toEqual([{ allow: ['read', 'read_image', 'grep', 'bash', 'job_output', 'job_list', 'job_kill', 'web_search', 'skill'] }])
+  expect(shellOverrides?.({ agent: agents.get('grandchild-1') })?.GIT_CONFIG_GLOBAL).toBe(workerGitConfig(directory))
   runtime.engine.stopTicket(ticket.id)
   expect(guards.get('grandchild-1')!()).toBe('Ticket ended; new work needs a new authorized ticket')
 })

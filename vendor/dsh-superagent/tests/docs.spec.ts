@@ -1,7 +1,9 @@
+import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { pnpmCommand } from '../../../scripts/release/process.ts'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const NUMBERED = /^(\d{3})-[a-z0-9-]+\.md$/
@@ -52,6 +54,15 @@ describe('documentation', () => {
     const missing = files.flatMap(file => links(file).filter(target => !existsSync(resolve(dirname(file), target))).map(target => `${file.slice(ROOT.length + 1)} → ${target}`))
     expect(missing).toEqual([])
   })
+  it('packs the setup guides and the resources they tell operators to use', () => {
+    const [command, ...prefix] = pnpmCommand()
+    const packed = JSON.parse(execFileSync(command, [...prefix, '--filter', '@janhq/dsh-superagent', 'pack', '--dry-run', '--json'], {
+      cwd: resolve(ROOT, '../..'), encoding: 'utf8', timeout: 15_000,
+    })) as { files: { path: string }[] }
+    expect(packed.files.map(({ path }) => path)).toEqual(expect.arrayContaining([
+      'SETUP.md', ...numbered.map(name => `docs/${name}`), 'examples/profile.cordis.patch.yml', 'scripts/dsh-superagent',
+    ]))
+  }, 20_000)
   it('leaves no merge conflict markers in any document', () => {
     expect(documents.filter(path => /^(<{7}|>{7}) /m.test(read(path)))).toEqual([])
   })

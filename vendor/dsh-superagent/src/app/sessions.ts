@@ -104,6 +104,8 @@ export class Sessions {
     host.effects.handle('relay', ({ text }, requestId) => this.prompt(host.masterId, requestId, text, 'steer'), { ordered: true })
     host.effects.handle('notice', ({ value, summary }, name) => this.inject(name, value, summary), { ordered: true })
   }
+  /** Whether this runtime owns the agent's shell environment, including child agents of its workers. */
+  manages(agent: Agent): boolean { return this.bindings.has(agent) }
   /** Subscribes to host agent and session events so newly created sessions are decorated and model-budget retries are reflected in health. Call once at startup. */
   install(): void {
     const ctx = this.ctx
