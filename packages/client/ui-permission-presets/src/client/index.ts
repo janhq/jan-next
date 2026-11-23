@@ -178,10 +178,10 @@ export function apply(ctx: ClientContext): void {
 
   // One device-wide flag: the Full access default is explained in the first chat that uses it, never again.
   const noticeSeen = (): boolean => {
-    try { return globalThis.localStorage?.getItem(FULL_ACCESS_NOTICE_KEY) === '1' } catch { return true }
+    try { return globalThis.localStorage.getItem(FULL_ACCESS_NOTICE_KEY) === '1' } catch { return true }
   }
   const dismissNotice = (): void => {
-    try { globalThis.localStorage?.setItem(FULL_ACCESS_NOTICE_KEY, '1') } catch { /* storage refused: the notice may show again */ }
+    try { globalThis.localStorage.setItem(FULL_ACCESS_NOTICE_KEY, '1') } catch { /* storage refused: the notice may show again */ }
   }
 
   ctx.slots.inject('conversation.input.permission', () => ctx.slots.register({
