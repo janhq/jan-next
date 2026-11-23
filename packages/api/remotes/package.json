@@ -53,11 +53,11 @@
   ],
   "dependencies": {
     "@janhq/jan-deque": "workspace:*",
-    "@janhq/jan-launch-environment": "workspace:*",
     "@janhq/jan-util-values": "workspace:*"
   },
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
+    "@janhq/jan-launch-environment": "workspace:*",
     "@janhq/jan-scope": "workspace:*"
   },
   "devDependencies": {
@@ -78,6 +78,7 @@
     "@janhq/jan-goal": "workspace:*",
     "@janhq/jan-host-plugin-i18n": "workspace:*",
     "@janhq/jan-host-plugin-inventory": "workspace:*",
+    "@janhq/jan-launch-environment": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-message-feedback": "workspace:*",
     "@janhq/jan-permission-presets": "workspace:*",
