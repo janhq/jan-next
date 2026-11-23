@@ -25,7 +25,7 @@ kind: "package-reference"
 
 Changing the Session's working directory reloads the applicable project instruction chain before the next request.
 
-`/reload` (registered by `@janhq/jan-tool-skill`) also re-reads the instruction chain now, through the `agent/reload` hook: a changed file is queued as a message appended after the conversation, so the system prompt and earlier messages are not rewritten and a provider's prompt cache for them stays valid. The reply names each changed file.
+`/reload` (registered by `@janhq/jan-tool-skill`) re-reads the instruction chain through `agent/reload` on every call, even when a prior update is still queued. The latest change replaces an unadmitted update. Once admitted, an update is appended after the conversation, so the system prompt and earlier messages stay unchanged and the provider can reuse their prompt cache. The reply names each changed file.
 
 Mount this plugin when agents should work from the workspace's own instruction files. `jan-base` already includes it with a 65,536-byte budget for each instruction chain, so base-backed profiles only need to replace the row when they want another `maxBytes`; providerless trees load nothing until a filesystem provider is present.
 
@@ -131,7 +131,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 #### What the model sees
 
-At the first request, derived history contains one durable user-role message with the bounded user-global and project instruction chain in broad-to-specific order. Resume reuses that message when its visible baseline is compatible.
+At the first request, derived history contains one durable user-role message with the bounded user-global and project instruction chain in broad-to-specific order. Resume reuses that message when its visible baseline is compatible. A complete replacement opens with `This complete workspace instruction baseline replaces all earlier workspace instruction baselines.` and keeps the baseline's precedence text and sections; when no instruction file applies any more it is the empty replacement below.
 
 ##### Baseline instruction template
 
@@ -153,7 +153,13 @@ Instructions from: AGENTS.md
 </system-reminder>
 ```
 
-A complete replacement starts with `This complete workspace instruction baseline replaces all earlier workspace instruction baselines.` and keeps the same precedence text. An empty replacement instead says `No workspace instructions are currently active.`
+##### Empty replacement template
+
+```markdown
+<system-reminder>
+This complete workspace instruction baseline replaces all earlier workspace instruction baselines. No workspace instructions are currently active.
+</system-reminder>
+```
 
 #### Token effect
 

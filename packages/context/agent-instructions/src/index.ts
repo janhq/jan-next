@@ -111,7 +111,7 @@ export function apply(ctx: Context, config: Config): void {
     signal: AbortSignal,
     claimed: readonly UserMessage[],
     pending: readonly UserMessage[],
-    touchedPaths: readonly string[] = [],
+    touchedPaths?: readonly string[],
   ): Promise<UserMessage | undefined> => {
     signal.throwIfAborted()
     if (resolved.maxBytes <= 0 || !Number.isFinite(resolved.maxBytes)) {
@@ -126,7 +126,7 @@ export function apply(ctx: Context, config: Config): void {
     const cwd = await ctx.workingDirectory.ensure(agent, signal)
     const projectRoot = await findProjectRoot(cwd, resolved.projectRootMarkers, fileSystem, signal)
     const identity = workspaceBaselineIdentity(resolved, cwd, projectRoot)
-    if (touchedPaths.length === 0 && pending.length > 0
+    if (touchedPaths === undefined && pending.length > 0
       && baselinePreparations.get(agent.session)?.identity === identity) return pending[0]
     const visibleBaseline = visibleBaselineSource(agent, authorityMessages)
     const baselinePresent = visibleBaseline !== undefined
@@ -215,7 +215,7 @@ export function apply(ctx: Context, config: Config): void {
         scopeMessages: pending,
         includeBaselineScopes: keepVisibleBaseline,
         ...keepVisibleBaseline ? { excludedBaselineScopes } : {},
-        touchedPaths,
+        touchedPaths: touchedPaths ?? [],
         projectRoot,
         signal,
       },
@@ -272,13 +272,12 @@ export function apply(ctx: Context, config: Config): void {
   const composeAndSync = async (
     agent: Agent,
     signal: AbortSignal,
-    claimed: readonly UserMessage[],
-    touchedPaths: readonly string[] = [],
+    touchedPaths: readonly string[],
   ): Promise<void> => {
     const pending = agent.inbox.nextStep.filter(isAgentInstructionsMessage)
-    const desired = await compose(agent, signal, claimed, pending, touchedPaths)
+    const desired = await compose(agent, signal, [], pending, touchedPaths)
     signal.throwIfAborted()
-    syncInbox(agent, claimed, desired)
+    syncInbox(agent, [], desired)
   }
 
   const queueProjection = (
@@ -286,7 +285,7 @@ export function apply(ctx: Context, config: Config): void {
     touchedPath: string,
   ): void => {
     const previous = projectionTails.get(agent) ?? Promise.resolve()
-    const current = previous.then(() => composeAndSync(agent, projectionLifecycle.signal, [], [touchedPath]))
+    const current = previous.then(() => composeAndSync(agent, projectionLifecycle.signal, [touchedPath]))
       .catch((error: unknown) => {
         if (!projectionLifecycle.signal.aborted) ctx.logger.warn('workspace instruction refresh failed: %o', error)
       })
