@@ -4156,21 +4156,21 @@ export interface Config {
 ## `@janhq/jan-tool-jobs`
 
 - `inject`: `tools` · `jobs` · `systemPrompt`
-- `source`: [`packages/jobs/tool-jobs/src/index.ts:43`](../packages/jobs/tool-jobs/src/index.ts)
+- `source`: [`packages/jobs/tool-jobs/src/index.ts:46`](../packages/jobs/tool-jobs/src/index.ts)
 
 ```ts config-catalog
-/** Configures bounded `job_output` waits and completion-notice delivery. */
+/** Configures bounded `job_output` waits and background-notice delivery. */
 export interface Config {
   /** Wait duration applied when `job_output` sets `wait` without `timeout_ms` (default 30s). */
   waitTimeoutMs?: number
   /** Hard cap on any single wait; a larger model-supplied `timeout_ms` is clamped down to it (default 10min). */
   maxWaitTimeoutMs?: number
-  /** Whether a completion opens a turn on an idle owner (default `wakeup`). */
+  /** Whether a background notice opens a turn on an idle owner (default `wakeup`). */
   completionDelivery?: CompletionDelivery
   /**
-   * Turns one owner may have opened by completion wakes before the next
+   * Turns one owner may have opened by background wakes before the next
    * notice degrades to injection, reset by any user-authored input. Absent by
-   * default: every idle completion wakes its owner. Set it to bound the
+   * default: every background notice wakes its idle owner. Set it to bound the
    * self-exciting chain where a woken turn starts the job whose completion
    * wakes it again, at the cost of notices past the cap waiting silently for
    * the next user input.
@@ -4186,7 +4186,7 @@ export interface Config {
 }
 
 /**
- * How an uncollected completion reaches an owner that is already idle: `wakeup`
+ * How a background notice reaches an owner that is already idle: `wakeup`
  * opens a turn for it, `quiet` leaves it pending until something else wakes the
  * owner. A busy owner is injected either way.
  */

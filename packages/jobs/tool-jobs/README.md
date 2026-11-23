@@ -1,5 +1,5 @@
 ---
-description: "The model-facing background-job controls for users and maintainers choosing, configuring, or debugging job_output, job_list, job_kill, and completion notices."
+description: "Observe and control background jobs, and configure the notices that wake an idle agent."
 kind: "package-reference"
 ---
 
@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-Use `jan-tool-jobs` to inspect and control background commands and PTY work through `job_output`, `job_list`, and `job_kill`. Reads can wait within a configured timeout, and a wait yields early to a user steer; list results identify each job's kind and status, and cancellation settles after the work stops. When owned work finishes, the agent receives an in-session notice carrying short output: busy agents get it next step, and idle agents are woken by a follow-up turn. Configuration controls wait limits, completion delivery, and an optional consecutive-wakeup cap. Stream output has one reader, and pending notices do not survive owner disposal.
+Use `jan-tool-jobs` to read, list, cancel, and watch background work. A watch batches matching new lines without consuming `job_output`. The owning agent receives notices in its next step while busy or starts a follow-up turn while idle. Set `completionDelivery: quiet` to disable background wakes without dropping notices.
 
 ## Table of Contents
 
@@ -23,21 +23,22 @@ Use `jan-tool-jobs` to inspect and control background commands and PTY work thro
 <a id="use-this-package"></a>
 ## Use this package
 
-Load this plugin in any composition where the agent should start, observe, and stop background jobs: it registers the three tools, attaches the controller producers need, and delivers completion notices. It requires the `ctx.tools`, `ctx.jobs`, and `ctx.systemPrompt` services from the composed harness; completion notices resolve their destination through `ctx.agents`, which every composition with owned jobs already provides.
+Load this plugin where an agent should observe and stop background jobs. It requires `ctx.tools`, `ctx.jobs`, and `ctx.systemPrompt`; owned jobs use `ctx.agents` to find the destination for notices.
 
-### The three tools
+### Background-job tools
 
 - `job_output(job_id, wait?, timeout_ms?)` — Read a job's output. Stream jobs return only the output since the previous read; final-output jobs return their result after settlement. Every response ends with `[status: ...]`. Reads are non-blocking unless `wait: true`. A wait ends on settlement, on the configured timeout, or when a user-authored message is queued for the current step — a chat steer; input queued for a later turn does not end it, and neither do plugin notices or injected context, which stay queued for the next step. A steer and the timeout both return the job's current state, leave it running, and never cancel its producer, so a later read still collects the completion; an interrupted wait names its cause in the status line (`[status: running, user steered]`). A read renders stdout first and stderr in one `[stderr]` section, notes output that left memory before the read, and carries a job's result (a subagent's answer) exactly once, on the first read after settlement.
 - `job_list()` — List your background jobs with their ids, kinds, and statuses, one per line: `<id> [<kind>] <status> — <label>`.
 - `job_kill(job_id, reason?)` — Request cancellation of a running job immediately; the job settles as `killed` once its work actually stops. A terminal job returns its current snapshot, and the optional reason is recorded and forwarded to the job.
+- `job_watch(job_id, pattern?, max_events?, debounce_ms?)` - Start one watch on a running job owned by this session. The watch starts at the current end of output. `pattern` is a JavaScript regex source, without delimiters or flags; omit it to match every line. Partial lines stay separate by stream, and an unterminated final line is matched at settlement. Lines longer than 16,384 UTF-16 code units are matched on that prefix only. The first match opens a batch window (`debounce_ms`, default `1000`, range `1` to `60000`). The watch stops after `max_events` live batches (default `20`, range `1` to `100`), cancellation, settlement, or session disposal. Settlement includes any pending matches in the ordinary completion notice when there is room; an explicit kill or wait that already collected the terminal state still suppresses that notice.
 
-The three tools return `{ text, job }`, `PublicJobSnapshot[]`, and `{ outcome: 'cancellation-requested' | 'already-finished', job }` respectively. A public snapshot carries id, kind, label, status with the live progress line or the terminal detail, and start/finish times, and omits ownership and ring offsets. All three render through generic UI cards: `read` for output and list, `execute` for kill.
+The control results are `{ text, job }`, `PublicJobSnapshot[]`, `{ outcome, job }`, and `{ watch_id, job_id, max_events, debounce_ms }`, respectively. A public job snapshot includes the id, kind, label, status, start and finish times, and live progress or terminal detail; it omits ownership and ring offsets.
 
 ### Completion notices
 
 When a job finishes, the owning agent receives `background job <id> (<kind>: <label>) finished [status: ...]. Output:` followed by the output it has not read and the job's final result, or `. No new output.` when there is none. A notice is inlined only when the complete text fits `inlineOutputBytes` (2048 bytes by default) and the producer's `outputLimitBytes`; otherwise it ends `. Read its output with job_output.` instead, so large output and large final results reach the model as a `job_output` result, which the tool pipeline's spill policy bounds. The label is its first line, bounded to 120 characters. A `job_output` call that collects the job while its notice is still pending withdraws the notice, and a notice that never reaches the model leaves its output for `job_output`. A busy agent has the notice injected into its next step — the turn cannot close while the inbox holds it, so several jobs settling together cost one step rather than one turn each. An idle agent is instead woken with a follow-up turn, because an unclaimed notice is a completion the model never learns about. Completions the model already collected get no notice: the registry reports a settlement that released a live `wait` as `awaited` — whether a `job_output` wait or a shell tool waiting on its own foreground command — and the plugin remembers the kills the model requested through `job_kill`; a settlement caused by owner or service teardown is skipped because nobody is left to read it. A settlement that lands after a user steer ended the wait but before that call's read carries the terminal state is delivered by that read, so the plugin withholds the notice instead of reporting the completion twice.
 
-Waking is unbounded by default: an unattended agent that chains background commands and one-shot subagents is woken for every completion. `maxConsecutiveWakes` caps that: each owner may be woken that many times before further notices degrade to injection, and claiming any user-authored message restores the budget. The cap bounds the self-exciting chain — a woken turn may start the background job whose completion wakes it again — but a notice past it waits silently until the next user input, so a session that relies on wakes to finish its work stalls there. `completionDelivery: quiet` keeps even idle owners on the injection lane, which deterministic transcripts need.
+Wakes are unlimited by default. Set `completionDelivery: quiet` in the host's `tool-jobs` row to disable automatic wakes for both completion and watch notices. A quiet notice remains queued for the next step or later externally triggered turn. If you set `maxConsecutiveWakes`, claiming user-authored input refills that owner's budget; otherwise the agent receives notices silently until something else wakes it.
 
 ### Minimal configuration
 
@@ -51,7 +52,7 @@ Loading the plugin with no config is the common path; a `waitTimeoutMs` above `m
 |---|---|---|
 | `waitTimeoutMs` | `30,000` | Wait used when `wait: true` omits `timeout_ms` |
 | `maxWaitTimeoutMs` | `600,000` | Cap for model-supplied waits; larger values clamp down to it |
-| `completionDelivery` | `wakeup` | `wakeup` opens a turn on an idle owner; `quiet` leaves the notice pending |
+| `completionDelivery` | `wakeup` | `wakeup` opens a turn for background notices on an idle owner; `quiet` leaves them pending |
 | `maxConsecutiveWakes` | unset | Turns one owner may open by wake before notices degrade to injection; unset means no cap |
 | `inlineOutputBytes` | `2048` | Largest complete notice that carries the job's output and final result inline; `0` never inlines |
 
@@ -73,7 +74,7 @@ This section explains the design decisions behind the tools and points at the co
 
 ### Design philosophy
 
-- **Kind-independent controls.** The same three tools read, list, and cancel jobs of every producer kind — bash, PTY — because all of them register through the generic `ctx.jobs` runtime.
+- **Kind-independent controls.** The same controls work across producer kinds. Watches use `readAt` and an independent cursor. The registry retains unread output under its normal limits; completion does not consume output on a watched job, even after the watch reaches its live batch limit.
 - **Delivery is owned here; recipients are the registry's.** The plugin decides how an unreported completion reaches the owner — injected into a busy step, or a woken turn on an idle owner — while the registry routes each settlement to the listeners its owner's scope chain reaches, so a mount under one preset never sees another preset's agents, and an agent reads exactly one notice per completion however many presets are mounted.
 - **Producer-owned output bounds.** When a producer supplies `outputLimitBytes`, the complete model-facing result — output read, terminal kill snapshot, or completion notice — is capped after status and notice metadata are added; producers that omit it keep unbounded behavior.
 
@@ -83,6 +84,7 @@ This section explains the design decisions behind the tools and points at the co
 |---|---|
 | [`src/index.ts`](src/index.ts) | Plugin entry: tool registrations, the settlement subscription, model-kill set, and held settlement reads, prompt section, output capping |
 | [`src/render.ts`](src/render.ts) | Model-facing rendering: the public projection, status lines, and the consuming delta (stdout, `[stderr]` section, dropped-output notice) |
+| [`src/watch.ts`](src/watch.ts) | Independent stream cursor, line fragments, and bounded debounce batches |
 
 ### Output capping
 
@@ -107,7 +109,7 @@ Read these pages when the package-level contract is not enough. They move from t
 - [jobs group map](../README.md) — the sibling group page and its package table.
 - [Registry contract](../jobs/README.md) — the abstract `ctx.jobs` service behind the tools.
 - [Process-local registry](../jobs-local/README.md) — where jobs run in this process.
-- [Generated tool catalog](../../../docs/tool-catalog.md#janhqjan-tool-jobs) — the exact `job_output`, `job_list`, and `job_kill` schemas.
+- [Generated tool catalog](../../../docs/tool-catalog.md#janhqjan-tool-jobs) - the exact model-facing tool schemas.
 - [Generated configuration catalog](../../../docs/config-catalog.md#janhqjan-tool-jobs) — every accepted config field and its source declaration.
 
 -----
@@ -139,7 +141,7 @@ Prefix-stable while the plugin scope and guidance text are unchanged. Activation
 
 #### What the model sees
 
-The generated [`job_output`, `job_list`, and `job_kill` schemas](../../../docs/tool-catalog.md#janhqjan-tool-jobs) while this tool set is visible.
+The [generated tool schemas](../../../docs/tool-catalog.md#janhqjan-tool-jobs) while this tool set is visible.
 
 #### Token effect
 
