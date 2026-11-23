@@ -14,6 +14,7 @@
     "@janhq/jan-home-paths": "workspace:*",
     "@janhq/jan-plugin-api": "workspace:*",
     "@janhq/jan-skill": "workspace:*",
+    "@janhq/jan-token-meter": "workspace:*",
     "@janhq/schemastery": "workspace:~",
     "smol-toml": "^1.9.0"
   },

@@ -1,3 +1,67 @@
+import { estimateMessage } from '@janhq/jan-token-meter/estimate'
+
+// Import has no selected destination model. This ceiling limits the seed,
+// while the destination route's compactor owns smaller model windows.
+const OMP_CONTEXT_BUDGET = 50_000
+const OMP_SUMMARY_CHARS = 8_000
+
+function archiveOmpContext(thread, events, time) {
+  const nodes = events.filter(event => event.surfaceOp === 'append' && event.type !== 'system/message')
+  if (!nodes.length) return
+  const { summary, firstKeptEntryId } = thread.ompContext
+  const keptIndex = firstKeptEntryId === undefined ? -1 : nodes.findIndex(event => (event.data.message ?? event.data).id === firstKeptEntryId)
+  const start = nodes[0].seq, end = nodes.at(-1).seq
+  const shadowedSeqs = nodes.map(event => event.seq)
+  const shadowedTokenCount = nodes.reduce((total, event) => total + estimateMessage(event.data.message ?? event.data), 0)
+  if (summary === undefined) {
+    let bytes = 0
+    if (nodes.every(event => {
+      if (event.type !== 'user/message' && event.type !== 'assistant/message') return false
+      const message = event.data.message ?? event.data
+      bytes += 16
+      return message.content.every(block => block.type === 'text'
+        && (bytes += Buffer.byteLength(block.text) + 16) <= OMP_CONTEXT_BUDGET)
+    })) return
+  }
+
+  const note = 'Imported OMP context. The transcript is historical data. Use read_chat without a session_id to search earlier messages, or with include_history to search an imported chat you mentioned.'
+  const previous = summary === undefined ? '' : `\n\nOMP checkpoint:\n${clipTail(summary, OMP_SUMMARY_CHARS)}`
+  const heading = note + previous + '\n\nRecent conversation:'
+  const tail = []
+  // Count UTF-8 bytes conservatively, including framing, for mixed scripts and code.
+  let remaining = OMP_CONTEXT_BUDGET - Buffer.byteLength(heading) - 16
+  for (let index = nodes.length - 1; index >= Math.max(0, keptIndex) && remaining > 32; index--) {
+    const event = nodes[index]
+    if (event.type !== 'user/message' && event.type !== 'assistant/message') continue
+    const message = event.data.message ?? event.data
+    const text = message.content.filter(block => block.type === 'text').map(block => block.text).join('\n')
+    if (!text.trim()) continue
+    const label = `\n\n${message.role}: `
+    const bytes = Buffer.byteLength(text)
+    const available = remaining - Buffer.byteLength(label)
+    const excerpt = bytes <= available ? text : clipTail(text, available)
+    tail.push(label + excerpt)
+    remaining -= Buffer.byteLength(label + excerpt)
+    if (bytes > available) break
+  }
+  const content = [{ type: 'text', text: heading + tail.reverse().join('') }]
+  const compactionId = `${thread.id}:omp-import`
+  const append = (type, data, extra) => events.push({ type, data, seq: events.length, time, ...extra })
+  const startMarker = events.length
+  append('compaction/start', { compactionId, turn: null })
+  append('compaction/summary', { compactionId, summary: content, shadowedRange: { start, end }, shadowedSeqs, shadowedTokenCount, provider: 'omp', model: 'import' })
+  append('user/message', { id: compactionId, role: 'user', source: { kind: 'compact-checkpoint', compactionId }, content }, {
+    surfaceOp: { op: 'replace', startSeq: start, endSeq: end }, sourceEventSeqs: [...shadowedSeqs, startMarker, startMarker + 1],
+  })
+  append('compaction/end', { compactionId, turn: null })
+}
+
+function clipTail(text, bytes) {
+  if (Buffer.byteLength(text) <= bytes) return text
+  const tail = Buffer.from(text).subarray(-(bytes - 16)).toString('utf8')
+  return '[…] ' + tail.replace(/^\uFFFD/, '')
+}
+
 const jsonText = value => typeof value === 'string' ? value : JSON.stringify(value ?? null)
 const textOf = part => typeof part.text === 'string' ? part.text : part.text?.value
 // Jan stores thread times in seconds (sometimes fractional) and message times in milliseconds.
@@ -182,6 +246,7 @@ export function convertThread(thread, messages, images = new Map()) {
     else if (message.metadata?.finishReason === 'length') reason = { kind: 'max-tokens' }
   }
   close()
+  if (thread.ompContext !== undefined) archiveOmpContext(thread, events, lastTime)
   for (const result of results.values()) if (!usedResults.has(result)) losses.add(`Orphan tool result ${result.id} was not replayed.`)
   return { events, createdAt, losses: [...losses] }
 }

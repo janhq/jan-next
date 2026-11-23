@@ -18854,6 +18854,9 @@ importers:
       '@janhq/jan-skill':
         specifier: workspace:*
         version: link:../../packages/skill/skill
+      '@janhq/jan-token-meter':
+        specifier: workspace:*
+        version: link:../../packages/llm/token-meter
       '@janhq/schemastery':
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery
