@@ -505,6 +505,12 @@ function Browser({ state, listing, t, face, hooks, language, onInstall, openPack
   const busy = listing.status === 'loading' && value !== null
   return (
     <>
+      <div className={css.head}>
+        <p className={css.intro}>{t('intro')}</p>
+        <Button variant="outline" size="sm" icon={<IconSlidersTwoOutlineRegular size={13} />} onClick={face.toggleSources}>
+          {t('manageSources')}
+        </Button>
+      </div>
       <div className={css.toolbar} data-discover-toolbar>
         <Menu open={menu === 'market'} onClose={() => { setMenu(null) }} portal autoFocus selectedId={listing.url}
           items={state.indexes.map(index => ({ id: index.url, label: indexLabel(index, face.resolveText) }))}
