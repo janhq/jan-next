@@ -12,7 +12,7 @@ const START_MS = 90_000
 // Releases before the 2026-11-16 rename print `dsh web` and answer "dsh web authentication
 // required" over the same /connect and api/remote.mux wire; both names are one product.
 const UNAUTHORIZED_PATTERN = /^(jan|dsh) web authentication required/
-const START_LINE_PATTERN = /(?:jan|dsh) web: (https?:\/\/\S+)/
+const START_LINE_PATTERN = /^(?:jan|dsh) web: (https?:\/\/\S+)$/
 
 /**
  * The reason the remote Jan stopped before printing its start line. Node ends a crash with its
@@ -158,17 +158,29 @@ async function startOnce({ ssh, command, ports, relayPort, log }) {
   const exited = new Promise(resolve => child.once('exit', code => resolve(`ssh exited with code ${code}`)))
   const { promise, resolve, reject } = Promise.withResolvers()
   const timer = setTimeout(() => reject(new Error(`Jan did not start on ${destination} within ${START_MS / 1000} s.`)), START_MS)
-  const read = (chunk) => {
-    output = `${output}${chunk}`.slice(-8000)
-    for (const line of String(chunk).split(/\r?\n/)) if (line.trim()) log(line.trim())
-    const match = START_LINE_PATTERN.exec(output)
-    if (match) {
-      clearTimeout(timer)
-      resolve(new URL(match[1]).searchParams.get('token'))
+  let ready = false
+  const read = () => {
+    let pending = ''
+    return (chunk) => {
+      output = `${output}${chunk}`.slice(-8000)
+      const lines = (pending + chunk).split('\n')
+      pending = lines.pop().slice(-8000)
+      for (const raw of lines) {
+        const line = raw.trim()
+        if (line) log(line)
+        if (ready) continue
+        const match = START_LINE_PATTERN.exec(line)
+        if (!match) continue
+        const token = URL.parse(match[1])?.searchParams.get('token')
+        if (!token) continue
+        ready = true
+        clearTimeout(timer)
+        resolve(token)
+      }
     }
   }
-  child.stdout.on('data', read)
-  child.stderr.on('data', read)
+  child.stdout.setEncoding('utf8').on('data', read())
+  child.stderr.setEncoding('utf8').on('data', read())
   child.once('error', (error) => { clearTimeout(timer); reject(error) })
   void exited.then((reason) => {
     clearTimeout(timer)

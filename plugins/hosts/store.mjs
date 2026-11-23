@@ -7,6 +7,7 @@
  */
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile } from 'node:fs/promises'
+import { isIPv6 } from 'node:net'
 import { dirname, join } from 'node:path'
 import { withFileLock as lockFile, writeFileAtomic } from '@janhq/jan-atomic-write'
 
@@ -57,6 +58,10 @@ function name(value) {
   return trimmed
 }
 
+export function normalizeDeviceName(value) {
+  return name(value)
+}
+
 /**
  * Normalize a pasted Jan link to its application root. The query is dropped because it may
  * carry the one-time login token, which is stored separately.
@@ -80,23 +85,39 @@ export function parseHostUrl(value) {
 }
 
 /**
- * Read `user@host:port` the way `ssh` does: user and port are optional.
+ * Read `user@host:port` the way `ssh` does: user and port are optional; bracket IPv6 to name a port.
  * @param {string} value - SSH destination.
- * @returns {{ user: string | undefined, host: string, port: number }} the parts.
+ * @returns {{ user: string | undefined, host: string, port: number | undefined }} the parts.
  */
 export function parseSshTarget(value) {
-  const match = /^(?:([^@\s:]+)@)?([^@\s:]+|\[[0-9a-fA-F:]+\])(?::(\d{1,5}))?$/.exec(String(value ?? '').trim())
-  // No port means ssh decides: 22, or the Port an ssh config alias names.
-  const port = match?.[3] === undefined ? undefined : Number(match[3])
-  // `-` would let a host name be read by ssh as an option.
-  if (!match || match[2].startsWith('-') || match[1]?.startsWith('-') || (port !== undefined && (port < 1 || port > 65535))) {
+  const match = /^(?:([^@\s:]+)@)?([^@\s]+)$/.exec(String(value ?? '').trim())
+  const user = match?.[1]
+  const address = match?.[2] ?? ''
+  let host = address
+  let port
+  if (!isIPv6(address)) {
+    const bracketed = /^\[([^\]]+)\](?::(\d{1,5}))?$/.exec(address)
+    const withPort = /^(.*):(\d{1,5})$/.exec(address)
+    if (bracketed && isIPv6(bracketed[1])) {
+      host = bracketed[1]
+      port = bracketed[2]
+    } else if (withPort) {
+      // Older Jan releases wrote IPv6 without brackets. Only split off a legacy port
+      // when the entire address is not itself a valid IPv6 literal.
+      host = withPort[1]
+      port = withPort[2]
+    }
+  }
+  const portNumber = port === undefined ? undefined : Number(port)
+  if (!match || !host || host.startsWith('-') || user?.startsWith('-') || (!isIPv6(host) && /[:[\]]/.test(host))
+    || (portNumber !== undefined && (portNumber < 1 || portNumber > 65535))) {
     throw new HostsError('ssh', 'Write the SSH host as user@host, user@host:port, or a Host name from your ssh config.')
   }
-  return { user: match[1], host: match[2].replace(/^\[|\]$/g, '').toLowerCase(), port }
+  return { user, host: host.toLowerCase(), port: portNumber }
 }
 
 function sshKey({ user, host, port }) {
-  return `${user === undefined ? '' : `${user}@`}${host}${port === undefined ? '' : `:${port}`}`
+  return `${user === undefined ? '' : `${user}@`}${isIPv6(host) ? `[${host}]` : host}${port === undefined ? '' : `:${port}`}`
 }
 
 /** Saved Hosts and paired devices under one home. */
@@ -116,7 +137,7 @@ export class HostsStore {
    * Add or edit a connection. Names are unique ignoring case, and two entries never point at
    * the same address, because the person could not tell them apart in the list.
    * @param {object} input - `{ id?, name, kind: 'url' | 'ssh', url?, ssh? }`.
-   * @returns {Promise<{ connection: object, token: string | undefined }>} the saved entry and any pasted token.
+   * @returns {Promise<{ connection: object, token: string | undefined, previous: object | undefined }>} the saved entry, any pasted token and the entry it replaced.
    */
   saveConnection(input) {
     return withFileLock(this.connectionsFile, async () => {
@@ -142,13 +163,17 @@ export class HostsStore {
         throw new HostsError('name-taken', `Another Host is already called ${entry.name}.`)
       }
       const where = item => item.kind === 'url' ? item.url : item.ssh.toLowerCase()
-      if (others.some(item => where(item) === where(entry))) throw new HostsError('duplicate', 'This address is already saved.')
+      if (others.some(item => where(item) === where(entry))) {
+        throw new HostsError('duplicate', 'This address is already saved.')
+      }
       const index = list.findIndex(item => item.id === entry.id)
-      if (index === -1) list.push({ ...entry, addedAt: Date.now() })
+      const previous = list[index]
+      const connection = { ...entry, addedAt: previous?.addedAt ?? Date.now() }
+      if (index === -1) list.push(connection)
       // Fields of the other kind, and the command, profile and port SSH entries once carried, are dropped.
-      else list[index] = { ...entry, addedAt: list[index].addedAt }
+      else list[index] = connection
       await writeList(this.connectionsFile, 'connections', list)
-      return { connection: list[index === -1 ? list.length - 1 : index], token }
+      return { connection, token, previous }
     })
   }
 
@@ -177,7 +202,7 @@ export class HostsStore {
     return withFileLock(this.devicesFile, async () => {
       const list = await readList(this.devicesFile, 'devices')
       const token = randomBytes(32).toString('base64url')
-      const device = { id: randomUUID(), name: name(label), pairedAt: Date.now() }
+      const device = { id: randomUUID(), name: normalizeDeviceName(label), pairedAt: Date.now() }
       list.push({ ...device, hash: hashToken(token) })
       await writeList(this.devicesFile, 'devices', list)
       return { device, token }
@@ -218,7 +243,7 @@ export class HostsStore {
 /**
  * Find the device a presented token belongs to.
  * @param {Map<string, string>} hashes - from {@link HostsStore.deviceHashes}.
- * @param {string | undefined} token - token from the pairing link or the device cookie.
+ * @param {string | undefined} token - token from the device cookie.
  * @returns {string | undefined} the device id, or undefined for an unknown or revoked token.
  */
 export function deviceFor(hashes, token) {
@@ -231,6 +256,6 @@ export function deviceFor(hashes, token) {
   return undefined
 }
 
-function hashToken(token) {
+export function hashToken(token) {
   return createHash('sha256').update(String(token)).digest('hex')
 }
