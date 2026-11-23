@@ -355,12 +355,12 @@ describe('job_watch', () => {
     const inject = vi.fn()
     try {
       const owner = await fakeAgent(ctx, 'watch-batches', { followup, inject, status: 'idle' })
-      const p = producer({ owner: owner.id, kind: 'test-task', cancel: () => p.settle({ status: 'killed' }) })
+      const p = producer({ owner: owner.id, kind: 'test-task', cancel: () => { p.settle({ status: 'killed' }) } })
       const id = ctx.jobs.start(p.spec)
       p.append('ERROR before watch\n')
       const watch = await call(ctx, 'job_watch', { job_id: id, pattern: '^ERROR', max_events: 2, debounce_ms: 50 }, owner)
       expect(watch.isError).toBe(false)
-      expect(watch.value).toMatchObject({ watch_id: expect.any(String), job_id: id, max_events: 2, debounce_ms: 50 })
+      expect(watch.value).toMatchObject({ watch_id: expect.any(String) as string, job_id: id, max_events: 2, debounce_ms: 50 })
 
       p.append('ignore\r\nER')
       p.append('ERROR from stderr\n', { channel: 'stderr' })
@@ -399,7 +399,7 @@ describe('job_watch', () => {
     const inject = vi.fn<(message: UserMessage) => void>()
     try {
       const owner = await fakeAgent(ctx, 'watch-settle', { followup, inject, status: 'idle' })
-      const p = producer({ owner: owner.id, cancel: () => p.settle({ status: 'killed' }) })
+      const p = producer({ owner: owner.id, cancel: () => { p.settle({ status: 'killed' }) } })
       const id = ctx.jobs.start(p.spec)
       expect((await call(ctx, 'job_watch', { job_id: id }, owner)).isError).toBe(false)
       p.append('first line\ntrailing line')
@@ -438,7 +438,7 @@ describe('job_watch', () => {
       await vi.advanceTimersByTimeAsync(1_000)
       done.resolve({ status: 'killed' })
 
-      const abandoned = producer({ owner: owner.id, cancel: () => abandoned.settle({ status: 'killed' }) })
+      const abandoned = producer({ owner: owner.id, cancel: () => { abandoned.settle({ status: 'killed' }) } })
       const abandonedId = ctx.jobs.start(abandoned.spec)
       expect((await call(ctx, 'job_watch', { job_id: abandonedId }, owner)).isError).toBe(false)
       abandoned.append('queued before disposal\n')
