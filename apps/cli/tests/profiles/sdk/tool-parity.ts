@@ -9,11 +9,21 @@ interface Exception {
 
 /** Intentional product differences; obsolete entries fail alongside undeclared differences. */
 export const toolParityExceptions: Record<ToolMode, readonly Exception[]> = {
-  standard: [{ tool: 'list_subagent_models', side: 'desktop',
-    reason: 'Desktop enables subagent model discovery; SDK delegation inherits the caller model by default.' }],
+  standard: [
+    { tool: 'list_subagent_models', side: 'desktop',
+      reason: 'Desktop enables subagent model discovery; SDK delegation inherits the caller model by default.' },
+    { tool: 'capture_audio', side: 'desktop',
+      reason: 'Microphone capture asks for consent in the Desktop window; an SDK process has no capture UI to grant it.' },
+    { tool: 'capture_camera', side: 'desktop',
+      reason: 'Camera capture asks for consent in the Desktop window; an SDK process has no capture UI to grant it.' },
+    { tool: 'read_chat', side: 'desktop',
+      reason: 'read_chat opens chats a person @-mentions in the Desktop composer; SDK callers pass context directly.' },
+  ],
   ptc: [
     { tool: 'list_subagent_models', side: 'desktop',
       reason: 'Desktop enables subagent model discovery; SDK delegation inherits the caller model by default.' },
+    { tool: 'read_chat', side: 'desktop',
+      reason: 'read_chat opens chats a person @-mentions in the Desktop composer; SDK callers pass context directly.' },
     { tool: 'plugin_manager', side: 'sdk',
       reason: 'SDK PTC changes are persisted for restart without replacing active bindings because HMR is disabled; Desktop PTC excludes management in its HMR-enabled preset.' },
     { tool: 'workflow', side: 'sdk',
