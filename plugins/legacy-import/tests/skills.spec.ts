@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
@@ -49,4 +49,34 @@ it('leaves skills in place when Jan reads the source folder through a link', asy
   const scan = await readSkillSource('omp', { home, env: {}, janHome, agentsHome })
   expect(scan.skills.every((row: { status: string }) => row.status === 'already here')).toBe(true)
   expect((await importSkills(scan, { skills: true, instructions: false })).imported).toEqual([])
+})
+
+it('copies a linked skill root without copying links inside the skill', async () => {
+  const { home, omp, root, janHome, agentsHome } = await fixture()
+  const skill = join(root, 'linked-skill')
+  await mkdir(skill)
+  await writeFile(join(skill, 'SKILL.md'), 'linked skill')
+  await symlink(skill, join(omp, 'skills', 'linked'), 'junction')
+  await symlink(join(omp, 'plugins'), join(skill, 'outside-dir'), 'junction')
+
+  const scan = await readSkillSource('omp', { home, env: {}, janHome, agentsHome })
+  const result = await importSkills(scan, { skills: true, names: ['linked'], instructions: false })
+  expect(result.imported).toEqual(['linked'])
+  expect(await readdir(join(janHome, 'skills', 'linked'))).toEqual(['SKILL.md'])
+})
+
+// Windows runners do not necessarily have permission to create file symlinks.
+it.skipIf(process.platform === 'win32')('leaves an independent copy of symlinked global instructions', async () => {
+  const { home, omp, root, janHome, agentsHome } = await fixture()
+  const original = join(root, 'dotfiles.md')
+  await writeFile(original, 'original rules')
+  await rm(join(omp, 'AGENTS.md'))
+  await symlink(original, join(omp, 'AGENTS.md'), 'file')
+
+  const scan = await readSkillSource('omp', { home, env: {}, janHome, agentsHome })
+  expect((await importSkills(scan, { skills: false, instructions: true })).instructions?.status).toBe('imported')
+  await rm(original)
+  const target = join(janHome, 'AGENTS.md')
+  expect((await lstat(target)).isFile()).toBe(true)
+  expect(await readFile(target, 'utf8')).toBe('original rules')
 })

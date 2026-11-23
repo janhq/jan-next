@@ -95,10 +95,10 @@ export function migrationForm(listed, source, window) {
     add(`MCP server ${row.name}`, `Added turned off, so you can review it in Settings first${masks(row.credentials)}.`, true, { mcp: [row.name] })
   }
   for (const row of settings?.providers.filter(item => !item.alreadyImported || (item.hasKey && !item.keyAlreadyConfigured)) ?? []) {
-    add(`Model provider ${row.id}`, row.hasKey && !row.keyAlreadyConfigured ? 'With its saved API key.' : undefined, true, { providers: true })
+    add(`Model provider ${row.id}`, row.hasKey && !row.keyAlreadyConfigured ? 'With its saved API key.' : undefined, true, { providerIds: [row.id] })
   }
   const assistants = settings?.assistants.filter(item => !item.alreadyImported) ?? []
-  if (assistants.length) add(plural(assistants.length, 'assistant'), `As agent presets: ${assistants.map(item => item.name).join(', ')}.`, true, { assistants: true })
+  if (assistants.length) add(plural(assistants.length, 'assistant'), `As agent presets: ${assistants.map(item => item.name).join(', ')}.`, true, { assistantIds: assistants.map(item => item.id) })
   const skills = settings?.skills
   const readySkills = skills?.linked ? [] : skills?.skills?.filter(row => row.status === 'ready') ?? []
   if (readySkills.length) add(plural(readySkills.length, 'skill'), `Copied into ${skills.target}: ${readySkills.slice(0, 6).map(row => row.name).join(', ')}${readySkills.length > 6 ? ', …' : ''}.`, true, { skills: readySkills.map(row => row.name) })
@@ -130,7 +130,7 @@ export function migrationForm(listed, source, window) {
  * Register `migrate_scan` and `migrate_import`. `migrate_import` shows one form with every ready item
  * ticked; the user's submitted ticks are the approval and decide what is imported.
  * @param {any} ctx Plugin context with `tools`.
- * @param {{ list: (request: object) => Promise<any>, importSelected: (request: object) => Promise<any> }} importer The importer the Settings card uses.
+ * @param {{ list: (request: object, approval?: object) => Promise<any>, importSelected: (request: object, approval?: object) => Promise<any> }} importer The importer the Settings card uses. The form scan saves a Host-only snapshot in `approval`.
  */
 export function registerMigrateTools(ctx, { list, importSelected }) {
   const scan = {
@@ -162,7 +162,8 @@ export function registerMigrateTools(ctx, { list, importSelected }) {
       const questions = ctx.get('userQuestions')
       if (!questions) throw new Error('This chat cannot show the import form. Use Settings -> Built-in plugins -> Import sessions instead.')
       const window = days(args.days)
-      const listed = await list({ source: args.source })
+      const approval = {}
+      const listed = await list({ source: args.source }, approval)
       const { options, detail } = migrationForm(listed, args.source, window)
       if (!options.length) return { imported: 0, note: `Nothing new to import from ${SOURCE_NAMES[args.source]}.`, detail }
       const answer = await questions.ask({
@@ -175,12 +176,14 @@ export function registerMigrateTools(ctx, { list, importSelected }) {
       const picks = options.filter(option => ticked.has(option.label)).map(option => option.pick)
       if (!picks.length) return { imported: 0, note: 'The user ticked nothing, so nothing was imported.' }
       const ids = picks.flatMap(pick => pick.ids ?? [])
+      const providerIds = picks.flatMap(pick => pick.providerIds ?? [])
+      const assistantIds = picks.flatMap(pick => pick.assistantIds ?? [])
       const mcp = picks.flatMap(pick => pick.mcp ?? [])
       const skills = picks.flatMap(pick => pick.skills ?? [])
       const { results, settings } = await importSelected({
-        source: args.source, ids, providers: picks.some(pick => pick.providers), assistants: picks.some(pick => pick.assistants),
+        source: args.source, folder: listed.folder, ids, providerIds, assistantIds,
         mcp: mcp.length > 0, mcpNames: mcp, skills: skills.length > 0, skillNames: skills, instructions: picks.some(pick => pick.instructions),
-      })
+      }, approval)
       const count = status => results.filter(result => result.status === status).length
       return {
         chosen: options.filter(option => ticked.has(option.label)).map(option => option.label.replace(/ \(Recommended\)$/u, '')),
