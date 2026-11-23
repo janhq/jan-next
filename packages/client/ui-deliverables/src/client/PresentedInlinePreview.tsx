@@ -1,7 +1,7 @@
 /** A lone delivered image or HTML page, shown in the chat above its card. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RemoteResult } from '@janhq/jan-api-remotes/client'
-import { fileExtension, withElementProbe } from '@janhq/jan-client-ui-primitives'
+import { createBasicHtmlDocument, fileExtension } from '@janhq/jan-client-ui-primitives'
 import type { PropsLocale, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { SessionId } from '@janhq/jan-session/types'
 import { basename, type PresentedPath } from './turn-deliverables.ts'
@@ -29,10 +29,9 @@ export function inlinePreviewType(path: string): string | undefined {
 
 /**
  * Render a lone delivery's content in place. An image opens the sidebar preview
- * on click; a page runs in an opaque, script-only sandbox with no access to the
- * app, as the sidebar HTML preview does, carrying the element probe so pick and
- * grab can still name an element in it. Nothing shows until the bytes arrive,
- * and a failed read leaves only the card.
+ * on click; an HTML page uses the same static, network-free policy as the
+ * sidebar's static preview. Nothing shows until the bytes arrive, and a
+ * failed read leaves only the card.
  * @param props - the delivered file, its Session, the byte reader, the sidebar opener, and copy.
  * @returns the preview, or null while loading, on failure, and for other types.
  */
@@ -43,7 +42,7 @@ export function PresentedInlinePreview({ file, sessionId, readPresented, onPrevi
   onPreview: () => void
 } & PropsLocale<typeof NS> & Pick<PropsRenderSlots<'deliverables.preview.actions'>, 'renderSlot'>) {
   const type = inlinePreviewType(file.path)
-  const [url, setUrl] = useState<string>()
+  const [preview, setPreview] = useState<{ kind: 'image'; url: string } | { kind: 'html'; document: string }>()
   const image = useRef<HTMLImageElement>(null)
   const frame = useRef<HTMLIFrameElement>(null)
   const getSurface = useCallback(() => image.current ?? frame.current, [])
@@ -54,25 +53,33 @@ export function PresentedInlinePreview({ file, sessionId, readPresented, onPrevi
     void readPresented(sessionId, file.path, controller.signal).then((result) => {
       if (controller.signal.aborted || !result.ok) return
       const data = result.value.data
-      created = URL.createObjectURL(new Blob([type === 'text/html' ? withElementProbe(data) : data as Uint8Array<ArrayBuffer>], { type }))
-      setUrl(created)
+      if (type === 'text/html') {
+        try {
+          setPreview({ kind: 'html', document: createBasicHtmlDocument(data) })
+        } catch {
+          // Invalid UTF-8 leaves the delivery card available without a preview.
+        }
+        return
+      }
+      created = URL.createObjectURL(new Blob([data as Uint8Array<ArrayBuffer>], { type }))
+      setPreview({ kind: 'image', url: created })
     }, () => undefined)
     return () => {
       controller.abort()
       if (created !== undefined) URL.revokeObjectURL(created)
-      setUrl(undefined)
+      setPreview(undefined)
     }
   }, [type, readPresented, sessionId, file.path])
-  if (type === undefined || url === undefined) return null
+  if (preview === undefined) return null
   const name = basename(file.path)
   return <>
-    {type !== 'text/html'
+    {preview.kind === 'image'
       ? <button type="button" className={css.inlinePreview} data-presented-inline="image"
         aria-label={t('presented.previewCard', { name: file.path })} onClick={onPreview}>
-        <img ref={image} className={css.inlineImage} src={url} alt={t('presented.inline', { name })} />
+        <img ref={image} className={css.inlineImage} src={preview.url} alt={t('presented.inline', { name })} />
       </button>
       : <iframe ref={frame} className={`${css.inlinePreview} ${css.inlineFrame}`} data-presented-inline="html"
-        data-element-probe="" src={url} sandbox="allow-scripts" title={t('presented.inline', { name })} />}
+        srcDoc={preview.document} sandbox="" title={t('presented.inline', { name })} />}
     {renderSlot('deliverables.preview.actions', { getSurface })}
   </>
 }

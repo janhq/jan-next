@@ -1163,8 +1163,11 @@ it('shows a lone delivered image or page inline, and nothing for two files, othe
 
   view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'page.html', seq: 3, index: 0 }] }} />)
   const frame = await view.findByTitle('Preview of page.html')
-  // Scripts run, but in an opaque origin with no access to the app.
-  expect(frame.getAttribute('sandbox')).toBe('allow-scripts')
+  expect(frame.getAttribute('sandbox')).toBe('')
+  expect(frame.hasAttribute('data-element-probe')).toBe(false)
+  const page = new DOMParser().parseFromString(frame.getAttribute('srcdoc') ?? '', 'text/html')
+  expect(page.head.firstElementChild?.getAttribute('content')).toContain("connect-src 'none'")
+  expect(page.head.firstElementChild?.getAttribute('content')).toContain("script-src 'none'")
   fireEvent.click(view.getByRole('button', { name: 'Inspect preview surface' }))
   expect(frame.hasAttribute('data-inspected')).toBe(true)
 
