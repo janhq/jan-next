@@ -48,7 +48,7 @@ A producer can start work only while a controller that serves the owner is attac
 - name: '@janhq/jan-tool-jobs'
 ```
 
-Load these plugins on a harness that provides the agent, tools, and system-prompt services. `jan-jobs-local` provides the process-local registry; `jan-tool-jobs` provides model-facing controls, output watches, and completion notices.
+Load these plugins on a harness that provides the agent, tools, and system-prompt services. `jan-jobs-local` provides the process-local registry; `jan-tool-jobs` provides model-facing controls, output watches, timer jobs, and completion notices.
 
 ### What can go wrong
 
