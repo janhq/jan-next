@@ -1578,16 +1578,23 @@ describe('AgentPresetSeatController apply outcomes', () => {
     expect(select).not.toHaveBeenCalled()
   })
 
-  it.each([
-    { name: 'a started Session', session: { ...blankStandard, blank: false }, pick: 'minimal' },
-    { name: 'a Session already using the pick', session: blankStandard, pick: 'standard' },
-  ])('leaves $name unchanged and drops the stage', async ({ session, pick }) => {
-    let current: SessionView = session
+  it('leaves a started Session unchanged and drops the stage', async () => {
+    let current: SessionView = { ...blankStandard, blank: false }
     const { controller, select } = seatOver(() => current)
-    await expect(controller.select(pick)).resolves.toEqual({ kind: 'unchanged' })
+    await expect(controller.select('minimal')).resolves.toEqual({ kind: 'unchanged' })
     current = { ...blankStandard, id: SessionId('next') }
     await expect(controller.apply()).resolves.toEqual({ kind: 'unchanged' })
     expect(select).not.toHaveBeenCalled()
+  })
+
+  it('sends an explicit matching pick but skips an equivalent Settings refresh', async () => {
+    const { controller, select } = seatOver(() => blankStandard)
+    await controller.syncBlankSession(blankStandard.id, 'standard')
+    expect(select).not.toHaveBeenCalled()
+
+    await expect(controller.select('standard')).resolves.toEqual({ kind: 'applied' })
+    await expect(controller.apply()).resolves.toEqual({ kind: 'unchanged' })
+    expect(select).toHaveBeenCalledExactlyOnceWith(blankStandard.id, 'standard')
   })
 
   it('is applied only when the Host commits the staged preset', async () => {

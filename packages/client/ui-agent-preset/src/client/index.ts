@@ -143,6 +143,7 @@ export function apply(ctx: ClientContext): void {
     if (developerTools.getSnapshot()) return
     staged.id = undefined
     staged.introduce = false
+    delete staged.explicit
     void unboundSeat.apply()
     for (const seat of seats.values) void seat.apply()
   }), 'ui-agent-preset: Developer tools gate')
