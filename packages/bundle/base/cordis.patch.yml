@@ -487,7 +487,7 @@
         id: reviewer
         description: Read-only diff review and tests that do not write files.
         icon: inspect-outline
-        toolAllowlist: [read, read_image, glob, grep, bash, pwsh, job_output, job_kill, send_message, wait_agent, list_agents]
+        toolAllowlist: [read, read_image, glob, grep, bash, pwsh, job_output, job_kill, job_watch, wake_after, send_message, wait_agent, list_agents]
         readOnlyDelegation: true
         plugins:
           - id: tool-fs
