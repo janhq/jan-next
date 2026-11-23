@@ -1,6 +1,8 @@
-- banner:
-  - navigation "Session hierarchy": Use read_image to inspect red.png.
-  - 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
+- tablist "Chat tabs":
+  - tab "Use read_image to inspect red.png. Close chat tab" [selected]:
+    - text: Use read_image to inspect red.png.
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
 - text: Use read_image to inspect red.png. Then reply exactly MINIMAL_IMAGE_OK and stop. {{clock}}
@@ -8,13 +10,13 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Read images" [expanded]
-- button "Context injection runtime-context"
+- button "Inject context runtime-context"
 - button "Read image red.png" [expanded]:
   - text: Read image
   - button "red.png"
+- text: {{cwd}}/red.png 1x1px, 69 bytes
 - button "red.png, click to view original":
   - img "red.png"
-- text: {{cwd}}/red.png 1x1px, 69 bytes
 - paragraph: MINIMAL_IMAGE_OK
 - button "Copy"
 - button "Branch into a new conversation"
@@ -24,6 +26,8 @@
 - 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Vision Experimental, reasoning effort high": Tokamak 1 Vision Experimental high
 - button "Send message" [disabled]
-- button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
+- button "Choose project" [disabled]
+- 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
+- button "1 turns 2 steps"
 - button "28 tok · Cache hit 0%": 28 tokCache hit 0%
 - button "0% of context used": 0%

@@ -56,3 +56,5 @@
         timeoutMs: 5000
         provider: title-replay
         model: title-model
+    - id: session-title-stability-order
+      name: './title-order.mjs'

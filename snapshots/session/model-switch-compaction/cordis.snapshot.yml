@@ -29,7 +29,7 @@
                 contextWindow: 100000
                 defaultMaxTokens: 1000
               - id: tokamak-1-pro
-                contextWindow: 8980
+                contextWindow: 9400
                 defaultMaxTokens: 1000
     - id: compaction-working-directory
       name: '../../../packages/test-support/session-snapshot/tests/fixtures/compaction-working-directory.ts'

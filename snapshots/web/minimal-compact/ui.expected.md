@@ -1,7 +1,10 @@
-- navigation "Session hierarchy": "Remember the project requirements: imple"
-- button "More actions"
-- button "Active (0)"
-- button "Open right sidebar"
+- tablist "Chat tabs":
+  - 'tab "Remember the project requirements: imple Close chat tab" [selected]':
+    - text: "Remember the project requirements: imple"
+    - button "Close chat tab"
+  - button "New tab"
+  - button "More actions"
+  - button "Open right sidebar"
 - navigation "Turn navigation":
   - button "Jump to turn 1"
   - button "Jump to turn 2"
@@ -26,10 +29,9 @@
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
 - 'button "Access mode, current: Project Write"': Project Write
-- button "Loading models…"
-- button "Open voice input setup"
+- button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
-- button "Choose project"
+- button "Choose project" [disabled]
 - 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
 - button "2 turns 2 steps"
 - button "28 tok · Cache hit 0%": 28 tokCache hit 0%
