@@ -547,6 +547,8 @@ export async function packageTarget(
     rmSync(buildPaths.packedLandlock, { recursive: true, force: true })
     mkdirSync(buildPaths.packedLandlock, { recursive: true })
     await executePreparation(['--dir', 'native/system', 'run', 'build:ts'], buildEnv, REPOSITORY_ROOT)
+    // The root build produces only the host addon, but Linux prepack requires both libcs and landlock-run.
+    if (target.platform === 'linux') await executePreparation(['--dir', 'native/system', 'run', 'build:native'], buildEnv, REPOSITORY_ROOT)
     await executePreparation([
       '--dir',
       'native/system/packages/entry',

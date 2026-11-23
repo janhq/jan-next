@@ -242,6 +242,16 @@ it.each(['mac-arm64', 'mac-x64', 'win-x64'] as const)('selects branding from the
   }
 })
 
+it('builds the complete Linux addon payload before packing and preparing the runtime', async () => {
+  const { run, stages } = supervisor()
+  await packageTarget(parseDesktopPackageInvocation(['linux-x64', '--unsigned'], 'linux', 'x64'), environment, run)
+  const build = stages.indexOf('--dir native/system run build:native')
+  const pack = stages.findIndex(stage => stage.startsWith('--dir native/system/packages/linux-x64 pack '))
+  expect(build).toBeGreaterThan(stages.indexOf('run build --profile local'))
+  expect(pack).toBeGreaterThan(build)
+  expect(stages.indexOf('run prepare:runtime')).toBeGreaterThan(pack)
+})
+
 it.each([
   ['mac-arm64', 'run build --profile local'],
   ['win-x64', 'run build --profile local'],

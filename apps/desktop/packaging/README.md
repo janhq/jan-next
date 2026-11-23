@@ -166,7 +166,7 @@ These commands ignore `.env.macos` and inherited release settings, use `com.janh
 
 ## Unsigned Linux packages
 
-On Linux x64, after `pnpm install`, build the AppImage and Debian package, or stop at the unpacked application:
+On Linux x64, install `musl-gcc` (`musl-tools` on Debian and Ubuntu) and run `pnpm install`. Packaging builds the complete Linux native payload, including the static Landlock launcher and both libc variants of the addon. Build the AppImage and Debian package, or stop at the unpacked application:
 
 ```sh
 pnpm run package:desktop:linux:x64:unsigned
