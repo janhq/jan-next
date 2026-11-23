@@ -41,7 +41,38 @@ window.__ModuleLoader__.load({
         'setup.skip': 'Not now',
         'setup.done': 'Copied to {name}: {routes}. Reload its window to see them.',
         'setup.doneKept': '{routes} were already there and stay as they are.',
-        'bring.open': 'Bring setup',
+        'bring.open': 'Sync setup…',
+        'sync.title': 'Sync setup to {name}',
+        'sync.description': 'Review what will change on {name}. Items already there stay unchanged unless you choose to replace them.',
+        'sync.providers': 'Model providers',
+        'sync.model': 'Default model',
+        'sync.keys': 'Provider keys',
+        'sync.new': 'Add to remote',
+        'sync.selectNew': 'Select visible additions',
+        'sync.addItem': 'Add {name} to remote',
+        'sync.chooseItem': 'Resolve conflict for {name}',
+        'sync.noSelection': 'Select changes to apply',
+        'sync.keep': 'Keep remote',
+        'sync.replace': 'Use this computer',
+        'sync.sensitive': 'May contain credentials',
+        'sync.machine': 'Uses settings specific to one computer',
+        'sync.unreadable': 'Cannot copy this skill',
+        'sync.environment': 'Key is managed by the remote environment',
+        'sync.empty': 'No setup changes to apply.',
+        'sync.noMatch': 'No items match your filter.',
+        'sync.apply': 'Apply {count} changes',
+        'sync.applying': 'Applying {count} changes…',
+        'sync.refresh': 'Review again',
+        'sync.previewFailed': 'Could not compare setup. Reconnect to {name} with the current Jan build and try again.',
+        'sync.applyFailed': 'Could not confirm what changed on {name}. Review again before applying more changes.',
+        'sync.done': 'Updated {count} items on {name}.',
+        'sync.copied': 'Added',
+        'sync.replaced': 'Replaced',
+        'sync.stale': 'Changed since review. Review again.',
+        'sync.failed': 'Could not apply. Check the setup on {name}.',
+        'sync.restart': 'Saved. Restart Jan on {name} to apply.',
+        'sync.unknown': 'Could not confirm the result. Review again.',
+        'sync.unattempted': 'Not applied. Review again.',
         'bring.title': 'Bring your setup to {name}',
         'bring.lede': 'Choose what Jan on {name} should get from this computer. Nothing it already has is replaced.',
         'bring.loading': 'Checking what {name} already has...',
@@ -199,9 +230,15 @@ window.__ModuleLoader__.load({
 .jh-pick .jh-detail { margin-inline-start: auto; text-align: end; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 .jh-bring-group { display: flex; flex-direction: column; gap: 6px; border: 0; margin: 0; padding: 0; min-width: 0; }
 .jh-bring-group legend { padding: 0; margin-bottom: 6px; width: 100%; }
-.jh-bring-group legend label { flex-direction: row; align-items: center; gap: 10px; font-weight: 500; }
-.jh-bring-group legend .jh-detail { margin-inline-start: auto; font-weight: 400; }
-.jh-bring-name { flex: none; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jh-sync-title { margin: 0; font-size: 14px; font-weight: 500; }
+.jh-sync-row, .jh-sync-actions, .jh-sync-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.jh-sync-row { justify-content: space-between; padding-block: 8px; }
+.jh-sync-row + .jh-sync-row { border-top: 0.5px solid var(--dsw-alias-border-l2); }
+.jh-sync-actions label { padding: 0; }
+.jh-sync-actions select { max-width: 100%; color: inherit; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; padding: 4px 8px; font: inherit; }
+.jh-sync-actions .jh-detail { margin: 0; text-align: start; white-space: normal; }
+.jh-form .jh-sync-all { flex-direction: row; align-items: center; }
+.jh-bring-name { min-width: 0; overflow-wrap: anywhere; }
 .jh-pair { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 16px; border-radius: 12px; background: var(--dsw-alias-settings-card-fill); }
 .jh-qr { flex-shrink: 0; width: 200px; aspect-ratio: 1; padding: 8px; border-radius: 8px; background: #fff; color: #000; }
 .jh-qr svg { display: block; width: 100%; height: 100%; }
@@ -401,148 +438,97 @@ window.__ModuleLoader__.load({
         note && h('div', { className: 'jh-note jh-row-note', role: note.error ? 'alert' : 'status', 'data-error': note.error || undefined }, note.text))
     }
 
-    /**
-     * The copy offer for a connected SSH Host whose Jan has no provider yet. It asks once per
-     * connection; Not now hides it until the next Connect.
-     */
-    function SetupOffer({ t, host, onNote }) {
-      const [offer, setOffer] = React.useState(null)
+    const SYNC_KINDS = ['providers', 'keys', 'model', 'servers', 'skills', 'plugins']
+    const syncId = ({ kind, id }) => JSON.stringify([kind, id])
+
+    function BringSetup({ t, host, onNote, onClose }) {
+      const [preview, setPreview] = React.useState(null)
       const [chosen, setChosen] = React.useState(() => new Set())
       const [error, setError] = React.useState(null)
       const [saving, setSaving] = React.useState(false)
-      const root = host.tunnel?.root
+      const [filter, setFilter] = React.useState('')
+      const [revision, refresh] = React.useReducer(n => n + 1, 0)
+      const [outcomes, setOutcomes] = React.useState(null)
+      const hostArgs = { name: host.name }
       React.useEffect(() => {
-        if (root === undefined) { setOffer(null); return undefined }
         let live = true
-        api('setupOffer', { id: host.id }).then((result) => {
+        api('syncPreview', { id: host.id }).then(result => {
           if (!live) return
-          setOffer(result.offer ? result : null)
-          setChosen(new Set(result.items.map(item => item.route)))
-        }, () => { /* The offer is optional; a failed ask leaves the row as it is. */ })
+          setPreview(result)
+          setChosen(new Set(result.rows.filter(row => row.status === 'new' && !row.sensitive).map(syncId)))
+        }, () => { if (live) setError('sync.previewFailed') })
         return () => { live = false }
-      }, [host.id, root])
-      if (offer === null) return null
-      const toggle = (route, on) => setChosen((current) => {
+      }, [host.id, revision])
+      const reviewAgain = () => {
+        setError(null)
+        setPreview(null)
+        setOutcomes(null)
+        setChosen(new Set())
+        refresh()
+      }
+      const choose = (rows, selected) => setChosen(current => {
         const next = new Set(current)
-        if (on) next.add(route)
-        else next.delete(route)
+        for (const row of rows) selected ? next.add(syncId(row)) : next.delete(syncId(row))
         return next
       })
+      const rows = (preview?.rows ?? []).filter(row => row.status !== 'same')
+      const shown = rows.filter(row => row.name.toLowerCase().includes(filter.trim().toLowerCase()))
+      const group = kind => {
+        const items = shown.filter(row => row.kind === kind)
+        if (!items.length) return null
+        const additions = items.filter(row => row.status === 'new' && !row.sensitive)
+        const label = t(SYNC_KINDS.indexOf(kind) < 3 ? 'sync.' + kind : 'bring.' + kind)
+        return h('fieldset', { key: kind, className: 'jh-bring-group', disabled: saving || Boolean(outcomes) || Boolean(error) },
+          h('legend', null, label),
+          additions.length > 1 && !outcomes && h('label', { className: 'jh-sync-all' },
+            h('input', { type: 'checkbox', checked: additions.every(row => chosen.has(syncId(row))), onChange: e => choose(additions, e.currentTarget.checked) }), t('sync.selectNew')),
+          h('div', { className: 'jh-pick' }, items.map(row => {
+            const id = syncId(row)
+            const selected = chosen.has(id)
+            const result = outcomes && (outcomes.get(id) ?? (row.status === 'conflict' ? 'keep' : undefined))
+            return h('div', { key: id, className: 'jh-sync-row' },
+              h('span', { className: 'jh-bring-name' }, row.name),
+              h('div', { className: 'jh-sync-actions' },
+                result ? h('span', { className: 'jh-detail' }, t('sync.' + result, hostArgs))
+                  : row.status === 'new' ? h('label', null,
+                    h('input', { type: 'checkbox', checked: selected, 'aria-label': t('sync.addItem', { name: row.name }), onChange: e => choose([row], e.currentTarget.checked) }), t('sync.new'))
+                    : row.status === 'conflict' ? h('select', { value: selected ? 'replace' : 'keep', 'aria-label': t('sync.chooseItem', { name: row.name }), onChange: e => choose([row], e.currentTarget.value === 'replace') },
+                      h('option', { value: 'keep' }, t('sync.keep')), h('option', { value: 'replace' }, t('sync.replace')))
+                      : h('span', { className: 'jh-detail' }, t('sync.' + row.problem)),
+                row.sensitive && !result && h('span', { className: 'jh-detail' }, t('sync.sensitive'))))
+          })))
+      }
+      const title = t('sync.title', hostArgs)
       return h('form', {
-        className: 'jh-form', 'aria-label': t('setup.title', { name: host.name }),
-        async onSubmit(event) {
+        className: 'jh-form', 'aria-label': title, async onSubmit(event) {
           event.preventDefault()
+          if (saving || error || outcomes || !chosen.size || !preview) return
           setSaving(true)
-          setError(null)
+          const choices = rows.filter(row => chosen.has(syncId(row))).map(({ kind, id, status }) => ({ kind, id, action: status === 'conflict' ? 'replace' : 'add' }))
           try {
-            const result = await api('copySetup', { id: host.id, routes: [...chosen] })
-            const names = routes => routes.map(route => offer.items.find(item => item.route === route)?.name ?? route).join(', ')
-            const kept = new Set(result.kept)
-            const copied = [...chosen].filter(route => !kept.has(route))
-            onNote({ text: [copied.length > 0 && t('setup.done', { name: host.name, routes: names(copied) }), kept.size > 0 && t('setup.doneKept', { routes: names(result.kept) })].filter(Boolean).join(' ') })
-            setOffer(null)
-          } catch (failure) {
-            setError(failure.message)
+            const result = await api('syncApply', { id: host.id, token: preview.token, choices })
+            const status = new Map(choices.map(item => [syncId(item), 'unattempted']))
+            for (const item of result) status.set(syncId(item), item.status)
+            setOutcomes(status)
+            const count = result.filter(item => ['copied', 'replaced', 'restart'].includes(item.status)).length
+            onNote(count ? { text: t('sync.done', { ...hostArgs, count }) } : undefined)
+          } catch {
+            setError('sync.applyFailed')
           } finally {
             setSaving(false)
           }
-        },
+        }
       },
-        h('h3', { style: { margin: 0, fontSize: 14, fontWeight: 500 } }, t('setup.title', { name: host.name })),
-        h('p', { className: 'jh-lede' }, t('setup.lede', { name: host.name })),
-        h('div', { className: 'jh-pick' }, offer.items.map(item => h('label', { key: item.route },
-          h('input', { type: 'checkbox', checked: chosen.has(item.route), disabled: saving, onChange: event => toggle(item.route, event.currentTarget.checked) }),
-          h('span', null, item.name),
-          !item.profile && h('span', { className: 'jh-detail' }, t('setup.keyOnly'))))),
-        error && h('div', { className: 'jh-note', role: 'alert', 'data-error': '' }, error),
-        h('div', { className: 'jh-actions', style: { justifyContent: 'flex-start' } },
-          h(Button, { type: 'submit', variant: 'primary', size: 'sm', disabled: saving || chosen.size === 0 }, chosen.size === 0 ? t('setup.none') : t('setup.submit', { count: chosen.size })),
-          h(Button, { type: 'button', variant: 'outline', size: 'sm', disabled: saving, onClick: () => setOffer(null) }, t('setup.skip'))))
-    }
-
-    const BRING_KINDS = ['servers', 'skills', 'plugins']
-
-    /** Bring this computer's MCP servers, skills and plugins to a connected SSH Host, item by item. */
-    function BringSetup({ t, host, onNote, onClose }) {
-      const [offer, setOffer] = React.useState(null)
-      const [error, setError] = React.useState(null)
-      const [chosen, setChosen] = React.useState(() => ({ servers: new Set(), skills: new Set(), plugins: new Set() }))
-      const [saving, setSaving] = React.useState(false)
-      const [filter, setFilter] = React.useState('')
-      React.useEffect(() => {
-        let live = true
-        api('customizationOffer', { id: host.id }).then((result) => {
-          if (!live) return
-          setOffer(result)
-          // Ticked unless it would not run there; a person opts into those knowingly.
-          setChosen(Object.fromEntries(BRING_KINDS.map(kind => [kind, new Set(result[kind].filter(item => item.problem === undefined).map(item => item.id))])))
-        }, (failure) => { if (live) setError(failure.message) })
-        return () => { live = false }
-      }, [host.id])
-      const count = BRING_KINDS.reduce((total, kind) => total + chosen[kind].size, 0)
-      const set = (kind, ids) => setChosen(current => ({ ...current, [kind]: ids }))
-      const toggle = (kind, id, on) => {
-        const next = new Set(chosen[kind])
-        if (on) next.add(id)
-        else next.delete(id)
-        set(kind, next)
-      }
-      const detail = (kind, item) => {
-        if (item.problem === 'local-path') return t('bring.localPath')
-        if (kind === 'plugins') return item.install === undefined ? t('bring.shipped') : t('bring.installs', { spec: item.install })
-        return item.detail
-      }
-      const needle = filter.trim().toLowerCase()
-      const group = (kind) => {
-        if (offer[kind].length === 0) return null
-        const items = needle === '' ? offer[kind] : offer[kind].filter(item => `${item.name} ${item.detail ?? ''}`.toLowerCase().includes(needle))
-        const all = items.length > 0 && items.every(item => chosen[kind].has(item.id))
-        return h('fieldset', { key: kind, className: 'jh-bring-group' },
-          h('legend', null,
-            h('label', null,
-              // The group box ticks or clears the rows the filter shows; hidden choices stay as they are.
-              h('input', {
-                type: 'checkbox', checked: all, disabled: saving || items.length === 0, onChange: (event) => {
-                  const next = new Set(chosen[kind])
-                  for (const item of items) event.currentTarget.checked ? next.add(item.id) : next.delete(item.id)
-                  set(kind, next)
-                }
-              }),
-              h('span', null, t(`bring.${kind}`)),
-              h('span', { className: 'jh-detail' }, `${chosen[kind].size}/${offer[kind].length}`))),
-          h('div', { className: 'jh-pick' }, items.map(item => h('label', { key: item.id, 'data-saved': item.problem === undefined ? undefined : '' },
-            h('input', { type: 'checkbox', checked: chosen[kind].has(item.id), disabled: saving, onChange: event => toggle(kind, item.id, event.currentTarget.checked) }),
-            h('span', { className: 'jh-bring-name' }, item.name),
-            h('span', { className: 'jh-detail', title: detail(kind, item) }, detail(kind, item))))))
-      }
-      const empty = offer !== null && BRING_KINDS.every(kind => offer[kind].length === 0)
-      return h('form', {
-        className: 'jh-form', 'aria-label': t('bring.title', { name: host.name }),
-        async onSubmit(event) {
-          event.preventDefault()
-          setSaving(true)
-          setError(null)
-          try {
-            const result = await api('copyCustomizations', { id: host.id, ...Object.fromEntries(BRING_KINDS.map(kind => [kind, [...chosen[kind]]])) })
-            const items = [...result.servers, ...result.skills, ...result.plugins]
-            onNote({ text: [items.length > 0 && t('bring.done', { name: host.name, items: items.join(', ') }), ...result.failed.map(item => t('bring.failed', { name: item.name, error: item.error }))].filter(Boolean).join(' '), error: result.failed.length > 0 })
-            onClose()
-          } catch (failure) {
-            setError(failure.message)
-          } finally {
-            setSaving(false)
-          }
-        },
-      },
-        h('h3', { style: { margin: 0, fontSize: 14, fontWeight: 500 } }, t('bring.title', { name: host.name })),
-        h('p', { className: 'jh-lede' }, offer === null && error === null ? t('bring.loading', { name: host.name }) : empty ? t('bring.empty', { name: host.name }) : t('bring.lede', { name: host.name })),
-        offer !== null && BRING_KINDS.reduce((total, kind) => total + offer[kind].length, 0) >= FILTER_FROM
-        && h(Input, { value: filter, onChange: event => setFilter(event.currentTarget.value), placeholder: t('bring.filter'), 'aria-label': t('bring.filter') }),
-        offer !== null && BRING_KINDS.map(group),
-        error && h('div', { className: 'jh-note', role: 'alert', 'data-error': '' }, error),
-        h('div', { className: 'jh-actions', style: { justifyContent: 'flex-start' } },
-          !empty && h(Button, { type: 'submit', variant: 'primary', size: 'sm', disabled: saving || offer === null || count === 0 }, saving ? t('bring.working') : count === 0 ? t('bring.none') : t('bring.submit', { count })),
-          h(Button, { type: 'button', variant: 'outline', size: 'sm', disabled: saving, onClick: onClose }, t('bring.cancel'))))
+        h('h3', { className: 'jh-sync-title' }, title),
+        h('p', { className: 'jh-lede', role: 'status' }, saving ? t('sync.applying', { count: chosen.size }) : error ? null : !preview ? t('bring.loading', hostArgs) : !rows.length ? t('sync.empty') : t('sync.description', hostArgs)),
+        rows.length >= FILTER_FROM && h(Input, { type: 'search', value: filter, onChange: e => setFilter(e.currentTarget.value), placeholder: t('bring.filter'), 'aria-label': t('bring.filter') }),
+        rows.length > 0 && !shown.length && h('p', { className: 'jh-empty' }, t('sync.noMatch')),
+        SYNC_KINDS.map(group),
+        error && h('div', { className: 'jh-note', role: 'alert', 'data-error': '' }, t(error, hostArgs)),
+        h('div', { className: 'jh-sync-footer' },
+          (error || outcomes) ? h(Button, { type: 'button', size: 'sm', variant: 'primary', onClick: reviewAgain }, t('sync.refresh'))
+            : rows.length > 0 && h(Button, { type: 'submit', size: 'sm', variant: 'primary', disabled: saving || !chosen.size }, chosen.size ? t('sync.apply', { count: chosen.size }) : t('sync.noSelection')),
+          h(Button, { type: 'button', size: 'sm', variant: 'outline', disabled: saving, onClick: onClose }, t(outcomes ? 'devices.done' : 'bring.cancel'))))
     }
 
     function PairPanel({ t, pairing, onDone }) {
@@ -623,8 +609,7 @@ window.__ModuleLoader__.load({
                   onEdit: () => setEditing(host), onRemove: () => { setAcknowledged(false); setRemoving(host) },
                   onBring: () => setBringing(host.id),
                 }),
-                host.kind === 'ssh' && h(SetupOffer, { t, host, onNote: value => note(host.id, value) }),
-                bringing === host.id && host.tunnel !== undefined && h(BringSetup, { t, host, onNote: value => note(host.id, value), onClose: () => setBringing(null) }))))),
+                bringing === host.id && host.tunnel !== undefined && h(BringSetup, { key: host.tunnel.root, t, host, onNote: value => note(host.id, value), onClose: () => setBringing(null) }))))),
 
         h('div', { className: 'jh-group', role: 'group', 'aria-labelledby': 'jh-devices-title' },
           h('div', { className: 'jh-group-head' },

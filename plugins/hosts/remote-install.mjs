@@ -254,7 +254,7 @@ export async function installRemote({ ssh, runtime, onProgress, signal }) {
  * @param {{ port: number, proxy?: string, name?: string }} options - remote listen port, the relay's proxy URL and the saved connection name.
  * @returns {string} the remote command.
  */
-export function startCommand({ port, proxy, name }) {
+export function startCommand({ port, proxy, name, syncAccess }) {
   const root = `"$HOME"/${REMOTE_ROOT}`
   const variables = proxy === undefined ? [] : [
     ...['HTTPS_PROXY', 'HTTP_PROXY', 'https_proxy', 'http_proxy'].map(name => `${name}=${shellQuote(proxy)}`),
@@ -263,6 +263,7 @@ export function startCommand({ port, proxy, name }) {
   return [
     `cd "$HOME" &&`, 'exec env', ...variables, `JAN_HOME=${root}/home`,
     ...(name === undefined || name.trim() === '' ? [] : [`JAN_HOST_NAME=${shellQuote(name.trim())}`]),
+    ...(syncAccess === undefined ? [] : [`JAN_HOST_SYNC_ACCESS=${shellQuote(syncAccess)}`]),
     'XDG_DOCUMENTS_DIR="${XDG_DOCUMENTS_DIR:-$HOME/Documents}"',
     `${root}/current/node/bin/node`, `${root}/current/jan/node_modules/@janhq/jan/lib/bin.js`,
     '--profile', 'edge', '--no-open', '--port', String(port),
