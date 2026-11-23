@@ -18651,6 +18651,9 @@ importers:
       '@janhq/dsh-generative-ui':
         specifier: workspace:~
         version: link:../../vendor/dsh-generative-ui
+      '@janhq/jan-agent-browser':
+        specifier: workspace:*
+        version: link:../agent-browser
       '@janhq/jan-agent-desktop':
         specifier: workspace:*
         version: link:../agent-desktop
