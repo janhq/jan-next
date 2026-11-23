@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest'
 import type { AccountUserId } from '@janhq/jan-tokamak-account/types'
 import { DesktopPlatformView, platformBounds } from '../src/platform-view.ts'
 
@@ -47,13 +47,15 @@ afterEach(() => {
 })
 function setup() {
   let blocked = false
+  let zoomFactor = 1
   const removeChildView = vi.fn()
   const owner = Object.assign(new EventEmitter(), {
-    webContents: new EventEmitter(), contentView: { addChildView: vi.fn(), removeChildView }, isDestroyed: () => false,
+    webContents: Object.assign(new EventEmitter(), { getZoomFactor: () => zoomFactor }),
+    contentView: { addChildView: vi.fn(), removeChildView }, isDestroyed: () => false,
   })
   const manager = new DesktopPlatformView('/bundled/preload.cjs', () => 'en_US', 'darwin', () => blocked)
   manager.setSession({ origin: 'https://tokamak.sh', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret' })
-  return { manager, owner, removeChildView, block: () => { blocked = true } }
+  return { manager, owner, removeChildView, block: () => { blocked = true }, zoom: (factor: number) => { zoomFactor = factor } }
 }
 
 /** Invoke the first registered header interceptor for one request. */
@@ -70,6 +72,7 @@ function interceptHeaders(id: number, url: string, requestHeaders: Record<string
 function view() {
   return state.views.at(-1) as {
     setVisible: ReturnType<typeof vi.fn>
+    setBounds: Mock
     webContents: EventEmitter & {
       mainFrame: { url: string }
       loadURL: ReturnType<typeof vi.fn>
@@ -79,6 +82,18 @@ function view() {
     } }
 }
 const bounds = { x: 10, y: 20, width: 800, height: 600 }
+
+it('aligns native bounds to zoomed workspace coordinates on open, resize, and zoom', async () => {
+  const { manager, owner, zoom } = setup()
+  zoom(1.25)
+  await manager.open(owner, 'usage', platformBounds({ x: 2.4, y: 20, width: 800, height: 500 }))
+  expect(view().setBounds).toHaveBeenLastCalledWith({ x: 3, y: 25, width: 1000, height: 625 })
+  manager.setBounds(owner, platformBounds({ x: 0, y: 40, width: 400, height: 200 }))
+  expect(view().setBounds).toHaveBeenLastCalledWith({ x: 0, y: 50, width: 500, height: 250 })
+  zoom(0.5)
+  manager.refreshBounds()
+  expect(view().setBounds).toHaveBeenLastCalledWith({ x: 0, y: 20, width: 200, height: 100 })
+})
 
 it('bootstraps only the owned main frame and never puts the token in a URL', async () => {
   const { manager, owner } = setup()
@@ -153,7 +168,8 @@ it('injects the deployment and client identity headers only at the Platform orig
 it('samples the language and UTC offset on every Platform request', async () => {
   let locale: 'en_US' | 'zh_CN' = 'en_US'
   const owner = Object.assign(new EventEmitter(), {
-    webContents: new EventEmitter(), contentView: { addChildView: vi.fn(), removeChildView: vi.fn() }, isDestroyed: () => false,
+    webContents: Object.assign(new EventEmitter(), { getZoomFactor: () => 1 }),
+    contentView: { addChildView: vi.fn(), removeChildView: vi.fn() }, isDestroyed: () => false,
   })
   const manager = new DesktopPlatformView('/bundled/preload.cjs', () => locale, 'darwin', () => false)
   manager.setSession({ origin: 'https://tokamak.sh', userId: null, token: 'fixture-secret' })
@@ -173,7 +189,8 @@ it('samples the language and UTC offset on every Platform request', async () => 
 
 it('identifies a shell without a desktop Platform client, such as Linux, as web', async () => {
   const owner = Object.assign(new EventEmitter(), {
-    webContents: new EventEmitter(), contentView: { addChildView: vi.fn(), removeChildView: vi.fn() }, isDestroyed: () => false,
+    webContents: Object.assign(new EventEmitter(), { getZoomFactor: () => 1 }),
+    contentView: { addChildView: vi.fn(), removeChildView: vi.fn() }, isDestroyed: () => false,
   })
   const manager = new DesktopPlatformView('/bundled/preload.cjs', () => 'en_US', null, () => false)
   manager.setSession({ origin: 'https://tokamak.sh', userId: null, token: 'fixture-secret' })
