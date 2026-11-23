@@ -1289,9 +1289,9 @@ describe('TypertGatewayService', () => {
       '$events', { args: {} }, (async function* () {})(), connection.browserPeer, carrier.signal,
     ))[Symbol.asyncIterator]()
     const opening = await events.next()
-    expect(opening).toMatchObject({
+    expect(opening).toEqual({
       done: false,
-      value: { type: 'ready', host: { home: '/home/fixture', name: 'fixture-host', remote: false } },
+      value: { type: 'ready', clientId: expect.any(String) as string, host: { home: '/home/fixture' } },
     })
     if (opening.done) throw new Error('Remote event stream ended before ready')
     const clientId: unknown = Reflect.get(opening.value as object, 'clientId')

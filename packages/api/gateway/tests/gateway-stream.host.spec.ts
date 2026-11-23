@@ -1130,7 +1130,7 @@ describe('Typert Remote streams', () => {
     await once(socket, 'open')
     const frames: Record<string, unknown>[] = []
     socket.on('message', (data) => { frames.push(JSON.parse(rawText(data)) as Record<string, unknown>) })
-    sendOpen(socket, 'events', '$events', {})
+    sendOpen(socket, 'events', '$events', { hostInfo: true })
 
     await vi.waitFor(() => {
       const eventFrames = frames.filter(frame => frame.streamId === 'events')

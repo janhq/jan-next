@@ -15,6 +15,9 @@ export const REMOTE_EVENT_RESULT_ENDPOINT = '$events/result'
 /** Empty standard Remote payload used to open the forwarded-event stream. */
 export const REMOTE_EVENT_STREAM_PAYLOAD = { args: {} } as const
 
+/** Opt in to the extended Host display facts; older Hosts accept only the empty payload. */
+export const REMOTE_EVENT_STREAM_HOST_INFO_PAYLOAD = { args: { hostInfo: true } } as const
+
 /** Discriminator for the first item proving the Host event source is ready. */
 export const REMOTE_EVENT_STREAM_READY = { type: 'ready' } as const
 
@@ -39,7 +42,7 @@ export interface RemoteEventReadyFrame {
   readonly type: 'ready'
   readonly clientId: RemoteEventClientId
   /** Stable Host facts attached to this connection generation. */
-  readonly host: RemoteEventHostInfo
+  readonly host: Pick<RemoteEventHostInfo, 'home'> | RemoteEventHostInfo
 }
 
 /** Opaque Agent identity carried by one scoped Remote Event. */

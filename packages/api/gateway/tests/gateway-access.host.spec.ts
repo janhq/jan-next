@@ -721,12 +721,12 @@ describe('Gateway forwarded events for non-owner Peers', () => {
     const push = eventSource(ctx)
     const guest = ctx.connection.createPeer({ principal: GUEST })
     const abort = new AbortController()
-    const guestEvents = (await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), guest, abort.signal))[Symbol.asyncIterator]()
+    const guestEvents = (await ctx.typertGateway.wireStream.open('$events', { args: { hostInfo: true } }, (async function* () {})(), guest, abort.signal))[Symbol.asyncIterator]()
     const guestReady = await guestEvents.next()
     // A non-owner stream receives the same Host facts but cannot answer, so it does not count as a live Client.
     expect(guestReady.value).toMatchObject({ type: 'ready', host: { home: '/fixture', name: 'fixture-host', remote: false } })
     expect(ctx.typertGateway.hasLiveClient()).toBe(false)
-    const ownerEvents = (await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), ctx.connection.browserPeer, abort.signal))[Symbol.asyncIterator]()
+    const ownerEvents = (await ctx.typertGateway.wireStream.open('$events', { args: { hostInfo: true } }, (async function* () {})(), ctx.connection.browserPeer, abort.signal))[Symbol.asyncIterator]()
     await expect(ownerEvents.next()).resolves.toMatchObject({ value: { type: 'ready', host: { home: '/fixture', name: 'fixture-host', remote: false } } })
     expect(ctx.typertGateway.hasLiveClient()).toBe(true)
 
