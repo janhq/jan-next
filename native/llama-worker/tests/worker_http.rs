@@ -832,23 +832,31 @@ async fn overlapping_threads_park_only_their_own_slot_contents() {
     assert_eq!(b_status, 200, "{b}");
     assert_eq!(c_status, 200, "{c}");
     let a = a.unwrap();
-    let a = a.lines().filter_map(|line| {
-        line.strip_prefix("data: ")
-            .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
-    }).find(|frame| frame["usage"]["prompt_tokens"].is_u64()).unwrap();
+    let a = a
+        .lines()
+        .filter_map(|line| {
+            line.strip_prefix("data: ")
+                .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
+        })
+        .find(|frame| frame["usage"]["prompt_tokens"].is_u64())
+        .unwrap();
     let b: serde_json::Value = serde_json::from_str(&b).unwrap();
     let c: serde_json::Value = serde_json::from_str(&c).unwrap();
     server.save_resident_slots().await;
 
-    for (thread, completion, max_tokens) in [("thread-a", a, 96), ("thread-b", b, 1), ("thread-c", c, 1)] {
+    for (thread, completion, max_tokens) in
+        [("thread-a", a, 96), ("thread-b", b, 1), ("thread-c", c, 1)]
+    {
         let key = state_key(MODEL_ID, thread);
         let meta = std::fs::read(dir.join(format!("{key}.json")))
             .unwrap_or_else(|err| panic!("missing saved cache for {thread}: {err}"));
         let meta: serde_json::Value = serde_json::from_slice(&meta).unwrap();
         let prompt_tokens = completion["usage"]["prompt_tokens"].as_u64().unwrap();
         let cached = meta["n_tokens"].as_u64().unwrap();
-        assert!((prompt_tokens..=prompt_tokens + max_tokens).contains(&cached),
-            "{thread} saved {cached} cached tokens for its {prompt_tokens}-token prompt");
+        assert!(
+            (prompt_tokens..=prompt_tokens + max_tokens).contains(&cached),
+            "{thread} saved {cached} cached tokens for its {prompt_tokens}-token prompt"
+        );
     }
     std::fs::remove_dir_all(dir).unwrap();
 }

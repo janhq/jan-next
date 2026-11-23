@@ -43,11 +43,14 @@ pub struct EngineServer {
     slots: Option<SlotState>,
 }
 
+/// Per model, per slot: the handover lock of requests still holding it.
+type HandoverLocks = HashMap<String, HashMap<i32, Weak<Mutex<()>>>>;
+
 /// The saved-state directory plus who is sitting in which slot.
 struct SlotState {
     store: StateStore,
     occupancy: Mutex<SlotOccupancy>,
-    handovers: std::sync::Mutex<HashMap<String, HashMap<i32, Weak<Mutex<()>>>>>,
+    handovers: std::sync::Mutex<HandoverLocks>,
 }
 
 /// A chat request that names the thread it belongs to, so its KV cache can be
@@ -738,14 +741,14 @@ impl EngineServer {
         // Only a generating route has a KV cache worth keeping; an embedding or
         // a tokenize call leaves nothing behind.
         let (body, handover) = if route.caches_prompt() {
-            let handover = if let (Some(state), Some(hint)) = (&self.slots, SlotHint::from_body(&body))
-            {
-                let handover = state.lock_handover(&model, hint.slot).await;
-                self.hand_over_slot(state, &engine, &model, &hint).await;
-                Some(handover)
-            } else {
-                None
-            };
+            let handover =
+                if let (Some(state), Some(hint)) = (&self.slots, SlotHint::from_body(&body)) {
+                    let handover = state.lock_handover(&model, hint.slot).await;
+                    self.hand_over_slot(state, &engine, &model, &hint).await;
+                    Some(handover)
+                } else {
+                    None
+                };
             (strip_thread_field(&body), handover)
         } else {
             (body, None)
