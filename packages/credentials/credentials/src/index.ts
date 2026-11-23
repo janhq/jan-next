@@ -176,12 +176,13 @@ export abstract class CredentialProvider extends Service {
   /**
    * Resolve one reference to its current value. Resolution is per call:
    * consumers re-resolve at each operation and must not cache across
-   * operations — that per-operation read is what makes a changed credential
+   * operations - that per-operation read is what makes a changed credential
    * reach the next operation without a restart.
    * @param ref - the reference to resolve.
+   * @param options - set `dereference: false` to read the raw value, for example when preserving a saved password-manager reference.
    * @returns the value and its source, or `undefined` while unconfigured.
    */
-  abstract resolve(ref: CredentialRef): Promise<ResolvedCredential | undefined>
+  abstract resolve(ref: CredentialRef, options?: { dereference?: boolean }): Promise<ResolvedCredential | undefined>
 
   /**
    * Describe one reference for configuration surfaces without exposing the

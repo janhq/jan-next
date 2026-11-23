@@ -135,6 +135,8 @@
 
     - id: credentials
       name: '@janhq/jan-credentials-local'
+      config:
+        keychain: !!js "ctx.get('profileContext')?.name === 'desktop'"
 
     # The pi-ai multi-provider twin, mounted dormant: zero routes (and no extra
     # models in the picker) until a `llm-pi-ai:` settings section supplies provider

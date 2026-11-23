@@ -16,7 +16,7 @@ type CredentialRef = Branded<'CredentialRef'>
 <a id="resolution"></a>
 ## Resolution
 
-`resolve(ref)` returns the value with the provider-defined source layer that supplied it, or `undefined` while unconfigured. Consumers re-resolve at each operation and never cache across operations — that per-operation read is the hot-update mechanism.
+`resolve(ref)` returns the current value and the provider-defined source that supplied it, or `undefined` while unconfigured. Resolve again on each operation so rotation reaches the next request. The local provider reports `file` for both private YAML and OS keychain values. When a saved value is a 1Password or Bitwarden reference, the provider resolves it at use time without saving the result. Use `resolve(ref, { dereference: false })` when preserving a saved pointer rather than using its secret. Ambient environment values are never dereferenced.
 
 ```ts type-equiv
 /** One resolved credential value and the source layer that supplied it. */
@@ -30,7 +30,7 @@ interface ResolvedCredential {
 
 ## Description
 
-`describe(ref)` answers configuration surfaces without ever exposing a value: whether the reference resolves, from which layer, and whether `set` would currently succeed. The local provider ranks its managed file above the launch environment, so saving a value always creates the effective writable layer; removing it reveals the launch environment or `.env` fallback again.
+`describe(ref)` reports configuration, source, and writability without reading the keychain, running a password-manager CLI, or exposing a value. Saving a value creates an effective managed entry; removing it reveals the launch environment or `.env` fallback again.
 
 ```ts type-equiv
 /**
@@ -143,12 +143,13 @@ A CredentialKey answers "what credential does this plugin hold for this id". Not
 /**
  * Resolve one reference to its current value. Resolution is per call:
  * consumers re-resolve at each operation and must not cache across
- * operations — that per-operation read is what makes a changed credential
+ * operations - that per-operation read is what makes a changed credential
  * reach the next operation without a restart.
  * @param ref - the reference to resolve.
+ * @param options - set `dereference: false` to read the raw value, for example when preserving a saved password-manager reference.
  * @returns the value and its source, or `undefined` while unconfigured.
  */
-abstract resolve(ref: CredentialRef): Promise<ResolvedCredential | undefined>
+abstract resolve(ref: CredentialRef, options?: { dereference?: boolean }): Promise<ResolvedCredential | undefined>
 
 /**
  * Describe one reference for configuration surfaces without exposing the

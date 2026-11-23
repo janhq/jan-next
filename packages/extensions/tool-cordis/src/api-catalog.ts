@@ -892,9 +892,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'Abstract credential service over two key spaces that answer two questions.\n\nA CredentialRef answers "what is behind this environment-variable name": the provider-managed store first, then ambient fallbacks such as the process environment and `.env` files. One seam-wide rule binds that half: an empty stored value is absent everywhere — `resolve` skips it, `describe` reports it unconfigured — so a blank never masquerades as a configured secret.\n\nA CredentialKey answers "what credential does this plugin hold for this id". Nothing can layer here — an authorization grant has no environment to be read from — so presence of the record is the whole fact, and modifyRecord is the only write path because a correct write depends on the current value (a token refresh is read-decide-replace under one lock).',
     methods: [
       {
-        signature: 'abstract resolve(ref: CredentialRef): Promise<ResolvedCredential | undefined>',
-        description: 'Resolve one reference to its current value. Resolution is per call: consumers re-resolve at each operation and must not cache across operations — that per-operation read is what makes a changed credential reach the next operation without a restart.',
-        parameters: [{ name: 'ref', description: 'the reference to resolve.' }],
+        signature: 'abstract resolve(ref: CredentialRef, options?: { dereference?: boolean }): Promise<ResolvedCredential | undefined>',
+        description: 'Resolve one reference to its current value. Resolution is per call: consumers re-resolve at each operation and must not cache across operations - that per-operation read is what makes a changed credential reach the next operation without a restart.',
+        parameters: [{ name: 'ref', description: 'the reference to resolve.' }, { name: 'options', description: 'set `dereference: false` to read the raw value, for example when preserving a saved password-manager reference.' }],
         returns: 'the value and its source, or `undefined` while unconfigured.',
       },
       {

@@ -22,6 +22,18 @@ describe('jan-base bundle', () => {
       .not.toContain('wake_after')
   })
 
+  it('enables OS keychain writes only for the desktop profile', () => {
+    const parsed = yaml.load(readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf8'), { schema: entryListSchema })
+    const rows = (parsed as { insert?: { id?: string; config?: { keychain?: { __jsExpr: string } } }[] }[])
+      .flatMap(patch => patch.insert ?? [])
+    const expression = rows.find(row => row.id === 'credentials')?.config?.keychain?.__jsExpr
+    if (expression === undefined) throw new Error('credentials must configure keychain writes')
+    for (const name of [undefined, 'cli', 'web', 'desktop']) {
+      const ctx = { get: () => name === undefined ? undefined : { name } }
+      expect(evaluate({ ctx }, expression)).toBe(name === 'desktop')
+    }
+  })
+
   it('declares a parseable patch list through the jan.bundle.patch manifest field', () => {
     const root = fileURLToPath(new URL('..', import.meta.url))
     const manifest = JSON.parse(
