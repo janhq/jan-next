@@ -35,6 +35,9 @@ import { apply as registerText } from './text/index.ts'
 import { apply as registerMarkdown } from './markdown/index.ts'
 import { apply as registerHtml } from './html/index.ts'
 import { apply as registerImage } from './image/index.ts'
+import { apply as registerMedia } from './media/index.ts'
+import { apply as registerFont } from './font/index.ts'
+import { apply as registerArchive } from './archive/index.ts'
 import { apply as registerPdf } from './pdf/index.ts'
 import { apply as registerCode } from './code/index.ts'
 import { apply as registerOffice } from './office/index.ts'
@@ -106,6 +109,7 @@ export function apply(ctx: ClientContext): void {
       name: 'sidebar.right.pane.tab', key: TEXTPREVIEW_ID, locale: NS, store,
       children: {
         'sidebar.right.tab.document': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: documentTabInfoFactory } } },
+        'sidebar.right.tab.document.view-actions': { kind: 'list', scope: 'session' },
         'sidebar.right.tab.document.actions': { kind: 'list', scope: 'session' },
         'sidebar.right.tab.document.unpreviewable': { kind: 'list', scope: 'session' },
         'sidebar.right.tab.document.action': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: documentTabInfoFactory } } },
@@ -125,6 +129,9 @@ export function apply(ctx: ClientContext): void {
   registerMarkdown(ctx)
   registerHtml(ctx)
   registerImage(ctx)
+  registerMedia(ctx)
+  registerFont(ctx)
+  registerArchive(ctx)
   registerPdf(ctx)
   registerOffice(ctx, config.office)
   registerExcel(ctx, config.excel)

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import { bindSnapshotSelector, makeTranslate } from '@janhq/jan-client-test-runtime'
@@ -35,6 +35,9 @@ function setup(options: {
   catalog?: PermissionCatalog | null
   locked?: boolean
   select?: (preset: string) => Promise<boolean>
+  noticeSeen?: () => boolean
+  dismissNotice?: () => void
+  openDefaultSettings?: () => void
 } = {}) {
   const selection = createSnapshotStore<{ value: PermissionSelection | undefined }>({
     value: 'selection' in options ? options.selection : { currentValue: 'workspace-write' },
@@ -52,7 +55,12 @@ function setup(options: {
     select,
     t,
   } as unknown as PermissionSelectProps
-  const view = render(<PermissionSelect {...props} />)
+  const notice: Pick<PermissionSelectProps, 'noticeSeen' | 'dismissNotice' | 'openDefaultSettings'> = {
+    noticeSeen: options.noticeSeen ?? (() => true),
+    dismissNotice: options.dismissNotice ?? (() => undefined),
+    ...options.openDefaultSettings === undefined ? {} : { openDefaultSettings: options.openDefaultSettings },
+  }
+  const view = render(<PermissionSelect {...props} {...notice} />)
   return { catalog, props, select, selection, view }
 }
 
@@ -61,6 +69,36 @@ function trigger(): HTMLButtonElement {
 }
 
 describe('PermissionSelect', () => {
+  it('explains the Full access default once and links to the default setting', () => {
+    let seen = false
+    // jsdom lacks the native popover API the coachmark opens with.
+    Object.defineProperties(HTMLElement.prototype, {
+      showPopover: { configurable: true, value: () => undefined },
+      hidePopover: { configurable: true, value: () => undefined },
+    })
+    onTestFinished(() => {
+      Reflect.deleteProperty(HTMLElement.prototype, 'showPopover')
+      Reflect.deleteProperty(HTMLElement.prototype, 'hidePopover')
+    })
+    const openDefaultSettings = vi.fn()
+    const options = {
+      noticeSeen: () => seen, dismissNotice: () => { seen = true }, openDefaultSettings,
+    }
+    setup({ ...options, selection: { currentValue: 'workspace-write' } })
+    expect(screen.queryByText('新会话默认以完全权限运行', { exact: false })).toBeNull()
+    cleanup()
+
+    setup({ ...options, selection: { currentValue: 'danger-full-access' } })
+    expect(screen.getByText('新会话默认以完全权限运行', { exact: false })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '更改默认设置', hidden: true }))
+    expect(openDefaultSettings).toHaveBeenCalledOnce()
+    expect(seen).toBe(true)
+    cleanup()
+
+    setup({ ...options, selection: { currentValue: 'danger-full-access' } })
+    expect(screen.queryByText('新会话默认以完全权限运行', { exact: false })).toBeNull()
+  })
+
   it('renders only when both the Session selection and process catalog exist', () => {
     const missingSelection = setup({ selection: undefined })
     expect(missingSelection.view.container.innerHTML).toBe('')

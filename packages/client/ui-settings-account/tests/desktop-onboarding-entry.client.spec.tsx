@@ -55,6 +55,7 @@ function mount(initiallyDone = false, initiallyLoading = false) {
   const setVisible = vi.fn()
   const element = () => <DesktopOnboardingEntry {...globals}
     setVisible={setVisible} useOnboarding={select => select(state)} useAccount={select => select(account)}
+    useCustomFlow={select => select(false)} finishCustomFlow={async () => true} renderSlot={() => null}
     update={async () => true} complete={async () => true} retry={async () => true}
     t={key => key in zh ? zh[key as AccountKey] : key} />
   const view = render(element())

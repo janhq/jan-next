@@ -114,11 +114,11 @@ describe('MenuView', () => {
     expect(status.children).toHaveLength(2)
   })
 
-  it('renders a localized label as the title with the name as its alias, an icon component, and the description', () => {
+  it('renders a full-width row: localized title, the name as its alias, an icon component, and the description', () => {
     const Glyph = ({ size = 16 }: { size?: number | undefined }) => <svg data-glyph="plan" width={size} height={size} />
     mount(openState({
       groups: [{
-        source: 'command',
+        source: 'reference',
         status: 'ready',
         items: [
           { name: 'plan', label: '计划', description: '进入或退出计划模式', icon: Glyph, section: '添加' },
@@ -132,6 +132,23 @@ describe('MenuView', () => {
     // A label that is the name in another letter case renders no alias.
     expect(options[1]?.querySelectorAll('span')).toHaveLength(1)
     expect(screen.getAllByText('添加')).toHaveLength(1)
+  })
+
+  it('renders command rows compact: title only, with the highlighted description in a side bubble', () => {
+    mount(openState({
+      groups: [{
+        source: 'command',
+        status: 'ready',
+        items: [{ name: 'plan', label: '计划', description: '进入或退出计划模式' }, { name: 'goal', label: 'Goal' }],
+      }],
+      highlight: { source: 'command', index: 0 },
+    }))
+    const menu = document.querySelector('[data-trigger-menu]')
+    expect(menu?.hasAttribute('data-compact')).toBe(true)
+    const options = screen.getAllByRole('option')
+    // No alias on the row; the description stays reachable to screen readers only.
+    expect(options[0]?.textContent).toBe('计划进入或退出计划模式')
+    expect(options[0]?.textContent).not.toContain('plan')
   })
 
   it('keeps an opted-out source title hidden while its candidates are pending', () => {

@@ -143,6 +143,14 @@ it.each([en, zh])('shows an error during an active attempt and waits for cancell
   expect(props.start).toHaveBeenCalledOnce()
 })
 
+it.each([
+  ['network', en.failureNetwork], ['storage', en.failureStorage], ['protocol', en.failureProtocol], ['no-response', en.noResponse],
+] as const)('names the %s cause of a failed attempt', (errorCode, description) => {
+  mount({ id, phase: 'failed', errorCode })
+  expect(screen.getByRole('dialog', { name: en.failureTitle }).textContent).toContain(description)
+  expect(screen.getByRole('button', { name: en.retry })).toBeTruthy()
+})
+
 it('does not start another attempt when cancellation fails', async () => {
   const props = mount({ id, phase: 'waiting-browser' })
   cleanup()
@@ -199,16 +207,10 @@ it.each([en, zh])('shows network advice only when the login request received no 
   expect(props.start).toHaveBeenCalledOnce()
 })
 
-it.each(['network', 'protocol', 'storage'] as const)('keeps generic copy for %s failures', (errorCode) => {
-  mount({ id, phase: 'failed', errorCode })
-  expect(screen.getByText(en.failed)).toBeTruthy()
-  expect(screen.queryByText(en.noResponse)).toBeNull()
-})
-
 it('does not reuse network advice for a subsequent start failure', async () => {
   const props = mount({ id, phase: 'failed', errorCode: 'no-response' })
   props.start.mockRejectedValueOnce(new Error('RPC failed'))
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: en.retry })) })
-  expect(screen.getByText(en.failed)).toBeTruthy()
+  expect(screen.getByText(en.failureGeneric)).toBeTruthy()
   expect(screen.queryByText(en.noResponse)).toBeNull()
 })

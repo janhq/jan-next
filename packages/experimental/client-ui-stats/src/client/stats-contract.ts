@@ -59,6 +59,8 @@ export interface StatsStepState {
   readonly ended: boolean
   readonly firstTokenTime: number | null
   readonly messageTime: number | null
+  /** Characters the assembled message carried as text, reasoning and Tool-call arguments. */
+  readonly streamedChars: number | null
   readonly usage: StatsUsage | null
   readonly interrupted: boolean
   readonly toolPairs: number

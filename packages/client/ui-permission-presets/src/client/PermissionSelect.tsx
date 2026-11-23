@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
 import {
-  IconChevronDownOutlineRegular, Menu, PermissionIconAutoReviewRegular, PermissionIconFullAccessRegular,
+  Coachmark, IconChevronDownOutlineRegular, Menu, PermissionIconAutoReviewRegular, PermissionIconFullAccessRegular,
   PermissionIconReadOnlyRegular, PermissionIconWorkspaceWriteRegular, RiskConfirmation,
 } from '@janhq/jan-client-ui-primitives'
 import type { MenuEntry } from '@janhq/jan-client-ui-primitives'
@@ -66,6 +66,12 @@ export interface PermissionSelectInjected {
   }
   /** Submit one current-session preset through the existing command writer. */
   select: (preset: string) => Promise<boolean>
+  /** Whether the one-time Full access default notice has been dismissed on this device. */
+  noticeSeen: () => boolean
+  /** Record the notice as seen so it never shows again. */
+  dismissNotice: () => void
+  /** Open General settings, where the default for new chats lives; absent without settings navigation. */
+  openDefaultSettings?: () => void
 }
 
 /** Complete props derived from the conversation slot, injected hooks, and locale. */
@@ -75,7 +81,7 @@ export type PermissionSelectProps =
   & PropsLocale<typeof PERMISSION_ACCESS_NS>
 
 export function PermissionSelect({
-  locked, select, usePermissionCatalog, useProjection, t,
+  locked, select, noticeSeen, dismissNotice, openDefaultSettings, usePermissionCatalog, useProjection, t,
 }: PermissionSelectProps) {
   const selection = useProjection('permissions')
   const catalog = usePermissionCatalog(state => state.value)
@@ -83,6 +89,8 @@ export function PermissionSelect({
   const [open, setOpen] = useState(false)
   const [confirmation, setConfirmation] = useState<string | null>(null)
   const [acknowledged, setAcknowledged] = useState(false)
+  const [noticeOpen, setNoticeOpen] = useState(() => !noticeSeen())
+  const trigger = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!locked && selection !== undefined && catalog !== null
@@ -160,7 +168,13 @@ export function PermissionSelect({
   const confirmationEnable = confirmation === AUTO_REVIEW
     ? t('auto.confirm.enable')
     : t('confirm.enable')
-
+  // The first chat that starts in Full access explains it once and points at the
+  // future-session default; dismissing or following the link records it as seen.
+  const closeNotice = (): void => {
+    dismissNotice()
+    setNoticeOpen(false)
+  }
+  const showNotice = noticeOpen && !locked && selection.currentValue === FULL_ACCESS && confirmation === null
   return (
     <>
       <Menu
@@ -174,6 +188,7 @@ export function PermissionSelect({
         anchor={
           <button
             type="button"
+            ref={trigger}
             className={css.trigger}
             aria-label={t('mode', { name: currentLabel })}
             title={current === undefined ? undefined : optionDescription(current, t)}
@@ -190,6 +205,20 @@ export function PermissionSelect({
           </button>
         }
       />
+      {showNotice && (
+        <Coachmark
+          anchor={trigger}
+          open
+          side="top"
+          title={t('notice.title')}
+          body={t('notice.body')}
+          dismissLabel={t('notice.dismiss')}
+          onDismiss={closeNotice}
+          {...openDefaultSettings === undefined ? {} : {
+            primary: { label: t('notice.settings'), onSelect: () => { closeNotice(); openDefaultSettings() } },
+          }}
+        />
+      )}
       {confirmation !== null && (
         <RiskConfirmation
           open

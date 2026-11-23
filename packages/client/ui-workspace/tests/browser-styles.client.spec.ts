@@ -120,7 +120,10 @@ describe('WorkspaceBrowser.module.css list', () => {
   })
 
   it('keeps the overflow control, search field, and row heights', () => {
-    expect(declarations('.sessionOverflowButton')?.get('height')).toBe('28px')
+    // The overflow control reads as one more session row: same height, inset and label start.
+    expect(declarations('.sessionOverflowButton')?.get('height')).toBe(rowDeclarations('.sessionRow')?.get('height'))
+    expect(declarations('.sessionOverflowButton')?.get('padding-inline-start')).toBe(rowDeclarations('.projectRow')?.get('padding-inline-start'))
+    expect(declarations('.sessionOverflowLabel')?.get('margin-inline-start')).toBe('var(--jan-sidebar-label-gap)')
     expect(declarations('.searchExpanded')?.get('height')).toBe('32px')
     expect(rowDeclarations('.projectRow')?.get('height')).toBe('32px')
     expect(rowDeclarations('.sessionRow')?.get('height')).toBe('32px')

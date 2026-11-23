@@ -30,7 +30,7 @@ export default class OperatorConnectFixture extends TypertRemoteService {
 
   constructor(ctx: Context) {
     super(ctx, 'operatorConnectFixture', { namespace: 'fixture' })
-    ctx.effect(() => ctx.typertGateway.registerRemoteEvents(signal => this.events(signal), { home: '/home/fixture' }))
+    ctx.effect(() => ctx.typertGateway.registerRemoteEvents(signal => this.events(signal), { home: '/home/fixture', name: 'fixture-host', remote: false }))
   }
 
   /** Record the authenticated caller and its scope. */

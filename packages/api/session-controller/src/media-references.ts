@@ -3,7 +3,10 @@
  * the composed filesystem provider. Paths and MIME types do not restrict access;
  * the connection service authenticates requests before this handler. A request
  * without the current `v` version is redirected, uncached, to the versioned URL,
- * whose response is cacheable indefinitely.
+ * whose response is cacheable indefinitely. Whole-file reads stop at the
+ * attachment byte cap; a single `Range: bytes=` request is answered with a
+ * bounded 206 window, so audio and video stream and seek through files of any
+ * size without the Host buffering them.
  * @module @janhq/jan-api-session-controller/media-references
  */
 
@@ -22,6 +25,23 @@ const BASE_HEADERS = {
 const NO_STORE = { ...BASE_HEADERS, 'Cache-Control': 'private, no-store' }
 // A versioned URL names one file version, so its response never changes.
 const VERSIONED = { ...BASE_HEADERS, 'Cache-Control': 'private, max-age=31536000, immutable' }
+// Largest window one ranged response carries; media elements ask again for the rest.
+const RANGE_WINDOW = 8 * 1024 * 1024
+
+type ByteRange = { start: number; end: number | undefined } | { suffix: number }
+
+/** Parse one `bytes=` range; multi-range and malformed headers yield undefined. */
+function parseRange(header: string | null): ByteRange | undefined {
+  if (header === null) return undefined
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim())
+  if (match === null) return undefined
+  const [, first, last] = match
+  if (first === '') return last === '' || Number(last) === 0 ? undefined : { suffix: Number(last) }
+  const start = Number(first)
+  const end = last === '' ? undefined : Number(last)
+  if (end !== undefined && end < start) return undefined
+  return { start, end }
+}
 
 async function serveFile(request: Request, fs: FileSystem, maxBytes: number): Promise<Response> {
   const fail = (status: number, text: string): Response =>
@@ -35,7 +55,8 @@ async function serveFile(request: Request, fs: FileSystem, maxBytes: number): Pr
     const info = await fs.stat(target, request.signal)
     if (info === undefined) return fail(404, 'not found')
     if (info.type !== 'file') return fail(403, 'not a regular file')
-    if (info.size !== undefined && info.size > maxBytes) return fail(413, 'file exceeds byte limit')
+    const range = info.size === undefined ? undefined : parseRange(request.headers.get('range'))
+    if (range === undefined && info.size !== undefined && info.size > maxBytes) return fail(413, 'file exceeds byte limit')
     if (params.get('v') !== info.version) {
       // Relative to the request URL, so deployment prefixes and the Desktop scheme are kept.
       const location = `?${new URLSearchParams({ path, v: info.version }).toString()}`
@@ -44,6 +65,21 @@ async function serveFile(request: Request, fs: FileSystem, maxBytes: number): Pr
     const headers: Record<string, string> = {
       ...VERSIONED,
       'Content-Type': mime.lookup(target.displayPath) || 'application/octet-stream',
+      'Accept-Ranges': 'bytes',
+    }
+    if (range !== undefined && info.size !== undefined) {
+      const size = info.size
+      const start = 'suffix' in range ? Math.max(0, size - range.suffix) : range.start
+      if (start >= size) {
+        return new Response(null, { status: 416, headers: { ...NO_STORE, 'Content-Range': `bytes */${size}` } })
+      }
+      const end = Math.min('suffix' in range ? size - 1 : range.end ?? size - 1, start + RANGE_WINDOW - 1, size - 1)
+      headers['Content-Range'] = `bytes ${start}-${end}/${size}`
+      headers['Content-Length'] = String(end - start + 1)
+      if (request.method === 'HEAD') return new Response(null, { status: 206, headers })
+      const bytes = await fs.readByteRange(target, { offset: start, length: end - start + 1 }, request.signal)
+      headers['Content-Length'] = String(bytes.byteLength)
+      return new Response(bytes.slice(), { status: 206, headers })
     }
     if (request.method === 'HEAD') {
       if (info.size !== undefined) headers['Content-Length'] = String(info.size)

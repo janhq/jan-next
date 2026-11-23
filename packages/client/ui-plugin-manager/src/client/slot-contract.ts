@@ -112,6 +112,12 @@ export interface PluginArtworkProps {
   readonly size: number
 }
 
+/** Owner props of a tab's count, keyed by the tab's `plugins.tab` id. */
+export interface PluginTabCountProps {
+  /** The tab id the count belongs to. */
+  readonly tab: string
+}
+
 /** Add-plugin menu actions, independent of any selected bundle or Session. */
 export interface PluginAddActionsProps {
   /** Close the add-plugin menu before starting the contributed action. */
@@ -133,6 +139,11 @@ declare module '@janhq/jan-client-ui-slots' {
      * through the owner's `install`.
      */
     'plugins.tab': { kind: 'list'; scope: 'root'; owner: PluginTabProps }
+    /**
+     * A live count beside a `plugins.tab` label, keyed by the tab's id: the entry renders the number as text (or
+     * null while it is unknown) and the page draws it in secondary ink after the label.
+     */
+    'plugins.tab.count': { kind: 'keyed'; scope: 'root'; owner: PluginTabCountProps }
     /** Optional guidance after the user enables a bundle from the list, keyed by npm package name. */
     'plugins.bundle.activation': { kind: 'keyed'; scope: 'root'; owner: PluginActivationOwnerProps }
     /**

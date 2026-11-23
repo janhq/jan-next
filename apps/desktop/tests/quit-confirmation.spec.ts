@@ -54,7 +54,7 @@ describe('DesktopQuitConfirmation', () => {
     f.answer(1)
     expect(await f.confirmation.confirm()).toBe(false)
     expect(f.shown).toEqual([{
-      type: 'none', icon: f.icon, title: 'Jan Alpha', message: 'Quit Jan Alpha?',
+      type: 'none', icon: f.icon, title: 'Jan Next', message: 'Quit Jan Next?',
       detail: 'Scheduled tasks will not run while the app is closed.',
       buttons: ['Quit', 'Cancel'], defaultId: 0, cancelId: 1, noLink: true,
     }])

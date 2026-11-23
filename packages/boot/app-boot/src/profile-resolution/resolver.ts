@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { getEnvironmentData, setEnvironmentData } from 'node:worker_threads'
 import type { ModuleLoaderV1, ModuleLoaderV2, ResolveResult } from '@janhq/cordis-plugin-loader'
 import { imports as resolvePackageImports, type Package as ResolvePackageManifest } from 'resolve.exports'
-import { janSpecifier } from '@janhq/jan-package-manifest'
+import { janPackageName, janSpecifier } from '@janhq/jan-package-manifest'
 import type { RuntimeResolutionEntry, RuntimeResolution } from '../profile.ts'
 
 const WORKER_RESOLUTION_KEY = '@janhq/jan-app-boot/profile-resolution'
@@ -240,14 +240,18 @@ function findInterceptionLayer(path: string, resolution: CompiledResolution): In
   return { kind: 'linked' }
 }
 
-/** Package names a directory's current manifest lists as peers; an unreadable manifest lists none. */
+/**
+ * Package names a directory's current manifest lists as peers; an unreadable manifest lists none. A DSH peer
+ * also names the Jan package that supplies it, because routing tries the translated name first.
+ */
 function readPeerNames(directory: string): ReadonlySet<string> {
   try {
     const manifest = JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8')) as {
       peerDependencies?: unknown
     }
     const peers = manifest.peerDependencies
-    return new Set(peers !== null && typeof peers === 'object' ? Object.keys(peers) : [])
+    const names = peers !== null && typeof peers === 'object' ? Object.keys(peers) : []
+    return new Set(names.flatMap(name => [name, janPackageName(name)]))
   } catch (_error) {
     // Node reports the unreadable or invalid manifest itself when it resolves the package's own imports.
     return new Set()

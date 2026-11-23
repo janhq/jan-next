@@ -49,6 +49,8 @@ Out of the box, every profile built on this core provides: a Tokamak model conne
 
 Both `subagent` and `subagent_fork` create managed children and return the child's name immediately. Use `send_message` to steer active children or continue their conversations after completion. [Delegation-tool behavior](../../subagent/tool-subagent/README.md) describes result delivery and backend capabilities.
 
+Fresh delegation accepts `agent_preset: scout`, `reviewer`, or `worker`. The scout can read and search but cannot edit or run a shell; it defaults to Tokamak Haiku 5.5. The reviewer can inspect diffs and run tests under the read-only shell sandbox. Tests that write files, including temporary files or caches, can fail in that sandbox. The worker has the full file tool set, still bounded by inherited permissions. Omit the preset to keep the existing inherited composition.
+
 The bundle also mounts [Agent Teams](../../team/agent-team/README.md) and its task tools. Team mode defaults off per root Session; the root conversation’s **Use Agent Teams** menu switch enables collaboration for that tree without changing the profile.
 
 The built-in `working_directory` tool changes the directory for subsequent operations while existing processes and write permissions remain independent. Current directory information appears in user context. Default file editing uses `read`, `write`, and `edit`. The `str_replace_editor` tool remains available as an explicit opt-in. To add it to a base-backed profile, put this entry in the profile, home, or invocation patch:

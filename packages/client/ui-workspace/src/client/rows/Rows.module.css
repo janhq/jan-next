@@ -153,30 +153,11 @@
 }
 
 
-/* Project leading slot: folder by default, expand arrow on row hover. */
-.projectRow .chevron { display: none; }
-@media (hover: hover) {
-  .projectRow:hover .chevron { display: inline-flex; }
+/* Project disclosure: the first trailing action, so it shares the strip's pitch and shows
+   with it (hover, an open menu, keyboard focus). The avatar always leads the row. */
+:global(html[data-input-modality='keyboard']) .projectRow:focus-within .rowActions { display: inline-flex; }
 
-  .projectRow:hover .folder { display: none; }
-}
-
-/* With a project page the row opens it, and this button alone expands and collapses. */
-.chevronButton {
-  border: none;
-  border-radius: var(--dsw-radius-xs);
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-}
-.projectRow:has(.chevronButton:focus-visible) .chevron { display: inline-flex; }
-.projectRow:has(.chevronButton:focus-visible) .folder { display: none; }
-.chevronButton:focus-visible { outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 0; }
-@media (hover: hover) {
-  .chevronButton:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
-}
-
-/* Expand arrow (filled triangle): points right closed, rotates to point down open. */
+/* Expand chevron (outline, like the list's other disclosures): points right closed, rotates to point down open. */
 .arrow {
   transition: transform 150ms var(--ds-ease-in-out);
 }
@@ -185,12 +166,13 @@
   transform: rotate(90deg);
 }
 
+/* Title then the computer it lives on, on one line; the title gives way first. */
 .projectText {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 6px;
 }
 
 .title {
@@ -200,6 +182,11 @@
   white-space: nowrap;
   font-size: 14px;
   line-height: 20px;
+}
+
+/* Project names head their chats: Mimi's medium weight (m/medium), chats stay regular. */
+.projectText > .title {
+  font-weight: 500;
 }
 
 .renameInput {
@@ -284,6 +271,45 @@
   flex: none;
 }
 
+/* The computer a project lives on: a monitor glyph and the name in caption ink after the
+   title, in every window, so local and remote projects read apart without hovering. In a
+   narrow sidebar the tag gives way first, down to its glyph, so the project name stays. */
+.machineTag {
+  flex: 0 1000 auto;
+  min-width: 14px;
+  max-width: 120px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Another computer's name is what tells its project from a local one, so it keeps up to
+   about half the row and the project name ellipsizes instead. */
+.machineTag[data-remote] {
+  flex: 0 0 auto;
+  max-width: 50%;
+}
+
+/* A project on a computer whose link dropped keeps its place, dimmed, until it reconnects. */
+.offline .projectText {
+  opacity: 0.6;
+}
+
+.machineTag svg {
+  flex: none;
+}
+
+.machineName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* The trailing strip keeps a shared gap between its fixed-size control boxes. */
 .rowActions {
   flex: none;
@@ -352,6 +378,13 @@
   }
 }
 
+/* A held press darkens the fill one step: the row answers on mousedown.
+   After the hover rules so the press wins over hover. */
+.projectRow:active,
+.sessionRow:active {
+  background-color: var(--dsw-alias-interactive-bg-active);
+}
+
 @media (hover: none) {
   .projectRow .rowActions,
   .searchResultRow .rowActions,
@@ -363,7 +396,7 @@
   .sessionRow .timestamp,
   .sessionRow:has(.pinnedAction) .pinIndicator,
   .sessionRow .rowQuickActions > :global([data-slot]) > :not(.pinnedAction),
-  .projectRow[aria-expanded='false'] .rowActions {
+  .projectRow[aria-expanded='false'] .rowActions > :not(.chevron) {
     display: none;
   }
 

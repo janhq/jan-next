@@ -9,7 +9,7 @@ import type {} from '@janhq/jan-client-ui-settings/client'
 import { createShortcutsStore } from './store.ts'
 import { ShortcutReference, ShortcutsRow } from './Reference.tsx'
 import { en, ja, es, fr, de, ru, pt, zh } from './locales.ts'
-import { fixedCommands } from './fixed.ts'
+import { fixedCommands, zoomCommands } from './fixed.ts'
 
 declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -34,7 +34,8 @@ export function apply(ctx: Context): void {
   const edit: typeof ctx.shortcuts.edit = (...args) => ctx.shortcuts.edit(...args)
   const recording = (active: boolean) => ctx.shortcuts.recording(active)
   const describeBinding: typeof ctx.shortcuts.describeBinding = binding => ctx.shortcuts.describeBinding(binding)
-  for (const command of fixedCommands(t)) {
+  const zoom = ctx.shortcuts.runtime === 'desktop' ? zoomCommands(t, describeBinding) : []
+  for (const command of [...fixedCommands(t), ...zoom]) {
     ctx.effect(() => ctx.shortcuts.registerFixed(command), `shortcuts: ${command.id}`)
   }
   const injected = () => ({ platform: ctx.shortcuts.platform, runtime: ctx.shortcuts.runtime, edit, recording, describeBinding,

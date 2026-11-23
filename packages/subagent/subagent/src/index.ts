@@ -71,6 +71,7 @@ import SubagentManager from './manager.ts'
 import { listDescendants as listSubagentDescendants, resolveAgentPath } from './list-children.ts'
 import type { SubagentDescendantListEntry } from './list-children.ts'
 import { subagentIdentityProjectionDefinition, subagentTimingProjectionDefinition } from './projection.ts'
+import { subagentActivityProjectionDefinition } from './activity-projection.ts'
 import { subagentCatalogProjectionDefinition } from './catalog.ts'
 import { ROOT_AGENT_NAME } from './names.ts'
 
@@ -126,7 +127,9 @@ export type { AgentMessageSource, SubagentSettledMessageSource } from './continu
 export type * from './control-types.ts'
 export type { SubagentDescendantListEntry } from './list-children.ts'
 export type { SubagentRunEndInfo, SubagentRunInfo } from './types.ts'
-export type { SubagentCatalogEntry, SubagentIdentityProjection, SubagentTimingProjection } from './projection-types.ts'
+export type {
+  SubagentActivityEntry, SubagentActivityProjection, SubagentCatalogEntry, SubagentIdentityProjection, SubagentTimingProjection,
+} from './projection-types.ts'
 
 declare module '@janhq/cordis' {
   interface Context {
@@ -215,6 +218,7 @@ export class SubagentRuntime extends TypertRemoteService {
     const ctx = this.ctx
     const catalogProjection = await ctx.sessionProjections.register(subagentCatalogProjectionDefinition)
     await ctx.sessionProjections.register(subagentTimingProjectionDefinition)
+    await ctx.sessionProjections.register(subagentActivityProjectionDefinition)
     const identityProjection = await ctx.sessionProjections.register(subagentIdentityProjectionDefinition)
     if (ctx.fiber.uid === null) return
     ctx.inject(['agents'], (childCtx: Context) => {

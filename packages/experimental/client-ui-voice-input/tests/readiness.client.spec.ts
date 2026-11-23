@@ -30,11 +30,17 @@ function fixture(failure?: unknown) {
     $stream: (value: typeof options) => { options = value; return stream },
   })
   const mirror = observeReadiness(ctx)
-  return { mirror, options, follow, accept, release }
+  return { mirror, get options() { return options }, follow, accept, release }
 }
 
 it('accepts a Host snapshot and keeps preparation ownership outside observation disposal', async () => {
   const b = fixture()
+  expect(b.options).toBeUndefined()
+  expect(b.follow).not.toHaveBeenCalled()
+  b.mirror.start()
+  const options = b.options
+  b.mirror.start()
+  expect(b.options).toBe(options)
   await vi.waitFor(() => { expect(b.mirror.state.getSnapshot()).toEqual({ catalog, connected: true, error: null }) })
   expect(b.accept).toHaveBeenCalledOnce()
   const signal = new AbortController().signal
@@ -48,6 +54,7 @@ it('accepts a Host snapshot and keeps preparation ownership outside observation 
 
 it.each([new Error('invalid snapshot'), 'invalid snapshot'])('reports a terminal stream failure after its transport aborts', async (failure) => {
   const b = fixture(failure)
+  b.mirror.start()
   b.release.resolve(undefined)
   await vi.waitFor(() => { expect(b.mirror.state.getSnapshot()).toMatchObject({ connected: false, error: 'invalid snapshot' }) })
   await b.mirror.dispose()
@@ -55,6 +62,7 @@ it.each([new Error('invalid snapshot'), 'invalid snapshot'])('reports a terminal
 
 it('does not publish a disposal rejection as a Host failure', async () => {
   const b = fixture(new Error('disposed'))
+  b.mirror.start()
   await vi.waitFor(() => { expect(b.mirror.state.getSnapshot().connected).toBe(true) })
   await b.mirror.dispose()
   expect(b.mirror.state.getSnapshot().error).toBeNull()

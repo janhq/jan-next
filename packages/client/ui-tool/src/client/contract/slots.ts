@@ -24,19 +24,7 @@ declare module '@janhq/jan-client-ui-slots' {
       scope: 'session'
       owner: ToolCallOwnerProps
     }
-    /**
-     * Durable images of a settled image-bearing Tool call, rendered through
-     * the attachment presentation plugin. The Tool layer never imports an
-     * attachment implementation: a toolview declares this slot as a child and
-     * renders it with the image card's references plus the Gateway-authorized
-     * loader it received in its owner, and the attachment plugin fills the
-     * gallery. Composing no attachment presentation plugin renders nothing,
-     * which is why the image card keeps its own envelope text beside the
-     * gallery. A child slot is declared by exactly one entry: registering a
-     * second toolview that declares the same child throws at load, so a
-     * future image-bearing tool must reuse this entry or own a distinct
-     * slot.
-     */
+    /** Compact thumbnails of a settled tool result, owned by the common call tree. */
     'tool.call.images': { kind: 'single'; scope: 'session'; owner: ToolImagesOwnerProps }
   }
 }
@@ -49,6 +37,9 @@ export interface ToolImagesOwnerProps {
   loadImage: MessageImageLoader
   /** Horizontal placement inside the owning record. */
   align: 'start' | 'end'
+  /** Request the compact, uncropped gallery layout and viewport-triggered loading. */
+  thumbnail?: boolean
+  lazy?: boolean
 }
 
 /** Standard owner currency supplied to every atomic Tool view. */
@@ -152,6 +143,6 @@ export type ToolHostInfoInjected = {
 
 /** Full props of the Tool call-tree renderer registered as a tool-call Chat Node. */
 export type ToolTreeProps = PropsRuntime<'conversation.chat.node', 'tool-call'>
-  & PropsRenderSlots<'tool.call.toolview'>
+  & PropsRenderSlots<'tool.call.toolview' | 'tool.call.images'>
   & PropsLocale<'conversation'>
   & InjectFace<ToolHostInfoInjected & ToolFileInjected>

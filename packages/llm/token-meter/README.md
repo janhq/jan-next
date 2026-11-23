@@ -50,7 +50,7 @@ Image offload reprices existing node identities while preserving prior usage anc
 
 `contextBreakdown` classifies the last nonempty surviving `system/message` in surface order as `systemTokens`; empty dormant nodes contribute nothing, and no nonempty system means zero. `messageTokens` includes every other visible node, including superseded prompts. Their sum equals `measure().nodes[].heuristicTokens` after appends, metered compaction and pruning, and system-prompt rewrites or clearing; an unmetered replacement of a non-system range folds at zero delta, like `contextPressure`. `toolsTokens` follows the latest `request/header`. All three use the fixed heuristic, not route image pricing or file-handle projection; they are approximate composition, not billing or `projectedTokens`.
 
-`deriveTurnTokenUsage(events)` folds one complete turn into exact per-attempt and whole-turn usage for browser consumers. It returns no result when lifecycle evidence is missing, counts are unsafe, or exact totals conflict; each corresponding aggregate appears only when every participating attempt reports its optional cache, reasoning, or route value.
+`deriveTurnTokenUsage(events)` folds one complete turn into per-attempt and whole-turn usage for browser consumers. Prompt counts are exact provider reports. A reply cut by Stop or a steer before the provider reported its output keeps its exact prompt counts and estimates its output from the streamed content; that attempt and the turn carry `outputEstimated: true`, and the attempt drops its reasoning count. It returns no result when lifecycle evidence is missing, counts are unsafe, or exact totals conflict; each corresponding aggregate appears only when every participating attempt reports its optional cache, reasoning, or route value.
 
 ### Composition
 
@@ -93,7 +93,7 @@ Provider usage anchors a measurement only when its canonical envelope matches an
 | [`src/usage-projection.ts`](src/usage-projection.ts) | `tokenUsage` and `contextPressure` projection definitions |
 | [`src/breakdown-projection.ts`](src/breakdown-projection.ts) | `contextBreakdown` projection definition |
 | [`src/client.ts`](src/client.ts) | Browser-safe client surface for projection consumers |
-| [`src/turn-usage.ts`](src/turn-usage.ts) | Pure fold for exact per-attempt and per-Turn usage |
+| [`src/turn-usage.ts`](src/turn-usage.ts) | Pure fold for per-attempt and per-Turn usage |
 
 ### Fold flow
 
@@ -103,7 +103,7 @@ Each `measure()` call synchronizes the fold to the current durable tail, then re
 
 `contextBreakdown` retains only the surviving `system/message` nodes with their heuristic prices, one running surface total, and at most one armed shadow-price claim; a replacement subtracts the adjacent claim, whose `shadowedSeqs` also name the system prompts it removes, or the retained price of the one system prompt it rewrites ([decision](../../../.agents/notes/implemented/architecture/2026-10-13-context-breakdown-system-prompt-state.md)). Its state follows the number of surviving system prompts, not the message count; state version 6 invalidates positional checkpoints. `contextPressure` is the other scalar shadow-price consumer: replacements without adjacent claims contribute zero delta. The usage fold retains one last-sample slot because legal logs never report usage for an earlier step after a later step reports usage.
 
-`./estimate` exports the stateless text/content estimators used by tool-result retention. Model adapters supply request-image costs through `imageRequestPricing`.
+`./estimate` exports the stateless text/content estimators used by tool-result retention. `./client` re-exports `estimateContent` for browser code, so Chat prices an injected context row with the heuristic the context meter uses; it imports types only from the Host surface. Model adapters supply request-image costs through `imageRequestPricing`.
 
 </details>
 

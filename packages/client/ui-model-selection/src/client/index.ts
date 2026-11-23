@@ -33,6 +33,7 @@ import { ModelDirectoryResolver } from './service.ts'
 import type { ModelSelectInjected } from './slots.ts'
 import { ModelSelect } from './ModelSelect.tsx'
 import { ImageNotice, type ImageNoticeInjected } from './ImageNotice.tsx'
+import { ToolNotice, type ToolNoticeInjected } from './ToolNotice.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type ModelKey } from './locales.ts'
 import { overflowOf } from './send-check.ts'
 import type { ContextPressureProjection } from '@janhq/jan-token-meter/client'
@@ -40,7 +41,7 @@ import type { ContextPressureProjection } from '@janhq/jan-token-meter/client'
 export { ModelDirectory } from './directory.ts'
 export type { ModelDirectoryState } from './directory.ts'
 export { ModelDirectoryResolver } from './service.ts'
-export type { ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
+export type { ModelDetailsOwner, ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
 export type { ModelKey } from './locales.ts'
 
 declare module '@janhq/jan-client-ui-slots' {
@@ -63,6 +64,24 @@ function changeDockSeats(delta: 1 | -1): void {
   for (const listener of [...dockSeatListeners]) listener()
 }
 
+const modelSeatChildren = {
+  'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
+  'conversation.input.model.options': { kind: 'list', scope: 'session' },
+  'conversation.input.model.details': { kind: 'list', scope: 'session' },
+} as const
+
+type ModelSeatProps = ModelSelectInjected & Pick<PropsRuntime<'conversation.input.model'>, 'locked'>
+  & PropsLocale<'model'> & PropsRenderSlots<keyof typeof modelSeatChildren>
+
+function renderModelSeat({ renderSlot, ...props }: ModelSeatProps) {
+  return createElement(ModelSelect, {
+    ...props,
+    renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
+    renderOptions: owner => renderSlot('conversation.input.model.options', owner),
+    renderDetails: owner => renderSlot('conversation.input.model.details', owner),
+  })
+}
+
 /** Optional dock selector plugin: the seat under the composer card, replacing the composer seat. */
 export const DockModelSelection = {
   inject: ['slots', 'modelDirectories', 'sessions', 'locale'],
@@ -75,17 +94,9 @@ export const DockModelSelection = {
     }, 'ui-model-selection: dock seat claim')
     ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
       name: 'conversation.composer.dock', id: 'model', order: 2, locale: NS,
-      children: {
-        'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
-        'conversation.input.model.options': { kind: 'list', scope: 'session' },
-      },
+      children: modelSeatChildren,
       inject: modelInjection(ctx, settingsUnavailable),
-    }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.composer.dock'> & PropsLocale<'model'>
-      & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
-      ...props, placement: 'dock',
-      renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
-      renderOptions: owner => renderSlot('conversation.input.model.options', owner),
-    })))
+    }, renderModelSeat))
   },
 }
 /**
@@ -245,6 +256,24 @@ export function apply(ctx: ClientContext): void {
     }, ImageNotice))
   })
 
+  // Say as soon as a model that cannot use tools is selected; dismissed per chat and model.
+  ctx.inject(['slots', 'modelDirectories'], (scope: ClientContext) => {
+    const dismissed = new Set<string>()
+    scope.slots.inject('conversation.input.dock', () => scope.slots.register({
+      name: 'conversation.input.dock', id: 'model-tools', order: 31, locale: NS,
+      inject: (sessionId: SessionId): ToolNoticeInjected => {
+        const directory = scope.modelDirectories.directoryFor(sessionId)
+        const key = (model: string): string => `${String(sessionId)}\n${model}`
+        return {
+          directory: directory.store,
+          select: async selection => (await directory.select(selection)).ok,
+          dismissed: model => dismissed.has(key(model)),
+          dismiss: (model) => { dismissed.add(key(model)) },
+        }
+      },
+    }, ToolNotice))
+  })
+
   // Entry 1: the /model popupSelect over the shared directory.
   ctx.inject(['commandUi', 'modelDirectories'], (scope: ClientContext) => {
     const command = scope.get('commandUi') as CommandUiContract
@@ -299,17 +328,9 @@ export function apply(ctx: ClientContext): void {
       seat ??= scope.slots.inject('conversation.input.model', () => scope.slots.register({
         name: 'conversation.input.model',
         locale: NS,
-        children: {
-          'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
-          'conversation.input.model.options': { kind: 'list', scope: 'session' },
-        },
+        children: modelSeatChildren,
         inject: modelInjection(scope, settingsUnavailable),
-      }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.input.model'> & PropsLocale<'model'>
-        & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
-        ...props, placement: 'composer',
-        renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
-        renderOptions: owner => renderSlot('conversation.input.model.options', owner),
-      })))
+      }, renderModelSeat))
     }
     scope.effect(() => {
       dockSeatListeners.add(sync)

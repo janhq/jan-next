@@ -64,7 +64,9 @@ export function DetailsRow({ toolName, block, cwd, home, openFile, inspect, useD
   const operation = toolName === 'lsp' ? parsedToolCall(block)?.args.operation : undefined
   const titleKey = typeof operation === 'string' && Object.hasOwn(LSP_TITLE_KEYS, operation)
     ? LSP_TITLE_KEYS[operation as keyof typeof LSP_TITLE_KEYS]
-    : model.titleKey
+    : toolName === 'job_output' && model.state === 'running' && block.args.value('wait') === true
+      ? 'tool.title.waitForJob'
+      : model.titleKey
   const isWait = toolName === 'wait_agent'
   return (
     <ToolRow

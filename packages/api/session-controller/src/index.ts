@@ -194,7 +194,7 @@ export class SessionController extends TypertRemoteService {
     ctx.typert.resources.register('session', { resolve: resolveSessionResource })
     this.agents = new ApiSessionAgentController(ctx)
     this.agents.initialize()
-    this.commands = new SessionCommandController(ctx, this.agents, process.cwd())
+    this.commands = new SessionCommandController(ctx, this.agents)
     ctx.effect(() => ctx.fileUploads.registerAgentResolver(async (sessionId) => {
       const result = await this.agents.resolveAgent(sessionId)
       if ('error' in result) throw result.error
@@ -325,7 +325,9 @@ export class SessionController extends TypertRemoteService {
    * Price the system prompt, tool schemas, and runtime context the Session's next request would inject.
    * @param request - Session identity.
    * @param signal - cancels tool resolution and prompt assembly.
-   * @returns heuristic token prices, or null while the Session has no model selection.
+   * @returns heuristic token prices and the Session inventory (offered tools, MCP tools
+   * with their server and origin, skills with their origin, and the preset's plugins),
+   * or null while the Session has no model selection.
    */
   @Remote('contextPreview')
   async contextPreview(request: SessionContextPreviewRequest, signal: AbortSignal): Promise<SessionContextPreviewValue | null> {

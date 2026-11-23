@@ -36,6 +36,7 @@ interface AssistantState {
   readonly firstVisibleSeq: number | undefined
   readonly firstVisibleTime: number | undefined
   readonly firstTokenTime: number | undefined
+  readonly streamingPhase: AssistantChatData['streamingPhase']
   readonly final: ConversationMatch | undefined
   readonly usage: unknown
 }
@@ -49,6 +50,7 @@ function initialState(turn: number, step: number): AssistantState {
     visibleBlocks: 0,
     firstVisibleSeq: undefined,
     firstVisibleTime: undefined,
+    streamingPhase: undefined,
     firstTokenTime: undefined,
     final: undefined,
     usage: undefined,
@@ -99,6 +101,7 @@ function updateChunk(
   let changedIndex = -1
   let previousVisible = false
   let nextVisible = false
+  let streamingPhase = state.streamingPhase
   switch (chunk.type) {
     case 'block-start':
       changedIndex = chunk.index
@@ -112,6 +115,7 @@ function updateChunk(
       previousVisible = state.visibleByIndex[chunk.index] === true
       blocks[chunk.index] = { kind: 'text', text: (previous?.kind === 'text' ? previous.text : '') + chunk.text }
       nextVisible = (previous?.kind === 'text' && previousVisible) || chunk.text.trim() !== ''
+      if (chunk.text !== '') streamingPhase = 'writing'
       break
     }
     case 'reasoning-delta': {
@@ -120,6 +124,7 @@ function updateChunk(
       previousVisible = state.visibleByIndex[chunk.index] === true
       blocks[chunk.index] = { kind: 'reasoning', text: (previous?.kind === 'reasoning' ? previous.text : '') + chunk.text }
       nextVisible = (previous?.kind === 'reasoning' && previousVisible) || chunk.text.trim() !== ''
+      if (chunk.text !== '') streamingPhase = 'thinking'
       break
     }
     case 'tool-call-delta': {
@@ -133,6 +138,7 @@ function updateChunk(
         name: chunk.name ?? (previous?.kind === 'tool-call' ? previous.name : ''),
         argsRaw: previous?.kind === 'tool-call' ? previous.argsRaw : '',
       }
+      if (isTokenDelta(chunk)) streamingPhase = 'working'
       break
     }
     case 'block-end':
@@ -140,6 +146,10 @@ function updateChunk(
       previousVisible = state.visibleByIndex[chunk.index] === true
       blocks[chunk.index] = toAssistantBlock(chunk.block)
       nextVisible = blockIsVisible(blocks[chunk.index])
+      if (!previousVisible && nextVisible) {
+        if (chunk.block.type === 'text') streamingPhase = 'writing'
+        if (chunk.block.type === 'reasoning') streamingPhase = 'thinking'
+      }
       break
     case 'usage':
       return { ...state, usage: chunk.usage }
@@ -161,6 +171,7 @@ function updateChunk(
     blocks,
     visibleByIndex,
     visibleBlocks,
+    streamingPhase,
     ...visibleBlocks > 0 && state.firstVisibleSeq === undefined
       ? { firstVisibleSeq: seq, firstVisibleTime: time }
       : {},
@@ -220,6 +231,7 @@ function finalNode(
         completedTime: event.time,
       },
       ...event.data.interrupted === true ? { interrupted: true } : {},
+      ...event.data.interrupted === true && event.data.steered === true ? { steered: true } : {},
     }
   }
   const location = context.start?.location ?? context.matches.at(-1)?.location
@@ -287,6 +299,7 @@ function projectAssistant(context: ConversationNodeContext<AssistantState>): Ass
       step: state.step,
       blocks,
       time,
+      ...status === 'running' && state.streamingPhase !== undefined ? { streamingPhase: state.streamingPhase } : {},
       ...state.usage === undefined ? {} : { usage: state.usage },
       ...settled === undefined ? {} : { finalNode: settled },
     },

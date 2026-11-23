@@ -20,6 +20,8 @@ export type MarkdownMenuTarget =
 export interface MarkdownDelegate {
   /** Open an object menu without executing its normal activation. */
   readonly getTriggerProps?: ((target: MarkdownMenuTarget) => Pick<HTMLAttributes<HTMLElement>, 'onContextMenu' | 'onKeyDown' | 'tabIndex'>) | undefined
+  /** Render owner controls beside a standalone settled image. */
+  readonly imageActions?: ((getSurface: () => HTMLImageElement | null) => ReactNode) | undefined
   /**
    * Image previews for decoded local paths in this owner's workspace. The renderer
    * appends a per-mount `load` query parameter to `api/file` route URLs.
@@ -58,10 +60,11 @@ export function MarkdownDelegateProvider({
   openExternalLink,
   openFile,
   fileImages,
+  imageActions,
   getTriggerProps,
 }: MarkdownDelegateProviderProps): ReactNode {
-  const delegate = useMemo(() => ({ openExternalLink, openFile, fileImages, getTriggerProps }),
-    [openExternalLink, openFile, fileImages, getTriggerProps])
+  const delegate = useMemo(() => ({ openExternalLink, openFile, fileImages, getTriggerProps, imageActions }),
+    [openExternalLink, openFile, fileImages, getTriggerProps, imageActions])
   return (
     <MarkdownDelegateContext.Provider value={delegate}>
       {children}

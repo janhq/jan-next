@@ -105,7 +105,7 @@ describe('AnimatedRows', () => {
     view.rerender(rows(['b', 'c', 'd']))
     expect(within(tree).queryByText('a')).toBeNull()
     expect(animations.map(call => [call.element.textContent, call.options.duration]))
-      .toEqual([['b', 200], ['c', 200], ['d', 100], ['a', 100]])
+      .toEqual([['b', 200], ['c', 200], ['d', 180], ['a', 100]])
     const leaving = animations[3] as RecordedAnimation
     expect(leaving.element.inert).toBe(true)
     expect(leaving.element.closest('[aria-hidden="true"]')).not.toBeNull()
@@ -198,7 +198,7 @@ describe('AnimatedRows', () => {
     naturalHeightRows(tree)
     view.rerender(rows(['x', 'y', 'z', 'w', 'v']))
     expect(animations.map(call => [call.element.textContent, call.options.duration])).toEqual([
-      ['x', 100], ['y', 100], ['a', 100], ['b', 100],
+      ['x', 180], ['y', 180], ['a', 100], ['b', 100],
     ])
     expect(animations.filter(call => call.element.inert)).toHaveLength(2)
   })

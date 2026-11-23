@@ -12,7 +12,7 @@
  * @module @janhq/jan-host-directory-picker-native
  */
 
-import { DirectoryPicker } from '@janhq/jan-host-directory-picker'
+import { createChildDirectory, DirectoryPicker } from '@janhq/jan-host-directory-picker'
 import type { DirectoryPickerCapability } from '@janhq/jan-host-directory-picker'
 import { pickNativeDirectory } from './native-picker.ts'
 
@@ -25,6 +25,7 @@ export default class NativeDirectoryPicker extends DirectoryPicker {
     kind: 'native',
     /* v8 ignore next -- pure forward to pickNativeDirectory (its spec owns behavior); invoking here opens a real chooser. */
     pick: signal => pickNativeDirectory(signal),
+    createDirectory: createChildDirectory,
   }
 
   /**

@@ -1,71 +1,15 @@
 // @vitest-environment jsdom
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { runInNewContext } from 'node:vm'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { Context, type Plugin } from '@janhq/cordis'
 import { stubConfigForm } from '@janhq/jan-client-test-runtime'
 import WebServer from '@janhq/jan-host-webserver'
-import * as primitives from '@janhq/jan-client-ui-primitives'
 import Loader from '@janhq/cordis-plugin-loader'
-import * as React from 'react'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { ThemeRuntime, type ThemeSettings } from '../src/client/index.ts'
 import { applyIndexInjections } from '../../web/src/apply-injections.ts'
 // @ts-expect-error The Jan theme Host half is an untyped `.mjs` plugin; the test only mounts it.
 import * as JanThemeHost from '../../../../plugins/jan-theme/index.mjs'
-
-type Component = React.ComponentType
-
-type ClientScope = {
-  inject(services: string[], callback: (scope: ClientScope) => void): void
-  effect(callback: () => undefined | (() => void)): void
-  slots: {
-    inject(name: string, callback: () => void): void
-    register(options: { id?: string }, component: Component): void
-  }
-  locale: { bind(): (key: string) => string; register(): void }
-  theme: ThemeRuntime
-}
-
-const client = readFileSync(resolve(import.meta.dirname, '../../../../plugins/jan-theme/client.js'), 'utf8')
-
-function mountAppearance(theme: ThemeRuntime) {
-  let Component: Component | undefined
-  const dispose: (() => void)[] = []
-  const scope: ClientScope = {
-    inject(services, callback) {
-      if (services.every(name => name === 'locale' || name === 'theme')) callback(scope)
-    },
-    effect(callback) {
-      const stop = callback()
-      if (stop) dispose.push(stop)
-    },
-    slots: {
-      inject(name, callback) { if (name === 'settings.general.item') callback() },
-      register(options, component) { if (options.id === 'jt-accent-color') Component = component },
-    },
-    locale: { bind: () => key => key, register() { } },
-    theme,
-  }
-  runInNewContext(client, {
-    document,
-    fetch: vi.fn((_url: string, init: RequestInit) => {
-      const { params } = JSON.parse(init.body as string) as { params: object }
-      return Promise.resolve(Response.json({ result: params }))
-    }),
-    window: { __JAN_THEME__: Reflect.get(globalThis, '__JAN_THEME__') as object | undefined, __ModuleLoader__: { load({ factory }: { factory: (load: (id: string) => object) => { apply(scope: ClientScope): void } }) {
-      factory(id => id === 'react' ? React : id === '@janhq/jan-client-ui-primitives' ? primitives : {}).apply(scope)
-    } } },
-  })
-  if (!Component) throw new Error('Jan theme did not register the General accent settings')
-  const view = render(<Component />)
-  return () => {
-    view.unmount()
-    for (const stop of dispose.reverse()) stop()
-    for (const name of ['--jt-sidebar-light', '--jt-sidebar-dark']) document.documentElement.style.removeProperty(name)
-  }
-}
+import { mountAppearance } from './jan-theme-client.tsx'
 
 it('restores the saved accent on a fresh desktop boot', async () => {
   const ctx = new Context()

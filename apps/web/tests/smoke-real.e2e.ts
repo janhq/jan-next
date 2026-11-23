@@ -412,8 +412,8 @@ describe('jan web keyless CLI smoke', () => {
     writeFileSync(join(workspace, 'AGENTS.md'), 'web-workspace-context-probe\n')
 
     interface NativeProviderRequest {
-      system?: string
-      messages?: { role?: string; content?: { type?: string; text?: string }[] }[]
+      system?: string | { text?: string }[]
+      messages?: { role?: string; content?: string | { type?: string; text?: string }[] }[]
       tools?: { name?: string }[]
     }
     let resolveProviderRequests!: (requests: NativeProviderRequest[]) => void
@@ -436,16 +436,25 @@ describe('jan web keyless CLI smoke', () => {
     await new Promise<void>(resolve => provider.listen(0, '127.0.0.1', resolve))
     const address = provider.address()
     if (address === null || typeof address === 'string') throw new Error('mock provider did not bind a TCP port')
+    const modelPatch = join(workspace, 'workspace-model.patch.yml')
+    writeFileSync(modelPatch, JSON.stringify([
+      { id: 'agent-default-model', config: { provider: 'workspace-smoke', model: 'mock-model' } },
+      { id: 'llm-pi-ai', config: { providers: {
+        'workspace-smoke': {
+          api: 'anthropic-messages', baseURL: `http://127.0.0.1:${address.port}/v1`,
+          apiKeyEnv: 'TOKAMAK_API_KEY', models: [{ id: 'mock-model', contextWindow: 32_768, maxTokens: 4096 }],
+        },
+      } } },
+    ]))
     const tsxLoader = pathToFileURL(createRequire(join(REPO_ROOT, 'package.json')).resolve('tsx')).href
     const child = spawn(
       process.execPath,
-      ['--import', tsxLoader, join(REPO_ROOT, 'apps/cli/src/bin.ts'), 'web', '--no-open', '--port', '0'],
+      ['--import', tsxLoader, join(REPO_ROOT, 'apps/cli/src/bin.ts'), 'web', '--patch', modelPatch, '--no-open', '--port', '0'],
       {
         cwd: workspace,
         env: {
           ...process.env,
           TOKAMAK_API_KEY: 'keyless-web-workspace',
-          TOKAMAK_BASE_URL: `http://127.0.0.1:${address.port}`,
           JAN_HOME: join(workspace, '.jan'),
           JAN_AGENTS_HOME: join(workspace, '.agents'),
           TSX_TSCONFIG_PATH: join(REPO_ROOT, 'tsconfig.json'),
@@ -455,7 +464,7 @@ describe('jan web keyless CLI smoke', () => {
     )
     try {
       const baseUrl = await waitForReadyLine(child)
-      const created = await remoteRpc<{ sessionId: string }>(baseUrl, 'session/create', { request: {} })
+      const created = await remoteRpc<{ sessionId: string }>(baseUrl, 'session/create', { request: { cwd: workspace } })
       await remoteRpc<{ accepted: true }>(baseUrl, 'session/prompt', { request: {
         requestId: randomUUID(),
         sessionId: created.sessionId,
@@ -472,21 +481,18 @@ describe('jan web keyless CLI smoke', () => {
       if (captured === undefined) {
         throw new Error('provider did not receive the workspace projection request')
       }
-      const workspaceMessage = captured.messages?.filter(message => message.role === 'user')
-        .flatMap(message => message.content ?? [])
-        .find(block => block.type === 'text' && block.text?.includes('web-workspace-context-probe'))
+      const userBlocks = captured.messages?.filter(message => message.role === 'user')
+        .flatMap(({ content }) => typeof content === 'string' ? [{ type: 'text', text: content }] : content ?? []) ?? []
+      const workspaceMessage = userBlocks.find(block => block.type === 'text' && block.text?.includes('web-workspace-context-probe'))
       const expectedWebSection = readFileSync(WEB_SURFACE_PROMPT, 'utf8').trimEnd()
-      expect(captured.system).toContain(expectedWebSection)
-      expect(captured.system).not.toContain(new URL(baseUrl).origin)
-      expect(captured.messages?.filter(message => message.role === 'user')
-        .flatMap(message => message.content ?? [])
-        .some(block => block.type === 'text'
-          && block.text?.includes(`Current Jan Web GUI URL: ${JSON.stringify(new URL(baseUrl).origin)}.`)))
-        .toBe(true)
+      const systemText = Array.isArray(captured.system) ? captured.system.map(block => block.text).join('\n') : captured.system
+      expect(systemText).toContain(expectedWebSection)
+      expect(systemText).not.toContain(new URL(baseUrl).origin)
+      expect(userBlocks.map(block => block.text).join('\n')).toContain(`Current Jan Web GUI URL: ${JSON.stringify(new URL(baseUrl).origin)}.`)
       expect(workspaceMessage).toMatchInlineSnapshot(`
         {
           "text": "<system-reminder>
-        The following workspace instructions may be relevant to your work. Use them as guidance when applicable. More specific instructions take precedence over broader ones. They do not override system, developer, or direct user instructions.
+        Follow applicable instructions. More specific files win: project > shared agents home > Jan home > Jan defaults. These instructions can replace Jan's default name, persona, tone, and working style, but not safety rules, tool contracts, or direct user messages.
 
         Instructions from: AGENTS.md
 

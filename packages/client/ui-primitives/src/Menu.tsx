@@ -139,6 +139,10 @@ export function MenuItemButton({ onSelect, ...props }: MenuItemButtonProps) {
  * @param props.minWidthFromAnchor - in portal mode, keep the menu at least as wide as its anchor, bounded by viewport margins.
  * @param props.footer - rows pinned below the scrolling items area, separated
  * by a hairline; contextual menus reuse an explicit leading separator. These rows stay visible while the items above scroll.
+ * @param props.header - content pinned above the scrolling items area, such
+ * as a search field, separated by a hairline. Typing in it stays its own
+ * (Home and End move its caret); ArrowDown and ArrowUp from it enter the
+ * rows, Escape closes the menu, and Tab keeps the browser's traversal.
  * @param props.children - component rows rendered after `items` in the same
  * list, each a `role="menuitem"` button such as {@link MenuItemButton}; they
  * share the keyboard walk, the submenu exclusivity, and the post-selection
@@ -153,7 +157,7 @@ export function MenuItemButton({ onSelect, ...props }: MenuItemButtonProps) {
  * document.body outside the owner's DOM subtree.
  * @returns anchor wrapper with the conditional list.
  */
-export function Menu({ open, anchor, items = [], children, submenuBackLabel, selectedId, selectedIds, onSelect, onClose, align = 'start', side = 'bottom', portal = false, closeOnPointerLeave = false, dense = false, compact = false, autoFocus = false, selection = 'check', anchorRef, anchorPoint, minWidthFromAnchor = false, footer, className, listClassName, contextual = false, exiting, returnFocus, isExternalTrigger }: {
+export function Menu({ open, anchor, items = [], children, submenuBackLabel, selectedId, selectedIds, onSelect, onClose, align = 'start', side = 'bottom', portal = false, closeOnPointerLeave = false, dense = false, compact = false, autoFocus = false, selection = 'check', anchorRef, anchorPoint, minWidthFromAnchor = false, header, footer, className, listClassName, contextual = false, exiting, returnFocus, isExternalTrigger }: {
   open: boolean
   /** Pointer-positioned popup: cursor clearance, grouped icons, and context gestures. */
   contextual?: boolean
@@ -169,6 +173,7 @@ export function Menu({ open, anchor, items = [], children, submenuBackLabel, sel
   /** Localized return action; omitted uses the caller's parent label with a back arrow. */
   submenuBackLabel?: string | undefined
   children?: ReactNode
+  header?: ReactNode
   footer?: readonly MenuEntry[]
   selectedId?: string | undefined
   selectedIds?: readonly string[] | undefined
@@ -413,6 +418,8 @@ export function Menu({ open, anchor, items = [], children, submenuBackLabel, sel
       // otherwise re-enter at the near end on every press and the walk would
       // alternate between two rows.
       if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
+      // A header text field keeps Home and End for its caret.
+      if ((e.key === 'Home' || e.key === 'End') && focused instanceof HTMLInputElement) return
       const list = submenuEvents.current.activeList(focused)
       if (list === null || !anchored) return
       const buttons = Array.from(list.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'))
@@ -463,12 +470,13 @@ export function Menu({ open, anchor, items = [], children, submenuBackLabel, sel
 
   const itemColumns = menuIconColumns(items, contextual)
   const footerColumns = menuIconColumns(footer ?? [], contextual)
+  const isSelected = (id: string): boolean => id === selectedId || selectedIds?.includes(id) === true
   const renderEntry = (entry: MenuEntry, columns: ReadonlySet<MenuEntry>) => {
     if ('type' in entry) return renderMenuDecoration(entry)
     const hasSub = entry.submenu !== undefined && entry.submenu.length > 0
     return <MenuRow key={entry.id} icon={entry.icon} reserveIcon={columns.has(entry)}
       disabled={entry.disabled} danger={entry.danger} shortcut={entry.shortcut}
-      selected={entry.id === selectedId || selectedIds?.includes(entry.id) === true} selection={selection}
+      selected={isSelected(entry.id)} selection={selection}
       aria-haspopup={hasSub ? 'menu' : undefined}
       aria-expanded={hasSub ? submenu.entry?.id === entry.id && !submenu.hidden : undefined}
       wrapperProps={hasSub ? {
@@ -517,6 +525,9 @@ export function Menu({ open, anchor, items = [], children, submenuBackLabel, sel
     >
       {/* Child cards anchor to this unscrolled box, which matches the card itself. */}
       {submenu.entry !== undefined && <span aria-hidden="true" className={css.submenuAnchor} style={{ anchorName: submenu.parentAnchor }} />}
+      {header !== undefined && header !== null && header !== false && (
+        <div className={css.header} role="presentation">{header}</div>
+      )}
       <div className={css.viewport} role="presentation">
         {items.map(entry => renderEntry(entry, itemColumns))}
         {children}
@@ -547,7 +558,8 @@ export function Menu({ open, anchor, items = [], children, submenuBackLabel, sel
       {portal ? (list !== false && createPortal(list, document.body)) : list}
       {open && exiting === undefined && submenu.entry !== undefined && <SubmenuPanel key={submenu.entry.id}
         entry={submenu.entry} submenu={submenu} compact={compact} dense={dense} contextual={contextual}
-        backLabel={submenuBackLabel ?? submenu.entry.label} onSelect={onSelect} onClose={onClose} afterSelection={refocusAfterSelection} />}
+        backLabel={submenuBackLabel ?? submenu.entry.label} selected={isSelected} onSelect={onSelect} onClose={onClose}
+        afterSelection={refocusAfterSelection} />}
     </span>
   )
 }

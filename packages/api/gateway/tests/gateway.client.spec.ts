@@ -531,7 +531,7 @@ class RemoteEventCarrier {
     const abort = (): void => { connection.wake?.() }
     signal.addEventListener('abort', abort, { once: true })
     try {
-      yield { type: 'ready', clientId, host: { home: '/home/fixture' } }
+      yield { type: 'ready', clientId, host: { home: '/home/fixture', name: 'fixture-host', remote: false } }
       while (!signal.aborted) {
         while (connection.items.length > 0) {
           const item = connection.items.shift() as EventStreamItem
@@ -621,12 +621,12 @@ describe('Client Remote transport readiness', () => {
     const remote = ctx.remote
 
     const beforeReady = remote.$host
-    expect(beforeReady).toEqual({ home: undefined, isLoopback: true })
+    expect(beforeReady).toEqual({ home: undefined, name: undefined, remote: false, isLoopback: true })
     expect(remote.$host).toBe(beforeReady)
 
-    live.snapshot = { id: 1, host: { home: '/hosts/primary' } }
+    live.snapshot = { id: 1, host: { home: '/hosts/primary', name: 'fixture-host', remote: false } }
     const afterReady = remote.$host
-    expect(afterReady).toEqual({ home: '/hosts/primary', isLoopback: true })
+    expect(afterReady).toEqual({ home: '/hosts/primary', name: 'fixture-host', remote: false, isLoopback: true })
     expect(afterReady).not.toBe(beforeReady)
     expect(remote.$host).toBe(afterReady)
 
@@ -683,7 +683,7 @@ describe('Client Remote transport readiness', () => {
         const opening = JSON.parse(replacement.sent[0]!) as { streamId: string }
         replacement.receive({
           type: 'item', streamId: opening.streamId,
-          value: { type: 'ready', clientId: 'recovered-client', host: { home: '/recovered' } },
+          value: { type: 'ready', clientId: 'recovered-client', host: { home: '/recovered', name: 'fixture-host', remote: false } },
         })
         await vi.advanceTimersByTimeAsync(0)
         expect(connection.state.getSnapshot()).toBe('connected')
@@ -1502,7 +1502,7 @@ describe('Client Typert API', () => {
     await subscriber
 
     expect(carrier.calls).toEqual([expect.objectContaining({
-      channel: '/api', endpoint: '$events', payload: { args: {} },
+      channel: '/api', endpoint: '$events', payload: { args: { hostInfo: true } },
     })])
     carrier.emit({ type: 'emit', event: 'fixture/changed', args: ['settings'] })
     await vi.waitFor(() => { expect(seen).toEqual(['settings']) })
@@ -2056,12 +2056,12 @@ describe('Client Typert API', () => {
       const socket = FakeWebSocket.sockets[0]!
       const opened = JSON.parse(socket.sent[0]!) as { streamId: string }
       expect(opened).toMatchObject({
-        type: 'open', endpoint: '$events', payload: { args: {} },
+        type: 'open', endpoint: '$events', payload: { args: { hostInfo: true } },
       })
       socket.receive({
         type: 'item',
         streamId: opened.streamId,
-        value: { type: 'ready', clientId: 'browser-client', host: { home: '/home/browser' } },
+        value: { type: 'ready', clientId: 'browser-client', host: { home: '/home/browser', name: 'fixture-host', remote: false } },
       })
       await run.ready
       socket.receive({
@@ -2104,7 +2104,7 @@ describe('Client Typert API', () => {
   it('publishes injected Host facts after Remote events report ready', async () => {
     const locationDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'location')
     const transportDescriptor = Object.getOwnPropertyDescriptor(globalThis, '__JAN_TRANSPORT__')
-    const mock = RemoteMock.create({ host: { home: '/home/mock' } })
+    const mock = RemoteMock.create({ host: { home: '/home/mock', name: 'fixture-host', remote: false } })
     Object.defineProperty(globalThis, 'location', {
       configurable: true,
       value: { hostname: '127.0.0.1', search: '' },
@@ -2133,6 +2133,41 @@ describe('Client Typert API', () => {
     }
   })
 
+  it('falls back to the old Host event payload and accepts home-only readiness', async () => {
+    await withFakeWebSocket('https://harness.example', async () => {
+      const call = vi.fn<ConnectionHandle['rpc']['call']>()
+      const { ctx, client, generation } = await benchFiber(call, 'web')
+      const run = generation.start()
+      try {
+        await vi.waitFor(() => { expect(FakeWebSocket.sockets[0]?.sent).toHaveLength(1) })
+        const socket = FakeWebSocket.sockets[0]!
+        const negotiated = JSON.parse(socket.sent[0]!) as { streamId: string }
+        expect(negotiated).toMatchObject({ endpoint: '$events', payload: { args: { hostInfo: true } } })
+        socket.receive({
+          type: 'error', streamId: negotiated.streamId,
+          error: { code: 'gateway/arguments-invalid', message: 'requires an empty args object', details: {} },
+        })
+        await vi.waitFor(() => { expect(socket.sent).toHaveLength(2) })
+        const legacy = JSON.parse(socket.sent[1]!) as { streamId: string }
+        expect(legacy).toMatchObject({ endpoint: '$events', payload: { args: {} } })
+        socket.receive({
+          type: 'item', streamId: legacy.streamId,
+          value: { type: 'ready', clientId: 'legacy-client', host: { home: '/home/legacy' } },
+        })
+        await run.ready
+        const seen: string[] = []
+        ctx.remote.$on('fixture/changed', (namespace) => { seen.push(namespace) })
+        socket.receive({
+          type: 'item', streamId: legacy.streamId,
+          value: { type: 'emit', event: 'fixture/changed', args: ['legacy'] },
+        })
+        await vi.waitFor(() => { expect(seen).toEqual(['legacy']) })
+      } finally {
+        await client.dispose()
+      }
+    })
+  })
+
   it.each([
     null,
     [],
@@ -2145,6 +2180,8 @@ describe('Client Typert API', () => {
     { type: 'ready', clientId: 'client', host: {} },
     { type: 'ready', clientId: 'client', host: { home: 1 } },
     { type: 'ready', clientId: 'client', host: { home: '/home', extra: true } },
+    { type: 'ready', clientId: 'client', host: { home: '/home', name: 1, remote: false } },
+    { type: 'ready', clientId: 'client', host: { home: '/home', name: 'h', remote: 'yes' } },
     { type: 'emit', event: 'fixture/changed', args: ['too early'] },
   ])('rejects malformed forwarded-event readiness item %#', async (opening) => {
     const open: NonNullable<ConnectionHandle['rpc']['open']> = () => (async function *() {
@@ -2845,7 +2882,7 @@ describe('Remote stream client carrier lifecycle', () => {
       const unregister = connection.registerGenerationSource(async (signal, ready) => {
         try {
           for await (const _value of mux.open('$events', { args: {} }, signal)) {
-            ready({ home: '/home/fixture' })
+            ready({ home: '/home/fixture', name: 'fixture-host', remote: false })
           }
         } finally {
           // An in-flight forwarded answer may settle after the event stream fails.

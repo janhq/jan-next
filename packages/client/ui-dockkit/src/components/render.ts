@@ -3,7 +3,7 @@
  * to the package — the outward contracts are in `adapter.ts`.
  */
 import type { PointerEvent as ReactPointerEvent, ReactNode, HTMLAttributes } from 'react'
-import type { DockLabels, TabMenuExtras, TabRenderer } from '../contract/adapter.ts'
+import type { AddTabMenu, DockLabels, TabMenuExtras, TabRenderer } from '../contract/adapter.ts'
 import type { PaneId, SplitId, TabId, TabRecord } from '../contract/types.ts'
 import type { DropTarget } from '../engine/geometry.ts'
 
@@ -21,10 +21,17 @@ export interface PaneCallbacks {
   readonly onTabPressed: (tabId: TabId, event: ReactPointerEvent<HTMLElement>) => void
   /** Begin dragging a divider inside `splitId`, at the boundary after `index`. */
   readonly onDividerPressed: (splitId: SplitId, index: number, event: ReactPointerEvent<HTMLElement>) => void
+  readonly tabStrips?: boolean
+  readonly dividerLabel?: string | undefined
+  readonly onDividerNudge?: (splitId: SplitId, index: number, delta: number) => void
   /** Why a pane cannot split right now, or `undefined` while it can. */
   readonly splitBlock: (paneId: PaneId) => SplitBlock | undefined
   /** Hide blocked split controls instead of rendering them disabled. */
   readonly hideSplitWhenBlocked?: boolean
+  /** Draw the kit's own split button independently of the drop policy. */
+  readonly showSplitControl?: boolean
+  /** Accessible name of the strip's tab list. */
+  readonly tabListLabel?: string | undefined
   /** Whether a pane's strip draws the add control. */
   readonly canAddTab: (paneId: PaneId) => boolean
   /** Whether a tab may close via its close control, menu item, or middle click. */
@@ -39,12 +46,16 @@ export interface PaneCallbacks {
   readonly renderTab: TabRenderer
   /** A chip's or panel header's title content; absent means the record's `title` text. */
   readonly renderTabTitle: TabRenderer | undefined
+  /** Controls for a pane's selected tab at its strip's end (or a floating panel's header); absent means none. */
+  readonly renderTabActions: TabRenderer | undefined
   /** Whether the embedder popup is preparing or visible; suppresses tab tooltips. */
   readonly tabMenuOpen?: boolean | undefined
   /** Override the kit popup; the embedder owns rendering and dismissal. */
   readonly getTabTriggerProps?: ((tab: TabRecord, paneId: PaneId, handlers?: Pick<HTMLAttributes<HTMLElement>, 'onContextMenu' | 'onKeyDown' | 'tabIndex'>) => Pick<HTMLAttributes<HTMLElement>, 'onContextMenu' | 'onKeyDown' | 'tabIndex'>) | undefined
   /** Extra rows for the kit popup; ignored when getTabTriggerProps is supplied. */
   readonly renderTabMenuItems: TabMenuExtras | undefined
+  /** Menu for the strip's `+`; absent, the `+` adds a tab directly. */
+  readonly renderAddTabMenu: AddTabMenu | undefined
   /** The pane whose strip hosts the embedder's surface-wide controls. */
   readonly chromePaneId: PaneId
   /** Those controls; absent means the strip ends at the kit's own split control. */

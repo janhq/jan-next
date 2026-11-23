@@ -35,7 +35,7 @@
   white-space: nowrap;
 }
 
-/* A notice's one-line account: the reason it rarely needs expanding. */
+/* A notice or relay preview stays on one line without expanding. */
 .summary {
   flex: 1 1 auto;
   min-width: 0;
@@ -45,6 +45,31 @@
   line-height: calc(24px + var(--jan-content-font-delta, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Estimated token cost: trailing caption, kept whole while the summary ellipsizes. */
+.tokens {
+  flex: none;
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--dsw-alias-label-caption);
+  font-size: var(--jan-content-font-size-secondary, 13px);
+  font-variant-numeric: tabular-nums;
+  line-height: calc(24px + var(--jan-content-font-delta, 0px));
+  white-space: nowrap;
+}
+
+/* Disclosure affordance at the row's end: right while closed, down while open. */
+.trailingChevron {
+  flex: none;
+  display: inline-flex;
+  margin-left: 6px;
+  color: var(--dsw-alias-label-caption);
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.trailingChevron[data-open] {
+  transform: rotate(90deg);
 }
 
 .body {

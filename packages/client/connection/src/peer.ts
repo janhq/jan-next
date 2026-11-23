@@ -16,6 +16,8 @@ export interface PeerOptions {
   readonly principal: Principal
   /** Omission permits an event stream; non-owner Peers still cannot answer waterfalls. */
   readonly interactions?: 'answer' | 'none'
+  /** Omission lets the Gateway forwarder route calls to other Hosts; `local` keeps them on this Host. */
+  readonly forward?: 'all' | 'local'
 }
 
 /**
@@ -28,6 +30,7 @@ export class Peer implements PeerScope {
   readonly ctx: Context
   readonly principal: Principal
   readonly interactions: 'answer' | 'none'
+  readonly forward: 'all' | 'local'
   readonly signal: AbortSignal
   private readonly scope: Scope
 
@@ -38,6 +41,7 @@ export class Peer implements PeerScope {
   constructor(owner: Context, options: PeerOptions) {
     this.principal = options.principal
     this.interactions = options.interactions ?? 'answer'
+    this.forward = options.forward ?? 'all'
     this.scope = createScope(owner, this)
     this.ctx = this.scope.ctx
     const lifetime = new AbortController()

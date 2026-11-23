@@ -1,0 +1,8 @@
+{
+  "env": { "LINEAR_TOKEN": "configured-claude-token", "UNUSED": "do-not-migrate" },
+  "enabledPlugins": { "local-plugin@market": true },
+  "mcpServers": {
+    "settings-server": { "command": "uvx", "env": { "API_KEY": "${API_TOKEN:-example-default}" } },
+    "linear": { "type": "http", "url": "https://example.com/linear", "headers": { "Authorization": "Bearer ${LINEAR_TOKEN}" } }
+  }
+}

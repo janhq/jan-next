@@ -13,6 +13,7 @@ import type {
   ToolResultNode,
 } from '@janhq/jan-client-ui-conversation/client'
 import type { FileAttachmentRef, ImageAttachmentRef } from '@janhq/jan-attachment'
+import { streamedBlockChars } from '@janhq/jan-llm/assistant-stream'
 import type {
   TrajectoryCellProps,
   TrajectorySourceBlock,
@@ -760,6 +761,7 @@ function expandAssistant(
     completedTime: streaming ? null : finiteTime(node.time),
     usageProvided: usage !== undefined,
     outputTokens: Number.isFinite(usage?.outputTokens) ? usage?.outputTokens ?? null : null,
+    streamedChars: streamedBlockChars(node.blocks),
   }
   out.push({ absTime: nodeAbs, cell: message })
 

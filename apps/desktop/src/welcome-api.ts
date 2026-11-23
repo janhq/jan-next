@@ -47,6 +47,9 @@ export type WelcomeSaveResult = { readonly ok: true } | { readonly ok: false }
 /** One-time notification retained by the main process until Welcome receives it. */
 export type WelcomeNotice = 'session-expired'
 
+/** Workspace page Welcome can open on arrival: the local model Hub. */
+export type WelcomeDestination = 'hub'
+
 type WelcomeEventName = 'auth_page_view' | 'auth_page_click' | 'api_key_save_click'
 
 /** Host-owned operations used by the welcome window. */
@@ -78,9 +81,10 @@ export interface WelcomeOperations {
   cancelLocalModel(): Promise<WelcomeLocalModel | undefined>
   /**
    * Enter the workspace without writing an onboarding-completion setting.
+   * @param open - workspace page to show on arrival; the chat when omitted.
    * @returns completion after the workspace opens.
    */
-  skip(): Promise<void>
+  skip(open?: WelcomeDestination): Promise<void>
 }
 
 /** The renderer receives localized copy, login operations, and safe account snapshots. */

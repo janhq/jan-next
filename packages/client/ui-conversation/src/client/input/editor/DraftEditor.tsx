@@ -21,6 +21,7 @@ export interface DraftEditorProps {
   readonly workspaceTrigger: boolean
   readonly workspacePickerOpen: boolean
   readonly onWorkspaceKeyDown: KeyboardEventHandler<HTMLDivElement>
+  readonly onDraftInteraction?: ((element: HTMLDivElement) => void) | undefined
   readonly hint: string | null
   readonly showPlaceholder: boolean
 }
@@ -32,7 +33,7 @@ export interface DraftEditorProps {
  */
 export function DraftEditor({
   classNames: css, editor, scrollRef, editable, editorDisabled, phase, placeholderText, ariaLabel,
-  workspaceTrigger, workspacePickerOpen, onWorkspaceKeyDown, hint, showPlaceholder, placeholderContent,
+  workspaceTrigger, workspacePickerOpen, onWorkspaceKeyDown, onDraftInteraction, hint, showPlaceholder, placeholderContent,
 }: DraftEditorProps): ReactNode {
   return (
     <div ref={scrollRef} className={css.scroll} data-input-scroll>
@@ -51,6 +52,8 @@ export function DraftEditor({
           aria-expanded={workspaceTrigger ? workspacePickerOpen : undefined}
           tabIndex={workspaceTrigger ? 0 : undefined}
           onKeyDown={workspaceTrigger ? onWorkspaceKeyDown : undefined}
+          onFocus={onDraftInteraction === undefined ? undefined : (event) => { onDraftInteraction(event.currentTarget) }}
+          onInput={onDraftInteraction === undefined ? undefined : (event) => { onDraftInteraction(event.currentTarget) }}
           style={hint === null ? undefined : { '--jan-composer-hint': JSON.stringify(hint) } as CSSProperties}
         />
         {showPlaceholder && (

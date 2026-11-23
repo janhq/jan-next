@@ -53,7 +53,7 @@ describe('web e2e: startup auto-selection', () => {
     await page.evaluate(() => {
       const refs = {
         root: document.querySelector('div[data-phase="hero"]'),
-        workspaceChip: document.querySelector('[aria-label="Choose workspace"]'),
+        workspaceChip: document.querySelector('[aria-label="Choose project"]'),
         scrollBody: document.querySelector('[data-conversation-scroll]'),
         composerSeat: document.querySelector('[data-composer-seat]'),
         composer: document.querySelector('[data-composer-input]'),
@@ -97,7 +97,7 @@ describe('web e2e: startup auto-selection', () => {
       return {
         phase: document.querySelector('div[data-phase]')?.getAttribute('data-phase'),
         root: document.querySelector('div[data-phase="hero"]') === before.root,
-        workspaceChip: document.querySelector('[aria-label="Choose workspace"]') === before.workspaceChip,
+        workspaceChip: document.querySelector('[aria-label="Choose project"]') === before.workspaceChip,
         scrollBody: document.querySelector('[data-conversation-scroll]') === before.scrollBody,
         composerSeat: document.querySelector('[data-composer-seat]') === before.composerSeat,
         composer: document.querySelector('[data-composer-input]') === before.composer,

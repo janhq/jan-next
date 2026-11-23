@@ -26,7 +26,7 @@ import SubagentRuntime, {
   SUBAGENT_DESCRIPTOR_VERSION,
 } from '../src/index.ts'
 import type { SubagentRunEndInfo, SubagentRunInfo } from '../src/index.ts'
-import type { SubagentPromptRequestId } from '../src/control-types.ts'
+import type { SubagentPromptReceipt, SubagentPromptRequestId } from '../src/control-types.ts'
 import * as activationResults from '../src/activation.ts'
 import { requireLocalActivation } from '../src/activation.ts'
 import { TestSessionQuery } from './test-session-query.ts'
@@ -1230,7 +1230,7 @@ describe('target-only Queue residency routing', () => {
 })
 
 describe('continuable human steering delivery', () => {
-  it('places resident steering in nextStep with its durable identity and source', async () => {
+  it('yields resident work and enters steering in the same turn with its durable identity and source', async () => {
     const release = Promise.withResolvers<undefined>()
     const adapter = new GatedAdapter([
       { chunks: textResponse('first'), gate: release.promise },
@@ -1240,17 +1240,22 @@ describe('continuable human steering delivery', () => {
     parkParent(ctx, parent)
     const started = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent' })
     await vi.waitFor(() => { expect(adapter.requests).toHaveLength(1) })
-    const child = ctx.agents.get(started.childId)!
-
-    const receipt = await humanPrompt(ctx, started.childId, 'resident steer', 'steer')
-    expect(child.inbox.nextStep).toContainEqual(expect.objectContaining({
-      id: receipt.messageId,
-      content: message('resident steer'),
-      source: { kind: 'user', rpcId: 'request-resident steer' },
-    }))
-
-    release.resolve(undefined)
-    await waitNoActivation(ctx, started.childId)
+    try {
+      const receipt = await humanPrompt(ctx, started.childId, 'resident steer', 'steer')
+      await started.result
+      const child = await loadStoredSession(ctx.sessionPersistence, started.childId)
+      const steering = { id: receipt.messageId, content: message('resident steer'), source: { kind: 'user', rpcId: 'request-resident steer' } }
+      const steered: unknown = expect.objectContaining(steering)
+      const spliced: unknown = expect.objectContaining({ target: 'next-step', inserted: [steered] })
+      expect(child.events).toContainEqual(expect.objectContaining({ type: 'agent/inbox/spliced', data: spliced }))
+      expect(child.events).toContainEqual(expect.objectContaining({ type: 'user/message', data: steered }))
+      expect(child.events.filter(event => event.type === 'turn/start')).toHaveLength(1)
+      expect(child.events.flatMap(event => event.type === 'step/start' ? [event.data.step] : [])).toEqual([1, 2])
+      expect(adapter.requests).toHaveLength(2)
+      expect(JSON.stringify(adapter.requests[1]?.messages)).toContain('resident steer')
+    } finally {
+      release.resolve(undefined)
+    }
   })
 
   it('cold-resumes steering into nextStep instead of inventing another queue', async () => {
@@ -2675,14 +2680,25 @@ describe('continuable review regressions', () => {
     const started = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent' })
     await vi.waitFor(() => { expect(adapter.requests).toHaveLength(1) })
     const child = ctx.agents.get(started.childId)!
-    await humanPrompt(ctx, started.childId, 'steered', 'steer')
-    ctx.subagents.interrupt(started.childId, { kind: 'user' })
-    release.resolve(undefined)
+    // Interrupt at admission, before the yielded step can claim the steering.
+    const stopOnAdmission = ctx.on('agent/inbox/inserted', ({ agent, message: queued }) => {
+      if (agent === child && queued.source.kind === 'user' && 'rpcId' in queued.source && queued.source.rpcId === 'request-steered') {
+        ctx.subagents.interrupt(started.childId, { kind: 'user' })
+      }
+    })
+    let receipt: SubagentPromptReceipt
+    try {
+      receipt = await humanPrompt(ctx, started.childId, 'steered', 'steer')
+    } finally {
+      stopOnAdmission()
+      release.resolve(undefined)
+    }
     await child.whenIdle()
-    const parked = child.inbox.nextStep[0]!
+    expect(child.inbox.nextStep.map(entry => entry.id)).toEqual([receipt.messageId])
+    expect(adapter.requests).toHaveLength(1)
     await passSettlementCheck(ctx, started.childId)
     expect(ctx.agents.get(started.childId) !== undefined).toBe(true)
-    expect(child.inbox.remove(parked.id)).toBe(true)
+    expect(child.inbox.remove(receipt.messageId)).toBe(true)
     await waitNoActivation(ctx, started.childId)
   })
 
@@ -2799,7 +2815,9 @@ function settlementNotices(agent: Agent) {
       sender: message.source.senderSessionId,
       summary: message.source.summary,
       stopReason: message.source.stopReason,
-      text: message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n'),
+      // Envelope fields are tested at the formatter and provider request boundary.
+      text: message.content.flatMap((block, index) => block.type === 'text'
+        && !(index === 1 && block.text.startsWith('Status: ')) ? [block.text] : []).join('\n'),
     }]
   })
 }
@@ -2926,7 +2944,7 @@ describe('continuable adjacent-Agent delivery', () => {
 })
 
 describe('continuable settlement delivery', () => {
-  it.each(['parent', 'root', 'sibling'] as const)('omits closing text only after messaging the direct parent: %s', async (target) => {
+  it.each(['parent', 'root', 'sibling'] as const)('delivers closing text to the direct parent after messaging %s', async (target) => {
     const releaseCreator = Promise.withResolvers<undefined>()
     const releaseLeaf = Promise.withResolvers<undefined>()
     const adapter = new GatedAdapter([
@@ -2951,9 +2969,7 @@ describe('continuable settlement delivery', () => {
       const notice = settlementNotices(creatorAgent).find(item => item.sender === leaf.childId)!
       expect(notice.text).toBe(
         `Background subagent ${leaf.name} finished and will do no further work unless you send it more.\n`
-        + (target === 'parent'
-          ? 'It sent you a message just before finishing, so its closing message is omitted.'
-          : 'Its closing message:\nleaf answer'),
+        + 'Its closing message:\nleaf answer',
       )
     } finally {
       releaseCreator.resolve(undefined)
@@ -2980,27 +2996,43 @@ describe('continuable settlement delivery', () => {
     )
   })
 
-  it('delivers settlement even when the child already sent a message', async () => {
-    const { ctx, parent } = await setup([textResponse('the answer'), textResponse('parent ack')])
+  it('delivers the closing answer even when the child sent a different progress message', async () => {
+    const release = Promise.withResolvers<undefined>()
+    const adapter = new GatedAdapter([
+      { chunks: textResponse('the answer'), gate: release.promise },
+      { chunks: textResponse('parent ack') },
+      { chunks: textResponse('parent ack') },
+    ])
+    const { ctx, parent } = await setupWith(adapter)
     const started = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent' })
-    const child = await vi.waitFor(() => {
-      const live = ctx.agents.get(started.childId)
-      expect(live).toBeDefined()
-      return live!
-    })
-    await ctx.subagents.sendMessage(child, parent.id, message('an explicit message'), {
-      signal: testSignal,
-    })
-    await waitNoActivation(ctx, started.childId)
-
-    // The contract is unconditional precisely so the parent-side tool
-    // description can promise it; only the closing text, which restates the
-    // message, is left out.
-    await vi.waitFor(() => { expect(settlementNotices(parent)).toHaveLength(1) })
-    expect(settlementNotices(parent)[0]!.text).toBe(
-      `Background subagent ${started.name} finished and will do no further work unless you send it more.\n`
-      + 'It sent you a message just before finishing, so its closing message is omitted.',
-    )
+    try {
+      const child = await vi.waitFor(() => {
+        const live = ctx.agents.get(started.childId)
+        expect(live).toBeDefined()
+        expect(adapter.requests).toHaveLength(1)
+        return live!
+      })
+      const relayId = await ctx.subagents.sendMessage(child, parent.id, message('an explicit message'), {
+        signal: testSignal,
+      })
+      release.resolve(undefined)
+      await started.result
+      await parent.whenIdle()
+      const relays = parent.session.snapshotEvents().flatMap(event => event.type === 'user/message'
+        && event.data.source.kind === 'agent-message' ? [event.data] : [])
+      expect(relays).toMatchObject([{
+        id: relayId,
+        content: [{ type: 'text', text: `Agent ${started.name} sent a message: ` }, { type: 'text', text: 'an explicit message' }],
+      }])
+      expect(settlementNotices(parent)).toMatchObject([{
+        sender: child.id,
+        text: `Background subagent ${started.name} finished and will do no further work unless you send it more.\n`
+          + 'Its closing message:\nthe answer',
+      }])
+    } finally {
+      release.resolve(undefined)
+      await ctx.fiber.dispose()
+    }
   })
 
   it('reports the closing message again when the child received input after its message', async () => {
@@ -3032,49 +3064,9 @@ describe('continuable settlement delivery', () => {
     )
   })
 
-  it('reports the closing message when the child ran a tool after its message, even past a short-circuiting tool policy', async () => {
-    const release = Promise.withResolvers<undefined>()
-    const adapter = new GatedAdapter([
-      { chunks: toolCallResponse('t1', 'noop', {}), gate: release.promise },
-      { chunks: textResponse('parent ack') },
-      { chunks: textResponse('the answer') },
-      { chunks: textResponse('parent ack') },
-    ])
-    const { ctx, parent } = await setupWith(adapter)
-    ctx.tools.register(defineTool({
-      name: 'noop',
-      description: 'does nothing',
-      parameters: {},
-      output: {
-        schema: { type: 'object', additionalProperties: false, properties: {} },
-        render: () => [{ type: 'text', text: 'noop' }],
-      },
-      execute: () => Promise.resolve({}),
-    }))
-    // A policy that allows the call without delegating hides it from later pre-execute listeners.
-    ctx.on('tools/pre-execute', (exec, next) => exec.name === 'noop' ? Promise.resolve({ kind: 'allow' as const }) : next(), { prepend: true })
-    const started = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent' })
-    const child = await vi.waitFor(() => {
-      const live = ctx.agents.get(started.childId)
-      expect(live).toBeDefined()
-      expect(adapter.requests).toHaveLength(1)
-      return live!
-    })
-    await ctx.subagents.sendMessage(child, parent.id, message('an interim finding'), { signal: testSignal })
-    await vi.waitFor(() => { expect(adapter.requests).toHaveLength(2) })
-    release.resolve(undefined)
-    await waitNoActivation(ctx, started.childId)
-
-    await vi.waitFor(() => { expect(settlementNotices(parent)).toHaveLength(1) })
-    expect(settlementNotices(parent)[0]!.text).toBe(
-      `Background subagent ${started.name} finished and will do no further work unless you send it more.\nIts closing message:\nthe answer`,
-    )
-  })
-
   it.each([
-    ['reports', 'another call follows the message in its step', ['send_message', 'noop'], 'Its closing message:\nthe answer'],
-    ['omits', 'the message is the last call of its step', ['noop', 'send_message'], 'It sent you a message just before finishing, so its closing message is omitted.'],
-  ] as const)('%s the closing message when %s', async (_verb, _case, order, ending) => {
+    ['send_message', 'noop'], ['noop', 'send_message'],
+  ] as const)('delivers the closing message after %j and %j in one tool batch', async (...order) => {
     let childTurns = 0
     const respond = (options: GenerateOptions): StreamChunk[] => {
       const history = JSON.stringify(options.messages)
@@ -3112,7 +3104,7 @@ describe('continuable settlement delivery', () => {
 
     await vi.waitFor(() => { expect(settlementNotices(parent)).toHaveLength(1) })
     expect(settlementNotices(parent)[0]!.text).toBe(
-      `Background subagent ${started.name} finished and will do no further work unless you send it more.\n${ending}`,
+      `Background subagent ${started.name} finished and will do no further work unless you send it more.\nIts closing message:\nthe answer`,
     )
   })
 
@@ -3338,39 +3330,31 @@ describe('continuable settlement delivery', () => {
     expect(turnStarts).toEqual([1])
   })
 
-  it('batches simultaneous notices into one step of a busy parent', async () => {
-    const releaseChildren = Promise.withResolvers<undefined>()
+  it('yields the busy parent step when a completion notice arrives', async () => {
     const releaseParent = Promise.withResolvers<undefined>()
     const adapter = new GatedAdapter([
       { chunks: textResponse('parent works'), gate: releaseParent.promise },
-      { chunks: textResponse('first child'), gate: releaseChildren.promise },
-      { chunks: textResponse('second child'), gate: releaseChildren.promise },
+      { chunks: textResponse('child answer') },
       { chunks: textResponse('parent reacts') },
     ])
     const { ctx, parent } = await setupWith(adapter)
-    // Open a parent turn first, so both notices arrive while it is running.
-    parent.followup(createUserMessage({ content: message('start working'), source: { kind: 'user' } }))
-    await vi.waitFor(() => { expect(parent.status).toBe('running') })
+    try {
+      parent.followup(createUserMessage({ content: message('start working'), source: { kind: 'user' } }))
+      await vi.waitFor(() => { expect(adapter.requests.map(request => request.sessionId)).toEqual([parent.id]) })
+      const child = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent' })
+      await child.result
+      await parent.whenIdle()
 
-    const first = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent' })
-    const second = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent' })
-    releaseChildren.resolve(undefined)
-    await waitNoActivation(ctx, first.childId)
-    await waitNoActivation(ctx, second.childId)
-
-    // Both notices are waiting for the same step boundary, not two turns.
-    expect(parent.inbox.nextStep).toHaveLength(2)
-    expect(parent.inbox.nextTurn).toHaveLength(0)
-    const turnStarts: number[] = []
-    ctx.on('session/event', (session, event) => {
-      if (session.id === parent.id && event.type === 'turn/start') turnStarts.push(event.data.turn)
-    })
-    releaseParent.resolve(undefined)
-    await vi.waitFor(() => { expect(settlementNotices(parent)).toHaveLength(2) })
-    expect(turnStarts).toEqual([])
-    // Both children released together, so which settles first is not ordered.
-    expect(new Set(settlementNotices(parent).map(entry => entry.sender)))
-      .toEqual(new Set([first.childId, second.childId]))
+      const parentRequests = adapter.requests.filter(request => request.sessionId === parent.id)
+      expect(parentRequests).toHaveLength(2)
+      expect(JSON.stringify(parentRequests[1]?.messages)).toContain('child answer')
+      const events = parent.session.snapshotEvents()
+      expect(events.filter(event => event.type === 'turn/start')).toHaveLength(1)
+      expect(events.flatMap(event => event.type === 'step/start' ? [event.data.step] : [])).toEqual([1, 2])
+      expect(settlementNotices(parent)).toMatchObject([{ sender: child.childId, stopReason: 'completed' }])
+    } finally {
+      releaseParent.resolve(undefined)
+    }
   })
 
 

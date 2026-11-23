@@ -40,6 +40,8 @@ export interface AssistantChatData {
   readonly turn: number
   readonly step: number
   readonly blocks: readonly AssistantBlock[]
+  /** Latest kind of live output, in delivery order rather than block index order. */
+  readonly streamingPhase?: 'thinking' | 'writing' | 'working'
   readonly time: number
   readonly usage?: unknown
   readonly finalNode?: AssistantMessageNode
@@ -82,7 +84,7 @@ export interface TurnTokenUsageRoute {
   readonly model: string
 }
 
-/** Exact provider-reported token accounting for every attempt in one completed Turn. */
+/** Provider-reported token accounting for every attempt in one completed Turn. */
 export interface TurnTokenUsage {
   /** Sum of uncached prompt input across all attempts. */
   readonly uncachedInputTokens: number
@@ -97,6 +99,16 @@ export interface TurnTokenUsage {
   readonly reasoningTokens?: number
   /** Present only when every billed attempt has provider/model attribution. */
   readonly routes?: readonly TurnTokenUsageRoute[]
+  /** A reply was cut before the provider reported its output; that output is estimated. */
+  readonly outputEstimated?: true
+}
+
+/** Wall-clock speed of one completed Turn's model steps; each field is absent when unrecorded. */
+export interface TurnTiming {
+  /** First step's step/start to first token delta, in ms: how long the user waited. */
+  readonly ttftMs?: number
+  /** Output tokens over decode wall time, summed across steps that record both. */
+  readonly tokensPerSecond?: number
 }
 
 /** Turn-local footer row that owns actions and optional feature contributions. */
@@ -110,6 +122,8 @@ export interface TurnTailChatData {
   readonly branchUnavailable: boolean
   /** Exact per-Turn accounting; absent when the loaded evidence is incomplete. */
   readonly tokenUsage?: TurnTokenUsage
+  /** Latency and output speed from the Turn's finalized Assistant steps. */
+  readonly timing?: TurnTiming
 }
 
 /** Turn-level process disclosure projected before the finalized answer. */

@@ -2,7 +2,7 @@
 import type {
   ISession, SessionEventLikeEntry, SessionSnapshot, SessionSummary,
 } from '@janhq/jan-api-session-controller/client'
-import type { WorkspaceSnapshot } from '@janhq/jan-api-workspace-controller/client'
+import type { WorkspaceId, WorkspaceSnapshot, WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import {
   EMPTY_CONVERSATION_SNAPSHOT,
@@ -116,4 +116,15 @@ export function workspaceSnapshot(): WorkspaceSnapshot {
     phase: 'ready',
     error: null,
   }
+}
+
+/** Default project returned by the test Host when no project has been registered. */
+export const defaultWorkspaceFixture: WorkspaceView = {
+  workspaceId: 'default-project' as WorkspaceId,
+  isDefault: true,
+  title: 'default-workspace',
+  path: '/test/Documents/Jan/default-workspace',
+  sessionIds: [],
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
 }

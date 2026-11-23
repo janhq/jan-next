@@ -67,12 +67,14 @@ const publishedRepositoryUrl = 'git+https://github.com/janhq/jan-next.git'
 const experimentalPackageDirectory = /^packages\/experimental\/[^/]+$/
 /** Private reference tool run from the repository; it publishes no files. */
 const pluginMarketGeneratorDirectory = 'apps/plugin-market-generator'
+/** Dependency-only deploy root that Hosts packs into an archive for another computer; never published to npm. */
+const hostRuntimeDirectory = 'apps/jan-host-runtime'
 /**
  * Ordinary directories whose packages this repository publishes: one release member each. The reference plugin
- * market generator is a private repository tool, not a published application.
+ * market generator is a private repository tool, and the host runtime a private deploy root, not published applications.
  */
 const standardReleaseMemberDirectory = new RegExp(
-  `^(?:packages/(?!experimental/)[^/]+/[^/]+|apps/(?!desktop(?:-host)?$|${pluginMarketGeneratorDirectory.slice('apps/'.length)}$)[^/]+|vendor/[^/]+)$`,
+  `^(?:packages/(?!experimental/)[^/]+/[^/]+|apps/(?!desktop(?:-host)?$|${pluginMarketGeneratorDirectory.slice('apps/'.length)}$|${hostRuntimeDirectory.slice('apps/'.length)}$)[^/]+|vendor/[^/]+)$`,
   'u',
 )
 /** Installable application assembled by electron-builder rather than published to npm. */
@@ -208,6 +210,8 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   '@janhq/jan-app-boot': ['lib/worker/profile-resolution-bootstrap.js'],
   // Plugin translation lazy-loads its language detector as a separate client chunk.
   '@janhq/jan-client-ui-plugin-i18n': ['lib/client.static.extrasmall.js'],
+  // The shared-links projection is an independent Host plugin entry.
+  '@janhq/jan-client-ui-deliverables': ['lib/links-projection.js'],
   // Statically linked client libraries keep their stylesheets next to the emitted
   // JavaScript, which imports them by relative path: the compile shell runs
   // them through its own CSS pipeline, so the sheets are published artifacts.
@@ -564,7 +568,8 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
     }
   }
 
-  if (dir.startsWith('apps/') && dir !== desktopApplicationDirectory && dir !== pluginMarketGeneratorDirectory && manifest.name?.startsWith('@janhq/')) {
+  if (dir.startsWith('apps/') && dir !== desktopApplicationDirectory && dir !== pluginMarketGeneratorDirectory && dir !== hostRuntimeDirectory
+    && manifest.name?.startsWith('@janhq/')) {
     const expectedFiles = appPackageFiles[manifest.name]
     if (expectedFiles === undefined) {
       errors.push(`${label}: app package has no publication files policy`)

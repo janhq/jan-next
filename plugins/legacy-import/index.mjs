@@ -2,13 +2,19 @@ import { readFile, readdir, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { resolve, join, extname, isAbsolute, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
 import z from '@janhq/schemastery'
 import { credentialRef } from '@janhq/jan-credentials'
 import { registerApi } from '@janhq/jan-plugin-api'
 import { convertThread, coworkMessages, threadUpdated } from './convert.mjs'
 import { defaultFolders, listSessionFiles, mapLimit, readSessionFile, sessionHead } from './agents.mjs'
+import { orcaWorkspaces, workspaceOf } from './orca.mjs'
 import { janKeyNames, readJanKey } from './jan-secrets.mjs'
 import { assistantPresetId, derivePreset, keyRef, providerProfile, readJanSettings } from './settings.mjs'
+import { CONNECTORS_ONLY, MCP_SOURCES, readMcpSource, summarizeMcp } from './mcp.mjs'
+import { importSkills, readSkillSource } from './skills.mjs'
+import { resolveAgentsHome, resolveJanHome } from '@janhq/jan-home-paths'
+import { DEFAULT_MIGRATION_DAYS, migrationPreview, registerMigrateSkill, registerMigrateTools } from './migrate.mjs'
 
 export const Config = z.object({
   // The first-launch offer: `dismissed` once the user answered it.
@@ -16,7 +22,7 @@ export const Config = z.object({
   // Jan assistants brought over, by preset id; each is registered as a preset at startup.
   assistants: z.dict(z.any()).default({}).volatile(),
 })
-export const inject = ['webServer', 'connection', 'settings', 'sessions', 'sessionPersistence', 'workspaceRegistry', 'attachments']
+export const inject = ['webServer', 'connection', 'settings', 'sessions', 'sessionPersistence', 'workspaceRegistry', 'workspaceController', 'attachments']
 // The preset an imported assistant is built on: its tools and guidance, with
 // the assistant's instructions as the persona.
 const BASE_PRESET = 'standard'
@@ -26,6 +32,10 @@ const validId = id => typeof id === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127
 const parseMessages = text => text.split(/\r?\n/).filter(line => line.trim()).map((line, index) => {
   try { return JSON.parse(line) } catch { throw new Error(`Invalid messages.jsonl at line ${index + 1}.`) }
 })
+const selectedRows = (rows, ids) => ids === undefined ? rows : rows.filter(row => ids.has(row.id))
+const ensureUnchanged = (label, before, current) => {
+  if (!isDeepStrictEqual(before, current)) throw new Error(`${label} changed since the import form opened. Open the form and try again.`)
+}
 
 export function apply(ctx, config = {}) {
   const entry = ctx.fiber.entry?.options.id
@@ -92,11 +102,46 @@ export function apply(ctx, config = {}) {
   // Other coding agents keep one JSONL transcript per session in a folder of their own.
   const AGENTS = ['claude', 'codex', 'omp']
   const agentSource = source => {
-    if (!AGENTS.includes(source)) throw new Error('Choose Jan, Claude Code, Codex or OMP.')
+    if (!AGENTS.includes(source)) throw new Error('Choose a source with chat history.')
     return source
   }
   const agentId = (source, id) => `${source}-${id}`
   const agentFolder = async (source, folder) => realpath(folder ? resolve(folder) : defaultFolders()[source])
+  // Orca runs these agents in its workspaces; their transcripts stay in each agent's own folder.
+  // Row and session ids carry the agent prefix, so a session imported here and from its agent's
+  // own source is the same Jan session.
+  const orcaFiles = async () => (await Promise.all(AGENTS.map(async agent => {
+    try { return (await listSessionFiles(agent, await agentFolder(agent))).map(file => ({ ...file, agent, key: agentId(agent, file.id) })) } catch (error) {
+      if (missing(error)) return []
+      throw error
+    }
+  }))).flat().sort((a, b) => b.updated - a.updated)
+  const listOrca = async ({ since }) => {
+    const [workspaces, all] = await Promise.all([orcaWorkspaces(), orcaFiles()])
+    const files = typeof since === 'number' ? all.filter(file => file.updated >= since) : all
+    const rows = await mapLimit(files, async file => {
+      try {
+        const head = await sessionHead(file.path)
+        const workspace = workspaceOf(workspaces, head.cwd)
+        if (!workspace) return undefined
+        return {
+          id: file.key, title: head.title || file.id, agent: file.agent, project: workspace.path, workspace: workspace.name, projectName: workspace.project,
+          size: file.size, updated: file.updated, alreadyImported: await exists(file.key),
+        }
+      } catch { return undefined }
+    })
+    // `folder` is the page's marker that this list is current; Orca has no folder of its own.
+    return { source: 'orca', folder: 'orca', threads: rows.filter(Boolean), workspaces: workspaces.length, older: all.length - files.length }
+  }
+  // An Orca session opens in a Jan workspace over its Orca workspace's folder, titled as Orca shows it.
+  const orcaWorkspaceFor = async (workspaces, cwd) => {
+    const found = workspaceOf(workspaces, cwd)
+    if (!found) return undefined
+    try { return await ctx.workspaceRegistry.create(found.path, found.project && found.project !== found.name ? `${found.project} · ${found.name}` : found.name) } catch (error) {
+      if (missing(error)) return undefined
+      throw error
+    }
+  }
   // `since` (epoch ms) keeps the list to recent sessions; a coding agent can hold thousands, and
   // each listed one costs a file read and a store lookup.
   const listAgent = async ({ source, folder, since }) => {
@@ -115,10 +160,27 @@ export function apply(ctx, config = {}) {
     })
     return { source, folder: root, threads, older: all.length - files.length }
   }
-  const list = async ({ source = 'jan', folder, since }) => {
-    if (source !== 'jan') return listAgent({ source: agentSource(source), folder, since })
-    const janFolder = await realpath(folderOf(folder))
-    const entries = await readdir(join(janFolder, 'threads'), { withFileTypes: true })
+  const list = async ({ source = 'jan', folder, since }, approval) => {
+    if (source === 'orca') return listOrca({ since })
+    if (!MCP_SOURCES.includes(source)) throw new Error('Choose a supported migration source.')
+    if (source !== 'jan') {
+      const [conversations, settings] = await Promise.all([
+        CONNECTORS_ONLY.includes(source) ? { source, threads: [] } : listAgent({ source, folder, since }).catch(() => ({
+          source, folder: folder || defaultFolders()[source], threads: [], missing: true, chatError: 'Could not scan chat files. Check the folder and try again.',
+        })),
+        settingsSummary(source, undefined, approval),
+      ])
+      return { ...conversations, settings }
+    }
+    let janFolder
+    try { janFolder = await realpath(folderOf(folder)) } catch (error) {
+      if (!missing(error)) throw error
+      return { source, folder: folderOf(folder), threads: [], missing: true }
+    }
+    let entries = []
+    try { entries = await readdir(join(janFolder, 'threads'), { withFileTypes: true }) } catch (error) {
+      if (!missing(error)) throw error
+    }
     const threads = []
     for (const entry of entries) {
       if (!entry.isDirectory() || !validId(entry.name)) continue
@@ -130,38 +192,46 @@ export function apply(ctx, config = {}) {
       }
     }
     threads.sort((a, b) => (b.updated ?? 0) - (a.updated ?? 0))
-    return { folder: janFolder, threads, settings: await settingsSummary(janFolder) }
+    return { source, folder: janFolder, threads, settings: await settingsSummary(source, janFolder, approval) }
   }
-  // What else Jan holds, for the import choices; never a secret value.
-  const settingsSummary = async source => {
-    try {
-      const { providers, mcp, assistants } = await readJanSettings(source, await janKeyNames(source))
-      const stored = config.assistants?.get() ?? {}
-      return {
-        providers: providers.map(({ id, route, hasKey }) => ({ id, route, hasKey })),
-        mcp: { names: Object.keys(mcp.servers), renamed: mcp.renamed, skipped: mcp.skipped },
-        assistants: assistants.map(({ id, name }) => ({ id, name, alreadyImported: Object.hasOwn(stored, id) })),
-      }
-    } catch (error) { return { error: errorText(error), providers: [], mcp: { names: [], renamed: {}, skipped: [] }, assistants: [] } }
-  }
-  // Offered once on first launch when the earlier Jan left chats that are not
-  // here yet; a relocated Jan folder is only reachable from Settings.
-  const offer = async () => {
-    if (config.offer?.get()?.dismissed === true) return { show: false, count: 0 }
-    try {
-      const { threads, settings } = await list({})
-      const count = threads.filter(thread => !thread.error && !thread.alreadyImported && thread.messageCount > 0).length
-      // Names the settings that come along, so the offer says what it moves.
-      const extras = [
-        settings.providers.length ? 'model providers' : null,
-        settings.mcp.names.length ? 'MCP servers' : null,
-        settings.assistants.some(item => !item.alreadyImported) ? 'assistants' : null,
-      ].filter(Boolean)
-      return { show: count > 0, count, extras }
-    } catch (error) {
-      if (missing(error)) return { show: false, count: 0 }
-      throw error
+  const settingsSummary = async (source, folder, approval) => {
+    const scan = await readMcpSource(source, { folder })
+    if (approval) approval.mcp = scan
+    const mcp = summarizeMcp(scan, new Set(ctx.get('janMcpSettings')?.configuredNames?.()))
+    const result = { mcp, providers: [], assistants: [] }
+    if (source !== 'jan') {
+      try {
+        result.skills = await skillScan(source)
+        if (approval) approval.skills = result.skills
+      } catch { result.skills = { error: 'Could not read skills. Check the skills folder and try again.' } }
+      return result
     }
+    try {
+      const janSettings = await readJanSettings(folder, await janKeyNames(folder))
+      if (approval) approval.janSettings = janSettings
+      const { providers, assistants } = janSettings
+      const stored = config.assistants?.get() ?? {}
+      const routes = ctx.get('settings')?.describe().find(item => item.ns === PROVIDERS_NS)?.value?.providers ?? {}
+      const credentials = ctx.get('credentials')
+      result.providers = await Promise.all(providers.map(async ({ id, route, hasKey }) => {
+        const existing = Object.hasOwn(routes, route) ? routes[route] : undefined
+        const ref = existing?.apiKeyEnv || keyRef(route)
+        const keyAlreadyConfigured = Boolean(hasKey && credentials && (await credentials.describe(credentialRef(ref))).configured)
+        return { id, route, hasKey, keyAlreadyConfigured, alreadyImported: Boolean(existing) }
+      }))
+      result.assistants = assistants.map(({ id, name }) => ({ id, name, alreadyImported: Object.hasOwn(stored, id) }))
+    } catch { result.error = 'Could not read earlier Jan settings. Check the source folder and try again.' }
+    return result
+  }
+  // Skills land in Jan's own skills folder, the one its skill loader reads first.
+  const skillScan = source => readSkillSource(source, { janHome: resolveJanHome(), agentsHome: resolveAgentsHome() })
+  const preview = ({ source, days = DEFAULT_MIGRATION_DAYS } = {}) => migrationPreview(list, { source, days })
+  const offer = async () => {
+    if (config.offer?.get()?.dismissed === true) return { show: false }
+    const { sources } = await preview()
+    return { show: sources.some(row => row.ready || row.settings?.mcp.names.length
+      || row.settings?.providers.some(item => !item.alreadyImported || (item.hasKey && !item.keyAlreadyConfigured))
+      || row.settings?.assistants.some(item => !item.alreadyImported)), sources }
   }
   const dismissOffer = async () => {
     const settings = ctx.get('settings')
@@ -265,69 +335,141 @@ export function apply(ctx, config = {}) {
     if (ops.length) await settings.mutate(PROVIDERS_NS, ops)
     return { id: row.id, route: row.route, status: existing ? 'already here' : 'imported', key, ...(reason ? { reason } : {}) }
   }
-  // The MCP servers as a document for the MCP settings import, which stores
-  // their env and header values as credentials and adds them turned off.
-  const mcpDocument = async ({ folder }) => {
-    const { mcp } = await readJanSettings(await realpath(folderOf(folder)), [])
-    return { text: JSON.stringify({ mcpServers: mcp.servers }), renamed: mcp.renamed, skipped: mcp.skipped }
+  // Keep these selections separate from the redacted MCP summary sent to the form.
+  const selectMcp = (scan, names) => {
+    if (names === undefined) return scan
+    const chosen = new Set(names)
+    return { ...scan, rows: scan.rows.filter(row => chosen.has(row.name)),
+      servers: Object.fromEntries(Object.entries(scan.servers).filter(([name]) => chosen.has(name))) }
   }
-  const importSelected = async ({ source: origin = 'jan', folder, ids, providers = false, assistants = false }) => {
+  const importMcp = async scan => {
+    const settings = ctx.get('janMcpSettings')
+    const summary = summarizeMcp(scan, new Set(settings?.configuredNames?.()))
+    let error
+    let added = []
+    if (summary.names.length) {
+      if (!settings) error = 'MCP settings are unavailable. Turn on Jan Theme and try again.'
+      else {
+        try { added = (await settings.importMissing(scan.servers)).added } catch {
+          error = 'Could not save MCP servers or their credentials. Check MCP settings and try again.'
+        }
+      }
+    }
+    const rows = summary.rows.map(row => ({ ...row, status: row.status === 'already here' ? row.status
+      : error ? 'failed' : added.includes(row.name) ? 'imported' : 'already here' }))
+    return { imported: added.length, already: rows.filter(row => row.status === 'already here').length,
+      names: rows.map(row => row.name), rows, skipped: scan.skipped, issues: scan.issues, ...(error ? { error } : {}) }
+  }
+  const importSelected = async ({ source: origin = 'jan', folder, ids, providers, providerIds, assistants, assistantIds, mcp = false, mcpNames, skills = false, skillNames, instructions = false }, approval) => {
     if (job?.running) throw new Error('An import is already running.')
-    if (origin !== 'jan') agentSource(origin)
+    const orca = origin === 'orca'
+    if (!orca && !MCP_SOURCES.includes(origin)) throw new Error('Choose a supported migration source.')
     if (!Array.isArray(ids) || ids.some(id => !validId(id))) throw new Error('Select valid session IDs.')
-    if (origin !== 'jan' && (providers || assistants)) throw new Error('Providers and assistants come only from Jan.')
-    if (!ids.length && !providers && !assistants) throw new Error('Choose chats or settings to import.')
+    if (CONNECTORS_ONLY.includes(origin) && ids.length) throw new Error('This source only imports MCP servers, not chats.')
+    const providerSelection = providerIds === undefined ? undefined : new Set(providerIds)
+    const assistantSelection = assistantIds === undefined ? undefined : new Set(assistantIds)
+    const withProviders = providerSelection === undefined ? providers === true : providerSelection.size > 0
+    const withAssistants = assistantSelection === undefined ? assistants === true : assistantSelection.size > 0
+    if (origin !== 'jan' && (withProviders || withAssistants)) throw new Error('Model providers and assistants come only from the earlier Jan app.')
+    if (orca && (mcp || skills || instructions)) throw new Error('Import MCP servers and skills from the app that configured them.')
+    if (origin === 'jan' && (skills || instructions)) throw new Error('Skills come from Claude Code, Codex, OMP and Cursor.')
+    if (!ids.length && !withProviders && !withAssistants && !mcp && !skills && !instructions) throw new Error('Choose chats or settings to import.')
     const unique = [...new Set(ids)]
     job = { running: true, total: unique.length, done: 0, current: null, results: [], settings: { providers: [], assistants: [] } }
     const run = job
     try {
-      const source = origin === 'jan' ? await realpath(folderOf(folder)) : await agentFolder(origin, folder)
-      const agentFiles = origin === 'jan' ? undefined : new Map((await listSessionFiles(origin, source)).map(file => [file.id, file]))
-      const janSettings = providers || assistants ? await readJanSettings(source, providers ? await janKeyNames(source) : []) : undefined
-      if (providers) run.total += janSettings.providers.length
-      if (assistants) run.total++
-      // Assistants first, so imported chats can name their preset.
-      if (assistants) {
-        try { run.settings.assistants = await importAssistants(janSettings.assistants, run) } catch (error) { run.settings.assistantsError = errorText(error) }
+      const source = origin === 'jan' ? await realpath(folderOf(folder)) : !unique.length || orca ? undefined : await agentFolder(origin, folder)
+      if (approval && source !== undefined) ensureUnchanged('The source folder', folder, source)
+      const agentFiles = origin === 'jan' || !unique.length ? undefined
+        : orca ? new Map((await orcaFiles()).map(file => [file.key, file]))
+          : new Map((await listSessionFiles(origin, source)).map(file => [file.id, { ...file, agent: origin, key: agentId(origin, file.id) }]))
+      const workspaces = orca ? await orcaWorkspaces() : undefined
+      const janSettings = withProviders || withAssistants ? await readJanSettings(source, withProviders ? await janKeyNames(source) : []) : undefined
+      const providerRows = withProviders ? selectedRows(janSettings.providers, providerSelection) : []
+      const assistantRows = withAssistants ? selectedRows(janSettings.assistants, assistantSelection) : []
+      const skillSource = approval && (skills || instructions) ? await skillScan(origin) : undefined
+      const mcpSource = approval && mcp ? selectMcp(await readMcpSource(origin, { folder: source }), mcpNames) : undefined
+      // Check all selected settings before writing any of them. Unselected additions should not block an import.
+      if (approval) {
+        if (withProviders) ensureUnchanged('The selected model providers', selectedRows(approval.janSettings.providers, providerSelection), providerRows)
+        if (withAssistants) ensureUnchanged('The selected assistants', selectedRows(approval.janSettings.assistants, assistantSelection), assistantRows)
+        if (mcpSource) {
+          const approved = selectMcp(approval.mcp, mcpNames)
+          ensureUnchanged('The selected MCP configuration', [approved.rows, approved.servers], [mcpSource.rows, mcpSource.servers])
+        }
+        if (skills) {
+          const chosen = new Set(skillNames)
+          const paths = scan => scan.skills.filter(row => chosen.has(row.name)).map(row => [row.name, row.path])
+          ensureUnchanged('The selected skill folders', [approval.skills.linked, paths(approval.skills)], [skillSource.linked, paths(skillSource)])
+        }
+        if (instructions) ensureUnchanged('The global instructions file', approval.skills.instructions?.path, skillSource.instructions?.path)
+      }
+      run.total += providerRows.length
+      if (withAssistants) run.total++
+      if (skills || instructions) {
+        run.total++
+        run.current = 'Skills'
+        try { run.settings.skills = await importSkills(skillSource ?? await skillScan(origin), { skills, names: skillNames, instructions }) } catch { run.settings.skills = { error: 'Could not copy skills. Scan the source again.' } }
         run.done++
       }
-      if (providers) for (const row of janSettings.providers) {
+      if (mcp) {
+        run.total++
+        run.current = 'MCP servers'
+        try { run.settings.mcp = await importMcp(mcpSource ?? selectMcp(await readMcpSource(origin, { folder: source }), mcpNames)) } catch { run.settings.mcp = { error: 'Could not read MCP configuration. Scan the source again.' } }
+        run.done++
+      }
+      // Assistants first, so imported chats can name their preset.
+      if (withAssistants) {
+        try { run.settings.assistants = await importAssistants(assistantRows, run) } catch (error) { run.settings.assistantsError = errorText(error) }
+        run.done++
+      }
+      for (const row of providerRows) {
         run.current = `Provider ${row.id}`
         try { run.settings.providers.push(await importProvider(source, row)) } catch (error) { run.settings.providers.push({ id: row.id, status: 'failed', reason: errorText(error) }) }
         run.done++
       }
       if (!unique.length) return { results: run.results, settings: run.settings }
-      // A coding-agent session opens in the folder it ran in, so it can be continued there;
-      // a Jan chat, or a session whose folder is gone, opens in the default workspace.
-      let fallback
+      // Initialize only for a new import that has no usable source directory.
+      let defaultInitialization
       const defaultWorkspace = async () => {
-        fallback ??= await ctx.workspaceRegistry.initializeDefault(async () => process.cwd())
-        if (!fallback) throw new Error('The default workspace is unavailable. Restore it before importing.')
-        return fallback
+        if (ctx.workspaceRegistry.defaultWorkspace === undefined) {
+          defaultInitialization ??= ctx.workspaceController.initializeDefault(new AbortController().signal)
+          await defaultInitialization
+        }
+        return ctx.workspaceRegistry.defaultWorkspace
+      }
+      const storedWorkspace = async cwd => {
+        if (cwd === undefined) return undefined
+        try { return await ctx.workspaceRegistry.resolveByPath(cwd) } catch (error) { if (!missing(error)) throw error }
       }
       const workspaceFor = async cwd => {
         if (typeof cwd !== 'string' || !isAbsolute(cwd)) return defaultWorkspace()
         try { if ((await stat(cwd)).isDirectory()) return await ctx.workspaceRegistry.create(cwd) } catch (error) { if (!missing(error)) throw error }
         return defaultWorkspace()
       }
+      // An Orca session's folder is its Orca workspace, titled as Orca names it.
+      const orcaWorkspace = async cwd => orca ? await orcaWorkspaceFor(workspaces, cwd) : undefined
+      const sessionWorkspace = async cwd => await orcaWorkspace(cwd) ?? workspaceFor(cwd)
+      const storedSessionWorkspace = async cwd => await orcaWorkspace(cwd) ?? storedWorkspace(cwd)
       for (const id of unique) {
-        const sessionId = origin === 'jan' ? `jan-${id}` : agentId(origin, id)
+        const file = agentFiles?.get(id)
+        const sessionId = origin === 'jan' ? `jan-${id}` : file?.key ?? agentId(origin, id)
         try {
-          const file = agentFiles?.get(id)
           if (agentFiles && !file) throw new Error('This session file is no longer in the folder.')
-          const { thread, messages, losses } = file ? await readSessionFile(origin, file) : await readThread(source, id)
+          const { thread, messages, losses } = file ? await readSessionFile(file.agent, file) : await readThread(source, id)
           run.current = titleOf(thread)
           const linkedId = thread.metadata?.dshSession?.id
           const partial = await exists(sessionId) && await partialImport(sessionId, thread, messages)
           if (!partial && (await exists(sessionId) || (typeof linkedId === 'string' && await exists(linkedId)))) {
             // Retry workspace membership when a prior import persisted successfully but attachment failed.
-            if (await exists(sessionId)) await (await workspaceFor(origin === 'jan' ? undefined : (await ctx.sessionPersistence.stat(sessionId))?.header.cwd)).attachSession(sessionId)
-            run.results.push({ id, status: 'already imported', sessionId: await exists(sessionId) ? sessionId : linkedId })
+            const stored = ctx.sessions.get(sessionId)?.header ?? (await ctx.sessionPersistence.stat(sessionId))?.header
+            await (await storedSessionWorkspace(stored?.cwd))?.attachSession(sessionId)
+            run.results.push({ id, status: 'already imported', sessionId: stored ? sessionId : linkedId })
           } else if (!messages.length) {
             run.results.push({ id, status: 'skipped', reason: 'empty chat' })
           } else {
             const converted = convertThread(thread, messages, await saveImages(source, messages))
-            const workspace = await workspaceFor(origin === 'jan' ? undefined : thread.cwd)
+            let workspace
             let header, inheritedEventCount, handle
             if (partial) {
               // Finish a log an earlier run created but did not fill; its stored prefix stays as written.
@@ -335,7 +477,8 @@ export function apply(ctx, config = {}) {
               header = handle.header
               inheritedEventCount = handle.inheritedEventCount
             } else {
-              const prepared = ctx.sessions.prepare(sessionId, { seed: converted.events, meta: { createdAt: converted.createdAt, cwd: workspace.path, isSeeded: false } })
+              workspace = await sessionWorkspace(origin === 'jan' ? undefined : thread.cwd)
+              const prepared = ctx.sessions.prepare(sessionId, { seed: converted.events, meta: { createdAt: converted.createdAt, ...(workspace ? { cwd: workspace.path } : {}), isSeeded: false } })
               // A chat with an imported assistant keeps running as that assistant.
               const preset = typeof thread.assistants?.[0]?.id === 'string' ? assistantPresetId(thread.assistants[0].id) : undefined
               header = preset && mountedPresets.has(preset) ? { ...prepared.header, agentPreset: preset } : prepared.header
@@ -351,7 +494,7 @@ export function apply(ctx, config = {}) {
             // live sessions write; fold the imported log once so the row is titled.
             ctx.get('sessionProjectionCache')?.coldSnapshot(header, inheritedEventCount, converted.events)
             // A resumed partial log keeps the folder its header was written with.
-            await (partial && origin !== 'jan' ? await workspaceFor(header.cwd) : workspace).attachSession(sessionId)
+            await (partial ? await storedSessionWorkspace(header.cwd) : workspace)?.attachSession(sessionId)
             run.results.push({ id, status: 'imported', sessionId, losses: [...losses, ...converted.losses] })
           }
         } catch (error) { run.results.push({ id, status: 'failed', reason: errorText(error) }) }
@@ -364,5 +507,10 @@ export function apply(ctx, config = {}) {
     } finally { run.running = false; run.current = null }
   }
   const progress = async () => job
-  ctx.effect(() => registerApi(ctx, 'legacy-import', { list, import: importSelected, progress, offer, dismissOffer, mcpDocument }), 'Jan read-only import API')
+  // Only the chat form can pass a private scan alongside its redacted list.
+  ctx.effect(() => registerApi(ctx, 'legacy-import', {
+    list: request => list(request), import: request => importSelected(request), progress, preview, offer, dismissOffer,
+  }), 'Jan read-only import API')
+  ctx.inject(['skills'], scope => { registerMigrateSkill(scope) })
+  ctx.inject(['tools'], scope => { registerMigrateTools(scope, { list, importSelected }) })
 }

@@ -10,6 +10,7 @@ import type { AgentPresetSectionState } from './section-store.ts'
 import { isBuiltInPreset, presetDisplayText } from './locales.ts'
 import { requiresCodingTools } from './settings-store.ts'
 import { PresetGuideDialog, presetGuide, trapPresetReaderTab, type PresetGuidePage } from './PresetGuideDialog.tsx'
+import { PresetIcon } from './PresetIcon.tsx'
 // Type-only: pulls this package's SlotMap merge for the custom-editor seat.
 import type { } from './slot-contract.ts'
 import css from './AgentPresetSection.module.css'
@@ -104,7 +105,6 @@ export function AgentPresetSection({
       </button>
     )
   return <section className={css.section}>
-    <h2 className={css.title}>{t('nav')}</h2>
     <p className={css.intro}>{t('sectionIntro')}</p>
     {state.error === null ? null : <p className={css.error} role="alert">{state.error}</p>}
     {([true, false] as const).map((builtIn) => {
@@ -130,6 +130,7 @@ export function AgentPresetSection({
                 onClick={() => { if (row.broken === undefined) void makeDefault(row.id) }}>
                 <span className={css.cardHead}>
                   <span className={css.cardIdentity}>
+                    <PresetIcon icon={row.icon} size={16} className={css.cardIcon} />
                     <span className={css.cardName} title={display.name}>{display.name}</span>
                     {row.broken === undefined ? null : <span className={css.brokenBadge}>
                       {t('brokenBadge')}<span className={css.brokenTip} aria-hidden="true">{row.broken}</span>

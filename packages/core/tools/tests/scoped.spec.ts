@@ -87,6 +87,19 @@ describe('scoped tool registration', () => {
     expect(await run(ctx, 'mine')).toBe('Error: unknown tool "mine"')
   })
 
+  it('points a namespaced unknown name at the callable tool it wraps, only within the caller view', async () => {
+    const ctx = await mount()
+    const { scope, key } = await mintAgentScope(ctx, 'a')
+    ctx.tools.register(tool('read_file'))
+    scope.ctx.tools.register(tool('bash'))
+
+    expect(await run(ctx, 'input_bash', key)).toBe('Error: unknown tool "input_bash": did you mean "bash"?')
+    expect(await run(ctx, 'functions.read_file', key)).toBe('Error: unknown tool "functions.read_file": did you mean "read_file"?')
+    // A suggestion never names a tool the caller cannot run.
+    expect(await run(ctx, 'input_bash')).toBe('Error: unknown tool "input_bash"')
+    expect(await run(ctx, 'input_shell', key)).toBe('Error: unknown tool "input_shell"')
+  })
+
   it('scoped shadows global on a name conflict, in either registration order', async () => {
     const ctx = await mount()
     const { scope, key } = await mintAgentScope(ctx, 'a')
@@ -159,6 +172,17 @@ describe('restrict()', () => {
     expect(await run(ctx, 'web', allowed.key)).toBe('Error: unknown tool "web"')
     expect(await run(ctx, 'denied-local', denied.key)).toBe('ran:denied-local')
     expect(await run(ctx, 'allowed-local', allowed.key)).toBe('ran:allowed-local')
+  })
+
+  it('keeps a closed allowlist when approved tools may register later', async () => {
+    const ctx = await mount()
+    const { scope, key } = await mintAgentScope(ctx, 'optional-tools')
+    ctx.tools.register(tool('write'))
+    scope.ctx.tools.restrict({ allow: ['read'] }, { allowUnregistered: true })
+    expect(ctx.tools.schemas(key)).toEqual([])
+    ctx.tools.register(tool('read'))
+    expect(ctx.tools.schemas(key).map(entry => entry.name)).toEqual(['read'])
+    expect(await run(ctx, 'write', key)).toBe('Error: unknown tool "write"')
   })
 
   it('composes multiple restrictions by intersection and lifts each independently', async () => {

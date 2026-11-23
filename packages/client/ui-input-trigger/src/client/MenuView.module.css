@@ -28,17 +28,57 @@
   box-shadow: var(--dsw-elevation-prominent);
 }
 
-/* The hint covers content, not the scrollbar rail, and disappears once the
-   viewport reaches the final row. */
-.menu[data-overflow-below]::after {
-  content: '';
+/* Compact menus (commands, skills, subagents) hug their names instead of spanning the
+   composer; the description bubble takes the room to the right. */
+.menu[data-compact] {
+  right: auto;
+  width: max-content;
+  min-width: 240px;
+  max-width: min(360px, 100%);
+}
+
+/* A scrolled edge fades the rows under it, so the list reads as continuing past the
+   rim. The mask covers content only; the shell's border and shadow stay crisp. */
+.menu[data-overflow-below] .viewport {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+}
+
+.menu[data-overflow-above] .viewport {
+  mask-image: linear-gradient(to top, #000 calc(100% - 28px), transparent);
+}
+
+.menu[data-overflow-above][data-overflow-below] .viewport {
+  mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+
+/* The highlighted row's description, beside the compact list (Tooltip primitive ink). */
+.tip {
   position: absolute;
-  right: 14px;
-  bottom: 4px;
-  left: 4px;
-  height: 16px;
-  background: linear-gradient(to bottom, transparent, var(--dsw-specific-menu));
+  z-index: 100;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(320px, calc(100% - 260px));
+  padding: 6px 10px;
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-tooltip-bg);
+  color: var(--dsw-static-neutral-bluish-00);
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 9;
+  overflow: hidden;
   pointer-events: none;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .viewport {
@@ -106,6 +146,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.menu[data-compact] .itemName {
+  flex: 1;
+  max-width: none;
 }
 
 /* The command name beside a localized title, in the description's ink so

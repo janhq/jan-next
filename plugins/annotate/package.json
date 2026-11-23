@@ -1,0 +1,22 @@
+{
+  "name": "@janhq/jan-annotate",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Capture and mark up previews and inline images for the chat composer.",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./icon": "./icon.svg"
+  },
+  "files": ["index.mjs", "client.js", "client.locale.js", "client.overlay.js", "client.element.js", "icon.svg"],
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-primitives", "@janhq/jan-client-ui-conversation"]
+    }
+  }
+}

@@ -84,6 +84,8 @@ export interface AssistantMessageNode {
    *  finalized prefix uses its event seq; a chunk-only fallback uses a fractional
    *  seq derived from the closing boundary to keep it ordered inside the flow. */
   interrupted?: true
+  /** With `interrupted`: cut because the user steered, so the turn went on; the marker reads "Interrupted", not "Stopped". */
+  steered?: true
 }
 
 /** A human message admitted from the next-step inbox while a turn was running. */

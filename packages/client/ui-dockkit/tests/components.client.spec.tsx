@@ -55,7 +55,7 @@ function renderSurface(
   intents: DockIntents,
   canSplit = true,
   renderTabMenuItems?: TabMenuExtras,
-  options: Pick<DockSurfaceProps, 'dropZones' | 'minPaneFraction' | 'canCloseTab'> = {},
+  options: Pick<DockSurfaceProps, 'dropZones' | 'minPaneFraction' | 'canCloseTab' | 'onTabReleasedOutsideViewport'> = {},
 ) {
   const snapshot = controller.getSnapshot()
   return render(
@@ -121,7 +121,7 @@ function drag(element: Element, from: readonly [number, number], to: readonly [n
 function twoPanes(
   paneWidth = 420,
   canSplit = true,
-  options: Pick<DockSurfaceProps, 'dropZones' | 'minPaneFraction'> = {},
+  options: Pick<DockSurfaceProps, 'dropZones' | 'minPaneFraction' | 'onTabReleasedOutsideViewport'> = {},
 ): {
   intents: ReturnType<typeof spyIntents>
   first: PaneId
@@ -630,6 +630,41 @@ describe('DockSurface', () => {
     expect(intents.focusPane).not.toHaveBeenCalled()
   })
 
+  it('opens the embedder\'s add menu from the `+` instead of adding, and the same `+` closes it again', () => {
+    const controller = seededController()
+    const snapshot = controller.getSnapshot()
+    const intents = spyIntents()
+    const picked = vi.fn()
+    render(
+      <DockSurface
+        state={snapshot.state}
+        canSplit
+        intents={intents}
+        labels={TEST_LABELS}
+        renderTab={tab => <p>{tab.contentId}</p>}
+        renderAddTabMenu={(paneId, dismiss) => (
+          <button type="button" role="menuitem" onClick={() => { picked(paneId); dismiss() }}>Terminal</button>
+        )}
+      />,
+    )
+    const add = screen.getByRole('button', { name: TEST_LABELS.addTab })
+    expect(add.getAttribute('aria-haspopup')).toBe('menu')
+    // A real press dispatches pointerdown before click; the menu must not treat it as an outside press.
+    fireEvent.pointerDown(add)
+    fireEvent.click(add)
+    expect(intents.addTab).not.toHaveBeenCalled()
+    expect(intents.focusPane).toHaveBeenCalledWith(snapshot.state.rootId)
+    expect(add.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.pointerDown(add)
+    fireEvent.click(add)
+    expect(screen.queryByRole('menuitem', { name: 'Terminal' })).toBeNull()
+    fireEvent.pointerDown(add)
+    fireEvent.click(add)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Terminal' }))
+    expect(picked).toHaveBeenCalledWith(snapshot.state.rootId)
+    expect(screen.queryByRole('menuitem', { name: 'Terminal' })).toBeNull()
+  })
+
   it('draws the add control only where the embedder\'s canAddTab allows, pane by pane', () => {
     const controller = seededController()
     controller.setExpanded(true)
@@ -1084,6 +1119,16 @@ describe('tab drags', () => {
     expect(gestureIntents(intents)).toEqual(['floatTab'])
   })
 
+  it('distinguishes a tab released outside the viewport from a release over adjacent UI', () => {
+    const onTabReleasedOutsideViewport = vi.fn()
+    const { intents, fileTabId, chip } = twoPanes(420, true, { onTabReleasedOutsideViewport })
+    drag(chip(fileTabId), FILE_CHIP, [850, 300])
+    expect(onTabReleasedOutsideViewport).not.toHaveBeenCalled()
+    drag(chip(fileTabId), FILE_CHIP, [window.innerWidth + 30, 300])
+    expect(onTabReleasedOutsideViewport).toHaveBeenCalledExactlyOnceWith(fileTabId)
+    expect(intents.floatTab).toHaveBeenCalledTimes(1)
+  })
+
   it('treats a press that never travels the threshold as no drag at all', () => {
     const { intents, fileTabId, chip } = twoPanes()
     drag(chip(fileTabId), FILE_CHIP, [FILE_CHIP[0] + 2, FILE_CHIP[1] + 1], false)
@@ -1280,6 +1325,22 @@ describe('keyboard tabs', () => {
 })
 
 describe('divider drags', () => {
+  it('can omit tab strips while keeping arrow-key divider resizing', () => {
+    const controller = seededController()
+    controller.splitPane()
+    const state = controller.getSnapshot().state
+    const resizeSplit = vi.fn()
+    render(<DockSurface state={state} canSplit={false} tabStrips={false} dividerLabel="Resize panes"
+      labels={TEST_LABELS} renderTab={tab => <p>{tab.contentId}</p>} intents={{ resizeSplit, focusPane: vi.fn() }} />)
+    expect(screen.queryByRole('tablist')).toBeNull()
+    const divider = screen.getByRole('separator', { name: 'Resize panes' })
+    expect(divider.tabIndex).toBe(0)
+    fireEvent.keyDown(divider, { key: 'ArrowDown' })
+    expect(resizeSplit).not.toHaveBeenCalled()
+    fireEvent.keyDown(divider, { key: 'ArrowRight' })
+    expect(resizeSplit).toHaveBeenCalledWith(state.rootId, [0.55, 0.45])
+  })
+
   /** A row split whose second pane is itself split into a column: the column split's id and a spied intent set. */
   function withColumn(columnBox: DOMRect): { intents: ReturnType<typeof spyIntents>; columnId: string } {
     const controller = seededController()

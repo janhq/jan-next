@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "title": "Desktop-Steuerung",
+    "description": "Native Fenster prüfen und Aktionen sowie Bildschirmaufnahmen genehmigen."
+  },
+  "approval": {
+    "action": "Darf Jan diese Desktop-Aktion einmal ausführen?",
+    "screenshot": "Darf Jan dieses Fenster einmal aufnehmen?"
+  }
+}

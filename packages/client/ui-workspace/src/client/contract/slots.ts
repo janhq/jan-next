@@ -11,13 +11,13 @@
  * Both registrations declare a **directory-flow hole** (`single` kind): the
  * slot a composed picker package's client half fills with its
  * picking interaction — a renderless native-chooser driver or an in-app
- * browsing dialog. ui-workspace owns the trigger (the "Add workspace…"
- * entry, present only while the hole is occupied) and the adoption
- * semantics (`createWorkspace({ path })`, the retryable error dialog,
- * Choose again); the occupant owns everything between `open` and the picked path,
- * including creating a new directory to hand back. That occupant-owned
- * creation is why adding a workspace has a single route: an unoccupied hole
- * leaves the surface with no add affordance at all.
+ * browsing dialog. ui-workspace owns the trigger (the new-project menu's
+ * Use existing folder and Browse folders rows, present only while the hole
+ * is occupied) and the adoption semantics (`createWorkspace({ path })`, the
+ * retryable error dialog, Choose again); the occupant owns everything
+ * between `open` and the picked path. The menu's New folder action creates
+ * the folder through `createDirectory` and uses the flow only to choose its
+ * parent.
  * Two holes exist because the two menu surfaces are independent slot entries
  * and a hole has exactly one declaring entry — they carry the same owner
  * contract and the same occupant.
@@ -46,13 +46,14 @@ import type { } from '@janhq/jan-client-ui-conversation/client'
 import type { } from '@janhq/jan-client-ui-layout/client'
 import type { SessionSearchResultItem } from '@janhq/jan-api-session-controller/client'
 import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
-import type { SessionActivity, WorkspaceId, WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
+import type { SessionActivity, WorkspaceId, WorkspaceUpdateRequest, WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
-import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
+import type { ShortcutCatalogEntry, ShortcutPlatform } from '@janhq/jan-client-shortcuts/client'
 import type { WorkspaceShortcutState } from '../shortcuts.ts'
 import type { StartSessionOptions } from '../navigation.ts'
 import type { } from './toast.ts'
 import type { createWorkspaceViewStore } from '../stores.ts'
+import type { RemoteMachineSource } from '../remote-machines.ts'
 
 /** Primary actions retain the browser's shared picker anchor and shortcuts. */
 export interface WorkspaceActionsOwnerProps {
@@ -94,6 +95,8 @@ declare module '@janhq/jan-client-ui-slots' {
      * and `viewOptions` nodes, and whether search is expanded; render both nodes so their state survives.
      */
     'sidebar.workspaces.header': { kind: 'single'; scope: 'root'; owner: WorkspaceHeaderOwnerProps }
+    /** First rows beneath each expanded, registered Workspace, before ordinary Sessions. */
+    'sidebar.workspaces.group.leading': { kind: 'list'; scope: 'root'; owner: { readonly workspaceId: WorkspaceId } }
   }
 }
 
@@ -104,9 +107,9 @@ declare module '@janhq/jan-client-ui-context-menu/client' {
   }
 }
 
-/** One request for the existing Workspace rename or delete dialog. */
+/** One captured request for a Workspace management dialog. */
 export type WorkspaceActionRequest = {
-  readonly action: 'rename' | 'delete'
+  readonly action: 'rename' | 'update' | 'delete'
   readonly workspaceId: WorkspaceId
   readonly displayTitle: string
   readonly storedTitle: string
@@ -275,7 +278,16 @@ export type DirectoryPickingInjected = {
   hooks: {
     /** True while this surface's directory-flow hole is occupied. */
     directoryFlow: HostObservable<boolean>
+    /** The registered remote computer source; undefined hides the menu's Remote row. */
+    remoteMachines: HostObservable<RemoteMachineSource | undefined>
   }
+  /**
+   * Create a folder on this Host for the menu's New folder action.
+   * @param parent - existing parent directory.
+   * @param name - new folder name.
+   * @returns the created absolute path.
+   */
+  createDirectory: (parent: string, name: string) => Promise<string>
 }
 
 /** Component-side view of the picking share: the bound occupancy selector hook. */
@@ -286,7 +298,7 @@ export type DirectoryPickingHooks = PropsHooks<DirectoryPickingInjected['hooks']
  * Data reads use the global framework hooks; these are the Host actions the
  * browsing region drives.
  */
-export type WorkspaceBrowserInjected = {
+export type WorkspaceBrowserInjected = Pick<DirectoryPickingInjected, 'createDirectory'> & {
   addWorkspaceButtonRef: RefObject<HTMLButtonElement>
   /** Dismiss the settled Workspace dialog. */
   settleWorkspaceAction: () => void
@@ -305,6 +317,8 @@ export type WorkspaceBrowserInjected = {
     shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
     /** Whether a project surface takes Workspace row clicks; the chevron then owns expand and collapse. */
     projectSurface: HostObservable<boolean>
+    /** Active Sessions whose sidebar presentation is supplied by a plugin. */
+    hiddenSessions: HostObservable<ReadonlySet<SessionId>>
   }
   /**
    * Open the registered project surface for a Workspace row.
@@ -321,12 +335,12 @@ export type WorkspaceBrowserInjected = {
   setDirectoryBusy: (busy: boolean) => void
   /**
    * Create a fresh Session, or preserve a reusable blank with explicit draft options.
-   * Without an explicit Workspace, inherit the current Session Workspace,
-   * then the recent Workspace, or clear into the New Session view.
+   * Without an explicit Workspace, use the open project, current Session's
+   * Workspace, or most recent Workspace, or clear into the New Session view.
    */
   startSession: (workspaceId?: WorkspaceId, options?: StartSessionOptions) => void
-  /** Open a real Session. */
-  open: (sessionId: SessionId) => void
+  /** Open a real Session. Pointer modifiers apply the platform's new-tab gesture. */
+  open: (sessionId: SessionId, modifiers?: { readonly meta: boolean; readonly control: boolean }) => void
   /**
    * Search current visible conversation messages. The Host fixes the result
    * bound; `hasMore` means the query needs narrowing.
@@ -343,6 +357,10 @@ export type WorkspaceBrowserInjected = {
   notifyArchivedNotOpenable: () => void
   /** Rename a Host Workspace (rejects on name conflict; resolves on durability). */
   renameWorkspace: (workspaceId: WorkspaceId, title: string) => Promise<void>
+  /** Save only the changed project identity fields. */
+  updateWorkspaceIdentity: (request: WorkspaceUpdateRequest) => Promise<void>
+  /** Window platform for the system emoji-picker hint. */
+  shortcutPlatform: ShortcutPlatform
   /** Delete only a Host Workspace registration; directory and Session logs remain. */
   deleteWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /**
@@ -353,7 +371,7 @@ export type WorkspaceBrowserInjected = {
   /** Remove a Session from the registry-global archived set (the search results' restore button). */
   unarchiveSession: (sessionId: SessionId) => Promise<void>
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
-  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  createWorkspace: (input: { path: string; hostId?: string }) => Promise<WorkspaceView>
   /** Raise the outcome notice of a folder dropped on the Sidebar. */
   notifyFolderDrop: (notice: FolderDropNotice) => void
 }
@@ -564,6 +582,7 @@ export type WorkspaceBrowserProps =
   & PropsRenderSlots<
     | 'sidebar.workspaces.header'
     | 'sidebar.workspaces.directoryFlow'
+    | 'sidebar.workspaces.group.leading'
     | 'sidebar.workspaces.session.row.action'
     | 'sidebar.session.row.trailing'
     | 'sidebar.session.row.leading'
@@ -581,7 +600,11 @@ export type WorkspaceBrowserProps =
  */
 export type WorkspacePickerInjected = DirectoryPickingInjected & {
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
-  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  createWorkspace: (input: { path: string; hostId?: string }) => Promise<WorkspaceView>
+  hooks: {
+    /** Fixed Host facts; the picker heads its menu with the Host's computer name. */
+    hostInfo: HostObservable<RemoteHostFacts>
+  }
 }
 
 /**

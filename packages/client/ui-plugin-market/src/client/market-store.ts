@@ -124,6 +124,8 @@ export interface DiscoverFace extends DetailFace {
   readonly editDraft: (text: string) => void
   readonly addSource: () => void
   readonly removeSource: (url: string) => void
+  /** Add a suggested index by its URL and select it. */
+  readonly addSuggested: (url: string) => void
 }
 
 /** Largest page the Host returns, the `limit` bound of `pluginMarket.search`. */
@@ -216,6 +218,11 @@ export class DiscoverController {
         void this.saveSources([...this.state().indexes.map(index => index.url), draft], true)
       },
       removeSource: (url) => { void this.saveSources(this.state().indexes.map(index => index.url).filter(item => item !== url), false) },
+      addSuggested: (url) => {
+        if (this.state().indexes.some(index => index.url === url)) return
+        this.selectAdded = true
+        void this.saveSources([...this.state().indexes.map(index => index.url), url], false)
+      },
     }
   }
 

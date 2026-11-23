@@ -21,7 +21,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  FishLogo, IconAppsAddOutlineRegular, IconNewChatOutlineMedium, IconNewChatOutlineRegular,
+  FishLogo, IconAppsAddOutlineMedium, IconAppsAddOutlineRegular, IconNewChatOutlineMedium, IconNewChatOutlineRegular,
   IconPanelLeftOutlineRegular, IconPinFillRegular, focusWithoutRing, isBehindModal, isDarwinDesktop, Menu, ShortcutKeys, Toast,
   Tooltip, useModalLayer, writeClipboard,
 } from '@janhq/jan-client-ui-primitives'
@@ -135,7 +135,7 @@ function PanelMoreMenu({ wide, label, entries, onOpen, onPinnedChange, trackEntr
               trackEntryClick({ menu_name: 'more', position: 'sidebar' })
               setOpen(value => !value)
             }}>
-            <span className={css.panelGlyph} aria-hidden="true"><IconAppsAddOutlineRegular size={wide ? 16 : 18} /></span>
+            <span className={css.panelGlyph} aria-hidden="true">{wide ? <IconAppsAddOutlineMedium size={16} /> : <IconAppsAddOutlineRegular size={18} />}</span>
             {wide && <span className={clsx(css.panelTitle, css.wide)}>{label}</span>}
           </button>
         </Tooltip>
@@ -202,9 +202,9 @@ export function SidebarRoot({
     trackEntryClick({ menu_name: 'new_session', position: windowsTitlebar && collapsed ? 'titlebar' : 'sidebar' })
     startSession()
   }
-  // The Windows caption menus occupy the strip to the right of these controls
-  // (that is what --jan-windows-menu-start reserves), so a right-side bubble
-  // lands under their text. Below the caption is the only clear side.
+  // The Windows caption strip packs these controls and the caption menus side
+  // by side (--jan-windows-menu-start and --jan-windows-menu-end), so a
+  // right-side bubble lands under a neighbour. Below the caption is the only clear side.
   const captionTooltipSide = windowsTitlebar ? 'bottom' : 'right'
   // Freeze the content at its expanded width while it fades out (collapsed
   // && wide): the sliding column then clips it instead of reflowing it. The
@@ -326,6 +326,11 @@ export function SidebarRoot({
     />
   ))
 
+  // Occupant buttons (Downloads, for one) sit before the toggle while the column is wide.
+  const toggleActions = renderSlot('sidebar.toggle.actions', {
+    className: css.iconButton, iconSize: 16, tooltipSide: 'bottom', portal: drawer, activePanelId, openPanel: selectPanel,
+  })
+
   return (
     <div
       ref={column}
@@ -348,7 +353,7 @@ export function SidebarRoot({
     >
       {/* macOS hiddenInset titlebar: the strip shares the row with the
           traffic lights and keeps the toggle at the sidebar's top-right. */}
-      {darwinDesktop && <div className={css.topStrip} data-window-drag>{toggle}{navigationButtons('bottom')}</div>}
+      {darwinDesktop && <div className={css.topStrip} data-window-drag>{wide && toggleActions}{toggle}{navigationButtons('bottom')}</div>}
       <div className={css.logoRow} data-window-drag>
         {/* Expanded, the brand doubles as a New Session shortcut while the
             access snapshot allows `session/create` — except on
@@ -397,6 +402,7 @@ export function SidebarRoot({
               </button>
             )
         })()}
+        {!darwinDesktop && wide && toggleActions}
         {!darwinDesktop && toggle}
         {!darwinDesktop && (wide || windowsTitlebar) && navigationButtons('bottom')}
       </div>

@@ -791,6 +791,8 @@ describe('agent loop', () => {
       expect(snapshots).toHaveLength(2)
       expect(adapter.requests[1]?.messages.some(message => message.role === 'user' && message.source?.kind === 'runtime-context'
         && message.content.some(block => block.type === 'text' && block.text.includes('/workspace')))).toBe(true)
+      const users = adapter.requests[1]?.messages.filter(message => message.role === 'user') ?? []
+      expect(users.slice(-2).map(message => message.source?.kind)).toEqual(['runtime-context', 'user'])
       expect(agent.session.snapshotEvents().filter(event => event.type === 'user/message' && event.data.source.kind === 'user')).toHaveLength(2)
     } finally {
       await ctx.fiber.dispose()
@@ -1066,6 +1068,27 @@ describe('agent loop', () => {
     expect(JSON.stringify(adapter.requests[0]?.messages)).toContain('first idle steer')
     expect(JSON.stringify(adapter.requests[0]?.messages)).not.toContain('second idle steer')
     expect(JSON.stringify(adapter.requests[1]?.messages)).toContain('second idle steer')
+  })
+
+  it('a steer cuts a stalled stream short and answers it in the same turn', async () => {
+    const adapter = new MockAdapter(['hang', textResponse('steered answer')])
+    const ctx = await harness(adapter)
+    const agent = await ctx.agentLoop.create(SessionId('steer-yield'), { provider: 'mock', model: 'mock' })
+    const idle = waitForIdle(ctx, agent)
+    send(agent, 'long task')
+    // The first request has streamed its partial text and now stalls.
+    await vi.waitFor(() => { expect(adapter.requests).toHaveLength(1) })
+    await new Promise(resolve => setTimeout(resolve, 20))
+    agent.steer(createUserMessage({ content: [{ type: 'text', text: 'change of plan' }], source: { kind: 'user' } }))
+    await idle
+
+    const events = agent.session.snapshotEvents()
+    const assistants = events.filter(event => event.type === 'assistant/message')
+    expect(assistants.map(event => event.type === 'assistant/message' && event.data.interrupted === true)).toEqual([true, false])
+    expect(assistants[0]?.type === 'assistant/message' && assistants[0].data.steered).toBe(true)
+    expect(JSON.stringify(adapter.requests[1]?.messages)).toContain('change of plan')
+    expect(events.filter(event => event.type === 'turn/start')).toHaveLength(1)
+    expect(events.find(event => event.type === 'turn/end')?.data).toMatchObject({ reason: { kind: 'completed' } })
   })
 
   it('stops after a throwing pre-step listener and retains later steering until a wakeup', async () => {

@@ -343,6 +343,40 @@ describe('steering from late extension points is never stranded', () => {
     expect(JSON.stringify(adapter.requests[1]!.messages)).toContain('one more thing')
   })
 
+  it('admits a completion notice injected between the closing turn and driver retirement exactly once', async () => {
+    const adapter = new MockAdapter([textResponse('initial reply'), textResponse('notice reply')])
+    const ctx = await harness(adapter)
+    const agent = await ctx.agentLoop.create(SessionId('late-completion'), { provider: 'mock', model: 'mock' })
+    const notice = createUserMessage({
+      content: [{ type: 'text', text: 'The background job finished' }],
+      source: { kind: 'test', form: 'notice', summary: 'Background job finished' },
+    })
+    const delivered = Promise.withResolvers<typeof agent.status>()
+    const stop = ctx.on('session/event', (session, event) => {
+      if (session !== agent.session || event.type !== 'turn/end' || event.data.turn !== 1) return
+      queueMicrotask(() => {
+        const status = agent.status
+        // Match the background controller's waking delivery lanes.
+        if (status === 'running') agent.inject(notice)
+        else agent.followup(notice)
+        delivered.resolve(status)
+      })
+    })
+    try {
+      send(agent, 'start')
+      expect(await delivered.promise).toBe('running')
+      await agent.whenIdle()
+
+      expect(adapter.requests).toHaveLength(2)
+      expect(JSON.stringify(adapter.requests[1]?.messages)).toContain('The background job finished')
+      expect(agent.session.snapshotEvents().filter(event => event.type === 'user/message' && event.data.id === notice.id)).toHaveLength(1)
+      expect(agent.inbox.nextStep).toEqual([])
+    } finally {
+      stop()
+      await ctx.fiber.dispose()
+    }
+  })
+
 })
 
 describe('plugin exceptions are contained', () => {

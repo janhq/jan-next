@@ -25,7 +25,7 @@ Agents can discover and load skills during a session. When the `skill` tool is v
 
 Skill discovery, catalog updates, and explicit skill invocation use the Session's current working directory.
 
-Mount the plugin alongside the skill registry to give agents a session skill catalog and the `skill` loader tool. It requires `ctx.agents`, `ctx.tools`, and `ctx.skills`.
+Mount the plugin alongside the skill registry to give agents a session skill catalog and the `skill` loader tool. It requires `ctx.agents`, `ctx.tools`, and `ctx.skills`; `ctx.commands` is optional and only adds `/reload`.
 
 ### When to choose it
 
@@ -53,6 +53,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-t
 - **A loader tool.** The model calls `skill` with the exact skill name and receives the full instruction body plus resource guidance in a canonical `<skill_content>` block; the result is retained as ordinary tool history.
 - **Explicit user invocation.** A `/name` token in direct user input that names a user-invocable skill injects that skill's instructions into the step, without the model having to load it.
 - **Live catalog updates.** Later membership, description, visibility, or completeness changes append a replacement catalog; removing every skill appends an empty catalog that retires older names.
+- **`/reload`.** When a commands registry is composed, the plugin registers `/reload` for a user who edited skills or instruction files outside Jan. It runs the `agent/reload` waterfall: this plugin drops the skill registry's cached catalogs (`SkillRegistry.refresh()`), so the next step appends a replacement catalog, and other listeners such as `@janhq/jan-agent-instructions` re-read their own sources. Every change reaches the model as a message appended after the conversation; the system prompt and earlier messages are not rewritten, so a provider's prompt cache for them stays valid. The reply joins each listener's report line, for example the skill count.
 
 ### Observable success and failures
 

@@ -230,7 +230,7 @@ describe('More menu registrations', () => {
     fireEvent.click(within(b.view.getByRole('menu', { name: seat }))
       .getByRole('menuitem', { name: language === 'zh' ? '创建你的插件' : 'Create your plugin' }))
     expect(b.startSession).toHaveBeenCalledExactlyOnceWith(undefined, {
-      agentPreset: 'cordis', prompt, whenDraftExists: 'append',
+      agentPreset: 'cordis', prompt: `/create-plugin ${prompt}`, whenDraftExists: 'append',
     })
   })
 

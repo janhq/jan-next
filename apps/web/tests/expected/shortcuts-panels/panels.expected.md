@@ -21,6 +21,6 @@
   - button "Split" [disabled]
 - text: {{cwd}}/workspace
 - button "Reload"
-- complementary "Workspace files":
+- complementary "Project files":
   - list:
     - listitem: Empty directory

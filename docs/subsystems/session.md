@@ -92,6 +92,11 @@ interface SessionEventMap {
     stream: AssistantStreamRecord[]
     usage?: TokenUsage
     interrupted?: true
+    /**
+     * With `interrupted`: the user steered the running turn, so the step was
+     * cut to take the new input and the turn went on. Absent for a Stop.
+     */
+    steered?: true
   }
   /**
    * One model attempt that committed no surface message. The embedded stream
@@ -873,7 +878,9 @@ resolveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult>
  * Price the system prompt, tool schemas, and runtime context the Session's next request would inject.
  * @param request - Session identity.
  * @param signal - cancels tool resolution and prompt assembly.
- * @returns heuristic token prices, or null while the Session has no model selection.
+ * @returns heuristic token prices and the Session inventory (offered tools, MCP tools
+ * with their server and origin, skills with their origin, and the preset's plugins),
+ * or null while the Session has no model selection.
  */
 @Remote('contextPreview') async contextPreview(request: SessionContextPreviewRequest, signal: AbortSignal): Promise<SessionContextPreviewValue | null>
 

@@ -39,6 +39,12 @@ function form<T>(value: T, writable = true) {
 
 afterEach(() => { cleanup(); vi.clearAllMocks() })
 
+/** Open a settings SelectMenu by its label and pick one option. */
+function pick(label: string, option: string) {
+  fireEvent.click(screen.getByRole('button', { name: label }))
+  fireEvent.click(screen.getByRole('menuitem', { name: option }))
+}
+
 describe('Fallback models', () => {
   it('renders named ordered routes, then adds, reorders and removes the exact chain', async () => {
     const chain = [{ provider: 'alpha', model: 'a' }, { provider: 'beta', model: 'c' }]
@@ -71,7 +77,7 @@ describe('Fallback models', () => {
     render(<FallbackCard {...fallbackProps(api)} />)
     await waitFor(() => { expect(screen.getByText('Model A')).toBeTruthy() })
     expect(screen.getByRole('status').textContent).toBe(en.readOnly)
-    expect(screen.getByRole('option', { name: '42 s' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: en.cooldown }).textContent).toBe('42 s')
     expect(screen.queryByRole('button', { name: en.addFallback })).toBeNull()
     expect(screen.queryByRole('button', { name: `${en.remove} 1` })).toBeNull()
     expect(screen.getByLabelText(en.cooldown)).toHaveProperty('disabled', true)
@@ -101,15 +107,24 @@ describe('Context', () => {
   it('toggles auto-compaction and writes both summary fields in one atomic mutation', async () => {
     const { api } = form<Compaction>({ auto: true, thresholdRatio: 0.8, summarizationProvider: '', summarizationModel: '' })
     render(<ContextCard {...contextProps(api)} />)
-    await waitFor(() => { expect(screen.getByRole('option', { name: 'Model C (Provider B)' })).toBeTruthy() })
+    await waitFor(() => { expect(screen.getByRole('button', { name: en.summaryModel })).toHaveProperty('disabled', false) })
     fireEvent.click(screen.getByRole('switch', { name: en.autoCompact }))
     expect(api.set).toHaveBeenCalledWith('auto', false)
-    fireEvent.change(screen.getByLabelText(en.summaryModel), { target: { value: JSON.stringify(['beta', 'c']) } })
+    pick(en.summaryModel, 'Model C (Provider B)')
     expect(api.mutate).toHaveBeenCalledWith([
       { op: 'set', path: ['summarizationProvider'], value: 'beta' },
       { op: 'set', path: ['summarizationModel'], value: 'c' },
     ])
-    fireEvent.change(screen.getByLabelText(en.summaryModel), { target: { value: '' } })
+    pick(en.threshold, '90%')
+    expect(api.set).toHaveBeenLastCalledWith('thresholdRatio', 0.9)
+  })
+
+  it('clears both summary fields when going back to the chat model, keeping an unknown saved model visible', async () => {
+    const { api } = form<Compaction>({ auto: true, summarizationProvider: 'gone', summarizationModel: 'old' })
+    render(<ContextCard {...contextProps(api)} />)
+    await waitFor(() => { expect(screen.getByRole('button', { name: en.summaryModel })).toHaveProperty('disabled', false) })
+    expect(screen.getByRole('button', { name: en.summaryModel }).textContent).toBe('old (gone)')
+    pick(en.summaryModel, en.sameModel)
     expect(api.mutate).toHaveBeenLastCalledWith([
       { op: 'set', path: ['summarizationProvider'], value: '' },
       { op: 'set', path: ['summarizationModel'], value: '' },
@@ -120,8 +135,8 @@ describe('Context', () => {
     const { api } = form<Compaction>({})
     render(<ContextCard {...contextProps(api)} />)
     expect(screen.getByRole('switch', { name: en.autoCompact }).getAttribute('aria-checked')).toBe('true')
-    expect(screen.getByLabelText(en.threshold)).toHaveProperty('value', '0.8')
-    expect(screen.getByLabelText(en.summaryModel)).toHaveProperty('value', '')
+    expect(screen.getByRole('button', { name: en.threshold }).textContent).toBe('80%')
+    expect(screen.getByRole('button', { name: en.summaryModel }).textContent).toBe(en.sameModel)
   })
 
   it('disables the threshold while auto is off and every control while read-only', () => {

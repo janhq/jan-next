@@ -14,6 +14,8 @@ export interface AgentPresetRow {
   readonly name?: string
   /** One sentence on what this preset is for. */
   readonly description?: string
+  /** Menu icon: a product glyph name such as `code-outline`, or one emoji. */
+  readonly icon?: string
   /** Why this preset cannot compose a session; absent when it can. */
   readonly broken?: string
 }

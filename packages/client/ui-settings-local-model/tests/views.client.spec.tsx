@@ -81,7 +81,7 @@ it('offers the download with its total size, then shows percent, speed, time lef
   expect(f.actions.install).toHaveBeenCalledOnce()
   view.unmount()
   const running = progress(1_000_000_000, 2_716_066_656, { bytesPerSecond: 20_000_000 })
-  f.set({ phase: 'downloading', progress: running, downloads: [{ id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', progress: running }] })
+  f.set({ phase: 'downloading', progress: running, downloads: [{ id: 'jan-v3.5-4b', repo: 'janhq/Jan-v3.5-4B-GGUF', name: 'Jan v3.5 4B', progress: running }] })
   card(f)
   expect(screen.getByTestId('local-model-progress').textContent)
     .toBe('Downloading Jan v3.5 4B: 36% · 1.0 GB of 2.7 GB · 20 MB/s · about 2 min left')
@@ -201,9 +201,9 @@ it('downloads a curated model and shows it in the downloads list with its progre
   expect(f.actions.downloadModel).toHaveBeenCalledWith('qwen3-8b')
   view.unmount()
   f.set({ phase: 'running', models: [jan], downloads: [
-    { id: 'qwen3-8b', name: 'Qwen3 8B', progress: progress(2_500_000_000, 5_027_784_512) },
-    { id: 'broken', name: 'Broken', error: 'Could not download model: HTTP 404' },
-    { id: 'gemma', name: 'Gemma', paused: true, progress: progress(1_000_000_000, 4_000_000_000) },
+    { id: 'qwen3-8b', repo: 'Qwen/Qwen3-8B-GGUF', name: 'Qwen3 8B', progress: progress(2_500_000_000, 5_027_784_512) },
+    { id: 'broken', repo: 'example/Broken-GGUF', name: 'Broken', error: 'Could not download model: HTTP 404' },
+    { id: 'gemma', repo: 'google/gemma-GGUF', name: 'Gemma', paused: true, progress: progress(1_000_000_000, 4_000_000_000) },
   ] })
   card(f)
   const downloads = screen.getByTestId('local-model-downloads')
@@ -242,7 +242,7 @@ it('looks up a pasted Hugging Face repository and downloads one of its files', a
   expect(screen.queryByTestId('local-model-repo-projector')).toBeNull()
   await act(async () => {
     fireEvent.click(screen.getByTestId('local-model-repo-download'))
-    f.set({ phase: 'running', models: [jan], downloads: [{ id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M' }] })
+    f.set({ phase: 'running', models: [jan], downloads: [{ id: 'tiny-q4_k_m', repo: 'example/tiny-GGUF', name: 'tiny-Q4_K_M' }] })
   })
   expect(f.actions.downloadRepoFile).toHaveBeenCalledWith('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   expect(screen.queryByTestId('local-model-repo-download')).toBeNull()
@@ -418,7 +418,7 @@ it('drops a lookup answer that arrives after the text changed, and remembers sta
   await act(async () => { fireEvent.click(screen.getByTestId('local-model-lookup')) })
   await act(async () => {
     fireEvent.click(screen.getByTestId('local-model-repo-download'))
-    f.set({ phase: 'running', models: [jan], downloads: [{ id: 'new-q4_k_m', name: 'new-Q4_K_M' }] })
+    f.set({ phase: 'running', models: [jan], downloads: [{ id: 'new-q4_k_m', repo: 'example/new-GGUF', name: 'new-Q4_K_M' }] })
   })
   await act(async () => { fireEvent.click(screen.getByTestId('local-model-lookup')) })
   expect(screen.queryByTestId('local-model-repo-download')).toBeNull()

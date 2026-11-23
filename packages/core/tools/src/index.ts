@@ -157,9 +157,10 @@ export class ToolsService extends Service {
    * names, scope-local names, and reserved transport names fail. Restrictions
    * intersect; scoped registrations remain visible.
    * @param filter - global-tool mask: `allow` (keep only) and/or `deny` (remove).
+   * @param options - permit names whose optional providers have not registered yet.
    * @returns the exact disposer that lifts this restriction.
    */
-  restrict(filter: ToolRestriction): () => void {
+  restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean } = {}): () => void {
     const scope = scopeOf(this.ctx)
     if (scope === undefined) {
       throw new Error('tools.restrict() requires a scoped context (agent.ctx): a context-global restriction would mask every agent — deny the tool for the intended agent instead')
@@ -176,10 +177,12 @@ export class ToolsService extends Service {
     if ([...allow ?? [], ...deny ?? []].includes(RUN_CODE_NAME)) {
       throw new Error(`tools.restrict() cannot name reserved PTC mode presentation transport "${RUN_CODE_NAME}"; restrict end-capability tools instead`)
     }
-    const known = this.view(scope).restrictableNames
-    const unknown = [...allow ?? [], ...deny ?? []].filter(name => !known.has(name))
-    if (unknown.length > 0) {
-      throw new Error(`tools.restrict() names unknown global tool${unknown.length > 1 ? 's' : ''} ${unknown.map(n => `"${n}"`).join(', ')}; known global tools: ${[...known].sort().join(', ') || '(none)'}`)
+    if (options.allowUnregistered !== true) {
+      const known = this.view(scope).restrictableNames
+      const unknown = [...allow ?? [], ...deny ?? []].filter(name => !known.has(name))
+      if (unknown.length > 0) {
+        throw new Error(`tools.restrict() names unknown global tool${unknown.length > 1 ? 's' : ''} ${unknown.map(n => `"${n}"`).join(', ')}; known global tools: ${[...known].sort().join(', ') || '(none)'}`)
+      }
     }
     return this.layers.effect(
       this.ctx,

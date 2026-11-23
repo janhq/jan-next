@@ -11,8 +11,9 @@ import type { ElementNode, LexicalNode, NodeKey, Point } from 'lexical'
 import {
   $getRoot, $getSelection, $isElementNode, $isLineBreakNode, $isRangeSelection, $isTextNode,
 } from 'lexical'
-import type { DraftQuote, Occurrence } from '../../contract/draft-editor.ts'
+import type { DraftContext, DraftQuote, Occurrence } from '../../contract/draft-editor.ts'
 import type { CommandClaim } from '../../contract/input.ts'
+import { $isContextNode } from './ContextNode.tsx'
 import { $isQuoteNode } from './QuoteNode.tsx'
 import { $isReferenceChipNode } from './chip-node.tsx'
 import { $isCommandChipNode } from './command-chip-node.tsx'
@@ -82,7 +83,7 @@ export function $composerLayout(): ComposerLayout {
     const kids = element.getChildren()
     children.set(element.getKey(), kids.map(kid => kid.getKey()))
     for (const kid of kids) {
-      if ($isReferenceChipNode(kid) || $isCommandChipNode(kid) || $isQuoteNode(kid)) {
+      if ($isReferenceChipNode(kid) || $isCommandChipNode(kid) || $isQuoteNode(kid) || $isContextNode(kid)) {
         pushLeaf('chip', kid, ATOMIC_CHAR, kid.getTextContent())
       } else if ($isTextNode(kid)) {
         const text = kid.getTextContent()
@@ -163,6 +164,8 @@ export interface EditorProjection {
   readonly occurrences: readonly Occurrence[]
   /** Atomic quotes in clipboard coordinates. */
   readonly quotes: readonly DraftQuote[]
+  /** Atomic plugin contexts in clipboard coordinates. */
+  readonly contexts: readonly DraftContext[]
   /** Range selection in detect coordinates (ordered); null while absent or non-range. */
   readonly selection: { readonly start: number; readonly end: number } | null
   /** Collapsed caret in detect coordinates; null while the selection is absent or ranged. */
@@ -204,10 +207,16 @@ export function $projectComposer(idOf: (key: NodeKey) => number): EditorProjecti
   const layout = $composerLayout()
   const occurrences: Occurrence[] = []
   const quotes: DraftQuote[] = []
+  const contexts: DraftContext[] = []
   for (const segment of layout.segments) {
     if (segment.kind !== 'chip') continue
     if ($isQuoteNode(segment.node)) {
       quotes.push({ offset: segment.clipboardStart, length: segment.clipboardLength, text: segment.node.getQuoteText() })
+      continue
+    }
+    if ($isContextNode(segment.node)) {
+      contexts.push({ offset: segment.clipboardStart, length: segment.clipboardLength,
+        text: segment.node.getContextText(), label: segment.node.getLabel() })
       continue
     }
     if (!$isReferenceChipNode(segment.node)) continue
@@ -239,6 +248,7 @@ export function $projectComposer(idOf: (key: NodeKey) => number): EditorProjecti
     clipboardText: layout.clipboardText,
     occurrences,
     quotes,
+    contexts,
     selection: range,
     caret: range !== null && range.start === range.end ? range.start : null,
     command: $isCommandChipNode(lead) ? lead.getClaim() : undefined,

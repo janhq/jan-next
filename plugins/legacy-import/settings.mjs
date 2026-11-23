@@ -11,7 +11,6 @@ const BUILT_IN = {
 }
 // Engines that run models on this machine; their models are not routes.
 const LOCAL = new Set(['llamacpp', 'mlx'])
-const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const missing = error => error?.code === 'ENOENT'
 const httpUrl = value => {
   try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch { return false }
@@ -78,35 +77,6 @@ export function providerProfile(row, ref) {
   const key = ref === undefined ? {} : { apiKeyEnv: ref }
   if (row.catalog) return key
   return { displayName: row.id, api: 'openai-completions', baseURL: row.baseURL, ...key, models: row.models }
-}
-
-// The MCP fields jan-next's server editor accepts; Jan's `active` and
-// `description` have no place there.
-const MCP_FIELDS = ['command', 'args', 'env', 'cwd', 'url', 'headers', 'type', 'transport']
-
-/**
- * Jan's MCP servers as an `mcpServers` document the MCP settings import takes:
- * names made valid (letters, digits, `_`, `-`, at most 32) and unique, and
- * each server reduced to the fields jan-next keeps.
- * @param {object} config - Jan's parsed mcp_config.json.
- * @returns {{ servers: Record<string, object>, renamed: Record<string, string>, skipped: { sourceName: string, reason: string }[] }}
- */
-export function janMcpServers(config) {
-  const servers = {}
-  const renamed = {}
-  const skipped = []
-  for (const [sourceName, value] of Object.entries(plain(config?.mcpServers) ? config.mcpServers : {})) {
-    if (!plain(value)) { skipped.push({ sourceName, reason: 'not a server entry' }); continue }
-    const type = value.transport ?? value.type
-    if (type && !['stdio', 'http', 'streamable-http'].includes(type)) { skipped.push({ sourceName, reason: `${type} transport is not supported` }); continue }
-    if (JSON.stringify(value).includes('${')) { skipped.push({ sourceName, reason: 'uses ${...} placeholders; add it by hand with real values' }); continue }
-    const base = sourceName.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32) || 'server'
-    let name = base
-    for (let index = 2; Object.hasOwn(servers, name); index++) name = `${base.slice(0, 32 - String(index).length - 1)}-${index}`
-    servers[name] = Object.fromEntries(MCP_FIELDS.filter(field => value[field] !== undefined).map(field => [field, value[field]]))
-    if (name !== sourceName) renamed[name] = sourceName
-  }
-  return { servers, renamed, skipped }
 }
 
 // Jan's shipped default assistant prompt. One bullet in it, asking the model to
@@ -182,14 +152,13 @@ const readJson = async path => {
 }
 
 /**
- * What the Jan folder holds besides chats, without any secret value.
+ * The providers and assistants in Jan's data folder, without credential values.
  * @param {string} folder - Jan's data folder.
  * @param {string[]} keyNames - provider ids Jan holds a key for.
- * @returns {Promise<{ providers: object[], mcp: ReturnType<typeof janMcpServers>, assistants: object[] }>}
+ * @returns {Promise<{ providers: object[], assistants: object[] }>}
  */
 export async function readJanSettings(folder, keyNames) {
   const providers = janProviders(await readJson(join(folder, 'settings.json')) ?? {}, keyNames)
-  const mcp = janMcpServers(await readJson(join(folder, 'mcp_config.json')) ?? {})
   const assistants = []
   let entries = []
   try { entries = await readdir(join(folder, 'assistants'), { withFileTypes: true }) } catch (error) { if (!missing(error)) throw error }
@@ -200,5 +169,5 @@ export async function readJanSettings(folder, keyNames) {
       if (item) assistants.push(item)
     } catch { /* an unreadable assistant is left behind */ }
   }
-  return { providers, mcp, assistants: janAssistants(assistants) }
+  return { providers, assistants: janAssistants(assistants) }
 }

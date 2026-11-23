@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "title": "Desktop computer use",
+    "description": "Inspect native windows and approve actions and screenshots."
+  },
+  "approval": {
+    "action": "Allow Jan to perform this desktop action once?",
+    "screenshot": "Allow Jan to capture this window once?"
+  }
+}

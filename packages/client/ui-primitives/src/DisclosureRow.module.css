@@ -83,6 +83,24 @@ button.leading {
   transition: opacity 100ms ease;
 }
 
+/* A running tool's glyph breathes between 0.6 and 0.2 (OpenUI's running-tool cadence). */
+.runningGlyph {
+  display: inline-flex;
+  animation: disclosure-running-glyph 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes disclosure-running-glyph {
+  from { opacity: 0.6; }
+  to { opacity: 0.2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runningGlyph {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
 .chevronHover {
   position: absolute;
   inset: 0;

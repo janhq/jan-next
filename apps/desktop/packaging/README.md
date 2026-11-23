@@ -33,6 +33,17 @@ Run local commands from the repository root after installing locked dependencies
 
 Set `JAN_DESKTOP_PACKAGE_CACHE_DIR` to an absolute build-cache directory for reuse across checkouts; see [cache configuration and lifecycle](#desktop-runtime-preparation).
 
+For a local installer on the machine you are on, with no signing or update configuration, run `make package` (or `pnpm run package:desktop:unsigned` after `make llama-worker`). It picks the target from the host and writes to `apps/desktop/.desktop-build/targets/<target>/unsigned-artifacts/`. `make package-check` checks tools and configuration without building; `make package-dir` stops at the unpacked application. Windows hosts without `make` run the pnpm commands below directly.
+
+| Host | Command | Output |
+|---|---|---|
+| macOS Apple Silicon | `pnpm run package:desktop:mac:arm64:unsigned` | `jan-<version>-mac-arm64-unsigned.dmg` |
+| macOS Intel, or Apple Silicon with Rosetta | `pnpm run package:desktop:mac:x64:unsigned` | `jan-<version>-mac-x64-unsigned.dmg` |
+| Windows x64 | `pnpm run package:desktop:win:x64:unsigned` | `jan-<version>-win-x64-unsigned.exe` |
+| Linux x64 | `pnpm run package:desktop:linux:x64:unsigned` | `jan-<version>-linux-x86_64-unsigned.AppImage` and `jan-<version>-linux-amd64-unsigned.deb` |
+
+Each target needs a llama.cpp worker staged for it first (`make llama-worker`, or `JAN_DESKTOP_OMIT_LLAMA_WORKER=1` to package without local models). Cross-building is not supported: build each installer on its own OS.
+
 <a id="release-versions"></a>
 
 ## Release versions
@@ -155,7 +166,7 @@ These commands ignore `.env.macos` and inherited release settings, use `com.janh
 
 ## Unsigned Linux packages
 
-On Linux x64, after `pnpm install`, build the AppImage and Debian package, or stop at the unpacked application:
+On Linux x64, install `musl-gcc` (`musl-tools` on Debian and Ubuntu) and run `pnpm install`. Packaging builds the complete Linux native payload, including the static Landlock launcher and both libc variants of the addon. Build the AppImage and Debian package, or stop at the unpacked application:
 
 ```sh
 pnpm run package:desktop:linux:x64:unsigned

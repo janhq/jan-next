@@ -1,4 +1,4 @@
-/** First-use startup prepares a durable Workspace through the shipped Web composition. */
+/** First interaction prepares a durable default project through the shipped Web composition. */
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,13 +16,14 @@ const FAILURE_EXPECTED = fileURLToPath(new URL('./expected/default-workspace/fai
 const MODE = webSnapshotMode()
 
 describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
-  it('prepares a blank Session on startup, reuses it after reload, and sends through the ordinary composer', async () => {
+  it('opens a local composer, creates the default on interaction, and restores the blank chat on reload', async () => {
     const fixture = await selectedSessionFixture(FIXTURE)
     const scaffold = await launchWebScaffold({
       firstUse: true,
       replayFixture: fixture,
-      // The shared recording remains read-only; replay compares the complete persisted Session.
-      compareReplaySession: MODE === 'replay',
+      // The round-trip scenario owns the full Session snapshot; this scenario
+      // asserts the submitted prompt and filesystem results.
+      compareReplaySession: false,
       paceMs: 5,
     })
     onTestFinished(() => scaffold.close())
@@ -33,11 +34,13 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
       try {
         await page.goto(scaffold.authenticatedUrl)
         const input = page.locator('[data-composer-input][contenteditable="true"]').first()
-        await input.waitFor()
-        // Language-neutral on disk, localized in the hero chip. The chip's
-        // aria-label is its fixed call to action, so the label is its text.
-        await page.getByRole('button', { name: 'Choose workspace', exact: true })
-          .getByText('Default workspace', { exact: true }).waitFor()
+        const localInput = page.locator('[data-composer-input][contenteditable="plaintext-only"]')
+        await localInput.waitFor()
+        expect(scaffold.ctx.workspaceRegistry.list()).toEqual([])
+        expect(scaffold.ctx.sessions.list()).toEqual([])
+        await localInput.click()
+        await page.getByRole('button', { name: 'Choose project', exact: true })
+          .getByText('Default project', { exact: true }).waitFor()
         expect(scaffold.ctx.workspaceRegistry.list()).toHaveLength(1)
         const initialSession = scaffold.ctx.sessions.list()[0]!
         expect(scaffold.ctx.sessions.list()).toHaveLength(1)
@@ -55,7 +58,11 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
         expect(workspace.path).toBe(join(scaffold.workspaceCwd, 'Documents', 'jan', 'default-workspace'))
         expect((await stat(workspace.path)).isDirectory()).toBe(true)
         expect(workspace.sessionIds).toContain(sessionId)
-        expect(scaffold.ctx.sessions.get(sessionId)?.header.cwd).toBe(workspace.path)
+        const session = scaffold.ctx.sessions.get(sessionId)
+        expect(session?.header.cwd).toBe(workspace.path)
+        const userSource: unknown = expect.objectContaining({ kind: 'user' })
+        const promptData: unknown = expect.objectContaining({ source: userSource, content: [{ type: 'text', text: prompt }] })
+        expect(session?.snapshotEvents()).toContainEqual(expect.objectContaining({ type: 'user/message', data: promptData }))
         await assertFinalWorkspaceSnapshot(fileURLToPath(new URL('../../../snapshots/web/default-workspace', import.meta.url)), workspace.path)
         await page.getByText('DONE', { exact: true }).waitFor()
         await compareOrRefreshGolden(EXPECTED, await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd), MODE)
@@ -81,10 +88,11 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
         isMobile: true, hasTouch: true,
       })
       await page.goto(scaffold.authenticatedUrl)
-      const trigger = page.getByRole('button', { name: 'Choose workspace', exact: true })
-      await trigger.getByText('Default workspace', { exact: true }).waitFor()
+      await page.locator('[data-composer-input][contenteditable="plaintext-only"]').tap()
+      const trigger = page.getByRole('button', { name: 'Choose project', exact: true })
+      await trigger.getByText('Default project', { exact: true }).waitFor()
       await trigger.tap()
-      const menu = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: 'Default workspace', exact: true }) })
+      const menu = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: 'Default project', exact: true }) })
       await menu.waitFor({ state: 'visible', timeout: 10_000 })
       expect(await trigger.getAttribute('aria-expanded')).toBe('true')
       expect(await trigger.evaluate(node => node.style.anchorName)).toBe(await menu.evaluate(node => node.style.positionAnchor))
@@ -94,7 +102,7 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
     },
   )
 
-  it('reports a startup directory conflict and opens the composed folder picker for recovery', async () => {
+  it('retains a local draft when recovering from a default project directory conflict', async () => {
     const scaffold = await launchWebScaffold({ firstUse: true })
     onTestFinished(() => scaffold.close())
     const parent = join(scaffold.workspaceCwd, 'Documents', 'jan')
@@ -110,13 +118,16 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
       try {
         await page.goto(scaffold.authenticatedUrl)
         const input = page.locator('[data-composer-input][contenteditable="true"]').first()
+        const localInput = page.locator('[data-composer-input][contenteditable="plaintext-only"]')
+        await localInput.click()
         const notice = page.getByRole('alert').filter({ hasText: '无法创建默认工作区' })
         await notice.waitFor()
+        const pendingText = 'Keep this draft while choosing a project.'
+        await localInput.fill(pendingText)
         expect(scaffold.ctx.workspaceRegistry.list()).toEqual([])
         expect(scaffold.ctx.sessions.list()).toEqual([])
         await compareOrRefreshGolden(FAILURE_EXPECTED, await notice.ariaSnapshot(), MODE)
         expect(await page.getByRole('dialog').count()).toBe(0)
-        expect(await input.count()).toBe(0)
         await page.getByRole('button', { name: '选择工作区', exact: true }).click()
         const picker = page.getByRole('dialog', { name: '选择工作区目录' })
         await picker.waitFor()
@@ -127,7 +138,7 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
         await picker.waitFor({ state: 'hidden' })
         await expect.poll(() => scaffold.ctx.workspaceRegistry.list().length).toBe(1)
         await input.waitFor()
-        expect(await input.textContent()).toBe('')
+        expect(await input.textContent()).toBe(pendingText)
         expect(scaffold.ctx.workspaceRegistry.list()[0]?.path).toBe(chosen)
         expect(scaffold.ctx.sessions.list()).toHaveLength(1)
         expect(scaffold.ctx.sessions.list().every(session =>
@@ -143,20 +154,27 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
     }
   })
 
-  it('keeps an explicitly deleted default absent on startup', async () => {
+  it('keeps a deleted default absent on reload and recreates it on New Chat', async () => {
     const scaffold = await launchWebScaffold()
     onTestFinished(() => scaffold.close())
     const browser = await chromium.launch()
     try {
       const page = await newEnglishPage(browser)
-      const attempted = page.waitForResponse(response => response.url().includes('/api/workspace/initializeDefault'))
       await page.goto(scaffold.authenticatedUrl)
-      expect((await attempted).ok()).toBe(true)
-      await page.getByRole('button', { name: 'Choose workspace', exact: true }).waitFor()
-      expect(await page.getByRole('alert').filter({ hasText: 'Unable to create default workspace' }).count()).toBe(0)
-      expect(await page.locator('[data-composer-input][contenteditable="true"]').count()).toBe(0)
+      await page.reload()
+      await page.locator('[data-composer-input][contenteditable="plaintext-only"]').waitFor()
       expect(scaffold.ctx.workspaceRegistry.list()).toEqual([])
       expect(scaffold.ctx.sessions.list()).toEqual([])
+      const create = page.waitForResponse('**/api/session/create')
+      await page.getByRole('button', { name: 'New session', exact: true }).last().click()
+      const created = await create
+      const [project] = scaffold.ctx.workspaceRegistry.list()
+      expect(project?.path).toBe(join(scaffold.workspaceCwd, 'Documents', 'jan', 'default-workspace'))
+      expect(created.request().postDataJSON()).toMatchObject({ payload: { args: { request: { workspaceId: project?.id } } } })
+      const [session] = scaffold.ctx.sessions.list()
+      expect(session?.header.cwd).toBe(project?.path)
+      expect(project?.sessionIds).toContain(session?.id)
+      await page.locator('[data-composer-input][contenteditable="true"]').waitFor()
     } finally {
       await browser.close()
     }

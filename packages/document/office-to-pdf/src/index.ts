@@ -16,6 +16,9 @@ import type { OfficeExtension, OfficeToPdfRequest, OfficeToPdfResult, OfficeToPd
 import { readPdf } from './output.ts'
 import { ConversionQueue } from './queue.ts'
 
+const OFFICE_EXTENSIONS: ReadonlySet<string> = new Set<OfficeExtension>(['doc', 'docx', 'odt', 'xls', 'xlsx', 'ods', 'ppt', 'pptx', 'odp'])
+const isOfficeExtension = (extension: string): extension is OfficeExtension => OFFICE_EXTENSIONS.has(extension)
+
 export * from './errors.ts'
 export * from './identity.ts'
 export * from './types.ts'
@@ -180,9 +183,8 @@ export class OfficeToPdf extends TypertRemoteService {
     try {
       signal.throwIfAborted()
       const extension = extname(path).slice(1).toLowerCase()
-      if (extension !== 'doc' && extension !== 'docx' && extension !== 'xls'
-        && extension !== 'xlsx' && extension !== 'ppt' && extension !== 'pptx') {
-        throw new OfficeToPdfError('unsupported-format', 'The path must end in doc, docx, xls, xlsx, ppt, or pptx.')
+      if (!isOfficeExtension(extension)) {
+        throw new OfficeToPdfError('unsupported-format', 'The path must end in doc, docx, odt, xls, xlsx, ods, ppt, pptx, or odp.')
       }
       const files = this.ctx.get('workspaceFiles')
       const fs = this.ctx.get('fs')

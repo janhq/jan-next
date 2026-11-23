@@ -39,8 +39,10 @@ export interface Config {
    * text shadows the deployment suffix away; interpolation is strict.
    */
   suffix?: string
-  /** Make the prefix the complete system prompt, suppressing the suffix and every other section. */
+  /** Make the prefix the complete system prompt, suppressing the suffix and every other section except {@link keep}. */
   complete?: boolean
+  /** With `complete`, prompt section names kept after the prefix whenever a mounted plugin registers them. */
+  keep?: string[]
   /** Suppress dynamic runtime-context snapshots for this persona's agent scope. */
   includeRuntimeContext?: boolean
   /**
@@ -56,6 +58,7 @@ export const Config: z<Config> = z.object({
   prefix: z.string().required(),
   suffix: z.string().default(''),
   complete: z.boolean().default(false),
+  keep: z.array(z.string()).default([]),
   includeRuntimeContext: z.boolean().default(true),
   interpolate: z.boolean().default(true),
 })
@@ -71,7 +74,7 @@ export function apply(ctx: Context, config: Config): void {
     name: PERSONA_PREFIX_SECTION,
     order: ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX'),
     text: config.prefix,
-    ...(config.complete ? { complete: true } : {}),
+    ...(config.complete ? { complete: true, keep: config.keep ?? [] } : {}),
     ...(config.interpolate === false ? { interpolate: false } : {}),
   }), 'persona.section()')
   ctx.effect(() => ctx.systemPrompt.section({

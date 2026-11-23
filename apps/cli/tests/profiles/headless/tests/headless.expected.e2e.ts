@@ -543,9 +543,9 @@ describe('headless stream-json snapshots', () => {
         const logs = await persistedLogs(cwd, join(cwd, '.jan', 'sessions'))
         expect(logs).toHaveLength(1)
         const events = parseJsonl(logs[0]!.content)
-        expect(events.find(event => event.type === 'user/message')?.data).toMatchObject({
-          source: { kind: 'user' },
-        })
+        // The runtime-context snapshot precedes the person's message, so look the prompt up by its text.
+        const prompt = events.find(event => event.type === 'user/message' && JSON.stringify(event.data).includes('Run the CLI probe.'))
+        expect(prompt?.data).toMatchObject({ source: { kind: 'user' } })
         expect(events.some(event => event.type === 'approval/asked')).toBe(false)
         expect(events.filter(event => event.type === 'approval/policy').at(-1)?.data).toEqual({ policy: 'never' })
       },

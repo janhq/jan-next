@@ -27,8 +27,9 @@ export class DesktopOnboardingController {
   private credentialGeneration = 0
   private hasApiKey: boolean | undefined
   private checkingKeys = false
+  private customFlow = false
   private error: 'settings' | null = null
-  private failedWrite: { next: OnboardingProgress; applyPreferences: boolean } | undefined
+  private failedWrite: { next: OnboardingProgress; preferences: 'stock' | 'transcript' | false } | undefined
   private creditFunded: boolean | undefined
 
   /**
@@ -38,6 +39,7 @@ export class DesktopOnboardingController {
    * @param account - safe account state, initially unresolved.
    * @param settings - shared settings reader exposing initial failures and retry.
    * @param readApiKeyPresence - reads configured model-credential metadata without secrets.
+   * @param disableStockApiKeyShortcut - keep API-key discovery from completing onboarding while a replacement is unregistered.
    */
   constructor(
     private readonly progress: ConfigForm<OnboardingSettings>,
@@ -46,6 +48,7 @@ export class DesktopOnboardingController {
     private readonly account: HostObservable<AccountSnapshot>,
     private readonly readApiKeyPresence: () => Promise<boolean>,
     private readonly settings: SettingsDescribeFace,
+    private readonly disableStockApiKeyShortcut = false,
   ) {
     this.disposers = [
       settings.subscribe(() => { this.derive() }),
@@ -121,7 +124,28 @@ export class DesktopOnboardingController {
       ...current, step: 'done', completion: reason,
       process: office ? 'compact' : reason === 'skipped' ? 'standard' : current.process,
       usage: development ? 'detailed' : 'compact', developerTools: development,
-    }, true)
+    }, 'stock')
+  }
+
+  /** Use the replacement flow while its slot has an active entry.
+   * @param active - whether a replacement is registered.
+   */
+  setCustomFlow(active: boolean): void {
+    if (this.customFlow === active) return
+    this.customFlow = active
+    this.invalidateCredentials()
+  }
+
+  /** Finish the replacement flow independently of credentials.
+   * @param process - selected transcript detail, or null to skip without changing preferences.
+   * @returns whether the preferences and completion marker were saved.
+   */
+  async finishCustomFlow(process: OnboardingProgress['process']): Promise<boolean> {
+    if (!this.customFlow || this.saving || this.completing || this.disposed) return false
+    const current = this.readProgress()
+    if (current === undefined || current.step === 'done' || !this.progress.getSnapshot().writable) return false
+    return this.save({ ...current, process, step: 'done', completion: process === null ? 'skipped' : 'completed' },
+      process === null ? false : 'transcript', true)
   }
 
   /**
@@ -129,14 +153,15 @@ export class DesktopOnboardingController {
    * @returns whether the read or pending write succeeded; false when nothing can be retried.
    */
   async retry(): Promise<boolean> {
-    if (this.saving || this.completing || this.draft !== undefined || this.disposed || this.account.getSnapshot().view?.status !== 'credential-stored') return false
+    if (this.saving || this.completing || this.draft !== undefined || this.disposed
+      || (!this.customFlow && this.account.getSnapshot().view?.status !== 'credential-stored')) return false
     if (this.settings.getSnapshot().error !== null && this.progress.getSnapshot().status === 'loading') {
       await this.settings.ensure()
       return this.progress.getSnapshot().status === 'ready'
     }
     const pending = this.failedWrite
     if (pending === undefined) return false
-    const saved = await this.save(pending.next, pending.applyPreferences)
+    const saved = await this.save(pending.next, pending.preferences, this.customFlow)
     this.updates = Promise.resolve(saved)
     return saved
   }
@@ -155,24 +180,25 @@ export class DesktopOnboardingController {
     }
   }
 
-  private async save(next: OnboardingProgress, applyPreferences: boolean): Promise<boolean> {
+  private async save(next: OnboardingProgress, preferences: 'stock' | 'transcript' | false, independent = false): Promise<boolean> {
     const accountStatus = this.account.getSnapshot().view?.status
+    const stillEligible = () => !this.disposed && (independent || this.account.getSnapshot().view?.status === accountStatus)
     this.saving = true
     this.error = null
     this.derive()
     try {
-      if (applyPreferences) {
+      if (preferences !== false) {
         const mode = next.process
-        const accepted = await this.chat.mutate([
+        const accepted = await this.chat.mutate(preferences === 'stock' ? [
           { op: 'set', path: ['transcriptView'], value: mode },
           { op: 'set', path: ['performanceUsage'], value: next.usage },
-        ])
+        ] : [{ op: 'set', path: ['transcriptView'], value: mode }])
         const saved = this.chat.getSnapshot().value
-        if (!accepted || saved?.transcriptView !== mode || saved.performanceUsage !== next.usage) throw new Error('Chat preferences were not saved')
-        if (this.disposed || this.account.getSnapshot().view?.status !== accountStatus) return false
-        await this.setDeveloperTools(next.developerTools)
+        if (!accepted || saved?.transcriptView !== mode || (preferences === 'stock' && saved.performanceUsage !== next.usage)) throw new Error('Chat preferences were not saved')
+        if (!stillEligible()) return false
+        if (preferences === 'stock') await this.setDeveloperTools(next.developerTools)
       }
-      if (this.disposed || this.account.getSnapshot().view?.status !== accountStatus) return false
+      if (!stillEligible()) return false
       const fields = Object.keys(next) as (keyof OnboardingProgress)[]
       const accepted = await this.progress.mutate(
         fields.map(field => ({ op: 'set' as const, path: [field], value: next[field] })),
@@ -187,7 +213,7 @@ export class DesktopOnboardingController {
     } catch {
       // Settings mutations report refusal through recovered snapshots or rejected transport promises.
       this.error = 'settings'
-      this.failedWrite = { next, applyPreferences }
+      this.failedWrite = { next, preferences }
       return false
     } finally {
       this.saving = false
@@ -213,22 +239,22 @@ export class DesktopOnboardingController {
     const done = progress.step === 'done'
     const unavailable = host.status === 'unavailable' || (host.status === 'ready' && !host.writable)
     const readFailed = host.status === 'loading' && this.settings.getSnapshot().error !== null
-    const accountFailed = account === undefined && snapshot.failed
+    const accountFailed = !this.customFlow && account === undefined && snapshot.failed
     const previous = this.state.getSnapshot()
     const next: DesktopOnboardingState = {
       progress: shallowEqual(previous.progress, progress) ? previous.progress : progress,
       creditFunded: this.creditFunded ?? false,
-      visible: !done && signedIn && !unavailable,
+      visible: !done && !unavailable && (this.customFlow ? host.status === 'ready' || readFailed : signedIn),
       status: this.completing || (this.saving && this.draft === undefined) ? 'saving' : unavailable || readFailed || accountFailed || this.error !== null ? 'error'
-        : host.status === 'loading' || account === undefined ? 'loading' : 'ready',
+        : host.status === 'loading' || (!this.customFlow && account === undefined) ? 'loading' : 'ready',
       error: unavailable || readFailed ? 'settings' : this.error,
     }
     if (!shallowEqual(previous, next)) this.state.set(next)
-    if (done || this.saving || this.completing || this.draft !== undefined || unavailable || host.status !== 'ready' || this.chat.getSnapshot().status !== 'ready'
+    if (this.disableStockApiKeyShortcut || this.customFlow || done || this.saving || this.completing || this.draft !== undefined || unavailable || host.status !== 'ready' || this.chat.getSnapshot().status !== 'ready'
       || account?.status !== 'signed-out') return
     if (this.hasApiKey === true && this.error === null) {
       // Jan: an API key (every Jan import carries one) is not a choice of Coding Tools.
-      void this.save({ ...progress, step: 'done', process: 'standard', usage: 'detailed', developerTools: false, completion: 'api-key' }, true)
+      void this.save({ ...progress, step: 'done', process: 'standard', usage: 'detailed', developerTools: false, completion: 'api-key' }, 'stock')
     } else if (this.hasApiKey === undefined && !this.checkingKeys) {
       this.checkingKeys = true
       const generation = this.credentialGeneration

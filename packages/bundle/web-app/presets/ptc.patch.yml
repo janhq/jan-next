@@ -6,12 +6,16 @@
       name: '@janhq/jan-agent-preset'
       config:
         id: ptc
+        icon: layers-outline
         order: 2
         plugins:
           - id: persona
             name: '@janhq/jan-persona'
             config:
-              prefix: You are Jan, an AI agent. You are a coding agent powered by the {{model}} model.
+              prefix: >-
+                You are Jan, an AI agent. You are a coding agent powered by the {{model}} model.
+                When you make something the user should see, such as an HTML page, game, chart, diagram, SVG, or image,
+                save it as one file and call present with only that file, so the chat shows it inline under your reply.
           - id: agent-instructions
             name: '@janhq/jan-agent-instructions'
             config:
@@ -98,6 +102,9 @@
                   toolName: subagent
                   modelSelection: true
                   modelDiscovery: true
+                  allowedAgentPresets: [scout, reviewer, worker]
+                  presetAgentOptions:
+                    scout: { provider: tokamak, model: 'anthropic/claude-haiku-5-5[1m]' }
               - id: tool-subagent-fork
                 name: '@janhq/jan-tool-subagent'
                 config:
@@ -113,6 +120,8 @@
                 disabled: true
           - id: tool-ask-user
             name: '@janhq/jan-tool-ask-user'
+            config:
+              mode: auto
           - id: tool-todo
             name: '@janhq/jan-tool-todo'
             config:

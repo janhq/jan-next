@@ -80,6 +80,21 @@ export class ToolExecutionPipeline {
     return tool !== undefined && this.source.reject?.(name, nested) === undefined ? tool : undefined
   }
 
+  /**
+   * A hint for an unknown name that wraps a callable one, as models sometimes prefix a tool with a namespace from
+   * another harness (`input_bash`, `functions.bash`, `default_api:read`): the longest callable suffix after a
+   * `_`, `.`, `:` or `/` separator.
+   * @param exec - the unknown call.
+   * @returns `did you mean "<name>"?`, or undefined when no suffix is callable.
+   */
+  private suggestion(exec: ToolExecutionInput): string | undefined {
+    for (const match of exec.name.matchAll(/[_.:/]/g)) {
+      const candidate = exec.name.slice(match.index + 1)
+      if (candidate && this.resolveExecution(candidate, exec.agent, exec.parent !== undefined, exec.toolSet)) return `did you mean "${candidate}"?`
+    }
+    return undefined
+  }
+
   /** Context deferred by a running tool body, keyed by its scheduler-owned execution. */
   private deferredContexts = new WeakMap<ToolRunContext, UserMessage[]>()
 
@@ -133,6 +148,7 @@ export class ToolExecutionPipeline {
       rootCallId,
       name,
       signal,
+      ...exec.yieldSignal !== undefined ? { yieldSignal: exec.yieldSignal } : {},
       ...agent !== undefined ? { agent } : {},
       ...exec.toolSet !== undefined ? { toolSet: exec.toolSet } : {},
       ...parent !== undefined ? { parent } : {},
@@ -270,7 +286,7 @@ export class ToolExecutionPipeline {
     exec.signal = signal
     try {
       const tool = this.resolveExecution(exec.name, exec.agent, exec.parent !== undefined, exec.toolSet)
-      if (!tool) throw new ToolNotFoundError(exec.name)
+      if (!tool) throw new ToolNotFoundError(exec.name, this.suggestion(exec))
       state.bodyInvoked = true
       const returned = await tool.execute(exec.arguments, exec)
       const result = this.createSuccessResult(exec, tool, returned)

@@ -50,7 +50,7 @@
     "@janhq/jan-chunked-list": "workspace:*",
     "@janhq/jan-util-values": "workspace:*",
     "@janhq/schemastery": "workspace:~",
-    "zod": "4.4.3"
+    "zod": "4.6.6"
   },
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
@@ -115,6 +115,7 @@
     "@janhq/jan-session-projection": "workspace:*",
     "@janhq/jan-session-query": "workspace:*",
     "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tool-executor-ptc": "workspace:*",
     "@janhq/jan-tool-testkit": "workspace:*",
     "@janhq/jan-tools": "workspace:*",
     "@janhq/jan-typert-protocol": "workspace:*",

@@ -726,6 +726,17 @@ describe('operator-scoped connect', () => {
     } finally { await host.dispose() }
   })
 
+  it('keeps a federating Host on this Host when it connects with forward=local', async () => {
+    const host = await mounted()
+    try {
+      for (const [query, forward] of [['', 'all'], ['&forward=all', 'all'], ['&interactions=answer&forward=local', 'local']] as const) {
+        const result = await connect(host, query)
+        expect(result.state.status).toBe(302)
+        expect(admitted(host.connection, result.cookie).forward).toBe(forward)
+      }
+    } finally { await host.dispose() }
+  })
+
   it('keeps all browser cookies on the shared operator and creates independent API operators', async () => {
     const host = await mounted()
     try {
@@ -747,7 +758,7 @@ describe('operator-scoped connect', () => {
   it('refuses invalid declarations, authentication, and untrusted connect requests without a cookie', async () => {
     const host = await mounted()
     try {
-      for (const query of ['&interactions=observe', '&interactions=', '&interactions=none&interactions=answer']) {
+      for (const query of ['&interactions=observe', '&interactions=', '&interactions=none&interactions=answer', '&forward=peers', '&forward=local&forward=all']) {
         const result = await connect(host, query)
         expect(result.state.status).toBe(400)
         expect(result.cookie).toBe('')

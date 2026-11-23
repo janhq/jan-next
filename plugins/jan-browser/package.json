@@ -1,0 +1,30 @@
+{
+  "name": "@janhq/jan-browser",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "description": "Control a connected Chrome profile through the Jan Browser extension.",
+  "license": "MIT",
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.mjs", "bridge.mjs", "tools.mjs"],
+  "scripts": {
+    "test": "node --test tests/*.spec.mjs"
+  },
+  "dependencies": {
+    "@janhq/jan-browser-use": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-mcp-client": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-tool-testkit": "workspace:*",
+    "@types/ws": "^8.18.1"
+  }
+}

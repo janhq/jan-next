@@ -611,4 +611,11 @@ describe('Menu submenus', () => {
     fireEvent.pointerDown(document.body)
     expect(close).toHaveBeenCalledOnce()
   })
+
+  it('marks the selected child row with a check', () => {
+    render(<Menu open anchor={null} items={entries} selectedId="second" onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Applications' }))
+    expect(screen.getByRole('menuitem', { name: 'Second app' }).querySelector('svg')).not.toBeNull()
+    expect(screen.getByRole('menuitem', { name: 'First app' }).querySelector('svg')).toBeNull()
+  })
 })

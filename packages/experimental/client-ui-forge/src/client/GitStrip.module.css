@@ -1,0 +1,48 @@
+/* Git readings at the top right of the composer, on the line right above its card.
+   The row takes the dock cards' width axis (ui-conversation TodoPanel) so its right
+   edge lines up with the card's, in a blank and in a started chat. */
+.strip {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin: 0 auto;
+  width: calc(100% - 2 * var(--jan-composer-side-clearance, 16px) - 4 * var(--jan-composer-dock-inset, 8px));
+  max-width: calc(var(--jan-composer-card-max-width, 100%) - 4 * var(--jan-composer-dock-inset, 8px));
+  min-width: 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  /* A short branch name stays whole; a long one stops at the cap with an ellipsis. */
+  max-width: 240px;
+}
+
+.icon { flex: none; }
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes {
+  flex: none;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--dsw-radius-xs);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .changes:hover { background: var(--dsw-alias-bg-layer-2); }
+}

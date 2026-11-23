@@ -4,8 +4,8 @@ import type {} from '@janhq/jan-typert-protocol'
 import type { OfficeSourceKey, OfficeToPdfGeneration, OfficeToPdfKey } from './identity.ts'
 export type { OfficeSourceKey, OfficeToPdfGeneration, OfficeToPdfKey } from './identity.ts'
 
-/** Binary Office and Office Open XML formats supported by Office-to-PDF conversion. */
-export type OfficeExtension = 'doc' | 'docx' | 'xls' | 'xlsx' | 'ppt' | 'pptx'
+/** Binary Office, Office Open XML, and OpenDocument formats supported by Office-to-PDF conversion. */
+export type OfficeExtension = 'doc' | 'docx' | 'odt' | 'xls' | 'xlsx' | 'ods' | 'ppt' | 'pptx' | 'odp'
 
 /** Foreground previews and explicit QA precede speculative background conversion. */
 export type OfficeToPdfPriority = 'foreground' | 'background'

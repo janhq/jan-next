@@ -14,16 +14,16 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Injected context" [expanded]
-- button "Context injection runtime-context"
-- button "Context injection user-invoke-demo"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context user-invoke-demo"
+- button "Inject context time-context"
 - paragraph: USER_INVOKE_REPLY acknowledged; following the injected skill.
 - button "Copy"
 - button "Branch into a new conversation"
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
+- 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
 - button "1 turns 1 steps · {{throughput}} tok/s": 1 turns 1 steps{{throughput}} tok/s

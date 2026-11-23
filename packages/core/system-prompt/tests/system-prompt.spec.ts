@@ -512,6 +512,19 @@ describe('SystemPrompt', () => {
     ])
   })
 
+  it('keeps only the registered sections a complete section names', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    ctx.systemPrompt.section({ name: 'complete', order: 10, text: 'Exact prompt.', complete: true, keep: ['format', 'absent'] })
+    ctx.systemPrompt.section({ name: 'extra', order: 5, text: 'extra' })
+    ctx.systemPrompt.section({ name: 'format', order: 1, text: 'Fence format.' })
+
+    expect((await ctx.systemPrompt.assemble()).sections).toEqual([
+      { name: 'complete', text: 'Exact prompt.' },
+      { name: 'format', text: 'Fence format.' },
+    ])
+  })
+
   it('rejects multiple effective complete sections', async () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)

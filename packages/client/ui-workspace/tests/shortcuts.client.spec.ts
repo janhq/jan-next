@@ -160,6 +160,16 @@ describe('workspace shortcut ownership', () => {
     expect(b.registry.dispatch(key('KeyO'), context, consume).status).toBe('blocked')
   })
 
+  it('opens the add menu under a requesting control and returns it to the sidebar button after closing', async () => {
+    const b = await bench()
+    const anchor = {} as HTMLElement
+    b.controls.add(anchor)
+    expect(b.controls.state.getSnapshot()).toMatchObject({ addRequested: true, addAnchor: anchor })
+    b.controls.closeAdd()
+    b.registry.dispatch(key('KeyO'), context, vi.fn())
+    expect(b.controls.state.getSnapshot()).toMatchObject({ addRequested: true, addAnchor: null })
+  })
+
   it('captures rename and archive targets while the main Session changes', async () => {
     const b = await bench()
     for (const command of ['session.rename', 'session.archive']) {

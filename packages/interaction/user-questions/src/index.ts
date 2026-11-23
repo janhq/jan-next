@@ -32,9 +32,9 @@ import type {
 export type {
   AskUserQuestionAnswer, AskUserQuestionAnswerItem, AskUserQuestionIntent, AskUserQuestionItem,
   AskUserQuestionOption, PendingUserQuestion, SettledUserQuestion, UserQuestionProjectionView,
-  UserQuestionState,
+  UserQuestionSettings, UserQuestionState,
 } from './types.ts'
-export { isTimedAskUserQuestionSchema, TIMED_WAIT_PARAMETER } from './projection.ts'
+export { AUTO_ANSWER_SCHEMA_DESCRIPTION, isTimedAskUserQuestionSchema, TIMED_WAIT_PARAMETER } from './projection.ts'
 
 /** Request for a human answer. */
 export interface AskUserQuestionRequest extends AskUserQuestionRequestEvent {}
@@ -231,6 +231,7 @@ export class UserQuestionService extends TypertRemoteService {
    * @param request - Questions, live owner agent, and abort signal.
    * @param callId - Tool call identity the Client card is keyed by.
    * @param timeoutMs - Positive foreground wait in milliseconds.
+   * @param autoSubmit - Whether the Client should submit its draft at expiry instead of returning pending.
    * @returns The answer when it arrives inside the window, otherwise a pending
    *   result, also when no connected Client claimed the request by the deadline.
    * @throws {UserQuestionError} `BAD_TIMEOUT` for a non-integer, non-positive,
@@ -240,6 +241,7 @@ export class UserQuestionService extends TypertRemoteService {
     request: AskUserQuestionRequest & { agent: Agent },
     callId: ToolCallId,
     timeoutMs: number,
+    autoSubmit?: true,
   ): Promise<TimedUserQuestionResult> {
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2_147_483_647) {
       throw new UserQuestionError('timeout must fit a positive platform timer', 'BAD_TIMEOUT')
@@ -253,7 +255,7 @@ export class UserQuestionService extends TypertRemoteService {
     this.waits.set(request.agent, calls)
     try {
       try {
-        return await this.ask({ ...request, signal: wait.signal, wait: { callId, timed: true } })
+        return await this.ask({ ...request, signal: wait.signal, wait: { callId, timed: true, ...(autoSubmit ? { autoSubmit } : {}) } })
       } catch (error) {
         if (wait.signal.aborted) throw wait.signal.reason
         if (error instanceof UserQuestionError && error.code === 'NO_PROVIDER') {

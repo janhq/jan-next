@@ -17,6 +17,7 @@ This table connects model-visible tool names to the plugin package and service s
 | --- | --- | --- | --- | --- | --- |
 | `@janhq/jan-plugin-manager` | `plugin_manager` | `ctx.tools`, `ctx.pluginManager`, `ctx.sandboxPolicy` | `tool/call`, `tool/result`, `user/message` | - | - |
 | `@janhq/jan-plugin-market` | `plugin_market` | `ctx.tools`, `ctx.pluginMarket` | `tool/call`, `tool/result` | - | - |
+| `@janhq/jan-tool-capture-media` | `capture_audio`, `capture_camera` | `ctx.tools`, `ctx.mediaCapture` | `tool/call`, `tool/result` | - | Each call waits for the owner to allow, capture and send in the chat; a declined request returns `declined`. |
 | `@janhq/jan-mcp-resources` | `list_mcp_resource_templates`, `list_mcp_resources`, `read_mcp_resource` | `ctx.tools`, `ctx.mcpResources` | `tool/call`, `tool/result` | - | - |
 | `@janhq/jan-experimental-browser-use-stagehand-native` | `stagehand_act`, `stagehand_extract`, `stagehand_navigate`, `stagehand_observe`, `stagehand_screenshot`, `stagehand_tabs` | `ctx.browserUse`, `ctx.agents`, `ctx.tools`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | - |
 | `@janhq/jan-action-cards` | `propose_action` | `ctx.tools`, `ctx.agents`, `ctx.sessionProjections`, `ctx.remoteAccess` | `tool/call`, `tool/result`, `plugin:action-cards/decision`, `user/message` | - | Declared only to an Agent that loaded the skill of a registered card kind; the kind packages register their actions, and the Personalized recommendations bundle supplies the shipped kinds. |
@@ -42,7 +43,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@janhq/jan-experimental-tool-subagent-oar` | `subagent_oar` | `ctx.tools`, `ctx.subagents` | `tool/call`, `tool/result`, `parent subagent catalog and completion notices` | - | The subagent_oar tool selects among configured aliases for external providers. This catalog shows Codex and Claude Code aliases; each deployment chooses its providers. Native model and permission settings belong to the selected provider configuration. |
 | `@janhq/jan-tool-subagent` | `list_subagent_models`, `subagent` | `ctx.tools`, `ctx.subagents`, `ctx.systemPrompt`, `ctx.sessionProjections`, `ctx.llm for model discovery and selected-route validation` | `tool/call`, `tool/result`, `child session events through the chosen provider` | `subagent`, `subagent_fork` | The load-time `toolName` selects the delegation name (default `subagent`); `modelSelection` adds optional route fields. `modelDiscovery` defaults off and registers shared discovery on one instance per scope. Web and Desktop presets enable spawn discovery and route fields and leave `subagent_fork` route fields disabled. The Host settings service records authorization for each new top-level Session; child Sessions inherit it. Without a recorded policy, discovery and explicit selection permit only the current parent route. Every delegation returns the child's name promptly; local children accept follow-ups, while external backends report their single execution automatically. |
 | `@janhq/jan-tool-subagent-control` | `interrupt_agent`, `list_agents`, `send_message`, `wait_agent` | `ctx.tools`, `ctx.subagents`, `ctx.agents` | `tool/call`, `tool/result`, `child session events through ctx.subagents` | - | The shared control tools discover and contact agents in the subagent tree, interrupt owned descendants, and wait for input in the caller’s inbox. Provider-bound `tool-subagent` instances supply delegation tools. |
-| `@janhq/jan-tool-jobs` | `job_kill`, `job_list`, `job_output` | `ctx.tools`, `ctx.jobs`, `ctx.systemPrompt` | `tool/call`, `tool/result`, `user/message via agent.inject() for background completion notices` | - | The kind-agnostic background-job controller: background bash commands and PTY sends are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers' `ctx.jobs.start()`. |
+| `@janhq/jan-tool-jobs` | `job_kill`, `job_list`, `job_output`, `job_watch`, `wake_after` | `ctx.tools`, `ctx.jobs`, `ctx.systemPrompt` | `tool/call`, `tool/result`, `job/registered`, `job/settled`, `user/message via agent.inject() or agent.followup()` | - | The shared controller for background jobs. Read, list, watch, or cancel jobs by id, and schedule timer jobs that deliver a reminder on completion. |
 | `@janhq/jan-tool-agent-team` | `team_task_create`, `team_task_get`, `team_task_list`, `team_task_update` | `ctx.tools`, `ctx.systemPrompt`, `ctx.agentTeams`, `ctx.subagents`, `an exact live Team member Agent` | `tool/call`, `team/task`, `tool/result` | - | Four task-board tools share the subagent tree’s root Session. Enabling Team mode on the root Session adds task-board guidance alongside standard subagent delegation and control tools. Standard subagent controls provide required identity independently of Team mode. |
 | `@janhq/jan-tool-todo` | `todo_write` | `ctx.tools`, `owning Agent session` | `tool/call`, `todo/write`, `tool/result` | - | todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task. |
 | `@janhq/jan-tool-working-directory` | `working_directory` | `ctx.tools`, `ctx.workingDirectory` | `tool/call`, `working-directory/change`, `user context for directory changes`, `tool/result` | - | Reads or changes the calling Session directory. Existing shells and processes retain their own directories; origin metadata and permission roots stay fixed. |
@@ -170,6 +171,63 @@ List the plugin market indexes the user configured, the installable bundles one 
 ```
 
 Source: [`packages/boot/plugin-market/src/tools.ts`](../packages/boot/plugin-market/src/tools.ts)
+
+<a id="janhqjan-tool-capture-media"></a>
+
+## `@janhq/jan-tool-capture-media`
+
+### `capture_audio`
+
+Ask the user to record and share a microphone clip. The user can preview input levels, record, add a note, and decline before sharing. Returns a readable session file and any user note.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "reason": {
+      "type": "string",
+      "description": "A short explanation for the user of why you need this capture."
+    }
+  },
+  "required": [
+    "reason"
+  ]
+}
+```
+
+Source: [`packages/interaction/tool-capture-media/src/index.ts`](../packages/interaction/tool-capture-media/src/index.ts)
+
+### `capture_camera`
+
+Ask the user to share a camera photo or a silent video. The user can preview, capture, annotate, and decline before sharing. A photo returns image content; a video returns a readable session file and any user note. Use capture_audio for microphone sound.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "reason": {
+      "type": "string",
+      "description": "A short explanation for the user of why you need this capture."
+    },
+    "mode": {
+      "type": "string",
+      "description": "Capture a still photo or a silent video.",
+      "enum": [
+        "photo",
+        "video"
+      ]
+    }
+  },
+  "required": [
+    "reason",
+    "mode"
+  ]
+}
+```
+
+Source: [`packages/interaction/tool-capture-media/src/index.ts`](../packages/interaction/tool-capture-media/src/index.ts)
+
+Each call waits for the owner to allow, capture and send in the chat; a declined request returns `declined`.
 
 <a id="janhqjan-mcp-resources"></a>
 
@@ -2065,7 +2123,7 @@ Source: [`packages/subagent/tool-subagent/src/list-models.ts`](../packages/subag
 
 ### `subagent`
 
-Delegate a self-contained task to a subagent (a separate agent that works in its own context) to offload focused, independent work — research, a scoped implementation, an analysis — so it does not consume this conversation's context. The subagent returns its result, not its intermediate steps. This tool starts an independently managed subagent and immediately returns its name. If you are still online when it finishes, the runtime automatically delivers its completion notice. The notice includes the final answer unless the child sent you a message just before finishing. Use `send_message` to steer it while running or continue its conversation after it finishes.
+Delegate a self-contained task to a subagent (a separate agent that works in its own context) to offload focused, independent work — research, a scoped implementation, an analysis — so it does not consume this conversation's context. The subagent returns its result, not its intermediate steps. This tool starts a subagent and returns its name. If you are still online when it finishes, the completion notice delivers its final answer separately from any interim messages. Use `send_message` to steer it while running or continue its conversation after it finishes.
 
 ```json
 {
@@ -2254,7 +2312,66 @@ Read a background job: output since the previous read for stream jobs, or the re
 
 Source: [`packages/jobs/tool-jobs/src/index.ts`](../packages/jobs/tool-jobs/src/index.ts)
 
-The kind-agnostic background-job controller: background bash commands and PTY sends are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers' `ctx.jobs.start()`.
+### `job_watch`
+
+Watch new output from a running background job without polling. Matching lines arrive in batched notices, waking you when idle if enabled. Does not consume job_output.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "description": "ID of a running background job owned by this session."
+    },
+    "pattern": {
+      "type": "string",
+      "description": "JavaScript regular expression source (no delimiters or flags) to match each line. Omit to watch every line."
+    },
+    "max_events": {
+      "type": "integer",
+      "description": "Maximum live batches before the watch stops (1-100, default 20). The normal completion notice is separate."
+    },
+    "debounce_ms": {
+      "type": "integer",
+      "description": "Milliseconds to collect matches after the first match in a batch (1-60000, default 1000)."
+    }
+  },
+  "required": [
+    "job_id"
+  ]
+}
+```
+
+Source: [`packages/jobs/tool-jobs/src/index.ts`](../packages/jobs/tool-jobs/src/index.ts)
+
+### `wake_after`
+
+Schedule a one-time reminder to resume work later without polling or blocking. Returns a timer job ID you can list or cancel with job_kill. Completion wakes you if enabled.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "seconds": {
+      "type": "number",
+      "description": "Delay in seconds, from 1 to 86400."
+    },
+    "note": {
+      "type": "string",
+      "description": "Non-blank reminder to include in the completion notice (up to 1024 UTF-8 bytes)."
+    }
+  },
+  "required": [
+    "seconds",
+    "note"
+  ]
+}
+```
+
+Source: [`packages/jobs/tool-jobs/src/index.ts`](../packages/jobs/tool-jobs/src/index.ts)
+
+The shared controller for background jobs. Read, list, watch, or cancel jobs by id, and schedule timer jobs that deliver a reminder on completion.
 
 <a id="janhqjan-tool-agent-team"></a>
 

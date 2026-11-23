@@ -1,8 +1,8 @@
 /**
- * Model-facing `job_output`, `job_list`, and `job_kill` tools over
+ * Model-facing controls, output watches, and timers over
  * `ctx.jobs`. Loading the plugin attaches the controller required by
- * producers. It also delivers completions the model has not already
- * collected to the owning agent: injected into a busy owner's next step, or
+ * producers. It delivers watch updates and uncollected completions
+ * to the owning agent: injected into a busy owner's next step, or
  * opening a turn on an idle one under the default `wakeup` delivery, unbounded
  * unless `maxConsecutiveWakes` caps it per owner. A notice carries the job's
  * output and result when it fits `inlineOutputBytes`, and `job_output`
@@ -10,22 +10,31 @@
  * @module @janhq/jan-tool-jobs
  */
 
+import { randomUUID } from 'node:crypto'
 import type { Context } from '@janhq/cordis'
 import z from '@janhq/schemastery'
 import { boundContextSummary, createUserMessage, type ContentBlock } from '@janhq/jan-llm'
-import type { ContextFormed, MessageId } from '@janhq/jan-llm'
+import type { ContextFormed, MessageId, UserMessage } from '@janhq/jan-llm'
 import { TextRetainer } from '@janhq/jan-output-retention'
 import { defineTool } from '@janhq/jan-tools'
 import type { GenericCallView, ToolDefinition, ToolExecution } from '@janhq/jan-tools'
 import { JobId } from '@janhq/jan-jobs'
-import type { JobEvent, JobView, JobRead } from '@janhq/jan-jobs'
+import type { JobEvent, JobOutcome, JobView, JobRead } from '@janhq/jan-jobs'
 import type { Agent } from '@janhq/jan-agent'
 import type {} from '@janhq/jan-agent'
 import { publicJob, renderModelDelta, statusLine } from './render.ts'
 import type { PublicJobSnapshot } from './render.ts'
+import { OutputWatch } from './watch.ts'
+
 declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'tool-jobs': { kind: 'tool-jobs' } & ContextFormed
+  }
+}
+
+declare module '@janhq/jan-jobs' {
+  interface JobKindMap {
+    timer: 'timer'
   }
 }
 
@@ -33,24 +42,24 @@ export const name = 'tool-jobs'
 export const inject = ['tools', 'jobs', 'systemPrompt']
 
 /**
- * How an uncollected completion reaches an owner that is already idle: `wakeup`
+ * How a background notice reaches an owner that is already idle: `wakeup`
  * opens a turn for it, `quiet` leaves it pending until something else wakes the
  * owner. A busy owner is injected either way.
  */
 export type CompletionDelivery = 'quiet' | 'wakeup'
 
-/** Configures bounded `job_output` waits and completion-notice delivery. */
+/** Configures bounded `job_output` waits and background-notice delivery. */
 export interface Config {
   /** Wait duration applied when `job_output` sets `wait` without `timeout_ms` (default 30s). */
   waitTimeoutMs?: number
   /** Hard cap on any single wait; a larger model-supplied `timeout_ms` is clamped down to it (default 10min). */
   maxWaitTimeoutMs?: number
-  /** Whether a completion opens a turn on an idle owner (default `wakeup`). */
+  /** Whether a background notice opens a turn on an idle owner (default `wakeup`). */
   completionDelivery?: CompletionDelivery
   /**
-   * Turns one owner may have opened by completion wakes before the next
+   * Turns one owner may have opened by background wakes before the next
    * notice degrades to injection, reset by any user-authored input. Absent by
-   * default: every idle completion wakes its owner. Set it to bound the
+   * default: every background notice wakes its idle owner. Set it to bound the
    * self-exciting chain where a woken turn starts the job whose completion
    * wakes it again, at the cost of notices past the cap waiting silently for
    * the next user input.
@@ -91,6 +100,14 @@ const PUBLIC_JOB_SCHEMA = {
     finishedAt: { type: 'integer' },
   },
 } as const
+
+const DEFAULT_WATCH_EVENTS = 20
+const MAX_WATCH_EVENTS = 100
+const DEFAULT_WATCH_DEBOUNCE_MS = 1_000
+const MAX_WATCH_DEBOUNCE_MS = 60_000
+const MAX_WATCH_PREVIEW_BYTES = 2_048
+const MAX_WAKE_SECONDS = 86_400
+const MAX_WAKE_NOTE_BYTES = 1_024
 
 const encoder = new TextEncoder()
 
@@ -213,6 +230,20 @@ function validateJobId(value: string): JobId {
   return JobId(value)
 }
 
+function watchPattern(pattern: string | undefined): RegExp | undefined {
+  if (pattern === undefined) return undefined
+  try {
+    return new RegExp(pattern)
+  } catch (error) {
+    throw new Error('invalid pattern: expected a JavaScript regular expression', { cause: error })
+  }
+}
+
+function watchBound(name: string, value: number, max: number): number {
+  if (value < 1 || value > max) throw new Error(`invalid ${name}: expected an integer from 1 to ${max}`)
+  return value
+}
+
 /** Pending presentation shared by the three generic job controls. */
 function presentJobCall(title: string, kind: 'read' | 'execute', rawInput?: string): GenericCallView {
   return { card: 'generic', title, kind, ...rawInput !== undefined ? { rawInput } : {} }
@@ -226,6 +257,12 @@ interface PendingNotice {
   readonly inline: boolean
   /** The consuming read taken at settlement, absent when the read stayed in the registry. */
   readonly held?: string
+}
+
+/** A watched job retains the model's unread output even after live batches end. */
+interface WatchedJob {
+  readonly owner: Agent
+  output?: OutputWatch
 }
 
 /** The consuming read as the model sees it: the delta, then the result once, then the status line. */
@@ -265,6 +302,34 @@ export function apply(ctx: Context, config: Config): void {
   // `job_output` returns the held read. `job_output` also withdraws a notice
   // still pending, which would only repeat its result.
   const pending = new Map<JobId, PendingNotice>()
+  const watched = new Map<JobId, WatchedJob>()
+  ctx.effect(() => () => {
+    for (const watch of watched.values()) watch.output?.stop()
+    watched.clear()
+  }, 'tool-jobs.watches()')
+  ctx.on('agent/disposed', ({ agent }) => {
+    for (const [id, watch] of watched) {
+      if (watch.owner !== agent) continue
+      watch.output?.stop()
+      watched.delete(id)
+    }
+  })
+
+  const deliverNotice = (owner: Agent, message: UserMessage): void => {
+    if (delivery === 'wakeup' && owner.status === 'idle') {
+      if (wakeBudget === undefined) {
+        owner.followup(message)
+        return
+      }
+      const spent = spentWakes.get(owner) ?? 0
+      if (spent < wakeBudget) {
+        spentWakes.set(owner, spent + 1)
+        owner.followup(message)
+        return
+      }
+    }
+    owner.inject(message)
+  }
 
   if (delivery === 'wakeup' && wakeBudget !== undefined) {
     ctx.on('agent/inbox/claimed', ({ agent, message }) => {
@@ -333,9 +398,10 @@ export function apply(ctx: Context, config: Config): void {
   // same job covered until the last of their reads commits.
   const releasedReads = new Map<JobId, { pending: number }>()
   /** A settlement a released read is expected to carry; delivered at once if that read never commits. */
-  const suppressedSettlements = new Map<JobId, SettledEvent>()
+  const suppressedSettlements = new Map<JobId, Settlement>()
   /** A settlement event, the one kind this plugin delivers. */
   type SettledEvent = Extract<JobEvent, { type: 'settled' }>
+  type Settlement = { event: SettledEvent; watched: boolean; tail: string | undefined }
   const beginReleasedRead = (id: JobId): (() => void) => {
     const claim = releasedReads.get(id) ?? { pending: 0 }
     releasedReads.set(id, claim)
@@ -365,9 +431,9 @@ export function apply(ctx: Context, config: Config): void {
   // this listener owns delivery, not the choice of whom to deliver to.
   /**
    * Deliver one settlement that no caller already collected.
-   * @param event - the settlement to announce.
+   * @param settlement - the settlement and any final watch output to announce.
    */
-  const deliverSettlement = (event: SettledEvent): void => {
+  const deliverSettlement = ({ event, watched, tail }: Settlement): void => {
     if (event.cause === 'teardown' || event.job.owner === undefined) return
     // The destination is the agent registered for the owner session now. An
     // owned job needed the agent registry to start, so the registry is only
@@ -377,14 +443,21 @@ export function apply(ctx: Context, config: Config): void {
     // A stream longer than the bound cannot fit, so the read stays in the
     // registry. A read whose result makes the notice too long is held for
     // `job_output`, whose result the tool pipeline bounds and spills.
-    const held = inlineBytes > 0 && event.job.output.total <= inlineBytes
+    const held = !watched && inlineBytes > 0 && event.job.output.total <= inlineBytes
       ? readBody(ctx.jobs.read(event.job.id, event.job.owner)).text
       : undefined
     const inline = held === undefined ? undefined : inlineCompletionNotice(event.job, held, inlineBytes)
+    const notice = inline ?? fitCompletionNotice(event.job)
+    const remaining = event.job.outputLimitBytes === undefined
+      ? Infinity
+      : event.job.outputLimitBytes - encoder.encode(notice).byteLength
+    const preview = tail === undefined || remaining < 32
+      ? ''
+      : fitWithSuffix(`\nFinal watch output:\n${tail.trimEnd()}`, '', remaining, '\n[watch output truncated]')
     const message = createUserMessage({
       content: [{
         type: 'text',
-        text: inline ?? fitCompletionNotice(event.job),
+        text: `${notice}${preview}`,
       }],
       source: {
         kind: 'tool-jobs',
@@ -395,38 +468,44 @@ export function apply(ctx: Context, config: Config): void {
     pending.set(event.job.id, {
       owner: event.job.owner, messageId: message.id, inline: inline !== undefined, ...held === undefined ? {} : { held },
     })
-    if (delivery === 'wakeup' && owner.status === 'idle') {
-      if (wakeBudget === undefined) {
-        owner.followup(message)
-        return
-      }
-      const spent = spentWakes.get(owner) ?? 0
-      if (spent < wakeBudget) {
-        spentWakes.set(owner, spent + 1)
-        owner.followup(message)
-        return
-      }
-    }
-    owner.inject(message)
+    deliverNotice(owner, message)
   }
 
   ctx.jobs.events.subscribe({ owners: 'scope' }, (event) => {
-    if (event.type === 'removed') {
-      killedByModel.delete(event.job.id)
-      pending.delete(event.job.id)
+    if (event.type === 'output') {
+      const watch = watched.get(event.id)
+      const output = watch?.output
+      if (watch !== undefined && output !== undefined && event.total > output.offset) {
+        output.observe(ctx.jobs.readAt(event.id, output.offset, watch.owner.id))
+      }
+      return
+    }
+    const id = event.job.id
+    const watch = watched.get(id)
+    if (event.type === 'stopping' || event.type === 'removed') {
+      watch?.output?.stop()
+      if (watch !== undefined) delete watch.output
+      if (event.type === 'removed') {
+        watched.delete(id)
+        killedByModel.delete(id)
+        pending.delete(id)
+      }
       return
     }
     if (event.type !== 'settled') return
-    // The model's own kill result and a live waiter's collection both deliver
-    // this settlement; only a settlement no caller collected is held for a
+    watched.delete(id)
+    const tail = watch?.output?.flush(event.cause !== 'teardown')
+    const settlement = { event, watched: watch !== undefined, tail }
+    // A wait or model kill that already collected the terminal state does not
+    // need another notice; only a settlement no caller collected is held for a
     // released read that has not committed yet. Holding an already-delivered
     // settlement would repeat it when that read never commits.
     if (killedByModel.delete(event.job.id) || event.awaited) return
     if (releasedReads.has(event.job.id)) {
-      suppressedSettlements.set(event.job.id, event)
+      suppressedSettlements.set(id, settlement)
       return
     }
-    deliverSettlement(event)
+    deliverSettlement(settlement)
   })
 
   ctx.tools.register(defineTool({
@@ -535,6 +614,118 @@ export function apply(ctx: Context, config: Config): void {
       }
     },
     presentCall: args => presentJobCall(`Read output from background job ${args.job_id}`, 'read', args.job_id),
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'job_watch',
+    description: 'Watch new output from a running background job without polling. Matching lines arrive in batched notices, waking you when idle if enabled. Does not consume job_output.',
+    parameters: {
+      job_id: { type: 'string', required: true, description: 'ID of a running background job owned by this session.' },
+      pattern: { type: 'string', description: 'JavaScript regular expression source (no delimiters or flags) to match each line. Omit to watch every line.' },
+      max_events: { type: 'integer', description: `Maximum live batches before the watch stops (1-${MAX_WATCH_EVENTS}, default ${DEFAULT_WATCH_EVENTS}). The normal completion notice is separate.` },
+      debounce_ms: { type: 'integer', description: `Milliseconds to collect matches after the first match in a batch (1-${MAX_WATCH_DEBOUNCE_MS}, default ${DEFAULT_WATCH_DEBOUNCE_MS}).` },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          watch_id: { type: 'string', required: true },
+          job_id: { type: 'string', required: true },
+          max_events: { type: 'integer', required: true },
+          debounce_ms: { type: 'integer', required: true },
+        },
+      },
+      render: (_args, value) => [{
+        type: 'text',
+        text: `watch ${value.watch_id} on job ${value.job_id}: up to ${value.max_events} batches, ${value.debounce_ms} ms per batch`,
+      }],
+    },
+    execute(args, { agent }) {
+      const id = validateJobId(args.job_id)
+      const job = ctx.jobs.get(id, agent?.id)
+      if (agent === undefined || job.owner !== agent.id) throw new Error('job_watch requires a job owned by this session')
+      if (job.status !== 'running') throw new Error(`job ${id} is not running`)
+      const pattern = watchPattern(args.pattern)
+      const maxEvents = watchBound('max_events', args.max_events ?? DEFAULT_WATCH_EVENTS, MAX_WATCH_EVENTS)
+      const debounceMs = watchBound('debounce_ms', args.debounce_ms ?? DEFAULT_WATCH_DEBOUNCE_MS, MAX_WATCH_DEBOUNCE_MS)
+      if (watched.get(id)?.output !== undefined) throw new Error(`job ${id} already has an active watch`)
+
+      const watchId = randomUUID()
+      const watch: WatchedJob = { owner: agent }
+      const maxBytes = Math.min(MAX_WATCH_PREVIEW_BYTES, job.outputLimitBytes ?? Infinity)
+      const output = new OutputWatch(job.output.total, pattern, debounceMs, maxEvents, maxBytes, () => {
+        const text = output.flush()
+        if (text === undefined) return
+        output.remaining -= 1
+        if (output.remaining === 0) delete watch.output
+        if (ctx.get('agents')?.get(agent.id) !== agent) return
+        const summary = `Output from background job ${id}`
+        const heading = `background job ${id}, watch ${watchId}${output.remaining === 0 ? ' (batch limit reached)' : ''}:\n`
+        const notice = fitWithSuffix(`${heading}${text.trimEnd()}`, '', job.outputLimitBytes, '\n[watch notice truncated]')
+        try {
+          deliverNotice(agent, createUserMessage({
+            content: [{ type: 'text', text: notice }],
+            source: { kind: 'tool-jobs', form: 'notice', summary },
+          }))
+        } catch (error) {
+          ctx.logger.warn(`job_watch: failed to deliver ${watchId}: ${String(error)}`)
+        }
+      })
+      watch.output = output
+      watched.set(id, watch)
+      return Promise.resolve({ watch_id: watchId, job_id: id, max_events: maxEvents, debounce_ms: debounceMs })
+    },
+    presentCall: args => presentJobCall(`Watch background job ${args.job_id}`, 'read', args.job_id),
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'wake_after',
+    description: 'Schedule a one-time reminder to resume work later without polling or blocking. Returns a timer job ID you can list or cancel with job_kill. Completion wakes you if enabled.',
+    parameters: {
+      seconds: { type: 'number', required: true, description: `Delay in seconds, from 1 to ${MAX_WAKE_SECONDS}.` },
+      note: { type: 'string', required: true, description: `Non-blank reminder to include in the completion notice (up to ${MAX_WAKE_NOTE_BYTES} UTF-8 bytes).` },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          job_id: { type: 'string', required: true },
+          seconds: { type: 'number', required: true },
+        },
+      },
+      render: (_args, value) => [{
+        type: 'text',
+        text: `scheduled timer job ${value.job_id} in ${value.seconds} seconds`,
+      }],
+    },
+    execute({ seconds, note }, { agent, callId, rootCallId }) {
+      if (agent === undefined) throw new Error('wake_after requires a live agent to receive the reminder')
+      if (seconds < 1 || seconds > MAX_WAKE_SECONDS) throw new Error(`invalid seconds: expected 1 to ${MAX_WAKE_SECONDS}`)
+      if (note.trim().length === 0 || encoder.encode(note).byteLength > MAX_WAKE_NOTE_BYTES) {
+        throw new Error(`invalid note: expected a non-blank reminder of at most ${MAX_WAKE_NOTE_BYTES} UTF-8 bytes`)
+      }
+      const id = ctx.jobs.start({
+        kind: 'timer',
+        label: `Wake after ${seconds}s`,
+        owner: agent.id,
+        toolCall: { callId, rootCallId },
+        run() {
+          const { promise: done, resolve } = Promise.withResolvers<JobOutcome>()
+          const timer = setTimeout(() => { resolve({ status: 'completed', detail: note }) }, seconds * 1_000)
+          return {
+            done,
+            cancel() {
+              clearTimeout(timer)
+              resolve({ status: 'killed' })
+            },
+          }
+        },
+      })
+      return Promise.resolve({ job_id: id, seconds })
+    },
+    presentCall: args => presentJobCall(`Wake after ${args.seconds}s`, 'execute', args.note),
   }))
 
   ctx.tools.register(defineTool({

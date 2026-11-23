@@ -105,6 +105,8 @@ function optionsOf(
     }))
 }
 
+const FULL_ACCESS_NOTICE_KEY = 'jan.permission.fullAccessNoticeSeen'
+
 /**
  * Client plugin body: register the /permission popup picker over the
  * permissions projection.
@@ -174,12 +176,26 @@ export function apply(ctx: ClientContext): void {
     inject: injected,
   }, PermissionRow))
 
+  // One device-wide flag: the Full access default is explained in the first chat that uses it, never again.
+  const noticeSeen = (): boolean => {
+    try { return globalThis.localStorage?.getItem(FULL_ACCESS_NOTICE_KEY) === '1' } catch { return true }
+  }
+  const dismissNotice = (): void => {
+    try { globalThis.localStorage?.setItem(FULL_ACCESS_NOTICE_KEY, '1') } catch { /* storage refused: the notice may show again */ }
+  }
+
   ctx.slots.inject('conversation.input.permission', () => ctx.slots.register({
     name: 'conversation.input.permission',
     locale: PERMISSION_ACCESS_NS,
     inject: (sessionId: SessionId): PermissionSelectInjected => ({
       hooks: { permissionCatalog: catalog.store },
       select: preset => submit(sessionId, preset),
+      noticeSeen,
+      dismissNotice,
+      // Resolved per render: settings navigation may mount after this plugin.
+      ...ctx.get('settingsNavigation') === undefined ? {} : {
+        openDefaultSettings: () => { (ctx.get('settingsNavigation') as { open(section: string): void } | undefined)?.open('general') },
+      },
     }),
   }, PermissionSelect))
 

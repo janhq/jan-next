@@ -123,6 +123,10 @@ export function renderPreset(settings: PresetSettings, models: readonly PresetMo
     ...settings.kvOffload ? [] : ['no-kv-offload = true'],
     ...optional('load-mode', settings.loadMode),
     ...optional('cache-ram', settings.cacheRamMiB),
+    // The local route pins each conversation to slot 0. With the unified KV cache, llama.cpp
+    // otherwise clears every idle slot when another one starts (a title in slot 1), and a pinned
+    // slot never reloads from the prompt cache, so the next turn would read its whole prompt again.
+    'cache-idle-slots = false',
     `slot-save-path = ${value(settings.slotSavePath)}`,
   ]
   const sharedContext = fit ? ctxSize : ctxSize > 0 ? ctxSize : fitCtx

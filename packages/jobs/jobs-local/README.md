@@ -23,7 +23,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## Use this package
 
-Load this plugin when a composition needs in-process background jobs: long-running tools register their work, and the owning agent reads, waits on, lists, and cancels it without blocking its own turn. It implements the [`jan-jobs`](../jobs/README.md) contract; the model-facing `job_output`, `job_list`, and `job_kill` tools come from [`jan-tool-jobs`](../tool-jobs/README.md).
+Load this plugin for in-process background jobs. Long-running tools register work, and the owning agent can read, watch, wait, list, and cancel it. This plugin implements the [`jan-jobs`](../jobs/README.md) service; [`jan-tool-jobs`](../tool-jobs/README.md) provides the model-facing tools.
 
 ### When to choose it
 

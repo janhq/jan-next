@@ -296,6 +296,22 @@ describe('deriveTurnTokenUsage', () => {
     ))).toMatchObject({ totalTokens: 170 })
   })
 
+  it('keeps exact prompt counts and estimates output for a reply cut before its final usage', () => {
+    const cut = message(3, usage({ inputTokens: 4, outputTokens: 1, totalTokens: 3005, cacheReadTokens: 3000 }))
+    const text = 'x'.repeat(400)
+    const data = cut.data as { message: { content: unknown[] }; interrupted?: true }
+    data.message.content = [{ type: 'text', text }]
+    data.interrupted = true
+    expect(deriveTurnTokenUsage(completeAttempt(cut))).toEqual({
+      uncachedInputTokens: 4,
+      outputTokens: 104,
+      totalTokens: 3108,
+      cacheReadTokens: 3000,
+      routes: [{ provider: 'deepseek', model: 'deepseek-chat' }],
+      outputEstimated: true,
+    })
+  })
+
   it.each([
     ['empty turn', [
       event(1, 'turn/start', { turn: 1 }),

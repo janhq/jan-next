@@ -37,13 +37,14 @@ const sessions: SessionListState = {
 const workspaces: WorkspaceSnapshot = {
   items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
 }
-function workspace(path: string, title: string): WorkspaceSnapshot['items'][number] {
+function workspace(path: string, title: string, isDefault?: true): WorkspaceSnapshot['items'][number] {
   return {
     workspaceId: `workspace:${title}` as WorkspaceId, path, title, sessionIds: [], createdAt: task.createdAt ?? '', updatedAt: task.updatedAt ?? '',
+    ...(isDefault === undefined ? {} : { isDefault }),
   }
 }
 const registered: WorkspaceSnapshot = {
-  ...workspaces, items: [workspace('/work/docs', 'docs'), workspace('/work/default-workspace', 'default-workspace')],
+  ...workspaces, items: [workspace('/work/docs', 'docs'), workspace('/work/default-workspace', 'default-workspace', true)],
 }
 
 const t = makeTranslate(en)
@@ -558,6 +559,9 @@ describe('Host task editor on the existing manager', () => {
 
   it.each([
     { name: 'the default workspace', items: registered.items, cwd: '/work/default-workspace' },
+    { name: 'the renamed default project rather than a project with the original title', cwd: '/work/renamed', items: [
+      workspace('/work/ordinary', 'default-workspace'), workspace('/work/renamed', 'Renamed', true),
+    ] },
     { name: 'the first listed workspace without a default one', cwd: '/work/docs',
       items: [workspace('/work/docs', 'docs'), workspace('/work/notes', 'notes')] },
   ])('creates a manual task in $name', async ({ items, cwd }) => {
@@ -583,6 +587,17 @@ describe('Host task editor on the existing manager', () => {
     current = registered
     h.view.rerender(<TaskManagerPage {...h.props} />)
     expect(project().textContent).toContain(en['host.defaultProject'])
+  })
+
+  it('does not label an unrelated project or a directory-free task as the default project', () => {
+    const ordinary = { ...task, id: 'ordinary-task' as ScheduleId, title: 'Ordinary task',
+      target: { kind: 'new_once' as const, sessionId: targetSession, create: { cwd: '/work/ordinary' } } }
+    const items = [workspace('/work/ordinary', 'default-workspace'), workspace('/work/renamed', 'Renamed', true)]
+    mount([task, ordinary], { useWorkspaces: select => select({ ...workspaces, items }) })
+    expect(screen.getByRole('button', { name: task.title }).textContent).toContain(en['host.ungrouped'])
+    const row = screen.getByRole('button', { name: ordinary.title })
+    expect(row.textContent).toContain('default-workspace')
+    expect(row.textContent).not.toContain(en['host.defaultProject'])
   })
 
   it('starts a linked task that switches to a new conversation in the default workspace', async () => {
@@ -1020,6 +1035,24 @@ describe('Host task editor on the existing manager', () => {
 })
 
 describe('Host task actions', () => {
+  it('explains a removed project and leaves the destination editable', async () => {
+    const h = mount([{ ...task, status: 'paused', workspaceId: 'removed-project' as WorkspaceId,
+      target: { kind: 'new', create: { workspaceId: 'removed-project' as WorkspaceId, cwd: '/work/removed' } },
+      deliveryFailure: { code: 'project-removed', failedAt: '2098-12-02T00:00:00.000Z' },
+    }], { useWorkspaces: select => select(registered) })
+    fireEvent.click(screen.getByRole('button', { name: en['status.paused'] }))
+    const detail = openEdit()
+    expect(within(detail).getByText('This task is paused because its project was removed. Pick a project to run it again.')).toBeDefined()
+    expect(within(detail).getByRole('button', { name: en['host.run'] })).toHaveProperty('disabled', true)
+    expect(within(detail).getByRole('button', { name: en['host.resume'] })).toHaveProperty('disabled', true)
+    fireEvent.click(within(detail).getByRole('button', { name: /^Linked project / }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /docs/ }))
+    await save(detail)
+    expect(h.props.hostActions.edit).toHaveBeenCalledWith(expect.objectContaining({
+      patch: { target: { kind: 'new', create: { cwd: '/work/docs' } } },
+    }))
+  })
+
   it.each([
     { status: 'active' as const, label: en['host.pause'], active: false },
     { status: 'paused' as const, label: en['host.resume'], active: true },

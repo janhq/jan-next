@@ -60,6 +60,7 @@ const installFixture = installDesktopShortcuts as (
   getWindow: () => WindowFixture | undefined, userData: string,
   platform: Parameters<typeof installDesktopShortcuts>[2], updateMenu: () => void,
   overlayInput: (window: WindowFixture) => { readonly revision: number; readonly blocked: boolean },
+  ownedWindows?: () => Iterable<WindowFixture>,
 ) => KeyboardFixture
 type GuestsFixture = {
   acquire(owner: ContentsFixture, workspace: unknown): DesktopBrowserReservation
@@ -827,4 +828,49 @@ it('delivers Windows Edit actions to the focused browser guest without invoking 
   dispose()
   f.keyboard.sendEditingKey('C', ['control'])
   expect(f.contents.sendInputEvent).toHaveBeenCalledTimes(2)
+})
+
+it('serves every product window and keeps shortcuts in the main window after a secondary one closes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'jan-keyboard-'))
+  onTestFinished(async () => { await rm(root, { recursive: true, force: true }) })
+  const productWindow = () => {
+    const frame: FrameFixture = { url: 'jan-app://app/', name: '', parent: null }
+    const contents = Object.assign(new EventEmitter(), { mainFrame: frame, focusedFrame: frame,
+      isDestroyed: () => false, isFocused: () => true, send: vi.fn(),
+      setIgnoreMenuShortcuts: vi.fn(), focus: vi.fn(), sendInputEvent: vi.fn() })
+    const window = Object.assign(new EventEmitter(), { webContents: contents, isDestroyed: vi.fn(() => false),
+      isFocused: vi.fn(() => true), isEnabled: vi.fn(() => true), close: vi.fn() })
+    return { window, contents, event: { sender: contents, senderFrame: frame } }
+  }
+  const main = productWindow()
+  const second = productWindow()
+  const owned = new Set<WindowFixture>([main.window, second.window])
+  const updateOverlays = new DesktopUpdateOverlays()
+  const keyboard = installFixture(() => main.window, root, 'macos', vi.fn(), window => updateOverlays.input(window), () => owned)
+  onTestFinished(() => { keyboard.dispose() })
+  keyboard.attach(main.window)
+  keyboard.attach(second.window)
+  const handlers = new Map<string, (event: InvokeFixture, ...args: unknown[]) => unknown>(
+    ipc.handle.mock.calls.map(([channel, handler]) => [channel, handler]))
+  const definitions: readonly ShortcutDefinition[] = [
+    { id: 'sidebar.left.toggle' as ShortcutCommandId, defaults: desktopDefaults({ code: 'KeyB', modifiers: ['primary'] }) },
+  ]
+  const snapshot = await handlers.get(DESKTOP_IPC.shortcutsGet)!(second.event, definitions) as ShortcutConfigSnapshot
+  await expect(Promise.resolve().then(() => handlers.get(DESKTOP_IPC.shortcutsGet)!(
+    { sender: {}, senderFrame: main.event.senderFrame }, definitions))).rejects.toThrow(/rejected sender/)
+  const press = (contents: ContentsFixture) => contents.emit('before-input-event', { preventDefault: vi.fn() },
+    { type: 'keyDown', modifiers: [], code: 'KeyB', key: 'B', meta: true, control: false, alt: false, shift: false })
+  press(second.contents)
+  expect(second.contents.setIgnoreMenuShortcuts).toHaveBeenLastCalledWith(true)
+
+  // Cmd+W in the secondary window closes that window, not the main one.
+  await handlers.get(DESKTOP_IPC.shortcutsCloseWindow)!(second.event, snapshot.revision)
+  expect(second.window.close).toHaveBeenCalledOnce()
+  expect(main.window.close).not.toHaveBeenCalled()
+
+  owned.delete(second.window)
+  second.window.isDestroyed.mockReturnValue(true)
+  second.window.emit('closed')
+  press(main.contents)
+  expect(main.contents.setIgnoreMenuShortcuts).toHaveBeenLastCalledWith(true)
 })

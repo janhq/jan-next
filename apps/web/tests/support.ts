@@ -248,12 +248,9 @@ export async function revealNavigationDrawer(page: Page, locale: 'en' | 'zh' | '
 }
 
 /**
- * Drive the hero's workspace picker through the composed directory dialog
- * until the live composer unlocks. A fresh world has no Workspace, so the boot
- * lands in the Workspace-trigger view state (startup auto-selection has nothing to
- * select); every scenario that types into the composer must connect one
- * first. With nothing to list, activating the composer surface raises the dialog directly —
- * adding a workspace is the picker's only entry. The directory is staged here
+ * Adopt an existing folder through the Add project menu and the composed
+ * directory dialog. A fresh world has no Workspace, so scenarios that type
+ * into the composer must connect one first. The directory is staged here
  * and adopted through the path editor, which is idempotent across the repeated
  * connects a scenario may make; creating a folder from inside the dialog (the
  * product's other half of the same route) is covered by
@@ -267,13 +264,15 @@ export async function revealNavigationDrawer(page: Page, locale: 'en' | 'zh' | '
 export async function connectFreshWorkspace(page: Page, root: string, name = 'workspace'): Promise<void> {
   mkdirSync(join(root, name), { recursive: true })
   await revealNavigationDrawer(page, 'en')
-  await page.getByRole('button', { name: 'Add workspace', exact: true }).click()
+  await page.getByRole('button', { name: 'Add project', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Use existing folder…', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Select Workspace Directory' })
   await dialog.waitFor({ timeout: 10_000 })
   await dialog.getByRole('button', { name: 'Edit path' }).click()
   const pathInput = dialog.getByRole('textbox', { name: 'Edit path' })
   await pathInput.fill(join(root, name))
-  await pathInput.press('Enter')
+  await page.keyboard.press('Enter')
+  await pathInput.waitFor({ state: 'detached' })
   await dialog.getByRole('button', { name: 'Open', exact: true }).click()
   // The pick connected the workspace: the blank session's live composer
   // replaces the locked placeholder and enables.
@@ -295,12 +294,14 @@ export async function connectFreshWorkspaceZh(page: Page, root: string, name = '
   mkdirSync(join(root, name), { recursive: true })
   await revealNavigationDrawer(page, 'zh')
   await page.getByRole('button', { name: '添加工作区', exact: true }).click()
+  await page.getByRole('menuitem', { name: '使用现有文件夹…', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: '选择工作区目录' })
   await dialog.waitFor({ timeout: 10_000 })
   await dialog.getByRole('button', { name: '编辑路径' }).click()
   const pathInput = dialog.getByRole('textbox', { name: '编辑路径' })
   await pathInput.fill(join(root, name))
-  await pathInput.press('Enter')
+  await page.keyboard.press('Enter')
+  await pathInput.waitFor({ state: 'detached' })
   await dialog.getByRole('button', { name: '打开', exact: true }).click()
   const editable = modelAvailable ? '[contenteditable="true"]' : ''
   await page.locator(`[data-composer-input]${editable}[data-placeholder="描述你想要构建的内容, / 调用指令, @ 文件或对话"]`)

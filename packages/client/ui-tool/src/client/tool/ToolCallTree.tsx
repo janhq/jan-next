@@ -4,6 +4,8 @@ import type { ToolCallBlock } from '@janhq/jan-client-ui-chat/client'
 import type { ToolCallOwnerProps, ToolCallPhaseProps, ToolTreeProps } from '../contract/slots.ts'
 import type { ToolTitles } from './title-source.ts'
 import { toolRowModel } from './models/tool-call-model.ts'
+import { toolResultImages } from './models/image-card-model.ts'
+import { liveToolInput } from './models/live-input.ts'
 import { GenericToolCard } from './toolviews/GenericToolCard.tsx'
 import css from './ToolCallTree.module.css'
 
@@ -19,8 +21,9 @@ function callName(call: ToolCallPhaseProps): string {
 
 /** One atomic call dispatched through the Tool-owned keyed slot. */
 const ToolCall = memo(function ToolCall({
-  renderSlot, callId, toolName, call, openFile, renderFallback, cwd, home, inspectCall, loadImage, useDisclosure, titles, children,
-}: Pick<ToolTreeProps, 'renderSlot' | 'openFile' | 'cwd' | 'inspectCall' | 'loadImage' | 'useDisclosure'> & {
+  renderSlot, callId, toolName, call, openFile, renderFallback, cwd, home, inspectCall, loadImage, useDisclosure, titles,
+  traceDetailsVisible, t, children,
+}: Pick<ToolTreeProps, 'renderSlot' | 'openFile' | 'cwd' | 'inspectCall' | 'loadImage' | 'useDisclosure' | 'traceDetailsVisible' | 't'> & {
   renderFallback: (owner: ToolCallOwnerProps) => ReactNode
   callId: string
   toolName: string
@@ -45,6 +48,9 @@ const ToolCall = memo(function ToolCall({
     () => call.phase === 'result' && toolRowModel(toolName, call.block).autoReviewDenial !== null,
     [toolName, call],
   )
+  const images = useMemo(() => traceDetailsVisible !== false && call.phase === 'result'
+    ? toolResultImages(call.block.content) : null, [call, traceDetailsVisible])
+  const input = traceDetailsVisible !== false && call.phase !== 'result' ? liveToolInput(toolName, call.block.args) : ''
   return (
     <div
       className={css.callRow}
@@ -57,14 +63,20 @@ const ToolCall = memo(function ToolCall({
           entryKey: toolName,
           fallback: renderFallback(owner),
         })}
+      {input !== '' && <pre className={css.liveInput} aria-label={t('row.input')}>{input}</pre>}
+      {images !== null && (
+        <div className={css.inlineImages}>
+          {renderSlot('tool.call.images', { images, loadImage, align: 'start', thumbnail: true, lazy: true })}
+        </div>
+      )}
       {children}
     </div>
   )
 })
 
 const ToolCallBranch = memo(function ToolCallBranch({
-  renderSlot, block, cwd, home, openFile, renderFallback, inspectCall, loadImage, useDisclosure, titles,
-}: Pick<ToolTreeProps, 'renderSlot' | 'cwd' | 'openFile' | 'inspectCall' | 'loadImage' | 'useDisclosure'> & {
+  renderSlot, block, cwd, home, openFile, renderFallback, inspectCall, loadImage, useDisclosure, titles, traceDetailsVisible, t,
+}: Pick<ToolTreeProps, 'renderSlot' | 'cwd' | 'openFile' | 'inspectCall' | 'loadImage' | 'useDisclosure' | 'traceDetailsVisible' | 't'> & {
   titles: ToolTitles
   renderFallback: (owner: ToolCallOwnerProps) => ReactNode
   block: ToolCallBlock
@@ -85,6 +97,8 @@ const ToolCallBranch = memo(function ToolCallBranch({
       useDisclosure={useDisclosure}
       loadImage={loadImage}
       titles={titles}
+      traceDetailsVisible={traceDetailsVisible}
+      t={t}
     >
       {call.phase !== 'preparing' && call.block.subCalls.length > 0 ? (
         <div className={css.subCalls} data-subcalls>
@@ -101,6 +115,8 @@ const ToolCallBranch = memo(function ToolCallBranch({
               useDisclosure={useDisclosure}
               loadImage={loadImage}
               titles={titles}
+              traceDetailsVisible={traceDetailsVisible}
+              t={t}
             />
           ))}
         </div>
@@ -117,6 +133,7 @@ const ToolCallBranch = memo(function ToolCallBranch({
  */
 export function ToolCallTree({
   renderSlot, node, cwd, openFile, inspectCall, loadImage, useDisclosure, useHostInfo, useTitles, t,
+  traceDetailsVisible,
   useContextMenu, sessionId, resolveFilePath,
 }: ToolTreeProps) {
   const { getTriggerProps } = useContextMenu()
@@ -139,6 +156,8 @@ export function ToolCallTree({
       useDisclosure={useDisclosure}
       loadImage={loadImage}
       titles={titles}
+      traceDetailsVisible={traceDetailsVisible}
+      t={t}
     />
   )
 }

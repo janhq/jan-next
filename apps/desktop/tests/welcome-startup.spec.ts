@@ -22,11 +22,12 @@ const state = vi.hoisted(() => ({
     status: 'signed-out', attempt: null, links: { usageUrl: '', topUpUrl: '' },
   }),
   quit: vi.fn(),
-  startHost: vi.fn().mockResolvedValue({ url: 'http://127.0.0.1:3080/?token=test', injections: [] }),
+  startHost: vi.fn().mockResolvedValue({ url: 'http://127.0.0.1:3080/?token=test' }),
   stopHost: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
   loadWorkspace: vi.fn<(url: string) => Promise<void>>().mockResolvedValue(undefined),
   showWorkspace: vi.fn(),
   showInactiveWorkspace: vi.fn(),
+  focusApp: vi.fn(),
   focusWorkspace: vi.fn(),
   moveTopWorkspace: vi.fn(),
   openDevTools: vi.fn(),
@@ -55,6 +56,7 @@ vi.mock('electron', () => ({
     name: 'Harness',
     requestSingleInstanceLock: () => true,
     setAsDefaultProtocolClient: vi.fn(),
+    focus: state.focusApp,
     whenReady: () => Promise.resolve(),
     getLocale: () => 'en',
     getVersion: () => '1.0.0',
@@ -72,10 +74,12 @@ vi.mock('electron', () => ({
     constructor(options: BrowserWindowConstructorOptions) { state.windowOptions = options }
     private ready: (() => void) | undefined
     webContents = { mainFrame: { url: 'jan-app://app/' }, setWindowOpenHandler: vi.fn(),
-      on: vi.fn(), once: vi.fn(), send: vi.fn(), openDevTools: state.openDevTools }
+      on: vi.fn(), once: vi.fn(), send: vi.fn(), openDevTools: state.openDevTools,
+      insertCSS: vi.fn(async () => 'cover'), removeInsertedCSS: vi.fn(async () => {}) }
     static getAllWindows() { return [] }
     once(name: string, callback: () => void) { if (name === 'ready-to-show') this.ready = callback; return this }
     on() { return this }
+    off() { return this }
     isDestroyed() { return false }
     isMinimized() { return false }
     restore = vi.fn()
@@ -162,7 +166,7 @@ vi.mock('../src/welcome-window.ts', () => ({
     state.operations = operations
     await state.beforeWelcome()
     return { once: vi.fn(), close: state.closeWelcome, isDestroyed: () => false,
-      show: vi.fn(), focus: vi.fn(), webContents: { send: vi.fn() } }
+      show: vi.fn(), focus: vi.fn(), setParentWindow: vi.fn(), moveTop: vi.fn(), webContents: { send: vi.fn() } }
   },
 }))
 
@@ -181,7 +185,8 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   state.hasApiKey = false
   state.operations = undefined
   state.accountState.mockResolvedValue({ status: 'signed-out', attempt: null, links: { usageUrl: '', topUpUrl: '' } })
-  if (updated) vi.stubGlobal('process', { ...process, platform: 'win32', argv: ['desktop', '--updated'] })
+  vi.stubGlobal('process', { ...process, platform: updated ? 'win32' : 'darwin',
+    ...(updated ? { argv: ['desktop', '--updated'] } : {}) })
   vi.useFakeTimers()
   vi.stubEnv('JAN_CLIENT_VERSION', '1.2.3')
   vi.stubEnv('JAN_DESKTOP_DEV_PROJECT_DIR', '/development-profile')
@@ -242,7 +247,7 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   expect(state.moveTopWorkspace).not.toHaveBeenCalled()
   expect(state.focusWorkspace).not.toHaveBeenCalled()
   expect(state.windowOptions).toMatchObject({
-    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 16, y: 18 }, vibrancy: 'sidebar' } : {}),
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 30, y: 31 }, vibrancy: 'sidebar' } : {}),
     webPreferences: { contextIsolation: true, sandbox: true },
   })
   expect(state.closeWelcome).toHaveBeenCalledOnce()
@@ -290,13 +295,20 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   expect(await state.operations!.takeNotice()).toBeUndefined()
   state.showWorkspace.mockClear()
   state.focusWorkspace.mockClear()
+  // The workspace already sits inactive behind each welcome; count only the login's own entry.
+  state.showInactiveWorkspace.mockClear()
   vi.stubEnv('JAN_DESKTOP_OPEN_DEVTOOLS', '1')
   state.accountListener!({ ...account, status: 'credential-stored', attempt: { id: attemptId, phase: 'succeeded' } })
   await vi.waitFor(() => { expect(state.showInactiveWorkspace).toHaveBeenCalledOnce() })
-  expect(state.showWorkspace).not.toHaveBeenCalled()
-  expect(state.focusWorkspace).not.toHaveBeenCalled()
+  // Approval happened in the browser, so the landed sign-in brings Jan back to the front once.
+  await vi.waitFor(() => { expect(state.focusWorkspace).toHaveBeenCalledOnce() })
+  if (process.platform === 'darwin') expect(state.focusApp).toHaveBeenCalledExactlyOnceWith({ steal: true })
+  else expect(state.focusApp).not.toHaveBeenCalled()
+  expect(state.showWorkspace).toHaveBeenCalledOnce()
   expect(state.moveTopWorkspace).not.toHaveBeenCalled()
   expect(state.openDevTools).not.toHaveBeenCalled()
+  state.showWorkspace.mockClear()
+  state.focusWorkspace.mockClear()
   state.appListeners.get('open-url')!({ preventDefault: vi.fn() }, 'jan://open')
   expect(state.showWorkspace).toHaveBeenCalledOnce()
   expect(state.focusWorkspace).toHaveBeenCalledOnce()

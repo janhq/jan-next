@@ -56,6 +56,20 @@ async function bench() {
 }
 
 describe('domain image Slots', () => {
+  it('gives inline actions the image and its owning Session', async () => {
+    const { runtime, view } = await bench()
+    await act(async () => { await runtime.mount({ inject: ['slots'], apply(ctx) {
+      ctx.slots.inject('conversation.image.preview.actions', () => ctx.slots.register({
+        name: 'conversation.image.preview.actions', id: 'inspect',
+      }, ({ getSurface, sessionId }) => <button type="button" onClick={() => {
+        getSurface()?.setAttribute('data-inspected', sessionId ?? '')
+      }}>Inspect image</button>))
+    } }) })
+    const gallery = within(view.getByTestId('conversation.chat.user.images'))
+    await act(async () => { (await gallery.findByRole('button', { name: 'Inspect image' })).click() })
+    expect(gallery.getByAltText('shared.png').getAttribute('data-inspected')).toBe('image-domains')
+  })
+
   it.each(SLOTS)('replaces only %s and restores the shared gallery on disposal', async (name) => {
     const { runtime, view } = await bench()
     expect(runtime.factoryOf('conversation.images.content').scope).toBe('root')

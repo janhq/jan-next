@@ -14,28 +14,44 @@ import type {
 // Type-only: pulls the `agentPreset` Session projection value into this program.
 import type { } from '@janhq/jan-agent-preset-registry/types'
 import { createSnapshotStore, type ObservableSnapshot } from '@janhq/jan-client-store'
-import type { SubagentAddress } from '@janhq/jan-subagent/client'
 import type {
   IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@janhq/jan-api-workspace-controller/client'
+import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
 import type { SessionId } from '@janhq/jan-session/types'
-import type { } from '@janhq/jan-client-ui-layout/client'
+import type { MainPanelId } from '@janhq/jan-client-ui-layout/client'
 import type { DraftInitializationOptions } from '@janhq/jan-client-ui-conversation/client'
 import type { RowToast } from './contract/slots.ts'
 import { NavigationHistory, sameSession } from './history.ts'
 import type { NavigationAvailability, NavigationDirection, NavigationLocation } from './history.ts'
 import { pinOrderAccounts, pinOrderSource } from './pin-order.ts'
 import type { SessionGroupBy, WorkspaceViewStoreActions } from './stores.ts'
+import { createMainSelection } from './window-selection.ts'
+import type { RemoteMachineSource } from './remote-machines.ts'
+import { DirectoryBrowser } from './DirectoryBrowser.tsx'
 
-interface MainSelection {
-  readonly sessionId?: SessionId
-  readonly subagentAddress?: SubagentAddress
+interface ProjectHandler {
+  readonly open: (workspaceId: WorkspaceId) => void
+  readonly panelId: MainPanelId | undefined
 }
+
+/** Chats the user just left that stay open, so switching back paints the transcript at once. */
+const RECENT_VIEW_LIMIT = 3
 
 /** Content preparation and Agent preset for the Session a Workspace flow opens. */
 export interface StartSessionOptions extends DraftInitializationOptions {
   /** Agent preset the Session runs; the Host default when omitted. */
   readonly agentPreset?: string
+  /**
+   * Called with the Session this request opens, just before it is selected; not called when a later
+   * navigation supersedes the request or creation fails.
+   */
+  readonly onOpen?: (sessionId: SessionId) => void
+}
+
+type WorkspaceConnectionOptions = Pick<StartSessionOptions, 'agentPreset'> & {
+  /** Disable Workspace blank reuse for an independent new tab. */
+  readonly reuseBlank?: boolean
 }
 
 /** Workspace archive and directory operations consumed by Client UI domains. */
@@ -50,6 +66,21 @@ export interface UiWorkspace {
    * @param target - known Session identity or durable direct-parent subagent address to display.
    */
   openSession(target: SessionTarget): void
+  /** Open the sessionless Conversation as a user navigation. */
+  showEmptyConversation?(): void
+  /**
+   * Open a Session through the window's tab opener, or navigate normally if none is registered.
+   * @param sessionId - Session to show.
+   * @returns nothing; the window owns the navigation.
+   */
+  openSessionInNewTab?(sessionId: SessionId): void
+  /**
+   * Install the sole Session tab opener for this window.
+   * @param open - callback that opens the requested Session in a tab.
+   * @returns a disposer that restores ordinary Session navigation.
+   * @throws Error if an opener is already registered.
+   */
+  registerSessionTabOpener?(open: (sessionId: SessionId) => void): () => void
   /**
    * Return to the previous main-view location: the Session and global panel the user
    * left last. Entries whose Session was archived or deleted are skipped; does nothing
@@ -65,7 +96,7 @@ export interface UiWorkspace {
   readonly navigationHistory: ObservableSnapshot<NavigationAvailability>
   /**
    * Connect a Workspace and open its Session unless a later navigation supersedes it.
-   * @param workspaceId - target Workspace.
+   * @param workspaceId - target Workspace; absent resolves the Host's default project.
    * @param beforeOpen - optional synchronous preparation for the selected Session,
    * skipped after supersession; a throw aborts the open and releases the retained reference.
    * @param options - choices for the Session the connection creates or reuses.
@@ -74,9 +105,9 @@ export interface UiWorkspace {
    * notice unless a later navigation or disposal superseded the request.
    */
   openWorkspace(
-    workspaceId: WorkspaceId,
+    workspaceId: WorkspaceId | undefined,
     beforeOpen?: (sessionId: SessionId) => void,
-    options?: Pick<StartSessionOptions, 'agentPreset'>,
+    options?: WorkspaceConnectionOptions,
   ): Promise<void>
   /**
    * Fork a Session without changing the current selection.
@@ -104,7 +135,7 @@ export interface UiWorkspace {
    * Open the Workspace blank `connectWorkspace` resolves, so New Session returns to that blank's
    * unsent draft. A creation the Host refuses is shown through the Workspace notice and leaves the
    * selection as it was.
-   * @param workspaceId - explicit target; absent inherits the current or most recent Workspace.
+   * @param workspaceId - explicit target; absent uses the open project or the Host's default project.
    * @param options - initial content, the blank's preset, and `whenDraftExists`, which decides
    * whether existing text or attachments are kept, replaced, or followed by the prompt.
    */
@@ -152,6 +183,16 @@ export interface UiWorkspace {
    * @returns created absolute path.
    */
   createDirectory(path: string, name: string): Promise<string>
+  /** Jan's folder chooser dialog, for packages that browse folders through their own listing calls. */
+  readonly DirectoryBrowser: typeof DirectoryBrowser
+  /**
+   * Offer other computers in the new-project menu's Remote row.
+   * @param source - lists computers and opens one; the latest registration wins.
+   * @returns idempotent disposer; removing the latest source restores the previous one.
+   */
+  registerRemoteMachines(source: RemoteMachineSource): () => void
+  /** The source the Remote row reads, or undefined when no plugin offers computers. */
+  readonly remoteMachines: ObservableSnapshot<RemoteMachineSource | undefined>
   /**
    * Keep `callback`'s effects installed while the current Peer may call
    * `action` on one Workspace resource, with the semantics of
@@ -176,9 +217,38 @@ export interface UiWorkspace {
    * Without a handler the row click expands or collapses the Workspace's Sessions; with one, the row
    * click opens the surface and its chevron keeps expanding and collapsing. The latest registration wins.
    * @param open - opens the surface for the clicked Workspace.
+   * @param panelId - the main panel the handler selects synchronously, if it supports Back and Forward.
    * @returns idempotent disposer; removing the latest handler restores the previous one.
    */
-  registerProjectHandler(open: (workspaceId: WorkspaceId) => void): () => void
+  registerProjectHandler(open: (workspaceId: WorkspaceId) => void, panelId?: MainPanelId): () => void
+  /**
+   * Open the latest registered project surface for one Workspace.
+   * @param workspaceId - project to open.
+   * @returns whether a handler took the request.
+   */
+  openProjectSurface(workspaceId: WorkspaceId): boolean
+  /**
+   * Open the Edit project dialog (name, color, icon) for one Workspace, as its sidebar menu does.
+   * @param workspaceId - project to edit.
+   * @returns false when the Workspace is unknown or the Peer may not update it.
+   */
+  editProject(workspaceId: WorkspaceId): boolean
+  /**
+   * Open the new-project menu (this computer, a remote computer, a new folder), as the sidebar's add
+   * button does. The choice opens a new Session in the picked project.
+   * @param anchor - the control the menu opens under; omitted anchors it to the sidebar's add button.
+   * @returns false when no folder picker is composed or a pick is already in progress.
+   */
+  addProject(anchor?: HTMLElement): boolean
+  /** Active Sessions whose presentation replaces the ordinary sidebar row. */
+  readonly hiddenSessions: ObservableSnapshot<ReadonlySet<SessionId>>
+  /**
+   * Hide active Sessions from ordinary sidebar rows while a plugin presents them elsewhere.
+   * @param source - observable set of the Session ids the plugin presents.
+   * @returns a disposer that removes this source from the combined hidden set.
+   * @throws Error if this source is already registered.
+   */
+  registerSessionPresentation(source: ObservableSnapshot<ReadonlySet<SessionId>>): () => void
 }
 
 declare module '@janhq/cordis' {
@@ -208,21 +278,31 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   private readonly lifetime = new AbortController()
   private readonly history = new NavigationHistory()
   readonly navigationHistory = this.history.availability
+  readonly DirectoryBrowser = DirectoryBrowser
   /** True while Back/Forward replays a location: the replay must not record itself. */
   private replaying = false
   /** True while a navigation writes the Session and the panel as one location. */
   private batching = false
-  private readonly selection = createSnapshotStore<MainSelection>(
-    {}, { persist: { name: 'jan.sessions.current' } },
-  )
+  private readonly selection = createMainSelection()
+  private tabOpener: ((sessionId: SessionId) => void) | undefined
   private mainReference: SessionReference | undefined
+  /** Most recent last; each keeps one Session's history open after the main view leaves it. */
+  private readonly recentReferences: SessionReference[] = []
   private restorationNavigation: AbortSignal | undefined
+  /** An explicit New Session started before the startup catalogs could choose a Session. */
+  private startRequested = false
   /** Replacement search surfaces in registration order; the last one receives Search. */
   private readonly searchHandlers: { readonly open: () => void }[] = []
   /** Project surfaces in registration order; the last one receives Workspace row clicks. */
-  private readonly projectHandlers: { readonly open: (workspaceId: WorkspaceId) => void }[] = []
+  private readonly projectHandlers: ProjectHandler[] = []
+  private activeProject: { readonly workspaceId: WorkspaceId; readonly panelId: MainPanelId } | undefined
   /** Whether a project surface is registered, for row components choosing click behavior. */
   readonly projectSurface = createSnapshotStore(false)
+  readonly hiddenSessions = createSnapshotStore<ReadonlySet<SessionId>>(new Set())
+  private readonly sessionPresentations = new Set<ObservableSnapshot<ReadonlySet<SessionId>>>()
+  /** Remote computer sources in registration order; the last one feeds the Remote row. */
+  private readonly remoteSources: { readonly source: RemoteMachineSource }[] = []
+  readonly remoteMachines = createSnapshotStore<RemoteMachineSource | undefined>(undefined)
 
   /**
    * @param ctx - Client root Context.
@@ -231,6 +311,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
    * @param sessions - pure Session Controller.
    * @param view - the browser's viewing-store write set (one instance shared with its registration).
    * @param notify - show one notice through the Workspace notice channel.
+   * @param requestEdit - open the Edit project dialog; false when the Workspace cannot be edited.
+   * @param requestAdd - open the new-project menu under an anchor; false when no picker can take it.
    */
   constructor(
     ctx: Context,
@@ -239,6 +321,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     private readonly sessions: ISessions,
     private readonly view: Pick<WorkspaceViewStoreActions, 'pinSessionOrder' | 'setGroupBy'>,
     private readonly notify: (toast: RowToast) => void,
+    private readonly requestEdit: (workspaceId: WorkspaceId) => boolean,
+    private readonly requestAdd: (anchor?: HTMLElement) => boolean = () => false,
   ) {
     super(ctx, 'uiWorkspace')
     ctx.effect(() => {
@@ -249,6 +333,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
         const reference = this.mainReference
         this.mainReference = undefined
         reference?.release()
+        for (const recent of this.recentReferences.splice(0)) recent.release()
       }
     }, 'ui-workspace: Workspace navigation policy')
   }
@@ -266,13 +351,22 @@ class UiWorkspaceService extends Service implements UiWorkspace {
    */
   private async connectBlank(
     workspaceId: WorkspaceId,
-    reuse: Pick<StartSessionOptions, 'agentPreset'>,
+    reuse: WorkspaceConnectionOptions,
   ): Promise<SessionId> {
     const workspace = this.workspaces.list.getSnapshot().items
       .find(item => item.workspaceId === workspaceId)
     if (workspace === undefined) {
       throw new Error(`uiWorkspace.connectWorkspace: unknown workspace ${workspaceId}`)
     }
+    return this.connectToWorkspace(workspace, reuse)
+  }
+
+  private connectToWorkspace(workspace: WorkspaceView, reuse: WorkspaceConnectionOptions): Promise<SessionId> {
+    if (reuse.reuseBlank === false) return this.createNamed({
+      workspaceId: workspace.workspaceId,
+      ...(reuse.agentPreset === undefined ? {} : { agentPreset: reuse.agentPreset }),
+    })
+    const { workspaceId } = workspace
     const inflight = this.connecting.get(workspaceId)
     if (inflight !== undefined && inflight.agentPreset === reuse.agentPreset) return inflight.attempt
 
@@ -285,13 +379,15 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
   /** Name the first reusable member blank; a requested preset also skips blanks listing another preset. */
   private createInWorkspace(workspace: WorkspaceView, options: Pick<StartSessionOptions, 'agentPreset'>): Promise<SessionId> {
-    const archived = this.workspaces.list.getSnapshot().archivedSessionIds
+    const archived = new Set(this.workspaces.list.getSnapshot().archivedSessionIds)
+    const members = new Set(workspace.sessionIds)
     const sessions = this.sessions.list.getSnapshot()
     const blank = sessions.ids.find((id) => {
       const summary = sessions.byId[id]
       const listed = summary?.projectionValues?.agentPreset
       return summary !== undefined && summary.blank && summary.cwd === workspace.path
-        && workspace.sessionIds.includes(id) && !archived.includes(id)
+        && members.has(id) && !archived.has(id)
+        && !this.hiddenSessions.getSnapshot().has(id)
         && (options.agentPreset === undefined || typeof listed !== 'string' || listed === options.agentPreset)
     })
     return this.createNamed({
@@ -343,7 +439,24 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   openSession(target: SessionTarget): void {
+    this.startRequested = true
     this.replaceMain(target, this.lifetime.signal, 'reveal')
+  }
+
+  showEmptyConversation(): void {
+    this.startRequested = true
+    this.clearMain()
+  }
+
+  openSessionInNewTab(sessionId: SessionId): void {
+    if (this.tabOpener === undefined) this.openSession(sessionId)
+    else this.tabOpener(sessionId)
+  }
+
+  registerSessionTabOpener(open: (sessionId: SessionId) => void): () => void {
+    if (this.tabOpener !== undefined) throw new Error('ui-workspace: Session tab opener already registered')
+    this.tabOpener = open
+    return () => { this.tabOpener = undefined }
   }
 
   goBack(): void {
@@ -354,27 +467,27 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     this.step('forward')
   }
 
-  openWorkspace(
-    workspaceId: WorkspaceId,
+  async openWorkspace(
+    workspaceId: WorkspaceId | undefined,
     beforeOpen?: (sessionId: SessionId) => void,
-    options: Pick<StartSessionOptions, 'agentPreset'> = {},
+    options: WorkspaceConnectionOptions = {},
   ): Promise<void> {
-    return this.openWorkspaceSession(workspaceId, beforeOpen, options)
-  }
-
-  private async openWorkspaceSession(
-    workspaceId: WorkspaceId,
-    beforeOpen: ((sessionId: SessionId) => void) | undefined,
-    reuse: Pick<StartSessionOptions, 'agentPreset'>,
-  ): Promise<void> {
+    this.startRequested = true
     const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal])
     let sessionId: SessionId
     try {
-      sessionId = await this.connectBlank(workspaceId, reuse)
+      if (workspaceId === undefined) {
+        const snapshot = this.workspaces.list.getSnapshot()
+        const known = snapshot.phase === 'ready' ? snapshot.items.find(item => item.isDefault === true) : undefined
+        const workspace = known ?? await this.initializeDefaultWorkspace(navigation)
+        if (workspace === undefined || navigation.aborted) return
+        sessionId = await this.connectToWorkspace(workspace, options)
+      } else {
+        sessionId = await this.connectBlank(workspaceId, options)
+      }
     } catch (error: unknown) {
-      // Reported here, not in connectWorkspace: startup restoration calls that
-      // directly and stays console-only.
-      if (!navigation.aborted) this.notify({ kind: 'createFailed', message: creationFailureMessage(error) })
+      // Startup restoration connects directly and stays console-only on Session creation failure.
+      if (!navigation.aborted) this.notify({ kind: 'createFailed', message: this.creationFailureMessage(error) })
       throw error
     }
     if (navigation.aborted) return
@@ -395,33 +508,21 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   startSession(workspaceId?: WorkspaceId, options?: StartSessionOptions): void {
-    const { agentPreset, ...draft } = options ?? {}
+    const { agentPreset, onOpen, ...draft } = options ?? {}
     const draftOptions = options === undefined ? undefined : draft
     const initializeDraft = draftOptions !== undefined && (draftOptions.prompt !== undefined
       || (draftOptions.whenDraftExists ?? (draftOptions.clearPreviousDraft === true ? 'replace' : 'keep')) === 'replace')
-    const workspace = this.workspaces.list.getSnapshot()
-    const sessions = this.sessions.list.getSnapshot()
-    const current = this.mainReference?.sessionId
-    const currentWorkspaceId = current === undefined
-      ? undefined
-      : workspace.items.find(item => item.sessionIds.includes(current))?.workspaceId
-    const recent = workspace.phase === 'ready' && sessions.phase === 'ready'
-      ? recentWorkspace(workspace.items, sessions.byId)
-      : undefined
-    const target = workspaceId ?? currentWorkspaceId ?? recent
-    if (target === undefined) {
+    const target = workspaceId ?? this.activeProject?.workspaceId
+    const beforeOpen = initializeDraft || onOpen !== undefined ? (id: SessionId) => {
       if (initializeDraft) {
-        this.notify({ kind: 'createFailed', message: this.ctx.locale.bind('workspace')('draft.workspaceRequired') })
-        return
+        const binding = this.sessions.binding(id)
+        if (binding === undefined) this.draftPreparationFailed()
+        this.prepareDraft(binding, draftOptions)
       }
-      this.clearMain()
-      return
-    }
-    const opening = this.openWorkspace(target, initializeDraft ? (id) => {
-      const binding = this.sessions.binding(id)
-      if (binding === undefined) this.draftPreparationFailed()
-      this.prepareDraft(binding, draftOptions)
-    } : undefined, agentPreset === undefined ? {} : { agentPreset })
+      onOpen?.(id)
+    } : undefined
+    const reuse = agentPreset === undefined ? {} : { agentPreset }
+    const opening = this.openWorkspace(target, beforeOpen, reuse)
     void opening.catch(
       (reason: unknown) => { console.warn('new session failed:', reason) },
     )
@@ -442,6 +543,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   async archiveSession(sessionId: SessionId, options: { readonly stopActivity?: boolean } = {}): Promise<void> {
     await this.workspaces.archiveSession(sessionId, options)
     if (this.mainReference?.sessionId === sessionId) this.clearMain('replace')
+    this.forgetRecent(id => id === sessionId)
   }
 
   async unarchiveSession(sessionId: SessionId): Promise<void> {
@@ -480,12 +582,42 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     return result.value
   }
 
+  registerRemoteMachines(source: RemoteMachineSource): () => void {
+    // A fresh wrapper keeps two registrations of one source independently removable.
+    const entry = { source }
+    this.remoteSources.push(entry)
+    this.remoteMachines.set(source)
+    return () => {
+      const at = this.remoteSources.indexOf(entry)
+      if (at === -1) return
+      this.remoteSources.splice(at, 1)
+      this.remoteMachines.set(this.remoteSources.at(-1)?.source)
+    }
+  }
+
   whenAccess(workspaceId: WorkspaceId, action: RemoteEndpoint, callback: () => AccessEffect): () => void {
     // `ctx.get` traces the service to the caller's Context, which then owns the controller.
     const access = this.ctx.get('remoteAccess')
     /* v8 ignore next -- this plugin injects remoteAccess, so the service is active while uiWorkspace is reachable. */
     if (access === undefined) throw new Error('ui-workspace: whenAccess requires the remoteAccess service')
     return access.whenResourceAccess('workspace', workspaceId, action, callback)
+  }
+
+  registerSessionPresentation(source: ObservableSnapshot<ReadonlySet<SessionId>>): () => void {
+    if (this.sessionPresentations.has(source)) throw new Error('ui-workspace: Session presentation already registered')
+    const sync = (): void => {
+      const next = new Set<SessionId>()
+      for (const owner of this.sessionPresentations) for (const id of owner.getSnapshot()) next.add(id)
+      const previous = this.hiddenSessions.getSnapshot()
+      if (previous.size !== next.size || [...next].some(id => !previous.has(id))) this.hiddenSessions.set(next)
+    }
+    this.sessionPresentations.add(source)
+    const release = source.subscribe(sync)
+    sync()
+    return () => {
+      release()
+      if (this.sessionPresentations.delete(source)) sync()
+    }
   }
 
   registerSearchHandler(open: () => void): () => void {
@@ -498,8 +630,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     }
   }
 
-  registerProjectHandler(open: (workspaceId: WorkspaceId) => void): () => void {
-    const entry = { open }
+  registerProjectHandler(open: ProjectHandler['open'], panelId?: MainPanelId): () => void {
+    const entry = { open, panelId }
     this.projectHandlers.push(entry)
     this.projectSurface.set(true)
     return () => {
@@ -509,16 +641,35 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     }
   }
 
-  /**
-   * Open the latest registered project surface for one Workspace.
-   * @param workspaceId - the clicked Workspace.
-   * @returns whether a handler took the request; false leaves the row to expand or collapse.
-   */
   openProjectSurface(workspaceId: WorkspaceId): boolean {
     const handler = this.projectHandlers.at(-1)
     if (handler === undefined) return false
-    handler.open(workspaceId)
+    this.showProject(handler, workspaceId)
     return true
+  }
+
+  editProject(workspaceId: WorkspaceId): boolean {
+    return this.requestEdit(workspaceId)
+  }
+
+  addProject(anchor?: HTMLElement): boolean {
+    return this.requestAdd(anchor)
+  }
+
+  /** Settle the selected project and panel together, including switches within one panel. */
+  private showProject(handler: ProjectHandler, workspaceId: WorkspaceId): void {
+    if (handler.panelId === undefined) {
+      handler.open(workspaceId)
+      return
+    }
+    this.batching = true
+    try {
+      handler.open(workspaceId)
+      this.activeProject = { workspaceId, panelId: handler.panelId }
+    } finally {
+      this.batching = false
+    }
+    this.settle('push')
   }
 
   /**
@@ -537,8 +688,9 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const reconcile = (): void => {
       if (this.lifetime.signal.aborted) return
       this.history.prune(this.reachable)
+      this.forgetRecent(id => !this.reachable({ sessionId: id, panelId: null }))
       if (this.clearArchivedCurrent()) return
-      if (initial !== 'waiting' || this.restorationNavigation?.aborted === true) return
+      if (initial !== 'waiting' || this.startRequested || this.restorationNavigation?.aborted === true) return
       const workspace = this.workspaces.list.getSnapshot()
       const sessions = this.sessions.list.getSnapshot()
       if (workspace.phase !== 'ready' || sessions.phase !== 'ready') return
@@ -561,6 +713,9 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const disposeSessions = this.sessions.list.subscribe(reconcile)
     // Global panels are opened by their own owners through ctx.layout; the panel is part of the location.
     const disposePanels = this.ctx.layout.panelInfo.subscribe(() => {
+      if (this.activeProject !== undefined && this.activeProject.panelId !== this.ctx.layout.panelInfo.getSnapshot().activePanelId) {
+        this.activeProject = undefined
+      }
       if (!this.batching) this.settle('push')
     })
     reconcile()
@@ -579,29 +734,18 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       return
     }
     const summary = saved.sessionId === undefined ? undefined : sessions.byId[saved.sessionId]
-    const workspace = summary === undefined ? undefined
-      : workspaces.items.find(item => item.sessionIds.includes(summary.id))
-    if (summary !== undefined && (!summary.blank || workspace === undefined)) {
+    if (summary === undefined) return
+    const workspace = workspaces.items.find(item => item.sessionIds.includes(summary.id))
+    if (workspaces.archivedSessionIds.includes(summary.id)) return
+    if (!summary.blank || workspace === undefined) {
       this.replaceMain(summary.id, this.lifetime.signal, 'preserve')
       return
     }
+    if (summary.cwd !== workspace.path) return
     const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal])
     this.restorationNavigation = navigation
-    let sessionId: SessionId | undefined
-    if (summary !== undefined && workspace !== undefined && summary.cwd === workspace.path
-      && !workspaces.archivedSessionIds.includes(summary.id)) {
-      sessionId = await this.restoreBlank(workspace.workspaceId, summary.id)
-    }
-    let target = workspace?.workspaceId ?? recentWorkspace(workspaces.items, sessions.byId)
-    if (target === undefined && workspaces.items.length === 0 && sessions.ids.length === 0) {
-      const prepared = await this.initializeDefaultWorkspace(navigation)
-      if (navigation.aborted) return
-      target = prepared?.workspaceId
-    }
-    if (sessionId === undefined && target !== undefined) sessionId = await this.connectWorkspace(target)
-    if (sessionId !== undefined && !navigation.aborted) {
-      this.replaceMain(sessionId, navigation, 'preserve')
-    }
+    const sessionId = await this.restoreBlank(workspace.workspaceId, summary.id)
+    if (!navigation.aborted) this.replaceMain(sessionId, navigation, 'preserve')
   }
 
   private async initializeDefaultWorkspace(signal: AbortSignal): Promise<WorkspaceView | undefined> {
@@ -663,10 +807,30 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     }
     const previous = this.mainReference
     this.mainReference = reference
+    if (previous !== undefined && previous.sessionId !== reference.sessionId) this.keepRecent(previous.sessionId)
+    this.forgetRecent(id => id === reference.sessionId)
     previous?.release()
     if (panel === 'reveal') this.showConversation()
     // Only a user opening a Session is a navigation; restoration and replays keep the history as it is.
     this.settle(panel === 'reveal' ? 'push' : 'replace')
+  }
+
+  /** Keep a Session the main view is leaving open, dropping the oldest beyond the limit. */
+  private keepRecent(sessionId: SessionId): void {
+    this.forgetRecent(id => id === sessionId)
+    try {
+      this.recentReferences.push(this.sessions.retain(sessionId, { source: 'recentView' }))
+    } catch {
+      // A Session that can no longer be addressed is simply not kept warm.
+    }
+    while (this.recentReferences.length > RECENT_VIEW_LIMIT) this.recentReferences.shift()?.release()
+  }
+
+  private forgetRecent(match: (sessionId: SessionId) => boolean): void {
+    const dropped = this.recentReferences.filter(reference => match(reference.sessionId))
+    if (dropped.length === 0) return
+    this.recentReferences.splice(0, Infinity, ...this.recentReferences.filter(reference => !dropped.includes(reference)))
+    for (const reference of dropped) reference.release()
   }
 
   /** Select the Conversation panel without letting the panel observer record the half-written location. */
@@ -682,10 +846,13 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   /** The main view as it is now: selected Session and global panel. */
   private location(): NavigationLocation {
     const { sessionId, subagentAddress } = this.selection.getSnapshot()
+    const panelId = this.ctx.layout.panelInfo.getSnapshot().activePanelId
+    const project = this.activeProject
     return {
       ...(sessionId === undefined ? {} : { sessionId }),
       ...(subagentAddress === undefined ? {} : { subagentAddress }),
-      panelId: this.ctx.layout.panelInfo.getSnapshot().activePanelId,
+      panelId,
+      ...(project !== undefined && project.panelId === panelId ? { workspaceId: project.workspaceId } : {}),
     }
   }
 
@@ -696,11 +863,13 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     else this.history.seed(this.location())
   }
 
-  /** Whether the Session (or the subagent's parent) is still listed and not archived; unknown while the catalogs load. */
+  /** Whether the project and Session (or its subagent's parent) still exist; unknown while catalogs load. */
   private readonly reachable = (location: NavigationLocation): boolean => {
+    const workspaces = this.workspaces.list.getSnapshot()
+    if (location.workspaceId !== undefined && workspaces.phase === 'ready'
+      && !workspaces.items.some(item => item.workspaceId === location.workspaceId)) return false
     const id = location.subagentAddress?.parentSessionId ?? location.sessionId
     if (id === undefined) return true
-    const workspaces = this.workspaces.list.getSnapshot()
     const sessions = this.sessions.list.getSnapshot()
     if (workspaces.phase !== 'ready' || sessions.phase !== 'ready') return true
     return sessions.byId[id] !== undefined && !workspaces.archivedSessionIds.includes(id)
@@ -732,14 +901,30 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
   /** Show `location`. A global panel that is no longer registered makes `selectPanel` throw. */
   private apply(location: NavigationLocation): void {
+    const projectHandler = location.workspaceId === undefined
+      ? undefined
+      : this.projectHandlers.findLast(handler => handler.panelId === location.panelId)
+    if (location.workspaceId !== undefined && projectHandler === undefined) throw new Error('project surface is no longer registered')
     const target = location.subagentAddress ?? location.sessionId
     if (this.mainReference === undefined || !sameSession(this.selection.getSnapshot(), location)) {
       if (target === undefined) this.clearMain()
       else this.replaceMain(target, this.lifetime.signal, 'preserve')
     }
-    this.ctx.layout.selectPanel(location.panelId)
+    if (projectHandler !== undefined && location.workspaceId !== undefined) this.showProject(projectHandler, location.workspaceId)
+    else this.ctx.layout.selectPanel(location.panelId)
   }
 
+  private creationFailureMessage(error: unknown): string {
+    const failure = sessionCreateErrorOf(error)?.rpcError
+    if (failure === undefined) return error instanceof Error ? error.message : String(error)
+    if (failure.code !== 'workspace/project-folder-missing') return `${failure.code}: ${failure.message}`
+
+    const snapshot = this.workspaces.list.getSnapshot()
+    const project = snapshot.items.find(item => item.workspaceId === failure.details.workspaceId)
+    const t = this.ctx.locale.bind('workspace')
+    const message = t('toast.projectFolderMissing')
+    return project === undefined ? message : `${message} (${workspaceDisplayTitle(project, t('workspace.defaultName'))})`
+  }
 }
 
 /**
@@ -751,36 +936,5 @@ function sessionCreateErrorOf(error: unknown): SessionCreateError | undefined {
   return error instanceof Error && error.name === 'SessionCreateError' ? error as SessionCreateError : undefined
 }
 
-/**
- * The words a failed Session creation is reported in: a Host refusal keeps its
- * stable code and message; any other failure keeps its own message.
- */
-function creationFailureMessage(error: unknown): string {
-  const refused = sessionCreateErrorOf(error)
-  if (refused !== undefined) return `${refused.rpcError.code}: ${refused.rpcError.message}`
-  return error instanceof Error ? error.message : String(error)
-}
-
-/** Stable tie-breaking follows Host Workspace order. */
-function recentWorkspace(
-  workspaces: readonly WorkspaceView[],
-  sessions: SessionListState['byId'],
-): WorkspaceId | undefined {
-  let selected: WorkspaceId | undefined
-  let selectedTime = Number.NEGATIVE_INFINITY
-  for (const workspace of workspaces) {
-    let latest = Number.NEGATIVE_INFINITY
-    for (const sessionId of workspace.sessionIds) {
-      const session = sessions[sessionId]
-      if (session !== undefined) latest = Math.max(latest, session.updatedAt)
-    }
-    if (latest === Number.NEGATIVE_INFINITY) latest = Date.parse(workspace.createdAt)
-    if (selected === undefined || latest > selectedTime) {
-      selected = workspace.workspaceId
-      selectedTime = latest
-    }
-  }
-  return selected
-}
 
 export { UiWorkspaceService }

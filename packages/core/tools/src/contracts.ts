@@ -199,6 +199,14 @@ export interface ToolExecutionInput {
   readonly parent?: ToolExecutionToken
   /** Required caller-owned cancellation for this invocation. */
   readonly signal: AbortSignal
+  /**
+   * Fires when the owner wants this call's answer now (the user steered the
+   * running turn). A long-running tool may return what it has, leaving any
+   * still-running work recoverable (a shell command moves to a background
+   * job); a tool that cannot yield ignores it. Unlike {@link signal} it never
+   * asks a tool to stop work. Undefined when no owner can request a yield.
+   */
+  readonly yieldSignal?: AbortSignal
 }
 
 /**

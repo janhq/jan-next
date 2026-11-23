@@ -22,6 +22,7 @@ import { BrowserLogin } from './browser-login.ts'
 import { AccountOnboarding } from './AccountOnboarding.tsx'
 import { AccountPlatformHost, type AccountPlatformHostInjected } from './AccountPlatformHost.tsx'
 import { AccountMenu } from './AccountMenu.tsx'
+import { ModelMenuSignIn } from './ModelMenuSignIn.tsx'
 import { createPlatformPages, type PlatformPages } from './platform-pages.ts'
 import { AccountSection, type AccountSnapshot, type AccountSectionInjected } from './AccountSection.tsx'
 import { createBonusNoticeController } from './bonus-notices.ts'
@@ -31,6 +32,8 @@ import { AccountQuotaNotice, type AccountQuotaNoticeInjected } from './AccountQu
 import { DESKTOP_ONBOARDING_NAMESPACE, type OnboardingSettings } from '../onboarding-settings.ts'
 import { DesktopOnboardingController } from './onboarding-state.ts'
 import { DesktopOnboardingEntry, type DesktopOnboardingInjected } from './DesktopOnboardingEntry.tsx'
+import { OnboardingDetailFactory } from './OnboardingProcessStep.tsx'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { readOnboardingApiKeyPresence } from './onboarding-credentials.ts'
 import { refreshAfterReturn } from './account-refresh.ts'
 import { AccountAvatarLoader } from './account-avatar.ts'
@@ -41,6 +44,13 @@ export type { AccountKey } from './locales.ts'
 
 declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap { 'settings.account': AccountKey }
+}
+
+declare module '@janhq/cordis' {
+  interface Context {
+    /** Opens the account sign-in dialog, for flows outside the account UI (first-run model choice). */
+    accountSignIn: { start(this: void): Promise<void> }
+  }
 }
 
 /** Services required by account settings. */
@@ -298,7 +308,9 @@ export function apply(ctx: Context): void {
       throw result.error
     },
   }
+  ctx.provide('accountSignIn', { start: () => operations.start() })
   if (desktop) {
+    ctx.slots.registerFactory({ name: 'settings.onboarding.detail', scope: 'root', locale: 'settings.account' }, OnboardingDetailFactory)
     const controller = new DesktopOnboardingController(
       ctx.configForms.get<OnboardingSettings>(DESKTOP_ONBOARDING_NAMESPACE),
       ctx.configForms.get<{ transcriptView?: TranscriptViewMode | null; performanceUsage: 'compact' | 'detailed' }>('ui-chat'),
@@ -306,8 +318,15 @@ export function apply(ctx: Context): void {
       operations.hooks.account,
       readOnboardingApiKeyPresence,
       ctx.configForms.describe(),
+      config.disableStockApiKeyShortcut,
     )
     ctx.effect(() => () => { controller.dispose() }, 'account: desktop onboarding lifetime')
+    const customFlow = createSnapshotStore(false)
+    ctx.effect(() => ctx.slots.subscribe('settings.onboarding.flow', () => {
+      const active = ctx.slots.entriesOfSlot('settings.onboarding.flow').length !== 0
+      controller.setCustomFlow(active)
+      customFlow.set(active)
+    }), 'account: replacement onboarding lifetime')
     ctx.effect(() => {
       const refreshCredentials = () => { controller.invalidateCredentials() }
       const disposers = [
@@ -319,8 +338,9 @@ export function apply(ctx: Context): void {
     }, 'account: desktop credential readiness')
     ctx.slots.inject('shell.overlay', () => ctx.slots.register({
       name: 'shell.overlay', id: 'desktop-onboarding', locale: 'settings.account',
+      children: { 'settings.onboarding.flow': { kind: 'single', scope: 'root' } },
       inject: (): DesktopOnboardingInjected => ({
-        hooks: { account: operations.hooks.account, onboarding: controller.state },
+        hooks: { account: operations.hooks.account, onboarding: controller.state, customFlow },
         setVisible: (visible: boolean) => {
           if (snapshot.desktopOnboardingVisible !== visible) publish({ ...snapshot, desktopOnboardingVisible: visible })
         },
@@ -328,6 +348,7 @@ export function apply(ctx: Context): void {
         ...nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refresh) },
         update: (change: OnboardingChange) => controller.update(change),
         complete: (reason: 'completed' | 'skipped') => controller.complete(reason),
+        finishCustomFlow: detail => controller.finishCustomFlow(detail),
         retry: () => controller.retry(),
         track: (name, attributes) => ctx.get('productAnalytics')?.track(name, attributes),
       }),
@@ -356,6 +377,10 @@ export function apply(ctx: Context): void {
   ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('settings.launcher', () => ctx.slots.register({
     name: 'settings.launcher', locale: 'settings.account', inject: () => operations,
   }, AccountMenu)))
+  ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('conversation.input.model.options', () => ctx.slots.register({
+    name: 'conversation.input.model.options', id: 'account.sign-in', order: 20, locale: 'settings.account',
+    inject: () => ({ hooks: operations.hooks, start: operations.start }),
+  }, ModelMenuSignIn)))
   ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('settings.section', () => {
     let unregister: (() => void) | undefined
     const update = () => {

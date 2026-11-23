@@ -19,6 +19,15 @@
   min-width: 0;
 }
 
+/* The model menu's icon column: Manage models draws a 14px glyph 6px before its label. */
+.icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-inline-end: 2px;
+  color: var(--dsw-alias-menu-icon);
+}
+
 .infoButton {
   position: relative;
   z-index: 1;

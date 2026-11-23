@@ -14,10 +14,10 @@ import { en, ja, es, fr, de, ru, pt, zh } from './locales.ts'
 export const IMAGE_BODY_ID = '@janhq/jan-client-ui-sidebar-documentpreview/image'
 
 /** File suffixes rendered by the builtin image body. */
-export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg'] as const
+export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'ico', 'svg'] as const
 
 /** Bitmap suffixes whose bytes are unreadable as text; SVG stays out because its XML source is worth reading. */
-export const BINARY_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'] as const
+export const BINARY_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'ico'] as const
 
 /**
  * Describe the builtin image renderer independently from its keyed body slot.

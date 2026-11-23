@@ -15,8 +15,23 @@ import { Context, Service } from '@janhq/cordis'
 import type { DirectoryListing } from './types.ts'
 
 export type { DirectoryEntry, DirectoryListing } from './types.ts'
+export { DirectoryPickerError, type DirectoryPickerErrorCode } from './error.ts'
+export { createChildDirectory, fullyQualified } from './create-directory.ts'
 
-/** The native interaction: one OS directory chooser on the host display. */
+/**
+ * Create one child directory under an existing parent.
+ * @param path - absolute existing parent directory.
+ * @param name - single non-blank path segment (no separators, not `.`/`..`).
+ * @returns the created directory's absolute path.
+ * @throws {DirectoryPickerError} `directory-exists` for an existing child,
+ * `directory-create-failed` for a parent that is not fully qualified or any other failure.
+ */
+type CreateDirectory = (path: string, name: string) => Promise<string>
+
+/**
+ * The native interaction: one OS directory chooser on the host display, plus
+ * folder creation on the host so a New folder action needs no chooser.
+ */
 export interface DirectoryPickerNativeCapability {
   kind: 'native'
   /**
@@ -25,6 +40,8 @@ export interface DirectoryPickerNativeCapability {
    * @returns the chosen absolute path, or null when the operator cancels.
    */
   pick(signal: AbortSignal): Promise<string | null>
+  /** Create one child directory under an existing parent. */
+  createDirectory: CreateDirectory
 }
 
 /**
@@ -47,15 +64,8 @@ export interface DirectoryPickerBrowseCapability {
    * Windows, its current drive) or cannot be listed.
    */
   list(path?: string, signal?: AbortSignal): Promise<DirectoryListing>
-  /**
-   * Create one child directory under an existing parent.
-   * @param path - absolute existing parent directory.
-   * @param name - single non-blank path segment (no separators, not `.`/`..`).
-   * @returns the created directory's absolute path.
-   * @throws {DirectoryPickerError} `directory-exists` for an existing child,
-   * `directory-create-failed` for a parent that is not fully qualified or any other failure.
-   */
-  createDirectory(path: string, name: string): Promise<string>
+  /** Create one child directory under an existing parent. */
+  createDirectory: CreateDirectory
 }
 
 /**
@@ -70,22 +80,6 @@ export interface DirectoryPickerCapabilities {
 
 /** Union of interaction shapes a backend can provide, derived from the merge-extensible {@link DirectoryPickerCapabilities} map. */
 export type DirectoryPickerCapability = DirectoryPickerCapabilities[keyof DirectoryPickerCapabilities]
-
-/** Closed failure vocabulary of the browse primitives (mirrored onto the wire by consumers). */
-export type DirectoryPickerErrorCode = 'directory-unreadable' | 'directory-exists' | 'directory-create-failed'
-
-/** Typed failure thrown by browse primitives so consumers can map business codes without string matching. */
-export class DirectoryPickerError extends Error {
-  /**
-   * @param code - closed business code of the failure.
-   * @param path - the absolute path the failure is about.
-   * @param message - operator-facing description.
-   */
-  constructor(readonly code: DirectoryPickerErrorCode, readonly path: string, message: string) {
-    super(message)
-    this.name = 'DirectoryPickerError'
-  }
-}
 
 declare module '@janhq/cordis' {
   interface Context {

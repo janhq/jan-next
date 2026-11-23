@@ -221,7 +221,10 @@ describe('continuable child presets', () => {
     parkParent(ctx, parent)
     const stopSelecting = ctx.on('agent/created', async ({ agent, source }) => {
       if (source === 'startup' && agent.session.header.parentSession === parent.id) {
-        await ctx.agentPresets.select(agent, 'reviewing')
+        // Creation already owns maintenance. Seed the later durable selection
+        // directly to exercise restoration without starting a second maintenance job.
+        await ctx.agentPresets.recompose(agent.ctx, 'reviewing')
+        agent.session.append('agent-preset/selected', { agentPreset: 'reviewing' })
       }
     })
     const started = await ctx.subagents.startActivation(startSpec(parent, 'coding'))
@@ -279,7 +282,8 @@ describe('continuable child presets', () => {
     parkParent(ctx, parent)
     const stopSelecting = ctx.on('agent/created', async ({ agent, source }) => {
       if (source === 'startup' && agent.session.header.parentSession === parent.id) {
-        await ctx.agentPresets.select(agent, 'reviewing')
+        await ctx.agentPresets.recompose(agent.ctx, 'reviewing')
+        agent.session.append('agent-preset/selected', { agentPreset: 'reviewing' })
       }
     })
     const started = await ctx.subagents.startActivation(startSpec(parent, undefined, 'fork'))

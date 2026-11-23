@@ -71,14 +71,16 @@ export const DisclosureRow = memo(function DisclosureRow({
     event.preventDefault()
     onToggle()
   }
+  // A running operation pulses its own glyph; the chevron that replaces it stays still.
+  const glyph = <RunningGlyph running={running}>{icon}</RunningGlyph>
   const collapsedLeading = previewChevron
     ? (
       <>
-        <span className={css.iconIdle}>{icon}</span>
+        <span className={css.iconIdle}>{glyph}</span>
         <IconChevronDownOutlineRegular className={clsx(chevronClassName, css.chevronHover)} />
       </>
     )
-    : icon
+    : glyph
   const leading = open
     ? <IconChevronUpOutlineRegular className={chevronClassName} />
     : collapsedLeading
@@ -122,3 +124,14 @@ export const DisclosureRow = memo(function DisclosureRow({
     </div>
   )
 })
+
+/**
+ * A process row's leading glyph; while its operation runs it breathes between
+ * 0.6 and 0.2 opacity (still at 0.6 under reduced motion).
+ * @param props.running - whether the owning operation is in progress.
+ * @param props.children - the glyph.
+ * @returns the glyph, wrapped only while running.
+ */
+export function RunningGlyph({ running, children }: { running: boolean; children: ReactNode }) {
+  return running ? <span className={css.runningGlyph} data-running="">{children}</span> : <>{children}</>
+}

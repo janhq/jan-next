@@ -57,6 +57,7 @@
   },
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
+    "@janhq/jan-launch-environment": "workspace:*",
     "@janhq/jan-scope": "workspace:*"
   },
   "devDependencies": {
@@ -77,6 +78,7 @@
     "@janhq/jan-goal": "workspace:*",
     "@janhq/jan-host-plugin-i18n": "workspace:*",
     "@janhq/jan-host-plugin-inventory": "workspace:*",
+    "@janhq/jan-launch-environment": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-message-feedback": "workspace:*",
     "@janhq/jan-permission-presets": "workspace:*",
@@ -90,7 +92,7 @@
     "@janhq/jan-user-approval": "workspace:*",
     "@janhq/jan-user-questions": "workspace:*",
     "@janhq/cordis": "workspace:~",
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "@janhq/jan-command-feedback": "workspace:*",
     "@janhq/jan-api-terminal-controller": "workspace:*",
     "@janhq/jan-plugin-manager": "workspace:*",

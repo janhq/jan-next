@@ -8,11 +8,13 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { EventEmitter } from 'node:events'
 import type { MenuItemConstructorOptions, MessageBoxOptions } from 'electron'
 import { DESKTOP_IPC, type DesktopUpdateState } from '../src/ipc.ts'
 import { MANDATORY_IPC } from '../src/mandatory-update-ipc.ts'
 import { DesktopHostFatalError, DesktopHostUncleanExitError } from '../src/host-process.ts'
 import { en, zh } from '../src/locale.ts'
+import type { DesktopMessages } from '../src/locale.ts'
 import { DesktopUpdatePreparationError } from '../src/update-error.ts'
 import { writeCrashReport } from '../src/crash-report.ts'
 import { runOperationReportJob } from '../src/operation-report-job.ts'
@@ -46,6 +48,13 @@ const harness = await vi.hoisted(async () => {
   }
   const windows: FakeWindow[] = []
   let windowFailure: Error | undefined
+  const notifications: FakeNotification[] = []
+  class FakeNotification extends EventEmitter {
+    static isSupported() { return true }
+    constructor() { super(); notifications.push(this) }
+    show() {}
+    close() {}
+  }
   const powerMonitor = new EventEmitter()
   const hosts: FakeHost[] = []
   const handlers = new Map<string, InvokeHandler>()
@@ -85,7 +94,7 @@ const harness = await vi.hoisted(async () => {
     readonly urls: string[] = []
     private devToolsOpened = false
     readonly webContents = Object.assign(new EventEmitter(), {
-      id: 42,
+      id: 42 + windows.length,
       setWindowOpenHandler: vi.fn(),
       insertCSS: vi.fn(async () => 'blur'),
       removeInsertedCSS: vi.fn(async () => {}),
@@ -95,6 +104,8 @@ const harness = await vi.hoisted(async () => {
       getURL: () => this.urls.at(-1) ?? '',
       mainFrame: { url: '' },
       getZoomFactor: () => 1,
+      getType: () => 'window',
+      setZoomLevel: vi.fn(),
       isDestroyed: () => this.destroyed,
       setIgnoreMenuShortcuts: vi.fn(),
       focus: vi.fn(),
@@ -160,12 +171,13 @@ const harness = await vi.hoisted(async () => {
   class FakeHost {
     readonly updateTasks = vi.fn(async (_action: 'inspect' | 'lock' | 'unlock') => false)
     readonly inspectQuit = vi.fn(async () => ({ activeTasks: false, scheduledTasks: false }))
+    readonly indexInjections = vi.fn(async (): Promise<readonly unknown[]> => [])
     url = 'http://127.0.0.1:3080/?token=test'
     fetch = vi.fn(async () => Response.json({ hasApiKey: true, writable: true, localePreference: null }))
     readonly ready = deferred()
     readonly exited = deferred()
     readonly stopping = deferred()
-    readonly start = vi.fn(() => { hostStarted.resolve(); return this.ready.promise.then(() => ({ url: this.url, injections: [] })) })
+    readonly start = vi.fn(() => { hostStarted.resolve(); return this.ready.promise.then(() => ({ url: this.url })) })
     readonly stop = vi.fn(() => {
       this.stopping.resolve()
       this.ready.reject(new Error('child stopped'))
@@ -226,6 +238,7 @@ const harness = await vi.hoisted(async () => {
   const shellDialog = { isOpen: false, focus: vi.fn() }
   return {
     failWindow(error: Error) { windowFailure = error },
+    FakeNotification, notifications, clearStorageData: vi.fn<() => Promise<void>>(),
     windows, views, hosts, handlers, app, FakeWindow, FakeView, FakeHost, powerMonitor, nativeTheme, analytics,
     trays, FakeTray, backgroundNotice, shellDialog,
     menu, popup, socketHeaders: vi.fn(), connectWelcome: vi.fn(), removeLegacyHostCookies: vi.fn(async () => {}), hostCookies: {},
@@ -277,6 +290,7 @@ const harness = await vi.hoisted(async () => {
     reset() {
       accountListener = undefined
       windows.length = 0
+      notifications.length = 0
       views.length = 0; hosts.length = 0; handlers.clear(); app.removeAllListeners()
       trays.length = 0
       trayFailure = undefined
@@ -320,7 +334,9 @@ vi.mock('../src/policy-test-auth.ts', () => ({ DesktopPolicyTestAuth: class {
 vi.mock('electron', () => ({
   app: harness.app,
   BrowserWindow: harness.FakeWindow,
+  Notification: harness.FakeNotification,
   WebContentsView: harness.FakeView,
+  webContents: { getAllWebContents: () => harness.windows.map(window => window.webContents) },
   dialog: harness.dialog,
   shell: { openExternal: harness.openExternal, showItemInFolder: harness.showItemInFolder },
   nativeTheme: harness.nativeTheme,
@@ -335,6 +351,7 @@ vi.mock('electron', () => ({
   Menu: { setApplicationMenu: harness.menu.setApplicationMenu, buildFromTemplate: harness.menu },
   session: { defaultSession: {
     on: vi.fn(), cookies: harness.hostCookies,
+    clearStorageData: harness.clearStorageData,
     setPermissionCheckHandler: vi.fn(), setPermissionRequestHandler: vi.fn(), webRequest: { onBeforeSendHeaders: harness.socketHeaders },
   } },
   protocol: { registerSchemesAsPrivileged: vi.fn(), handle: harness.protocolHandle },
@@ -422,6 +439,7 @@ vi.mock('../src/platform-view.ts', async importOriginal => ({
     notifyLocaleChanged() {}
     setSession() {}
     setBounds() {}
+    refreshBounds() {}
     close() {}
     closeAndWait(): Promise<void> { return harness.platformCloseAndWait() }
     dispose(): Promise<void> { return harness.platformDispose() }
@@ -513,7 +531,92 @@ afterEach(async () => {
   vi.unstubAllGlobals()
 })
 
+// Typed unknown, not `any`: the menu rows below hold it as their click handler.
+const anyFunction: unknown = expect.any(Function)
+const windowsHiddenMenu = (messages: DesktopMessages) => [
+  { role: 'toggleDevTools', visible: false },
+  { role: 'toggleDevTools', visible: false, accelerator: 'F12' },
+  { label: messages.zoomActualSize, accelerator: 'CmdOrCtrl+0', visible: false, click: anyFunction },
+  { label: messages.zoomIn, accelerator: 'CmdOrCtrl+=', visible: false, click: anyFunction },
+  { label: messages.zoomIn, accelerator: 'CmdOrCtrl+Plus', visible: false, acceleratorWorksWhenHidden: true, click: anyFunction },
+  { label: messages.zoomOut, accelerator: 'CmdOrCtrl+-', visible: false, click: anyFunction },
+]
+
 describe('desktop main startup', () => {
+  it('reports completed and incomplete reset categories before relaunching', async () => {
+    const janHome = join(harness.app.getPath('userData'), 'jan')
+    const chat = join(janHome, 'sessions', 'session.jsonl')
+    vi.stubEnv('JAN_HOME', janHome)
+    mkdirSync(join(janHome, 'sessions'), { recursive: true })
+    writeFileSync(chat, 'chat')
+    harness.clearStorageData.mockRejectedValueOnce(new Error('storage unavailable'))
+    const host = await readyForUpdate()
+    await harness.windows[0]!.shown.promise
+    const acknowledge = Promise.withResolvers<{ response: number }>()
+    harness.dialog.showMessageBox.mockReturnValueOnce(acknowledge.promise)
+    const reset = invoke(DESKTOP_IPC.factoryReset, 'app', ['chats', 'settings'])
+    await host.stopping.promise
+    expect(existsSync(chat)).toBe(true)
+    host.exited.resolve()
+    try {
+      await vi.waitFor(() => { expect(harness.dialog.showMessageBox).toHaveBeenCalledOnce() })
+      const dialog: unknown = harness.dialog.showMessageBox.mock.lastCall!.at(-1)
+      expect(dialog).toHaveProperty('message', expect.stringContaining('Some selected data may remain'))
+      expect(dialog).toHaveProperty('detail', expect.stringMatching(/Completed: Chats\nCould not finish: Settings/u))
+      expect(existsSync(chat)).toBe(false)
+      expect(harness.app.relaunch).not.toHaveBeenCalled()
+    } finally {
+      acknowledge.resolve({ response: 0 })
+      await reset
+    }
+    expect(harness.app.relaunch).toHaveBeenCalledOnce()
+  })
+
+  it('reports that nothing was removed when the Host cannot stop before reset', async () => {
+    const janHome = join(harness.app.getPath('userData'), 'jan')
+    const chat = join(janHome, 'sessions', 'session.jsonl')
+    vi.stubEnv('JAN_HOME', janHome)
+    mkdirSync(join(janHome, 'sessions'), { recursive: true })
+    writeFileSync(chat, 'chat')
+    const host = await readyForUpdate()
+    await harness.windows[0]!.shown.promise
+    const reset = invoke(DESKTOP_IPC.factoryReset, 'app', ['chats'])
+    await host.stopping.promise
+    host.exited.reject(new Error('Host still running'))
+    await reset
+    expect(harness.dialog.showMessageBox).toHaveBeenCalledOnce()
+    const dialog: unknown = harness.dialog.showMessageBox.mock.lastCall!.at(-1)
+    expect(dialog).toHaveProperty('type', 'error')
+    expect(dialog).toHaveProperty('message', expect.stringContaining('No data was removed'))
+    expect(existsSync(chat)).toBe(true)
+    expect(harness.app.relaunch).toHaveBeenCalledOnce()
+  })
+
+  it('restores and dispatches a notification click to its secondary conversation window', async () => {
+    writeFileSync(join(harness.app.getPath('userData'), 'conversation-windows.json'), JSON.stringify({ windows: ['secondary'] }))
+    await readyForUpdate()
+    await vi.waitFor(() => { expect(harness.windows).toHaveLength(2) })
+    const primary = harness.windows[0]!
+    const secondary = harness.windows[1]!
+    await secondary.shown.promise
+    secondary.minimized = true
+    const show = harness.handlers.get(DESKTOP_IPC.notificationShow)!
+    for (const { webContents: sender } of [primary, secondary]) {
+      expect(show({ sender, senderFrame: sender.mainFrame }, { id: 'same', title: 'Task complete', body: 'Ready' })).toBe(true)
+    }
+    harness.notifications[1]!.emit('click')
+    expect(secondary.restore).toHaveBeenCalledOnce()
+    expect(secondary.focus).toHaveBeenCalledOnce()
+    expect(secondary.webContents.send).toHaveBeenCalledWith(DESKTOP_IPC.notificationClicked, 'same')
+    expect(primary.webContents.send).not.toHaveBeenCalledWith(DESKTOP_IPC.notificationClicked, 'same')
+    const sender = secondary.webContents
+    show({ sender, senderFrame: sender.mainFrame }, { id: 'closed', title: 'Task complete', body: 'Ready' })
+    secondary.destroy()
+    harness.notifications[2]!.emit('click')
+    expect(secondary.webContents.send).not.toHaveBeenCalledWith(DESKTOP_IPC.notificationClicked, 'closed')
+    expect(primary.webContents.send).not.toHaveBeenCalledWith(DESKTOP_IPC.notificationClicked, 'closed')
+  })
+
   it.each([true, false])('selects the package manager before Host startup (packaged=%s)', async (packaged) => {
     harness.app.isPackaged = packaged
     await readyForUpdate()
@@ -829,10 +932,7 @@ describe('desktop main startup', () => {
       { role: 'toggleDevTools', label: messages.toggleDevToolsMenu },
     ])
     if (platform === 'win32') {
-      expect(harness.menu.mock.calls[0]![0]).toEqual([
-        { role: 'toggleDevTools', visible: false },
-        { role: 'toggleDevTools', visible: false, accelerator: 'F12' },
-      ])
+      expect(harness.menu.mock.calls[0]![0]).toEqual(windowsHiddenMenu(messages))
       expect(menu.every(item => item.visible !== false)).toBe(true)
     } else {
       expect(menu.filter(item => item.visible === false)).toEqual([
@@ -844,11 +944,21 @@ describe('desktop main startup', () => {
     harness.ipcOn.mock.calls.find(([channel]) => channel === DESKTOP_IPC.localeChanged)![1](
       { sender, senderFrame: sender.mainFrame }, nextLocale,
     )
+    const nextMessages = nextLocale === 'en' ? en : zh
+    if (platform === 'win32') {
+      expect(harness.menu.mock.calls.findLast(([template]) => template[0]?.role === 'toggleDevTools')![0])
+        .toEqual(windowsHiddenMenu(nextMessages))
+    } else {
+      const view = harness.menu.mock.calls.findLast(([template]) => template.some(item => item.label === nextMessages.viewMenu))![0]
+        .find(item => item.label === nextMessages.viewMenu)!.submenu as MenuItemConstructorOptions[]
+      expect(view.map(item => item.label))
+        .toEqual([nextMessages.zoomActualSize, nextMessages.zoomIn, nextMessages.zoomIn, nextMessages.zoomOut])
+    }
     const refreshed = platform === 'win32' ? applicationMenuItems()
       // The tray relabels after the application menu, so take the last template with a submenu.
       : harness.menu.mock.calls.findLast(([template]) => template[0]?.submenu !== undefined)![0][0]!.submenu as MenuItemConstructorOptions[]
     expect(refreshed.filter(item => item.role === 'toggleDevTools' && item.visible !== false)).toEqual([
-      { role: 'toggleDevTools', label: nextLocale === 'en' ? en.toggleDevToolsMenu : zh.toggleDevToolsMenu },
+      { role: 'toggleDevTools', label: nextMessages.toggleDevToolsMenu },
     ])
     expect(harness.windows[0]!.options).toMatchObject({ webPreferences: { devTools: true } })
   })
@@ -880,7 +990,7 @@ describe('desktop main startup', () => {
     await vi.advanceTimersByTimeAsync(0)
     const zh = locale === 'zh-CN'
     expect(harness.dialog.showMessageBox).toHaveBeenLastCalledWith(expect.objectContaining({
-      type: 'info', title: zh ? '关于 Jan' : 'About Jan Alpha', message: zh ? 'Jan' : 'Jan Alpha',
+      type: 'info', title: zh ? '关于 Jan' : 'About Jan Next', message: zh ? 'Jan' : 'Jan Next',
       detail: zh ? '版本 V1.0.0' : 'Version V1.0.0', buttons: [zh ? '确定' : 'OK'], cancelId: 0,
     }))
     // A dialog that cannot open is logged, not surfaced as an unhandled rejection.
@@ -1157,10 +1267,7 @@ describe('desktop main startup', () => {
     } else if (platform === 'win32') {
       expect(window.options).toMatchObject({ titleBarStyle: 'hidden', titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT } })
       expect(window.options).not.toHaveProperty('vibrancy')
-      expect(harness.menu.mock.calls[0]![0]).toEqual([
-        { role: 'toggleDevTools', visible: false },
-        { role: 'toggleDevTools', visible: false, accelerator: 'F12' },
-      ])
+      expect(harness.menu.mock.calls[0]![0]).toEqual(windowsHiddenMenu(en))
     } else {
       expect(window.options).not.toHaveProperty('titleBarStyle')
       expect(window.options).not.toHaveProperty('vibrancy')
@@ -1357,8 +1464,8 @@ describe('desktop main startup', () => {
       .find(items => items.some(item => item.role === 'editMenu'))
     if (template === undefined) throw new Error('application menu missing')
     expect(template.map(describeItem)).toEqual(platform === 'darwin'
-      ? ['Desktop test', en.fileMenu, 'editMenu', 'windowMenu']
-      : ['Application', 'editMenu'])
+      ? ['Desktop test', en.fileMenu, 'editMenu', en.viewMenu, 'windowMenu']
+      : ['Application', 'editMenu', en.viewMenu])
     const describeEdit = (items: MenuItemConstructorOptions[]): unknown[] => items.map(item => Array.isArray(item.submenu)
       ? [describeItem(item), describeEdit(item.submenu)]
       : [describeItem(item), item.accelerator, item.visible, item.acceleratorWorksWhenHidden].filter(value => value !== undefined))
@@ -1370,11 +1477,33 @@ describe('desktop main startup', () => {
         [en.substitutionsMenu, [['showSubstitutions'], ['separator'], ['toggleSmartQuotes'], ['toggleSmartDashes'], ['toggleTextReplacement']]],
         [en.speechMenu, [['startSpeaking'], ['stopSpeaking']]]]
       : undefined)
+    const view = template.find(item => item.label === en.viewMenu)!.submenu as MenuItemConstructorOptions[]
+    expect(describeEdit(view)).toEqual([
+      [en.zoomActualSize, 'CmdOrCtrl+0'], [en.zoomIn, 'CmdOrCtrl+='], [en.zoomIn, 'CmdOrCtrl+Plus', false, true], [en.zoomOut, 'CmdOrCtrl+-'],
+    ])
     const application = template[0]!.submenu as MenuItemConstructorOptions[]
     expect(application.filter(item => item.visible !== false).map(describeItem)).toEqual(platform === 'darwin'
       ? ['about', 'separator', en.checkUpdatesMenu, en.cliCommandMenu, 'separator', 'toggleDevTools', 'separator', 'hide', 'hideOthers', 'unhide', 'separator', 'quit']
       : ['about', 'separator', en.checkUpdatesMenu, 'separator', 'toggleDevTools', 'separator', 'quit'])
     expect(harness.menu.setApplicationMenu).toHaveBeenCalledOnce()
+  })
+
+  it('zooms the app a half step for each Ctrl+wheel or pinch request, but not from DevTools', async () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    await import('../src/main.ts')
+    await harness.preparing.promise
+    const saved = join(harness.app.getPath('userData'), 'desktop', 'zoom-level')
+    const contents = Object.assign(new EventEmitter(), { getURL: () => 'jan-app://app/' })
+    const devtools = Object.assign(new EventEmitter(), { getURL: () => 'devtools://devtools/bundled/devtools_app.html' })
+    harness.app.emit('web-contents-created', {}, contents)
+    harness.app.emit('web-contents-created', {}, devtools)
+    contents.emit('zoom-changed', {}, 'in')
+    contents.emit('zoom-changed', {}, 'in')
+    expect(readFileSync(saved, 'utf8')).toBe('1\n')
+    contents.emit('zoom-changed', {}, 'out')
+    devtools.emit('zoom-changed', {}, 'in')
+    expect(readFileSync(saved, 'utf8')).toBe('0.5\n')
+    expect(harness.windows[0]!.webContents.setZoomLevel.mock.calls).toEqual([[0.5], [1], [0.5]])
   })
 
   it.each(['en-US', 'zh-CN'])('localizes macOS application commands without changing the application name (%s)', async (locale) => {
@@ -1500,6 +1629,21 @@ describe('desktop main startup', () => {
     harness.hosts[0]!.ready.resolve()
     await expect(boot).resolves.toEqual({ injections: [], streamBaseUrl: 'http://127.0.0.1:3080' })
     expect(harness.windows[0]!.urls).toEqual(['jan-app://app/'])
+  })
+
+  it('reads boot injections from the Host on every page load, so a reload after a live rebuild names current bundles', async () => {
+    await import('../src/main.ts')
+    await harness.preparing.promise
+    harness.prepared.resolve()
+    await harness.hostStarted.promise
+    const host = harness.hosts[0]!
+    host.ready.resolve()
+    const handler = harness.handlers.get(DESKTOP_IPC.boot)!
+    const frame = { senderFrame: { url: 'jan-app://app/' } }
+    host.indexInjections.mockResolvedValueOnce([{ src: 'plugins/??a/client.js&rev=1' }])
+    await expect(Promise.resolve(handler(frame))).resolves.toMatchObject({ injections: [{ src: 'plugins/??a/client.js&rev=1' }] })
+    host.indexInjections.mockResolvedValueOnce([{ src: 'plugins/??a/client.js&rev=2' }])
+    await expect(Promise.resolve(handler(frame))).resolves.toMatchObject({ injections: [{ src: 'plugins/??a/client.js&rev=2' }] })
   })
 
   it('retains macOS native editing actions on right-click and only copy for selected read-only text', async () => {

@@ -34,7 +34,10 @@ export interface SessionStatsProjection {
   ttftMs: number
   /** Steps carrying a recorded first token. */
   ttftSteps: number
-  /** Summed decode wall time (first token → `assistant/message`) over steps that also report output tokens. */
+  /**
+   * Summed decode wall time (first token → `assistant/message`) over steps that also report output tokens; a step
+   * shorter than `MIN_DECODE_SPAN_MS` from `@janhq/jan-llm` arrived in one burst and is left out.
+   */
   decodeMs: number
   /** Summed provider output tokens over the same decode-timed steps. */
   decodeTokens: number

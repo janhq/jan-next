@@ -43,11 +43,13 @@ On Desktop, the optional [product analytics](../product-analytics/README.md) ser
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-`agentPresets/list` supplies the roster and marks the current default, and `agentPresets/read` one declaration's YAML for the viewer; default changes write the `agent-preset-registry` settings namespace. The picker, blank-session synchronization and read-only session label use recorded preset identities. Connection resets and settings updates refresh the roster.
+`agentPresets/list` supplies the roster and marks the current default, and `agentPresets/read` one declaration's YAML for the viewer; default changes write the `agent-preset-registry` settings namespace. The new-session picker, blank-session synchronization and the started session's composer chip (`conversation.composer.agentPreset`) use recorded preset identities. Connection resets and settings updates refresh the roster.
+
+Client plugins can inject `uiAgentPreset` and call `registerModeAction` to add a workflow to both pickers. The action receives the current Session id when one exists and owns its resulting UI. It does not select a Host preset, change the default, or appear in the capability editor.
 
 `CreatePluginMenuItem` contributes to `plugins.add.actions` using the shared roster store. Its selection calls the owner's `onDismiss()` before the same `startCreatorDraft` callback exposed to Settings as `creatorDraft`. That callback stages `cordis` through `AgentPresetSeatController`, except when the main blank Session lists a different preset (navigation then opens another blank and leaves that one unchanged), and opens the task through `uiWorkspace.startSession` with explicit draft preservation and `agentPreset: 'cordis'`, so the Host composes the reused blank or new Session under Creator; without a target Workspace, the staged choice applies when a Session binding becomes available. The choice is consumed once applied. Both Coding Tools states use the same picker and selection store, and `AgentPresetSeat` renders refusals through the shared `Toast` component.
 
-`AgentPresetSeatController.select()` and `apply()` return the attempt's outcome: `applied` when the Host commits the staged preset, `staged` while no Session is current, `unchanged` when busy, without a stage, for a started or already matching Session, or when the Host settles on another preset, and `refused` with the bare Host reason. The chip's injected `select` reports `agent_preset_switch` from that outcome and returns only the refusal reason.
+`AgentPresetSeatController.select()` and `apply()` return the attempt's outcome: `applied` when the Host commits the staged preset, `staged` while no Session is current, `unchanged` when busy, without a stage, for a started Session, for a matching non-explicit refresh, or when the Host settles on another preset, and `refused` with the bare Host reason. An explicit picker choice reaches the Host even when it matches the current mode, so the user can pin a route default. The chip's injected `select` reports a preset switch only when the mode changes and returns only the refusal reason.
 
 </details>
 

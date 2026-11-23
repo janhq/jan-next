@@ -30,6 +30,7 @@
  * domain follows each session's store commits, including sessions off screen.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { CSSProperties, ReactNode, RefObject } from 'react'
 import type { ContextMenuTarget } from '@janhq/jan-client-ui-context-menu/client'
 import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
@@ -50,7 +51,8 @@ import type { createSidebarRightStore, SurfaceState } from '../stores.ts'
 import { canCloseTab } from '../stores.ts'
 import type { TabOccurrence } from '../tab-domain.ts'
 import type { SidebarRightTabNavigation } from '../contract/slots.ts'
-import type { TabHookContext } from '../tab-info.ts'
+import { INLINE_PANE, type TabHookContext } from '../tab-info.ts'
+import { drawnEmbed, type InlineEmbed } from '../inline-embeds.ts'
 import { flashPane } from './flash.ts'
 import css from './SidebarRight.module.css'
 
@@ -58,7 +60,7 @@ import css from './SidebarRight.module.css'
 type Store = PropsStore<ReturnType<typeof createSidebarRightStore>>
 
 /** The child seats this component renders. */
-type Children = PropsRenderSlots<'sidebar.right.pane.tab' | 'sidebar.right.pane.tab.title'>
+type Children = PropsRenderSlots<'sidebar.right.pane.tab' | 'sidebar.right.pane.tab.title' | 'sidebar.right.pane.tab.actions'>
 
 /** What the panel reports to the frame: drawn or not, and whether it wants a track. */
 export interface SidebarRightPresentation {
@@ -113,6 +115,8 @@ export interface SidebarRightInjected {
     readonly tabTypes: HostObservable<readonly SidebarRightTabDefinition[]>
     /** This Session's latest request to make the pane holding a revealed tab glow. */
     readonly flash: HostObservable<SidebarRightFlash | undefined>
+    /** Tab bodies lent a container outside the column, every Session's. */
+    readonly inlineEmbeds: HostObservable<readonly InlineEmbed[]>
   }
   readonly keyedHooks: {
     readonly tabNavigation: (key: string) => HostObservable<SidebarRightTabNavigation>
@@ -250,6 +254,22 @@ function titlesFor(panel: PanelProps): TabRenderer {
   return tab => <TabSlot key={tab.id} {...panel} tab={tab} seat="sidebar.right.pane.tab.title" fallback={tab.title} />
 }
 
+/**
+ * A pane's controls for the tab it shows; an entry finds what the tab rendered
+ * through `getSurface`, one stable reader per tab so an entry's effects keyed on
+ * it survive re-renders.
+ */
+function tabActionsFor(panel: PanelProps, root: RefObject<HTMLDivElement>, readers: Map<TabId, () => Element | null>): TabRenderer {
+  return (tab) => {
+    let getSurface = readers.get(tab.id)
+    if (getSurface === undefined) {
+      getSurface = () => root.current?.querySelector(`div[data-sidebar-right-tab="${CSS.escape(tab.id)}"]`) ?? null
+      readers.set(tab.id, getSurface)
+    }
+    return panel.renderSlot('sidebar.right.pane.tab.actions', { tab, getSurface })
+  }
+}
+
 /** Expand-to-viewport glyph from the shared product artwork. */
 function FullscreenGlyph(): ReactNode {
   return (
@@ -314,6 +334,7 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
   const { expanded } = surface.layout
   const types = panel.useTabTypes(value => value)
   const flash = panel.useFlash(value => value)
+  const [surfaceReaders] = useState(() => new Map<TabId, () => Element | null>())
   // Each request plays at most once, and only on screen: the request current
   // when the panel mounts, or one arriving while its Session is hidden, is
   // already past. Hiding the Session ends a glow in progress.
@@ -361,6 +382,7 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
           labels={dockLabels(t, panel.shortcuts.find(entry => entry.id === 'pane.split'), panel.shortcuts.find(entry => entry.id === 'page.close'))}
           renderTab={bodiesFor(panel)}
           renderTabTitle={titlesFor(panel)}
+          renderTabActions={tabActionsFor(panel, panelRef, surfaceReaders)}
           active={panel.active}
           keepMounted={tab => types.find(type => type.kind === tab.kind)?.keepMounted === true}
           getTabTriggerProps={panel.getTabTriggerProps} tabMenuOpen={panel.tabMenuOpen}
@@ -385,7 +407,7 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
 export function RightbarSeat({
   sessionId, width, viewportWidth, canShow, useStore, actions, t, renderSlot, syncPresentation, measureRoom, reportAutoFullscreen,
   openTab, closeTab, useContextMenu, useContextMenuTarget, useTabTypes, useTabNavigation, occurrence, retainTab,
-  active, useShortcuts, splitPane, toggleFullscreen, useFlash,
+  active, useShortcuts, splitPane, toggleFullscreen, useFlash, useInlineEmbeds,
 }: RightbarSeatProps): ReactNode {
   const { getTriggerProps } = useContextMenu()
   const getTabTriggerProps: PanelProps['getTabTriggerProps'] = (tab, paneId, handlers) =>
@@ -452,11 +474,51 @@ export function RightbarSeat({
   // store as the runtime minted it and reconciles on the store's own commits,
   // on screen or not.
 
-  if (surface === undefined) return null
+  const embed = useInlineEmbeds(embeds => drawnEmbed(embeds, sessionId))
+  const inline = embed === undefined ? null : createPortal(
+    <InlineTab key={embed.serial} embed={embed} renderSlot={renderSlot} useTabTypes={useTabTypes} useStore={useStore}
+      shortcuts={shortcuts} active={active} />,
+    embed.container,
+  )
+  if (surface === undefined) return inline
   const panel: PanelProps = {
     sessionId, actions, t, renderSlot, surface, openTab, closeTab, getTabTriggerProps, tabMenuOpen, useTabTypes, useTabNavigation,
     useStore, useFlash, occurrence,
     fullscreen, autoFullscreen, reportRoom, active, retainTab, shortcuts, splitPane, toggleFullscreen,
   }
-  return <SidebarPanel {...panel} width={width} panelRef={panelRef} />
+  return <>
+    <SidebarPanel {...panel} width={width} panelRef={panelRef} />
+    {inline}
+  </>
+}
+
+/**
+ * One tab body drawn in a container outside the column, through the same
+ * keyed dispatch as a pane's body; its record lives only as long as the lender
+ * keeps the container, and no layout holds it.
+ */
+function InlineTab({ embed, renderSlot, useTabTypes, useStore, shortcuts, active }: {
+  readonly embed: InlineEmbed
+  readonly renderSlot: Children['renderSlot']
+  readonly useTabTypes: RightbarSeatProps['useTabTypes']
+  readonly useStore: Store['useStore']
+  readonly shortcuts: readonly ShortcutCatalogEntry[]
+  readonly active: boolean
+}): ReactNode {
+  const definition = useTabTypes(types => types.find(type => type.kind === embed.tab.kind))
+  const hookContext = useMemo((): TabHookContext => {
+    const { navigation } = embed
+    const useInlineNavigation = ((_key: string, selector?: (value: SidebarRightTabNavigation | undefined) => unknown) =>
+      selector === undefined ? navigation : selector(navigation)) as TabHookContext['useTabNavigation']
+    return {
+      tabId: embed.tab.id, shortcuts, title: false, fullscreen: false, active, signal: embed.signal,
+      actions: embed.actions, useStore, useTabNavigation: useInlineNavigation, inline: embed.tab,
+    }
+  }, [embed, shortcuts, active, useStore])
+  if (definition === undefined) return null
+  return (
+    <div className={css.tabBody} data-sidebar-right-inline={embed.tab.contentId} data-sidebar-right-pane={INLINE_PANE}>
+      {renderSlot('sidebar.right.pane.tab', {}, { entryKey: definition.id, fallback: null, hookContext })}
+    </div>
+  )
 }

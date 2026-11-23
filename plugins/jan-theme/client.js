@@ -8,13 +8,17 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const {
       IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium, IconSettingsOutlineRegular,
-      IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
-      MenuItemButton, Button, Switch, IconLayersOutlineRegular, IconClockOutlineRegular,
-      IconToolOutlineMedium, IconSkillOutlineMedium,
-      NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
+      IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular, IconSearchOutlineMedium,
+      IconPluginPinwheelOutlineMedium, IconFolderCloseMedium, IconLayersOutlineMedium, IconClockOutlineMedium, IconLinkOutlineMedium,
+      MenuItemButton, Button, Switch, Checkbox, IconLayersOutlineRegular, IconClockOutlineRegular, IconAppsAddOutlineRegular,
+      IconToolOutlineMedium, IconSkillOutlineMedium, IconDownloadOutlineRegular,
+      NavRow, SectionHeading, ColorSwatchGroup, WindowControls,
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
       IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
+      IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular, IconBranchOutlineRegular, StateDot,
+      IconEditOutlineRegular, relativeTime,
     } = require('@janhq/jan-client-ui-primitives')
+    const { workspaceDisplayTitle } = require('@janhq/jan-api-workspace-controller/client')
     // Optional: the matching host publishes the dock model seat. An older
     // host leaves the composer's own selector in place instead.
     let DockModelSelection
@@ -23,6 +27,15 @@ window.__ModuleLoader__.load({
     } catch (error) {
       console.warn('jan-theme: dock model selection unavailable', error)
       DockModelSelection = undefined
+    }
+    // Optional: a ui-workspace that exports its project avatar draws it beside the
+    // project page title; an older one leaves the title alone.
+    let ProjectAvatar
+    try {
+      ProjectAvatar = require('@janhq/jan-client-ui-workspace/client').ProjectAvatar
+    } catch (error) {
+      console.warn('jan-theme: project avatar unavailable', error)
+      ProjectAvatar = undefined
     }
     const shell = window.__JAN_THEME__ ?? { look: null }
     // Tauri: the shell draws the title row itself. Electron owns its window
@@ -35,36 +48,43 @@ window.__ModuleLoader__.load({
       ? /Mac/.test(navigator.platform || navigator.userAgent)
       : document.documentElement.dataset.platform === 'darwin'
 
-    // Jan's blue accent, the app's default when the settings carry none.
-    const look = shell.look ?? { primary: '#456BDE', sidebar: { light: '#C4D0F3', dark: '#0F2157' } }
+    // Jan yellow, the logo's color and the app's default when the settings carry none.
+    const look = shell.look ?? { primary: '#FFC928', sidebar: { light: '#F3E6C4', dark: '#5C4A0A' } }
     const PALETTES = [
       ['gray', 'Gray', '#757575', '#f1f1f1', '#171717'],
       ['red', 'Red', '#F0614B', '#F3CBC4', '#5E1308'],
       ['orange', 'Orange', '#E9A23F', '#F3DFC4', '#5C3A0A'],
+      ['yellow', 'Yellow', '#FFC928', '#F3E6C4', '#5C4A0A'],
       ['green', 'Green', '#88BA42', '#DFF3C4', '#374B1B'],
       ['emerald', 'Emerald', '#38AB51', '#C4F3CE', '#194D24'],
       ['teal', 'Teal', '#38AB8D', '#C4F3E6', '#194D3F'],
       ['cyan', 'Cyan', '#45BBDE', '#C4E8F3', '#0F4657'],
       ['blue', 'Blue', '#456BDE', '#C4D0F3', '#0F2157'],
       ['purple', 'Purple', '#865EEA', '#D2C4F3', '#220C5A'],
-      ['pink', 'Pink', '#D55EF3', '#FFDAE9', '#4D075F'],
-      ['rose', 'Rose', '#F655B8', '#F3C4E1', '#61053E'],
+      ['pink', 'Pink', '#D55EF3', '#E9C4F3', '#4D075F'],
+      ['rose', 'Rose', '#F655B8', '#FFDAE9', '#61053E'],
     ]
-    const DEFAULT_ACCENT = PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'blue'
-    let preferences = { accent: DEFAULT_ACCENT, coloredUserBubble: false, ...shell.appearance }
+    const DEFAULT_ACCENT = PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'yellow'
+    const paletteOf = accent => PALETTES.find(p => p[0] === accent) || PALETTES.find(p => p[0] === DEFAULT_ACCENT)
+    let preferences = { accent: DEFAULT_ACCENT, coloredUserBubble: false, navigationButtons: false, readingStyle: 'standard', ...shell.appearance }
     const appearanceListeners = new Set()
     let retheme = null
     const applyAppearance = (value) => {
       preferences = value
-      const palette = PALETTES.find(p => p[0] === value.accent) || PALETTES[7]
+      const palette = paletteOf(value.accent)
       const root = document.documentElement
+      // Back and Forward stay hidden until General turns them on; the shortcuts keep working.
+      root.toggleAttribute('data-jt-hide-navigation', value.navigationButtons !== true)
+      // Terminal reading style: every rule is scoped under this attribute, so Standard is untouched.
+      if (value.readingStyle === 'terminal') root.setAttribute('data-jt-reading', 'terminal')
+      else root.removeAttribute('data-jt-reading')
       root.style.setProperty('--jt-sidebar-light', palette[3])
       root.style.setProperty('--jt-sidebar-dark', palette[4])
       retheme?.()
       appearanceListeners.forEach(listener => listener())
     }
     async function appearanceApi(method, params = {}) {
-      const response = await fetch('/jan-api/appearance', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+      const response = await fetch(new URL('jan-api/appearance', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
       const body = await response.json()
       if (!response.ok || body.error) throw new Error(body.error || 'Appearance settings could not be saved.')
       return body.result
@@ -104,17 +124,32 @@ window.__ModuleLoader__.load({
       return h(GeneralRow, { title: 'Colored user bubbles', description: 'Use the accent color for your messages.' },
         h(Switch, { label: 'Colored user bubbles', checked: value.coloredUserBubble, disabled: busy, onChange: checked => saveAppearance({ ...value, coloredUserBubble: checked }) }))
     }
+    function NavigationButtonsRow() {
+      const { value, busy } = useAppearance()
+      return h(GeneralRow, { title: 'Back and forward buttons', description: 'Show Back and Forward beside the sidebar button. The keyboard shortcuts work either way.' },
+        h(Switch, { label: 'Back and forward buttons', checked: value.navigationButtons === true, disabled: busy, onChange: checked => saveAppearance({ ...value, navigationButtons: checked }) }))
+    }
+    function ReadingStyleRow() {
+      const { SelectMenu } = require('@janhq/jan-client-ui-primitives')
+      const { value, busy } = useAppearance()
+      return h(GeneralRow, { title: 'Reading style', description: 'Terminal shows chats in a monospace font with colored headings, code, diffs and framed tool calls.' },
+        h(SelectMenu, {
+          label: 'Reading style', value: value.readingStyle === 'terminal' ? 'terminal' : 'standard', disabled: busy, align: 'end',
+          options: [{ id: 'standard', label: 'Standard' }, { id: 'terminal', label: 'Terminal' }],
+          onChange: readingStyle => saveAppearance({ ...value, readingStyle }),
+        }))
+    }
     function AppearanceResetRow() {
-      const { busy } = useAppearance()
+      const { value, busy } = useAppearance()
       return h(GeneralRow, { title: 'Reset colors', description: 'Reset accent color and user bubble preferences.' },
-        h(Button, { variant: 'outline', disabled: busy, onClick: () => saveAppearance({ accent: DEFAULT_ACCENT, coloredUserBubble: false }) }, 'Reset'))
+        h(Button, { variant: 'outline', disabled: busy, onClick: () => saveAppearance({ ...value, accent: DEFAULT_ACCENT, coloredUserBubble: false }) }, 'Reset'))
     }
     // A saved MCP or skill change reloads this plugin, and its route is absent until the reload ends.
     // Reads retry through that gap; a write is sent once, because the Host may already have applied it.
     async function agentApi(method, params = {}) {
-      const read = method === 'list' || method === 'readSkill' || method === 'previewImport'
+      const read = method === 'list' || method === 'readSkill' || method === 'previewImport' || method === 'searchRegistry'
       for (let attempt = 0; ; attempt++) {
-        const response = await fetch('/jan-api/agent-settings', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+        const response = await fetch(new URL('jan-api/agent-settings', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
         const body = response.headers.get('content-type')?.startsWith('application/json') ? await response.json() : undefined
         if (body !== undefined) {
           if (!response.ok || body.error) throw new Error(body.error || 'Settings could not be saved.')
@@ -124,6 +159,40 @@ window.__ModuleLoader__.load({
         await new Promise(resolve => setTimeout(resolve, 500))
       }
     }
+    // One followed copy of the Host's MCP and skill list, shared by both Customize tabs and their counts.
+    const agentList = (() => {
+      let snapshot = { data: null, error: '' }
+      let loading = false
+      const listeners = new Set()
+      const publish = (next) => { snapshot = next; for (const listener of listeners) listener() }
+      async function refresh() {
+        loading = true
+        try { publish({ data: await agentApi('list'), error: '' }) }
+        catch (failure) { publish({ ...snapshot, error: failure.message }); throw failure }
+        finally { loading = false }
+      }
+      return {
+        getSnapshot: () => snapshot,
+        subscribe: (listener) => {
+          listeners.add(listener)
+          if (snapshot.data === null && !snapshot.error && !loading) refresh().catch(() => {})
+          return () => { listeners.delete(listener) }
+        },
+        refresh,
+      }
+    })()
+    function AgentCount({ pick }) {
+      const { data } = React.useSyncExternalStore(agentList.subscribe, agentList.getSnapshot)
+      return data ? String(pick(data)) : null
+    }
+    // Skill sources grouped the way a person thinks of them; anything new falls under Other.
+    const SKILL_GROUPS = [
+      ['builtin', 'Built in', ['bundled', 'runtime']],
+      ['project', 'This project', ['project-jan', 'project-agents']],
+      ['yours', 'Yours', ['user-jan', 'user-agents', 'custom']],
+    ]
+    const skillGroup = row => SKILL_GROUPS.find(([, , sources]) => sources.includes(row.source)) ?? ['other', 'Other']
+    const nameHue = text => [...text].reduce((sum, char) => (sum * 31 + char.codePointAt(0)) % 360, 7)
     const agentDrafts = new Map()
     function useAgentDraft(key, initial) {
       const [value, update] = React.useState(() => agentDrafts.has(key) ? agentDrafts.get(key) : initial)
@@ -139,22 +208,199 @@ window.__ModuleLoader__.load({
           h('p', null, description || 'The server gave no description for this tool.'),
           args.length ? h('dl', null, args.flatMap(arg => [
             h('dt', { key: `${arg.name}:t` }, h('code', null, arg.name), h('em', null, [arg.type, arg.required ? 'required' : 'optional'].filter(Boolean).join(', '))),
-            h('dd', { key: `${arg.name}:d` }, arg.description || '-'),
+            h('dd', { key: `${arg.name}:d` }, arg.description),
           ])) : h('small', null, 'Takes no arguments.'))))
     }
-    function AgentSettings({ skills = false }) {
-      const { Input, Modal, RiskConfirmation, Tag } = require('@janhq/jan-client-ui-primitives')
-      const [data, setData] = React.useState(null)
-      const [error, setError] = React.useState('')
+    // Logos the Host resolved this session, by tile id. Misses are not kept here:
+    // the Host remembers them, and retries sooner when the miss was a network failure.
+    const registryLogos = new Map()
+    function RegistryArt({ id, title }) {
+      const [logo, setLogo] = React.useState(() => registryLogos.get(id))
+      React.useEffect(() => {
+        if (registryLogos.has(id)) { setLogo(registryLogos.get(id)); return }
+        setLogo(undefined)
+        let live = true
+        agentApi('registryIcon', { id }).then(found => found, () => null).then(found => {
+          if (found) registryLogos.set(id, found)
+          if (live) setLogo(found)
+        })
+        return () => { live = false }
+      }, [id])
+      return logo
+        ? h('span', { className: 'jt-agent-art jt-registry-logo', 'aria-hidden': true },
+          h('img', { src: logo, alt: '', draggable: false, onError: () => { registryLogos.set(id, null); setLogo(null) } }))
+        : h('span', { className: 'jt-agent-art', 'aria-hidden': true }, title.charAt(0).toUpperCase())
+    }
+    // Popularity facts the registries publish, never estimates: last week's npm or PyPI
+    // downloads of a server's package, and when the MCP Registry last changed it.
+    const compactCount = count => new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(count)
+    function updatedAgo(iso) {
+      const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000)
+      if (!Number.isFinite(days)) return ''
+      const format = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+      if (days < 30) return format.format(-Math.max(days, 0), 'day')
+      if (days < 365) return format.format(-Math.floor(days / 30), 'month')
+      return format.format(-Math.floor(days / 365), 'year')
+    }
+    const REGISTRY_SORTS = { registry: 'Default order', downloads: 'Most downloaded', updated: 'Recently updated' }
+    // Recommended connectors and the official MCP Registry. A registry server opens the
+    // server editor prefilled and saves disabled; a recommended one runs its own setup.
+    function RegistryBrowser({ busy, recommended, onAdd, onInstall }) {
+      const { Input, SelectMenu, Tag } = require('@janhq/jan-client-ui-primitives')
+      const [query, setQuery] = useAgentDraft('registryQuery', '')
+      const [since, setSince] = useAgentDraft('registrySince', '')
+      const [sort, setSort] = useAgentDraft('registrySort', 'registry')
+      const [result, setResult] = React.useState({ loading: true, error: '', featured: true, entries: [], nextCursor: undefined })
+      const [choices, setChoices] = React.useState({})
+      const latest = React.useRef(0)
+      async function load(cursor) {
+        const request = ++latest.current
+        setResult(current => ({ ...current, loading: true, error: '' }))
+        try {
+          const page = await agentApi('searchRegistry', { query: query.trim(), since: since || undefined, cursor })
+          if (request !== latest.current) return
+          setResult(current => ({ loading: false, error: '', featured: page.featured, nextCursor: page.nextCursor, entries: cursor ? [...current.entries, ...page.entries] : page.entries }))
+        } catch (failure) {
+          if (request === latest.current) setResult(current => ({ ...current, loading: false, error: failure.message }))
+        }
+      }
+      React.useEffect(() => {
+        const timer = setTimeout(() => { load() }, query.trim() ? 350 : 0)
+        return () => clearTimeout(timer)
+      }, [query.trim(), since])
+      // Sorting reorders what has loaded; servers without the fact sort last, in registry order.
+      const shown = React.useMemo(() => {
+        const key = { downloads: entry => entry.downloads?.count, updated: entry => Date.parse(entry.updated) || undefined }[sort]
+        if (!key) return result.entries
+        return result.entries.map((entry, index) => ({ entry, index, value: key(entry) }))
+          .sort((a, b) => (b.value ?? -1) - (a.value ?? -1) || a.index - b.index).map(row => row.entry)
+      }, [result.entries, sort])
+      const tile = (key, title, head, ...body) => h('article', { className: 'jt-agent-card jt-agent-tile', key, style: { '--jt-hue': nameHue(title) } },
+        h('div', { className: 'jt-agent-card-head' }, h(RegistryArt, { id: key, title }), head),
+        h('h3', null, title), ...body)
+      return h('div', { className: 'jt-registry' },
+        recommended?.length > 0 && h('section', { 'aria-label': 'Recommended connectors' },
+          h('h3', { className: 'jt-registry-heading' }, 'Recommended'),
+          h('div', { className: 'jt-agent-list jt-agent-grid' }, ...recommended.map(item => tile(item.id, item.title,
+            item.installed ? h(Tag, { tone: 'success' }, 'Added') : h(Button, { variant: 'outline', size: 'sm', disabled: busy, 'aria-label': `Install ${item.title}`, onClick: () => onInstall(item) }, 'Install'),
+            h('p', { className: 'jt-agent-clamp' }, item.description),
+            h('div', { className: 'jt-agent-card-title' }, h(Tag, { tone: 'neutral' }, item.license), h('span', { className: 'jt-agent-card-meta' }, item.publisher)))))),
+        h('section', { 'aria-label': 'MCP Registry' },
+          h('h3', { className: 'jt-registry-heading' }, 'MCP Registry'),
+          h('p', { className: 'jt-registry-note' }, 'Servers published to the official MCP Registry. Namespaces are verified against their GitHub account or domain; the code itself is not reviewed. Added servers stay off until you enable them.'),
+          h('div', { className: 'jt-agent-toolbar' },
+            h(Input, { type: 'search', className: 'jt-agent-search', icon: h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }), placeholder: 'Search the MCP Registry', 'aria-label': 'Search the MCP Registry', value: query, onChange: event => setQuery(event.target.value) }),
+            h('span', null, result.loading ? 'Searching…' : `${result.entries.length}${result.nextCursor ? '+' : ''} ${result.featured ? 'servers' : 'found'}`)),
+          h('div', { className: 'jt-registry-filters' },
+            h('div', { className: 'jt-chips', role: 'group', 'aria-label': 'Updated' }, [['', query.trim() ? 'Any time' : 'Popular'], ['week', 'Updated this week'], ['month', 'Updated this month']].map(([id, label]) =>
+              h('button', { key: id, type: 'button', className: 'jt-chip', 'aria-pressed': since === id, onClick: () => setSince(id) }, label))),
+            h(SelectMenu, { className: 'jt-registry-sort', align: 'end', label: 'Sort servers', value: sort, options: Object.entries(REGISTRY_SORTS).map(([id, label]) => ({ id, label })), onChange: setSort })),
+          result.error && h('p', { role: 'alert' }, result.error, ' ', h(Button, { variant: 'ghost', size: 'sm', onClick: () => load() }, 'Try again')),
+          !result.loading && !result.error && result.entries.length === 0 && h('p', { className: 'jt-registry-note' }, since ? 'No servers Jan can start were updated in this time.' : 'No servers Jan can start match this search.'),
+          result.entries.length > 0 && h('div', { className: 'jt-agent-list jt-agent-grid', 'aria-busy': result.loading }, ...shown.map(entry => {
+            const option = entry.options.find(item => item.id === choices[entry.id]) ?? entry.options[0]
+            return tile(entry.id, entry.title,
+              h(Button, { variant: 'outline', size: 'sm', disabled: busy, 'aria-label': `Add ${entry.title}`, onClick: () => onAdd(entry, option) }, 'Add'),
+              entry.description && h('p', { className: 'jt-agent-clamp' }, entry.description),
+              (entry.downloads || entry.updated) && h('p', { className: 'jt-registry-stats' },
+                entry.downloads && h('span', { title: `${entry.downloads.count.toLocaleString()} downloads of its ${entry.downloads.source} package in the last 7 days` }, h(IconDownloadOutlineRegular, { size: 12, 'aria-hidden': true }), `${compactCount(entry.downloads.count)}/week`),
+                entry.updated && h('span', { title: new Date(entry.updated).toLocaleString() }, `Updated ${updatedAgo(entry.updated)}`)),
+              h('div', { className: 'jt-agent-card-title' },
+                entry.options.length > 1
+                  ? h(SelectMenu, {
+                    className: 'jt-registry-option', align: 'start', label: `How to run ${entry.title}`, value: option.id,
+                    options: entry.options.map(item => ({ id: item.id, label: entry.options.filter(other => other.label === item.label).length > 1 && item.url ? `${item.label} ${new URL(item.url).pathname}` : item.label })),
+                    onChange: id => setChoices({ ...choices, [entry.id]: id }),
+                  })
+                  : h(Tag, { tone: 'neutral' }, option.label),
+                entry.deprecated && h(Tag, { tone: 'warning' }, 'Deprecated'),
+                h('span', { className: 'jt-agent-card-meta', title: entry.id }, entry.publisher)))
+          })),
+          result.nextCursor && !result.loading && h('div', { className: 'jt-agent-actions' }, h(Button, { variant: 'outline', onClick: () => load(result.nextCursor) }, 'Show more'))))
+    }
+    // One box takes whatever a person already has: a whole MCP config from another app, one server's JSON,
+    // a command or an endpoint URL. It reads the paste as they type and shows what will be added.
+    function PasteServers({ busy, text, setText, error, onClose, onManual, onAdd }) {
+      const { Modal, Tag } = require('@janhq/jan-client-ui-primitives')
+      const [preview, setPreview] = React.useState({ rows: [], problem: '' })
+      React.useEffect(() => {
+        if (!text.trim()) { setPreview({ rows: [], problem: '' }); return }
+        let live = true
+        const timer = setTimeout(() => {
+          agentApi('previewImport', { text }).then(rows => { if (live) setPreview({ rows, problem: '' }) }, failure => { if (live) setPreview({ rows: [], problem: failure.message }) })
+        }, 250)
+        return () => { live = false; clearTimeout(timer) }
+      }, [text])
+      const fresh = preview.rows.filter(row => !row.exists)
+      const where = row => row.transport === 'stdio' ? [row.command, ...(row.args ?? [])].join(' ') : row.url
+      return h(Modal, {
+        open: true, title: 'Add MCP servers', closeLabel: 'Close', onClose, className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content',
+        footer: h('div', { className: 'jt-paste-foot' },
+          h(Button, { variant: 'ghost', size: 'sm', disabled: busy, onClick: onManual }, 'Enter details manually'),
+          h('div', { className: 'jt-agent-actions' },
+            h(Button, { variant: 'outline', disabled: busy, onClick: onClose }, 'Cancel'),
+            h(Button, { variant: 'primary', disabled: busy || fresh.length === 0, onClick: onAdd }, fresh.length > 1 ? `Add ${fresh.length} servers` : 'Add server'))),
+      },
+        h('label', { className: 'jt-agent-field' }, 'Paste your MCP setup from Cursor, VS Code, Claude Desktop, Windsurf or Zed, one server, a command or a URL.',
+          h('textarea', {
+            rows: 8, value: text, autoFocus: true, autoComplete: 'off', spellCheck: false, className: 'jt-paste-box', disabled: busy,
+            placeholder: '{\n  "mcpServers": {\n    "github": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-github"] }\n  }\n}\n\nor  npx -y @playwright/mcp@latest\nor  https://mcp.linear.app/mcp',
+            onChange: event => setText(event.target.value),
+          })),
+        preview.problem && h('p', { role: 'alert', className: 'jt-paste-problem' }, preview.problem),
+        preview.rows.length > 0 && h('ul', { className: 'jt-paste-list', 'aria-label': 'Servers in this paste' }, preview.rows.map(row => h('li', { key: row.name, 'data-exists': row.exists ? '' : undefined },
+          h('span', { className: 'jt-agent-art', style: { '--jt-hue': nameHue(row.name) }, 'aria-hidden': true }, row.name.charAt(0).toUpperCase()),
+          h('div', null,
+            h('strong', null, row.name),
+            h('code', { className: 'jt-agent-card-meta', title: where(row) }, where(row)),
+            [...row.environmentKeys, ...row.headerKeys].length > 0 && h('small', null, `Saves ${[...row.environmentKeys, ...row.headerKeys].join(', ')} as credentials`)),
+          row.exists ? h(Tag, { tone: 'neutral' }, 'Already added') : h(Tag, { tone: 'quiet' }, row.transport === 'stdio' ? 'Local' : 'Remote')))),
+        h('p', { className: 'jt-registry-note' }, 'Servers are added off. Turn each on when you trust it; secrets are stored as credentials and never shown again.'),
+        error && h('p', { role: 'alert' }, error))
+    }
+    // An access token instead of a sign-in page. For a hosted server Jan cannot sign in to, the token
+    // goes to that service's local server; otherwise it is sent as a bearer token.
+    function TokenForm({ row, busy, open }) {
+      const { Input } = require('@janhq/jan-client-ui-primitives')
+      const [shown, setShown] = React.useState(open)
+      const [token, setToken] = React.useState('')
+      const [checking, setChecking] = React.useState(false)
+      const [problem, setProblem] = React.useState('')
+      const route = row.tokenRoute
+      if (!shown) return h('p', { className: 'jt-agent-row-status' }, h('button', { type: 'button', className: 'jt-link-button', onClick: () => setShown(true) }, 'Use an access token instead'))
+      const label = route ? `${route.title} personal access token` : 'Access token'
+      // A rejected token is reported beside the field it came from, not at the foot of the page.
+      async function submit(event) {
+        event.preventDefault()
+        if (!token.trim() || checking) return
+        setChecking(true); setProblem('')
+        try { await agentApi('useToken', { name: row.name, token }); await agentList.refresh() }
+        catch (failure) { setProblem(failure.message) }
+        finally { setChecking(false) }
+      }
+      return h('form', { className: 'jt-token-form', onSubmit: submit },
+        h('label', { className: 'jt-agent-field' }, label,
+          h(Input, { type: 'password', value: token, disabled: busy || checking, autoComplete: 'off', spellCheck: false, placeholder: route ? 'figd_…' : 'Paste the token', 'aria-invalid': problem ? true : undefined, onChange: event => { setToken(event.target.value); setProblem('') } })),
+        problem && h('p', { role: 'alert', className: 'jt-agent-row-status', 'data-state': 'failed' }, problem),
+        h('p', { className: 'jt-agent-card-meta' }, route ? route.help : 'Sent to the server as a bearer token and stored as a credential. It is never shown again.', ' ',
+          route?.helpUrl && h('a', { href: route.helpUrl, target: '_blank', rel: 'noopener noreferrer' }, 'How to create one')),
+        h('div', { className: 'jt-agent-actions' }, h(Button, { type: 'submit', variant: 'primary', size: 'sm', disabled: busy || checking || !token.trim() },
+          checking && h(StateDot, { state: 'ongoing', size: 12 }), checking ? (route ? `Checking with ${route.title}…` : 'Connecting…') : 'Connect')))
+    }
+    function AgentSettings({ skills = false, onCreate }) {
+      const { Input, Modal, RiskConfirmation, SelectMenu, Tag } = require('@janhq/jan-client-ui-primitives')
+      const { data, error: loadError } = React.useSyncExternalStore(agentList.subscribe, agentList.getSnapshot)
+      const [failure, setError] = React.useState('')
+      const error = failure || loadError
       const [notice, setNotice] = React.useState('')
       const [busy, setBusy] = React.useState(false)
       const [draft, setDraft] = useAgentDraft('server', null)
       const [original, setOriginal] = useAgentDraft('original', '')
       const [replaceSecrets, setReplaceSecrets] = useAgentDraft('replaceSecrets', false)
       const [importText, setImportText] = useAgentDraft('import', '')
-      const [preview, setPreview] = React.useState(null)
       const [importOpen, setImportOpen] = React.useState(false)
       const [skillQuery, setSkillQuery] = useAgentDraft('skillQuery', '')
+      const [skillFilter, setSkillFilter] = useAgentDraft('skillFilter', 'all')
       const [directories, setDirectories] = useAgentDraft('directories', null)
       const [instruction, setInstruction] = useAgentDraft('instruction', null)
       const [confirmation, setConfirmation] = React.useState(null)
@@ -166,14 +412,14 @@ window.__ModuleLoader__.load({
         window.addEventListener('beforeunload', warn)
         return () => window.removeEventListener('beforeunload', warn)
       }, [hasDraft])
-      async function refresh() {
-        const next = await agentApi('list')
-        setData(next); if (directories === null) setDirectories(next.directories.join('\n'))
-      }
-      React.useEffect(() => { let live = true; agentApi('list').then(next => { if (live) { setData(next); if (directories === null) setDirectories(next.directories.join('\n')) } }).catch(failure => { if (live) setError(failure.message) }); return () => { live = false } }, [])
+      const refresh = agentList.refresh
+      React.useEffect(() => { if (data && directories === null) setDirectories(data.directories.join('\n')) }, [data])
+      // Opening a tab rereads the list; the shared copy shows meanwhile.
+      React.useEffect(() => { refresh().catch(() => {}) }, [])
+      // `message` is the notice to show afterwards, or a function from the action's result to it.
       async function run(action, message) {
         setBusy(true); setError(''); setNotice('')
-        try { await action(); await refresh(); setNotice(message) }
+        try { const result = await action(); await refresh(); setNotice(typeof message === 'function' ? message(result) : message) }
         catch (failure) { setError(failure.message) }
         finally { setBusy(false) }
       }
@@ -182,34 +428,77 @@ window.__ModuleLoader__.load({
         setOriginal(row?.name || ''); setReplaceSecrets(!row)
         setDraft(row ? { ...row, args: (row.args ?? []).join('\n'), env: '{}', headers: '{}' } : { name: '', transport: 'stdio', command: '', args: '', env: '{}', headers: '{}', url: '', cwd: '', enabled: false })
       }
+      // A registry server becomes an unsaved, disabled draft; its credential fields start with their defaults.
+      function addFromRegistry(entry, option) {
+        const taken = new Set(data.servers.map(row => row.name))
+        let name = entry.slug
+        for (let index = 2; taken.has(name); index++) name = `${entry.slug.slice(0, 29)}-${index}`
+        const credentials = JSON.stringify(Object.fromEntries(option.fields.map(item => [item.name, item.value])), null, 2)
+        setOriginal(''); setReplaceSecrets(true)
+        setDraft({
+          name, transport: option.transport, command: option.command ?? '', args: (option.args ?? []).join('\n'), url: option.url ?? '', cwd: '', enabled: false,
+          env: option.transport === 'stdio' ? credentials : '{}', headers: option.transport === 'stdio' ? '{}' : credentials,
+          fields: option.fields, source: entry.title,
+        })
+      }
+      function installConnector(item) {
+        ask(`Install ${item.title}?`, `Jan runs ${item.publisher}'s setup (${item.package}@${item.version}) with npx, then adds ${item.title} enabled together with its skills. It needs ${item.requirement} and runs with your account permissions.`,
+          () => run(() => agentApi('installRecommended', { id: item.id, confirmed: true }), `${item.title} installed.`))
+      }
       const field = (label, key, multiline = false, props = {}) => h('label', { className: 'jt-agent-field' }, label, h(multiline ? 'textarea' : Input, { value: draft[key] ?? '', disabled: busy, onChange: event => setDraft({ ...draft, [key]: event.target.value }), ...props }))
       const actions = (...children) => h('div', { className: 'jt-agent-actions' }, ...children)
       const button = (text, action, props = {}) => h(Button, { variant: 'outline', disabled: busy, onClick: action, ...props }, text)
       const message = h(React.Fragment, null, error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, busy ? 'Applying settings…' : notice))
       const empty = (Icon, text, ...buttons) => h('div', { className: 'jt-agent-empty' }, h(Icon, { size: 20 }), h('p', null, text), buttons.length > 0 && actions(...buttons))
       const card = (key, head, ...body) => h('article', { className: 'jt-agent-card', key }, h('div', { className: 'jt-agent-card-head' }, ...head), ...body)
-      const SERVER_STATE = { ready: ['success', 'Connected'], failed: ['danger', 'Connection failed'], empty: ['warning', 'No tools'], disabled: ['neutral', 'Off'] }
+      const SERVER_STATE = {
+        ready: ['success', 'Connected'], failed: ['danger', 'Needs attention'], empty: ['warning', 'No tools'], disabled: ['neutral', 'Off'],
+        connecting: ['neutral', 'Connecting'], 'needs-auth': ['warning', 'Sign in required'], 'signing-in': ['warning', 'Waiting for sign-in'],
+      }
+      // Rows that are connecting or waiting for the browser follow the Host until they settle.
+      const following = data?.servers.some(row => row.state === 'connecting' || row.state === 'signing-in')
+      React.useEffect(() => {
+        if (!following) return
+        const timer = setInterval(() => { refresh().catch(() => {}) }, 1000)
+        return () => clearInterval(timer)
+      }, [following])
       const allSkills = data?.skills.skills ?? []
-      const shownSkills = allSkills.filter(row => `${row.name} ${row.description}`.toLowerCase().includes(skillQuery.toLowerCase()))
+      const groups = [['all', 'All', allSkills.length], ...[...SKILL_GROUPS, ['other', 'Other']]
+        .map(([id, label]) => [id, label, allSkills.filter(row => skillGroup(row)[0] === id).length]).filter(([, , count]) => count > 0)]
+      const filter = groups.some(([id]) => id === skillFilter) ? skillFilter : 'all'
+      const shownSkills = allSkills.filter(row => (filter === 'all' || skillGroup(row)[0] === filter)
+        && `${row.name} ${row.description}`.toLowerCase().includes(skillQuery.toLowerCase()))
+      const skeleton = h('div', { className: 'jt-agent-list jt-agent-grid', role: 'status', 'aria-label': 'Loading settings…' },
+        ...Array.from({ length: 6 }, (_, index) => h('div', { key: index, className: 'jt-agent-skeleton' })))
       const savedFolders = data?.directories?.length ?? 0
       return h('section', { className: 'jt-appearance jt-agent-settings', 'aria-busy': busy },
         h('header', { className: 'jt-agent-head' },
           h('div', null,
-            h('h2', null, skills ? 'Skills' : 'MCP Servers'),
             h('p', null, skills ? 'Reusable instructions the agent loads when a task matches. Jan finds SKILL.md folders in .agents/skills and .jan/skills.' : 'Connect the agent to external tools. A local server runs with your account permissions, so enable only servers you trust.')),
-          !skills && actions(button('Import JSON', () => setImportOpen(true)), button('Add server', () => edit(null), { variant: 'primary' }))),
-        !data && !error && h('p', { role: 'status' }, 'Loading settings…'),
+          skills
+            ? onCreate && actions(button('Create skill', onCreate, { variant: 'primary' }))
+            : actions(onCreate && button('Create connector', onCreate), button('Add server', () => setImportOpen(true), { variant: 'primary' }))),
+        !data && !error && skeleton,
         skills ? h(React.Fragment, null,
           allSkills.length > 0 && h('div', { className: 'jt-agent-toolbar' },
-            h(Input, { type: 'search', placeholder: 'Search skills', 'aria-label': 'Search skills', value: skillQuery, onChange: event => setSkillQuery(event.target.value) }),
-            h('span', null, skillQuery ? `${shownSkills.length} of ${allSkills.length}` : `${allSkills.length} skills`)),
+            h(Input, { type: 'search', className: 'jt-agent-search', icon: h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }), placeholder: 'Search skills', 'aria-label': 'Search skills', value: skillQuery, onChange: event => setSkillQuery(event.target.value) }),
+            h('span', null, skillQuery || filter !== 'all' ? `${shownSkills.length} of ${allSkills.length}` : `${allSkills.length} skills`)),
+          groups.length > 2 && h('div', { className: 'jt-chips', role: 'group', 'aria-label': 'Skill sources' }, groups.map(([id, label, count]) =>
+            h('button', { key: id, type: 'button', className: 'jt-chip', 'aria-pressed': filter === id, onClick: () => setSkillFilter(id) },
+              label, h('span', { className: 'jt-chip-count' }, count)))),
           data?.skills.complete === false && h('p', { role: 'alert' }, 'Skill discovery is incomplete. Some sources could not be read.'),
-          data && shownSkills.length === 0 && empty(IconSkillOutlineMedium, skillQuery ? 'No skills match your search.' : 'No skills found yet. Add a folder that contains SKILL.md files below.'),
-          shownSkills.length > 0 && h('div', { className: 'jt-agent-list' }, ...shownSkills.map(row => card(row.name,
-            [h('div', { className: 'jt-agent-card-title' }, h('h3', null, row.name), (row.source || row.provider) && h(Tag, { tone: 'neutral' }, row.source || row.provider)),
-            row.path && h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => run(async () => setInstruction({ name: row.name, ...await agentApi('readSkill', { name: row.name }) }), 'Skill opened.') }, 'Edit')],
-            row.description && h('p', null, row.description),
-            row.path && h('code', { className: 'jt-agent-card-meta' }, row.path)))),
+          data && shownSkills.length === 0 && empty(IconSkillOutlineMedium, skillQuery || filter !== 'all' ? 'No skills match your search.' : 'No skills found yet. Add a folder that contains SKILL.md files below.'),
+          shownSkills.length > 0 && h('div', { className: 'jt-agent-list jt-agent-grid' }, ...shownSkills.map(row => h('article', {
+            className: 'jt-agent-card jt-agent-tile', key: row.name, style: { '--jt-hue': nameHue(row.name) },
+          },
+            h('div', { className: 'jt-agent-card-head' },
+              h('span', { className: 'jt-agent-art', 'aria-hidden': true }, row.name.charAt(0).toUpperCase()),
+              row.path && h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => run(async () => setInstruction({ name: row.name, ...await agentApi('readSkill', { name: row.name }) }), 'Skill opened.') }, 'Edit')),
+            h('h3', null, row.name),
+            row.description && h('p', { className: 'jt-agent-clamp' }, row.description),
+            h('div', { className: 'jt-agent-card-title' },
+              h(Tag, { tone: 'neutral' }, skillGroup(row)[1]),
+              h('span', { className: 'jt-agent-card-meta' }, row.invocation?.userInvocable === false ? 'Used automatically' : `/${row.name}`))))),
           h('details', { className: 'jt-agent-folders' },
             h('summary', null, savedFolders ? `Skill folders (${savedFolders})` : 'Add skill folders'),
             h('p', null, 'Reuse an existing skill library without copying it. Removing a folder here leaves its files untouched.'),
@@ -218,41 +507,73 @@ window.__ModuleLoader__.load({
           h('details', { className: 'jt-agent-note' }, h('summary', null, 'Using Claude or Codex skills'), h('p', null, 'Claude and Codex skill instructions may work when they use the same format. Their hooks, plugin manifests, permissions and unavailable tool names are not imported. Review instructions and scripts before use.')),
           instruction && h(Modal, { open: true, title: instruction.name, closeLabel: 'Close skill editor', onClose: () => setInstruction(null), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Save instructions', () => ask('Save skill instructions?', 'This writes to the original skill file. Other agents using this folder will see the change.', () => run(async () => setInstruction({ name: instruction.name, ...await agentApi('saveSkill', instruction) }), 'Skill instructions saved.')), { variant: 'primary' }), button('Close editor', () => setInstruction(null))) }, h('code', { className: 'jt-agent-card-meta' }, instruction.path), h('p', null, 'This edits the original file, so other agents that use it see the change too. Unsaved edits are lost on reload.'), h('label', { className: 'jt-agent-field' }, 'Skill instruction file', h('textarea', { rows: 16, value: instruction.text, onChange: event => setInstruction({ ...instruction, text: event.target.value }), disabled: busy })), error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, notice))
         ) : h(React.Fragment, null,
-          data && data.servers.length === 0 && empty(IconToolOutlineMedium, 'No MCP servers yet. Add one, or import the mcpServers JSON you already use in Jan or Claude Desktop.'),
+          data && data.servers.length === 0 && empty(IconToolOutlineMedium, 'No MCP servers yet. Paste the MCP setup you use in Cursor, VS Code, Claude Desktop or Zed, or a single command or URL.'),
           data?.servers.length > 0 && h('div', { className: 'jt-agent-list' }, ...data.servers.map(row => {
             const [tone, label] = SERVER_STATE[row.state] ?? SERVER_STATE.empty
+            const waiting = row.state === 'connecting' || row.state === 'signing-in'
+            const retryable = row.state === 'failed' || row.state === 'empty'
+            const signIn = () => run(async () => {
+              const result = await agentApi('signIn', { name: row.name })
+              // The desktop window hands http(s) pages to the default browser.
+              if (result?.url) window.open(result.url, '_blank', 'noopener,noreferrer')
+            }, '')
+            const toolCount = count => count === 1 ? '1 tool' : `${count} tools`
             return card(row.name,
-              [h('div', { className: 'jt-agent-card-title' }, h('h3', null, row.name), h(Tag, { tone }, row.state === 'ready' ? `${row.tools.length} tools` : label), row.secretConfigured && h(Tag, { tone: 'quiet' }, 'Credentials saved')),
+              [h('div', { className: 'jt-agent-card-title', 'aria-live': 'polite' }, h('h3', null, row.name),
+                h(Tag, { tone }, waiting && h(StateDot, { state: 'ongoing', size: 12 }), row.state === 'ready' ? `${label} · ${toolCount(row.tools.length)}` : label),
+                row.signedIn && row.state === 'ready' && h(Tag, { tone: 'quiet' }, 'Signed in'),
+                row.secretConfigured && h(Tag, { tone: 'quiet' }, 'Credentials saved')),
               h(Switch, { label: `Enable ${row.name}`, checked: row.enabled, disabled: busy, onChange: enabled => enabled ? ask('Enable MCP server?', 'The server can run commands or access external services. Enable it only if you trust its source.', () => run(() => agentApi('toggle', { name: row.name, enabled }), 'Server enabled.')) : run(() => agentApi('toggle', { name: row.name, enabled }), 'Server disabled.') })],
               h('code', { className: 'jt-agent-card-meta' }, row.transport === 'stdio' ? [row.command, ...(row.args ?? [])].join(' ') : row.url),
-              (row.state === 'failed' || row.state === 'empty') && h('p', null, row.status),
+              row.enabled && row.state !== 'ready' && h('p', { className: 'jt-agent-row-status', 'data-state': row.state }, row.status),
+              row.state === 'signing-in' && h('p', { className: 'jt-agent-row-status' }, 'Browser did not open? ', h('a', { href: row.signInUrl, target: '_blank', rel: 'noopener noreferrer' }, 'Open the sign-in page')),
+              row.enabled && (row.state === 'needs-auth' || row.signInRefused) && h(TokenForm, { key: `${row.name}-token`, row, busy, open: row.signInRefused || !!row.tokenRoute }),
               h('div', { className: 'jt-agent-card-foot' },
-                row.tools?.length > 0 ? h('details', { className: 'jt-mcp-tools' }, h('summary', null, `Show ${row.tools.length} tools`), h('ul', null, row.tools.map(tool => h(McpTool, { key: tool.name, tool, server: row.name })))) : h('span'),
+                row.tools?.length > 0 ? h('details', { className: 'jt-mcp-tools' }, h('summary', null, `Show ${toolCount(row.tools.length)}`), h('ul', null, row.tools.map(tool => h(McpTool, { key: tool.name, tool, server: row.name })))) : h('span'),
                 h('div', { className: 'jt-agent-actions' },
-                  row.enabled && h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Reconnect ${row.name}`, onClick: () => run(() => agentApi('toggle', { name: row.name, enabled: true }), 'Connection refreshed.') }, 'Reconnect'),
+                  row.enabled && row.state === 'needs-auth' && !row.signInRefused && h(Button, { variant: 'primary', size: 'sm', disabled: busy, 'aria-label': `Sign in to ${row.name}`, onClick: signIn }, 'Sign in'),
+                  row.state === 'signing-in' && h(Button, { variant: 'outline', size: 'sm', disabled: busy, 'aria-label': `Cancel sign-in to ${row.name}`, onClick: () => run(() => agentApi('cancelSignIn', { name: row.name }), 'Sign-in cancelled.') }, 'Cancel'),
+                  row.enabled && !waiting && row.state !== 'needs-auth' && h(Button, { variant: retryable ? 'outline' : 'ghost', size: 'sm', disabled: busy, 'aria-label': `${retryable ? 'Try again' : 'Reconnect'} ${row.name}`, onClick: () => run(() => agentApi('reconnect', { name: row.name }), '') }, retryable ? 'Try again' : 'Reconnect'),
                   h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => edit(row) }, 'Edit'),
-                  h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Remove ${row.name}`, onClick: () => ask('Remove MCP server?', 'This removes the connection and its saved credentials. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')) }, 'Remove'))))
-          })),
+                  h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Remove ${row.name}`, onClick: () => ask('Remove MCP server?', 'This removes the connection, its saved credentials and its sign-in. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')) }, 'Remove'))))
+          }), h('button', { type: 'button', className: 'jt-agent-add', disabled: busy, onClick: () => setImportOpen(true) },
+            h(IconToolOutlineMedium, { size: 20, 'aria-hidden': true }), h('span', null, 'Add servers'),
+            h('small', null, 'Paste a setup from Cursor, VS Code or Claude, a command, or a URL'))),
+          data && h(RegistryBrowser, { busy, recommended: data.recommended, onAdd: addFromRegistry, onInstall: installConnector }),
           h('details', { className: 'jt-agent-note' }, h('summary', null, 'MCP servers, skills, plugins and agent presets'), h('p', null, 'MCP servers provide tools. Skills provide reusable instructions. Plugins add app features through Plugin manager. Agent presets hold saved instructions and working modes.')),
           draft && h(Modal, {
             open: true, title: original ? `Edit ${original}` : 'Add MCP server', closeLabel: 'Close editor', onClose: () => setDraft(null), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Save server', () => run(async () => {
-              const value = { ...draft, args: draft.args === '' ? [] : draft.args.split('\n'), env: JSON.parse(draft.env), headers: JSON.parse(draft.headers) }
+              const { fields, source, ...rest } = draft
+              const value = { ...rest, args: draft.args === '' ? [] : draft.args.split('\n'), env: JSON.parse(draft.env), headers: JSON.parse(draft.headers) }
               await agentApi('saveServer', { value, originalName: original || undefined, replaceSecrets }); setDraft(null)
             }, 'MCP server saved.'), { variant: 'primary' }), button('Cancel', () => setDraft(null)))
           },
             field('Server name', 'name', false, { disabled: busy || !!original }),
-            h('label', { className: 'jt-agent-field' }, 'Transport', h('select', { value: draft.transport, disabled: busy, onChange: event => setDraft({ ...draft, transport: event.target.value }) }, h('option', { value: 'stdio' }, 'Local command (stdio)'), h('option', { value: 'streamable-http' }, 'Remote endpoint (Streamable HTTP)'))),
+            h('div', { className: 'jt-agent-field' }, h('span', null, 'Transport'), h(SelectMenu, {
+              className: 'jt-agent-select', align: 'start', label: 'Transport', value: draft.transport, disabled: busy,
+              options: [{ id: 'stdio', label: 'Local command (stdio)' }, { id: 'streamable-http', label: 'Remote endpoint (Streamable HTTP)' }],
+              onChange: id => setDraft({ ...draft, transport: id }),
+            })),
             draft.transport === 'stdio' ? h(React.Fragment, null, field('Command', 'command'), field('Arguments (one per line)', 'args', true, { rows: 2 })) : field('MCP endpoint URL', 'url'),
-            h('details', null, h('summary', null, 'Advanced: working directory and credentials'),
+            draft.fields?.length > 0 && h('div', { className: 'jt-registry-fields' },
+              h('p', null, `${draft.source} asks for these ${draft.transport === 'stdio' ? 'environment variables' : 'headers'}. Fill them in below; they are stored as credentials.`),
+              h('ul', null, draft.fields.map(item => h('li', { key: item.name }, h('code', null, item.name), item.required && h('em', null, ' required'), item.description && ` - ${item.description}`)))),
+            h('details', { open: draft.fields?.length > 0 }, h('summary', null, 'Advanced: working directory and credentials'),
               draft.transport === 'stdio' && field('Working directory (optional absolute path)', 'cwd'),
               original && h('label', null, h('input', { type: 'checkbox', checked: replaceSecrets, onChange: event => setReplaceSecrets(event.target.checked) }), ' Replace saved environment / headers'),
               replaceSecrets && (draft.transport === 'stdio' ? field('Environment (JSON object, stored as credentials)', 'env', true, { autoComplete: 'off', spellCheck: false }) : field('Headers (JSON object, stored as credentials)', 'headers', true, { autoComplete: 'off', spellCheck: false }))),
             h('p', null, 'Saved connections persist. Unsaved drafts stay while switching sections, but are lost on reload. Credentials are never displayed after saving.'),
             error && h('p', { role: 'alert' }, error)),
-          importOpen && h(Modal, { open: true, title: 'Import MCP JSON', closeLabel: 'Close import', onClose: () => setImportOpen(false), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Review import', () => run(async () => setPreview(await agentApi('previewImport', { text: importText })), 'Import reviewed. Nothing has been saved.')), preview && button('Import disabled servers', () => run(async () => { await agentApi('importServers', { text: importText, confirmed: true }); setImportText(''); setPreview(null); setImportOpen(false) }, 'Servers imported disabled.'), { variant: 'primary' }), button('Cancel', () => setImportOpen(false))) },
-            h('p', null, 'Paste an object containing mcpServers. Imports are all-or-nothing, never overwrite names, and stay disabled until you enable them. Codex TOML, Claude plugins and legacy SSE need separate conversion.'),
-            h('label', { className: 'jt-agent-field' }, 'MCP configuration JSON', h('textarea', { rows: 6, value: importText, autoComplete: 'off', spellCheck: false, onChange: event => { setImportText(event.target.value); setPreview(null) } })),
-            preview && h('div', null, ...preview.map(row => h('p', { key: row.name }, `${row.name}: ${row.transport}, disabled. Credential fields: ${[...row.environmentKeys, ...row.headerKeys].join(', ') || 'none'}`))), error && h('p', { role: 'alert' }, error))
+          importOpen && h(PasteServers, {
+            busy, text: importText, setText: setImportText, error,
+            onClose: () => setImportOpen(false),
+            onManual: () => { setImportOpen(false); edit(null) },
+            onAdd: () => run(async () => {
+              const { added } = await agentApi('importServers', { text: importText, confirmed: true })
+              setImportText(''); setImportOpen(false)
+              return added
+            }, added => `Added ${added.join(', ')}. Turn a server on when you trust it.`),
+          })
         ), message,
         h(RiskConfirmation, { open: !!confirmation, title: confirmation?.title || '', description: confirmation?.description || '', acknowledgeLabel: 'I understand this change', cancelLabel: 'Cancel', closeLabel: 'Close', confirmLabel: 'Confirm', acknowledged, disabled: busy, onAcknowledgedChange: setAcknowledged, onCancel: () => setConfirmation(null), onConfirm: () => { const action = confirmation.action; setConfirmation(null); action() } }))
     }
@@ -260,8 +581,17 @@ window.__ModuleLoader__.load({
     // Jan's palette (web-app/src/index.css) mapped onto the app's alias tokens.
     // Publish concrete accent values on body. WebKit can retain a transitioning
     // background when only an indirect root custom property changes.
+    // WCAG relative luminance of a #RRGGBB color.
+    const luminance = (hex) => {
+      const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+        .map(c => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
     const tokensFor = (value) => {
-      const accent = (PALETTES.find(p => p[0] === value.accent) || PALETTES[7])[2]
+      const accent = paletteOf(value.accent)[2]
+      // White text fails contrast on a light accent such as Jan yellow; such accents carry dark text
+      // on their fills and a deeper shade where the accent colors text on white.
+      const light = luminance(accent) > 0.5
       const shade = (weight) => ({
         light: `color-mix(in oklch, ${accent} ${weight}%, black)`,
         dark: `color-mix(in oklch, ${accent} ${weight}%, white)`,
@@ -280,9 +610,10 @@ window.__ModuleLoader__.load({
         '--dsw-alias-button-info-active': active,
         '--dsw-alias-state-business-primary': both(accent),
         '--dsw-alias-label-deep-diving': {
-          light: `color-mix(in oklch, ${accent} 85%, black)`,
+          light: `color-mix(in oklch, ${accent} ${light ? 50 : 85}%, black)`,
           dark: `color-mix(in oklch, ${accent} 80%, white)`,
         },
+        ...light ? { '--dsw-alias-label-primary-foreground': both('#222222') } : {},
         // Set where the overrides land (body), so the neutral grey resolves
         // against the layer-2 token defined there; from :root it would not.
         '--dsw-specific-bubble': value.coloredUserBubble
@@ -290,56 +621,138 @@ window.__ModuleLoader__.load({
           : both('var(--dsw-alias-bg-layer-2)'),
       }
     }
+    // Mimi's Jan - Desktop v04 palette (design/mimi-tokens.json, enforced by
+    // ui-theme's jan-design-contract spec). Dark values Mimi has not drawn
+    // (border-l2, selected sidebar row) keep Jan's earlier dark steps.
     const TOKENS = {
       '--jan-font-family-text': both("'Inter', 'Segoe UI', sans-serif"),
-      '--dsw-alias-bg-base': { light: 'oklch(1 0 0)', dark: 'oklch(0.18 0 0)' },
-      '--dsw-alias-bg-layer-1': { light: 'oklch(1 0 0)', dark: 'oklch(0.205 0 0)' },
-      '--dsw-alias-bg-layer-2': { light: 'oklch(0.97 0 0)', dark: 'oklch(0.235 0 0)' },
-      '--dsw-alias-bg-overlay': { light: 'oklch(1 0 0)', dark: 'oklch(0.205 0 0)' },
-      '--dsw-alias-border-l1': { light: 'oklch(0.922 0 0)', dark: 'oklch(1 0 0 / 10%)' },
-      '--dsw-alias-border-l2': { light: 'oklch(0.88 0 0)', dark: 'oklch(1 0 0 / 15%)' },
-      '--dsw-alias-label-primary': { light: 'oklch(0.145 0 0)', dark: 'oklch(0.985 0 0)' },
-      '--dsw-alias-label-secondary': { light: 'oklch(0.556 0 0)', dark: 'oklch(0.708 0 0)' },
-      '--dsw-specific-input-major': { light: 'oklch(0.97 0 0)', dark: 'oklch(0.235 0 0)' },
+      '--dsw-alias-bg-base': { light: '#FFFFFF', dark: '#111111' },
+      '--dsw-alias-bg-layer-1': { light: '#FFFFFF', dark: '#1B1B1B' },
+      '--dsw-alias-bg-layer-2': { light: '#F7F7F7', dark: '#151515' },
+      '--dsw-alias-bg-overlay': { light: '#FFFFFF', dark: '#1B1B1B' },
+      // Toasts sit on the same raised surface as Jan's menus and cards (overlay fill,
+      // hairline border, primary label), following the theme instead of a fixed grey slab.
+      '--dsw-alias-toast-bg': { light: '#FFFFFF', dark: '#1B1B1B' },
+      '--dsw-alias-toast-border': { light: 'rgb(34 34 34 / 10%)', dark: 'oklch(1 0 0 / 15%)' },
+      '--dsw-alias-toast-label': { light: '#3D3D3D', dark: 'rgb(255 255 255 / 80%)' },
+      '--dsw-alias-toast-action': both('var(--dsw-alias-state-business-primary)'),
+      '--dsw-alias-border-l1': { light: 'rgb(34 34 34 / 5%)', dark: 'rgb(255 255 255 / 8%)' },
+      '--dsw-alias-border-l2': { light: 'rgb(34 34 34 / 10%)', dark: 'oklch(1 0 0 / 15%)' },
+      '--dsw-alias-label-primary': { light: '#3D3D3D', dark: 'rgb(255 255 255 / 80%)' },
+      '--dsw-alias-label-secondary': { light: '#808080', dark: 'rgb(255 255 255 / 40%)' },
+      '--dsw-alias-label-tertiary': both('#999999'),
+      '--dsw-alias-interactive-bg-hover': { light: 'rgb(0 0 0 / 4%)', dark: 'rgb(255 255 255 / 8%)' },
+      '--dsw-specific-input-major': { light: '#FFFFFF', dark: '#1B1B1B' },
       '--dsw-specific-selector': { light: 'oklch(0.94 0 0)', dark: 'oklch(0.269 0 0)' },
       '--dsw-specific-sidebar-fill': { light: 'var(--jt-sidebar-light)', dark: 'var(--jt-sidebar-dark)' },
-      '--dsw-specific-sidebar-nav-item-hover': {
-        light: `color-mix(in oklch, var(--jt-sidebar-light) 85%, black)`,
-        dark: `color-mix(in oklch, var(--jt-sidebar-dark) 85%, white)`,
-      },
+      '--dsw-specific-sidebar-nav-item-hover': { light: 'rgb(0 0 0 / 4%)', dark: 'rgb(255 255 255 / 8%)' },
       '--dsw-specific-sidebar-nav-item-active': {
-        light: `color-mix(in oklch, var(--jt-sidebar-light) 75%, black)`,
+        light: 'rgb(0 0 0 / 6%)',
         dark: `color-mix(in oklch, var(--jt-sidebar-dark) 75%, white)`,
       },
       '--dsw-specific-sidebar-nav-item-active-accent': {
-        light: `color-mix(in oklch, var(--jt-sidebar-light) 75%, black)`,
+        light: 'rgb(0 0 0 / 6%)',
         dark: `color-mix(in oklch, var(--jt-sidebar-dark) 75%, white)`,
       },
+      // Sidebar card, composer and other enclosing panels.
+      '--jt-sidebar-radius': both('20px'),
+      '--dsw-radius-panel': both('24px'),
+      // Terminal reading style colors; unused unless that style is on.
+      '--jt-term-heading': { light: '#1F6FB2', dark: '#6CB6FF' },
+      '--jt-term-strong': { light: '#9A5A0C', dark: '#E8B05C' },
+      '--jt-term-tool': { light: '#7A4FD0', dark: '#B392F0' },
+      '--jt-term-add': { light: '#1A7F37', dark: '#56D364' },
+      '--jt-term-del': { light: '#CF222E', dark: '#F85149' },
     }
 
     const CSS = `
 .jt-agent-modal { display: flex; flex-direction: column; width: min(620px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); }
 .jt-agent-modal-content { min-height: 0; overflow-y: auto; }
 .jt-agent-field { display: grid; gap: 6px; margin-block: 12px; }
-.jt-agent-field textarea, .jt-agent-field select { width: 100%; box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font: inherit; }
+.jt-agent-field textarea { width: 100%; box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font: inherit; }
+.jt-agent-select { width: 100%; max-width: none; justify-content: space-between; }
 .jt-agent-field textarea { min-height: 80px; resize: vertical; }
 .jt-agent-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.jt-registry { display: grid; gap: 24px; margin-top: 24px; }
+.jt-agent-settings .jt-registry-heading { margin: 0 0 4px; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--dsw-alias-label-primary); }
+.jt-registry-note { margin: 0 0 12px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
+.jt-registry [aria-busy="true"] { opacity: .6; transition: opacity .15s; }
+.jt-registry-option { height: 24px; max-width: 180px; padding: 0 8px; gap: 6px; font-size: 12px; line-height: 18px; }
+.jt-registry-filters { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.jt-registry-filters .jt-chips { flex: 1; min-width: 0; }
+.jt-registry-sort { flex: none; height: 28px; font-size: 13px; }
+.jt-agent-settings .jt-registry-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
+.jt-registry-stats > span { display: inline-flex; align-items: center; gap: 4px; }
+.jt-registry-fields { margin-block: 12px; padding: 12px; border-radius: 8px; background: var(--dsw-alias-bg-layer-2); font-size: 13px; }
+.jt-registry-fields p { margin: 0 0 6px; }
+.jt-registry-fields ul { margin: 0; padding-left: 18px; }
+.jt-registry-fields em { color: var(--dsw-alias-label-secondary); }
 .jt-agent-editor { margin-block: 16px; padding: 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; }
 .jt-agent-settings small, .jt-agent-settings p { overflow-wrap: anywhere; }
 .jt-agent-settings small { display: block; color: var(--dsw-alias-label-secondary); margin-block: 4px; }
 .jt-agent-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .jt-agent-head > div:first-child { flex: 1 1 auto; min-width: 0; }
+/* With no in-content title, the intro reads as the section description beside its actions. */
+.jt-agent-head > div:first-child > p { margin: 0; font-size: 13px; line-height: 20px; }
+.jt-agent-head { align-items: center; }
 .jt-agent-head > .jt-agent-actions { flex: none; }
 .jt-agent-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .jt-agent-toolbar > :first-child { flex: 1; min-width: 0; }
 .jt-agent-toolbar > span { flex: none; font-size: 13px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
 .jt-agent-list { display: grid; gap: 8px; }
-.jt-agent-card { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); min-width: 0; }
+/* One shrinkable column: an implicit auto track would grow to a nowrap tool description's full width. */
+.jt-agent-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 12px 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); min-width: 0; }
 .jt-agent-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
 .jt-agent-card-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .jt-agent-card-title h3 { font-size: 14px; overflow-wrap: anywhere; }
 .jt-agent-settings .jt-agent-card p { margin: 0; font-size: 13px; }
 .jt-agent-card-meta { display: block; font-size: 12px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jt-agent-card-title [data-slot="tag"], .jt-agent-card-title > span { gap: 6px; }
+.jt-agent-row-status { font-size: 13px; line-height: 20px; color: var(--dsw-alias-label-secondary); }
+.jt-agent-row-status[data-state="failed"] { color: var(--dsw-alias-state-error-primary); }
+.jt-agent-row-status a, .jt-token-form a, .jt-link-button { color: var(--dsw-alias-label-accent, inherit); text-decoration: underline; text-underline-offset: 2px; }
+.jt-link-button { border: 0; padding: 0; background: none; font: inherit; cursor: pointer; }
+.jt-token-form { display: grid; gap: 8px; max-width: 520px; }
+.jt-token-form .jt-agent-field { margin-block: 4px 0; font-size: 13px; font-weight: 500; }
+.jt-token-form .jt-agent-card-meta { white-space: normal; }
+.jt-token-form .jt-agent-actions { justify-content: flex-start; }
+.jt-agent-search input::placeholder { color: var(--dsw-alias-label-tertiary); }
+.jt-agent-grid { grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
+.jt-agent-tile { align-content: start; gap: 8px; padding: 14px; transition: transform .18s cubic-bezier(.2, .8, .2, 1), border-color .18s, box-shadow .18s; }
+.jt-agent-tile:hover { transform: translateY(-2px); border-color: var(--dsw-alias-border-l4); box-shadow: 0 8px 20px color-mix(in oklab, hsl(var(--jt-hue) 60% 45%) 18%, transparent); }
+.jt-agent-settings .jt-agent-tile h3 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; overflow-wrap: anywhere; }
+.jt-agent-tile .jt-agent-card-meta { display: inline; }
+/* Tile art matches the Hub's and the plugin tiles' 40px frame. */
+.jt-agent-art { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-size: 16px; font-weight: 600; color: #fff; background: linear-gradient(135deg, hsl(var(--jt-hue) 70% 55%), hsl(calc(var(--jt-hue) + 60) 70% 42%)); }
+/* A publisher logo sits on white like an app icon, so dark marks stay visible in the dark theme. */
+.jt-registry-logo { background: #fff; box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / .12); overflow: hidden; }
+.jt-registry-logo img { width: 30px; height: 30px; object-fit: contain; }
+.jt-agent-settings .jt-agent-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--dsw-alias-label-secondary); }
+.jt-agent-skeleton { height: 132px; border-radius: 12px; background: linear-gradient(90deg, var(--dsw-alias-bg-layer-1) 0%, var(--dsw-alias-border-l1) 50%, var(--dsw-alias-bg-layer-1) 100%); background-size: 200% 100%; animation: jt-skeleton 1.4s ease-in-out infinite; }
+@keyframes jt-skeleton { from { background-position: 100% 0 } to { background-position: -100% 0 } }
+/* The pill boxes nest past the text line by their own padding, so the first chip's label starts on the heading's line. */
+.jt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px -12px; }
+.jt-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px; border: 0; border-radius: 999px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font: inherit; font-size: 13px; line-height: 22px; }
+.jt-chip[aria-pressed='true'] { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); font-weight: 500; }
+.jt-chip:focus-visible, .jt-agent-add:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); }
+@media (hover: hover) { .jt-chip:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); } }
+.jt-chip-count { font-size: 12px; color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
+.jt-agent-add { display: grid; justify-items: center; gap: 4px; padding: 20px; border: 1px dashed var(--dsw-alias-border-l2); border-radius: 12px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font: inherit; font-size: 13px; transition: border-color .18s, color .18s; }
+.jt-agent-add span { color: var(--dsw-alias-label-primary); font-weight: 500; }
+.jt-agent-add:hover:not(:disabled) { border-color: var(--dsw-alias-border-l4); }
+.jt-agent-settings .jt-agent-field textarea.jt-paste-box { min-height: 168px; font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 12px; line-height: 18px; white-space: pre; overflow-x: auto; }
+.jt-agent-settings .jt-agent-field textarea.jt-paste-box::placeholder { color: var(--dsw-alias-label-tertiary); }
+.jt-agent-settings .jt-paste-problem { margin: 8px 0 0; font-size: 13px; color: var(--dsw-alias-state-error-primary); }
+.jt-paste-list { display: grid; gap: 4px; margin: 12px 0 0; padding: 0; list-style: none; }
+.jt-paste-list li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1); }
+.jt-paste-list li[data-exists] { opacity: .6; }
+.jt-paste-list li > div { display: grid; min-width: 0; }
+.jt-paste-list strong { font-size: 14px; line-height: 20px; font-weight: 500; }
+.jt-paste-list small { margin: 0; font-size: 12px; }
+.jt-paste-list .jt-agent-art { width: 32px; height: 32px; border-radius: 8px; font-size: 14px; }
+.jt-paste-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.jt-paste-foot > button:first-child { margin-left: -8px; color: var(--dsw-alias-label-secondary); }
+@media (prefers-reduced-motion: reduce) { .jt-agent-tile { transition: none; } .jt-agent-tile:hover { transform: none; } .jt-agent-skeleton { animation: none; } }
 .jt-agent-card-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .jt-agent-card-foot > :first-child { flex: 1 1 240px; min-width: 0; }
 .jt-agent-card-foot > .jt-agent-actions { margin-inline-start: auto; }
@@ -383,17 +796,20 @@ window.__ModuleLoader__.load({
    override these marker-scoped rules. */
   html[data-jan-theme] {
     --jt-sidebar-gap: 12px;
-    --jt-sidebar-radius: 14px;
   }
-  html[data-jan-theme] [data-slot='root'] > [data-sidebar-collapsed], html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]) {
+  /* The inset sidebar leaves the caption row on the page background; body holds the palette. */
+  html[data-jan-theme] body { --jan-windows-caption-fill: var(--dsw-alias-bg-base); }
+  /* The shell marks its frame and columns (data-shell-frame, -center, -sidebar); matching those, not
+     :has(), keeps an element streamed into the chat from restyling the whole window. */
+  html[data-jan-theme] [data-slot='root'] > [data-sidebar-collapsed], html[data-jan-theme] [data-slot='root'] > [data-shell-frame] {
     background: var(--dsw-alias-bg-base);
   }
-  html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay])::before { background: var(--dsw-alias-bg-base); }
-  html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]) > :has([data-slot='main']) {
+  html[data-jan-theme] [data-slot='root'] > [data-shell-frame]::before { background: var(--dsw-alias-bg-base); }
+  html[data-jan-theme] [data-slot='root'] > [data-shell-frame] > [data-shell-center] {
     border: 0;
     border-radius: 0;
   }
-  html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]):not([data-sidebar-collapsed]):not([data-sidebar-drawer]) > :has(> [data-slot='sidebar']) {
+  html[data-jan-theme] [data-slot='root'] > [data-shell-frame]:not([data-sidebar-collapsed]):not([data-sidebar-drawer]) > [data-shell-sidebar] {
     position: relative;
     margin: var(--jt-sidebar-gap) 0 var(--jt-sidebar-gap) var(--jt-sidebar-gap);
     border: 1px solid var(--dsw-alias-border-l1);
@@ -401,6 +817,10 @@ window.__ModuleLoader__.load({
     background: var(--dsw-alias-bg-base);
     overflow: hidden;
   }
+  /* The floating card runs the full window height; the shell's bottom row (status bars and
+     the like) lives in the chat column only, beside the card instead of under it. */
+  html[data-jan-theme] [data-slot='root'] > [data-shell-frame]:not([data-sidebar-drawer]) > [data-shell-sidebar] { grid-row: 1 / -1; }
+  html[data-jan-theme] [data-slot='root'] > [data-shell-frame]:not([data-sidebar-drawer]) > [data-shell-bottom] { grid-column: 2 / -1; }
   html[data-jan-theme] [data-slot='sidebar'] > div:has(> [data-window-drag]) {
     width: 100% !important; /* The shell passes the outer column width, before the inset. */
     background: linear-gradient(to bottom, var(--dsw-specific-sidebar-fill), var(--dsw-alias-bg-base));
@@ -415,15 +835,95 @@ window.__ModuleLoader__.load({
     margin: 0 0 8px;
   }
   html[data-jan-theme] [data-slot='sidebar'] [data-slot='sidebar.brand.mark']:has(.jt-sidebar-mark) { display: none; }
-  /* Clear the native traffic lights (tauri.macos.conf.json trafficLightPosition). */
+  /* Clear the native traffic lights (desktop main.ts trafficLightPosition). */
   html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div > :has([data-slot='sidebar.brand.name']) { padding-left: 64px; }
   html[data-jan-theme][data-jan-theme-mac]:has([data-sidebar-collapsed]) [data-slot='sidebar'] [data-sidebar-toggle] { left: 84px; }
   /* Electron on macOS gives the toggle its own strip above the logo row; fold
-     that strip into the logo row so the wordmark shares the traffic-light row. */
+     that strip into the logo row and centre it on the traffic lights and the
+     conversation title row (ui-layout --jan-frame-title-inset + 15 from the
+     window top; the strip's box starts 5px above the card's top edge). */
   html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div:has(> [data-window-drag] > [data-sidebar-toggle]) { position: relative; }
   html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div > [data-window-drag]:has(> [data-sidebar-toggle]) {
-    position: absolute; top: 6px; right: 10px; height: 40px; display: flex; align-items: center; z-index: 1;
+    position: absolute; top: calc(var(--jan-frame-title-inset, 10px) + 1px - var(--jt-sidebar-gap)); right: 12px; height: 40px; display: flex; align-items: center; z-index: 1;
   }
+  /* Back and Forward are off by default (General -> Back and forward buttons).
+     The collapsed macOS seat then holds two controls, sidebar and new chat, so
+     the title clears 96 + 28 + 8 + 28 + 8 (ui-layout AppFrame leading seat). */
+  html[data-jan-theme][data-jt-hide-navigation] [data-navigation] { display: none; }
+  html[data-jan-theme][data-jt-hide-navigation][data-jan-theme-mac] [data-slot='root'] > [data-sidebar-collapsed] { --jan-frame-leading-clearance: 168px; }
+  html[data-jan-theme][data-jt-hide-navigation][data-jan-theme-mac][data-fullscreen] [data-slot='root'] > [data-sidebar-collapsed] { --jan-frame-leading-clearance: 84px; }
+  /* Sidebar rhythm from Jan Desktop v04 ("Chat + Cowork merged"), in card
+     coordinates: icons at x 19, labels at x 46, shortcuts end 19 from the
+     right edge, 38px rows on a 40px pitch, and the first row centred 57px
+     under the traffic lights. Chat titles carry no icon, so they start on the
+     icon column; a running Session's status dots still take their slot. */
+  html[data-jan-theme][data-jan-theme-mac] { --jt-sidebar-gap: 11px; }
+  html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div > :has([data-slot='sidebar.brand.name']) { margin-bottom: 18px; }
+  /* Fullscreen hides the traffic lights, so the logo row neither clears them nor keeps the
+     57px rhythm under them: the toggle strip rides that row (the strip's -6px margin cancels
+     the card's 6px top padding), and the first row follows at the stock 8px. */
+  html[data-jan-theme][data-jan-theme-mac][data-fullscreen] [data-slot='sidebar'] > div > :has([data-slot='sidebar.brand.name']) { padding-left: 4px; margin-bottom: 8px; }
+  html[data-jan-theme][data-jan-theme-mac][data-fullscreen] [data-slot='sidebar'] > div > [data-window-drag]:has(> [data-sidebar-toggle]) { top: 6px; }
+  /* Jan's SidebarMenu rhythm: 32px rows 4px apart. The rows sit in the sidebar's flex column, not a nav, so the margin carries the gap. */
+  /* Sidebar columns, shared by every row: icons on 28-44 (centre 36), labels at 52, trailing ink
+     ending on the chat times' line (row edge - 10px). The shortcut keys end there too. "Chats"
+     starts on the icon column's edge. */
+  html[data-jan-theme] .jt-nav-row:not([class*='rail']) { height: 32px; padding: 0 10px 0 8px; gap: 8px; margin: 0 0 4px; }
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='workspace:'] { padding-inline-start: calc(8px - var(--jan-sidebar-paint-inset)); gap: 8px; }
+  html[data-jan-theme] [data-slot='sidebar'] button[class*='_login'] { padding-inline-start: calc(8px - var(--jan-sidebar-paint-inset)); }
+  /* The More launcher matches these rows (see the panelRow rule below). */
+  html[data-jan-theme] [data-slot='sidebar'] nav { gap: 4px; }
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] { height: 32px; padding-inline-start: calc(7px + var(--jan-workspace-indent, 0px)); }
+  /* Jan's sidebar ink: labels in --sidebar-foreground, icons and the group label at 70%
+     of it, shortcut hints in --muted-foreground. */
+  html[data-jan-theme] [data-slot='sidebar'] { --jt-side-label: oklch(0.145 0 0); --jt-side-icon: oklch(0.145 0 0 / 70%); --jt-side-muted: oklch(0.556 0 0); }
+  html[data-jan-theme] body[data-ds-dark-theme] [data-slot='sidebar'] { --jt-side-label: oklch(0.985 0 0); --jt-side-icon: oklch(0.985 0 0 / 70%); --jt-side-muted: oklch(0.708 0 0); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row,
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'],
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='workspace:'],
+  html[data-jan-theme] [data-slot='sidebar'] button[aria-haspopup='menu'][class*='panelRow'],
+  html[data-jan-theme] [data-slot='sidebar'] .jt-footer-action { color: var(--jt-side-label); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row > svg,
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='workspace:'] svg:not([data-color] svg),
+  html[data-jan-theme] [data-slot='sidebar'] .jt-footer-action > svg { color: var(--jt-side-icon); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row[aria-current='page'] > svg { color: var(--jt-side-label); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-list-heading { font-size: 12px; font-weight: 500; color: var(--jt-side-icon); }
+  /* Jan sets the shortcut keys in text-xs inside a 90% group; scaling keeps the size on Mimi's scale. */
+  html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row [class*='shortcut'] { font-size: 12px; transform: scale(0.9); transform-origin: right center; color: var(--jt-side-muted); }
+  html[data-jan-theme] [data-slot='sidebar'] [data-machine-tag],
+  html[data-jan-theme] [data-slot='sidebar'] [data-machine-tag] svg { color: var(--jt-side-muted); }
+  /* Hover motions copied from Jan's animated icons: each plays once per hover entry and ends at rest. */
+  html[data-jan-theme] .jt-nav-icon { display: inline-flex; flex: none; color: var(--jt-side-icon); transform-origin: center; transition: scale 150ms ease; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='chat'] { animation: jt-anim-chat 0.5s ease-in-out; scale: 1.05; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='search'] { animation: jt-anim-search 1s ease; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='box'],
+  html[data-jan-theme] [data-slot='sidebar'] button[aria-haspopup='menu'][class*='panelRow']:hover [class*='panelGlyph'] { animation: jt-anim-box 0.45s ease-in-out; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='folder'] { animation: jt-anim-folder 0.6s ease-in-out; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='home'] { animation: jt-anim-home 0.45s ease-in-out; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='shake'] { animation: jt-anim-shake 0.5s ease-in-out; }
+  html[data-jan-theme] .jt-nav-icon[data-jt-anim='spin'] { transition: rotate 600ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='spin'] { rotate: 180deg; }
+  @keyframes jt-anim-chat { 0%, 100% { transform: rotate(0); } 33% { transform: rotate(-7deg); } 66% { transform: rotate(7deg); } }
+  @keyframes jt-anim-search { 0%, 100% { transform: translate(0, 0); } 33% { transform: translate(0, -4px); } 66% { transform: translate(-3px, 0); } }
+  @keyframes jt-anim-box { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-7deg); } }
+  @keyframes jt-anim-folder { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 50% { transform: rotate(6deg); } 75% { transform: rotate(-4deg); } }
+  @keyframes jt-anim-home { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-1px) rotate(-5deg); } }
+  @keyframes jt-anim-shake { 0%, 100% { transform: rotate(0); } 33% { transform: rotate(-5deg); } 66% { transform: rotate(5deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    html[data-jan-theme] .jt-nav-icon, html[data-jan-theme] [data-slot='sidebar'] [class*='panelGlyph'] { animation: none !important; transition: none !important; }
+  }
+  /* Grouped lists: a folder's chats start under its name, not under its icon, so the grouping
+     reads at a glance. Only a section headed by a folder row gets it; the flat list stays flush. */
+  html[data-jan-theme] [data-slot='sidebar'] :has(> * > [data-row-key^='workspace:']) > * > [data-row-key^='session:'] {
+    padding-inline-start: calc(7px + 16px + var(--jan-sidebar-label-gap, 6px) + var(--jan-workspace-indent, 0px));
+  }
+  /* "Show N more": its chevron centred on the icon column, its label on the chats' title column. */
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='overflow:'] {
+    padding-inline-start: calc(5px + var(--jan-workspace-indent, 0px)); gap: 2px; color: var(--jt-side-muted);
+  }
+  @media (hover: hover) { html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='overflow:']:hover { color: var(--jt-side-label); } }
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] > span:first-child:has(> [data-slot='sidebar.session.row.leading']:only-child:empty) { display: none; }
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] > span:first-child:has(> [data-slot='sidebar.session.row.leading']:only-child:empty) + span { margin-inline-start: 0; }
   html[data-jan-theme] [data-slot='sidebar.brand.name'] .jt-name { font-size: 14px; }
   html[data-jan-theme] [data-slot='sidebar'] [data-sidebar-toggle] {
     position: relative;
@@ -441,58 +941,108 @@ window.__ModuleLoader__.load({
     margin: 0 3px 2px;
     padding: 7px 9px;
     border: 0;
-    border-radius: 6px;
+    border-radius: 12px;
     background: transparent;
     box-shadow: none;
     font-weight: 400;
   }
   html[data-jan-theme] [data-slot='sidebar'] > div > button > span:first-child > span { width: auto; justify-content: flex-start; gap: 8px; }
-  html[data-jan-theme] [data-slot='sidebar'] > div > button > span:last-child:not(:first-child) { opacity: 1; color: var(--dsw-alias-label-secondary); font-size: 11px; }
+  html[data-jan-theme] [data-slot='sidebar'] > div > button > span:last-child:not(:first-child) { opacity: 1; color: var(--dsw-alias-label-secondary); font-size: 10px; font-weight: 500; }
   html[data-jan-theme] [data-slot='sidebar'] nav { margin: 0 0 12px; }
-  html[data-jan-theme] [data-slot='sidebar'] nav > button, html[data-jan-theme] [data-slot='sidebar'] nav > div > button { min-height: 36px; border-radius: 6px; }
+  html[data-jan-theme] [data-slot='sidebar'] nav > button, html[data-jan-theme] [data-slot='sidebar'] nav > div > button { min-height: 32px; border-radius: 12px; }
   /* Jan has no panel launchers above the chat list. Plugins and Model Hub move
      to the footer; every remaining management page stays reachable through the
      native More menu, whose trigger keeps aria-haspopup. Without that trigger
      the rows stay so no page loses its only destination. */
   html[data-jan-theme] [data-slot='sidebar'] nav[aria-label]:has(button[aria-haspopup]) > button[aria-label]:not([aria-haspopup]),
   html[data-jan-theme] [data-slot='sidebar'] nav[aria-label]:has(button[aria-haspopup]) > div:has(> button[aria-label]):not(:has(button[aria-haspopup])) { display: none; }
-  html[data-jan-theme] [data-row-key^='session:'] { min-height: 36px; }
+  html[data-jan-theme] [data-row-key^='session:'] { min-height: 32px; }
   /* Jan lists a chat once it has a message; New Chat already reaches the blank
      session, so its "New Session" row reads as a duplicate. */
   html[data-jan-theme] [data-row-key^='session:'][data-blank] { display: none; }
   /* Jan's sidebar paints a gradient, while the native list fade fades to a
      single sidebar-fill colour: either choice paints a hard-edged band across
      the last row (blue with the accent, grey with the base). Drop the overlay;
-     the list keeps its own clip. */
-  html[data-jan-theme] [data-slot='sidebar.workspaces'] > div > div > div:has([role='tree']) > span:last-child { display: none; }
+     the list keeps its own clip. Sibling combinators, not ":has(...) > span": that shape restyled
+     the whole window for every element streamed into the chat. */
+  html[data-jan-theme] [data-slot='sidebar.workspaces'] > div > div > div > [role='tree'] ~ span:last-child { display: none; }
   /* The shell's sidebar-wide fade above the footer has the same single-colour band. */
-  html[data-jan-theme] [data-slot='sidebar'] > div > div:has([data-slot='sidebar.workspaces']) > span[aria-hidden='true']:last-child { display: none; }
+  html[data-jan-theme] [data-slot='sidebar'] > div > div > :has([data-slot='sidebar.workspaces']) + span[aria-hidden='true']:last-child { display: none; }
+  /* Without it the scroll area cut the last chat row in half above the footer.
+     A mask fades the rows themselves, so it works over any sidebar fill; the
+     padding lets the final row scroll clear of the fade. */
+  html[data-jan-theme] [data-slot='sidebar'] div:has(> div > [data-slot='sidebar.workspaces']) {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+    padding-bottom: 20px;
+  }
   /* The stock More launcher keeps its own 32px / 12px-radius pill; Jan draws
      it as one more nav row so the column has a single row rhythm. */
-  html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 36px; padding: 0 8px; border-width: 0; border-radius: 6px; gap: 8px; }
+  html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 32px; padding: 0 8px; border-width: 0; border-radius: 12px; gap: 8px; line-height: 20px; }
+  /* More is the next row of the nav, on the same 40px pitch and with the same
+     secondary icon ink, not a separate group 12px further down. */
+  html[data-jan-theme] [data-slot='sidebar'] [class*='scrollRegion'] { margin-top: 0; }
+  html[data-jan-theme] [data-slot='sidebar'] [class*='scrollArea'] { grid-template-rows: 0 max-content 2px max-content; }
+  html[data-jan-theme] button[aria-haspopup='menu'][class*='panelRow'] [class*='panelGlyph'] { color: var(--jt-side-icon); }
   /* Projects page. */
   .jt-projects { box-sizing: border-box; width: 100%; max-width: 880px; margin: 0 auto; padding: 48px 32px; color: var(--dsw-alias-label-primary); }
   .jt-projects-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-  .jt-projects-head h1 { margin: 0; font-size: 28px; font-weight: 500; line-height: 36px; }
+  .jt-projects-head h1 { margin: 0; font-size: 24px; font-weight: 500; line-height: 32px; }
   .jt-projects-head button { display: inline-flex; align-items: center; gap: 6px; }
   .jt-projects-lede { margin: 4px 0 24px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
   .jt-projects-error { margin: -12px 0 20px; color: var(--dsw-alias-state-error-primary); font-size: 14px; line-height: 20px; }
-  .jt-projects-search { display: flex; align-items: center; gap: 8px; height: 40px; margin-bottom: 20px; padding: 0 12px; border: 1px solid var(--dsw-alias-border-primary, var(--dsw-alias-separator)); border-radius: 8px; color: var(--dsw-alias-label-secondary); }
-  .jt-projects-search:focus-within { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -1px; }
-  .jt-projects-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; }
-  .jt-projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+  .jt-projects-sort { flex: none; display: inline-flex; align-items: center; gap: 4px; }
+  .jt-projects-sort-label { color: var(--dsw-alias-label-tertiary); }
+  .jt-projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+  .jt-projects-grid > li { display: grid; min-width: 0; }
+  .jt-project-tile { display: grid; gap: 8px; align-content: start; justify-items: start; box-sizing: border-box; width: 100%; min-width: 0; min-height: 132px; padding: 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); color: inherit; font: inherit; text-align: start; cursor: pointer; transition: transform .18s cubic-bezier(.2, .8, .2, 1), border-color .18s, box-shadow .18s; }
+  .jt-project-tile:hover { transform: translateY(-2px); border-color: var(--dsw-alias-border-l4); box-shadow: 0 8px 20px color-mix(in oklab, hsl(var(--jt-hue) 60% 45%) 18%, transparent); }
+  .jt-project-tile:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); }
+  .jt-project-tile > span { max-width: 100%; min-width: 0; }
+  .jt-project-tile-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; font-weight: 500; line-height: 22px; }
+  /* rtl clips from the left so the folder name at the end stays visible. */
+  .jt-project-tile-path { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; direction: rtl; text-align: left; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; }
+  .jt-project-tile-meta { margin-top: auto; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 18px; }
+  .jt-project-add { min-height: 132px; align-content: center; width: 100%; box-sizing: border-box; }
+  .jt-project-add small { color: var(--dsw-alias-label-tertiary); font-size: 12px; }
+  .jt-projects .jt-agent-empty p { margin: 0; max-width: 42ch; }
+  @media (prefers-reduced-motion: reduce) { .jt-project-tile { transition: none; } .jt-project-tile:hover { transform: none; } }
+  /* List view: one tile per row, the picture leading, title and path stacked, facts at the end. */
+  .jt-projects-grid[data-view='list'] { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .jt-projects-grid[data-view='list'] .jt-project-tile { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; row-gap: 0; align-items: center; min-height: 0; padding: 10px 14px; }
+  .jt-projects-grid[data-view='list'] .jt-project-tile > :first-child { grid-row: 1 / 3; }
+  .jt-projects-grid[data-view='list'] .jt-project-tile-title { grid-column: 2; }
+  .jt-projects-grid[data-view='list'] .jt-project-tile-path { grid-column: 2; width: 100%; }
+  .jt-projects-grid[data-view='list'] .jt-project-tile-meta { grid-column: 3; grid-row: 1 / 3; margin-top: 0; }
+  .jt-projects-grid[data-view='list'] .jt-project-add { min-height: 0; padding: 12px 14px; grid-auto-flow: column; justify-content: start; align-items: center; gap: 8px; }
   .jt-projects-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 64px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; }
   @media (max-width: 600px) { .jt-projects { padding: 24px 16px; } }
   /* Project home: the main column (title, composer, recents) and a details rail. */
   .jt-project { box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 40px; width: 100%; max-width: 1120px; margin: 0 auto; padding: 40px 32px 48px; color: var(--dsw-alias-label-primary); }
-  .jt-project-back { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 12px -6px; padding: 2px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; line-height: 20px; cursor: pointer; }
+  .jt-project-back { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 12px -6px; padding: 2px 6px; border: 0; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; line-height: 20px; cursor: pointer; }
   .jt-project-back:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
   @media (hover: hover) { .jt-project-back:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); } }
-  .jt-project-title { margin: 0; font-size: 28px; font-weight: 500; line-height: 36px; overflow-wrap: anywhere; }
+  .jt-project-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .jt-project-avatar { flex: none; display: inline-grid; place-items: center; margin-right: 4px; padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; cursor: pointer; }
+  .jt-project-avatar:hover { box-shadow: 0 0 0 3px var(--dsw-specific-selector); background: var(--dsw-specific-selector); }
+  .jt-project-avatar:focus-visible { outline: 2px solid var(--dsw-alias-focus-ring, currentColor); outline-offset: 2px; }
+  .jt-project-title { margin: 0; min-width: 0; font-size: 24px; font-weight: 500; line-height: 32px; overflow-wrap: anywhere; }
   .jt-project-path { margin: 4px 0 24px; color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
+  .jt-project-path-row { display: flex; align-items: center; gap: 2px; margin: 4px 0 24px; min-width: 0; }
+  /* One line that keeps the end of the path: the folder names the project, so a long parent path gives way at its start. */
+  .jt-project-path-row .jt-project-path { margin: 0 6px 0 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; direction: rtl; text-align: left; }
+  .jt-project-path-action { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--dsw-alias-label-tertiary); cursor: pointer; }
+  .jt-project-path-action:hover { background: var(--dsw-specific-selector); color: var(--dsw-alias-label-primary); }
+  .jt-project-path-action[data-done] { color: var(--dsw-alias-label-primary); }
+  .jt-project-git { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -16px 0 24px; }
+  .jt-project-git-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; height: 26px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 999px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12px; line-height: 16px; text-decoration: none; }
+  .jt-project-git-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jt-project-git-chip svg { flex: none; }
+  a.jt-project-git-chip { cursor: pointer; }
+  a.jt-project-git-chip:hover { background: var(--dsw-specific-selector); color: var(--dsw-alias-label-primary); }
+  a.jt-project-git-chip:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
   .jt-project-composer { display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 10px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); }
   .jt-project-composer:focus-within { border-color: var(--dsw-alias-state-business-primary); }
-  .jt-project-composer textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 240px; padding: 4px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 15px; line-height: 22px; field-sizing: content; }
+  .jt-project-composer textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 240px; padding: 4px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; field-sizing: content; }
   .jt-project-composer textarea::placeholder { color: var(--dsw-alias-label-tertiary); }
   .jt-project-composer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .jt-project-hint { color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
@@ -502,12 +1052,15 @@ window.__ModuleLoader__.load({
   .jt-project-recents { margin-top: 32px; }
   .jt-project-heading { margin: 0 0 8px; color: var(--dsw-alias-label-secondary); font-size: 13px; font-weight: 500; line-height: 20px; }
   .jt-project-sessions { margin: 0; padding: 0; list-style: none; border-top: 0.5px solid var(--dsw-alias-border-l2); }
-  .jt-project-session { display: flex; align-items: baseline; gap: 12px; width: 100%; padding: 12px 4px; border: 0; border-bottom: 0.5px solid var(--dsw-alias-border-l2); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-  .jt-project-session:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; border-radius: 6px; }
+  .jt-project-sessions > li { border-bottom: 0.5px solid var(--dsw-alias-border-l2); }
+  /* Text sits on the column's lines; the hover fill reaches 8px past them on each side. */
+  .jt-project-session { display: flex; align-items: baseline; gap: 12px; box-sizing: content-box; width: 100%; margin: 0 -8px; padding: 12px 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .jt-project-session:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; border-radius: 12px; }
   @media (hover: hover) { .jt-project-session:hover { background: var(--dsw-alias-interactive-bg-hover); } }
   .jt-project-session-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 20px; }
   .jt-project-session-date { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
-  .jt-project-empty { margin: 0; padding: 20px 4px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
+  .jt-project-session-status { display: inline-flex; flex: none; align-items: center; gap: 6px; align-self: center; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 16px; }
+  .jt-project-empty { margin: 0; padding: 20px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
   .jt-project-rail { display: flex; flex-direction: column; gap: 12px; align-self: start; position: sticky; top: 24px; }
   .jt-project-card { padding: 14px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; }
   .jt-project-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -536,12 +1089,12 @@ window.__ModuleLoader__.load({
   @media (max-width: 600px) { .jt-project { padding: 24px 16px; } }
   /* Startup failure notices: a bottom-right stack, newest last. */
   .jt-startup { position: absolute; right: 16px; bottom: 16px; z-index: 40; display: flex; flex-direction: column; gap: 8px; width: min(380px, calc(100% - 32px)); pointer-events: none; }
-  .jt-startup-card { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; column-gap: 12px; padding: 14px 12px 14px 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; background: var(--dsw-alias-bg-base); box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); color: var(--dsw-alias-label-primary); pointer-events: auto; animation: jt-startup-in 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+  .jt-startup-card { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; column-gap: 12px; padding: 14px 12px 14px 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); color: var(--dsw-alias-label-primary); pointer-events: auto; animation: jt-startup-in 200ms cubic-bezier(0.23, 1, 0.32, 1); }
   .jt-startup-glyph { padding-top: 1px; color: var(--dsw-alias-state-warning-primary, #d99a00); }
   .jt-startup-title { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; overflow-wrap: anywhere; }
   .jt-startup-text { margin: 2px 0 0; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); text-wrap: pretty; }
   .jt-startup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-  .jt-startup-close { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
+  .jt-startup-close { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 999px; corner-shape: round; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
   .jt-startup-close:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
   @media (hover: hover) { .jt-startup-close:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); } }
   @keyframes jt-startup-in { from { opacity: 0; transform: translateY(8px); } }
@@ -553,7 +1106,7 @@ window.__ModuleLoader__.load({
   /* Two shared axes: icons start 20px in (row glyph boxes sit 18px in with 2px of slack), text starts 48px in. */
   .jt-palette-field, .jt-palette-tabs, .jt-palette-footer { flex: none; }
   .jt-palette-field { display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 20px; border-bottom: 0.5px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-tertiary); }
-  .jt-palette-field input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 15px; line-height: 22px; }
+  .jt-palette-field input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; }
   .jt-palette-field input::placeholder { color: var(--dsw-alias-label-tertiary); }
   .jt-palette-tabs { display: flex; gap: 4px; padding: 10px 8px 2px; overflow-x: auto; scrollbar-width: none; }
   .jt-palette-tab { flex: none; height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; cursor: pointer; }
@@ -573,17 +1126,26 @@ window.__ModuleLoader__.load({
   .jt-palette-empty { margin: 0; padding: 32px 12px; color: var(--dsw-alias-label-secondary); font-size: 14px; text-align: center; }
   .jt-palette-footer { display: flex; gap: 16px; padding: 10px 18px; border-top: 0.5px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
   .jt-palette-footer span { display: inline-flex; align-items: center; gap: 4px; }
-  .jt-palette-footer kbd { min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 4px; background: var(--dsw-alias-bg-module-platform); font: inherit; font-size: 11px; line-height: 18px; text-align: center; }
+  .jt-palette-footer kbd { min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 4px; background: var(--dsw-alias-bg-module-platform); font: inherit; font-size: 10px; line-height: 18px; text-align: center; }
   /* Jan's "Chats" heading. The browser-owned search and view-options nodes stay
      mounted inside it; only their presentation folds while search is open. */
-  .jt-list-header { flex: none; display: flex; align-items: center; gap: 4px; height: 36px; margin: 2px -4px 4px 0; padding-left: var(--jan-sidebar-row-padding, 12px); color: var(--dsw-alias-label-tertiary); }
-  .jt-list-tools { display: flex; align-items: center; gap: 4px; min-width: 0; margin-left: auto; }
-  .jt-list-actions { display: flex; align-items: center; }
+  /* Jan Desktop v04: the heading sits 56px (centre to centre) under the last
+     nav row and 35px over the first chat. */
+  /* The header shares the project rows' columns: "Chats" starts on the icon column, and its 28px
+     buttons sit on the rows' 29px action pitch, centred over the chevron, more and new-chat icons. */
+  .jt-list-header { flex: none; display: flex; align-items: center; gap: 4px; height: 36px; margin: 5px 5px -2px 0; padding-left: 8px; color: var(--dsw-alias-label-tertiary); }
+  .jt-list-tools { display: flex; align-items: center; gap: 1px; min-width: 0; margin-left: auto; }
+  .jt-list-actions { display: flex; align-items: center; gap: 1px; }
   .jt-list-header[data-search-expanded] .jt-list-heading, .jt-list-header[data-search-expanded] .jt-list-actions { display: none; }
   .jt-list-header[data-search-expanded] .jt-list-tools { flex: 1; }
+  .jt-list-add { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
+  .jt-list-add:hover { background: var(--dsw-specific-selector); color: var(--dsw-alias-label-primary); }
+  .jt-list-add:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
   /* Jan's row under the composer: model and context reading at the right,
      text-only model trigger. The composer card keeps no second selector. */
-  html[data-jan-theme] [data-composer-dock] { box-sizing: border-box; width: 100%; max-width: var(--jan-composer-card-max-width); padding-inline: 12px; justify-content: flex-end; }
+  /* The 6px start pad plus each ghost trigger's 8px put the row's first label on the composer
+     text edge (card + 14); with no end pad the last reading ends on the send button's edge. */
+  html[data-jan-theme] [data-composer-dock] { box-sizing: border-box; width: 100%; max-width: var(--jan-composer-card-max-width); padding-inline: 6px 0; justify-content: flex-end; }
   html[data-jan-theme] [data-composer-dock] button[aria-haspopup='menu'] > svg:first-child { display: none; }
   /* The dock seat has no composer measurement: let its trigger shrink with
      the seat so a long model name ellipsizes instead of running under the ring. */
@@ -593,25 +1155,41 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-chat-running-mark] { background: currentColor; -webkit-mask: url('/jan-theme/assets/hand-wave.svg') center / contain no-repeat; mask: url('/jan-theme/assets/hand-wave.svg') center / contain no-repeat; }
   html[data-jan-theme] [data-chat-running-mark] > * { display: none; }
   .jt-hero-title { width: 100%; margin: 0 0 16px; font-family: 'StudioFeixenSans', 'Inter', sans-serif; font-size: 24px; font-weight: 500; line-height: 32px; color: var(--dsw-alias-label-primary); text-align: center; text-wrap: balance; }
-.jt-footer-action { width: 100%; min-height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; text-align: left; cursor: pointer; }
+.jt-footer-action { width: 100%; min-height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border: 0; border-radius: 12px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; text-align: left; cursor: pointer; }
 .jt-footer-action > svg { flex: none; color: var(--dsw-alias-label-secondary); }
 .jt-footer-action:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
 .jt-footer-action:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
 .jt-footer-action[data-rail] { justify-content: center; padding-inline: 0; }
 .jt-menu-entry { display: flex; align-items: center; gap: 8px; width: 100%; }
+.jt-sidebar-editor-lede { margin: 0 0 16px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
+.jt-sidebar-editor-heading { margin: 20px 0 8px; }
+/* Edit sidebar's footer choices. Settings stays reachable from its shortcut and the Application menu. */
+html[data-sidebar-hide-login] [data-account-login] { display: none; }
+html[data-sidebar-hide-settings] [data-account-launcher] { display: none; }
+.jt-sidebar-editor { display: flex; flex-direction: column; gap: 4px; touch-action: none; }
+.jt-sidebar-editor-item { display: flex; align-items: center; gap: 8px; margin: 0 -8px; padding: 0 8px; border-radius: var(--dsw-radius-md); }
+.jt-sidebar-editor-item[data-dragging] { background: var(--dsw-alias-interactive-bg-hover); }
+.jt-sidebar-editor .jt-sidebar-editor-row { flex: 1; min-width: 0; gap: 12px; min-height: 32px; }
+.jt-sidebar-editor .jt-sidebar-editor-row svg { display: block; }
+.jt-sidebar-editor-grip { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-inline-end: -9px; padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--dsw-alias-label-tertiary); cursor: grab; }
+.jt-sidebar-editor-grip:hover { color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-interactive-bg-hover); }
+.jt-sidebar-editor-grip:focus-visible { outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: -2px; }
+.jt-sidebar-editor-item[data-dragging] .jt-sidebar-editor-grip { cursor: grabbing; color: var(--dsw-alias-label-secondary); }
 .jt-artwork { color: var(--dsw-alias-label-primary); }
 .jt-menu-check { flex: none; margin-left: auto; color: var(--dsw-alias-state-business-primary); }
 /* Native titlebar rules need to outrank the shell's platform rules; they never touch
    third-party panel or composer contents. The shell's track motion stays. */
-html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]) { padding-top: 0; }
-html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]) > :has([data-slot='main']),
-html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]) > [data-rightbar-col] { padding-top: var(--jan-windows-titlebar-height); }
+html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > [data-shell-frame] { padding-top: 0; }
+html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > [data-shell-frame] > [data-shell-center],
+html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > [data-shell-frame] > [data-rightbar-col] { padding-top: var(--jan-windows-titlebar-height); }
 /* The inset sidebar card starts below the caption, where the history buttons and menubar sit. */
-html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]):not([data-sidebar-collapsed]):not([data-sidebar-drawer]) > :has(> [data-slot='sidebar']) { margin-top: var(--jan-windows-titlebar-height); }
-/* The expanded card carries its own toggle, so the caption starts with Back at the toggle's seat. */
-html[data-jan-theme][data-windows-titlebar]:not(:has([data-sidebar-collapsed])) { --jan-windows-menu-start: 84px; }
-html[data-jan-theme][data-windows-titlebar]:not(:has([data-sidebar-collapsed])) [data-slot='sidebar'] [data-navigation='back'] { left: 12px; }
-html[data-jan-theme][data-windows-titlebar]:not(:has([data-sidebar-collapsed])) [data-slot='sidebar'] [data-navigation='forward'] { left: 48px; }
+html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > [data-shell-frame]:not([data-sidebar-collapsed]):not([data-sidebar-drawer]) > [data-shell-sidebar] { margin-top: var(--jan-windows-titlebar-height); }
+/* The expanded card carries its own toggle, so the caption starts with the menus at the window edge;
+   Back and Forward follow them from the shell's --jan-windows-menu-end. */
+html[data-jan-theme][data-windows-titlebar]:not(:has([data-sidebar-collapsed])) { --jan-windows-menu-start: 12px; }
+/* With Back and Forward hidden, the collapsed caption seat holds only the toggle:
+   12px seat offset + 28px toggle + 8px gap (ui-sidebar reserves 156px for its full set). */
+html[data-jan-theme][data-jt-hide-navigation][data-windows-titlebar]:has([data-sidebar-collapsed='true']) { --jan-windows-menu-start: 48px; }
 /* Guide labels remain readable when shortcut hints consume a narrow card. */
 html[data-jan-theme] [data-sidebar-right-guide-entry='files'] > span:nth-child(2) > span,
 html[data-jan-theme] [data-sidebar-right-guide-entry='terminal'] > span:nth-of-type(2) > span:last-child { white-space: normal; overflow-wrap: anywhere; }
@@ -629,10 +1207,48 @@ html[data-jan-theme] [data-sidebar-right-panel] button[aria-haspopup='menu'] > s
    the panel itself so both normal and fullscreen chrome stay below it. */
 html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: var(--jan-windows-titlebar-height); }
 
+/* Terminal reading style (Settings > General > Reading style). Every rule sits under
+   data-jt-reading, which only the Terminal choice sets, so Standard renders exactly as before. */
+html[data-jan-theme][data-jt-reading='terminal'] {
+  --jt-term-font: 'SF Mono', ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+html[data-jan-theme][data-jt-reading='terminal'] :is([data-slot='conversation.chat.flow'], [data-trajectory-scroll]),
+html[data-jan-theme][data-jt-reading='terminal'] :is([data-slot='conversation.chat.flow'], [data-trajectory-scroll]) * { font-family: var(--jt-term-font); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :is(h1, h2, h3, h4, h5, h6) { color: var(--jt-term-heading); font-weight: 700; letter-spacing: 0; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] h1 { font-size: 1.2em; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] h2 { font-size: 1.1em; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :is(h3, h4, h5, h6) { font-size: 1em; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] h1::before { content: '# '; color: var(--dsw-alias-label-tertiary); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] h2::before { content: '## '; color: var(--dsw-alias-label-tertiary); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] h3::before { content: '### '; color: var(--dsw-alias-label-tertiary); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :is(strong, b) { color: var(--jt-term-strong); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :is(h1, h2, h3, h4, h5, h6) code { color: inherit; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :not(pre) > code {
+  color: var(--dsw-alias-label-deep-diving); background: color-mix(in oklch, var(--dsw-alias-label-deep-diving) 9%, transparent); font-size: inherit;
+}
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] .md-code-block { border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; }
+/* Diff fences: the diff grammar colors lines through these shiki variables, which no other style defines. */
+html[data-jan-theme][data-jt-reading='terminal'] .md-code-block { --shiki-token-inserted: var(--jt-term-add); --shiki-token-deleted: var(--jt-term-del); }
+/* Tool calls and process steps: framed, with the tool name in the tool color. */
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] > [data-tool] {
+  border: 1px solid var(--dsw-alias-border-l2); border-left: 2px solid var(--jt-term-tool); border-radius: 6px; padding-inline: 8px;
+}
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] > [data-tool][data-state='error'] { border-left-color: var(--jt-term-del); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] [data-disclosure-row] [class*='_title_'] { color: var(--jt-term-tool); font-weight: 600; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-process-header] button { color: var(--jt-term-tool); }
+/* Metadata stays quiet: durations, token counts, sources, clocks and turn stats. */
+html[data-jan-theme][data-jt-reading='terminal'] :is([data-step-duration], [data-context-source], [data-context-tokens], [data-turn-usage-stat], [data-turn-process], [data-clock]) {
+  color: var(--dsw-alias-label-tertiary); font-family: var(--jt-term-font);
+}
+/* Trajectory: role tags read as colored text, not pills. */
+html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-role-kind] { background: none; padding-inline: 0; letter-spacing: 0; }
+
 `
 
     const svg = (d, size = 10) => h('svg', { width: size, height: size, viewBox: '0 0 10 10', fill: 'none', stroke: 'currentColor', strokeWidth: 1 }, d)
-    const Name = () => h('span', { className: 'jt-name' }, 'Jan')
+    // The macOS desktop keeps its traffic lights where the label would sit, and
+    // the earlier Jan app shows no title there, so the seat stays empty.
+    const Name = () => mac ? null : h('span', { className: 'jt-name' }, 'Jan')
 
     function TitleBar() {
       const [maximized, setMaximized] = React.useState(false)
@@ -653,22 +1269,33 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
 
     const SidebarMark = () => h('span', { className: 'jt-sidebar-mark', 'aria-hidden': true })
 
+    // Jan's hover motion per destination (see the jt-anim-* keyframes); other pages shake.
+    const NAV_ANIMATIONS = { newChat: 'chat', search: 'search', 'jan-model-hub': 'box', plugins: 'spin', 'jt-projects': 'folder', artifacts: 'home' }
+    const navIcon = (id, icon) => h('span', { className: 'jt-nav-icon', 'data-jt-anim': NAV_ANIMATIONS[id] ?? 'shake', 'aria-hidden': true }, icon)
+
     const NewSession = ({ wide, onStart, shortcutKeys, shortcutAria, t }) => h(NavRow, {
-      icon: h(wide ? IconNewChatOutlineMedium : IconNewChatOutlineRegular, { size: wide ? 16 : 18 }),
-      label: t('newChat'), shortcutKeys, shortcutAria, rail: !wide, onClick: onStart,
+      icon: navIcon('newChat', h(wide ? IconNewChatOutlineMedium : IconNewChatOutlineRegular, { size: wide ? 16 : 18 })),
+      label: t('newChat'), shortcutKeys, shortcutAria, rail: !wide, onClick: onStart, className: 'jt-nav-row',
     })
 
-    // Search, Projects, Artifacts and Plugins follow New chat (Claude's order).
-    // Each destination with something to create carries a hover "+" for it.
+    // New chat and Search always show. The pages below follow them only while
+    // pinned (Edit sidebar...); unpinned ones live in the More menu.
     function WorkspaceActions({
       wide, onSearch, searchShortcut, usePanelInfo, usePluginsAvailable, useArtifactsAvailable, useScheduledAvailable,
-      openPanel, addProject, newChat, createPlugin, t,
+      useHubAvailable, useHostsAvailable, useOtherPanels, openPanel, addProject, newChat, createPlugin, renderFactorySlot, t,
     }) {
       const active = usePanelInfo((info) => info.activePanelId)
-      const plugins = usePluginsAvailable((value) => value)
-      const artifacts = useArtifactsAvailable((value) => value)
-      const scheduled = useScheduledAvailable((value) => value)
+      const available = useDestinationsAvailable({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHostsAvailable })
+      const others = useOtherPanels((value) => value)
+      const pinned = useSidebarPins()
+      const order = useSidebarOrder()
+      const editing = useSidebarEditor()
       const size = wide ? 16 : 18
+      const quick = {
+        [PROJECTS_PANEL]: { label: t('newProject'), onClick: () => { void addProject() } },
+        [ARTIFACTS_PANEL]: { label: t('newArtifact'), onClick: newChat },
+        plugins: { label: t('createPlugin'), onClick: createPlugin },
+      }
       // The opening click must not reach the browser's outside-click dismissor.
       const requestSearch = (event) => {
         event.stopPropagation()
@@ -676,37 +1303,215 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       }
       return h(React.Fragment, null,
         h(NavRow, {
-          icon: h(IconSearchOutlineRegular, { size }),
+          icon: navIcon('search', h(wide ? IconSearchOutlineMedium : IconSearchOutlineRegular, { size })),
           label: t('search'), shortcutKeys: searchShortcut?.keys, shortcutAria: searchShortcut?.aria,
-          rail: !wide, onClick: requestSearch,
+          rail: !wide, onClick: requestSearch, className: 'jt-nav-row',
         }),
-        h(NavRow, {
-          icon: h(IconFolderCloseRegular, { size }), label: t('projects'), rail: !wide,
-          current: active === PROJECTS_PANEL, onClick: () => { openPanel(PROJECTS_PANEL) },
-          quick: { label: t('newProject'), onClick: () => { void addProject() } },
-        }),
-        artifacts && h(NavRow, {
-          icon: h(IconLayersOutlineRegular, { size }), label: t('artifacts'), rail: !wide,
-          current: active === ARTIFACTS_PANEL, onClick: () => { openPanel(ARTIFACTS_PANEL) },
-          quick: { label: t('newArtifact'), onClick: newChat },
-        }),
-        scheduled && h(NavRow, {
-          icon: h(IconClockOutlineRegular, { size }), label: t('scheduled'), rail: !wide,
-          current: active === SCHEDULED_PANEL, onClick: () => { openPanel(SCHEDULED_PANEL) },
-        }),
-        plugins && h(NavRow, {
-          icon: h(IconPluginPinwheelOutlineRegular, { size }), label: t('plugins'), rail: !wide,
-          current: active === 'plugins', onClick: () => { openPanel('plugins') },
-          quick: { label: t('createPlugin'), onClick: createPlugin },
-        }))
+        sortBySidebarOrder([
+          ...SIDEBAR_DESTINATIONS.filter(({ id }) => available[id] && pinned.includes(id)).map(({ id, Icon, WideIcon, label }) => ({
+            id, icon: h(wide ? WideIcon : Icon, { size }), label: t(label), quick: quick[id],
+          })),
+          ...others.filter(({ id }) => pinned.includes(id)).map(({ id, label }) => ({
+            id, icon: renderFactorySlot('sidebar.panel.icon', { id, size, active: active === id }), label,
+          })),
+        ], order).map(({ id, icon, label, quick: action }) => h(NavRow, {
+          key: id, icon: navIcon(id, icon), label, rail: !wide, className: 'jt-nav-row',
+          current: active === id, onClick: () => { openPanel(id) }, quick: action,
+        })),
+        editing && h(SidebarEditor, { available, others, pinned, renderFactorySlot, t }))
+    }
+
+    // A cube on Jan's 16px icon grid, in the Regular (1px) and Medium (1.3px)
+    // weights the product icons use, so Models carries the same size and ink as
+    // the sidebar's other line icons (More must not share it).
+    const cube = strokeWidth => ({ size }) => h('svg', {
+      width: size, height: size, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor',
+      strokeWidth, strokeLinejoin: 'round', 'aria-hidden': true, 'data-icon': 'jt-models',
+    }, h('path', { d: 'M8 1.5L14 4.75V11.25L8 14.5L2 11.25V4.75L8 1.5Z' }), h('path', { d: 'M2 4.75L8 8L14 4.75' }),
+      h('path', { d: 'M8 8V14.5' }))
+    const ModelsGlyph = cube(1)
+    const ModelsGlyphMedium = cube(1.3)
+
+    // The jan-hosts Settings section; its row appears only while that section is registered.
+    const HOSTS_SECTION = 'jan-hosts'
+    // Every destination Edit sidebar can pin, in sidebar order.
+    const SIDEBAR_DESTINATIONS = [
+      // Icon draws the rail; WideIcon, the Medium weight, draws the labelled rows.
+      { id: 'jan-model-hub', Icon: ModelsGlyph, WideIcon: ModelsGlyphMedium, label: 'hub' },
+      { id: 'plugins', Icon: IconPluginPinwheelOutlineRegular, WideIcon: IconPluginPinwheelOutlineMedium, label: 'customize' },
+      { id: 'jt-projects', Icon: IconFolderCloseRegular, WideIcon: IconFolderCloseMedium, label: 'projects' },
+      { id: 'artifacts', Icon: IconLayersOutlineRegular, WideIcon: IconLayersOutlineMedium, label: 'artifacts' },
+      { id: 'schedules', Icon: IconClockOutlineRegular, WideIcon: IconClockOutlineMedium, label: 'scheduled' },
+      // A Settings section, not a page: the row opens Settings at Hosts.
+      { id: HOSTS_SECTION, Icon: IconLinkOutlineRegular, WideIcon: IconLinkOutlineMedium, label: 'hosts' },
+    ]
+    const PINS_KEY = 'jan-theme.sidebar.pinned'
+    const DEFAULT_PINS = ['jan-model-hub', 'plugins', 'jan-always-on']
+    const readPins = () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem(PINS_KEY) ?? 'null')
+        return Array.isArray(stored) ? stored.filter(id => typeof id === 'string') : DEFAULT_PINS
+      } catch { return DEFAULT_PINS }
+    }
+    let sidebarPins = readPins()
+    let sidebarEditorOpen = false
+    const sidebarListeners = new Set()
+    const notifySidebar = () => { for (const listener of sidebarListeners) listener() }
+    const subscribeSidebar = (listener) => { sidebarListeners.add(listener); return () => { sidebarListeners.delete(listener) } }
+    const setSidebarPinned = (id, pin) => {
+      sidebarPins = pin ? [...sidebarPins.filter(entry => entry !== id), id] : sidebarPins.filter(entry => entry !== id)
+      try { localStorage.setItem(PINS_KEY, JSON.stringify(sidebarPins)) } catch { /* the choice still holds for this window */ }
+      notifySidebar()
+    }
+    // Sidebar order: every page Edit sidebar lists, by id; ids it has never seen
+    // keep their built-in order after the stored ones.
+    const ORDER_KEY = 'jan-theme.sidebar.order'
+    const readOrder = () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem(ORDER_KEY) ?? 'null')
+        return Array.isArray(stored) ? stored.filter(id => typeof id === 'string') : []
+      } catch { return [] }
+    }
+    let sidebarOrder = readOrder()
+    const setSidebarOrder = (ids) => {
+      sidebarOrder = ids
+      try { localStorage.setItem(ORDER_KEY, JSON.stringify(ids)) } catch { /* the order still holds for this window */ }
+      notifySidebar()
+    }
+    const sortBySidebarOrder = (rows, order) => rows
+      .map((row, index) => ({ row, rank: order.includes(row.id) ? order.indexOf(row.id) : order.length + index }))
+      .sort((a, b) => a.rank - b.rank).map(({ row }) => row)
+    // Footer items keep their place under the list; Edit sidebar only shows or
+    // hides them. Hidden ones are published on <html> for the account footer's CSS.
+    const FOOTER_ITEMS = [
+      { id: 'login', label: 'editSidebar.login', Icon: IconUserOutlineMedium },
+      { id: 'settings', label: 'settings', Icon: IconSettingsOutlineMedium },
+    ]
+    const FOOTER_KEY = 'jan-theme.sidebar.footerHidden'
+    const readFooterHidden = () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem(FOOTER_KEY) ?? 'null')
+        return Array.isArray(stored) ? stored.filter(id => FOOTER_ITEMS.some(item => item.id === id)) : []
+      } catch { return [] }
+    }
+    let footerHidden = readFooterHidden()
+    const publishFooter = () => {
+      for (const { id } of FOOTER_ITEMS) {
+        document.documentElement.toggleAttribute(`data-sidebar-hide-${id}`, footerHidden.includes(id))
+      }
+    }
+    const setFooterShown = (id, show) => {
+      footerHidden = show ? footerHidden.filter(entry => entry !== id) : [...footerHidden.filter(entry => entry !== id), id]
+      try { localStorage.setItem(FOOTER_KEY, JSON.stringify(footerHidden)) } catch { /* the choice still holds for this window */ }
+      publishFooter()
+      notifySidebar()
+    }
+    const useFooterHidden = () => React.useSyncExternalStore(subscribeSidebar, () => footerHidden)
+    const setSidebarEditor = (open) => { sidebarEditorOpen = open; notifySidebar() }
+    const useSidebarPins = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarPins)
+    const useSidebarOrder = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarOrder)
+    const useSidebarEditor = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarEditorOpen)
+    // Which of Jan's own pages can open now. The sidebar rows, the More menu and
+    // Edit sidebar read the same answer, so an unpinned page always stays in More.
+    const useDestinationsAvailable = ({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHostsAvailable }) => ({
+      [PROJECTS_PANEL]: true,
+      [HOSTS_SECTION]: useHostsAvailable((value) => value),
+      [HUB_PANEL]: useHubAvailable((value) => value),
+      [ARTIFACTS_PANEL]: useArtifactsAvailable((value) => value),
+      [SCHEDULED_PANEL]: useScheduledAvailable((value) => value),
+      plugins: usePluginsAvailable((value) => value),
+    })
+
+    const GripGlyph = () => h('svg', { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'currentColor', 'aria-hidden': true },
+      [[6, 4], [10, 4], [6, 8], [10, 8], [6, 12], [10, 12]].map(([cx, cy]) => h('circle', { key: `${cx}-${cy}`, cx, cy, r: 1 })))
+
+    // Each row keeps its checkbox and gains a grip: drag it, or focus it and
+    // press the up and down arrows, to move the page in the sidebar.
+    function SidebarEditor({ available, others, pinned, renderFactorySlot, t }) {
+      const order = useSidebarOrder()
+      const hidden = useFooterHidden()
+      const rows = sortBySidebarOrder([
+        ...SIDEBAR_DESTINATIONS.filter(({ id }) => available[id]).map(({ id, Icon, label }) => ({ id, icon: h(Icon, { size: 16 }), label: t(label) })),
+        ...others.map(({ id, label }) => ({ id, icon: renderFactorySlot('sidebar.panel.icon', { id, size: 16, active: false }), label })),
+      ], order)
+      const [draft, setDraft] = React.useState(null)
+      const [dragging, setDragging] = React.useState(null)
+      const list = React.useRef(null)
+      const ids = draft ?? rows.map(({ id }) => id)
+      const shown = ids.map(id => rows.find(row => row.id === id)).filter(Boolean)
+      // Keep the ids this window does not list, so another page's place survives.
+      const commit = (next) => { setSidebarOrder([...next, ...order.filter(id => !next.includes(id))]) }
+      const move = (id, delta) => {
+        const from = ids.indexOf(id)
+        const to = Math.max(0, Math.min(ids.length - 1, from + delta))
+        if (from === to) return
+        const next = [...ids]
+        next.splice(to, 0, ...next.splice(from, 1))
+        commit(next)
+      }
+      const startDrag = (event, id) => {
+        if (event.button !== 0) return
+        event.preventDefault()
+        event.currentTarget.setPointerCapture(event.pointerId)
+        setDragging(id)
+        setDraft(ids)
+      }
+      // Insert the dragged page before the first other row whose middle sits below the pointer.
+      const dragOver = (event) => {
+        if (dragging === null || !list.current) return
+        const current = draft ?? ids
+        const before = [...list.current.querySelectorAll('[data-sidebar-row]')]
+          .filter(item => item.dataset.sidebarRow !== dragging)
+          .find(item => { const box = item.getBoundingClientRect(); return event.clientY < box.top + box.height / 2 })
+        const next = current.filter(id => id !== dragging)
+        next.splice(before ? next.indexOf(before.dataset.sidebarRow) : next.length, 0, dragging)
+        if (next.some((id, i) => id !== current[i])) setDraft(next)
+      }
+      const endDrag = () => {
+        if (dragging === null) return
+        if (draft) commit(draft)
+        setDragging(null)
+        setDraft(null)
+      }
+      return h(Modal, {
+        open: true, title: t('editSidebar.title'), closeLabel: t('editSidebar.close'), onClose: () => setSidebarEditor(false),
+        className: 'jt-appearance', footer: h(Button, { variant: 'contrast', onClick: () => setSidebarEditor(false) }, t('editSidebar.done')),
+      },
+        h('p', { className: 'jt-sidebar-editor-lede' }, t('editSidebar.lede')),
+        h('div', { ref: list, className: 'jt-sidebar-editor', onPointerMove: dragOver, onPointerUp: endDrag, onPointerCancel: endDrag },
+          shown.map(({ id, icon, label }) => h('div', { key: id, className: 'jt-sidebar-editor-item', 'data-sidebar-row': id, 'data-dragging': dragging === id || undefined },
+            h(Checkbox, {
+              className: 'jt-sidebar-editor-row', icon, label,
+              checked: pinned.includes(id), onChange: (pin) => { setSidebarPinned(id, pin) },
+            }),
+            h('button', {
+              type: 'button', className: 'jt-sidebar-editor-grip', 'aria-label': t('editSidebar.reorder', { name: label }), title: t('editSidebar.reorderHint'),
+              onPointerDown: (event) => { startDrag(event, id) },
+              onKeyDown: (event) => {
+                if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); move(id, event.key === 'ArrowUp' ? -1 : 1) }
+              },
+            }, h(GripGlyph))))),
+        h(SectionHeading, { as: 'h3', className: 'jt-sidebar-editor-heading' }, t('editSidebar.footer')),
+        h('div', { className: 'jt-sidebar-editor' },
+          FOOTER_ITEMS.map(({ id, label, Icon }) => h('div', { key: id, className: 'jt-sidebar-editor-item', 'data-sidebar-footer-row': id },
+            h(Checkbox, {
+              className: 'jt-sidebar-editor-row', icon: h(Icon, { size: 16 }), label: t(label),
+              checked: !hidden.includes(id), onChange: (show) => { setFooterShown(id, show) },
+            })))))
     }
 
     // The search node owns its input and refs, so it stays mounted while wide;
     // the view-options node keeps its menu state the same way.
-    const WorkspaceHeader = ({ wide, searchExpanded, search, viewOptions, t }) => wide
+    // The add button keeps the owner's ref and handler so the folder picker
+    // anchors to it.
+    const WorkspaceHeader = ({ wide, searchExpanded, search, viewOptions, canAddWorkspace, onAddWorkspace, addWorkspaceButtonRef, t }) => wide
       ? h('div', { className: 'jt-list-header', 'data-search-expanded': searchExpanded || undefined },
         h(SectionHeading, { as: 'span', className: 'jt-list-heading' }, t('chats')),
-        h('div', { className: 'jt-list-tools' }, search, h('div', { className: 'jt-list-actions' }, viewOptions)))
+        h('div', { className: 'jt-list-tools' }, search, h('div', { className: 'jt-list-actions' }, viewOptions,
+          canAddWorkspace && h('button', {
+            ref: addWorkspaceButtonRef, type: 'button', className: 'jt-list-add',
+            'aria-label': t('addProject'), title: t('addProject'), onClick: onAddWorkspace,
+          }, h(IconProjectAddOutlineRegular, { size: 16, 'aria-hidden': true })))))
       : null
 
     const HeroHeadline = ({ t }) => h('h1', { className: 'jt-hero-title' }, t('hero.headline'))
@@ -728,18 +1533,36 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         tab.title)
     }
 
-    // Jan has no panel launcher rows, so the native More menu becomes the one
-    // list of the remaining management pages (Plugins, Artifacts and Scheduled
-    // have nav rows).
-    function PanelDestinations({ entries, onOpen, onDismiss }) {
-      const rows = entries.filter(entry => entry.id !== 'plugins' && entry.id !== ARTIFACTS_PANEL && entry.id !== SCHEDULED_PANEL)
-      return h(React.Fragment, null, rows.map(entry => h(MenuItemButton, {
-        key: entry.id, current: entry.active === true,
-        onSelect: () => { onDismiss(); onOpen(entry.id) },
-      }, h('span', { className: 'jt-menu-entry' }, entry.label,
-        entry.active === true && h(IconCheckOutlineRegular, {
-          size: 16, className: 'jt-menu-check', 'aria-hidden': true,
-        })))))
+    // The More menu: every page that is not pinned (Jan's own destinations and
+    // other plugins' panels), then Edit sidebar to choose what shows. The stock
+    // onOpen only opens sidebar-registered panels, so Jan's own pages (Projects
+    // has no sidebar entry) open through the layout directly.
+    function PanelDestinations({
+      entries, onOpen, onDismiss, usePanelInfo, openPanel, renderFactorySlot, t,
+      useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHostsAvailable,
+    }) {
+      const pinned = useSidebarPins()
+      const active = usePanelInfo((info) => info.activePanelId)
+      const available = useDestinationsAvailable({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHostsAvailable })
+      const jan = new Set(SIDEBAR_DESTINATIONS.map(({ id }) => id))
+      const own = SIDEBAR_DESTINATIONS
+        .filter(({ id }) => !pinned.includes(id) && available[id])
+        .map(({ id, Icon, label }) => ({ id, label: t(label), icon: h(Icon, { size: 16 }), active: active === id, open: () => openPanel(id) }))
+      const others = entries.filter(entry => !jan.has(entry.id) && !pinned.includes(entry.id))
+        .map(entry => ({ ...entry, icon: renderFactorySlot('sidebar.panel.icon', { id: entry.id, size: 16, active: entry.active === true }), open: () => onOpen(entry.id) }))
+      const rows = [...own, ...others]
+      return h(React.Fragment, null,
+        rows.map(entry => h(MenuItemButton, {
+          key: entry.id, current: entry.active === true, icon: entry.icon,
+          onSelect: () => { onDismiss(); entry.open() },
+        }, h('span', { className: 'jt-menu-entry' }, entry.label,
+          entry.active === true && h(IconCheckOutlineRegular, {
+            size: 16, className: 'jt-menu-check', 'aria-hidden': true,
+          })))),
+        h(MenuItemButton, {
+          separatorBefore: rows.length > 0, icon: h(IconEditOutlineRegular, { size: 16 }),
+          onSelect: () => { onDismiss(); setSidebarEditor(true) },
+        }, t('editSidebar')))
     }
 
     // Fallback launcher when the account menu is absent.
@@ -767,6 +1590,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     const ARTIFACTS_PANEL = 'artifacts'
     // Registered by ui-schedule; the row appears only while it is.
     const SCHEDULED_PANEL = 'schedules'
+    // Registered by the model-hub plugin; the row appears only while it is.
+    const HUB_PANEL = 'jan-model-hub'
     const relative = (iso) => {
       const minutes = Math.round((Date.now() - Date.parse(iso)) / 60000)
       if (!(minutes >= 0)) return ''
@@ -775,40 +1600,90 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       return `${Math.round(minutes / 60 / 24)}d`
     }
 
-    // Projects page: every project folder Jan knows, newest first. A card
-    // starts a chat inside that project; New project picks a folder.
+    // Projects page: every project folder Jan knows as a gallery like Skills
+    // and Hub. Search, a filter and a sort narrow it; a tile opens the project
+    // page and the last tile picks a folder for a new one.
+    const PROJECT_SORTS = {
+      updated: (a, b) => Date.parse(b.row.updatedAt) - Date.parse(a.row.updatedAt),
+      name: (a, b) => a.title.localeCompare(b.title),
+      chats: (a, b) => b.row.sessionIds.length - a.row.sessionIds.length,
+      created: (a, b) => Date.parse(b.row.createdAt) - Date.parse(a.row.createdAt),
+    }
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+    const PROJECT_FILTERS = {
+      all: () => true,
+      recent: ({ row }) => Date.now() - Date.parse(row.updatedAt) < WEEK_MS,
+      empty: ({ row }) => row.sessionIds.length === 0,
+    }
     function ProjectsPanel({ useWorkspaces, openProject, addProject, t }) {
+      const { Input, Menu, IconChevronDownOutlineRegular, ViewToggle, useViewMode } = require('@janhq/jan-client-ui-primitives')
+      const [view, setView] = useViewMode('projects')
       const items = useWorkspaces((snapshot) => snapshot.items)
       const [query, setQuery] = React.useState('')
+      const [filter, setFilter] = React.useState('all')
+      const [sort, setSort] = React.useState('updated')
+      const [sortOpen, setSortOpen] = React.useState(false)
       const [busy, setBusy] = React.useState(false)
       const needle = query.trim().toLowerCase()
-      const rows = [...items]
-        .filter(row => needle === '' || row.title.toLowerCase().includes(needle) || row.path.toLowerCase().includes(needle))
-        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+      const defaultName = t('workspace.defaultName')
+      const all = items.map(row => ({ row, title: workspaceDisplayTitle(row, defaultName) }))
+      const chips = Object.keys(PROJECT_FILTERS).map(id => [id, all.filter(PROJECT_FILTERS[id]).length])
+        .filter(([id, count]) => id === 'all' || (count > 0 && count < all.length))
+      const active = chips.some(([id]) => id === filter) ? filter : 'all'
+      const rows = all.filter(PROJECT_FILTERS[active])
+        .filter(({ row, title }) => needle === '' || title.toLowerCase().includes(needle) || row.path.toLowerCase().includes(needle))
+        .sort(PROJECT_SORTS[sort])
+      const narrowed = needle !== '' || active !== 'all'
       const error = useProjectError()
-      const add = async () => {
+      // The shared menu opens under the clicked control; the busy state only covers the fallback chooser.
+      const add = async (anchor) => {
         setBusy(true)
-        try { await addProject() } finally { setBusy(false) }
+        try { await addProject(anchor) } finally { setBusy(false) }
       }
+      const clear = () => { setQuery(''); setFilter('all'); setSort('updated') }
+      const sortItems = Object.keys(PROJECT_SORTS).map(id => ({ id, label: t(`projects.sort.${id}`) }))
       return h('section', { className: 'jt-projects', 'aria-labelledby': 'jt-projects-title' },
         h('header', { className: 'jt-projects-head' },
           h('h1', { id: 'jt-projects-title' }, t('projects')),
-          h(Button, { variant: 'primary', size: 'sm', disabled: busy, onClick: () => { void add() } },
+          h(Button, { variant: 'primary', size: 'sm', disabled: busy, onClick: (event) => { void add(event.currentTarget) } },
             h(IconProjectAddOutlineRegular, { size: 16, 'aria-hidden': true }), t('newProject'))),
         h('p', { className: 'jt-projects-lede' }, t('projects.lede')),
         error && h('p', { className: 'jt-projects-error', role: 'alert' }, t('projects.addFailed', { reason: error })),
-        items.length > 0 && h('label', { className: 'jt-projects-search' },
-          h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }),
-          h('input', { type: 'search', value: query, placeholder: t('projects.search'), 'aria-label': t('projects.search'), onChange: (event) => { setQuery(event.target.value) } })),
+        items.length > 0 && h('div', { className: 'jt-agent-toolbar' },
+          h(Input, { type: 'search', className: 'jt-agent-search', icon: h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }), placeholder: t('projects.search'), 'aria-label': t('projects.search'), value: query, onChange: event => { setQuery(event.target.value) } }),
+          h('span', null, narrowed ? t('projects.countOf', { shown: rows.length, count: all.length }) : t('projects.count', { count: all.length })),
+          h(Menu, {
+            open: sortOpen, portal: true, align: 'end', items: sortItems, selectedId: sort,
+            onSelect: (id) => { setSort(id); setSortOpen(false) }, onClose: () => { setSortOpen(false) },
+            anchor: h(Button, { variant: 'ghost', size: 'sm', className: 'jt-projects-sort', 'aria-haspopup': 'menu', 'aria-expanded': sortOpen, onClick: () => { setSortOpen(!sortOpen) } },
+              h('span', { className: 'jt-projects-sort-label' }, t('projects.sort')), t(`projects.sort.${sort}`),
+              h(IconChevronDownOutlineRegular, { size: 14, 'aria-hidden': true })),
+          }),
+          h(ViewToggle, { value: view, onChange: setView, labels: { grid: t('projects.view.grid'), list: t('projects.view.list'), group: t('projects.view') } })),
+        chips.length > 1 && h('div', { className: 'jt-chips', role: 'group', 'aria-label': t('projects.filter') }, chips.map(([id, count]) =>
+          h('button', { key: id, type: 'button', className: 'jt-chip', 'aria-pressed': active === id, onClick: () => { setFilter(id) } },
+            t(`projects.filter.${id}`), h('span', { className: 'jt-chip-count' }, count)))),
         items.length === 0
           ? h('div', { className: 'jt-projects-empty' },
             h(IconFolderCloseRegular, { size: 32, 'aria-hidden': true }),
             h('p', null, t('projects.empty')))
-          : h('ul', { className: 'jt-projects-grid' }, rows.map(row => h('li', { key: row.workspaceId },
-            h(ProjectCard, {
-              title: row.title, path: row.path, onClick: () => { openProject(row.workspaceId) },
-              meta: [t(row.sessionIds.length === 1 ? 'projects.chat' : 'projects.chats', { count: row.sessionIds.length }), ' · ', t('projects.updated', { ago: relative(row.updatedAt) })].join(''),
-            })))))
+          : rows.length === 0
+            ? h('div', { className: 'jt-agent-empty' },
+              h(IconSearchOutlineRegular, { size: 20, 'aria-hidden': true }),
+              h('p', null, t('projects.noMatch')),
+              h(Button, { variant: 'outline', size: 'sm', onClick: clear }, t('projects.clear')))
+            : h('ul', { className: 'jt-projects-grid', 'data-view': view }, rows.map(({ row, title }) => h('li', { key: row.workspaceId },
+              h('button', { type: 'button', className: 'jt-project-tile', style: { '--jt-hue': nameHue(title) }, title: row.path, onClick: () => { openProject(row.workspaceId) } },
+                ProjectAvatar
+                  ? h(ProjectAvatar, { avatar: row.avatar, githubOwner: row.githubOwner, color: row.color, size: 32 })
+                  : h('span', { className: 'jt-agent-art', 'aria-hidden': true }, title.charAt(0).toUpperCase()),
+                h('span', { className: 'jt-project-tile-title' }, title),
+                h('span', { className: 'jt-project-tile-path' }, h('bdi', null, row.path)),
+                h('span', { className: 'jt-project-tile-meta' },
+                  t(row.sessionIds.length === 1 ? 'projects.chat' : 'projects.chats', { count: row.sessionIds.length }), ' · ', t('projects.updated', { ago: relative(row.updatedAt) }))))),
+            h('li', { key: 'add' }, h('button', { type: 'button', className: 'jt-agent-add jt-project-add', disabled: busy, onClick: (event) => { void add(event.currentTarget) } },
+              h(IconProjectAddOutlineRegular, { size: 20, 'aria-hidden': true }), h('span', null, t('projects.addTile')),
+              h('small', null, t('projects.addTileHint'))))))
     }
 
     // Project home: one Workspace's page. Which project it shows is a plain
@@ -823,8 +1698,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         set(next) { workspaceId = next; for (const listener of listeners) listener() },
       }
     })()
-    async function projectApi(method, params = {}) {
-      const response = await fetch('/jan-api/project-home', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+    const showProject = (layout, workspaceId) => {
+      layout.selectPanel(PROJECT_PANEL)
+      currentProject.set(workspaceId)
+    }
+    const openProject = (scope, workspaceId) => {
+      if (scope.uiWorkspace.openProjectSurface?.(workspaceId) !== true) showProject(scope.layout, workspaceId)
+    }
+    async function projectApi(method, params = {}, signal) {
+      const response = await fetch(new URL('jan-api/project-home', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }), signal })
       // A settings save reloads the Host plugin; its route is briefly absent and answers without JSON.
       if (!response.headers.get('content-type')?.startsWith('application/json')) throw new Error('Jan is reloading. Try again in a moment.')
       const body = await response.json()
@@ -840,24 +1722,38 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       reader.readAsDataURL(file)
     })
     const scheduleZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-    const sameFolder = (a, b) => a !== undefined && b !== undefined
-      && a.replace(/[\\/]+$/, '').toLowerCase() === b.replace(/[\\/]+$/, '').toLowerCase()
 
     // Edits one instruction file; the draft survives closing the dialog until it is saved.
+    // Unsaved editor text per project file, with the file version it was typed over.
     const projectDrafts = new Map()
-    function ProjectTextEditor({ open, title, description, note, initial, draftKey, onSave, onClose, t }) {
-      const [text, setText] = React.useState(initial)
+    function ProjectTextEditor({ open, title, description, note, load, draftKey, onSave, onClose, t }) {
+      const [text, setText] = React.useState('')
+      const [base, setBase] = React.useState(undefined)
       const [busy, setBusy] = React.useState(false)
       const [error, setError] = React.useState('')
       React.useEffect(() => {
-        if (open) { setText(projectDrafts.get(draftKey) ?? initial); setError('') }
-      }, [open, draftKey, initial])
-      const change = (value) => { projectDrafts.set(draftKey, value); setText(value) }
+        if (!open) return undefined
+        let current = true
+        setBase(undefined)
+        setError('')
+        // Read the file fresh on every open: the page's copy may predate an edit made elsewhere.
+        load().then((file) => {
+          if (!current) return
+          const draft = projectDrafts.get(draftKey)
+          // A draft typed over an older version is dropped; saving it would overwrite the newer file.
+          if (draft !== undefined && draft.modified !== file.modified) projectDrafts.delete(draftKey)
+          setText(draft !== undefined && draft.modified === file.modified ? draft.text : file.text)
+          setBase(file.modified)
+        }, (failure) => { if (current) setError(failure instanceof Error ? failure.message : String(failure)) })
+        return () => { current = false }
+      }, [open, draftKey])
+      const change = (value) => { projectDrafts.set(draftKey, { text: value, modified: base }); setText(value) }
       const save = async () => {
+        if (base === undefined) return
         setBusy(true)
         setError('')
         try {
-          await onSave(text)
+          await onSave(text, base)
           projectDrafts.delete(draftKey)
           onClose()
         } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)) } finally { setBusy(false) }
@@ -866,10 +1762,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         open, onClose, title, description,
         footer: h('div', { className: 'jt-project-editor-actions' },
           h(Button, { variant: 'outline', onClick: onClose }, t('project.cancel')),
-          h(Button, { variant: 'primary', disabled: busy, onClick: () => { void save() } }, busy ? t('project.saving') : t('project.save'))),
+          h(Button, { variant: 'primary', disabled: busy || base === undefined, onClick: () => { void save() } }, busy ? t('project.saving') : t('project.save'))),
       }, h('div', { className: 'jt-project-editor' },
         h('textarea', {
-          'data-modal-autofocus': '', value: text, 'aria-label': title, spellCheck: true,
+          'data-modal-autofocus': '', value: text, 'aria-label': title, spellCheck: true, readOnly: base === undefined,
           onChange: (event) => { change(event.target.value) },
           onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void save() } },
         }),
@@ -924,47 +1820,170 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         error && h('p', { className: 'jt-project-error', role: 'alert' }, error)))
     }
 
-    function ProjectHome({ useProject, useWorkspaces, useArchived, useSessions, startSession, openChat, backToProjects, loadSchedules, createSchedule, openScheduled, t }) {
+    function ProjectHome({ useProject, useWorkspaces, backToProjects, t, ...props }) {
       const workspaceId = useProject(value => value)
       const workspace = useWorkspaces(snapshot => snapshot.items.find(item => item.workspaceId === workspaceId))
+      if (workspace === undefined) {
+        return h('section', { className: 'jt-projects' },
+          h('p', { className: 'jt-projects-empty' }, t('project.missing')),
+          h(Button, { variant: 'outline', onClick: backToProjects }, t('project.back')))
+      }
+      return h(ProjectDetails, { ...props, key: workspace.workspaceId, workspace, backToProjects, t })
+    }
+
+    const NO_SCHEDULES = { records: [], status: 'unavailable' }
+    const LOADING_SCHEDULES = { records: [], status: 'loading' }
+
+    // Subscribe only while a surface is visible, preferring the task manager's catalog.
+    function createProjectScheduleCatalog() {
+      const listeners = new Set()
+      let shared, fallback, stop, pending
+      let snapshot = NO_SCHEDULES
+      const publish = next => {
+        if (next === snapshot) return
+        snapshot = next
+        for (const listener of listeners) listener()
+      }
+      const refresh = async () => {
+        if (shared !== undefined) return shared.refresh()
+        if (fallback === undefined || listeners.size === 0) return
+        const read = {}
+        pending = read
+        const records = snapshot.records
+        publish({ records, status: 'loading' })
+        try {
+          const result = await fallback.remote.schedule.catalog()
+          if (pending !== read) return
+          publish(result.ok ? { records: result.value, status: 'ready' } : { records, status: 'error' })
+        } catch {
+          if (pending === read) publish({ records, status: 'error' })
+        } finally {
+          if (pending === read) pending = undefined
+        }
+      }
+      const rebind = () => {
+        stop?.()
+        stop = undefined
+        pending = undefined
+        if (shared !== undefined) {
+          const { catalog } = shared
+          publish(catalog.getSnapshot())
+          if (listeners.size > 0) {
+            const sync = () => { publish(catalog.getSnapshot()) }
+            stop = catalog.subscribe(sync)
+            sync()
+          }
+        } else if (fallback !== undefined) {
+          publish(LOADING_SCHEDULES)
+          if (listeners.size > 0) {
+            const offChange = fallback.remote.$on('schedule/changed', refresh)
+            const offReset = fallback.on('connection/reset', refresh)
+            stop = () => { offChange(); offReset() }
+            void refresh()
+          }
+        } else publish(NO_SCHEDULES)
+      }
+      return {
+        getSnapshot: () => snapshot,
+        subscribe(listener) {
+          listeners.add(listener)
+          if (listeners.size === 1) rebind()
+          return () => { listeners.delete(listener); if (listeners.size === 0) rebind() }
+        },
+        setShared(next) { shared = next; rebind() },
+        setFallback(next) { fallback = next; if (shared === undefined) rebind() },
+        refresh,
+      }
+    }
+
+    // GitHub's mark (Octicons `mark-github`, MIT), drawn in the text color so it follows the theme.
+    const GitHubMark = () => h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'currentColor', 'aria-hidden': true },
+      h('path', { d: 'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z' }))
+
+    /** The project's branch and its origin repository, which opens in the browser. */
+    function GitChips({ git, t }) {
+      const { branch, repository } = git
+      if (branch === null && repository === null) return null
+      return h('div', { className: 'jt-project-git', 'data-project-git': true },
+        repository !== null && h('a', {
+          className: 'jt-project-git-chip', href: repository.url, target: '_blank', rel: 'noreferrer',
+          title: t('project.git.open', { name: repository.name, host: repository.host }),
+          'aria-label': t('project.git.open', { name: repository.name, host: repository.host }),
+        }, repository.github ? h(GitHubMark) : h(IconLinkOutlineRegular, { size: 14, 'aria-hidden': true }),
+        h('span', null, repository.name), h(IconRightUpOutlineRegular, { size: 12, 'aria-hidden': true })),
+        branch !== null && h('span', { className: 'jt-project-git-chip', title: t('project.git.branch') },
+          h(IconBranchOutlineRegular, { size: 14, 'aria-hidden': true }), h('span', null, branch)))
+    }
+
+    /**
+     * A recent chat's live state, ranked like its sidebar row: a pending question
+     * outranks the chat's own run, which outranks its running subagents. Idle and
+     * finished chats return null and keep their date.
+     */
+    function liveChatStatus(summary, sessions, statuses, t) {
+      const status = statuses.get(summary.id)
+      switch (status?.pendingInteraction?.kind) {
+        case 'approval': return { state: 'warning', label: t('project.status.approval') }
+        case 'question': return { state: 'warning', label: t('project.status.question') }
+        case 'plan-review': return { state: 'warning', label: t('project.status.planReview') }
+      }
+      if (status?.running ?? summary.running) return { state: 'ongoing', label: t('project.status.running') }
+      const children = sessions.projectionsBySession[summary.id]?.values.subagentCatalog ?? []
+      const running = children.filter(child => (statuses.get(child.id)?.running ?? sessions.byId[child.id]?.running) === true).length
+      if (running === 0) return null
+      return { state: 'ongoing', label: t(running === 1 ? 'project.status.subagents.one' : 'project.status.subagents.other', { n: running }) }
+    }
+
+    function ProjectDetails({ workspace, useArchived, useSessions, useSessionStatus, useScheduleTasks, startSession, openChat, editProject, backToProjects, createSchedule, openScheduled, t }) {
+      const { workspaceId } = workspace
+      const title = workspaceDisplayTitle(workspace, t('workspace.defaultName'))
       const sessions = useSessions(value => value)
       const archivedIds = useArchived(value => value)
       const [details, setDetails] = React.useState(null)
       const [error, setError] = React.useState('')
       const [editing, setEditing] = React.useState(null)
-      const [tasks, setTasks] = React.useState([])
-      const [taskError, setTaskError] = React.useState('')
+      const { records: tasks, status: taskStatus } = useScheduleTasks(value => value)
       const [addingTask, setAddingTask] = React.useState(false)
       const [fileError, setFileError] = React.useState('')
+      const [pathCopied, setPathCopied] = React.useState(false)
+      React.useEffect(() => {
+        if (!pathCopied) return undefined
+        const timer = setTimeout(() => { setPathCopied(false) }, 1500)
+        return () => { clearTimeout(timer) }
+      }, [pathCopied])
+      const openFolder = () => { void projectApi('openFolder', { workspaceId }).catch(failure => { setFileError(failure.message) }) }
+      const copyPath = () => {
+        navigator.clipboard.writeText(workspace.path).then(() => { setPathCopied(true) }, failure => { setFileError(failure.message) })
+      }
       const [draft, setDraft] = React.useState('')
       const fileInput = React.useRef(null)
-      const reload = React.useCallback(async () => {
-        if (workspaceId === null) return
-        try { setDetails(await projectApi('read', { workspaceId })); setError('') } catch (failure) { setError(failure.message) }
-      }, [workspaceId])
-      const reloadTasks = React.useCallback(async () => {
-        const pending = loadSchedules()
-        if (pending === undefined) { setTasks(null); return }
-        try {
-          const result = await pending
-          if (!result.ok) throw new Error(result.error.message)
-          setTasks(result.value)
-          setTaskError('')
-        } catch (failure) { setTaskError(failure.message) }
-      }, [])
-      React.useEffect(() => { setDetails(null); setDraft(''); void reload(); void reloadTasks() }, [workspaceId])
-      if (workspaceId === null || workspace === undefined) {
-        return h('section', { className: 'jt-projects' },
-          h('p', { className: 'jt-projects-empty' }, t('project.missing')),
-          h(Button, { variant: 'outline', onClick: backToProjects }, t('project.back')))
-      }
+      const [detailsVersion, reloadDetails] = React.useReducer(version => version + 1, 0)
+      React.useEffect(() => {
+        const controller = new AbortController()
+        const { signal } = controller
+        void projectApi('read', { workspaceId }, signal).then(
+          (next) => { if (!signal.aborted) { setDetails(next); setError('') } },
+          (failure) => { if (!signal.aborted) setError(failure.message) },
+        )
+        return () => { controller.abort() }
+      }, [workspaceId, detailsVersion])
       const archived = new Set(archivedIds)
+      const statuses = useSessionStatus(value => value)
       const recents = workspace.sessionIds
         .map(id => sessions.byId[id])
         .filter(summary => summary !== undefined && !summary.blank && summary.origin !== 'subagent' && summary.parentId === undefined && !archived.has(summary.id))
         .sort((a, b) => b.updatedAt - a.updatedAt)
-      const projectTasks = tasks === null ? null : tasks.filter(task => task.status !== 'ended'
-        && (task.target.kind === 'session' ? workspace.sessionIds.includes(task.target.sessionId) : sameFolder(task.target.create?.cwd, workspace.path)))
+      const projectTasks = React.useMemo(() => {
+        if (taskStatus === 'unavailable') return null
+        const sessionIds = new Set(workspace.sessionIds)
+        return tasks.filter(task => {
+          if (task.status === 'ended') return false
+          if (task.workspaceId !== undefined) return task.workspaceId === workspaceId
+          return task.target.kind === 'session'
+            ? sessionIds.has(task.target.sessionId)
+            : task.target.create?.cwd === workspace.path
+        })
+      }, [tasks, taskStatus, workspaceId, workspace.sessionIds, workspace.path])
       const send = () => {
         const text = draft.trim()
         if (text === '') return
@@ -976,9 +1995,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         for (const file of files) {
           try { await projectApi('addFile', { workspaceId, name: file.name, data: await readBase64(file) }) } catch (failure) { setFileError(failure.message) }
         }
-        await reload()
+        reloadDetails()
       }
       const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      // Within a day, the same compact age the sidebar shows ("now", "3min", "2h"); older chats show their date.
+      const chatTime = (at) => {
+        const { unit, n } = relativeTime(at, Date.now())
+        if (unit === 'now') return t('time.now')
+        return unit === 'minutes' || unit === 'hours' ? t(`time.${unit}`, { n }) : dateFormat.format(new Date(at))
+      }
       const card = (titleKey, action, body) => h('section', { className: 'jt-project-card', 'aria-label': t(titleKey) },
         h('div', { className: 'jt-project-card-head' }, h('h2', null, t(titleKey)), action), body)
       const preview = (text, emptyKey) => h('p', { className: 'jt-project-card-text', 'data-empty': text.trim() === '' || undefined },
@@ -986,12 +2011,36 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       return h('div', { className: 'jt-project' },
         h('div', null,
           h('button', { type: 'button', className: 'jt-project-back', onClick: backToProjects }, '‹ ', t('projects')),
-          h('h1', { className: 'jt-project-title' }, workspace.title),
-          h('p', { className: 'jt-project-path' }, workspace.path),
+          h('div', { className: 'jt-project-title-row' },
+            // The avatar opens the same editor as the pencil, so icon, emoji, picture
+            // and color are one click from the face they change.
+            ProjectAvatar !== undefined && (editProject === undefined
+              ? h(ProjectAvatar, { avatar: workspace.avatar, githubOwner: workspace.githubOwner, color: workspace.color, size: 32 })
+              : h('button', {
+                type: 'button', className: 'jt-project-avatar', 'aria-label': t('project.edit.identity'), title: t('project.edit.identity'),
+                onClick: () => { editProject(workspaceId) },
+              }, h(ProjectAvatar, { avatar: workspace.avatar, githubOwner: workspace.githubOwner, color: workspace.color, size: 32 }))),
+            h('h1', { className: 'jt-project-title' }, title),
+            // An older ui-workspace has no project editor; the sidebar menu stays the only way in.
+            editProject !== undefined && h('button', {
+              type: 'button', className: 'jt-project-path-action', 'aria-label': t('project.edit.identity'), title: t('project.edit.identity'),
+              onClick: () => { editProject(workspaceId) },
+            }, h(IconEditOutlineRegular, { size: 14, 'aria-hidden': true }))),
+          h('div', { className: 'jt-project-path-row' },
+            // The bidi isolate keeps the path's own left-to-right order inside the right-to-left truncating box.
+            h('p', { className: 'jt-project-path', title: workspace.path }, h('bdi', { dir: 'ltr' }, workspace.path)),
+            h('button', {
+              type: 'button', className: 'jt-project-path-action', 'data-done': pathCopied || undefined, 'aria-live': 'polite',
+              'aria-label': t(pathCopied ? 'project.pathCopied' : 'project.copyPath'), title: t(pathCopied ? 'project.pathCopied' : 'project.copyPath'), onClick: copyPath,
+            }, h(pathCopied ? IconCheckOutlineRegular : IconCopyOutlineRegular, { size: 14, 'aria-hidden': true })),
+            h('button', {
+              type: 'button', className: 'jt-project-path-action', 'aria-label': t('project.openFolder'), title: t('project.openFolder'), onClick: openFolder,
+            }, h(IconFolderOpenOutlineRegular, { size: 14, 'aria-hidden': true }))),
+          details?.git && h(GitChips, { git: details.git, t }),
           h('form', { className: 'jt-project-composer', onSubmit: (event) => { event.preventDefault(); send() } },
             h('textarea', {
-              value: draft, rows: 2, 'aria-label': t('project.newSession', { name: workspace.title }),
-              placeholder: t('project.newSession', { name: workspace.title }),
+              value: draft, rows: 2, 'aria-label': t('project.newSession', { name: title }),
+              placeholder: t('project.newSession', { name: title }),
               onChange: (event) => { setDraft(event.target.value) },
               onKeyDown: (event) => {
                 if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send() }
@@ -1005,10 +2054,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             h('h2', { className: 'jt-project-heading', id: 'jt-project-recents' }, t('project.recents')),
             recents.length === 0
               ? h('p', { className: 'jt-project-empty' }, t('project.noSessions'))
-              : h('ul', { className: 'jt-project-sessions' }, recents.map(summary => h('li', { key: summary.id },
-                h('button', { type: 'button', className: 'jt-project-session', onClick: () => { openChat(summary.id) } },
-                  h('span', { className: 'jt-project-session-title' }, summary.displayTitle),
-                  h('span', { className: 'jt-project-session-date' }, dateFormat.format(new Date(summary.updatedAt))))))))),
+              : h('ul', { className: 'jt-project-sessions' }, recents.map((summary) => {
+                const status = liveChatStatus(summary, sessions, statuses, t)
+                return h('li', { key: summary.id },
+                  h('button', { type: 'button', className: 'jt-project-session', onClick: () => { openChat(summary.id) } },
+                    h('span', { className: 'jt-project-session-title' }, summary.displayTitle),
+                    status === null
+                      ? h('span', { className: 'jt-project-session-date' }, chatTime(summary.updatedAt))
+                      : h('span', { className: 'jt-project-session-status', 'data-state': status.state }, h(StateDot, { state: status.state }), status.label)))
+              })))),
         h('aside', { className: 'jt-project-rail', 'aria-label': t('project.details') },
           error && h('p', { className: 'jt-project-error', role: 'alert' }, error),
           card('project.instructions',
@@ -1025,7 +2079,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                   h('span', { className: 'jt-project-file-name', title: file.name }, file.name),
                   h('span', { className: 'jt-project-file-size' }, fileSize(file.size))))),
               details?.truncated && h('p', { className: 'jt-project-card-text' }, t('project.context.more')),
-              h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: () => { void projectApi('openFolder', { workspaceId }).catch(failure => { setFileError(failure.message) }) } }, t('project.openFolder')),
+              h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: openFolder }, t('project.openFolder')),
               fileError && h('p', { className: 'jt-project-error', role: 'alert' }, fileError))),
           card('project.memory',
             h(Button, { size: 'sm', variant: 'outline', disabled: details === null, onClick: () => { setEditing('memory') } }, t(details?.memory.trim() ? 'project.edit' : 'project.add')),
@@ -1034,25 +2088,25 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             h(Button, { size: 'sm', variant: 'outline', onClick: () => { setAddingTask(true) } }, t('project.add')),
             h(React.Fragment, null,
               projectTasks.length === 0
-                ? preview('', 'project.scheduled.empty')
+                ? (taskStatus !== 'error' && preview('', taskStatus === 'loading' ? 'loading' : 'project.scheduled.empty'))
                 : h('ul', { className: 'jt-project-tasks' }, projectTasks.map(task => h('li', { key: task.id, className: 'jt-project-task' },
                   h('div', null, task.title),
                   h('div', { className: 'jt-project-task-meta' }, task.status === 'paused' ? t('project.task.paused') : t('project.task.next', { when: new Date(task.scheduledAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) }))))),
               projectTasks.length > 0 && h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: openScheduled }, t('project.task.manage')),
-              taskError && h('p', { className: 'jt-project-error', role: 'alert' }, taskError)))),
+              taskStatus === 'error' && h('p', { className: 'jt-project-error', role: 'alert' }, t('load.failed'))))),
         h(ProjectTextEditor, {
           open: editing !== null, t,
           title: editing === 'memory' ? t('project.memory') : t('project.instructions'),
           description: editing === 'memory' ? t('project.memory.description') : t('project.instructions.description'),
           note: editing === 'memory' ? t('project.memory.note') : t('project.instructions.note'),
-          initial: editing === 'memory' ? details?.memory ?? '' : details?.instructions ?? '',
+          load: () => projectApi('readText', { workspaceId, kind: editing }),
           draftKey: `${workspaceId}:${editing}`,
-          onSave: async (text) => { await projectApi('save', { workspaceId, kind: editing, text }); await reload() },
+          onSave: async (text, modified) => { await projectApi('save', { workspaceId, kind: editing, text, modified }); reloadDetails() },
           onClose: () => { setEditing(null) },
         }),
         h(ProjectTaskEditor, {
           open: addingTask, t,
-          onCreate: async (request) => { await createSchedule({ ...request, target: { kind: 'new', create: { cwd: workspace.path } } }); await reloadTasks() },
+          onCreate: request => createSchedule({ ...request, target: { kind: 'new', create: { workspaceId } } }),
           onClose: () => { setAddingTask(false) },
         }))
     }
@@ -1104,7 +2158,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     const byTime = (a, b) => (b.time ?? 0) - (a.time ?? 0)
 
     async function healthApi(method, params = {}) {
-      const response = await fetch('/jan-api/startup-health', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+      const response = await fetch(new URL('jan-api/startup-health', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
       // A settings save reloads the Host plugin; its route is briefly absent and answers without JSON.
       if (!response.headers.get('content-type')?.startsWith('application/json')) throw new Error('unavailable')
       const body = await response.json()
@@ -1151,11 +2205,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               h(Button, { size: 'sm', onClick: () => { openSettings(item.kind === 'mcp' ? 'jt-mcp' : 'plugins'); dismiss(item) } }, 'Open settings'))),
           h('button', { type: 'button', className: 'jt-startup-close', 'aria-label': `Dismiss ${item.name} notice`, onClick: () => dismiss(item) }, h(IconCloseOutlineRegular, { size: 16 })))))
     }
-    function SearchPalette({
-      usePalette, useSessions, useWorkspaces, useCatalog, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable,
-      useSettingsTargets, closePalette, loadSchedules, openChat, openProject, openArtifact, openPanel, openSettings, runCommand, t,
+    function SearchPalette({ usePalette, ...props }) {
+      const { open, seq, kind } = usePalette(value => value)
+      return open ? h(OpenSearchPalette, { ...props, key: seq, initialKind: kind }) : null
+    }
+
+    function OpenSearchPalette({
+      initialKind, useScheduleTasks, useSessions, useWorkspaces, useCatalog, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHubAvailable,
+      useSettingsTargets, closePalette, openChat, openProject, openArtifact, openPanel, openSettings, runCommand, t,
     }) {
-      const { open, seq, kind: initialKind } = usePalette(value => value)
       const settingsTargets = useSettingsTargets(value => value)
       const sessions = useSessions(value => value)
       const workspaces = useWorkspaces(value => value)
@@ -1163,34 +2221,25 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       const artifactsAvailable = useArtifactsAvailable(value => value)
       const scheduledAvailable = useScheduledAvailable(value => value)
       const pluginsAvailable = usePluginsAvailable(value => value)
+      const hubAvailable = useHubAvailable(value => value)
       const [query, setQuery] = React.useState('')
-      const [kind, setKind] = React.useState('all')
+      const [kind, setKind] = React.useState(initialKind)
       const [active, setActive] = React.useState(0)
-      const [schedules, setSchedules] = React.useState([])
+      const schedules = useScheduleTasks(value => value.records)
       const list = React.useRef(null)
-      React.useEffect(() => {
-        if (!open) return
-        setQuery('')
-        setKind(initialKind)
-        setActive(0)
-        let live = true
-        const pending = loadSchedules()
-        if (pending !== undefined) {
-          pending.then((result) => { if (live && result.ok) setSchedules(result.value) },
-            (error) => { console.warn('jan-theme: scheduled tasks unavailable to search', error) })
-        }
-        return () => { live = false }
-      }, [open, seq])
       React.useEffect(() => { setActive(0) }, [query, kind])
       React.useEffect(() => {
         list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
-      }, [active, open])
+      }, [active])
 
+      const defaultName = t('workspace.defaultName')
       const items = React.useMemo(() => {
-        if (!open) return null
         const archived = new Set(workspaces.archivedSessionIds)
         const workspaceOf = new Map()
-        for (const workspace of workspaces.items) for (const id of workspace.sessionIds) workspaceOf.set(id, workspace.title)
+        for (const workspace of workspaces.items) {
+          const title = workspaceDisplayTitle(workspace, defaultName)
+          for (const id of workspace.sessionIds) workspaceOf.set(id, title)
+        }
         const chats = []
         const artifacts = []
         for (const id of sessions.ids) {
@@ -1213,7 +2262,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           }
         }
         const projects = workspaces.items.map(workspace => ({
-          kind: 'projects', key: `project:${workspace.workspaceId}`, title: workspace.title, detail: workspace.path,
+          kind: 'projects', key: `project:${workspace.workspaceId}`, title: workspaceDisplayTitle(workspace, defaultName), detail: workspace.path,
           keywords: [workspace.path], time: Date.parse(workspace.updatedAt), open: () => { openProject(workspace.workspaceId) },
         }))
         const scheduled = schedules.map(task => ({
@@ -1224,6 +2273,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           ['projects', PROJECTS_PANEL, true],
           ['artifacts', ARTIFACTS_PANEL, artifactsAvailable],
           ['scheduled', SCHEDULED_PANEL, scheduledAvailable],
+          ['hub', HUB_PANEL, hubAvailable],
           ['plugins', 'plugins', pluginsAvailable],
         ]
         const actions = [
@@ -1242,9 +2292,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           keywords: [target.sectionTitle, target.id], open: () => { openSettings(target.section) },
         }))
         return { chats, artifacts, projects, scheduled, actions, settings }
-      }, [open, sessions, workspaces, catalog, schedules, settingsTargets, artifactsAvailable, scheduledAvailable, pluginsAvailable, t])
+      }, [sessions, workspaces, catalog, schedules, settingsTargets, artifactsAvailable, scheduledAvailable, hubAvailable, pluginsAvailable, defaultName, t])
 
-      if (items === null) return null
       const kindLabel = (group) => group === 'actions' || group === 'settings' || group === 'commands' || group === 'all'
         ? t(`palette.${group}`) : t(group)
       const needle = query.trim()
@@ -1293,7 +2342,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       const tabs = ['all', 'chats', 'artifacts', 'projects', ...(scheduledAvailable || items.scheduled.length > 0 ? ['scheduled'] : []), 'commands']
       let index = -1
       return h(Modal, {
-        open, onClose: closePalette, title: t('palette.title'), headless: true, shortcutModal: 'search', className: 'jt-palette',
+        open: true, onClose: closePalette, title: t('palette.title'), headless: true, shortcutModal: 'search', className: 'jt-palette',
       }, h('div', { className: 'jt-palette-body' },
         h('div', { className: 'jt-palette-field' },
           h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }),
@@ -1343,12 +2392,29 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       inject: ['slots'],
       apply(ctx) {
         applyAppearance(preferences)
+        ctx.effect(() => () => {
+          document.documentElement.removeAttribute('data-jt-hide-navigation')
+          document.documentElement.removeAttribute('data-jt-reading')
+        }, 'jan-theme: navigation buttons and reading style preferences')
+        // Follow the saved appearance: a profile edit, another window or Plugin Manager can change it after boot.
+        ctx.inject(['configForms'], (scope) => {
+          const form = scope.configForms.get('jan-theme')
+          const sync = () => {
+            const saved = form.getSnapshot().value?.appearance
+            if (saved === undefined || ['accent', 'coloredUserBubble', 'navigationButtons', 'readingStyle'].every(key => saved[key] === undefined || saved[key] === preferences[key])) return
+            applyAppearance({ ...preferences, ...saved })
+          }
+          scope.effect(() => form.subscribe(sync), 'jan-theme: saved appearance')
+          sync()
+        })
         ctx.inject(['locale'], (scope) => {
           const t = scope.locale.bind('jan-theme')
           // Directly under General's theme (10) and font size (11) rows, before the conversation rows at 12.
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-accent-color', order: 11.1, locale: 'jan-theme' }, AccentColorRow))
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-user-bubble', order: 11.2, locale: 'jan-theme' }, UserBubbleRow))
+          scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-reading-style', order: 11.25, locale: 'jan-theme' }, ReadingStyleRow))
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-appearance-reset', order: 11.3, locale: 'jan-theme' }, AppearanceResetRow))
+          scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-navigation-buttons', order: 11.4, locale: 'jan-theme' }, NavigationButtonsRow))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: () => t('section.mcp'), locale: 'jan-theme' }, () => h(AgentSettings, { key: 'mcp' })))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-skills', order: 31, label: () => t('section.skills'), locale: 'jan-theme' }, () => h(AgentSettings, { skills: true, key: 'skills' })))
         })
@@ -1392,19 +2458,35 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'Chats',
               newChat: 'New Chat',
               newProject: 'New project',
+              addProject: 'Add project',
               search: 'Search',
               projects: 'Projects', plugins: 'Plugins', settings: 'Settings', artifacts: 'Artifacts', scheduled: 'Scheduled',
+              hub: 'Models', customize: 'Customize',
+              editSidebar: 'Edit sidebar…', 'editSidebar.title': 'Edit sidebar', 'editSidebar.done': 'Done',
+              'editSidebar.lede': 'Choose which items appear in your sidebar. Drag to reorder.', 'editSidebar.close': 'Close',
+              'editSidebar.footer': 'Bottom of the sidebar', 'editSidebar.login': 'Log in', hosts: 'Hosts',
+              'editSidebar.reorder': 'Move {name}', 'editSidebar.reorderHint': 'Drag, or use the up and down arrow keys',
               newArtifact: 'New artifact', createPlugin: 'Create plugin',
               'newArtifact.prompt': 'Create a file for me: ',
               'createPlugin.prompt': 'Create a Jan plugin with a left sidebar entry.',
+              'createSkill.prompt': 'Create a skill that ', 'createConnector.prompt': 'Connect Jan to ',
               'projects.lede': 'Each project is a folder. Chats started in it can read and write its files.',
               'project.back': "Back to projects",
               'project.missing': "This project is no longer in Jan.",
-              'project.newSession': "New session in {name}",
-              'project.composerHint': "Enter starts a session in this project. Shift+Enter adds a line.",
-              'project.start': "Start session",
-              'project.recents': "Recents",
-              'project.noSessions': "No sessions in this project yet.",
+              'project.newSession': "New chat in {name}",
+              'project.composerHint': "Enter starts a chat in this project. Shift+Enter adds a line.",
+              'project.start': "Start chat",
+              'project.recents': "Recent chats",
+              'time.now': "now",
+              'time.minutes': "{n}min",
+              'time.hours': "{n}h",
+              'project.noSessions': "No chats in this project yet.",
+              'project.status.running': "Running",
+              'project.status.approval': "Waiting for approval",
+              'project.status.question': "Waiting for your answer",
+              'project.status.planReview': "Plan waiting for review",
+              'project.status.subagents.one': "{n} subagent running",
+              'project.status.subagents.other': "{n} subagents running",
               'project.details': "Project details",
               'project.instructions': "Instructions",
               'project.instructions.empty': "Tell the agent how to work in this project.",
@@ -1415,6 +2497,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "Showing the first 300 items.",
               'project.addFiles': "Add files",
               'project.openFolder': "Open folder",
+              'project.copyPath': "Copy path",
+              'project.edit.identity': "Edit project",
+              'project.pathCopied': "Path copied",
+              'project.git.branch': "Current branch",
+              'project.git.open': "Open {name} on {host}",
               'project.memory': "Memory",
               'project.memory.empty': "Notes the agent keeps about this project.",
               'project.memory.description': "Private notes every new session in this project reads after its instructions.",
@@ -1445,9 +2532,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'Search projects',
               'projects.empty': 'No projects yet. Create one from a folder on this computer.',
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
+              'projects.count': '{count} projects', 'projects.countOf': '{shown} of {count}', 'projects.filter': 'Filter projects',
+              'projects.filter.all': 'All', 'projects.filter.recent': 'This week', 'projects.filter.empty': 'No chats yet',
+              'projects.view': 'View', 'projects.view.grid': 'Grid', 'projects.view.list': 'List',
+              'projects.sort': 'Sort', 'projects.sort.updated': 'Recently updated', 'projects.sort.name': 'Name', 'projects.sort.chats': 'Most chats', 'projects.sort.created': 'Newest',
+              'projects.noMatch': 'No projects match your search.', 'projects.clear': 'Clear filters',
+              'projects.addTile': 'New project', 'projects.addTileHint': 'Pick or create a folder',
               'projects.updated': 'updated {ago} ago',
               'projects.addFailed': 'Could not add the project: {reason}',
-              'section.mcp': 'MCP Servers', 'section.skills': 'Skills',
+              'section.mcp': 'MCP Servers', 'section.skills': 'Skills', 'tab.connectors': 'Connectors',
               'palette.title': 'Search', 'palette.placeholder': 'Search chats, artifacts, projects and actions',
               'palette.filter': 'Filter results', 'palette.all': 'All', 'palette.recents': 'Recents', 'palette.actions': 'Actions',
               'palette.goTo': 'Go to {page}', 'palette.nothing': 'Nothing here yet', 'palette.noResults': 'No results for “{query}”',
@@ -1459,19 +2552,30 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: '聊天',
               newChat: '新对话',
               newProject: '新建项目',
+              addProject: '添加项目',
               search: '搜索',
               projects: '项目', plugins: '插件', settings: '设置', artifacts: '成果',
               newArtifact: '新建成果', createPlugin: '创建插件',
               'newArtifact.prompt': '帮我创建一个文件：',
               'createPlugin.prompt': '创建一个带左侧栏入口的 Jan 插件。',
+              'createSkill.prompt': '创建一个技能，用于', 'createConnector.prompt': '把 Jan 连接到 ',
               'projects.lede': '每个项目对应一个文件夹，在其中开始的对话可以读写该文件夹的文件。',
               'project.back': "返回项目",
               'project.missing': "该项目已不在 Jan 中。",
-              'project.newSession': "在{name}中新建会话",
-              'project.composerHint': "按 Enter 在此项目中开始会话，Shift+Enter 换行。",
-              'project.start': "开始会话",
-              'project.recents': "最近",
-              'project.noSessions': "此项目还没有会话。",
+              'project.newSession': "在{name}中新建对话",
+              'project.composerHint': "按 Enter 在此项目中开始对话，Shift+Enter 换行。",
+              'project.start': "开始对话",
+              'project.recents': "最近的对话",
+              'time.now': "刚刚",
+              'time.minutes': "{n}分钟",
+              'time.hours': "{n}小时",
+              'project.noSessions': "此项目还没有对话。",
+              'project.status.running': "运行中",
+              'project.status.approval': "等待审批",
+              'project.status.question': "等待你的回答",
+              'project.status.planReview': "计划等待审阅",
+              'project.status.subagents.one': "{n} 个子智能体运行中",
+              'project.status.subagents.other': "{n} 个子智能体运行中",
               'project.details': "项目详情",
               'project.instructions': "说明",
               'project.instructions.empty': "告诉智能体在此项目中如何工作。",
@@ -1482,6 +2586,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "仅显示前 300 项。",
               'project.addFiles': "添加文件",
               'project.openFolder': "打开文件夹",
+              'project.copyPath': "复制路径",
+              'project.edit.identity': "编辑项目",
+              'project.pathCopied': "已复制路径",
+              'project.git.branch': "当前分支",
+              'project.git.open': "在 {host} 上打开 {name}",
               'project.memory': "记忆",
               'project.memory.empty': "智能体为此项目保存的笔记。",
               'project.memory.description': "此项目中的每个新会话在读取说明后都会读取这些私人笔记。",
@@ -1512,9 +2621,19 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': '搜索项目',
               'projects.empty': '还没有项目。从本机的文件夹创建一个。',
               'projects.chat': '{count} 个对话', 'projects.chats': '{count} 个对话',
+              'projects.count': '{count} 个项目', 'projects.countOf': '{shown} / {count}', 'projects.filter': '筛选项目',
+              'projects.filter.all': '全部', 'projects.filter.recent': '本周', 'projects.filter.empty': '暂无对话',
+              'projects.view': '显示方式', 'projects.view.grid': '网格', 'projects.view.list': '列表',
+              'projects.sort': '排序', 'projects.sort.updated': '最近更新', 'projects.sort.name': '名称', 'projects.sort.chats': '对话最多', 'projects.sort.created': '最新创建',
+              'projects.noMatch': '没有匹配的项目。', 'projects.clear': '清除筛选',
+              'projects.addTile': '新建项目', 'projects.addTileHint': '选择或创建一个文件夹',
               'projects.updated': '{ago}前更新',
-              'section.mcp': 'MCP 服务器', 'section.skills': '技能',
+              'section.mcp': 'MCP 服务器', 'section.skills': '技能', 'tab.connectors': '连接器',
               scheduled: '定时任务', 'palette.title': '搜索', 'palette.placeholder': '搜索对话、成果、项目和操作',
+              hub: '模型', customize: '自定义',
+              editSidebar: '编辑侧边栏…', 'editSidebar.title': '编辑侧边栏', 'editSidebar.done': '完成',
+              'editSidebar.lede': '选择要在侧边栏中显示的项目。', 'editSidebar.close': '关闭',
+              'editSidebar.footer': '侧边栏底部', 'editSidebar.login': '登录', hosts: '主机',
               'palette.filter': '筛选结果', 'palette.all': '全部', 'palette.recents': '最近', 'palette.actions': '操作',
               'palette.goTo': '前往{page}', 'palette.nothing': '暂无内容', 'palette.noResults': '没有与“{query}”匹配的结果',
               'palette.navigate': '选择', 'palette.open': '打开', 'palette.close': '关闭',
@@ -1525,19 +2644,30 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'チャット',
               newChat: '新しいチャット',
               newProject: '新しいプロジェクト',
+              addProject: 'プロジェクトを追加',
               search: '検索',
               projects: 'プロジェクト', plugins: 'プラグイン', settings: '設定', artifacts: '成果物',
               newArtifact: '新しい成果物', createPlugin: 'プラグインを作成',
               'newArtifact.prompt': 'ファイルを作成してください: ',
               'createPlugin.prompt': '左サイドバーに項目を持つ Jan プラグインを作成してください。',
+              'createSkill.prompt': '次の作業用のスキルを作成してください: ', 'createConnector.prompt': 'Jan を次のサービスに接続してください: ',
               'projects.lede': '各プロジェクトはフォルダーです。その中で始めたチャットは、そのフォルダーのファイルを読み書きできます。',
               'project.back': "プロジェクトに戻る",
               'project.missing': "このプロジェクトは Jan にありません。",
-              'project.newSession': "{name} で新しいセッション",
-              'project.composerHint': "Enter でこのプロジェクトのセッションを開始、Shift+Enter で改行。",
-              'project.start': "セッションを開始",
-              'project.recents': "最近",
-              'project.noSessions': "このプロジェクトにはまだセッションがありません。",
+              'project.newSession': "{name} で新しいチャット",
+              'project.composerHint': "Enter でこのプロジェクトのチャットを開始、Shift+Enter で改行。",
+              'project.start': "チャットを開始",
+              'project.recents': "最近のチャット",
+              'time.now': "今",
+              'time.minutes': "{n}分",
+              'time.hours': "{n}時間",
+              'project.noSessions': "このプロジェクトにはまだチャットがありません。",
+              'project.status.running': "実行中",
+              'project.status.approval': "承認待ち",
+              'project.status.question': "回答待ち",
+              'project.status.planReview': "計画のレビュー待ち",
+              'project.status.subagents.one': "サブエージェント {n} 件が実行中",
+              'project.status.subagents.other': "サブエージェント {n} 件が実行中",
               'project.details': "プロジェクトの詳細",
               'project.instructions': "指示",
               'project.instructions.empty': "このプロジェクトでの作業方法をエージェントに伝えます。",
@@ -1548,6 +2678,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "最初の 300 件を表示しています。",
               'project.addFiles': "ファイルを追加",
               'project.openFolder': "フォルダーを開く",
+              'project.copyPath': "パスをコピー",
+              'project.edit.identity': "プロジェクトを編集",
+              'project.pathCopied': "パスをコピーしました",
+              'project.git.branch': "現在のブランチ",
+              'project.git.open': "{host} で {name} を開く",
               'project.memory': "メモリー",
               'project.memory.empty': "このプロジェクトについてエージェントが残すメモ。",
               'project.memory.description': "このプロジェクトの新しいセッションが指示の後に読む非公開のメモです。",
@@ -1578,9 +2713,19 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'プロジェクトを検索',
               'projects.empty': 'プロジェクトはまだありません。このコンピューター上のフォルダーから作成してください。',
               'projects.chat': '{count} 件のチャット', 'projects.chats': '{count} 件のチャット',
+              'projects.count': '{count} 件のプロジェクト', 'projects.countOf': '{count} 件中 {shown} 件', 'projects.filter': 'プロジェクトを絞り込む',
+              'projects.filter.all': 'すべて', 'projects.filter.recent': '今週', 'projects.filter.empty': 'チャットなし',
+              'projects.view': '表示', 'projects.view.grid': 'グリッド', 'projects.view.list': 'リスト',
+              'projects.sort': '並べ替え', 'projects.sort.updated': '最近の更新', 'projects.sort.name': '名前', 'projects.sort.chats': 'チャットが多い順', 'projects.sort.created': '新しい順',
+              'projects.noMatch': '一致するプロジェクトはありません。', 'projects.clear': '絞り込みを解除',
+              'projects.addTile': '新規プロジェクト', 'projects.addTileHint': 'フォルダーを選ぶか作成します',
               'projects.updated': '{ago}前に更新',
-              'section.mcp': 'MCP サーバー', 'section.skills': 'スキル',
+              'section.mcp': 'MCP サーバー', 'section.skills': 'スキル', 'tab.connectors': 'コネクタ',
               scheduled: 'スケジュール', 'palette.title': '検索', 'palette.placeholder': 'チャット、成果物、プロジェクト、操作を検索',
+              hub: 'モデル', customize: 'カスタマイズ',
+              editSidebar: 'サイドバーを編集…', 'editSidebar.title': 'サイドバーを編集', 'editSidebar.done': '完了',
+              'editSidebar.lede': 'サイドバーに表示する項目を選びます。', 'editSidebar.close': '閉じる',
+              'editSidebar.footer': 'サイドバーの下部', 'editSidebar.login': 'ログイン', hosts: 'ホスト',
               'palette.filter': '結果を絞り込む', 'palette.all': 'すべて', 'palette.recents': '最近', 'palette.actions': '操作',
               'palette.goTo': '{page}へ移動', 'palette.nothing': 'まだ何もありません', 'palette.noResults': '「{query}」に一致する結果はありません',
               'palette.navigate': '移動', 'palette.open': '開く', 'palette.close': '閉じる',
@@ -1591,19 +2736,30 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'Chats',
               newChat: 'Nuevo chat',
               newProject: 'Nuevo proyecto',
+              addProject: 'Añadir proyecto',
               search: 'Buscar',
               projects: 'Proyectos', plugins: 'Complementos', settings: 'Configuración', artifacts: 'Artefactos',
               newArtifact: 'Nuevo artefacto', createPlugin: 'Crear complemento',
               'newArtifact.prompt': 'Crea un archivo para mí: ',
               'createPlugin.prompt': 'Crea un complemento de Jan con una entrada en la barra lateral izquierda.',
+              'createSkill.prompt': 'Crea una habilidad que ', 'createConnector.prompt': 'Conecta Jan a ',
               'projects.lede': 'Cada proyecto es una carpeta. Los chats iniciados en él pueden leer y escribir sus archivos.',
               'project.back': "Volver a proyectos",
               'project.missing': "Este proyecto ya no está en Jan.",
-              'project.newSession': "Nueva sesión en {name}",
-              'project.composerHint': "Enter inicia una sesión en este proyecto. Mayús+Enter añade una línea.",
-              'project.start': "Iniciar sesión",
-              'project.recents': "Recientes",
-              'project.noSessions': "Este proyecto todavía no tiene sesiones.",
+              'project.newSession': "Nuevo chat en {name}",
+              'project.composerHint': "Enter inicia un chat en este proyecto. Mayús+Enter añade una línea.",
+              'project.start': "Iniciar chat",
+              'project.recents': "Chats recientes",
+              'time.now': "ahora",
+              'time.minutes': "{n}min",
+              'time.hours': "{n}h",
+              'project.noSessions': "Este proyecto todavía no tiene chats.",
+              'project.status.running': "En curso",
+              'project.status.approval': "Esperando aprobación",
+              'project.status.question': "Esperando tu respuesta",
+              'project.status.planReview': "Plan pendiente de revisión",
+              'project.status.subagents.one': "{n} subagente en curso",
+              'project.status.subagents.other': "{n} subagentes en curso",
               'project.details': "Detalles del proyecto",
               'project.instructions': "Instrucciones",
               'project.instructions.empty': "Indica al agente cómo trabajar en este proyecto.",
@@ -1614,6 +2770,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "Se muestran los primeros 300 elementos.",
               'project.addFiles': "Añadir archivos",
               'project.openFolder': "Abrir carpeta",
+              'project.copyPath': "Copiar ruta",
+              'project.edit.identity': "Editar proyecto",
+              'project.pathCopied': "Ruta copiada",
+              'project.git.branch': "Rama actual",
+              'project.git.open': "Abrir {name} en {host}",
               'project.memory': "Memoria",
               'project.memory.empty': "Notas que el agente guarda sobre este proyecto.",
               'project.memory.description': "Notas privadas que cada sesión nueva de este proyecto lee después de sus instrucciones.",
@@ -1644,9 +2805,19 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'Buscar proyectos',
               'projects.empty': 'Aún no hay proyectos. Crea uno a partir de una carpeta de este equipo.',
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
+              'projects.count': '{count} proyectos', 'projects.countOf': '{shown} de {count}', 'projects.filter': 'Filtrar proyectos',
+              'projects.filter.all': 'Todos', 'projects.filter.recent': 'Esta semana', 'projects.filter.empty': 'Sin chats',
+              'projects.view': 'Vista', 'projects.view.grid': 'Cuadrícula', 'projects.view.list': 'Lista',
+              'projects.sort': 'Ordenar', 'projects.sort.updated': 'Actualizados recientemente', 'projects.sort.name': 'Nombre', 'projects.sort.chats': 'Más chats', 'projects.sort.created': 'Más nuevos',
+              'projects.noMatch': 'Ningún proyecto coincide con tu búsqueda.', 'projects.clear': 'Quitar filtros',
+              'projects.addTile': 'Nuevo proyecto', 'projects.addTileHint': 'Elige o crea una carpeta',
               'projects.updated': 'actualizado hace {ago}',
-              'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
+              'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades', 'tab.connectors': 'Conectores',
               scheduled: 'Programadas', 'palette.title': 'Buscar', 'palette.placeholder': 'Buscar chats, artefactos, proyectos y acciones',
+              hub: 'Modelos', customize: 'Personalizar',
+              editSidebar: 'Editar barra lateral…', 'editSidebar.title': 'Editar barra lateral', 'editSidebar.done': 'Listo',
+              'editSidebar.lede': 'Elige qué elementos aparecen en la barra lateral.', 'editSidebar.close': 'Cerrar',
+              'editSidebar.footer': 'Parte inferior de la barra lateral', 'editSidebar.login': 'Iniciar sesión', hosts: 'Hosts',
               'palette.filter': 'Filtrar resultados', 'palette.all': 'Todo', 'palette.recents': 'Recientes', 'palette.actions': 'Acciones',
               'palette.goTo': 'Ir a {page}', 'palette.nothing': 'Todavía no hay nada', 'palette.noResults': 'No hay resultados para “{query}”',
               'palette.navigate': 'Navegar', 'palette.open': 'Abrir', 'palette.close': 'Cerrar',
@@ -1657,19 +2828,30 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'Discussions',
               newChat: 'Nouvelle discussion',
               newProject: 'Nouveau projet',
+              addProject: 'Ajouter un projet',
               search: 'Rechercher',
               projects: 'Projets', plugins: 'Plugins', settings: 'Paramètres', artifacts: 'Artefacts',
               newArtifact: 'Nouvel artefact', createPlugin: 'Créer un plugin',
               'newArtifact.prompt': 'Crée un fichier pour moi : ',
               'createPlugin.prompt': 'Crée un plugin Jan avec une entrée dans la barre latérale gauche.',
+              'createSkill.prompt': 'Crée une compétence qui ', 'createConnector.prompt': 'Connecte Jan à ',
               'projects.lede': 'Chaque projet est un dossier. Les discussions qui y sont lancées peuvent lire et écrire ses fichiers.',
               'project.back': "Retour aux projets",
               'project.missing': "Ce projet n'est plus dans Jan.",
-              'project.newSession': "Nouvelle séance dans {name}",
-              'project.composerHint': "Entrée lance une séance dans ce projet. Maj+Entrée ajoute une ligne.",
-              'project.start': "Lancer la séance",
-              'project.recents': "Récents",
-              'project.noSessions': "Ce projet n'a pas encore de séance.",
+              'project.newSession': "Nouvelle discussion dans {name}",
+              'project.composerHint': "Entrée lance une discussion dans ce projet. Maj+Entrée ajoute une ligne.",
+              'project.start': "Lancer la discussion",
+              'project.recents': "Discussions récentes",
+              'time.now': "maintenant",
+              'time.minutes': "{n}min",
+              'time.hours': "{n}h",
+              'project.noSessions': "Ce projet n'a pas encore de discussion.",
+              'project.status.running': "En cours",
+              'project.status.approval': "En attente d'approbation",
+              'project.status.question': "En attente de votre réponse",
+              'project.status.planReview': "Plan en attente de relecture",
+              'project.status.subagents.one': "{n} sous-agent en cours",
+              'project.status.subagents.other': "{n} sous-agents en cours",
               'project.details': "Détails du projet",
               'project.instructions': "Instructions",
               'project.instructions.empty': "Expliquez à l'agent comment travailler dans ce projet.",
@@ -1680,6 +2862,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "Les 300 premiers éléments sont affichés.",
               'project.addFiles': "Ajouter des fichiers",
               'project.openFolder': "Ouvrir le dossier",
+              'project.copyPath': "Copier le chemin",
+              'project.edit.identity': "Modifier le projet",
+              'project.pathCopied': "Chemin copié",
+              'project.git.branch': "Branche actuelle",
+              'project.git.open': "Ouvrir {name} sur {host}",
               'project.memory': "Mémoire",
               'project.memory.empty': "Notes que l'agent garde sur ce projet.",
               'project.memory.description': "Notes privées que chaque nouvelle séance de ce projet lit après ses instructions.",
@@ -1710,9 +2897,19 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'Rechercher des projets',
               'projects.empty': 'Aucun projet pour le moment. Créez-en un à partir d’un dossier de cet ordinateur.',
               'projects.chat': '{count} discussion', 'projects.chats': '{count} discussions',
+              'projects.count': '{count} projets', 'projects.countOf': '{shown} sur {count}', 'projects.filter': 'Filtrer les projets',
+              'projects.filter.all': 'Tous', 'projects.filter.recent': 'Cette semaine', 'projects.filter.empty': 'Sans discussion',
+              'projects.view': 'Affichage', 'projects.view.grid': 'Grille', 'projects.view.list': 'Liste',
+              'projects.sort': 'Trier', 'projects.sort.updated': 'Mis à jour récemment', 'projects.sort.name': 'Nom', 'projects.sort.chats': 'Plus de discussions', 'projects.sort.created': 'Plus récents',
+              'projects.noMatch': 'Aucun projet ne correspond à votre recherche.', 'projects.clear': 'Effacer les filtres',
+              'projects.addTile': 'Nouveau projet', 'projects.addTileHint': 'Choisissez ou créez un dossier',
               'projects.updated': 'mis à jour il y a {ago}',
-              'section.mcp': 'Serveurs MCP', 'section.skills': 'Compétences',
+              'section.mcp': 'Serveurs MCP', 'section.skills': 'Compétences', 'tab.connectors': 'Connecteurs',
               scheduled: 'Planifiées', 'palette.title': 'Rechercher', 'palette.placeholder': 'Rechercher des discussions, artefacts, projets et actions',
+              hub: 'Modèles', customize: 'Personnaliser',
+              editSidebar: 'Modifier la barre latérale…', 'editSidebar.title': 'Modifier la barre latérale', 'editSidebar.done': 'Terminé',
+              'editSidebar.lede': 'Choisissez les éléments affichés dans la barre latérale.', 'editSidebar.close': 'Fermer',
+              'editSidebar.footer': 'Bas de la barre latérale', 'editSidebar.login': 'Se connecter', hosts: 'Hôtes',
               'palette.filter': 'Filtrer les résultats', 'palette.all': 'Tout', 'palette.recents': 'Récents', 'palette.actions': 'Actions',
               'palette.goTo': 'Aller à {page}', 'palette.nothing': 'Rien pour le moment', 'palette.noResults': 'Aucun résultat pour « {query} »',
               'palette.navigate': 'Naviguer', 'palette.open': 'Ouvrir', 'palette.close': 'Fermer',
@@ -1723,19 +2920,30 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'Chats',
               newChat: 'Neuer Chat',
               newProject: 'Neues Projekt',
+              addProject: 'Projekt hinzufügen',
               search: 'Suchen',
               projects: 'Projekte', plugins: 'Plugins', settings: 'Einstellungen', artifacts: 'Artefakte',
               newArtifact: 'Neues Artefakt', createPlugin: 'Plugin erstellen',
               'newArtifact.prompt': 'Erstelle eine Datei für mich: ',
               'createPlugin.prompt': 'Erstelle ein Jan-Plugin mit einem Eintrag in der linken Seitenleiste.',
+              'createSkill.prompt': 'Erstelle einen Skill, der ', 'createConnector.prompt': 'Verbinde Jan mit ',
               'projects.lede': 'Jedes Projekt ist ein Ordner. Darin gestartete Chats können seine Dateien lesen und schreiben.',
               'project.back': "Zurück zu Projekten",
               'project.missing': "Dieses Projekt ist nicht mehr in Jan.",
-              'project.newSession': "Neue Sitzung in {name}",
-              'project.composerHint': "Eingabe startet eine Sitzung in diesem Projekt. Umschalt+Eingabe fügt eine Zeile ein.",
-              'project.start': "Sitzung starten",
-              'project.recents': "Zuletzt",
-              'project.noSessions': "Dieses Projekt hat noch keine Sitzungen.",
+              'project.newSession': "Neuer Chat in {name}",
+              'project.composerHint': "Eingabe startet einen Chat in diesem Projekt. Umschalt+Eingabe fügt eine Zeile ein.",
+              'project.start': "Chat starten",
+              'project.recents': "Letzte Chats",
+              'time.now': "jetzt",
+              'time.minutes': "{n}min",
+              'time.hours': "{n}h",
+              'project.noSessions': "Dieses Projekt hat noch keine Chats.",
+              'project.status.running': "Läuft",
+              'project.status.approval': "Wartet auf Freigabe",
+              'project.status.question': "Wartet auf deine Antwort",
+              'project.status.planReview': "Plan wartet auf Prüfung",
+              'project.status.subagents.one': "{n} Subagent läuft",
+              'project.status.subagents.other': "{n} Subagenten laufen",
               'project.details': "Projektdetails",
               'project.instructions': "Anweisungen",
               'project.instructions.empty': "Sag dem Agenten, wie er in diesem Projekt arbeiten soll.",
@@ -1746,6 +2954,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "Die ersten 300 Einträge werden angezeigt.",
               'project.addFiles': "Dateien hinzufügen",
               'project.openFolder': "Ordner öffnen",
+              'project.copyPath': "Pfad kopieren",
+              'project.edit.identity': "Projekt bearbeiten",
+              'project.pathCopied': "Pfad kopiert",
+              'project.git.branch': "Aktueller Branch",
+              'project.git.open': "{name} auf {host} öffnen",
               'project.memory': "Gedächtnis",
               'project.memory.empty': "Notizen, die der Agent zu diesem Projekt führt.",
               'project.memory.description': "Private Notizen, die jede neue Sitzung in diesem Projekt nach den Anweisungen liest.",
@@ -1776,9 +2989,19 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'Projekte suchen',
               'projects.empty': 'Noch keine Projekte. Erstelle eines aus einem Ordner auf diesem Computer.',
               'projects.chat': '{count} Chat', 'projects.chats': '{count} Chats',
+              'projects.count': '{count} Projekte', 'projects.countOf': '{shown} von {count}', 'projects.filter': 'Projekte filtern',
+              'projects.filter.all': 'Alle', 'projects.filter.recent': 'Diese Woche', 'projects.filter.empty': 'Noch keine Chats',
+              'projects.view': 'Ansicht', 'projects.view.grid': 'Raster', 'projects.view.list': 'Liste',
+              'projects.sort': 'Sortieren', 'projects.sort.updated': 'Zuletzt aktualisiert', 'projects.sort.name': 'Name', 'projects.sort.chats': 'Meiste Chats', 'projects.sort.created': 'Neueste',
+              'projects.noMatch': 'Keine Projekte entsprechen deiner Suche.', 'projects.clear': 'Filter zurücksetzen',
+              'projects.addTile': 'Neues Projekt', 'projects.addTileHint': 'Ordner auswählen oder erstellen',
               'projects.updated': 'vor {ago} aktualisiert',
-              'section.mcp': 'MCP-Server', 'section.skills': 'Skills',
+              'section.mcp': 'MCP-Server', 'section.skills': 'Skills', 'tab.connectors': 'Konnektoren',
               scheduled: 'Geplant', 'palette.title': 'Suchen', 'palette.placeholder': 'Chats, Artefakte, Projekte und Aktionen suchen',
+              hub: 'Modelle', customize: 'Anpassen',
+              editSidebar: 'Seitenleiste bearbeiten…', 'editSidebar.title': 'Seitenleiste bearbeiten', 'editSidebar.done': 'Fertig',
+              'editSidebar.lede': 'Wähle, welche Elemente in der Seitenleiste erscheinen.', 'editSidebar.close': 'Schließen',
+              'editSidebar.footer': 'Unten in der Seitenleiste', 'editSidebar.login': 'Anmelden', hosts: 'Hosts',
               'palette.filter': 'Ergebnisse filtern', 'palette.all': 'Alle', 'palette.recents': 'Zuletzt', 'palette.actions': 'Aktionen',
               'palette.goTo': 'Zu {page}', 'palette.nothing': 'Noch nichts vorhanden', 'palette.noResults': 'Keine Ergebnisse für „{query}“',
               'palette.navigate': 'Auswählen', 'palette.open': 'Öffnen', 'palette.close': 'Schließen',
@@ -1789,19 +3012,30 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'Чаты',
               newChat: 'Новый чат',
               newProject: 'Новый проект',
+              addProject: 'Добавить проект',
               search: 'Поиск',
               projects: 'Проекты', plugins: 'Плагины', settings: 'Настройки', artifacts: 'Артефакты',
               newArtifact: 'Новый артефакт', createPlugin: 'Создать плагин',
               'newArtifact.prompt': 'Создай для меня файл: ',
               'createPlugin.prompt': 'Создай плагин Jan с пунктом в левой боковой панели.',
+              'createSkill.prompt': 'Создай навык, который ', 'createConnector.prompt': 'Подключи Jan к ',
               'projects.lede': 'Каждый проект - это папка. Чаты, начатые в нем, могут читать и изменять ее файлы.',
               'project.back': "К проектам",
               'project.missing': "Этого проекта больше нет в Jan.",
-              'project.newSession': "Новая сессия в {name}",
-              'project.composerHint': "Enter начинает сессию в этом проекте, Shift+Enter добавляет строку.",
-              'project.start': "Начать сессию",
-              'project.recents': "Недавние",
-              'project.noSessions': "В этом проекте пока нет сессий.",
+              'project.newSession': "Новый чат в {name}",
+              'project.composerHint': "Enter начинает чат в этом проекте, Shift+Enter добавляет строку.",
+              'project.start': "Начать чат",
+              'project.recents': "Недавние чаты",
+              'time.now': "сейчас",
+              'time.minutes': "{n}мин",
+              'time.hours': "{n}h",
+              'project.noSessions': "В этом проекте пока нет чатов.",
+              'project.status.running': "Выполняется",
+              'project.status.approval': "Ожидает одобрения",
+              'project.status.question': "Ожидает вашего ответа",
+              'project.status.planReview': "План ожидает проверки",
+              'project.status.subagents.one': "Субагентов в работе: {n}",
+              'project.status.subagents.other': "Субагентов в работе: {n}",
               'project.details': "Сведения о проекте",
               'project.instructions': "Инструкции",
               'project.instructions.empty': "Объясните агенту, как работать в этом проекте.",
@@ -1812,6 +3046,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "Показаны первые 300 элементов.",
               'project.addFiles': "Добавить файлы",
               'project.openFolder': "Открыть папку",
+              'project.copyPath': "Копировать путь",
+              'project.edit.identity': "Изменить проект",
+              'project.pathCopied': "Путь скопирован",
+              'project.git.branch': "Текущая ветка",
+              'project.git.open': "Открыть {name} на {host}",
               'project.memory': "Память",
               'project.memory.empty': "Заметки агента об этом проекте.",
               'project.memory.description': "Личные заметки, которые каждая новая сессия в этом проекте читает после инструкций.",
@@ -1842,9 +3081,19 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'Поиск проектов',
               'projects.empty': 'Проектов пока нет. Создайте проект из папки на этом компьютере.',
               'projects.chat': 'Чатов: {count}', 'projects.chats': 'Чатов: {count}',
+              'projects.count': 'Проектов: {count}', 'projects.countOf': '{shown} из {count}', 'projects.filter': 'Фильтр проектов',
+              'projects.filter.all': 'Все', 'projects.filter.recent': 'На этой неделе', 'projects.filter.empty': 'Без чатов',
+              'projects.view': 'Вид', 'projects.view.grid': 'Сетка', 'projects.view.list': 'Список',
+              'projects.sort': 'Сортировка', 'projects.sort.updated': 'Недавно обновлённые', 'projects.sort.name': 'Название', 'projects.sort.chats': 'Больше всего чатов', 'projects.sort.created': 'Новые',
+              'projects.noMatch': 'Нет проектов, подходящих под запрос.', 'projects.clear': 'Сбросить фильтры',
+              'projects.addTile': 'Новый проект', 'projects.addTileHint': 'Выберите или создайте папку',
               'projects.updated': 'обновлено {ago} назад',
-              'section.mcp': 'MCP-серверы', 'section.skills': 'Навыки',
+              'section.mcp': 'MCP-серверы', 'section.skills': 'Навыки', 'tab.connectors': 'Коннекторы',
               scheduled: 'Запланированные', 'palette.title': 'Поиск', 'palette.placeholder': 'Поиск чатов, артефактов, проектов и действий',
+              hub: 'Модели', customize: 'Настроить',
+              editSidebar: 'Изменить боковую панель…', 'editSidebar.title': 'Изменить боковую панель', 'editSidebar.done': 'Готово',
+              'editSidebar.lede': 'Выберите, какие пункты показывать на боковой панели.', 'editSidebar.close': 'Закрыть',
+              'editSidebar.footer': 'Низ боковой панели', 'editSidebar.login': 'Войти', hosts: 'Хосты',
               'palette.filter': 'Фильтр результатов', 'palette.all': 'Все', 'palette.recents': 'Недавние', 'palette.actions': 'Действия',
               'palette.goTo': 'Перейти: {page}', 'palette.nothing': 'Здесь пока пусто', 'palette.noResults': 'Нет результатов для «{query}»',
               'palette.navigate': 'Выбор', 'palette.open': 'Открыть', 'palette.close': 'Закрыть',
@@ -1855,19 +3104,30 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'Conversas',
               newChat: 'Nova conversa',
               newProject: 'Novo projeto',
+              addProject: 'Adicionar projeto',
               search: 'Pesquisar',
               projects: 'Projetos', plugins: 'Plug-ins', settings: 'Configurações', artifacts: 'Artefatos',
               newArtifact: 'Novo artefato', createPlugin: 'Criar plug-in',
               'newArtifact.prompt': 'Crie um arquivo para mim: ',
               'createPlugin.prompt': 'Crie um plug-in do Jan com uma entrada na barra lateral esquerda.',
+              'createSkill.prompt': 'Crie uma habilidade que ', 'createConnector.prompt': 'Conecte o Jan a ',
               'projects.lede': 'Cada projeto é uma pasta. As conversas iniciadas nele podem ler e gravar seus arquivos.',
               'project.back': "Voltar aos projetos",
               'project.missing': "Este projeto não está mais no Jan.",
-              'project.newSession': "Nova sessão em {name}",
-              'project.composerHint': "Enter inicia uma sessão neste projeto. Shift+Enter adiciona uma linha.",
-              'project.start': "Iniciar sessão",
-              'project.recents': "Recentes",
-              'project.noSessions': "Este projeto ainda não tem sessões.",
+              'project.newSession': "Nova conversa em {name}",
+              'project.composerHint': "Enter inicia uma conversa neste projeto. Shift+Enter adiciona uma linha.",
+              'project.start': "Iniciar conversa",
+              'project.recents': "Conversas recentes",
+              'time.now': "agora",
+              'time.minutes': "{n}min",
+              'time.hours': "{n}h",
+              'project.noSessions': "Este projeto ainda não tem conversas.",
+              'project.status.running': "Em execução",
+              'project.status.approval': "Aguardando aprovação",
+              'project.status.question': "Aguardando sua resposta",
+              'project.status.planReview': "Plano aguardando revisão",
+              'project.status.subagents.one': "{n} subagente em execução",
+              'project.status.subagents.other': "{n} subagentes em execução",
               'project.details': "Detalhes do projeto",
               'project.instructions': "Instruções",
               'project.instructions.empty': "Diga ao agente como trabalhar neste projeto.",
@@ -1878,6 +3138,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "Mostrando os primeiros 300 itens.",
               'project.addFiles': "Adicionar arquivos",
               'project.openFolder': "Abrir pasta",
+              'project.copyPath': "Copiar caminho",
+              'project.edit.identity': "Editar projeto",
+              'project.pathCopied': "Caminho copiado",
+              'project.git.branch': "Branch atual",
+              'project.git.open': "Abrir {name} em {host}",
               'project.memory': "Memória",
               'project.memory.empty': "Anotações que o agente mantém sobre este projeto.",
               'project.memory.description': "Anotações privadas que cada nova sessão neste projeto lê depois das instruções.",
@@ -1908,9 +3173,19 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.search': 'Pesquisar projetos',
               'projects.empty': 'Nenhum projeto ainda. Crie um a partir de uma pasta deste computador.',
               'projects.chat': '{count} conversa', 'projects.chats': '{count} conversas',
+              'projects.count': '{count} projetos', 'projects.countOf': '{shown} de {count}', 'projects.filter': 'Filtrar projetos',
+              'projects.filter.all': 'Todos', 'projects.filter.recent': 'Esta semana', 'projects.filter.empty': 'Sem conversas',
+              'projects.view': 'Visualização', 'projects.view.grid': 'Grade', 'projects.view.list': 'Lista',
+              'projects.sort': 'Ordenar', 'projects.sort.updated': 'Atualizados recentemente', 'projects.sort.name': 'Nome', 'projects.sort.chats': 'Mais conversas', 'projects.sort.created': 'Mais recentes',
+              'projects.noMatch': 'Nenhum projeto corresponde à sua pesquisa.', 'projects.clear': 'Limpar filtros',
+              'projects.addTile': 'Novo projeto', 'projects.addTileHint': 'Escolha ou crie uma pasta',
               'projects.updated': 'atualizado há {ago}',
-              'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
+              'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades', 'tab.connectors': 'Conectores',
               scheduled: 'Agendadas', 'palette.title': 'Pesquisar', 'palette.placeholder': 'Pesquisar conversas, artefatos, projetos e ações',
+              hub: 'Modelos', customize: 'Personalizar',
+              editSidebar: 'Editar barra lateral…', 'editSidebar.title': 'Editar barra lateral', 'editSidebar.done': 'Concluído',
+              'editSidebar.lede': 'Escolha quais itens aparecem na barra lateral.', 'editSidebar.close': 'Fechar',
+              'editSidebar.footer': 'Parte inferior da barra lateral', 'editSidebar.login': 'Entrar', hosts: 'Hosts',
               'palette.filter': 'Filtrar resultados', 'palette.all': 'Tudo', 'palette.recents': 'Recentes', 'palette.actions': 'Ações',
               'palette.goTo': 'Ir para {page}', 'palette.nothing': 'Nada aqui ainda', 'palette.noResults': 'Nenhum resultado para “{query}”',
               'palette.navigate': 'Navegar', 'palette.open': 'Abrir', 'palette.close': 'Fechar',
@@ -1936,12 +3211,6 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         for (const [key, nodes] of Object.entries(JAN_ARTWORK)) {
           ctx.slots.inject('plugins.artwork', () => ctx.slots.register({ name: 'plugins.artwork', key }, ({ size }) => h(JanArtwork, { nodes, size })))
         }
-        // The More menu's real panel destinations. Registering it also keeps
-        // the More trigger present, so no launcher row is hidden without a
-        // reachable menu entry.
-        ctx.slots.inject('sidebar.panellist.actions', () => ctx.slots.register({
-          name: 'sidebar.panellist.actions', id: 'jt-panel-destinations', order: -100,
-        }, PanelDestinations))
         // The stock "Browse other plugins" / "Create your plugin" rows repeat
         // the Plugins row and its "+"; shadow that sidebar entry with nothing.
         ctx.slots.inject('sidebar.panellist.actions', () => ctx.slots.register({
@@ -1962,13 +3231,32 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         ctx.inject(['layout'], (scope) => {
           scope.layout.configureSidebar({ defaultWidth: 240, minWidth: 224, maxWidth: 320 })
         })
-        let scheduleCatalog
+        const scheduleTasks = createProjectScheduleCatalog()
         let scheduleCreate
         ctx.inject(['layout', 'uiWorkspace', 'workspaces', 'locale'], (scope) => {
           const mainKeyAvailable = (key) => ({
             getSnapshot: () => scope.slots.entriesOfSlot('main').some((entry) => entry.options.key === key),
             subscribe: (listener) => scope.slots.subscribe('main', listener),
           })
+          // Other plugins' sidebar pages; Edit sidebar can pin them as rows too.
+          let otherPanels = []
+          const otherPanelsSnapshot = {
+            getSnapshot: () => {
+              const own = new Set(SIDEBAR_DESTINATIONS.map(({ id }) => id))
+              const next = scope.slots.entriesOfSlot('sidebar.panellist')
+                .filter(({ options }) => !own.has(options.id))
+                .sort((a, b) => (a.options.order ?? 0) - (b.options.order ?? 0))
+                .map(({ options }) => ({ id: options.id, label: (typeof options.label === 'function' ? options.label() : options.label) ?? options.id }))
+              const same = next.length === otherPanels.length && next.every((panel, i) => panel.id === otherPanels[i].id && panel.label === otherPanels[i].label)
+              if (!same) otherPanels = next
+              return otherPanels
+            },
+            subscribe: (listener) => {
+              const offSlots = scope.slots.subscribe('sidebar.panellist', listener)
+              const offLocale = scope.locale.subscribe(listener)
+              return () => { offSlots(); offLocale() }
+            },
+          }
           const t = scope.locale.bind('jan-theme')
           const startDraft = (prompt, agentPreset) => {
             scope.layout.selectPanel(null)
@@ -1976,7 +3264,18 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               prompt, whenDraftExists: 'append', ...agentPreset === undefined ? {} : { agentPreset },
             })
           }
-          const addProject = async () => {
+          // Creator mode mounts the create-* skills; the leading `/name` attaches the matching one.
+          const startCreator = (skill, key) => { startDraft(`/${skill} ${t(key)}`, 'cordis') }
+          // Customize groups Plugins, Skills and Connectors as tabs of one page, as Settings keeps them as sections.
+          scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-skills', order: 10, label: () => t('section.skills'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { skills: true, key: 'skills', onCreate: () => startCreator('create-skill', 'createSkill.prompt') }))))
+          scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-connectors', order: 11, label: () => t('tab.connectors'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { key: 'mcp', onCreate: () => startCreator('create-connector', 'createConnector.prompt') }))))
+          // Each tab shows how many it holds, read from the list both tabs share.
+          scope.slots.inject('plugins.tab.count', () => scope.slots.register({ name: 'plugins.tab.count', key: 'jt-skills' }, () => h(AgentCount, { pick: data => data.skills.skills.length })))
+          scope.slots.inject('plugins.tab.count', () => scope.slots.register({ name: 'plugins.tab.count', key: 'jt-connectors' }, () => h(AgentCount, { pick: data => data.servers.length })))
+          // The shared new-project menu offers this computer, a remote computer and a new folder, as the
+          // sidebar's add button does. An older ui-workspace without it keeps the folder chooser alone.
+          const addProject = async (anchor) => {
+            if (typeof scope.uiWorkspace.addProject === 'function' && scope.uiWorkspace.addProject(anchor)) return
             try {
               const path = await scope.uiWorkspace.pickDirectory()
               if (path === null) return
@@ -1989,6 +3288,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               scope.layout.selectPanel(PROJECTS_PANEL)
             }
           }
+          // Hosts is a Settings section, so its sidebar row opens Settings there instead of a page.
+          const hostsSectionAvailable = {
+            getSnapshot: () => scope.slots.entriesOfSlot('settings.section').some(entry => entry.options.id === HOSTS_SECTION),
+            subscribe: (listener) => scope.slots.subscribe('settings.section', listener),
+          }
+          const openDestination = (id) => {
+            if (id !== HOSTS_SECTION) { scope.layout.selectPanel(id); return }
+            if (settingsNavigation?.open(HOSTS_SECTION) !== true) console.warn('jan-theme: the Hosts settings section is unavailable')
+          }
           scope.slots.inject('sidebar.workspaces.actions', () => scope.slots.register({
             name: 'sidebar.workspaces.actions', priority: -1, locale: 'jan-theme',
             inject: () => ({
@@ -1997,29 +3305,46 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 pluginsAvailable: mainKeyAvailable('plugins'),
                 artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
                 scheduledAvailable: mainKeyAvailable(SCHEDULED_PANEL),
+                hubAvailable: mainKeyAvailable(HUB_PANEL),
+                hostsAvailable: hostsSectionAvailable,
+                otherPanels: otherPanelsSnapshot,
               },
-              openPanel: (id) => scope.layout.selectPanel(id),
+              openPanel: openDestination,
               addProject,
               newChat: () => { startDraft(t('newArtifact.prompt')) },
               // Same draft the stock More menu's "Create your plugin" starts.
-              createPlugin: () => { startDraft(t('createPlugin.prompt'), 'cordis') },
+              createPlugin: () => { startCreator('create-plugin', 'createPlugin.prompt') },
             }),
           }, WorkspaceActions))
-          const openProject = (workspaceId) => {
-            currentProject.set(workspaceId)
-            scope.layout.selectPanel(PROJECT_PANEL)
-          }
+          // The More menu's real panel destinations. Registering it also keeps
+          // the More trigger present, so no launcher row is hidden without a
+          // reachable menu entry.
+          scope.slots.inject('sidebar.panellist.actions', () => scope.slots.register({
+            name: 'sidebar.panellist.actions', id: 'jt-panel-destinations', order: -100, locale: 'jan-theme',
+            inject: () => ({
+              hooks: {
+                panelInfo: scope.layout.panelInfo,
+                pluginsAvailable: mainKeyAvailable('plugins'),
+                artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
+                scheduledAvailable: mainKeyAvailable(SCHEDULED_PANEL),
+                hubAvailable: mainKeyAvailable(HUB_PANEL),
+                hostsAvailable: hostsSectionAvailable,
+              },
+              openPanel: openDestination,
+            }),
+          }, PanelDestinations))
+          const show = (workspaceId) => { showProject(scope.layout, workspaceId) }
           scope.slots.inject('main', () => scope.slots.register({
             name: 'main', key: PROJECTS_PANEL, locale: 'jan-theme',
             inject: () => ({
               hooks: { workspaces: scope.workspaces.list },
-              openProject,
+              openProject: (workspaceId) => { openProject(scope, workspaceId) },
               addProject,
             }),
           }, ProjectsPanel))
           // An older ui-workspace keeps the row click as expand and collapse.
           if (typeof scope.uiWorkspace.registerProjectHandler === 'function') {
-            scope.effect(() => scope.uiWorkspace.registerProjectHandler(openProject), 'jan-theme: project home')
+            scope.effect(() => scope.uiWorkspace.registerProjectHandler(show, PROJECT_PANEL), 'jan-theme: project home')
           }
         })
         ctx.inject(['layout', 'uiWorkspace', 'workspaces', 'sessions', 'locale'], (scope) => {
@@ -2030,7 +3355,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           scope.slots.inject('main', () => scope.slots.register({
             name: 'main', key: PROJECT_PANEL, locale: 'jan-theme',
             inject: () => ({
-              hooks: { project: currentProject, workspaces: scope.workspaces.list, archived, sessions: scope.sessions.list },
+              hooks: { project: currentProject, workspaces: scope.workspaces.list, archived, sessions: scope.sessions.list, scheduleTasks },
               // The typed text becomes the new Session's draft and is sent from there,
               // so the Session's own composer owns attachments, commands and send checks.
               startSession: (workspaceId, text) => {
@@ -2041,27 +3366,29 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 scope.layout.selectPanel(null)
                 scope.uiWorkspace.openSession(sessionId)
               },
+              ...(typeof scope.uiWorkspace.editProject === 'function'
+                ? { editProject: (workspaceId) => { scope.uiWorkspace.editProject(workspaceId) } } : {}),
               backToProjects: () => { scope.layout.selectPanel(PROJECTS_PANEL) },
               openScheduled: () => { scope.layout.selectPanel(SCHEDULED_PANEL) },
-              loadSchedules: () => {
-                const read = scheduleCatalog
-                return read === undefined ? undefined : Promise.resolve().then(read)
-              },
               createSchedule: async (request) => {
                 const create = scheduleCreate
                 if (create === undefined) throw new Error('Scheduled tasks are not available.')
                 const result = await create(request)
                 if (!result.ok) throw new Error(result.error.message)
-                return result.value
+                await scheduleTasks.refresh()
               },
             }),
           }, ProjectHome))
         })
         // Scheduled tasks join the palette and project pages only while the schedule namespace exists.
         ctx.inject(['remote', 'remote.schedule'], (scope) => {
-          scheduleCatalog = () => scope.remote.schedule.catalog()
+          scheduleTasks.setFallback(scope)
           scheduleCreate = (request) => scope.remote.schedule.create(request)
-          scope.effect(() => () => { scheduleCatalog = undefined; scheduleCreate = undefined }, 'jan-theme: schedule source')
+          scope.effect(() => () => { scheduleTasks.setFallback(undefined); scheduleCreate = undefined }, 'jan-theme: schedule source')
+        })
+        ctx.inject(['hostTaskCatalog'], (scope) => {
+          scheduleTasks.setShared(scope.hostTaskCatalog)
+          scope.effect(() => () => { scheduleTasks.setShared(undefined) }, 'jan-theme: shared schedule catalog')
         })
         let settingsNavigation
         ctx.inject(['settingsNavigation'], (scope) => {
@@ -2134,8 +3461,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 sessions: scope.sessions.list,
                 workspaces: scope.workspaces.list,
                 catalog: scope.shortcuts.catalog,
+                scheduleTasks,
                 artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
                 scheduledAvailable: mainKeyAvailable(SCHEDULED_PANEL),
+                hubAvailable: mainKeyAvailable(HUB_PANEL),
                 pluginsAvailable: mainKeyAvailable('plugins'),
                 settingsTargets,
               },
@@ -2143,19 +3472,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               openSettings: (section) => {
                 if (settingsNavigation?.open(section) !== true) console.warn(`jan-theme: settings section ${section} is unavailable`)
               },
-              // Read on each open: the catalog is small and changes outside this window.
-              loadSchedules: () => {
-                const read = scheduleCatalog
-                return read === undefined ? undefined : Promise.resolve().then(read)
-              },
               openChat: (sessionId) => {
                 scope.layout.selectPanel(null)
                 scope.uiWorkspace.openSession(sessionId)
               },
-              openProject: (workspaceId) => {
-                scope.layout.selectPanel(null)
-                scope.uiWorkspace.startSession(workspaceId)
-              },
+              openProject: (workspaceId) => { openProject(scope, workspaceId) },
               openArtifact: (sessionId, seq, index) => {
                 const query = new URLSearchParams({ sessionId, seq: String(seq), index: String(index) })
                 fetch(`api/present.open?${query}`, { method: 'POST' }).then((response) => {
@@ -2172,6 +3493,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             }),
           }, SearchPalette))
         })
+        publishFooter()
+        ctx.effect(() => () => {
+          for (const { id } of FOOTER_ITEMS) document.documentElement.removeAttribute(`data-sidebar-hide-${id}`)
+        }, 'jan-theme: sidebar footer choices')
         // The account menu carries Settings plus Sign in with Tokamak; it
         // registers at the default rank, so ours renders only without it.
         ctx.slots.inject('settings.launcher', () => ctx.slots.register({

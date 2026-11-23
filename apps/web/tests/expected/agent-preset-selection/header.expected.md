@@ -1,5 +1,4 @@
 - navigation "Session hierarchy": Seeded turn
-- button "Switch the agent preset for this task: Minimal mode"
 - button "1 subagent"
 - button "More actions"
 - button "Open right sidebar"

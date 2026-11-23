@@ -107,6 +107,8 @@
   transition: opacity 120ms ease-out;
 }
 
+.divider:focus-visible::after { opacity: 1; }
+
 @media (hover: hover) {
   .divider:hover::after {
     opacity: 1;
@@ -302,6 +304,12 @@
   gap: 8px;
   align-items: center;
   height: 28px;
+  margin-left: 4px;
+}
+
+/* The tab's own controls sit before the split control; the same 4px margin
+   keeps 8px between them too. */
+.stripChrome + [data-dockkit-split-control] {
   margin-left: 4px;
 }
 

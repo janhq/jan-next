@@ -39,3 +39,51 @@
   flex: none;
   max-width: 75%;
 }
+
+/* The computer menu holds a search field; a fixed floor keeps the field and
+ * the machine rows from collapsing to the shortest label. */
+.menu {
+  min-width: min(280px, calc(100vw - 24px));
+}
+
+.search {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* New folder dialog: label above field, the location path shrinks before the
+ * Change button. */
+.newFolder {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.location {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.locationPath {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 20px;
+}

@@ -39,11 +39,13 @@ it('restores current layout independently by Session with a fresh undo history',
   first.actions.setMode(sessionId, 'fullscreen')
   const second = handle.create('second')
   second.actions.open('second')
+  second.actions.setMode('second', 'fullscreen')
+  const secondLayout = () => createSidebarRightStore(seed).create('second').getSnapshot().bySession.second?.layout
   const saved = first.getSnapshot()
   const restored = createSidebarRightStore(seed).create(sessionId)
   const recovered = { bySession: { [sessionId]: { ...saved.bySession[sessionId], history: { entries: [], cursor: 0 } } } }
   expect(restored.getSnapshot()).toEqual(recovered)
-  expect(createSidebarRightStore(seed).create('second').getSnapshot()).toEqual(second.getSnapshot())
+  expect(secondLayout()).toEqual(second.getSnapshot().bySession.second!.layout)
   expect(createSidebarRightStore(seed).create('new').getSnapshot()).toEqual({ bySession: {} })
   restored.actions.undo(sessionId)
   restored.actions.redo(sessionId)
@@ -52,7 +54,7 @@ it('restores current layout independently by Session with a fresh undo history',
   expect(createSidebarRightStore(seed).create(sessionId).getSnapshot().bySession[sessionId]!.layout.expanded).toBe(false)
   restored.clearPersisted()
   expect(createSidebarRightStore(seed).create(sessionId).getSnapshot()).toEqual({ bySession: {} })
-  expect(createSidebarRightStore(seed).create('second').getSnapshot()).toEqual(second.getSnapshot())
+  expect(secondLayout()).toEqual(second.getSnapshot().bySession.second!.layout)
 })
 
 it('pins restored records during adoption before the first render or store mutation', async () => {
@@ -94,4 +96,16 @@ it('starts from an empty layout when stored JSON is corrupt and keeps working wh
   vi.spyOn(localStorage, 'setItem').mockImplementation(() => { throw new Error('Storage full') })
   instance.actions.setExpanded(sessionId, true)
   expect(instance.getSnapshot().bySession[sessionId]!.layout.expanded).toBe(true)
+})
+
+it('keeps no entry for a Session whose sidebar was never used and prunes such entries on read', () => {
+  const values = storage()
+  const key = `jan.sidebar-right.v1.${sessionId}`
+  const fresh = createSidebarRightStore(seed).create(sessionId)
+  fresh.actions.setMode(sessionId, 'push')
+  const surface = fresh.getSnapshot().bySession[sessionId]!
+  expect(values.has(key)).toBe(false)
+  values.set(key, JSON.stringify({ bySession: { [sessionId]: { layout: surface.layout, minted: surface.minted } } }))
+  expect(createSidebarRightStore(seed).create(sessionId).getSnapshot()).toEqual({ bySession: {} })
+  expect(values.has(key)).toBe(false)
 })

@@ -1,16 +1,17 @@
 /** Composer context-occupancy meter: a ring and percentage below the card fed by the
  * `contextPressure` projection, with a click-open panel of the heuristic
- * `contextBreakdown` composition (system prompt, tools, conversation).
+ * `contextBreakdown` composition (system prompt, tools, conversation) and what
+ * the Session runs with (MCP tools, plugins, skills, tools).
  * Renders nothing until a provider reports both pressure and a route
  * capacity. */
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { UseProjection } from '@janhq/jan-api-session-controller/client'
-import type { SessionContextPreviewValue } from '@janhq/jan-api-session-controller/types'
+import type { SessionContextPreviewValue, SessionInventory, SessionItemOrigin } from '@janhq/jan-api-session-controller/types'
 // Type-only: the `contextPressure` / `contextBreakdown` projection key merges.
 import type {} from '@janhq/jan-token-meter/client'
-import { Tooltip, useDismissOnOutsidePointer } from '@janhq/jan-client-ui-primitives'
+import { IconChevronRightOutlineRegular, Tooltip, useDismissOnOutsidePointer } from '@janhq/jan-client-ui-primitives'
 import type { ComposerBarProps } from '../contract/slots.ts'
 import { contextOccupancy } from '../context-occupancy.ts'
 import css from './ContextMeter.module.css'
@@ -32,6 +33,63 @@ const ROWS = [
   { key: 'toolsTokens', label: 'context.tools', color: css.colorTools },
   { key: 'messageTokens', label: 'context.messages', color: css.colorMessages },
 ] as const
+
+interface InventoryItem {
+  text: string
+  origin?: SessionItemOrigin
+}
+
+interface InventoryRow {
+  key: string
+  label: 'context.inventory.plugins' | 'context.inventory.skills' | 'context.inventory.tools'
+  items: InventoryItem[]
+}
+
+/**
+ * One expandable inventory row per kind; plugins only when the Host knows the
+ * preset composition. Tools are one list: Jan's own first, then each MCP tool
+ * under its server, every item tagged with where it comes from like a skill.
+ */
+function inventoryRows(inventory: SessionInventory, t: ComposerBarProps['t']): InventoryRow[] {
+  const rows: InventoryRow[] = []
+  if (inventory.plugins !== undefined) {
+    rows.push({ key: 'plugins', label: 'context.inventory.plugins', items: inventory.plugins.map(text => ({ text })) })
+  }
+  rows.push(
+    { key: 'skills', label: 'context.inventory.skills', items: inventory.skills.map(skill => ({ text: skill.name, origin: skill.origin })) },
+    {
+      key: 'tools',
+      label: 'context.inventory.tools',
+      items: [
+        ...inventory.tools.map(text => ({ text, origin: { kind: 'bundled' } as const })),
+        ...inventory.mcpTools.map(tool => ({ text: t('context.inventory.mcpTool', { server: tool.server, name: tool.name }), origin: tool.origin })),
+      ],
+    },
+  )
+  return rows
+}
+
+/** Plugin package names drop the shared scope prefix to fit the panel. */
+function shortPlugin(name: string): string {
+  return name.replace(/^@janhq\/jan-/, '')
+}
+
+/**
+ * The short tag naming where an item comes from.
+ * @param origin - Host-reported origin.
+ * @param t - locale seat.
+ * @returns the localized tag; a plugin reads as its own name.
+ */
+function originTag(origin: SessionItemOrigin, t: ComposerBarProps['t']): string {
+  switch (origin.kind) {
+    case 'plugin': return shortPlugin(origin.plugin)
+    case 'project': return t('context.origin.project')
+    case 'global': return t('context.origin.global')
+    case 'bundled': return t('context.origin.bundled')
+    case 'custom': return t('context.origin.custom')
+    case 'session': return t('context.origin.session')
+  }
+}
 
 /**
  * Format a token count for the compact context panel.
@@ -69,9 +127,10 @@ export function ContextMeter({ useProjection, selectedWindow, previewContext, t 
   // system prompt, tools, and runtime context stands in for both reading and breakdown.
   const loggedTotal = logged === undefined ? 0 : logged.systemTokens + logged.toolsTokens + logged.messageTokens
   const unlogged = loggedTotal === 0
-  // Re-priced on a model switch and on each panel open, so preset and tool changes show.
+  // Re-read on a model switch and on each panel open, so preset and tool changes show;
+  // a logged Session still reads it on open for what the next request runs with.
   useEffect(() => {
-    if (!unlogged || previewContext === undefined) return
+    if ((!unlogged && !open) || previewContext === undefined) return
     let current = true
     previewContext().then(
       (value) => { if (current) setPreview(value) },
@@ -80,12 +139,12 @@ export function ContextMeter({ useProjection, selectedWindow, previewContext, t 
     return () => { current = false }
   }, [unlogged, previewContext, selectedWindow, open])
   const unsent = unlogged && preview !== null ? preview : undefined
+  const inventory = preview?.inventory
   const breakdown = unsent ?? logged
-  const context = contextOccupancy(
-    pressure,
-    selectedWindow,
-    unsent === undefined ? 0 : unsent.systemTokens + unsent.toolsTokens + unsent.messageTokens,
-  )
+  // Until a provider reports usage (a first reply cut before it did), the
+  // priced composition stands in for the reading, so it never reads ~0.
+  const estimate = breakdown === undefined ? 0 : breakdown.systemTokens + breakdown.toolsTokens + breakdown.messageTokens
+  const context = contextOccupancy(pressure, selectedWindow, estimate)
   const available = context !== null
   const anchorName = `--jan-context-${useId().replaceAll(':', '')}`
   useDismissOnOutsidePointer(rootRef, open && available, setOpen, panelRef)
@@ -190,6 +249,34 @@ export function ContextMeter({ useProjection, selectedWindow, previewContext, t 
                 </div>
               ))}
             </dl>
+          )}
+          {inventory !== undefined && (
+            <section className={css.inventory} aria-label={t('context.inventory.title')}>
+              <div className={css.inventoryTitle}>{t('context.inventory.title')}</div>
+              {inventoryRows(inventory, t).map(row => (
+                <details key={row.key} className={css.inventoryRow} data-inventory={row.key}>
+                  <summary>
+                    <IconChevronRightOutlineRegular className={css.chevron} aria-hidden />
+                    <span className={css.inventoryLabel}>{t(row.label)}</span>
+                    <span className={css.inventoryCount}>{row.items.length}</span>
+                  </summary>
+                  {row.items.length === 0
+                    ? <p className={css.inventoryEmpty}>{t('context.inventory.none')}</p>
+                    : (
+                      <ul className={css.inventoryList}>
+                        {row.items.map(item => (
+                          <li key={`${item.origin?.kind ?? ''}/${item.text}`}>
+                            {item.origin !== undefined && (
+                              <span className={css.origin} data-origin={item.origin.kind}>{originTag(item.origin, t)}</span>
+                            )}
+                            {item.text}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                </details>
+              ))}
+            </section>
           )}
         </div>,
         document.body,

@@ -9,8 +9,8 @@
   - button "More conversation views"
 - text: Use the ask_user_question tool to ask me exactly one question with id "checkpoint", question "Ready to continue?", header "Checkpoint", and options labeled "Yes" and "No". After I answer, reply with one short sentence acknowledging my answer and stop. {{clock}}
 - button "Copy"
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - button "Think The user wants me to ask them a checkpoint question first, then continue with whatever they interject. Let me do exactly that."
 - status: Deep diving
 - text: "Deep diving for {{duration}} ··· Interjection: include the word BANANA in your final reply."
@@ -19,6 +19,6 @@
 - button "Copy"
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
+- 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Stop generating"

@@ -31,6 +31,23 @@
     path: ':memory:'
     openAt: never
 
+# New chats in the app start in Full access; the composer explains this once
+# and Settings > General changes the default for later chats. JAN_PERMISSION_MODE
+# still overrides it, and the CLI keeps the base workspace-write default.
+- id: permission
+  config:
+    presets:
+      read-only:
+        sandbox: read-only
+        approval: ask
+      workspace-write:
+        sandbox: workspace-write
+        approval: ask
+      danger-full-access:
+        sandbox: danger-full-access
+        approval: never
+    defaultPreset: !!js process.env.JAN_PERMISSION_MODE ?? 'danger-full-access'
+
 # ── web-only host rows, the transport layer, and the browser roster ─────────
 
 # `jan.client` rows are the browser roster the modules node half scans into
@@ -424,6 +441,11 @@
     - id: presented-files-projection
       name: '@janhq/jan-tool-present/projection'
 
+    # The shared-links index behind the Artifacts library's Links tab: the web
+    # links each chat's messages mention, read from the Session list.
+    - id: shared-links-projection
+      name: '@janhq/jan-client-ui-deliverables/links'
+
     # Records each top-level turn's changed files from git working-tree
     # snapshots; the changed-files card above renders its events.
     - id: workspace-changes
@@ -529,6 +551,11 @@
 
     - id: ui-user-questions
       name: '@janhq/jan-client-ui-user-questions'
+
+    - id: media-capture
+      name: '@janhq/jan-tool-capture-media/startup'
+    - id: ui-media-capture
+      name: '@janhq/jan-client-ui-media-capture'
 
     - id: ui-trajectory
       name: '@janhq/jan-client-ui-trajectory'
@@ -652,8 +679,10 @@
 # The preset selection registry. The shipped preset declarations follow as
 # separate patch files under `presets/`, listed after this file in
 # `package.json` `jan.bundle.patch`.
-- insert:
-    - id: agent-preset-registry
-      name: '@janhq/jan-agent-preset-registry'
-      config:
-        default: standard
+- id: agent-preset-registry
+  config:
+    default: standard
+    # The managed local model reads the whole prompt on this computer before
+    # its first token, so a new chat on it starts on the light preset.
+    routeDefaults:
+      local: minimal

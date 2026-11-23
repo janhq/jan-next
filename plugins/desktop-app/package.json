@@ -1,14 +1,16 @@
 {
   "name": "@janhq/jan-desktop-app",
-  "description": "The Jan desktop bundle: the Jan theme, the read-only import of chats from the earlier Jan desktop app, the Preset Square catalog and the Downloads page over jan-web-app",
+  "description": "The Jan desktop bundle: the Jan theme, the read-only import of chats from the earlier Jan desktop app, the Preset Square catalog, the Downloads page and the Chat mode preset over jan-web-app",
   "version": "0.2.2-rc.1",
   "private": true,
   "type": "module",
   "exports": {
+    "./chat-policy": "./chat-policy.mjs",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
   "files": [
+    "chat-policy.mjs",
     "cordis.patch.yml"
   ],
   "license": "MIT",
@@ -18,9 +20,34 @@
     }
   },
   "dependencies": {
+    "@janhq/dsh-generative-ui": "workspace:~",
+    "@janhq/jan-agent-desktop": "workspace:*",
+    "@janhq/jan-agent-preset": "workspace:*",
+    "@janhq/jan-agent-settings": "workspace:*",
+    "@janhq/jan-always-on": "workspace:*",
+    "@janhq/jan-annotate": "workspace:*",
+    "@janhq/jan-browser-use": "workspace:*",
     "@janhq/jan-client-ui-jan-theme": "workspace:*",
+    "@janhq/jan-command-compact": "workspace:*",
+    "@janhq/jan-compaction-basic": "workspace:*",
+    "@janhq/jan-compaction-tool-result-pruner": "workspace:*",
+    "@janhq/jan-diagnostics": "workspace:*",
     "@janhq/jan-downloads": "workspace:*",
+    "@janhq/jan-hosts": "workspace:*",
+    "@janhq/jan-browser": "workspace:*",
     "@janhq/jan-legacy-import": "workspace:*",
-    "@janhq/jan-preset-square": "workspace:*"
+    "@janhq/jan-model-hub": "workspace:*",
+    "@janhq/jan-notifications": "workspace:*",
+    "@janhq/jan-onboarding": "workspace:*",
+    "@janhq/jan-persona": "workspace:*",
+    "@janhq/jan-preset-square": "workspace:*",
+    "@janhq/jan-time-context": "workspace:*",
+    "@janhq/jan-tokamak": "workspace:*",
+    "@janhq/jan-tool-fs": "workspace:*",
+    "@janhq/jan-tool-present": "workspace:*",
+    "@janhq/jan-tool-skill": "workspace:*",
+    "@janhq/jan-tool-web": "workspace:*",
+    "@janhq/jan-status-bar": "workspace:*",
+    "@janhq/jan-wall-of-quotes": "workspace:*"
   }
 }

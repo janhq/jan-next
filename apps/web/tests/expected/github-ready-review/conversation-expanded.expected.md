@@ -23,8 +23,8 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Injected context" [expanded]
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - paragraph: "Review complete: no actionable findings."
 - button "Copy"
 - button "Branch into a new conversation"

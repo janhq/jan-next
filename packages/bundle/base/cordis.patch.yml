@@ -131,7 +131,7 @@
         apiBaseURL: !!js (process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1').trim().replace(/\/+$/, '').replace(/^(https?:\/\/[^/]+)$/, '$1/v1')
         webOrigin: !!js process.env.TOKAMAK_WEB_URL || ''
         allowLoopbackHttp: !!js "['1', 'true', 'yes'].includes((process.env.TOKAMAK_ALLOW_LOOPBACK_HTTP ?? '').toLowerCase())"
-        clientName: Jan Alpha
+        clientName: Jan Next
 
     - id: credentials
       name: '@janhq/jan-credentials-local'
@@ -173,6 +173,10 @@
             # images unless named below as text only; an entry that declares
             # `architecture.input_modalities` still answers for itself.
             defaultInput: [text, image]
+            # The listing reports no reasoning metadata. The router takes `reasoning_effort` and
+            # answers with reasoning tokens for the models below (probed 2026-11-21); the others
+            # (jev, gpt-oss, claude-opus-4-8, claude-fable-5-1, gpt-5.6-terra) returned none and
+            # stay without an effort picker. A model the router adds later needs a row here.
             models:
               - id: deepseek-flash
                 input: [text]
@@ -180,6 +184,26 @@
                 input: [text]
               - id: openai/gpt-oss-120b-medium
                 input: [text]
+              - { id: 'anthropic/claude-haiku-5-5[1m]', reasoningEfforts: &tokamak-efforts { low: low, medium: medium, high: high } }
+              - { id: 'anthropic/claude-haiku-4-5-20251001', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-sonnet-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-sonnet-5-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-opus-4-6[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-opus-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-opus-5-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-fable-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-fable-5-2[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'google/gemini-4-argon-high', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-5.6-luna', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-5.6-sol', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6-astra', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6-luna', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6-sol', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6.1-sol', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6.1-terra', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6.2-astra', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6.2-sol', reasoningEfforts: *tokamak-efforts }
+              - { id: 'tokamak/auto', reasoningEfforts: *tokamak-efforts }
           # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key and
           # endpoint (the worker's OS-assigned port) exist only while that worker runs, so
           # otherwise the route offers no models.
@@ -433,6 +457,81 @@
     - id: subagent
       name: '@janhq/jan-subagent'
 
+    # tokamak-harness: first-class fresh delegation roles in every base profile.
+    - id: agent-preset-registry
+      name: '@janhq/jan-agent-preset-registry'
+      config:
+        default: worker
+
+    - id: preset-scout
+      name: '@janhq/jan-agent-preset'
+      config:
+        id: scout
+        description: Read-only repository discovery; fast, inexpensive model.
+        icon: search-outline
+        toolAllowlist: [read, read_image, glob, grep, send_message, wait_agent, list_agents]
+        plugins:
+          - id: tool-fs
+            name: '@janhq/jan-tool-fs'
+            config: { write: false, edit: false, applyPatch: false }
+          - id: tool-fs-search
+            name: '@janhq/jan-tool-fs-search'
+            config: { sampleOverCapGlobResults: false }
+          - id: tool-subagent-control
+            name: '@janhq/jan-tool-subagent-control'
+            config: { interrupt: false }
+
+    - id: preset-reviewer
+      name: '@janhq/jan-agent-preset'
+      config:
+        id: reviewer
+        description: Read-only diff review and tests that do not write files.
+        icon: inspect-outline
+        toolAllowlist: [read, read_image, glob, grep, bash, pwsh, job_output, job_kill, job_watch, wake_after, send_message, wait_agent, list_agents]
+        readOnlyDelegation: true
+        plugins:
+          - id: tool-fs
+            name: '@janhq/jan-tool-fs'
+            config: { write: false, edit: false, applyPatch: false }
+          - id: tool-fs-search
+            name: '@janhq/jan-tool-fs-search'
+            config: { sampleOverCapGlobResults: false }
+          - id: tool-bash
+            name: '@janhq/jan-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@janhq/jan-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-jobs
+            name: '@janhq/jan-tool-jobs'
+          - id: tool-subagent-control
+            name: '@janhq/jan-tool-subagent-control'
+            config: { interrupt: false }
+
+    - id: preset-worker
+      name: '@janhq/jan-agent-preset'
+      config:
+        id: worker
+        description: Implement changes with read, shell, and full file editing tools.
+        icon: tool-outline
+        plugins:
+          - id: tool-fs
+            name: '@janhq/jan-tool-fs'
+            config: { applyPatch: true }
+          - id: tool-fs-search
+            name: '@janhq/jan-tool-fs-search'
+            config: { sampleOverCapGlobResults: false }
+          - id: tool-bash
+            name: '@janhq/jan-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@janhq/jan-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-jobs
+            name: '@janhq/jan-tool-jobs'
+          - id: tool-subagent-control
+            name: '@janhq/jan-tool-subagent-control'
+
     - id: agent-team
       name: '@janhq/jan-agent-team'
       config:
@@ -461,6 +560,9 @@
       config:
         provider: spawn
         toolName: subagent
+        allowedAgentPresets: [scout, reviewer, worker]
+        presetAgentOptions:
+          scout: { provider: tokamak, model: 'anthropic/claude-haiku-5-5[1m]' }
 
     # Fork omits model-selection arguments for KV Cache reuse. Parent and child
     # share the messaging tools; return guidance follows the inherited history.

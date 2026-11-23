@@ -15,6 +15,7 @@ const t = makeTranslate(zh, commonZh) as ContextMeterProps['t']
 const tEn = makeTranslate(en, commonEn) as ContextMeterProps['t']
 
 const BREAKDOWN = { systemTokens: 120, toolsTokens: 21_500, messageTokens: 477_000 }
+const NO_INVENTORY = { tools: [], mcpTools: [], skills: [] }
 
 const segmentClass = css.segment
 if (segmentClass === undefined) throw new Error('segment class missing from ContextMeter.module.css')
@@ -47,7 +48,9 @@ describe('ContextMeter', () => {
   })
 
   it('prices the unsent system prompt, tools and context before the first request', async () => {
-    const previewContext = vi.fn(() => Promise.resolve({ systemTokens: 4_000, toolsTokens: 15_000, messageTokens: 1_000 }))
+    const previewContext = vi.fn(() => Promise.resolve({
+      systemTokens: 4_000, toolsTokens: 15_000, messageTokens: 1_000, inventory: NO_INVENTORY,
+    }))
     const view = render(<ContextMeter useProjection={projections({})} selectedWindow={200_000} previewContext={previewContext} t={t} />)
     const trigger = await view.findByRole('button', { name: '上下文已用 10%' })
     fireEvent.click(trigger)
@@ -65,6 +68,46 @@ describe('ContextMeter', () => {
       />,
     )
     expect(view.getByRole('button', { name: '上下文已用 25%' })).toBeDefined()
+  })
+
+  it('lists what the Session runs with, read on open even after a request is logged', async () => {
+    const previewContext = vi.fn(() => Promise.resolve({
+      systemTokens: 1, toolsTokens: 1, messageTokens: 1,
+      inventory: {
+        tools: ['bash', 'read'],
+        mcpTools: [{ server: 'github', name: 'search', origin: { kind: 'plugin' as const, plugin: '@janhq/jan-github' } }],
+        skills: [{ name: 'tdd', description: 'Test first', origin: { kind: 'project' as const } }],
+        plugins: ['@janhq/jan-tool-bash'],
+      },
+    }))
+    const view = render(<ContextMeter
+      useProjection={projections({ contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 }, contextBreakdown: BREAKDOWN })}
+      previewContext={previewContext}
+      t={tEn}
+    />)
+    expect(previewContext).not.toHaveBeenCalled()
+    fireEvent.click(view.getByRole('button', { name: '25% of context used' }))
+    const section = await view.findByRole('region', { name: 'This session' })
+    const counts = [...section.querySelectorAll('summary')].map(summary => summary.textContent)
+    expect(counts).toEqual(['Plugins1', 'Skills1', 'Tools3'])
+    // Every skill and tool reads its source first; MCP tools sit in Tools under their server.
+    const items = [...section.querySelectorAll('li')].map(item => item.textContent)
+    expect(items).toEqual(['@janhq/jan-tool-bash', 'projecttdd', 'Janbash', 'Janread', 'githubMCP github · search'])
+    // The logged reading still rules the header.
+    expect(view.getByRole('dialog').textContent).toContain('~32K / 128K')
+  })
+
+  it('reads the logged composition while no provider usage exists, instead of ~0', () => {
+    const view = render(<ContextMeter
+      useProjection={projections({
+        contextPressure: { contextWindow: 1_000_000 },
+        contextBreakdown: { systemTokens: 2_500, toolsTokens: 15_800, messageTokens: 3_100 },
+      })}
+      selectedWindow={1_000_000}
+      t={tEn}
+    />)
+    fireEvent.click(view.getByRole('button', { name: '2% of context used' }))
+    expect(view.getByRole('dialog').textContent).toContain('~21.4K / 1M')
   })
 
   it('renders nothing until both pressure and capacity are known', () => {

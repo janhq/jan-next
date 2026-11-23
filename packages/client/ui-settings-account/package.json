@@ -57,6 +57,7 @@
     "@janhq/jan-client-test-runtime": "workspace:*",
     "@janhq/jan-client-ui-chat": "workspace:*",
     "@janhq/jan-client-ui-layout": "workspace:*",
+    "@janhq/jan-client-ui-model-selection": "workspace:*",
     "@janhq/jan-client-ui-primitives": "workspace:*",
     "@janhq/jan-client-ui-renderer": "workspace:*",
     "@janhq/jan-client-ui-settings": "workspace:*",

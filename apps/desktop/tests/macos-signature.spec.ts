@@ -49,14 +49,15 @@ describe('desktop macOS release signature', () => {
   it('loads release identifiers from the environment and requires code signing', async () => {
     const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
     const config = createElectronBuilderConfig(RELEASE_ENVIRONMENT, 'darwin', 'arm64')
-    expect(config.protocols).toEqual([{ name: 'Jan Alpha', schemes: ['jan'] }])
+    expect(config.protocols).toEqual([{ name: 'Jan Next', schemes: ['jan'] }])
     expect(portablePath(config.directories.output)).toContain('/.desktop-build/targets/mac-arm64/artifacts')
+    expect(config.mac.extendInfo.NSCameraUsageDescription).toContain('camera')
     expect(config.mac.extendInfo.NSMicrophoneUsageDescription).toContain('microphone')
     expect(config.mac.extendInfo.CFBundleLocalizations).toEqual(SHIPPED_LOCALE_IDS.map(id => id === 'zh' ? 'zh_CN' : id))
     expect(config.mac.entitlementsInherit).toBe(config.mac.entitlements)
     const entitlements = readFileSync(config.mac.entitlements, 'utf8')
     for (const key of ['com.apple.security.cs.allow-jit', 'com.apple.security.cs.allow-unsigned-executable-memory',
-      'com.apple.security.cs.disable-library-validation', 'com.apple.security.device.audio-input']) {
+      'com.apple.security.cs.disable-library-validation', 'com.apple.security.device.audio-input', 'com.apple.security.device.camera']) {
       expect(entitlements).toContain(`<key>${key}</key>\n    <true/>`)
     }
     expect(config.extraResources).toHaveLength(3)

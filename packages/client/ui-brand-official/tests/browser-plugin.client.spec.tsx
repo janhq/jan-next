@@ -89,7 +89,7 @@ describe('official browser-brand plugin', () => {
 
   it('renders the Jan name with its stage, and the logo at each requested size', () => {
     const name = render(<OfficialBrandName t={((key: keyof typeof en) => en[key]) as never} />)
-    expect(name.container.textContent).toBe('JanAlpha')
+    expect(name.container.textContent).toBe('JanNext')
     name.unmount()
 
     const mark = render(<OfficialBrandMark size={34} className="hero" />)

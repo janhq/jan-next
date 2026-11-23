@@ -31,7 +31,7 @@ import type { SubmitOutcome } from '../src/client/contract/input.ts'
 import { SessionInputShell } from '../src/client/input/facade.ts'
 import { $replaceDetectSpanWithText, $selectDetectSpan } from '../src/client/input/editor/span-map.ts'
 import type {
-  ComposerAttachment, ComposerAttachmentsOwnerProps, DraftFileUploads, InputActivityOwnerProps,
+  ComposerAttachment, ComposerAttachmentsOwnerProps, DraftActivityOwnerProps, DraftFileUploads, InputActivityOwnerProps,
 } from '../src/client/contract/slots.ts'
 import type { DraftAttachmentId } from '../src/client/contract/input.ts'
 import { InputBar } from '../src/client/skeleton/InputBar.tsx'
@@ -102,6 +102,7 @@ interface BenchOptions {
   leftItems?: React.ReactNode
   rightItems?: React.ReactNode
   activityEntry?: (owner: InputActivityOwnerProps) => React.ReactNode
+  draftActivityEntry?: (owner: DraftActivityOwnerProps) => React.ReactNode
   contextPressure?: ContextPressureProjection
   footer?: React.ReactNode
   attachments?: readonly ComposerAttachment[]
@@ -180,6 +181,7 @@ function bench(over?: BenchOptions) {
     if (key === 'conversation.input.permission') return over?.permissionEntry ?? null
     if (key === 'conversation.input.model') return over?.modelEntry ?? null
     if (key === 'conversation.input.activity') return over?.activityEntry?.(owner as InputActivityOwnerProps) ?? null
+    if (key === 'conversation.input.draftActivity') return over?.draftActivityEntry?.(owner as DraftActivityOwnerProps) ?? null
     return null
   }) as never
   const props: InputBarProps = {
@@ -1042,6 +1044,40 @@ describe('Enter semantics', () => {
     fireEvent.keyDown(textarea, { key: 'z', keyCode: 90, ctrlKey: true })
     flush()
     expect(shell.snapshot.draft).toBe('typed one')
+  })
+
+  it('does not offer an attachment for an unchanged paste, even after a later edit', async () => {
+    const text = 'x'.repeat(2000)
+    const { textarea, shell, view } = bench({ draft: text })
+    act(() => { shell.editor.update(() => { $getRoot().getAllTextNodes()[0]?.select(0, text.length) }, { discrete: true }) })
+    await act(async () => { fireEvent.paste(textarea, { clipboardData: { items: [], getData: () => text } }) })
+    writeDraft(shell, `${text}!`)
+    expect(view.queryByRole('button', { name: zh['paste.attach'] })).toBeNull()
+    expect(shell.snapshot.draft).toBe(`${text}!`)
+  })
+
+  it('withdraws a paste offer even when later edits return to the same text', async () => {
+    const text = 'x'.repeat(2000)
+    const { textarea, shell, view } = bench()
+    await act(async () => { fireEvent.paste(textarea, { clipboardData: { items: [], getData: () => text } }) })
+    expect(view.getByRole('button', { name: zh['paste.attach'] })).toBeTruthy()
+    act(() => {
+      shell.setDraft(`${text}!`)
+      shell.setDraft(text)
+    })
+    expect(view.queryByRole('button', { name: zh['paste.attach'] })).toBeNull()
+    expect(shell.snapshot.draft).toBe(text)
+  })
+
+  it.each([null, 'Session unavailable'])('only removes the paste when attachment intake accepts it (refusal: %s)', async (refusal) => {
+    const text = 'x'.repeat(2000)
+    const addFiles = vi.fn(() => refusal)
+    const { textarea, shell, view } = bench({ addFiles, draft: 'before' })
+    await act(async () => { fireEvent.paste(textarea, { clipboardData: { items: [], getData: () => text } }) })
+    expect(shell.snapshot.draft).toBe(`before${text}`)
+    await act(async () => { fireEvent.click(view.getByRole('button', { name: zh['paste.attach'] })) })
+    expect(addFiles).toHaveBeenCalledWith([expect.objectContaining({ name: 'pasted-text.txt', size: text.length })], undefined)
+    expect(shell.snapshot.draft).toBe(refusal === null ? 'before' : `before${text}`)
   })
 
   it('caret-only commits advance neither draftRev nor the published state', () => {
@@ -2119,22 +2155,44 @@ describe('command launcher chrome and control seats', () => {
       'conversation.input.overlay', 'conversation.input.attachments', 'conversation.input.placeholder',
       'conversation.input.permission', 'conversation.input.plan', 'conversation.input.left',
       'conversation.input.right', 'conversation.input.model', 'conversation.input.activity',
+      'conversation.input.draftActivity',
       'conversation.composer.dock',
     ])
     expect(view.queryByLabelText('Plan mode')).toBeNull()
     expect(view.queryByLabelText('Model')).toBeNull()
   })
 
-  it('passes the textarea selection to the command menu launcher and reflects its expanded state', () => {
+  it('offers a draft activity before a session and adopts the session without duplicating the control', async () => {
+    const open = vi.fn(async (readDraft: () => string) => { expect(readDraft()).toBe('') })
+    const { props, view } = bench({ variant: 'hero', draftActivityEntry: ({ locked, openDraft }) => (
+      <button type="button" disabled={locked} onClick={() => { void openDraft?.() }}>
+        {openDraft === undefined ? 'Session microphone' : 'Open microphone'}
+      </button>
+    ) })
+    const useAbsentSnapshot = bindSnapshotSelector(createSnapshotStore<undefined>(undefined))
+    const useAbsentInput: InputBarProps['useInput'] = () => { useAbsentSnapshot(() => undefined) }
+    view.rerender(<InputBar {...props} sessionId={undefined} useInput={useAbsentInput}
+      inputActions={undefined} keyboard={undefined} onActivateDraft={open} />)
+    const mic = view.getByRole('button', { name: 'Open microphone' })
+    fireEvent.click(mic)
+    await act(async () => {})
+    expect(open).toHaveBeenCalledOnce()
+    view.rerender(<InputBar {...props} />)
+    expect(view.getByRole('button', { name: 'Session microphone' })).toBe(mic)
+    expect(view.queryByRole('button', { name: 'Open microphone' })).toBeNull()
+  })
+
+  it('opens a short add menu whose Browse commands row passes the textarea selection to the command launcher', () => {
     const toggleCommandMenu = vi.fn()
-    const { view, shell, menuLauncher } = bench({ draft: 'draft text', toggleCommandMenu })
+    const { view, shell } = bench({ draft: 'draft text', toggleCommandMenu })
     act(() => { shell.editor.update(() => { $selectDetectSpan({ start: 2, end: 7 }) }, { discrete: true }) })
     const launcher = view.getByLabelText('添加文件或调用指令')
     expect(launcher.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(launcher)
-    expect(toggleCommandMenu).toHaveBeenCalledExactlyOnceWith({ start: 2, end: 7 })
-    act(() => { menuLauncher.set('command') })
     expect(launcher.getAttribute('aria-expanded')).toBe('true')
+    expect(view.getByText('添加文件或照片')).toBeTruthy()
+    fireEvent.click(view.getByText('浏览指令'))
+    expect(toggleCommandMenu).toHaveBeenCalledExactlyOnceWith({ start: 2, end: 7 })
   })
 
   it('follows the access answers over a running Session, and restores the actions when they return', () => {
@@ -2152,14 +2210,14 @@ describe('command launcher chrome and control seats', () => {
     expect(view.getByLabelText('停止生成')).toBeTruthy()
   })
 
-  it('opening the command menu from the button puts the keyboard in the editor first', () => {
+  it('browsing commands from the add menu puts the keyboard in the editor first', () => {
     const toggleCommandMenu = vi.fn()
     const { view, textarea } = bench({ toggleCommandMenu })
-    // Tab to the button and activate it: the keyboard is on the button, and the
-    // menu is a combobox whose arrows live on the editor.
+    // The menu row takes the keyboard; the command menu is a combobox whose
+    // arrows live on the editor.
     textarea.blur()
-    expect(document.activeElement).not.toBe(textarea)
     fireEvent.click(view.getByLabelText('添加文件或调用指令'))
+    fireEvent.click(view.getByText('浏览指令'))
     expect(document.activeElement).toBe(textarea)
     expect(toggleCommandMenu).toHaveBeenCalledTimes(1)
   })

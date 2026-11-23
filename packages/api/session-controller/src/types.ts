@@ -119,6 +119,8 @@ export interface ModelCatalogModel {
   readonly contextWindow?: number
   /** Whether the route reads image input; absent when the route does not declare its input modalities. */
   readonly imageInput?: boolean
+  /** Whether the model calls tools; `false` when the route declares it cannot, absent when unknown. */
+  readonly toolUse?: boolean
 }
 
 /** One provider and its successfully loaded model catalog. */
@@ -205,6 +207,8 @@ declare module '@janhq/jan-typert-protocol' {
     'session/agent-busy': { readonly reason: string }
     'session/invalid-time-zone': { readonly value: string }
     'session/workspace-attach-failed': { readonly sessionId: SessionId; readonly workspaceId: string }
+    /** The registered project path no longer resolves to its original directory. */
+    'workspace/project-folder-missing': { readonly workspaceId: WorkspaceId }
     'agent-preset/conflict': {
       readonly sessionId: SessionId
       readonly requestedPreset: string
@@ -274,9 +278,9 @@ export interface SessionSearchValue {
 
 /** Request for a Session for a new conversation. */
 export interface SessionCreateRequest {
-  /** Workspace the Session joins; exclusive with `cwd`. */
+  /** Workspace the Session joins; exclusive with `cwd`. Omit both to join the default project. */
   readonly workspaceId?: WorkspaceId
-  /** Directory the Session owns when no Workspace is named. */
+  /** Absolute Host directory the Session owns when no Workspace is named. */
   readonly cwd?: string
   /** Blank Session to reuse while it is reusable, or the identity of a new Session when none is stored under it. */
   readonly sessionId?: SessionId
@@ -316,6 +320,33 @@ export interface SessionContextPreviewValue {
   readonly toolsTokens: number
   /** The runtime-context user message the first step admits. */
   readonly messageTokens: number
+  /** What the next request equips the Agent with. */
+  readonly inventory: SessionInventory
+}
+
+/**
+ * Where a skill or MCP server comes from: the project's own folders, the user's
+ * global config, a plugin, Jan itself, a configured extra skill directory, or
+ * this Session alone (an ACP client's servers, a runtime skill).
+ */
+export type SessionItemOrigin =
+  | { readonly kind: 'project' }
+  | { readonly kind: 'global' }
+  | { readonly kind: 'plugin'; readonly plugin: string }
+  | { readonly kind: 'bundled' }
+  | { readonly kind: 'custom' }
+  | { readonly kind: 'session' }
+
+/** The tools, MCP tools, skills and plugins one Session's next request runs with. */
+export interface SessionInventory {
+  /** Tool names the model is offered, excluding MCP tools. */
+  readonly tools: readonly string[]
+  /** MCP tools the model is offered, with their server and where it is configured. */
+  readonly mcpTools: readonly { readonly server: string; readonly name: string; readonly origin: SessionItemOrigin }[]
+  /** Skills the model or the user can invoke, with where each was found. */
+  readonly skills: readonly { readonly name: string; readonly description: string; readonly origin: SessionItemOrigin }[]
+  /** Plugin modules active in the Session's agent preset; absent when no preset registry is composed. */
+  readonly plugins?: readonly string[]
 }
 
 /** Session rename request. */

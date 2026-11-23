@@ -59,6 +59,15 @@ declare module '@janhq/jan-client-ui-slots' {
         }
       }
     }
+    /** Toolbar controls for the currently rendered document content. */
+    'sidebar.right.tab.document.view-actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: {
+        /** @returns the current preview body element, or null before mount. */
+        readonly getSurface: () => HTMLElement | null
+      }
+    }
     /**
      * Header toolbar contributions acting on the previewed file, rendered
      * after the preview's own controls once the file's Host path is known.

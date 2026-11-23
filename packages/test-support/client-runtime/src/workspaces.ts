@@ -1,11 +1,11 @@
 /** Test-owned workspaces face: the renderer standard-kit observable plus recorded actions. */
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import type {
-  IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
+  IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceUpdateRequest, WorkspaceView,
 } from '@janhq/jan-api-workspace-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { SnapshotStore } from '@janhq/jan-client-store'
-import { workspaceSnapshot } from './fixtures.ts'
+import { defaultWorkspaceFixture, workspaceSnapshot } from './fixtures.ts'
 import type { FixtureSnapshot, Stabilizer } from './fixtures.ts'
 
 /** Writable test representation of the immutable Workspace Controller snapshot. */
@@ -81,14 +81,15 @@ export class TestWorkspaces implements IWorkspaces {
   }
 
   /**
-   * Initialize the default Workspace through a test stub; defaults to an ineligible first use.
+   * Record a request for the default project, returning the existing row or the fixture default.
    * @param signal - caller lifetime.
-   * @returns the stubbed Workspace, or undefined when initialization is ineligible.
+   * @returns the prepared Workspace view.
    */
-  async initializeDefault(signal?: AbortSignal): Promise<WorkspaceView | undefined> {
+  async initializeDefault(signal?: AbortSignal): Promise<WorkspaceView> {
     this.calls.push({ method: 'initializeDefault', args: [signal] })
     const stub = this.stubs.get('initializeDefault')
-    return await (stub?.(signal) as Promise<WorkspaceView | undefined> | undefined)
+    if (stub !== undefined) return await (stub(signal) as Promise<WorkspaceView>)
+    return this.list.getSnapshot().items.find(workspace => workspace.isDefault) ?? defaultWorkspaceFixture
   }
 
   /**
@@ -102,6 +103,28 @@ export class TestWorkspaces implements IWorkspaces {
     const stub = this.stubs.get('rename')
     if (stub !== undefined) return await (stub(workspaceId, title) as Promise<WorkspaceView>)
     return { workspaceId, title, path: `/${title}`, sessionIds: [] } as unknown as WorkspaceView
+  }
+
+  /**
+   * Record a project identity edit and echo the result, without changing the fixture feed.
+   * @param request - target workspace and changed identity fields.
+   * @returns the resulting Workspace view.
+   */
+  async updateIdentity(request: WorkspaceUpdateRequest): Promise<WorkspaceView> {
+    this.calls.push({ method: 'updateIdentity', args: [request] })
+    const stub = this.stubs.get('updateIdentity')
+    if (stub !== undefined) return await (stub(request) as Promise<WorkspaceView>)
+    const workspace = this.list.getSnapshot().items.find(row => row.workspaceId === request.workspaceId)
+    if (workspace === undefined) throw new Error(`Unknown fixture Workspace ${request.workspaceId}`)
+    const { color, avatar, ...rest } = workspace
+    const nextColor = request.color === undefined ? color : request.color
+    const nextAvatar = request.avatar === undefined ? avatar : request.avatar
+    return {
+      ...rest,
+      title: request.title ?? workspace.title,
+      ...(nextColor == null ? {} : { color: nextColor }),
+      ...(nextAvatar == null ? {} : { avatar: nextAvatar }),
+    }
   }
 
   /**

@@ -35,7 +35,7 @@ declare module '@janhq/jan-client-ui-slots' {
   interface SlotFactoryMap {
     /** Shared decision card; the caller owns authorization and persistence. */
     'conversation.approval.card': {
-      scope: 'session'
+      scope: 'session-maybe'
       props: ApprovalCardInput
       locale: 'approval'
       children: { 'conversation.approval.detail': { kind: 'single'; scope: 'session' } }
@@ -193,13 +193,18 @@ export interface ApprovalInjected {
    * @returns text for the active UI language.
    */
   resolveReason(reason: NonNullable<ApprovalPresentationRequest['displayReason']>): string
+  /**
+   * Switch one Session to Full access so later calls run without asking.
+   * @param request - pending request whose Session owns the permission switch.
+   * @returns the switch, or undefined while Full access is unavailable or already selected.
+   */
+  useAllowAll(request: PendingApproval): (() => Promise<void>) | undefined
 }
 
-/** Full props of the approval composer takeover. */
+/** Full props of the tool approval in the composer dock. */
 export type ApprovalComposerProps =
-  PropsRuntime<'conversation.composer'>
+  PropsRuntime<'conversation.input.dock'>
   & PropsRenderFactories
-  & { matched: PendingApproval }
   & PropsLocale<'approval'>
   & ApprovalInjected
 
@@ -219,6 +224,10 @@ export interface ApprovalCardInput {
   callId?: ToolCallId
   /** Caller-specific scope label; ordinary approvals use Allow once. */
   allowLabel?: string
+  /** Caller-specific label for the persistent choice; defaults to Always allow. */
+  alwaysLabel?: string
+  /** Consequence of the persistent choice, shown on hover. */
+  alwaysHint?: string
   /** Whether the caller still accepts an answer. */
   canAnswer: () => boolean
   /** Grant this request with the caller's stated scope. */

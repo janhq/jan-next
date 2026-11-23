@@ -59,6 +59,7 @@ interface FakeInstance {
   subscribe: () => () => void
   actions: Record<string, never>
   clearPersisted: ReturnType<typeof vi.fn>
+  dispose: ReturnType<typeof vi.fn>
 }
 
 /** Fake store handle factory (create-count and clearPersisted observable). */
@@ -73,7 +74,7 @@ function fakeHandle(persist?: string) {
     create: vi.fn((_scopeKey?: string): FakeInstance => {
       const instance: FakeInstance = {
         getSnapshot: () => undefined, subscribe: () => () => undefined,
-        actions: {}, clearPersisted: vi.fn(),
+        actions: {}, clearPersisted: vi.fn(), dispose: vi.fn(),
       }
       created.push(instance)
       return instance
@@ -846,7 +847,7 @@ describe('store instance axis', () => {
     expect(handle.create).not.toHaveBeenCalled()
   })
 
-  it('drops session-maybe state without clearing persistence and creates a fresh instance on reuse', async () => {
+  it('drops session-maybe state without clearing persistence, tells the instance once, and creates a fresh instance on reuse', async () => {
     const { bench, host } = await storeBench()
     const absent = { key: undefined, hooks: {}, keyedHooks: {}, props: {} }
     const source = { getSnapshot: () => absent, subscribe: () => () => undefined }
@@ -862,11 +863,14 @@ describe('store instance axis', () => {
     await scope.fiber.dispose()
 
     expect(created[0]?.clearPersisted).not.toHaveBeenCalled()
+    expect(created[0]?.dispose).toHaveBeenCalledOnce()
     const replacement = scopedBinding(bench.ctx, 's1')
     const after = host.storeOf(entry as never, replacement.binding)
     expect(after).not.toBe(before)
     expect(handle.create).toHaveBeenLastCalledWith('s1')
     await replacement.fiber.dispose()
+    expect(created[0]?.dispose).toHaveBeenCalledOnce()
+    expect(created[1]?.dispose).toHaveBeenCalledOnce()
   })
 })
 

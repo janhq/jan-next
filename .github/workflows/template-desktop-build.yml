@@ -86,6 +86,10 @@ jobs:
           rm -rf native/llama-worker/dist
           mkdir -p native/llama-worker/dist
           tar -xzf "$LLAMA_WORKER_ARTIFACT/jan-llama-worker-$WORKER_TARGET.tar.gz" -C native/llama-worker/dist
+      # The Linux addon payload links its musl helpers with musl-gcc, which clean Ubuntu runners lack.
+      - name: Install the musl toolchain
+        if: inputs.target == 'linux-x64'
+        run: sudo apt-get update -q && sudo apt-get install -yq musl-tools
       - name: Build the unsigned installer
         run: |
           args=("$TARGET" --unsigned)

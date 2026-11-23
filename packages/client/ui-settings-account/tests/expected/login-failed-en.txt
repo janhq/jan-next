@@ -1,1 +1,1 @@
-JanLocalCould not sign inCould not complete the operation. Try again.Add API KeySign in again
+Log inCould not sign inSign in did not finish. Try again, or add an API key to keep working.Add API KeySign in again

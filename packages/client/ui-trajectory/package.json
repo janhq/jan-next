@@ -95,7 +95,7 @@
   ],
   "dependencies": {
     "@janhq/jan-typert-protocol": "workspace:*",
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "@janhq/schemastery": "workspace:~"
   }
 }

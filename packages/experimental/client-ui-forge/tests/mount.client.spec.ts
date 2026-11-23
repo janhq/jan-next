@@ -123,7 +123,7 @@ async function base() {
   const ctx = new Context()
   const unmount = vi.fn(async () => {})
   class Remote extends Service {
-    $host: RemoteHostFacts = { home: '/home/octo', isLoopback: true }
+    $host: RemoteHostFacts = { home: '/home/octo', name: 'fixture-host', remote: false, isLoopback: true }
     constructor() { super(ctx, 'remote') }
     async $mount(contribution: TypertRemoteContribution) {
       expect(contribution).toBe(REMOTE)
@@ -397,14 +397,14 @@ describe('mountForgePanel Session stores', () => {
     const f = await fixture()
     const host = f.tab(S1).hooks.host
     expect(f.tab(S2).hooks.host).toBe(host)
-    expect(host.getSnapshot()).toEqual({ home: '/home/octo', isLoopback: true })
+    expect(host.getSnapshot()).toEqual({ home: '/home/octo', name: 'fixture-host', remote: false, isLoopback: true })
     const listener = vi.fn()
     const unsubscribe = host.subscribe(listener)
 
-    f.remote.$host = { home: '/home/other', isLoopback: false }
+    f.remote.$host = { home: '/home/other', name: 'fixture-host', remote: false, isLoopback: false }
     f.ctx.emit('connection/reset')
     expect(listener).toHaveBeenCalledOnce()
-    expect(host.getSnapshot()).toEqual({ home: '/home/other', isLoopback: false })
+    expect(host.getSnapshot()).toEqual({ home: '/home/other', name: 'fixture-host', remote: false, isLoopback: false })
     unsubscribe()
     f.ctx.emit('connection/reset')
     expect(listener).toHaveBeenCalledOnce()

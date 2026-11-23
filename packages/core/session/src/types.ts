@@ -354,6 +354,11 @@ export interface SessionEventMap {
     stream: AssistantStreamRecord[]
     usage?: TokenUsage
     interrupted?: true
+    /**
+     * With `interrupted`: the user steered the running turn, so the step was
+     * cut to take the new input and the turn went on. Absent for a Stop.
+     */
+    steered?: true
   }
   /**
    * One model attempt that committed no surface message. The embedded stream

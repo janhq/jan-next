@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createScope } from '@janhq/jan-scope'
+import { defineTool } from '@janhq/jan-tools'
 import AgentRegistry, { assembleContextFor } from '@janhq/jan-agent'
 import { entryListProblem } from '../src/index.ts'
 import { currentKey, harness, declare, contribution, agentOn, liveRegistries, plugin } from './harness.ts'
@@ -33,6 +34,25 @@ describe('declarative preset revisions', () => {
     expect(prompt.sections.map(row => row.name)).toContain('preset:standard')
     expect(prompt.sections.map(row => row.name)).not.toContain('preset:minimal')
     expect(ctx.agentPresets.inspectCompositions()).toHaveLength(2)
+  })
+
+  it('restricts inherited tools for every agent bound to a declarative allowlist', async () => {
+    const ctx = await setup()
+    await declare(ctx, contribution('standard'))
+    const tool = (name: string) => defineTool({
+      name, description: name, parameters: {}, execute: async () => name,
+      output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
+    })
+    ctx.tools.register(tool('write'))
+    await declare(ctx, { id: 'scout', toolAllowlist: ['late-reader'], plugins: [] })
+    const scout = await agentOn(ctx, 'scout-agent', 'scout')
+    const worker = await agentOn(ctx, 'worker-agent')
+    expect(ctx.tools.schemas(scout)).toEqual([])
+    ctx.tools.register(tool('late-reader'))
+    expect(ctx.tools.schemas(worker).map(row => row.name).sort()).toEqual(['late-reader', 'standard', 'write'])
+    expect(ctx.tools.schemas(scout).map(row => row.name)).toEqual(['late-reader'])
+    await ctx.agentPresets.select(scout, 'standard')
+    expect(ctx.tools.schemas(scout).map(row => row.name)).toContain('write')
   })
 
   it('retains a replaced revision for existing scopes and their children, then releases it', async () => {
@@ -364,6 +384,24 @@ it('keeps a blank Session that already runs the current revision of the selected
   expect(await ctx.agentPresets.select(agent, 'minimal')).toBe('minimal')
 
   expect(agent.session.snapshotEvents().filter(event => event.type === 'agent-preset/selected')).toHaveLength(1)
+  expect(notified).toBe(0)
+})
+
+it('pins the current route default when the user selects that same preset', async () => {
+  const ctx = await setup()
+  await declare(ctx, contribution('standard'))
+  await declare(ctx, contribution('minimal'))
+  const agent = await agentOn(ctx, 'pinned-default')
+  await ctx.agentPresets.selectRouteDefault(agent, 'standard')
+  expect(ctx.agentPresets.followsRouteDefault(agent.session)).toBe(true)
+  let notified = 0
+  ctx.on('tools/change', () => { notified++ })
+
+  await ctx.agentPresets.select(agent, 'standard')
+  await ctx.agentPresets.selectRouteDefault(agent, 'minimal', 'standard')
+
+  expect(ctx.agentPresets.presetForSession(agent.session)).toBe('standard')
+  expect(ctx.agentPresets.followsRouteDefault(agent.session)).toBe(false)
   expect(notified).toBe(0)
 })
 

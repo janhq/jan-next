@@ -46,7 +46,7 @@
     "@janhq/jan-brand": "workspace:*",
     "@janhq/jan-util-values": "workspace:*",
     "@janhq/schemastery": "workspace:~",
-    "zod": "4.4.3"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@janhq/cordis": "workspace:~",

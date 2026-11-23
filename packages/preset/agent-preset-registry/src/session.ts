@@ -28,7 +28,7 @@ declare module '@janhq/jan-session/types' {
      * saved selection independently of its creator (`jan-subagent` README,
      * "Restoring child composition").
      */
-    'agent-preset/selected': { agentPreset: string }
+    'agent-preset/selected': { agentPreset: string; source?: 'route-default' }
   }
 }
 
@@ -45,3 +45,12 @@ export const agentPresetProjectionDefinition = {
   wire: { viewSchema: agentPresetSchema, view: state => state },
   stateVersion: 1,
 } satisfies ProjectionDefinition<'agentPreset', string | null>
+
+/** Host-only state: old unmarked selections are kept rather than guessed to be defaults. */
+export const agentPresetRouteDefaultProjection = {
+  key: 'agentPresetRouteDefault',
+  stateSchema: z.boolean(),
+  init: () => false,
+  apply: (state, event) => event.type === 'agent-preset/selected' ? event.data.source === 'route-default' : state,
+  stateVersion: 1,
+} satisfies ProjectionDefinition<'agentPresetRouteDefault', boolean>

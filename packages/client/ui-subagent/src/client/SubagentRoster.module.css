@@ -1,0 +1,353 @@
+/* The seat spans the input card's box, so the header glyph (12px seat pad +
+   the header's 2px) lands on the card's text edge. */
+.seat {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-self: center;
+  width: calc(100% - 2 * var(--jan-composer-side-clearance));
+  max-width: var(--jan-composer-card-max-width);
+  padding-inline: 12px;
+  container-type: inline-size;
+}
+
+.header {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  /* The transcript's process rows' size, so the roster reads at the same level as "Called tools". */
+  font-size: var(--jan-content-font-size, 14px);
+  line-height: calc(24px + var(--jan-content-font-delta, 0px));
+  cursor: pointer;
+}
+
+.header:focus-visible {
+  color: var(--dsw-alias-label-primary);
+}
+
+@media (hover: hover) {
+  .header:hover {
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+.headerIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.progress {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress::before {
+  content: '·';
+  margin-inline-end: 6px;
+}
+
+/* Collapsed points right, open points down, in the header (a down glyph) and on each row (a right glyph). */
+.chevron {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.header > .chevron {
+  transform: rotate(-90deg);
+}
+
+.header[aria-expanded='true'] > .chevron {
+  transform: none;
+}
+
+.row[data-open] > .line .chevron {
+  transform: rotate(90deg);
+}
+
+.panel {
+  box-sizing: border-box;
+  max-height: min(320px, 40dvh);
+  margin-top: 2px;
+  padding: 2px 4px;
+  overflow-y: auto;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-specific-menu);
+  backdrop-filter: var(--dsw-menu-backdrop-filter);
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 18px;
+  --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+/* Above the composer the open roster is a card of the composer's own material, radius and
+   edges (the seat's 12px padding is given back), set 8px clear of it. */
+.seat > .panel {
+  margin: 2px -12px 8px;
+  border-color: var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-panel);
+  background: var(--dsw-specific-input-major);
+  backdrop-filter: none;
+}
+
+/* On a closed Turn's duration line the count sits flush on the line's own height,
+   so `3 subagents · 3 completed` shares the baseline of `Completed in 4s`; its
+   open rows take the whole line below. */
+.turnHeader {
+  min-height: calc(25px + var(--jan-content-font-delta, 0px));
+  padding: 0;
+}
+
+.turnPanel {
+  flex-basis: 100%;
+  margin-top: 6px;
+}
+
+.rows,
+.trail {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel > .rows > .row + .row {
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 36px;
+  padding-inline: 6px 2px;
+}
+
+.toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+button.toggle {
+  cursor: pointer;
+}
+
+button.toggle:focus-visible,
+.aside:focus-visible,
+.openChat:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 1px;
+  border-radius: var(--dsw-radius-sm);
+}
+
+.status {
+  display: inline-block;
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.status::first-letter {
+  text-transform: uppercase;
+}
+
+/* A narrow column keeps the title: the dot carries the state and the word stays for assistive tech. */
+@container (max-width: 480px) {
+  .status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  button.toggle:hover .chevron {
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+.metrics {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.aside {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+/* The child opens in the right sidebar, so the panel glyph faces right. */
+.aside svg {
+  transform: scaleX(-1);
+}
+
+@media (hover: hover) {
+  .aside:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+/* Details start under the title column: line pad 6 + dot 12 + gap 8. */
+.detail {
+  padding: 0 6px 8px 26px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-width: 0;
+  color: var(--dsw-alias-label-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.openChat {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .openChat:hover {
+    color: var(--dsw-alias-label-primary);
+    text-decoration: underline;
+  }
+}
+
+/* Each step hangs off a corner connector, as a tree branch would. */
+.trail {
+  margin-top: 2px;
+}
+
+.trail > li {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 2px 0 2px 16px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.trail > li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 2px;
+  width: 8px;
+  height: 11px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l3);
+  border-left: 0.5px solid var(--dsw-alias-border-l3);
+  border-bottom-left-radius: 3px;
+}
+
+.trail > li > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trail time {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.detail > .rows {
+  margin-top: 4px;
+  margin-left: -20px;
+}
+
+.notice,
+.error {
+  margin: 0;
+  padding: 8px 6px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.refresh {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .refresh:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}

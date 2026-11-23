@@ -26,6 +26,8 @@ export interface McpManagedServerView {
   name: string
   /** Whether a configured or registered entry still exists; false for retained cleanup failures after removal. */
   configured: boolean
+  /** Where the entry comes from: the profile's `servers` config, or a plugin that registered it. */
+  origin: { kind: 'config' } | { kind: 'plugin'; plugin: string }
   /** Current runtime status. */
   status: McpManagedServerStatus
 }

@@ -45,6 +45,7 @@ export const zh = {
   'dock.drop.bottom': '下分栏',
   'tab.guide.title': '开始',
   'tab.guide.more': '更多工具',
+  'newTab.needsChat': '发送第一条消息后，即可在此对话旁打开工具',
   'tab.unavailable': '这类内容还没有可用的查看方式。',
 } satisfies Record<string, string>
 
@@ -90,6 +91,7 @@ export const en = {
   'dock.drop.bottom': 'Add bottom split',
   'tab.guide.title': 'Start',
   'tab.guide.more': 'More tools',
+  'newTab.needsChat': 'Send a first message to open tools beside this chat',
   'tab.unavailable': 'Nothing here can view this kind of content yet.',
 } satisfies Record<SidebarRightKey, string>
 
@@ -132,6 +134,7 @@ export const ja = {
   'dock.drop.bottom': '下に分割を追加',
   'tab.guide.title': '開始',
   'tab.guide.more': 'その他のツール',
+  'newTab.needsChat': '最初のメッセージを送ると、このチャットの横でツールを開けます',
   'tab.unavailable': 'この種類のコンテンツを表示できるものはまだありません。',
 } satisfies Record<keyof typeof en, string>
 
@@ -174,6 +177,7 @@ export const es = {
   'dock.drop.bottom': 'Agregar división inferior',
   'tab.guide.title': 'Empezar',
   'tab.guide.more': 'Más herramientas',
+  'newTab.needsChat': 'Envía un primer mensaje para abrir herramientas junto a este chat',
   'tab.unavailable': 'Nada aquí puede ver este tipo de contenido todavía.',
 } satisfies Record<keyof typeof en, string>
 
@@ -216,6 +220,7 @@ export const fr = {
   'dock.drop.bottom': 'Ajouter une division inférieure',
   'tab.guide.title': 'Commencer',
   'tab.guide.more': "Plus d'outils",
+  'newTab.needsChat': 'Envoyez un premier message pour ouvrir des outils à côté de cette discussion',
   'tab.unavailable': 'Rien ici ne peut encore afficher ce type de contenu.',
 } satisfies Record<keyof typeof en, string>
 
@@ -258,6 +263,7 @@ export const de = {
   'dock.drop.bottom': 'Untere Teilung hinzufügen',
   'tab.guide.title': 'Starten',
   'tab.guide.more': 'Weitere Werkzeuge',
+  'newTab.needsChat': 'Sende eine erste Nachricht, um Werkzeuge neben diesem Chat zu öffnen',
   'tab.unavailable': 'Diese Art von Inhalten kann hier noch nicht angezeigt werden.',
 } satisfies Record<keyof typeof en, string>
 
@@ -300,6 +306,7 @@ export const ru = {
   'dock.drop.bottom': 'Добавить нижний разрез',
   'tab.guide.title': 'Старт',
   'tab.guide.more': 'Дополнительные инструменты',
+  'newTab.needsChat': 'Отправьте первое сообщение, чтобы открывать инструменты рядом с этим чатом',
   'tab.unavailable': 'Ничто здесь пока не может просматривать такой контент.',
 } satisfies Record<keyof typeof en, string>
 
@@ -342,5 +349,6 @@ export const pt = {
   'dock.drop.bottom': 'Adicionar divisão inferior',
   'tab.guide.title': 'Começar',
   'tab.guide.more': 'Mais ferramentas',
+  'newTab.needsChat': 'Envie uma primeira mensagem para abrir ferramentas ao lado desta conversa',
   'tab.unavailable': 'Nada aqui pode visualizar esse tipo de conteúdo ainda.',
 } satisfies Record<keyof typeof en, string>

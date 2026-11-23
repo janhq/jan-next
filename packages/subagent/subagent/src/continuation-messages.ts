@@ -87,10 +87,11 @@ export function withResultDeliveryGuidance(
     ...prompt,
     {
       type: 'text',
-      text: 'Your final answer is delivered automatically if your '
-        + 'parent is still online. Include the result and relevant evidence in that answer; the parent does not '
-        + 'receive your full transcript, tool output, or reasoning. If your last action is a message to your '
-        + 'parent, the completion notice omits your final answer; include the result and relevant evidence in that message.',
+      text: 'Your final answer is delivered automatically if your parent is still online. '
+        + 'Follow the requested format. Otherwise use Summary:, Evidence:, Blockers:, and Changed files: in your final answer. '
+        + 'Report only checks you ran and files you changed; omit unknown details. Your parent does not receive your transcript. '
+        + 'Use messages for interim updates, '
+        + 'not as a substitute for your final answer.',
     },
   ]
 }
@@ -128,14 +129,37 @@ function settlementSummary(childName: string, stopReason: SubagentResult['stopRe
   }
 }
 
+function reportField(structured: unknown, key: string): string | undefined {
+  if (typeof structured !== 'object' || structured === null || !Object.hasOwn(structured, key)) return undefined
+  const value = (structured as Record<string, unknown>)[key]
+  if (typeof value === 'string') return value.trim() || undefined
+  if (!Array.isArray(value)) return undefined
+  const entries = value.filter((item): item is string => typeof item === 'string' && item.trim() !== '')
+  return entries.length === 0 ? undefined : entries.join('; ')
+}
+
+/** Extract optional child-reported fields without interpreting arbitrary prose or discarding it. */
+function reportedFields(text: string): ReadonlyMap<string, string> {
+  const fields = new Map<string, string>()
+  const parts = [...text.matchAll(/^[\t ]*(?:\*\*)?(Summary|Evidence|Blockers|Changed files):(?:\*\*)?[\t ]*/gimu)]
+  const first = parts.findIndex(part => part[1]?.toLowerCase() === 'summary')
+  if (first < 0) return fields
+  for (let index = first; index < parts.length; index++) {
+    const part = parts[index]
+    const key = part?.[1]?.toLowerCase()
+    if (part === undefined || key === undefined) continue
+    const value = text.slice(part.index + part[0].length, parts[index + 1]?.index).trim()
+    if (value !== '') fields.set(key, value)
+  }
+  return fields
+}
+
 /**
  * Build the runtime-owned settlement notice from the child's nonempty closing text.
  * @param childId - durable child session id recorded as the sender.
  * @param childName - model-facing child name used in the notice text.
  * @param terminal - recorded terminal state for the settled Activation.
  * @param continuable - whether the child can accept another task.
- * @param omitClosingText - replace the closing text when the child's last action
- *   was a message to its direct parent.
  * @returns the durable user-message representation delivered to the parent.
  */
 export function createSettlementMessage(
@@ -143,7 +167,6 @@ export function createSettlementMessage(
   childName: string,
   terminal: SubagentResult,
   continuable = true,
-  omitClosingText = false,
 ): ReturnType<typeof createUserMessage> {
   const summary = settlementSummary(childName, terminal.stopReason, continuable)
   // Parent providers receive this notice as a user message and may reject
@@ -152,18 +175,23 @@ export function createSettlementMessage(
   const closingText = terminal.output.flatMap(block =>
     block.type === 'text' && block.text.length > 0 ? [block] : [],
   )
+  const fields = reportedFields(closingText.map(block => block.text).join('\n'))
+  const status = terminal.stopReason === 'completed' ? 'completed' : terminal.stopReason === 'aborted' ? 'interrupted' : 'failed'
+  const evidence = reportField(terminal.structured, 'evidence') ?? fields.get('evidence') ?? 'Not reported.'
+  const blockers = [terminal.diagnostic, reportField(terminal.structured, 'blockers') ?? fields.get('blockers')].filter(Boolean)
+  const changed = reportField(terminal.structured, 'changedFiles') ?? fields.get('changed files') ?? 'Not reported.'
+  const outcome = reportField(terminal.structured, 'summary') ?? fields.get('summary')
+    ?? (closingText.length === 0 ? 'No closing message.' : 'See closing message below.')
   return createUserMessage({
     content: [
       { type: 'text' as const, text: summary },
-      ...omitClosingText
-        ? [{ type: 'text' as const, text: 'It sent you a message just before finishing, so its closing message is omitted.' }]
-        : closingText.length === 0
-          ? [{ type: 'text' as const, text: 'It left no closing message.' }]
-          : [{ type: 'text' as const, text: 'Its closing message:' }, ...closingText],
+      { type: 'text' as const, text: `Status: ${status}\nSummary: ${outcome}\nEvidence: ${evidence}\n`
+        + `Blockers: ${blockers.length === 0 ? 'Not reported.' : blockers.join('\n')}\nChanged files: ${changed}` },
+      ...closingText.length === 0
+        ? [{ type: 'text' as const, text: 'It left no closing message.' }]
+        : [{ type: 'text' as const, text: 'Its closing message:' }, ...closingText],
       ...terminal.structured !== undefined
         ? [{ type: 'text' as const, text: `Structured result: ${JSON.stringify(terminal.structured)}` }] : [],
-      ...terminal.diagnostic !== undefined
-        ? [{ type: 'text' as const, text: terminal.diagnostic }] : [],
     ],
     source: {
       kind: 'subagent-settled' as const,

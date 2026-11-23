@@ -79,6 +79,22 @@
   }
 }
 
+/* A neutral filled action: light on dark surfaces and dark on light ones, as the theme pairs the contrast fill with inverted labels. */
+.contrast {
+  background: var(--dsw-alias-button-contrast-fill);
+  color: var(--dsw-alias-label-primary-inverted);
+}
+
+@media (hover: hover) {
+  .contrast:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--dsw-alias-button-contrast-fill) 88%, transparent);
+  }
+}
+
+.contrast:active:not(:disabled) {
+  background: color-mix(in srgb, var(--dsw-alias-button-contrast-fill) 80%, transparent);
+}
+
 .icon {
   display: inline-flex;
   width: 16px;

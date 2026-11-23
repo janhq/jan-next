@@ -652,6 +652,28 @@ describe('SidebarRightController — a tab\'s own actions', () => {
     expect(titles()).toContain('a.txt')
   })
 
+  it('an idle release keeps a session that has tabs or a newer store, and drops an empty one', () => {
+    const { controller, releaseIdle, instance, publish, layout, titles } = harness()
+    publish()
+    controller.openResource(A_TXT)
+    expect(releaseIdle(SESSION, instance)).toBe(false)
+    const own = Object.values(layout().tabs).find(tab => tab.title === 'a.txt')
+    if (own === undefined) throw new Error('expected the opened tab')
+    const occurrence = controller.tabDomain.occurrence(SESSION, own)
+    expect(occurrence.signal.aborted).toBe(false)
+    for (const tab of Object.values(layout().tabs)) instance.actions.closeTab(SESSION, tab.id)
+    expect(titles()).toEqual([])
+    // A store the runtime dropped after a newer one was adopted leaves the newer one standing.
+    const stale = createSidebarRightStore(() => ({ kind: 'guide', title: 'seed' })).create()
+    expect(releaseIdle(SESSION, stale)).toBe(false)
+    expect(releaseIdle(SESSION, instance)).toBe(true)
+    // Released, the session takes nothing from tab actions or the public face.
+    const before = instance.getSnapshot().bySession
+    controller.openResourceIn(SESSION, B_TXT)
+    expect(instance.getSnapshot().bySession).toBe(before)
+    expect(controller.tabsIn(SESSION)).toEqual([])
+  })
+
   it('adoption syncs the Tab domain on each commit of that store: the seeded guide is pinned, a closed tab aborted', () => {
     const { controller, adopt, instance, pin } = harness()
     const first = adopt(SESSION, instance)

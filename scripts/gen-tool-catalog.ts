@@ -49,6 +49,8 @@ import * as SkillFileSystem from '@janhq/jan-skill-filesystem'
 import LocalJobRegistry from '@janhq/jan-jobs-local'
 import * as ToolAskUser from '@janhq/jan-tool-ask-user'
 import * as ToolBash from '@janhq/jan-tool-bash'
+import * as ToolCaptureMedia from '@janhq/jan-tool-capture-media'
+import type { CaptureRequester } from '@janhq/jan-tool-capture-media/types'
 import * as ToolPwsh from '@janhq/jan-tool-pwsh'
 import * as ToolBashPersistent from '@janhq/jan-tool-bash-persistent'
 import * as ToolPwshPersistent from '@janhq/jan-tool-pwsh-persistent'
@@ -227,6 +229,19 @@ const TOOL_PACKAGES: ToolPackage[] = [
       ctx.provide('pluginMarket', {} as PluginMarket)
       await ctx.plugin(PluginMarketTools)
     },
+  },
+  {
+    pkg: '@janhq/jan-tool-capture-media',
+    dir: 'tool-capture-media',
+    source: 'packages/interaction/tool-capture-media/src/index.ts',
+    requires: ['ctx.tools', 'ctx.mediaCapture'],
+    writes: ['tool/call', 'tool/result'],
+    async mount(ctx) {
+      // Schema harvest never asks the user for a capture.
+      ctx.provide('mediaCapture', {} as CaptureRequester)
+      await ctx.plugin(ToolCaptureMedia)
+    },
+    note: 'Each call waits for the owner to allow, capture and send in the chat; a declined request returns `declined`.',
   },
   {
     pkg: '@janhq/jan-mcp-resources',
@@ -610,13 +625,13 @@ const TOOL_PACKAGES: ToolPackage[] = [
     dir: 'tool-jobs',
     source: 'packages/jobs/tool-jobs/src/index.ts',
     requires: ['ctx.tools', 'ctx.jobs', 'ctx.systemPrompt'],
-    writes: ['tool/call', 'tool/result', 'user/message via agent.inject() for background completion notices'],
+    writes: ['tool/call', 'tool/result', 'job/registered', 'job/settled', 'user/message via agent.inject() or agent.followup()'],
     async mount(ctx) {
       await ctx.plugin(LocalJobRegistry)
       await ctx.plugin(ToolJobs)
     },
     note:
-      'The kind-agnostic background-job controller: background bash commands and PTY sends are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers\' `ctx.jobs.start()`.',
+      'The shared controller for background jobs. Read, list, watch, or cancel jobs by id, and schedule timer jobs that deliver a reminder on completion.',
   },
   {
     pkg: '@janhq/jan-tool-agent-team',

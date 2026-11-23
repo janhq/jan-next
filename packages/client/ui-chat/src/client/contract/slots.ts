@@ -54,13 +54,15 @@ export type UsePresentation = SnapshotSelectorHook<ChatPresentationPolicy>
 export interface OpenFileOptions {
   /** 1-based line to reveal; absent = the file's beginning. */
   readonly line?: number
+  /** Hide the column instead when this file is already the visible tab, so a second click closes the preview. */
+  readonly toggle?: boolean
 }
 
 /** Owner currency of the completed-Turn extension chain. */
 export interface TurnTailOwnerProps {
   turn: TurnLocation
   seq: number
-  openFile: (path: string) => void
+  openFile: (path: string, options?: OpenFileOptions) => void
 }
 
 /** Owner share of running-status details: entries read their state from the Session. */
@@ -69,9 +71,39 @@ export interface RunningDetailOwnerProps {
   children?: never
 }
 
+/** Owner currency of the running-Turn extension chain. */
+export interface RunningTailOwnerProps {
+  /** The open latest Turn; its data grows as the Turn's events arrive. */
+  turn: TurnLocation
+}
+
+/** Owner currency of contributions after a closed Turn's duration header. */
+export interface TurnProcessTrailingOwnerProps {
+  /** The closed Turn the header belongs to. */
+  readonly turn: TurnLocation
+}
+
 /** Owner currency of finalized-assistant actions. */
 export interface AssistantActionOwnerProps {
   messageId: MessageId
+  /** Plain text of the finalized reply, as Copy takes it; empty for a reply with no text. */
+  text: string
+  /**
+   * The reply's last embedded live surface: an element that whatever rendered it into the reply
+   * marked `data-chat-embed` (a generated widget, say). Read live; null while there is none.
+   */
+  getEmbed: () => HTMLElement | null
+}
+
+/** Owner currency of actions on a terminal turn failure. */
+export interface TurnErrorActionOwnerProps {
+  /** Seq of the failed turn's `turn/end` event. */
+  seq: number
+  turn: number
+  /** Stable failure code, or the Client display code (`ACCOUNT_SIGNED_OUT`, `INTERRUPTED`), when one is known. */
+  code?: string
+  /** Sanitized failure message; empty when a known code owns localized copy. */
+  message: string
 }
 
 /** Stable quota failure codes retained in the Session log; both raise the frame-wide notice. */
@@ -250,6 +282,8 @@ export interface ChatNodeOwnerProps {
   forkAt: (seq: number) => void
   /** Session-authorized image loader supplied by the Chat view. */
   loadImage: MessageImageLoader
+  /** False in a closed process group or its live text-only peek. */
+  traceDetailsVisible?: boolean | undefined
   /** Turn-process state when this Node belongs to a projected Turn. */
   turnProcess?: TurnProcessOwnerProps | undefined
 }
@@ -384,7 +418,7 @@ export interface ChatFlowOwnerProps extends Pick<ChatNodeOwnerProps,
 /** Full props of the Chat-owned flow renderer. */
 export type ChatFlowSlotProps =
   PropsRuntime<'conversation.chat.flow'>
-  & PropsRenderSlots<'conversation.chat.node' | 'conversation.chat.running-detail'>
+  & PropsRenderSlots<'conversation.chat.node' | 'conversation.chat.running-detail' | 'conversation.chat.running-tail'>
   & PropsRenderFactories
   & PropsStore<ChatStore>
   & InjectFace<ChatFlowDataInjected>
@@ -393,7 +427,7 @@ export type ChatFlowSlotProps =
 /** Full Chat view props. */
 export type ChatViewSlotProps =
   PropsRuntime<'conversation.view'>
-  & PropsRenderSlots<'conversation.chat.flow' | 'conversation.chat.text-interaction'>
+  & PropsRenderSlots<'conversation.chat.flow' | 'conversation.chat.text-interaction' | 'conversation.chat.image.actions'>
   & PropsStore<ChatStore>
   & InjectFace<ChatViewInjected>
   & PropsLocale<'chat'>
@@ -432,6 +466,13 @@ declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     /** Area-local text gestures and surfaces; each consumer registers its own synchronous admission. */
     'conversation.chat.text-interaction': { kind: 'keyed'; scope: 'session'; owner: TextInteractionSurface }
+
+    /** Controls next to a standalone image displayed by conversation Markdown. */
+    'conversation.chat.image.actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: { readonly getSurface: () => HTMLImageElement | null }
+    }
 
     /** Ordered Chat rows and local echoes with viewport-bound visibility hooks. */
     'conversation.chat.flow': {
@@ -492,17 +533,37 @@ declare module '@janhq/jan-client-ui-slots' {
      */
     'conversation.chat.turnTail': { kind: 'list'; scope: 'session'; owner: TurnTailOwnerProps }
     /**
+     * Ordered contributions after a closed Turn's duration header, on the same line;
+     * an entry that opens a panel gives it `flex-basis: 100%` to drop below the line.
+     * Entries return null with nothing to show.
+     */
+    'conversation.chat.turn-process.trailing': { kind: 'list'; scope: 'session'; owner: TurnProcessTrailingOwnerProps }
+    /**
      * Ordered details beside the running status of a Session, e.g. how far a local model got
      * reading the prompt. Each entry reads its own state and returns null when it has nothing
      * to say; the status renders none while it holds its slot hidden.
      */
     'conversation.chat.running-detail': { kind: 'list'; scope: 'session'; owner: RunningDetailOwnerProps }
     /**
+     * Ordered feature contributions below the running status of an open Turn,
+     * e.g. a live view of what the Turn is building. Each entry receives the
+     * open Turn and returns null when it has nothing to show; the Turn's
+     * `conversation.chat.turnTail` takes over once it ends.
+     */
+    'conversation.chat.running-tail': { kind: 'list'; scope: 'session'; owner: RunningTailOwnerProps }
+    /**
      * Ordered actions for one finalized assistant message. Each entry receives
      * the durable message id; a fresh `id` adds an action and reusing one replaces
      * that entry. With no entries, the standard action row remains unchanged.
      */
     'conversation.chat.assistant-actions': { kind: 'list'; scope: 'session'; owner: AssistantActionOwnerProps }
+    /**
+     * Ordered actions on a terminal turn failure, after the card's own recovery
+     * actions. Each entry receives the failed turn and its failure; a fresh `id`
+     * adds an action, and an entry with nothing to offer returns null. With no
+     * entries, the failure card is unchanged.
+     */
+    'conversation.chat.turn-error-actions': { kind: 'list'; scope: 'session'; owner: TurnErrorActionOwnerProps }
     /**
      * Frame-wide quota notice chain. The Chat-owned host in `shell.overlay`
      * offers the one live notice; the first entry whose selector claims its

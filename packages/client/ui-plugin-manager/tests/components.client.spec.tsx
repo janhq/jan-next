@@ -94,7 +94,7 @@ const READY: PluginManagerState = {
  * (a list slot's cell is empty), the view asked for — `detail` for a detail
  * contribution — and the owner props.
  */
-type SlotBodies = Record<string, (view: 'summary' | 'page' | 'activation' | 'detail' | 'add' | 'tab', owner: unknown, form?: ConfigPageForm) => ReactNode>
+type SlotBodies = Record<string, (view: 'summary' | 'page' | 'activation' | 'detail' | 'add' | 'tab' | 'count', owner: unknown, form?: ConfigPageForm) => ReactNode>
 
 /** The subject a detail contribution was rendered with. */
 function subjectOf(owner: unknown): PluginsSubject | undefined {
@@ -187,8 +187,11 @@ function renderTab(
     })),
     configForm: <T,>(id: string): ConfigForm<T> => {
       const stub = stubConfigForm<T>()
-      stub.publish(forms[id]!.state as ConfigFormSnapshot<T>)
-      return { ...stub.scope, mutate: forms[id]!.mutate }
+      const form = forms[id]
+      // Like the real registry, an id with no form reads as an empty one.
+      if (form === undefined) return stub.scope
+      stub.publish(form.state as ConfigFormSnapshot<T>)
+      return { ...stub.scope, mutate: form.mutate }
     },
     renderSlot: (name, owner, opts) => {
       const body = bodies[`${name}:${opts?.only ?? opts?.entryKey ?? ''}`]
@@ -196,6 +199,7 @@ function renderTab(
       if (name === 'plugins.bundle.activation') return body('activation', owner)
       if (name === 'plugins.add.actions') return body('add', owner)
       if (name === 'plugins.tab') return body('tab', owner)
+      if (name === 'plugins.tab.count') return body('count', owner)
       if (name.startsWith('plugins.detail.')) return body('detail', owner)
       if (!('view' in owner) || (owner.view !== 'summary' && owner.view !== 'page')) {
         throw new Error('Plugin configuration fixture requires a summary or page view')
@@ -374,6 +378,41 @@ describe('PluginManagerPage', () => {
     setTabs([{ id: 'discover', label: 'Discover' }])
     fireEvent.click(screen.getByRole('tab', { name: 'Discover' }))
     expect(screen.getByRole('tabpanel', { name: 'Discover' })).toBeTruthy()
+  })
+
+  it('presents the page as Customize when the Host row asks, with Plugins as the first tab and live counts', () => {
+    const customize: ConfigPageForm = {
+      state: { status: 'ready', value: { customize: true }, base: {}, user: {}, revision: 0, writable: true }, mutate: vi.fn(),
+    }
+    renderTab({ packages: [pkg()] }, {}, { 'plugins.tab.count:skills': () => '12' }, { 'ui-plugin-manager': customize },
+      [{ id: 'skills', label: 'Skills' }, { id: 'connectors', label: 'Connectors' }])
+    expect(screen.getByRole('heading', { level: 1, name: en.customizeTitle })).toBeTruthy()
+    expect(screen.queryByText(en.intro)).toBeNull()
+    // A tab with no count entry shows its label alone.
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([`${en.pluginsTab}1`, 'Skills12', 'Connectors'])
+  })
+
+  it('explores Customize plugins: a spotlight opens an optional plugin, and search with filters narrows every card', () => {
+    const inspector = '@janhq/jan-experimental-inspector-profile'
+    const customize: ConfigPageForm = {
+      state: { status: 'ready', value: { customize: true }, base: {}, user: {}, revision: 0, writable: true }, mutate: vi.fn(),
+    }
+    const optional = pkg({ name: inspector, official: true, optional: true, installed: false, enabled: false })
+    const { navigation } = renderTab({ packages: [pkg(), optional] },
+      {}, {}, { 'ui-plugin-manager': customize }, [{ id: 'skills', label: 'Skills' }])
+    const spotlight = screen.getByRole('region', { name: en.spotlightLabel })
+    fireEvent.click(within(spotlight).getByRole('button', { name: en.spotlightOpen }))
+    expect(navigation.getSnapshot().view).toEqual({ kind: 'package', name: inspector, from: 'more' })
+    act(() => { navigation.actions.setView({ kind: 'list' }) })
+    // Off includes the optional plugin the More list holds, so one filter reaches every plugin.
+    fireEvent.click(screen.getByRole('button', { name: en.filterOff }))
+    expect(document.querySelector(`[data-plugin-group="matches"] [data-plugin-package="${inspector}"]`)).not.toBeNull()
+    expect(document.querySelector('[data-plugin-group="matches"] [data-plugin-package="jan-better-sidebar"]')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en.filterAll }))
+    fireEvent.change(screen.getByRole('searchbox', { name: en.exploreSearch }), { target: { value: 'zzzz' } })
+    expect(screen.getByRole('status').textContent).toBe(en.exploreCount.replace('{count}', '0'))
+    fireEvent.click(screen.getByRole('button', { name: en.exploreClear }))
+    expect(document.querySelector('[data-plugin-group="matches"]')).toBeNull()
   })
 
   it('marks the bundle an install enabled without leaving a contributed tab', () => {
@@ -741,7 +780,7 @@ describe('PluginManagerPage', () => {
       expect(screen.getAllByRole('alert')).toHaveLength(1)
       const toast = screen.getByRole('alert')
       expect(toast.textContent).toBe(dict.refreshError)
-      expect(toast.parentElement).toBe(document.body)
+      expect(toast.closest('[data-jan-notification]')?.parentElement?.parentElement).toBe(document.body)
       expect(document.querySelector('[data-plugin-panel]')?.contains(toast)).toBe(false)
       expect(screen.queryByRole('button', { name: dict.retry })).toBeNull()
       expect(content?.isConnected).toBe(true)

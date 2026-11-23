@@ -211,7 +211,7 @@ function declareConversation(slots: SlotRegistry): () => void {
     name: 'conversation',
     children: {
       'conversation.hero.agentPreset': { kind: 'single', scope: 'session-maybe' },
-      'conversation.session.header.actions': { kind: 'list', scope: 'session' },
+      'conversation.composer.agentPreset': { kind: 'single', scope: 'session' },
     },
   } as never, () => null)
 }
@@ -507,12 +507,11 @@ describe('ui-agent-preset apply', () => {
 
     const chip = slots.entries('conversation.hero.agentPreset')[0]!
     expect(chip.component).toBe(AgentPresetSeat)
-    const label = slots.entries('conversation.session.header.actions')[0]!
+    const label = slots.entries('conversation.composer.agentPreset')[0]!
     expect(label.component).toBe(AgentPresetLabel)
-    expect(label.options).toMatchObject({ id: 'agent-preset', order: -10 })
     await fiber.dispose()
     expect(slots.entries('conversation.hero.agentPreset')).toHaveLength(0)
-    expect(slots.entries('conversation.session.header.actions')).toHaveLength(0)
+    expect(slots.entries('conversation.composer.agentPreset')).toHaveLength(0)
     expect(slots.entries('settings.section')).toHaveLength(0)
     conversation()
   })
@@ -831,9 +830,14 @@ describe('ui-agent-preset apply', () => {
       await chip.load()
       await chip.select(preset)
       await setDeveloperTools(false)
-      await vi.waitFor(() => { expect(calls.filter(call => call.startsWith('settings:'))).toEqual(['settings:{"selectedDefault":"standard"}']) })
+      // An unbound pick is remembered as the next default; a tools-only default then falls back to Standard.
+      const remembered = source === 'unbound' && preset !== 'minimal' && preset !== 'standard' ? preset : undefined
+      const writes = remembered === undefined ? ['standard'] : remembered === 'ptc' ? ['ptc', 'standard'] : [remembered]
+      await vi.waitFor(() => {
+        expect(calls.filter(call => call.startsWith('settings:'))).toEqual(writes.map(id => `settings:{"selectedDefault":"${id}"}`))
+      })
       await chip.load()
-      expect(chip.hooks.agentPresetSeat.getSnapshot().current).toBe('standard')
+      expect(chip.hooks.agentPresetSeat.getSnapshot().current).toBe(writes.at(-1))
       expect(calls.filter(call => call.startsWith('select:'))).toEqual([])
 
       state.current = 's1'
@@ -1042,8 +1046,8 @@ describe('ui-agent-preset apply', () => {
     ctx.provide('sessions', sessionsDouble(ctx, { byId: {} }) as never)
     ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
     await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
-    const label = (slots.entries('conversation.session.header.actions')[0]!
-      .inject as unknown as () => AgentPresetLabelInjected)()
+    const injectLabel: () => AgentPresetLabelInjected = slots.entries('conversation.composer.agentPreset')[0]!.inject as never
+    const label = injectLabel()
 
     await label.load()
 
@@ -1574,16 +1578,23 @@ describe('AgentPresetSeatController apply outcomes', () => {
     expect(select).not.toHaveBeenCalled()
   })
 
-  it.each([
-    { name: 'a started Session', session: { ...blankStandard, blank: false }, pick: 'minimal' },
-    { name: 'a Session already using the pick', session: blankStandard, pick: 'standard' },
-  ])('leaves $name unchanged and drops the stage', async ({ session, pick }) => {
-    let current: SessionView = session
+  it('leaves a started Session unchanged and drops the stage', async () => {
+    let current: SessionView = { ...blankStandard, blank: false }
     const { controller, select } = seatOver(() => current)
-    await expect(controller.select(pick)).resolves.toEqual({ kind: 'unchanged' })
+    await expect(controller.select('minimal')).resolves.toEqual({ kind: 'unchanged' })
     current = { ...blankStandard, id: SessionId('next') }
     await expect(controller.apply()).resolves.toEqual({ kind: 'unchanged' })
     expect(select).not.toHaveBeenCalled()
+  })
+
+  it('sends an explicit matching pick but skips an equivalent Settings refresh', async () => {
+    const { controller, select } = seatOver(() => blankStandard)
+    await controller.syncBlankSession(blankStandard.id, 'standard')
+    expect(select).not.toHaveBeenCalled()
+
+    await expect(controller.select('standard')).resolves.toEqual({ kind: 'applied' })
+    await expect(controller.apply()).resolves.toEqual({ kind: 'unchanged' })
+    expect(select).toHaveBeenCalledExactlyOnceWith(blankStandard.id, 'standard')
   })
 
   it('is applied only when the Host commits the staged preset', async () => {

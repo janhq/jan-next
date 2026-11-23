@@ -19,8 +19,8 @@
         - button "Edit shortcut for Search sessions"
         - text: Search sessions Ctrl + Alt + K
       - listitem:
-        - button "Edit shortcut for Add workspace"
-        - text: Add workspace Ctrl + Alt + O
+        - button "Edit shortcut for Add project"
+        - text: Add project Ctrl + Alt + O
       - listitem:
         - button "Edit shortcut for Rename session"
         - text: Rename session Ctrl + Alt + G
@@ -37,8 +37,8 @@
         - button "Edit shortcut for Toggle right sidebar"
         - text: Toggle right sidebar Ctrl + Shift + B
       - listitem:
-        - button "Edit shortcut for Workspace files"
-        - text: Workspace files Ctrl + Alt + P
+        - button "Edit shortcut for Project files"
+        - text: Project files Ctrl + Alt + P
       - listitem:
         - button "Edit shortcut for New terminal"
         - text: "New terminal Ctrl + `"

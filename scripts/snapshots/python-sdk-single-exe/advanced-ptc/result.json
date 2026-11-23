@@ -93,44 +93,6 @@
       "seq": 10,
       "time": 0,
       "data": {
-        "id": "{{messageId}}",
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Serial agent creation completed. Ordinary and nested forks are independent; historical fork metadata remains readable."
-          }
-        ],
-        "source": {
-          "kind": "plugin:serial-created-fixture"
-        }
-      },
-      "surfaceOp": "append"
-    },
-    {
-      "type": "user/message",
-      "seq": 11,
-      "time": 0,
-      "data": {
-        "content": [
-          {
-            "type": "text",
-            "text": "Run the advanced packaged-runtime snapshot scenario."
-          }
-        ],
-        "source": {
-          "kind": "user"
-        },
-        "role": "user",
-        "id": "{{messageId}}"
-      },
-      "surfaceOp": "append"
-    },
-    {
-      "type": "user/message",
-      "seq": 12,
-      "time": 0,
-      "data": {
         "content": [
           {
             "type": "text",
@@ -154,6 +116,44 @@
               "text": "Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."
             }
           ]
+        },
+        "role": "user",
+        "id": "{{messageId}}"
+      },
+      "surfaceOp": "append"
+    },
+    {
+      "type": "user/message",
+      "seq": 11,
+      "time": 0,
+      "data": {
+        "id": "{{messageId}}",
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Serial agent creation completed. Ordinary and nested forks are independent; historical fork metadata remains readable."
+          }
+        ],
+        "source": {
+          "kind": "plugin:serial-created-fixture"
+        }
+      },
+      "surfaceOp": "append"
+    },
+    {
+      "type": "user/message",
+      "seq": 12,
+      "time": 0,
+      "data": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Run the advanced packaged-runtime snapshot scenario."
+          }
+        ],
+        "source": {
+          "kind": "user"
         },
         "role": "user",
         "id": "{{messageId}}"
@@ -219,7 +219,7 @@
       "data": {
         "title": "Run the advanced packaged-runtime snapsh",
         "messageSeqs": [
-          11
+          12
         ],
         "source": {
           "kind": "fallback"
@@ -330,6 +330,18 @@
           "totalTokens": 6
         },
         "stream": [
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 3,
+                "totalTokens": 6
+              }
+            }
+          },
           {
             "type": "chunk",
             "time": 0,
@@ -586,6 +598,18 @@
             "type": "chunk",
             "time": 0,
             "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 3,
+                "totalTokens": 6
+              }
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
               "type": "block-start",
               "index": 0,
               "blockType": "tool-call"
@@ -801,6 +825,18 @@
           "totalTokens": 6
         },
         "stream": [
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 3,
+                "totalTokens": 6
+              }
+            }
+          },
           {
             "type": "chunk",
             "time": 0,
@@ -1113,56 +1149,6 @@
           "seq": 10,
           "time": 0,
           "data": {
-            "id": "{{messageId}}",
-            "role": "user",
-            "content": [
-              {
-                "type": "text",
-                "text": "Serial agent creation completed. Ordinary and nested forks are independent; historical fork metadata remains readable."
-              }
-            ],
-            "source": {
-              "kind": "plugin:serial-created-fixture"
-            }
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "user/message",
-          "seq": 11,
-          "time": 0,
-          "data": {
-            "content": [
-              {
-                "type": "text",
-                "text": "Run the advanced packaged-runtime snapshot scenario."
-              }
-            ],
-            "source": {
-              "kind": "user"
-            },
-            "role": "user",
-            "id": "{{messageId}}"
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "user/message",
-          "seq": 12,
-          "time": 0,
-          "data": {
             "content": [
               {
                 "type": "text",
@@ -1186,6 +1172,56 @@
                   "text": "Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."
                 }
               ]
+            },
+            "role": "user",
+            "id": "{{messageId}}"
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "user/message",
+          "seq": 11,
+          "time": 0,
+          "data": {
+            "id": "{{messageId}}",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Serial agent creation completed. Ordinary and nested forks are independent; historical fork metadata remains readable."
+              }
+            ],
+            "source": {
+              "kind": "plugin:serial-created-fixture"
+            }
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "user/message",
+          "seq": 12,
+          "time": 0,
+          "data": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Run the advanced packaged-runtime snapshot scenario."
+              }
+            ],
+            "source": {
+              "kind": "user"
             },
             "role": "user",
             "id": "{{messageId}}"
@@ -1275,7 +1311,7 @@
           "data": {
             "title": "Run the advanced packaged-runtime snapsh",
             "messageSeqs": [
-              11
+              12
             ],
             "source": {
               "kind": "fallback"
@@ -1410,6 +1446,18 @@
               "totalTokens": 6
             },
             "stream": [
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 3,
+                    "totalTokens": 6
+                  }
+                }
+              },
               {
                 "type": "chunk",
                 "time": 0,
@@ -1720,6 +1768,18 @@
                 "type": "chunk",
                 "time": 0,
                 "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 3,
+                    "totalTokens": 6
+                  }
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
                   "type": "block-start",
                   "index": 0,
                   "blockType": "tool-call"
@@ -1977,6 +2037,18 @@
               "totalTokens": 6
             },
             "stream": [
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 3,
+                    "totalTokens": 6
+                  }
+                }
+              },
               {
                 "type": "chunk",
                 "time": 0,

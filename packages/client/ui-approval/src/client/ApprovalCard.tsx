@@ -16,7 +16,9 @@ export function ApprovalCard(props: FactoryComponentPropsOf<'conversation.approv
 }
 
 function ApprovalFlow(props: FactoryComponentPropsOf<'conversation.approval.card'>) {
-  const { requestKey, title, description, subject, warning, allowLabel, canAnswer, onAllow, onReject, onAlways, t } = props
+  const {
+    requestKey, title, description, subject, warning, allowLabel, alwaysLabel, alwaysHint, canAnswer, onAllow, onReject, onAlways, t,
+  } = props
   const detail = props.callId === undefined ? null : props.renderSlot('conversation.approval.detail', { callId: props.callId })
   const [answered, setAnswered] = useState(false)
   const waiting = useRef(false)
@@ -83,8 +85,8 @@ function ApprovalFlow(props: FactoryComponentPropsOf<'conversation.approval.card
           <Button variant={onAlways === undefined ? 'primary' : 'outline'} disabled={answered} onClick={() => { answer(onAllow) }}>
             {allowLabel ?? t('allowOnce')}
           </Button>
-          {onAlways !== undefined && <Button variant="primary" disabled={answered} onClick={() => { answer(onAlways) }}>
-            {t('allowAlways')}
+          {onAlways !== undefined && <Button variant="primary" disabled={answered} title={alwaysHint} onClick={() => { answer(onAlways) }}>
+            {alwaysLabel ?? t('allowAlways')}
           </Button>}
         </div>
       </div>

@@ -63,6 +63,11 @@ function openProps(controller = new PresentedOpenController(), summaries = new C
     openPresented: vi.fn((...args: Parameters<PresentedOpenController['open']>) => controller.open(...args)),
     openChanged: vi.fn((...args: Parameters<PresentedOpenController['openChanged']>) => controller.openChanged(...args)),
     openChangesReview: vi.fn<DeliverablesInjected['openChangesReview']>(),
+    readPresented: vi.fn<DeliverablesInjected['readPresented']>(() => new Promise(() => {})),
+    inlineViewer: vi.fn<DeliverablesInjected['inlineViewer']>(() => undefined),
+    inlinePageForTools: vi.fn<DeliverablesInjected['inlinePageForTools']>(() => undefined),
+    embed: vi.fn<DeliverablesInjected['embed']>(() => () => {}),
+    rank: 1,
     usePresentedOpen: <T,>(select: (state: ReturnType<typeof controller.state.getSnapshot>) => T): T =>
       select(controller.state.getSnapshot()),
   }
@@ -507,9 +512,7 @@ describe('produced-file Turn data', () => {
     const first = deliverablesOf(value)
     expect(producedForClosing(first)).toEqual(['first.txt'])
 
-    value.append(call(4, 'second', 'edit', {
-      file_path: 'second.txt', old_string: 'before', new_string: 'after',
-    }))
+    value.append(call(4, 'second', 'write', { file_path: 'second.txt', content: 'second' }))
     value.flush()
     expect(deliverablesOf(value)).toBe(first)
 
@@ -546,10 +549,11 @@ describe('announced changes Turn data', () => {
     expect(changesForClosing(tailOwner(undefined, 8))).toBeNull()
   })
 
-  it('preserves Turn data identity across unrelated appends', () => {
-    const value = assembler([at(1, 'turn/start', { turn: 1 }), changesEvent(2)])
+  it('preserves Turn data identity across appends that add nothing new', () => {
+    const value = assembler([at(1, 'turn/start', { turn: 1 }), changesEvent(2), call(3, 'earlier', 'read', { file_path: 'a.ts' })])
     const first = deliverablesOf(value)
-    value.append(call(3, 'later', 'read', { file_path: 'a.ts' }))
+    expect(first?.tools).toEqual(['read'])
+    value.append(call(4, 'later', 'read', { file_path: 'b.ts' }))
     value.flush()
     expect(deliverablesOf(value)).toBe(first)
   })
@@ -865,7 +869,7 @@ describe('plugin registration', () => {
     }
     ctx.provide('remote', {
       $on: () => () => {},
-      $host: { home: undefined, isLoopback: false },
+      $host: { home: undefined, name: undefined, remote: false, isLoopback: false },
       session,
     } as never)
     ctx.provide('remote.session', session as never)
@@ -1036,7 +1040,7 @@ describe('presented files', () => {
     expect(view.queryByRole('link')).toBeNull()
     fireEvent.click(view.getByRole('button', { name: 'Preview report-0.docx in sidebar' }))
     expect(preview).toHaveBeenCalledTimes(1)
-    expect(preview).toHaveBeenLastCalledWith('report-0.docx')
+    expect(preview).toHaveBeenLastCalledWith('report-0.docx', { toggle: true })
     fireEvent.click(view.getAllByRole('button', { name: 'Native file action' })[0]!)
     expect(props.openPresented).toHaveBeenCalledWith('child-session', 2, 0, 'open', undefined)
     fireEvent.click(view.getByRole('button', { name: 'Collapse delivered files' }))
@@ -1142,6 +1146,42 @@ it('loads desktop information once the tail renders and not again while it is kn
   controller.host.set({ name: 'desktop', available: true, fileManager: 'finder' })
   view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'report.txt', seq: 2, index: 0 }] }} />)
   expect(props.reloadPresentedHost).toHaveBeenCalledOnce()
+})
+
+it('shows a lone delivered image or page inline, and nothing for two files, other types or a refused read', async () => {
+  vi.stubGlobal('URL', Object.assign(Object.create(URL) as typeof URL, { createObjectURL: () => 'blob:preview', revokeObjectURL: vi.fn() }))
+  const props = openProps()
+  const opened: string[] = []
+  const readPresented = vi.fn<DeliverablesInjected['readPresented']>(async () => ({ ok: true, value: { data: new Uint8Array([60]) } }) as never)
+  const shared = { ...props, readPresented, openFile: (path: string) => { opened.push(path) }, sessionId: SessionId('session'), t: makeTranslate(en) }
+  const view = render(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'chart.svg', seq: 2, index: 0 }] }} />)
+  fireEvent.click(await view.findByRole('button', { name: 'Preview chart.svg in sidebar' }))
+  expect(view.getByRole('img', { name: 'Preview of chart.svg' })).toBeTruthy()
+  expect(opened).toEqual(['chart.svg'])
+  fireEvent.click(view.getByRole('button', { name: 'Inspect preview surface' }))
+  expect(view.getByRole('img', { name: 'Preview of chart.svg' }).hasAttribute('data-inspected')).toBe(true)
+
+  view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'page.html', seq: 3, index: 0 }] }} />)
+  const frame = await view.findByTitle('Preview of page.html')
+  expect(frame.getAttribute('sandbox')).toBe('')
+  expect(frame.hasAttribute('data-element-probe')).toBe(false)
+  const page = new DOMParser().parseFromString(frame.getAttribute('srcdoc') ?? '', 'text/html')
+  expect(page.head.firstElementChild?.getAttribute('content')).toContain("connect-src 'none'")
+  expect(page.head.firstElementChild?.getAttribute('content')).toContain("script-src 'none'")
+  fireEvent.click(view.getByRole('button', { name: 'Inspect preview surface' }))
+  expect(frame.hasAttribute('data-inspected')).toBe(true)
+
+  readPresented.mockClear()
+  view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'a.svg', seq: 4, index: 0 }, { path: 'b.svg', seq: 4, index: 1 }] }} />)
+  view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'notes.md', seq: 5, index: 0 }] }} />)
+  expect(readPresented).not.toHaveBeenCalled()
+  expect(view.container.querySelector('[data-presented-inline]')).toBeNull()
+
+  readPresented.mockResolvedValue({ ok: false, error: { code: 'workspace-file/not-found' } } as never)
+  view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'gone.png', seq: 6, index: 0 }] }} />)
+  await vi.waitFor(() => { expect(readPresented).toHaveBeenCalledOnce() })
+  expect(view.container.querySelector('[data-presented-inline]')).toBeNull()
+  expect(view.getByText('gone.png')).toBeTruthy()
 })
 
 it('contributes file artifacts to the tail list only for turns with deliveries', () => {

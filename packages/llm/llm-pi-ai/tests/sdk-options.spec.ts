@@ -18,13 +18,14 @@ import { memoryAuth } from './auth-double.ts'
 afterEach(() => { streamSimple.mockReset() })
 
 /** A hand-declared OpenAI-compatible route with one fully described model. */
-function gatewayAdapter(): PiAiAdapter {
+function gatewayAdapter(extra: { threadCache?: boolean } = {}): PiAiAdapter {
   return new PiAiAdapter({
     profiles: () => resolveProfiles({
       'local-gateway': {
         api: 'openai-completions',
         baseURL: 'http://127.0.0.1:9/v1',
         models: [{ id: 'local-model', contextWindow: 8192, maxTokens: 1024 }],
+        ...extra,
       },
     }),
     resolveApiKey: () => Promise.resolve('test-key'),
@@ -71,5 +72,27 @@ describe('pi-ai SDK retry boundary', () => {
       contextWindow: 8192,
       maxTokens: 1024,
     })
+  })
+})
+
+describe('pi-ai thread cache', () => {
+  async function samplingFor(adapter: PiAiAdapter, options: { sessionId?: string; purpose?: string }): Promise<unknown> {
+    streamSimple.mockReset()
+    streamSimple.mockImplementation(() => { throw new Error('mock SDK boundary') })
+    // `purpose` keys are declared by their producer packages, which this suite does not load.
+    const request: Parameters<PiAiAdapter['stream']>[0] = { provider: 'local-gateway', model: 'local-model', messages: [], ...options } as never
+    for await (const _ of adapter.stream(request)) { /* drain */ }
+    return (streamSimple.mock.calls[0]?.[2] as { samplingParams?: unknown } | undefined)?.samplingParams
+  }
+
+  it('names the Session as the llama.cpp thread in slot 0 and moves auxiliary requests to slot 1 on an opted-in route', async () => {
+    const opted = gatewayAdapter({ threadCache: true })
+    expect(await samplingFor(opted, { sessionId: 'session-a' })).toEqual({ thread_id: 'session-a', id_slot: 0 })
+    // A title or compaction request parks nothing over the Session's saved state and does not
+    // queue the Session's own turn behind it in slot 0.
+    expect(await samplingFor(opted, { sessionId: 'session-a', purpose: 'session-title' })).toEqual({ id_slot: 1 })
+    expect(await samplingFor(opted, {})).toBeUndefined()
+    // Other OpenAI-compatible servers may reject unknown fields.
+    expect(await samplingFor(gatewayAdapter(), { sessionId: 'session-a' })).toBeUndefined()
   })
 })

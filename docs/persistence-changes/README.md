@@ -12,6 +12,8 @@ For older tagged versions, use the [prerelease archive](releases/README.md). It 
 
 For complete schemas grouped by Session format, use the [format references](historical-formats/README.md). Their coverage follows the writer constant, including intermediate formats without a release tag.
 
+Standalone Host domains use [domain versioning](../subsystems/storage.md#domain-versioning), not Session format acknowledgements. See the [schedule v3 project-binding record](domains/2026-11-21-schedule-project-binding.md).
+
 ## Table of Contents
 
 - [Files and ownership](#files-and-ownership)

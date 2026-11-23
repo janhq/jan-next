@@ -4,6 +4,7 @@ import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { SubagentAddress } from '@janhq/jan-subagent/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { MainPanelId } from '@janhq/jan-client-ui-layout/client'
+import type { WorkspaceId } from '@janhq/jan-api-workspace-controller/client'
 
 /** Most entries one stack keeps; the oldest drop first. */
 export const NAVIGATION_HISTORY_LIMIT = 50
@@ -14,6 +15,8 @@ export interface NavigationLocation {
   readonly subagentAddress?: SubagentAddress
   /** Selected global panel; null displays the Conversation. */
   readonly panelId: MainPanelId | null
+  /** Project displayed within the selected panel, when the surface supports replay. */
+  readonly workspaceId?: WorkspaceId
 }
 
 /** Whether Back and Forward have somewhere to go. */
@@ -30,10 +33,10 @@ export type NavigationDirection = 'back' | 'forward'
  * its parent and child: the mode can be resolved later without changing the target.
  * @param a - first location.
  * @param b - second location.
- * @returns true when panel and Session or subagent match.
+ * @returns true when panel, project and Session or subagent match.
  */
 export function sameLocation(a: NavigationLocation, b: NavigationLocation): boolean {
-  return a.panelId === b.panelId && sameSession(a, b)
+  return a.panelId === b.panelId && a.workspaceId === b.workspaceId && sameSession(a, b)
 }
 
 /**

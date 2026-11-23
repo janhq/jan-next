@@ -181,7 +181,7 @@ it.each(['signed-out', 'unloaded'] as const)('uses a timed Toast without the sha
   vi.useFakeTimers()
   const { dismiss } = mount({ account })
   expect(screen.getByRole('alert').textContent).toBe(noticeMessage)
-  expect(screen.queryByRole('button')).toBeNull()
+  expect(screen.getAllByRole('button').map(button => button.getAttribute('aria-label'))).toEqual(['Dismiss'])
   act(() => { vi.runAllTimers() })
   expect(dismiss).toHaveBeenCalledOnce()
   expect(screen.queryByRole('alert')).toBeNull()

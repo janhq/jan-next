@@ -9,21 +9,21 @@
  * `sidebar.workspaces.session.row.action` list. Session and Workspace
  * hover cards are suppressed while their menu is open.
  */
-import { useEffect, useMemo, useRef } from 'react'
-import type { PointerEvent, RefObject } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import clsx from 'clsx'
 import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import {
   HoverCard, IconArchiveOutlineRegular,
-  IconFolderCloseRegular, IconFolderOpenRegular,
   IconNewChatOutlineRegular, IconPinFillRegular,
-  IconTriangleRightFillRegular, IconUnarchiveOutlineRegular, relativeTime, StateDot, Tooltip, useRowDragPreview,
+  IconChevronRightOutlineRegular, IconFollowsystemOutlineRegular, IconLinkOutlineRegular, IconUnarchiveOutlineRegular,
+  relativeTime, StateDot, Tooltip, useRowDragPreview, useTitleMarquee,
 } from '@janhq/jan-client-ui-primitives'
 import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
 import type { StateDotState } from '@janhq/jan-client-ui-primitives'
 import { abbreviateHomePath } from '@janhq/jan-util-workspace-path'
 import type { WorkspaceId } from '@janhq/jan-api-workspace-controller/client'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
+import { ProjectAvatar } from '../ProjectAvatar.tsx'
 import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
 import css from './Rows.module.css'
 
@@ -54,98 +54,6 @@ type RowRenderSlots = PropsRenderSlots<
 /** Row display title: blank rows show the localized New Session label. */
 function displayTitle(node: SessionNode, t: RowTranslate): string {
   return node.blank ? t('session.new') : (node.title || t('session.untitled'))
-}
-
-/* Overflow this small hides no meaningful tail; scrolling for it reads as an
-   accidental jitter, so the title stays put. */
-const MIN_TITLE_REVEAL_PX = 8
-
-/* Marquee travel speed: slow enough to read the text as it passes. */
-const TITLE_MARQUEE_PX_PER_MS = 0.03
-
-/**
- * Place the title's scroll position and publish the stylesheet's fade-mask
- * hooks: `data-scrolled` while the title has left its start (left fade) and
- * `data-clipped` while text remains beyond the right edge (right fade).
- * @param title - the row's clipping title element.
- * @param left - scroll offset in CSS pixels.
- * @param range - the title's maximum scroll offset in CSS pixels.
- */
-function placeTitle(title: HTMLSpanElement, left: number, range: number): void {
-  // jsdom implements no scrollTo; the lane's direct assignment is instant there
-  // anyway, so both paths land on the same position.
-  if (typeof title.scrollTo === 'function') title.scrollTo({ left, behavior: 'instant' })
-  else title.scrollLeft = left
-  if (left > 0) title.dataset.scrolled = ''
-  else delete title.dataset.scrolled
-  if (left < range) title.dataset.clipped = ''
-  else delete title.dataset.clipped
-}
-
-/**
- * Return the title to its resting state: scrolled to the start with both fade
- * masks off, so the resting ellipsis renders at full strength.
- * @param title - the row's clipping title element.
- */
-function restTitle(title: HTMLSpanElement): void {
-  if (typeof title.scrollTo === 'function') title.scrollTo({ left: 0, behavior: 'instant' })
-  else title.scrollLeft = 0
-  delete title.dataset.scrolled
-  delete title.dataset.clipped
-}
-
-/**
- * Marquee a title wider than its one-line cell while its row is hovered: the
- * title clips its own text, so entering crawls it at a constant speed until the
- * far edge (a fork's incremented title, for example) is in view, then rests
- * there under the pointer. Overflow of at most {@link MIN_TITLE_REVEAL_PX}
- * stays put — a barely-clipped title moving a few pixels reads as jitter, not a
- * reveal. Leaving returns the title to the start in one step, because the
- * resting ellipsis and the narrowed cell would otherwise meet the text while it
- * travelled back. Reduced motion jumps to the far edge instead of crawling.
- * @param title - ref to the row's clipping title element.
- * @returns stable pointer enter/leave handlers for the row.
- */
-function useTitleMarquee(title: RefObject<HTMLSpanElement | null>): {
-  enter: (event?: PointerEvent) => void
-  leave: () => void
-} {
-  const frame = useRef(0)
-  const revealing = useRef(false)
-  useEffect(() => () => { cancelAnimationFrame(frame.current) }, [])
-  return useMemo(() => ({
-    enter: (event?: PointerEvent): void => {
-      if (event?.pointerType === 'touch') return
-      /* v8 ignore next -- defensive: the title span renders unconditionally. */
-      if (title.current === null) return
-      if (revealing.current) return
-      revealing.current = true
-      const element = title.current
-      const range = element.scrollWidth - element.clientWidth
-      if (range <= MIN_TITLE_REVEAL_PX) return
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        placeTitle(element, range, range)
-        return
-      }
-      cancelAnimationFrame(frame.current)
-      let previous: number | undefined
-      let position = 0
-      const step = (now: DOMHighResTimeStamp): void => {
-        position += previous === undefined ? 0 : (now - previous) * TITLE_MARQUEE_PX_PER_MS
-        previous = now
-        placeTitle(element, Math.min(position, range), range)
-        if (position < range) frame.current = requestAnimationFrame(step)
-      }
-      frame.current = requestAnimationFrame(step)
-    },
-    leave: (): void => {
-      revealing.current = false
-      cancelAnimationFrame(frame.current)
-      /* v8 ignore next -- defensive: the title span renders unconditionally. */
-      if (title.current === null) return
-      restTitle(title.current)
-    },
-  }), [title])
 }
 
 /** Localized compact relative time ("刚刚"/"5分钟" in zh, "now"/"5min" in en). */
@@ -217,7 +125,10 @@ function rowHalf(e: { clientY: number; currentTarget: HTMLElement }): 'before' |
   return e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
 }
 
-/** Owner props of one Workspace header row; the access Hooks are the browser root's own standard seats. */
+/**
+ * Owner props of one Workspace header row; the access Hooks are the browser root's own standard seats.
+ * Callbacks and seats must keep their identity across the owner's renders: the row is memoized on them.
+ */
 type ProjectRowItemProps = {
   group: GroupNode
   newShortcut?: ShortcutCatalogEntry | undefined
@@ -230,6 +141,8 @@ type ProjectRowItemProps = {
   drag?: WorkspaceRowDragProps | undefined
   /** Host account home; POSIX home-rooted hover paths display as `~`. */
   home?: string | undefined
+  /** Computer this window's own projects live on; a project from another connected computer names its own. */
+  machine?: string | undefined
   t: RowTranslate
 } & Pick<WorkspaceBrowserProps, 'useRemoteAccess' | 'useWorkspaceAccess' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu'>
 
@@ -239,6 +152,21 @@ interface ProjectRowAccess {
   readonly reorder: boolean
 }
 
+/** The header facts a project row draws; its group's Session rows are not among them. */
+const HEADER_FACTS = [
+  'key', 'workspaceId', 'cwd', 'createdAt', 'label', 'expanded', 'containsCurrent',
+  'avatar', 'color', 'githubOwner', 'hostName', 'hostState',
+] as const satisfies readonly (keyof GroupNode)[]
+
+/** Same props for a project row: identical except a group whose header facts are all unchanged. */
+function sameProjectRow(previous: ProjectRowItemProps, next: ProjectRowItemProps): boolean {
+  for (const key of Object.keys(next) as (keyof ProjectRowItemProps)[]) {
+    if (key !== 'group' && previous[key] !== next[key]) return false
+  }
+  if (Object.keys(previous).length !== Object.keys(next).length) return false
+  return HEADER_FACTS.every(fact => previous.group[fact] === next.group[fact])
+}
+
 /**
  * Project (workspace) header row: folder + title;
  * hover reveals the chevron and create button, and dwelling on a real
@@ -246,6 +174,9 @@ interface ProjectRowAccess {
  * `containsCurrent` arrives on the node (derivation fact, no renderer scan).
  * Create and drag follow the Workspace access snapshot. Menu providers own
  * their access checks; the ungrouped bucket has no Workspace menu.
+ * Memoized on its header facts: with hundreds of projects, re-rendering every
+ * header for a change inside one group (opening a Session, a status update
+ * while a reply streams) was most of the sidebar's work.
  * @param props.group - derived group node.
  * @param props.containsCurrentDescendant - highlight an ancestor even when its subtree is collapsed.
  * @param props.onToggle - expand/collapse the group.
@@ -255,12 +186,12 @@ interface ProjectRowAccess {
  * @param props.t - the browser root's locale seat.
  * @returns the row element.
  */
-export function ProjectRowItem(props: ProjectRowItemProps) {
+export const ProjectRowItem = memo(function ProjectRowItem(props: ProjectRowItemProps) {
   const workspaceId = props.group.workspaceId
   return workspaceId === undefined
     ? <UngroupedProjectRow {...props} />
     : <WorkspaceProjectRow {...props} workspaceId={workspaceId} />
-}
+}, sameProjectRow)
 
 /** The ungrouped bucket's header: no Workspace resource, so starting a Session there asks the global resource. */
 function UngroupedProjectRow(props: ProjectRowItemProps) {
@@ -279,7 +210,7 @@ function WorkspaceProjectRow({ workspaceId, ...props }: ProjectRowItemProps & { 
 }
 
 function ProjectRow({
-  group, containsCurrentDescendant = false, onToggle, onOpenProject, onCreate, drag: offeredDrag, home, newShortcut, t, access,
+  group, containsCurrentDescendant = false, onToggle, onOpenProject, onCreate, drag: offeredDrag, home, machine, newShortcut, t, access,
   renderFactorySlot, useContextMenuTarget, useContextMenu,
 }: ProjectRowItemProps & { access: ProjectRowAccess }) {
   const { getTriggerProps } = useContextMenu()
@@ -292,9 +223,11 @@ function ProjectRow({
   const dragPreview = useRowDragPreview(css.dragPreview as string, DRAG_PREVIEW_PROPERTIES)
   const workspaceMenuTarget = row.workspaceId !== undefined && row.cwd !== undefined
     ? { workspaceId: row.workspaceId, path: row.cwd } : undefined
+  const rowMachine = row.hostName ?? machine
+  const offline = row.hostState === 'lost'
   const ownRow = (
     <div
-      className={clsx(css.projectRow, menuOpen && css.menuOpen)}
+      className={clsx(css.projectRow, menuOpen && css.menuOpen, offline && css.offline)}
       data-row-key={`workspace:${group.key}`}
       role="treeitem"
       aria-expanded={row.expanded}
@@ -312,28 +245,38 @@ function ProjectRow({
       onDragEnd={() => { if (dragPreview.clear()) drag?.end() }}
     >
       <span className={clsx(css.slot, css.folder, active && css.folderActive)}>
-        {row.expanded ? <IconFolderOpenRegular /> : <IconFolderCloseRegular />}
+        <ProjectAvatar avatar={row.avatar} githubOwner={row.githubOwner} color={row.color} expanded={row.expanded} />
       </span>
-      {onOpenProject === undefined
-        ? (
-          <span className={clsx(css.slot, css.chevron)}>
-            <IconTriangleRightFillRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
-          </span>
-        )
-        : (
-          <button
-            type="button"
-            className={clsx(css.slot, css.chevron, css.chevronButton)}
-            aria-label={t(row.expanded ? 'actions.collapse.aria' : 'actions.expand.aria', { name: label })}
-            onClick={(e) => { e.stopPropagation(); onToggle() }}
-          >
-            <IconTriangleRightFillRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
-          </button>
-        )}
       <span className={css.projectText}>
         <span className={css.title}>{label}</span>
+        {rowMachine !== undefined && row.workspaceId !== undefined && (
+          <span
+            className={css.machineTag} data-machine-tag="" data-remote={row.hostName === undefined ? undefined : ''}
+            title={t('workspace.machine', { name: rowMachine })}
+          >
+            {row.hostName === undefined ? <IconFollowsystemOutlineRegular size={14} /> : <IconLinkOutlineRegular size={14} />}
+            <span className={css.machineName}>{offline ? t('workspace.machine.offline', { name: rowMachine }) : rowMachine}</span>
+          </span>
+        )}
       </span>
       <span className={css.rowActions}>
+        {/* The disclosure leads the trailing actions, on their pitch and with their visibility. */}
+        {onOpenProject === undefined
+          ? (
+            <span className={clsx(css.slot, css.chevron)}>
+              <IconChevronRightOutlineRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
+            </span>
+          )
+          : (
+            <button
+              type="button"
+              className={clsx(css.iconButton, css.chevron)}
+              aria-label={t(row.expanded ? 'actions.collapse.aria' : 'actions.expand.aria', { name: label })}
+              onClick={(e) => { e.stopPropagation(); onToggle() }}
+            >
+              <IconChevronRightOutlineRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
+            </button>
+          )}
         {workspaceMenuTarget !== undefined && (
           renderFactorySlot('contextMenu.button', {
             target: { kind: 'workspace', value: { ...workspaceMenuTarget, displayTitle: label } },
@@ -528,7 +471,7 @@ export function SearchResultItem({
 }: {
   result: SearchResultNode
   currentId: string | undefined
-  onOpen: (id: SearchResultNode['id']) => void
+  onOpen: WorkspaceBrowserProps['open']
   onUnarchive: (id: SearchResultNode['id']) => void
   t: RowTranslate
 } & Pick<WorkspaceBrowserProps, 'useSessionAccess'>) {
@@ -542,7 +485,10 @@ export function SearchResultItem({
       role="treeitem"
       aria-selected={selected}
       aria-description={result.archived ? t('toast.archivedNotOpenable') : undefined}
-      onClick={() => { onOpen(result.id) }}
+      onClick={(event) => {
+        if (event.metaKey || event.ctrlKey) onOpen(result.id, { meta: event.metaKey, control: event.ctrlKey })
+        else onOpen(result.id)
+      }}
     >
       <span className={css.searchResultHeading}>
         {/* Like session rows, the leading slot owns every row marker; on
@@ -616,7 +562,7 @@ export function SessionNodeItem({
   node: SessionNode
   currentId: string | undefined
   now: number
-  onOpen: (id: SessionNode['id']) => void
+  onOpen: WorkspaceBrowserProps['open']
   /** Open the rename dialog from a title double-click (id + current title); see the function JSDoc for the press precondition. */
   onRenameRequest: (id: SessionNode['id'], currentTitle: string) => void
   /** Scroll this row into view after search navigation, then acknowledge it. */
@@ -679,7 +625,10 @@ export function SessionNodeItem({
       aria-description={row.archived ? t('toast.archivedNotOpenable') : undefined}
       tabIndex={0}
 
-      onClick={() => { onOpen(node.id) }}
+      onClick={(event) => {
+        if (!row.blank && (event.metaKey || event.ctrlKey)) onOpen(node.id, { meta: event.metaKey, control: event.ctrlKey })
+        else onOpen(node.id)
+      }}
       {...getTriggerProps(row.blank ? undefined : { kind: 'session', value: { sessionId: node.id, displayTitle: row.title } }, {
         onKeyDown: (event) => {
           if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
@@ -721,7 +670,7 @@ export function SessionNodeItem({
           and is cleared by opening the session. Archived rows keep the slot
           blank — the grayed row carries the archived look — and their live
           status stays on the hover card only. */}
-      <span className={css.slot}>
+      <span className={css.slot} data-session-leading="">
         {!row.archived && !row.blank && (showStatus
           ? <SessionStatusDots statuses={statuses} />
           : renderSlot('sidebar.session.row.leading', { sessionId: node.id }))}

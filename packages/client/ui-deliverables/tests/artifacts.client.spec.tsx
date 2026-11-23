@@ -2,8 +2,8 @@
 /**
  * Artifacts library: the model derived from Session-list projection values, the
  * controller that fills legacy rows and checks files on disk, the page's
- * grouping, search, unavailable files, and chat navigation, and the panel and
- * sidebar registrations.
+ * grouping, search, unavailable files, the Links tab, and chat navigation, and
+ * the panel and sidebar registrations.
  */
 import { cleanup, fireEvent, render, within } from '@testing-library/react'
 import { Context } from '@janhq/cordis'
@@ -17,8 +17,10 @@ import { bindSnapshotSelector, makeTranslate, usePinnedBrowserLanguages } from '
 import type { SessionId } from '@janhq/jan-session/types'
 import type { PresentedFileEntry } from '@janhq/jan-tool-present/types'
 import {
-  ArtifactsController, artifactGroup, artifactRows, filterArtifacts, unindexedChats, type ArtifactAvailabilityMap,
+  ArtifactsController, artifactGroup, artifactRows, filterArtifacts, filterLinks, linkRows, unindexedChats,
+  type ArtifactAvailabilityMap,
 } from '../src/client/artifacts.ts'
+import type { SharedLinkEntry } from '../src/links.ts'
 import { ArtifactsPage, type ArtifactsInjected } from '../src/client/ArtifactsPage.tsx'
 import { ARTIFACTS_PANEL_ID, registerArtifacts } from '../src/client/artifacts-plugin.ts'
 import { PresentedOpenController } from '../src/client/present-open.ts'
@@ -31,10 +33,17 @@ const sid = (value: string): SessionId => value as SessionId
 const file = (path: string, seq: number, time: number, description?: string): PresentedFileEntry => ({
   path, turn: 1, seq, index: 0, time, ...description === undefined ? {} : { description },
 })
+const link = (url: string, time: number, title?: string, from: SharedLinkEntry['from'] = 'assistant'): SharedLinkEntry => ({
+  url, from, seq: time / 1_000, time, ...title === undefined ? {} : { title },
+})
 
 interface Chat {
   readonly title: string
   readonly files?: readonly PresentedFileEntry[]
+  /** Shared links; a chat with files and no links listed has an empty links index. */
+  readonly links?: readonly SharedLinkEntry[]
+  /** A row checkpointed before the links index existed. */
+  readonly noLinksIndex?: boolean
   readonly blank?: boolean
   readonly parentId?: string
   readonly state?: 'idle' | 'loading' | 'ready'
@@ -46,7 +55,11 @@ function listOf(chats: Readonly<Record<string, Chat>>): SessionListState {
   const byId: Record<string, unknown> = {}
   const projectionsBySession: Record<string, unknown> = {}
   for (const [id, chat] of Object.entries(chats)) {
-    const values = chat.files === undefined ? {} : { presentedFiles: chat.files }
+    const links = chat.links ?? (chat.files === undefined || chat.noLinksIndex === true ? undefined : [])
+    const values = {
+      ...chat.files === undefined ? {} : { presentedFiles: chat.files },
+      ...links === undefined ? {} : { sharedLinks: links },
+    }
     byId[id] = {
       id, displayTitle: chat.title, running: false, retainedBy: [], blank: chat.blank ?? false, updatedAt: 0,
       ...chat.summaryOnly === true ? { projectionValues: values } : {},
@@ -58,10 +71,13 @@ function listOf(chats: Readonly<Record<string, Chat>>): SessionListState {
 }
 
 const LIBRARY = listOf({
-  alpha: { title: 'Quarterly review', files: [file('/w/report.docx', 4, 5_000), file('/w/figures.xlsx', 6, 9_000, 'Revenue by region')] },
+  alpha: {
+    title: 'Quarterly review', files: [file('/w/report.docx', 4, 5_000), file('/w/figures.xlsx', 6, 9_000, 'Revenue by region')],
+    links: [link('https://www.example.com/q3', 3_000, 'Q3 filing', 'user'), link('https://jan.ai/docs', 8_000)],
+  },
   beta: { title: 'Launch deck', files: [file('/w/deck.pptx', 3, 7_000), file('/w/hero.png', 5, 2_000)] },
-  gamma: { title: 'Prototype', summaryOnly: true, files: [file('/w/app.ts', 8, 12_000)] },
-  child: { title: 'Helper', files: [file('/w/hidden.md', 2, 99_000)], parentId: 'alpha' },
+  gamma: { title: 'Prototype', summaryOnly: true, files: [file('/w/app.ts', 8, 12_000)], links: [link('https://github.com/janhq/jan', 11_000, 'Jan repo')] },
+  child: { title: 'Helper', files: [file('/w/hidden.md', 2, 99_000)], links: [link('https://hidden.example/', 99_000)], parentId: 'alpha' },
 })
 
 describe('artifact model', () => {
@@ -87,16 +103,31 @@ describe('artifact model', () => {
     expect(rows[1]).toMatchObject({ sessionId: 'alpha', seq: 6, index: 0, description: 'Revenue by region', key: 'alpha:6:0' })
   })
 
-  it('names the chats whose list row holds no presented-files value yet', () => {
+  it('names the chats whose list row holds no presented-files or shared-links value yet', () => {
     const list = listOf({
       legacy: { title: 'Old' },
+      linkless: { title: 'Files only', files: [], noLinksIndex: true },
       empty: { title: 'Indexed', files: [] },
       fresh: { title: 'Blank', blank: true },
       loading: { title: 'Loading', state: 'loading' },
       read: { title: 'Read', state: 'ready' },
       sub: { title: 'Sub', parentId: 'legacy' },
     })
-    expect(unindexedChats(list)).toEqual(['legacy'])
+    expect(unindexedChats(list)).toEqual(['legacy', 'linkless'])
+  })
+
+  it('lists every chat\'s links newest first with a title or the site name, without subagent chats', () => {
+    const rows = linkRows(LIBRARY)
+    expect(rows.map(row => [row.title, row.site, row.chatTitle, row.from])).toEqual([
+      ['Jan repo', 'github.com', 'Prototype', 'assistant'],
+      ['jan.ai', 'jan.ai', 'Quarterly review', 'assistant'],
+      ['Q3 filing', 'example.com', 'Quarterly review', 'user'],
+    ])
+    const titles = (query: string) => filterLinks(rows, query).map(row => row.title)
+    expect(titles(' QUARTERLY ')).toEqual(['jan.ai', 'Q3 filing'])
+    expect(titles('janhq')).toEqual(['Jan repo'])
+    expect(titles('filing')).toEqual(['Q3 filing'])
+    expect(titles('nothing')).toEqual([])
   })
 
   it('filters by search text across name, path, description, and chat title, and by kind', () => {
@@ -204,6 +235,9 @@ describe('ArtifactsPage', () => {
     const open = new PresentedOpenController()
     open.host.set({ name: 'desktop', available: true, fileManager: 'finder' })
     const openChat = vi.fn<ArtifactsInjected['openChat']>()
+    const openLink = vi.fn<ArtifactsInjected['openLink']>()
+    const openInBrowser = vi.fn<ArtifactsInjected['openInBrowser']>()
+    const previewFile = vi.fn<ArtifactsInjected['previewFile']>()
     const openPresented = vi.fn<ArtifactsInjected['openPresented']>(() => Promise.resolve({ kind: 'opened' }))
     const checkAvailability = vi.fn<ArtifactsInjected['checkAvailability']>(() => Promise.resolve())
     const hydrate = vi.fn<ArtifactsInjected['hydrate']>()
@@ -219,13 +253,17 @@ describe('ArtifactsPage', () => {
       useScanning: <T,>(select: (state: number) => T): T => select(scanning.getSnapshot()),
       useResetGeneration: bindSnapshotSelector(resetGeneration),
       reloadPresentedHost: vi.fn(() => open.loadHost()), openPresented, checkAvailability, hydrate, openChat,
+      openLink, openInBrowser, previewFile,
     } as never
     const view = render(<ArtifactsPage {...props} />)
-    return { view, props, openChat, openPresented, checkAvailability, hydrate, availabilityStore, resetGeneration }
+    return {
+      view, props, openChat, openLink, openInBrowser, previewFile, openPresented, checkAvailability, hydrate, availabilityStore,
+      resetGeneration,
+    }
   }
 
   const names = (view: ReturnType<typeof render>) =>
-    [...view.container.querySelectorAll('[data-artifact-row]')].map(row => row.querySelector('span[title]')?.textContent)
+    [...view.container.querySelectorAll('[data-artifact-row]')].map(row => row.querySelector('[title]')?.textContent)
 
   it('lists files newest first with kind filters and a total', () => {
     const { view, checkAvailability, hydrate } = setup(LIBRARY)
@@ -273,6 +311,8 @@ describe('ArtifactsPage', () => {
     const { view, openChat, openPresented } = setup(LIBRARY, { 'alpha:4:0': 'missing' })
     const row = view.container.querySelector('[data-artifact-row="alpha:4:0"]') as HTMLElement
     expect(row.getAttribute('data-missing')).toBe('true')
+    // A file that is gone has nothing to preview, so its name is plain text.
+    expect(within(row).queryByRole('button', { name: 'Preview report.docx beside its chat' })).toBeNull()
     expect(within(row).getByText('File not found on disk')).toBeTruthy()
     const open = within(row).getByRole('button', { name: 'Open report.docx' }) as HTMLButtonElement
     const reveal = within(row).getByRole('button', { name: 'Show report.docx in folder' }) as HTMLButtonElement
@@ -284,9 +324,11 @@ describe('ArtifactsPage', () => {
     expect(openChat).toHaveBeenCalledWith('alpha')
   })
 
-  it('opens, reveals, and returns to the chat of the row it was clicked on', () => {
-    const { view, openChat, openPresented } = setup(LIBRARY)
+  it('previews, opens, reveals, and returns to the chat of the row it was clicked on', () => {
+    const { view, openChat, openPresented, previewFile } = setup(LIBRARY)
     const row = view.container.querySelector('[data-artifact-row="alpha:6:0"]') as HTMLElement
+    fireEvent.click(within(row).getByRole('button', { name: 'Preview figures.xlsx beside its chat' }))
+    expect(previewFile).toHaveBeenCalledWith('alpha', expect.stringMatching(/figures\.xlsx$/))
     fireEvent.click(within(row).getByRole('button', { name: 'Open figures.xlsx' }))
     fireEvent.click(within(row).getByRole('button', { name: 'Show figures.xlsx in folder' }))
     expect(openPresented.mock.calls).toEqual([['alpha', 6, 0, 'open'], ['alpha', 6, 0, 'reveal']])
@@ -308,6 +350,48 @@ describe('ArtifactsPage', () => {
     fireEvent.click(view.getByRole('button', { name: 'Show 6 more' }))
     expect(names(view)).toHaveLength(30)
   })
+
+  it('switches to the Links tab, which opens links beside their chat or in the browser, copies them, and returns to their chat', async () => {
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    const { view, openChat, openLink, openInBrowser, checkAvailability } = setup(LIBRARY)
+    checkAvailability.mockClear()
+    fireEvent.click(view.getByRole('tab', { name: 'Links' }))
+    expect(view.getByRole('tabpanel').id).toBe('artifacts-panel-links')
+    expect(view.container.querySelector('[data-artifacts-count]')?.textContent).toBe('Total: 3')
+    expect(view.queryByRole('button', { name: 'All' })).toBeNull()
+    expect(checkAvailability).not.toHaveBeenCalled()
+    const rows = [...view.container.querySelectorAll<HTMLElement>('[data-link-row]')]
+    expect(rows.map(row => row.getAttribute('data-link-row'))).toEqual(['https://github.com/janhq/jan', 'https://jan.ai/docs', 'https://www.example.com/q3'])
+
+    const anchor = within(rows[2] as HTMLElement).getByRole('link', { name: 'Open Q3 filing beside its chat' })
+    // The address stays on the anchor, so a modified click or the context menu still reaches the browser.
+    expect([anchor.getAttribute('href'), anchor.getAttribute('target'), anchor.getAttribute('rel')])
+      .toEqual(['https://www.example.com/q3', '_blank', 'noopener noreferrer'])
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole('link', { name: 'Open Jan repo beside its chat' }))
+    expect(openLink).toHaveBeenCalledWith('gamma', 'https://github.com/janhq/jan')
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole('link', { name: 'Open Jan repo beside its chat' }), { metaKey: true })
+    expect(openLink).toHaveBeenCalledTimes(1)
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole('button', { name: 'Open Jan repo in your browser' }))
+    expect(openInBrowser).toHaveBeenCalledWith('https://github.com/janhq/jan')
+    expect(within(rows[2] as HTMLElement).getByText('You shared')).toBeTruthy()
+
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole('button', { name: 'Copy link Jan repo' }))
+    await vi.waitFor(() => { expect(within(rows[0] as HTMLElement).getByText('Copied')).toBeTruthy() })
+    expect(writeText).toHaveBeenCalledWith('https://github.com/janhq/jan')
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole('button', { name: 'Go to chat Prototype' }))
+    expect(openChat).toHaveBeenCalledWith('gamma')
+
+    fireEvent.change(view.getByRole('searchbox', { name: 'Search links and chats' }), { target: { value: 'zzz' } })
+    expect(view.getByText('No links match your search.')).toBeTruthy()
+  })
+
+  it('explains an empty Links tab', () => {
+    const { view } = setup(listOf({ one: { title: 'Chat', files: [file('/w/a.md', 2, 1_000)] } }))
+    fireEvent.click(view.getByRole('tab', { name: 'Links' }))
+    expect(view.getByText('No links yet. Web links you or the assistant share in a chat will appear here.')).toBeTruthy()
+    expect(view.queryByRole('button', { name: 'Clear filters' })).toBeNull()
+  })
 })
 
 describe('artifacts registration', () => {
@@ -327,7 +411,7 @@ describe('artifacts registration', () => {
     const workspaceFiles = { stat }
     ctx.provide('sessions', { refreshProjections } as never)
     ctx.provide('uiWorkspace', { openSession } as never)
-    ctx.provide('remote', { $on: () => () => {}, $host: { home: undefined, isLoopback: false }, workspaceFiles } as never)
+    ctx.provide('remote', { $on: () => () => {}, $host: { home: undefined, name: undefined, remote: false, isLoopback: false }, workspaceFiles } as never)
     ctx.provide('remote.workspaceFiles', workspaceFiles as never)
     const opener = new PresentedOpenController()
     await ctx.plugin({ inject: ['slots', 'locale'], apply: (inner: Context) => { registerArtifacts(inner, opener) } }).await()

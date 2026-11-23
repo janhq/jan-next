@@ -39,6 +39,7 @@ packages/**/__pycache__/
 apps/web/dist/
 .artifacts/
 .jan-build/
+dist-host-runtime/
 .jan-report/
 .ui-review/
 .playwright-mcp/

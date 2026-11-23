@@ -230,6 +230,12 @@ interface PeerScope {
   /** Whether the Peer may open a forwarded-event stream; this does not grant business permissions. */
   readonly interactions: 'answer' | 'none'
   /**
+   * `'local'` when the Peer is another Host that federates this one: its calls are answered by
+   * this Host alone and never handed to a registered forwarder, so two Hosts that federate each
+   * other do not echo lists and streams back and forth. Absent means `'all'`.
+   */
+  readonly forward?: 'all' | 'local'
+  /**
    * Tear down every registration made through `ctx`.
    * @returns settles once the scope has quiesced; racing calls share one completion.
    */
@@ -467,8 +473,21 @@ interface TypertGateway {
    * @returns a cancellation-aware iterable over the business results.
    */
   stream(request: InvokeRemoteRequest): Promise<AsyncIterable<unknown>>
+
+  /**
+   * Register the sole carrier-level forwarder (Host federation). Only owner
+   * Peers whose `forward` is not `'local'` pass through it; every other Peer reaches this Host directly.
+   * @param forwarder - the hook offered every owner wire call and stream.
+   * @returns disposer restoring direct dispatch.
+   * @throws Error when a forwarder is already registered.
+   */
+  registerForwarder(forwarder: TypertGatewayForwarder): () => void
 }
 ```
+
+### TypertGatewayForwarder
+
+`TypertGatewayForwarder` is the optional carrier hook for owner Remote calls and streams. It can answer on another Host or transform a local answer. Each method receives wire input and returns wire output; to leave a call unchanged, it returns `local()`. Forwarded streams do not receive Client uplink items. Non-owner Peers and owner Peers with `forward: 'local'` bypass the hook.
 
 ## Consumer Remote
 
@@ -692,6 +711,13 @@ async invoke(request: InvokeRemoteRequest): Promise<unknown>
  * @returns a cancellation-aware iterable over the business results.
  */
 async stream(request: InvokeRemoteRequest): Promise<AsyncIterable<unknown>>
+
+/**
+ * Register the sole carrier-level forwarder.
+ * @param forwarder - the hook offered every owner wire call and stream.
+ * @returns disposer restoring direct dispatch.
+ */
+registerForwarder(forwarder: TypertGatewayForwarder): () => void
 ```
 
 Source: [`packages/api/gateway/src/index.ts`](../../packages/api/gateway/src/index.ts)
