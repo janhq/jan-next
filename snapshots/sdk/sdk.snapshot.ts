@@ -1020,6 +1020,9 @@ async function runScenario(scenario: CorpusScenario): Promise<{
         )
       }
       for (const type of postActionEventTypes(primaryFixture)) {
+        // The dedicated subscription already waited for the provider title,
+        // which can arrive before turn/end on the primary subscription.
+        if (titleSubscription !== undefined && type === 'session/title') continue
         await waitForRootEvent(subscription, sessionId, event => event.type === type, observe)
       }
     } finally {

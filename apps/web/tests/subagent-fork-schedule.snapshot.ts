@@ -8,7 +8,7 @@ import { parseSessionLog, prepareSessionSnapshotFixtureForComparison } from '@ja
 import type { Session } from '@janhq/jan-session'
 import {
   fixtureContext, normalizeSessionSnapshots, normalizedSystemPrompts, normalizedToolSchemas,
-  formatSystemPromptSnapshot, parseToolSchemasSnapshot, redactSessionSnapshotIds, refreshFixtureReplacements,
+  formatSystemPromptSnapshot, formatToolSchemasSnapshot, parseToolSchemasSnapshot, redactSessionSnapshotIds, refreshFixtureReplacements,
   scrubSessionSnapshot, stabilizeFixtureMessageIds, stabilizeRefreshLog, tokenizeSessionFixtureCwd,
 } from '@janhq/jan-session-snapshot'
 import type {} from '@janhq/jan-api-session-controller'
@@ -21,8 +21,8 @@ import {
 import { REPO_ROOT } from './support.ts'
 
 const DIR = fileURLToPath(new URL('../../../snapshots/web/subagent-fork-schedule', import.meta.url))
-const PIN = join(DIR, '../fresh-round-trip')
 const MODE = webSnapshotMode()
+const foregroundTools = ['capture_audio', 'capture_camera']
 
 it.skipIf(MODE === 'record')('replays inherited schedule tools and refusals in a seeded Web fork', async () => {
   const paths = await Promise.all(['session.v4.jsonl', 'session.1.v4.jsonl']
@@ -60,24 +60,42 @@ it.skipIf(MODE === 'record')('replays inherited schedule tools and refusals in a
     const child = sessions[1]!
     expect(child.header).toMatchObject({ parentSession: parent.id, isSeeded: true, agentPreset: 'standard' })
     expect(child.inheritedEventCount).toBeGreaterThan(0)
-    expect(child.requestHeader()).toEqual(parent.session.requestHeader())
+    const parentHeader = parent.session.requestHeader()!
+    expect(parentHeader.tools?.filter(tool => foregroundTools.includes(tool.name)).map(tool => tool.name))
+      .toEqual(foregroundTools)
+    expect(child.requestHeader()).toEqual({
+      ...parentHeader,
+      tools: parentHeader.tools?.filter(tool => !foregroundTools.includes(tool.name)),
+    })
 
     for (const session of sessions) {
       expect(await readPersistedEvents(scaffold, session.id)).toEqual(session.snapshotEvents())
     }
     const raw = sessions.map(session => normalizeWebSessionVolatiles(rawSessionLog(session), scaffold.workspaceCwd))
     const context = { sessionIds: sessions.map(session => String(session.id)), cwd: scaffold.workspaceCwd }
-    const schemas = parseToolSchemasSnapshot(await readFile(join(PIN, 'tool-schemas.expected.json'), 'utf8'))
-    const promptPin = await readFile(join(PIN, 'system-prompt.expected.md'), 'utf8')
-    for (const log of raw) {
-      const headers = normalizedToolSchemas(log, context)
-      expect(headers.length).toBeGreaterThan(0)
-      for (const tools of headers) expect(tools).toEqual(schemas.initial)
-      for (const prompt of normalizedSystemPrompts(log, context)) {
-        expect(formatSystemPromptSnapshot(prompt.split(REPO_ROOT).join('{{sourceRoot}}')
-          .split(scaffold.baseUrl).join('{{webUrl}}'))).toBe(promptPin)
-      }
+    const schemaPath = join(DIR, 'tool-schemas.expected.json')
+    const parentSchemas = normalizedToolSchemas(raw[0]!, context)
+    const childSchemas = normalizedToolSchemas(raw[1]!, context)
+    expect(parentSchemas).toHaveLength(1)
+    expect(childSchemas).toHaveLength(2)
+    // A fork keeps the inherited foreground header before preparing its own request.
+    expect(childSchemas[0]).toEqual(parentSchemas[0])
+    const promptPath = join(DIR, 'system-prompt.expected.md')
+    const prompts = raw.flatMap(log => normalizedSystemPrompts(log, context)).map(prompt =>
+      prompt.split(REPO_ROOT).join('{{sourceRoot}}').split(scaffold.baseUrl).join('{{webUrl}}'))
+    expect(prompts.length).toBeGreaterThan(0)
+    const [initialPrompt, ...promptChanges] = [...new Set(prompts)]
+    const promptSnapshot = formatSystemPromptSnapshot(initialPrompt!, promptChanges)
+    if (MODE === 'refresh') {
+      await Promise.all([
+        writeFile(schemaPath, formatToolSchemasSnapshot(parentSchemas[0]!, childSchemas.slice(1))),
+        writeFile(promptPath, promptSnapshot),
+      ])
     }
+    const schemas = parseToolSchemasSnapshot(await readFile(schemaPath, 'utf8'))
+    expect(parentSchemas[0]).toEqual(schemas.initial)
+    expect(childSchemas.slice(1)).toEqual(schemas.changes)
+    expect(promptSnapshot).toBe(await readFile(promptPath, 'utf8'))
     const results = child.snapshotEvents().slice(child.inheritedEventCount)
       .filter(event => event.type === 'tool/result')
     expect(results.map(event => event.data.message.content)).toEqual(Array.from({ length: 4 }, () => [
