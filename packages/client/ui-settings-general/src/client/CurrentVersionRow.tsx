@@ -10,5 +10,7 @@ import css from './CurrentVersionRow.module.css'
 export function CurrentVersionRow({ t }: PropsRuntime<'settings.general.item'> & PropsLocale<'settings'>) {
   const version = process.env.JAN_CLIENT_VERSION
   if (version === undefined) return null
-  return <div className={css.row}>{t('general.currentVersion', { version })}</div>
+  return <div className={css.row} data-settings-search-row="current-version" tabIndex={-1}>
+    {t('general.currentVersion', { version })}
+  </div>
 }

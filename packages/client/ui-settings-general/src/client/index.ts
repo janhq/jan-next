@@ -18,7 +18,7 @@ import type { ConnectionHandle } from '@janhq/jan-client-connection/client'
 import type {} from '@janhq/jan-client-modules/client'
 import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
 import { closeTopModal } from '@janhq/jan-client-ui-primitives'
-import { createSnapshotStore, type ObservableSnapshot } from '@janhq/jan-client-store'
+import { createSnapshotStore, type BoundActions, type ObservableSnapshot } from '@janhq/jan-client-store'
 // Type-only: the settings slot declarations plus the ctx.configForms Context
 // merge. Cross-plugin collaboration goes through the service, never a value
 // import (client bundle purity gate).
@@ -32,7 +32,8 @@ import type {
   SettingsOnboardingStep, SettingsRootInjected, SettingsSectionRow,
 } from './shell-contract.ts'
 import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
-import { createSettingsShellStore } from './shell-store.ts'
+import { createSettingsShellStore, type SettingsShellStore } from './shell-store.ts'
+import { createSettingsSearchSource, type SettingsSearchTarget } from './settings-search.ts'
 import { SettingsRoot } from './SettingsRoot.tsx'
 import { DesktopUpdateBadge } from './DesktopUpdateIndicator.tsx'
 import { HostStatusChip, type HostStatusChipInjected } from './HostStatusChip.tsx'
@@ -57,12 +58,20 @@ declare module '@janhq/cordis' {
     settingsNavigation: {
       /** Live availability of the Settings dialog. */
       availability: ObservableSnapshot<boolean>
+      /** Live localized page and owned-row results. */
+      targets: ObservableSnapshot<readonly SettingsSearchTarget[]>
       /**
        * Open the Settings dialog at a registered section when access allows it.
        * @param section - id of a Settings section, such as `models`.
        * @returns whether Settings opened at that section.
        */
       open(section: string): boolean
+      /**
+       * Open Settings and reveal a current search result.
+       * @param target - a result from the current targets snapshot.
+       * @returns false when the target is stale or Settings is unavailable.
+       */
+      openTarget(target: SettingsSearchTarget): boolean
     }
   }
 }
@@ -77,6 +86,7 @@ export type { SettingsDocumentActionInjected, SettingsDocumentActionProps } from
 export type { SettingsDocumentState } from './settings-document-store.ts'
 export { SettingsDocumentStore } from './settings-document-store.ts'
 export type { SettingsKey } from './locales.ts'
+export type { SettingsSearchTarget } from './settings-search.ts'
 
 declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -102,14 +112,23 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.settin
  */
 export function apply(ctx: ClientContext): void {
   const availability = createSnapshotStore(false)
-  let openSection: ((section: string) => void) | undefined
+  const targets = createSettingsSearchSource(ctx.slots, ctx.locale)
+  const mac = ctx.shortcuts.platform === 'macos'
+  let shellActions: BoundActions<SettingsShellStore> | undefined
+  const openSearchTarget = (target: SettingsSearchTarget): boolean => {
+    if (shellActions === undefined || !targets.getSnapshot().includes(target)) return false
+    shellActions.openTarget(target)
+    return true
+  }
   ctx.provide('settingsNavigation', {
     availability,
-    open: (section: string) => {
-      if (openSection === undefined) return false
-      openSection(section)
+    targets,
+    open: (section) => {
+      if (shellActions === undefined) return false
+      shellActions.openSection(section)
       return true
     },
+    openTarget: openSearchTarget,
   })
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item', id: 'developer-tools', order: 15, locale: NS,
@@ -206,10 +225,13 @@ export function apply(ctx: ClientContext): void {
   const shellInjected = (): SettingsRootInjected => ({
     openDesktopUpdate: () => { desktopUpdate.open() },
     reconnect: () => { connection.reconnect() },
+    searchShortcut: mac ? 'Meta+F /' : 'Control+F /',
+    openSearchTarget,
     hooks: {
       shortcuts: ctx.shortcuts.catalog,
       desktopUpdate: desktopUpdate.store,
       connectionState: connection.state,
+      searchTargets: targets,
       sections: {
         getSnapshot: () => {
           const version = ctx.slots.getVersion('settings.section')
@@ -217,7 +239,7 @@ export function apply(ctx: ClientContext): void {
           if (version !== rowsVersion || revision !== rowsRevision) {
             rowsVersion = version
             rowsRevision = revision
-            rows = ctx.slots.entries('settings.section')
+            rows = ctx.slots.entriesOfSlot('settings.section')
               .map(e => ({
                 /* v8 ignore next -- list-slot registration requires id (SlotCore rejects an entry without one) */
                 id: e.options.id ?? '',
@@ -282,6 +304,26 @@ export function apply(ctx: ClientContext): void {
           }
         },
       })
+      // Native accelerators run before DOM input. Reserve these keys against user remaps.
+      const releaseFind = ctx.shortcuts.registerFixed({
+        id: 'settings.search' as ShortcutCommandId, label: () => t('search.label'), group: 'application',
+        keys: mac ? ['⌘', 'F'] : ['Ctrl', 'F'],
+        bindings: [{ code: 'KeyF', modifiers: ['primary'] }, { code: 'Slash', modifiers: [] }],
+      })
+      const stopSearchInput = ctx.shortcuts.observeFixedInput((input) => {
+        if (input.type !== 'keydown') return
+        const { gesture, context } = input
+        if (context.modal !== 'settings' || context.region !== 'page' || gesture.composing
+          || gesture.defaultPrevented || gesture.repeat || gesture.alt || gesture.shift) return
+        const slash = gesture.code === 'Slash' && !gesture.control && !gesture.meta
+        const find = gesture.code === 'KeyF' && (mac ? gesture.meta && !gesture.control : gesture.control && !gesture.meta)
+        if (!slash && !find) return
+        const dialog = context.target?.closest('[data-shortcut-modal="settings"]')
+        const field = dialog?.querySelector<HTMLInputElement>('[data-settings-search]')
+        if (field === undefined || field === null) return
+        input.consume()
+        field.focus()
+      })
 
       const disposeSlot = ctx.slots.register({
         name: 'sidebar.settings',
@@ -299,9 +341,16 @@ export function apply(ctx: ClientContext): void {
         },
         inject: shellInjected,
       }, SettingsRoot)
-      openSection = (section: string) => { shellInstance.actions.openSection(section) }
+      shellActions = shellInstance.actions
       availability.set(true)
-      return () => { openSection = undefined; availability.set(false); disposeCommand(); disposeSlot() }
+      return () => {
+        shellActions = undefined
+        availability.set(false)
+        stopSearchInput()
+        releaseFind()
+        disposeCommand()
+        disposeSlot()
+      }
     }))
 
   ctx.slots.inject('settings.trigger', () =>

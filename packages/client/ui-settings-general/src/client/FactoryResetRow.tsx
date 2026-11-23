@@ -34,7 +34,8 @@ export function FactoryResetRow({ reset, t }:
       .then(() => { setFailed(true) }, () => { setFailed(true) })
       .finally(() => { setBusy(false) })
   }
-  return <div className={css.row}>
+  return <div className={css.row} role="group" aria-label={t('factoryReset.title')}
+    data-settings-search-row="factory-reset" tabIndex={-1}>
     <div>
       <div className={css.title}>{t('factoryReset.title')}</div>
       <div className={css.description}>{t('factoryReset.description')}</div>
