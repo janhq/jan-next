@@ -18598,6 +18598,28 @@ importers:
         specifier: workspace:*
         version: link:../../typert/protocol
 
+  plugins/agent-browser:
+    dependencies:
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../packages/core/tools
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../vendor/cordis
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../packages/core/agent
+      '@janhq/jan-attachment':
+        specifier: workspace:*
+        version: link:../../packages/attachment/attachment
+      '@janhq/jan-util-values':
+        specifier: workspace:*
+        version: link:../../packages/util/values
+
   plugins/agent-desktop:
     dependencies:
       '@janhq/jan-llm':
