@@ -3,6 +3,7 @@
   "description": "Dependency-only deploy root: the Jan that Hosts copies to another computer over SSH and starts with the edge profile.",
   "version": "0.2.2-rc.1",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@janhq/cordis": "workspace:~",
@@ -47,7 +48,6 @@
     "@janhq/jan-cordis-host-runner": "workspace:*",
     "@janhq/jan-credentials": "workspace:*",
     "@janhq/jan-edge-app": "workspace:*",
-    "@janhq/jan-experimental-speech-to-text": "workspace:*",
     "@janhq/jan-file-reference": "workspace:*",
     "@janhq/jan-fs": "workspace:*",
     "@janhq/jan-fs-local": "workspace:*",

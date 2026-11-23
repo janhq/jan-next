@@ -351,9 +351,6 @@ importers:
       '@janhq/jan-cua-bundle':
         specifier: workspace:*
         version: link:../../packages/experimental/cua-bundle
-      '@janhq/jan-edge-app':
-        specifier: workspace:*
-        version: link:../../plugins/edge-app
       '@janhq/jan-experimental-auto-review':
         specifier: workspace:*
         version: link:../../packages/experimental/auto-review

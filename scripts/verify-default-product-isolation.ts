@@ -14,6 +14,7 @@ import type { EntryOptions } from '@janhq/cordis-plugin-loader'
 import { loadOverlayPatches } from '../packages/boot/app-boot/src/index.ts'
 import { bundlePatchPaths, composeEntries } from '../packages/boot/app-boot/src/profile.ts'
 import type { JanBundleManifest } from '../packages/util/package-manifest/src/types.ts'
+import { janPackageName } from '../packages/util/package-manifest/src/dsh-compat.ts'
 import { isAgentPresetEntry, isCordisGroupEntry, loadCordisYaml } from './cordis-yaml.ts'
 import {
   collectRuntimeLocalSourceSpecifiers,
@@ -137,7 +138,8 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
       if (pkg !== undefined) add(pkg, origin)
       return
     }
-    const packageName = barePackageName(name)
+    // Vendored DeepSeek Harness packages import upstream names; the loader resolves them to Jan's packages.
+    const packageName = janPackageName(barePackageName(name))
     if (isExperimentalPackageName(packageName)) {
       failures.push(`${origin} -> ${name}: default product must not include experimental packages`)
       return
