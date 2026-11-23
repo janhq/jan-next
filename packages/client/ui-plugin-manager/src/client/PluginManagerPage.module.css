@@ -1871,6 +1871,14 @@ label.registryOption {
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* Filters on the left, the grid/list switch on the search field's trailing edge. */
+.exploreRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 /* Chip boxes nest past the text line by their padding, so the first label starts on the search field's line. */
 .exploreChips {
   display: flex;
@@ -2035,16 +2043,17 @@ label.registryOption {
 }
 
 /*
- * Customize shows plugins as the tiles its Skills and Connectors tabs and the Hub use: the artwork and the
- * switch on top, then the name and a two-line description. Settings' plugin list keeps its rows.
+ * Customize's grid view shows plugins as the tiles its Skills and Connectors tabs and the Hub use: the
+ * artwork and the switch on top, then the name and a two-line description. Its list view, and Settings'
+ * plugin list, keep the rows. `data-plugin-tiles` marks the grid view; Discover's tiles follow it too.
  */
-[data-plugin-customize] .cards {
+[data-plugin-tiles] .cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: 12px;
 }
 
-[data-plugin-customize] .card {
+[data-plugin-tiles] .card {
   margin: 0;
   padding: 14px;
   border: 1px solid var(--dsw-alias-border-l1);
@@ -2054,7 +2063,7 @@ label.registryOption {
 }
 
 @media (hover: hover) {
-  [data-plugin-customize] .cardLink:hover {
+  [data-plugin-tiles] .cardLink:hover {
     background: var(--dsw-alias-bg-layer-1);
     transform: translateY(-2px);
     border-color: var(--dsw-alias-border-l4);
@@ -2062,11 +2071,11 @@ label.registryOption {
   }
 }
 
-[data-plugin-customize] .cardLink:active {
+[data-plugin-tiles] .cardLink:active {
   transform: scale(0.98);
 }
 
-[data-plugin-customize] .cardHead {
+[data-plugin-tiles] .cardHead {
   display: grid;
   grid-template-columns: auto 1fr auto;
   grid-template-areas: 'icon . end' 'main main main';
@@ -2075,45 +2084,45 @@ label.registryOption {
   padding: 0;
 }
 
-[data-plugin-customize] .cardIcon {
+[data-plugin-tiles] .cardIcon {
   grid-area: icon;
   width: 40px;
   height: 40px;
   border-radius: 10px;
 }
 
-[data-plugin-customize] .cardMain {
+[data-plugin-tiles] .cardMain {
   grid-area: main;
   gap: 4px;
 }
 
-[data-plugin-customize] .cardEnd {
+[data-plugin-tiles] .cardEnd {
   grid-area: end;
 }
 
-[data-plugin-customize] .cardOpen,
-[data-plugin-customize] .cardTitle {
+[data-plugin-tiles] .cardOpen,
+[data-plugin-tiles] .cardTitle {
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
-[data-plugin-customize] .cardOpen::after {
+[data-plugin-tiles] .cardOpen::after {
   border-radius: 12px;
 }
 
-[data-plugin-customize] .cardDesc {
+[data-plugin-tiles] .cardDesc {
   -webkit-line-clamp: 2;
   line-height: 20px;
   color: var(--dsw-alias-label-secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-plugin-customize] .card { transition: none; }
-  [data-plugin-customize] .cardLink:active { transform: none; }
+  [data-plugin-tiles] .card { transition: none; }
+  [data-plugin-tiles] .cardLink:active { transform: none; }
 }
 
 @media (hover: hover) and (prefers-reduced-motion: reduce) {
-  [data-plugin-customize] .cardLink:hover { transform: none; }
+  [data-plugin-tiles] .cardLink:hover { transform: none; }
 }
 
 @keyframes plugin-spotlight-in {
