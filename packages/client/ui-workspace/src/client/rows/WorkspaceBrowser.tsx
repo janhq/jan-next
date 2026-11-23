@@ -14,7 +14,7 @@
  * are slot entries with their own behavior, so this component threads no
  * action callbacks and hosts no action surface.
  */
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { WorkspaceDialogs } from './WorkspaceDialogs.tsx'
 import {
@@ -253,6 +253,23 @@ function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }):
   return e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
 }
 
+/** One project row's actions as the latest render defines them. */
+interface HeaderLogic {
+  toggle: () => void
+  create: () => void
+  open: () => void
+  dragStart: () => void
+  dragEnd: () => void
+}
+
+/** The identity-stable callbacks one project row receives, forwarding to its {@link HeaderLogic}. */
+interface HeaderHandles {
+  toggle: () => void
+  create: () => void
+  open: () => void
+  drag: { start: () => void; end: () => void }
+}
+
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
   'useSessionStatus' | 'startSession' | 'open' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu'
@@ -349,6 +366,21 @@ function SessionTree({
   const workspaceDropCommitted = useRef(false)
   const nativeDragActive = drag !== null || workspaceDrag !== null
   useNativeDragAcceptance(nativeDragActive)
+  // Project rows are memoized, so their callbacks keep one identity per group and
+  // call into the latest committed render's logic, which every event follows.
+  const headerLogic = useRef(new Map<string, HeaderLogic>())
+  const headerHandles = useRef(new Map<string, HeaderHandles>())
+  const nextHeaderLogic = new Map<string, HeaderLogic>()
+  useLayoutEffect(() => { headerLogic.current = nextHeaderLogic })
+  const headerHandlesOf = (key: string): HeaderHandles => {
+    let handles = headerHandles.current.get(key)
+    if (handles === undefined) {
+      const call = (action: keyof HeaderLogic) => () => { headerLogic.current.get(key)?.[action]() }
+      handles = { toggle: call('toggle'), create: call('create'), open: call('open'), drag: { start: call('dragStart'), end: call('dragEnd') } }
+      headerHandles.current.set(key, handles)
+    }
+    return handles
+  }
   const currentGroup = current === undefined || !workspaceReady
     ? undefined
     : owningGroupKey(workspaces, current)
@@ -493,12 +525,24 @@ function SessionTree({
     const workspaceMarker = workspaceId !== undefined && workspaceDrag?.over?.id === workspaceId
       ? workspaceDrag.over.half
       : null
-    const workspaceDragProps = workspaceId === undefined ? undefined : {
-      start: () => {
+    const handles = headerHandlesOf(group.key)
+    nextHeaderLogic.set(group.key, {
+      toggle: () => {
+        if (group.expanded) dropWatermarks(key => withinGroup(key, group.key))
+        setGroupExpanded(group.key, !group.expanded)
+      },
+      create: () => {
+        if (workspaceId === undefined) return
+        setGroupExpanded(group.key, true)
+        startSession(workspaceId)
+      },
+      open: () => { if (workspaceId !== undefined) openProject(workspaceId) },
+      dragStart: () => {
+        if (workspaceId === undefined) return
         workspaceDropCommitted.current = false
         setWorkspaceDrag({ workspaceId, over: null })
       },
-      end: () => {
+      dragEnd: () => {
         if (workspaceDrag?.over !== null && workspaceDrag?.over !== undefined) {
           commitWorkspaceDrag(workspaceDrag, workspaceDrag.over)
         } else {
@@ -506,7 +550,7 @@ function SessionTree({
         }
         workspaceDropCommitted.current = false
       },
-    }
+    })
     const hoverWorkspace = workspaceId === undefined || !compatibleDrag
       ? undefined
       : (half: 'before' | 'after') => {
@@ -569,20 +613,10 @@ function SessionTree({
           home={home}
           machine={machine}
           t={t}
-          onToggle={() => {
-            if (group.expanded) dropWatermarks(key => withinGroup(key, group.key))
-            setGroupExpanded(group.key, !group.expanded)
-          }}
-          onOpenProject={projectSurface && group.workspaceId !== undefined
-            ? (() => { const id = group.workspaceId; return () => { openProject(id) } })()
-            : undefined}
-          onCreate={() => {
-            if (group.workspaceId !== undefined) {
-              setGroupExpanded(group.key, true)
-              startSession(group.workspaceId)
-            }
-          }}
-          drag={workspaceDragProps}
+          onToggle={handles.toggle}
+          onOpenProject={projectSurface && workspaceId !== undefined ? handles.open : undefined}
+          onCreate={handles.create}
+          drag={workspaceId === undefined ? undefined : handles.drag}
         />
         {workspaceId !== undefined && group.expanded && rowState.archivedFilter !== 'only'
           && renderSlot('sidebar.workspaces.group.leading', { workspaceId })}

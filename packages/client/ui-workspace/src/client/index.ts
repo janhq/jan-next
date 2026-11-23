@@ -157,12 +157,23 @@ export function apply(ctx: Context): void {
   const uiWorkspace = new UiWorkspaceService(
     ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify, editProject, requestAdd,
   )
+  // Every project row asks two actions per render; reaching the service through the
+  // Context proxy costs more than the answer, so each (Workspace, action) source is
+  // looked up once. Sources are identity-stable for the service this apply injected.
+  const accessSources = new Map<string, HostObservable<boolean>>()
+  const workspaceAccess = (workspaceId: string, action: string): HostObservable<boolean> => {
+    const key = `${workspaceId}\0${action}`
+    let source = accessSources.get(key)
+    if (source === undefined) {
+      source = ctx.remoteAccess.source('workspace', workspaceId, action)
+      accessSources.set(key, source)
+    }
+    return source
+  }
   ctx.slots.provideRoot({
     hooks: { workspaces: workspaces.list },
     keyedHooks: {
-      workspaceAccess: (workspaceId, action) => action === undefined
-        ? undefined
-        : ctx.remoteAccess.source('workspace', workspaceId, action),
+      workspaceAccess: (workspaceId, action) => action === undefined ? undefined : workspaceAccess(workspaceId, action),
     },
   })
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-workspace: dictionaries')

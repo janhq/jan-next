@@ -470,9 +470,17 @@
   80%, 100% { opacity: 1; }
 }
 
-/* One workspace section: header row + a compact expanded session run. */
+/* One workspace section: header row + a compact expanded session run.
+   Sections out of view skip style and layout: with hundreds of projects the
+   sidebar is most of the page's boxes, and every restyle paid for all of them.
+   The size placeholder is one row, then the size it last rendered at. The
+   containment this implies clips paint at the box, so the clip edge leaves
+   room for the drop markers drawn 8px outside it. */
 .groupSection {
   position: relative;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32px;
+  overflow-clip-margin: 12px;
 }
 
 .groupSection + .groupSection {
