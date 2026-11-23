@@ -7,7 +7,7 @@ import type {} from '@janhq/jan-mcp-manager'
 import { scopeOf } from '@janhq/jan-scope'
 import { isModelInvocable, isUserInvocable, type SkillSummary } from '@janhq/jan-skill'
 import { joinContextSections, renderContextSections, renderPrompt } from '@janhq/jan-system-prompt'
-import type { ResolvedToolSet } from '@janhq/jan-tools'
+import type { ToolDefinition } from '@janhq/jan-tools'
 import type {} from '@janhq/jan-working-directory'
 import { ROLE_OVERHEAD, estimateContent, estimateToolsTokens } from '@janhq/jan-token-meter/estimate'
 import type { SessionContextPreviewValue, SessionInventory, SessionItemOrigin } from './types.ts'
@@ -40,16 +40,15 @@ function skillOrigin(skill: SkillSummary): SessionItemOrigin {
  * and preset plugins the Agent runs with, each with where it comes from.
  * @param agent - Agent whose scope selects the skill view and preset composition.
  * @param toolNames - tool names the next request offers the model.
- * @param toolSet - resolved definitions of those offered tools.
+ * @param definitions - offered tool definitions, read when assembly captured its schemas.
  * @param signal - cancels the working-directory and skill reads.
  * @returns the Session inventory.
  */
 async function readInventory(
-  agent: Agent, toolNames: readonly string[], toolSet: ResolvedToolSet, signal: AbortSignal,
+  agent: Agent, toolNames: readonly string[], definitions: ReadonlyMap<string, ToolDefinition>, signal: AbortSignal,
 ): Promise<SessionInventory> {
   const manager = agent.ctx.get('mcpManager')
   const managed = manager?.list() ?? []
-  const definitions = toolSet.view(agent)
   const tools: string[] = []
   const mcpTools: { server: string; name: string; origin: SessionItemOrigin }[] = []
   for (const name of toolNames) {
@@ -92,6 +91,9 @@ export async function previewContext(agent: Agent, signal: AbortSignal): Promise
   if (modelSelection === undefined) return null
   const toolSet = await agent.ctx.tools.resolve({ agent, modelSelection, signal })
   try {
+    // Copy the admitted definitions before assembly awaits: a registration removed meanwhile drops out of
+    // the live view but stays in the assembled schemas, and the inventory must describe what assembly offered.
+    const definitions = new Map(toolSet.view(agent))
     const assembly = await agent.ctx.systemPrompt.assemble({ ...assembleContextFor(agent, signal), modelSelection, toolSet })
     const prompt = renderPrompt(assembly)
     const context = joinContextSections(renderContextSections(assembly))
@@ -100,7 +102,7 @@ export async function previewContext(agent: Agent, signal: AbortSignal): Promise
       systemTokens: prompt === '' ? 0 : estimateContent([{ type: 'text', text: prompt }]),
       toolsTokens: estimateToolsTokens({ config: { ...modelSelection }, ...assembly.tools.length > 0 ? { tools: assembly.tools } : {} }),
       messageTokens: context === '' ? 0 : estimateContent([{ type: 'text', text: context }]) + ROLE_OVERHEAD,
-      inventory: await readInventory(agent, assembly.tools.map(tool => tool.name), toolSet, signal),
+      inventory: await readInventory(agent, assembly.tools.map(tool => tool.name), definitions, signal),
     }
   } finally {
     toolSet.dispose()
