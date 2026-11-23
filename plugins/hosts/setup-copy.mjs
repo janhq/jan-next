@@ -93,6 +93,17 @@ export async function setupState({ settings, credentials, llm }) {
   return { untouched: userProviders(providers).length === 0 && !userSet(section(settings, DEFAULT_MODEL_NS)), keyBindingVersion: KEY_BINDING_VERSION, routes }
 }
 
+/** @param {string} value - raw stored value. @returns {boolean} Whether the value requires a local vault. */
+export function isPasswordManagerReference(value) {
+  return value.startsWith('op://') || value.startsWith('bw://')
+}
+
+/** Resolve for transfer, never materializing or transmitting a password-manager value. */
+async function portableCredential(credentials, ref) {
+  const stored = await credentials.resolve(ref, { dereference: false })
+  return stored === undefined || isPasswordManagerReference(stored.value) ? undefined : stored
+}
+
 /**
  * The routes this computer can give the other one. A route whose endpoint comes from a variable
  * (`baseURLEnv`, such as the local llama.cpp worker) is left out, because that address belongs to
@@ -111,7 +122,7 @@ export async function copyable({ settings, credentials, llm }, remote) {
     // Copy only fixed, known key destinations. An older Host does not report a key binding.
     const key = remote.keyBindingVersion === KEY_BINDING_VERSION && binding !== undefined
       && (addProfile || there.key === false && sameBinding(binding, there.binding))
-      && (await credentials.describe(binding.ref)).configured
+      && (await portableCredential(credentials, binding.ref)) !== undefined
     const item = { route, name: typeof profile.displayName === 'string' ? profile.displayName : route, profile: addProfile, key, ...(key ? { binding } : {}) }
     if (typeof profile.apiKeyEnv === 'string' && !key) continue
     if (item.profile || item.key) items.push(item)
@@ -139,7 +150,7 @@ export async function setupPayload({ settings, credentials, llm }, items) {
     const binding = keyBinding(profile, endpoints.get(item.route))
     if (item.key) {
       if (!sameBinding(binding, item.binding)) continue
-      const resolved = await credentials.resolve(binding.ref)
+      const resolved = await portableCredential(credentials, binding.ref)
       if (resolved === undefined) continue
       keys[item.route] = { ...binding, value: resolved.value }
     }
@@ -186,7 +197,7 @@ export async function receiveSetup({ settings, credentials, llm }, request) {
   const endpoints = catalogEndpoints(llm)
   for (const [route, key] of requestedKeys) {
     const { ref, value } = key
-    if ((await credentials.describe(ref)).configured) continue
+    if (isPasswordManagerReference(value) || (await credentials.describe(ref)).configured) continue
     const routes = providersOf(section(settings, PROVIDERS_NS))
     if (!Object.hasOwn(routes, route) || !sameBinding(key, keyBinding(routes[route], endpoints.get(route)))) continue
     // Keys are looked up by reference, not by route. A second route using the same reference

@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { copyable, receiveSetup, setupPayload, setupState } from '../setup-copy.mjs'
+import { applySync, syncInventory, syncKey, syncReview } from '../setup-sync.mjs'
 
 /** A Jan's settings and credentials, as the Host services answer them. */
 function jan({ providers = {}, user = {}, defaultModel, keys = {} } = {}) {
@@ -94,6 +95,47 @@ test('a bundled route that lacks only its key there receives just the key', asyn
   assert.deepEqual(body.providers, {})
   assert.deepEqual(body.keys, { tokamak: { ref: 'TOKAMAK_API_KEY', endpoint: tokamak.baseURL, value: 'sk-tok' } })
   assert.deepEqual((await receiveSetup(remote, body)).keys, ['TOKAMAK_API_KEY'])
+})
+
+test('paired setup never materializes a vault pointer, including one saved after the offer', async () => {
+  const ref = 'TOKAMAK_API_KEY'
+  const source = jan({ providers: { tokamak }, keys: { [ref]: 'initial-key' } })
+  const remote = jan({ providers: { tokamak } })
+  const state = await setupState(remote)
+  const keys = source.credentials.resolve
+  source.credentials.resolve = (ref, options) => {
+    assert.equal(options?.dereference, false)
+    return keys(ref)
+  }
+  const items = await copyable(source, state)
+  assert.equal(items[0]?.key, true)
+  const pointer = 'op://Private/Jan/model-key'
+  source.state.keys[ref] = pointer
+  assert.deepEqual(await copyable(source, state), [])
+  assert.deepEqual((await setupPayload(source, items)).keys, {})
+  assert.deepEqual((await receiveSetup(remote, {
+    providers: {}, keys: { tokamak: { ref, endpoint: tokamak.baseURL, value: pointer } },
+  })).keys, [])
+})
+
+test('sync skips both source and destination vault pointers without reading their values', async () => {
+  const ref = 'TOKAMAK_API_KEY'
+  const remote = jan({ providers: { tokamak } })
+  const source = { ...jan({ providers: { tokamak }, keys: { [ref]: 'bw://item/password' } }), skillRoots: [] }
+  const keys = source.credentials.resolve
+  source.credentials.resolve = (ref, options) => {
+    assert.equal(options?.dereference, false)
+    return keys(ref)
+  }
+  const key = syncKey()
+  const item = { kind: 'keys', id: ref }
+  const [entry] = await syncInventory(source, key, item)
+  assert.equal(entry.value, null)
+  assert.equal(syncReview([entry], [])[0].status, 'skipped')
+  const approved = { ...item, value: { endpoint: tokamak.baseURL, value: 'plain' }, expected: entry.digest }
+  assert.equal((await applySync({ ...source, receiving: true }, [approved], key))[0].status, 'stale')
+  assert.equal((await applySync({ ...remote, receiving: true }, [{ ...approved, expected: null,
+    value: { ...approved.value, value: 'bw://item/password' } }], key))[0].status, 'failed')
 })
 
 test('a key is not offered for a same-named route on a different endpoint or reference', async () => {

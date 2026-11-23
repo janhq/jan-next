@@ -5,7 +5,7 @@ import { HostsError } from './store.mjs'
 import { withFileLock } from '@janhq/jan-atomic-write'
 import { lstat, mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { credentialEndpoint, DEFAULT_MODEL_NS, PROVIDERS_NS } from './setup-copy.mjs'
+import { credentialEndpoint, DEFAULT_MODEL_NS, isPasswordManagerReference, PROVIDERS_NS } from './setup-copy.mjs'
 import { MCP_NS, skillFolders } from './customization-copy.mjs'
 
 const excluded = new Set(['.git', 'node_modules', '__pycache__', '.venv'])
@@ -161,7 +161,11 @@ export async function syncInventory(source, key, only, descriptors = source.sett
   const refs = new Set(Object.values(providers).filter(value => !providerProblem(value)).map(value => value.apiKeyEnv).filter(ref => typeof ref === 'string' && ref))
   if (includes('keys')) for (const ref of only ? [only.id] : new Set([...refs, ...(source.refs ?? [])])) {
     if (!validId(ref)) continue
-    const secret = await source.credentials.resolve(ref)
+    const secret = await source.credentials.resolve(ref, { dereference: false })
+    if (secret?.value && isPasswordManagerReference(secret.value)) {
+      add('keys', ref, null, { sensitive: true, problem: 'machine' })
+      continue
+    }
     const endpoint = credentialEndpoint(providers, source.llm, ref)
     if (secret?.value) add('keys', ref, { value: secret.value, endpoint }, {
       sensitive: true,
@@ -218,7 +222,7 @@ export async function applySync(source, items, key) {
         await source.settings.mutate(ns, ops, revision)
       } else if (item.kind === 'keys') {
         const { endpoint, value } = item.value ?? {}
-        if (typeof value !== 'string' || !value || typeof endpoint !== 'string') throw new Error('Invalid provider credential.')
+        if (typeof value !== 'string' || !value || isPasswordManagerReference(value) || typeof endpoint !== 'string') throw new Error('Invalid provider credential.')
         const providers = source.settings.describe().find(section => section.ns === PROVIDERS_NS)?.value?.providers ?? {}
         if (credentialEndpoint(providers, source.llm, item.id) !== endpoint) {
           throw new HostsError('sync-stale', 'The destination provider endpoint could not be verified.')
