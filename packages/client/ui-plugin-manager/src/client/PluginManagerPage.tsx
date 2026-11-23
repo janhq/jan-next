@@ -18,7 +18,7 @@ import {
   IconSparkleRegular, IconTrashOutlineRegular,
   IconSearchOutlineRegular, IconWarningOutlineRegular, Input, Menu, MenuItemButton, Modal, pointerModality,
   PluginArtworkDefault, PluginArtworkLoop, PluginArtworkSearch, PluginArtworkSubagent, PluginArtworkTerminal,
-  SegmentedTabs, StateDot, Switch, Tag, TerminalBlock, Toast, Tooltip, useDismissOnOutsidePointer,
+  SegmentedTabs, StateDot, Switch, Tag, TerminalBlock, Toast, Tooltip, useDismissOnOutsidePointer, useViewMode, ViewToggle,
   type IconProps, type StateDotState, type TerminalBlockLabels,
 } from '@janhq/jan-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore } from '@janhq/jan-client-ui-slots'
@@ -1675,6 +1675,8 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   // Jan's desktop names this page Customize; the Host row's `customize` flag says so.
   const [pageForm] = useState(() => props.configForm<{ customize?: boolean }>('ui-plugin-manager'))
   const customize = useSyncExternalStore(listener => pageForm.subscribe(listener), () => pageForm.getSnapshot().value?.customize === true)
+  // Customize's own preference: tiles (grid) or the Settings rows (list).
+  const [viewMode, setViewMode] = useViewMode('customize-plugins')
   const state = props.usePluginManager(snapshot => snapshot)
   const ledger = props.useConfigLedger(snapshot => snapshot)
   // What is open; a package that leaves the list (uninstalled) drops back to the cards.
@@ -1808,10 +1810,13 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
       <Input type="search" className={css.exploreSearch as string} icon={<IconSearchOutlineRegular size={16} />}
         placeholder={t('exploreSearch')} aria-label={t('exploreSearch')} value={exploreQuery}
         onChange={(event) => { setExploreQuery(event.target.value) }} />
-      <div className={css.exploreChips} role="group" aria-label={t('exploreFilters')}>
-        {exploreFilters.map(([id, label]) => (
-          <button key={id} type="button" className={css.exploreChip} aria-pressed={filterNow === id} onClick={() => { setExploreFilter(id) }}>{label}</button>
-        ))}
+      <div className={css.exploreRow}>
+        <div className={css.exploreChips} role="group" aria-label={t('exploreFilters')}>
+          {exploreFilters.map(([id, label]) => (
+            <button key={id} type="button" className={css.exploreChip} aria-pressed={filterNow === id} onClick={() => { setExploreFilter(id) }}>{label}</button>
+          ))}
+        </div>
+        <ViewToggle value={viewMode} onChange={setViewMode} labels={{ grid: t('viewGrid'), list: t('viewList'), group: t('viewMode') }} />
       </div>
     </div>
   )
@@ -1834,7 +1839,8 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   }
 
   return (
-    <section className={css.page} data-plugin-panel {...customize ? { 'data-plugin-customize': '' } : {}} aria-busy={state.status === 'loading' || refreshing}>
+    <section className={css.page} data-plugin-panel {...customize ? { 'data-plugin-customize': '' } : {}}
+      {...customize && viewMode === 'grid' ? { 'data-plugin-tiles': '' } : {}} aria-busy={state.status === 'loading' || refreshing}>
       {showsMoreList ? (
         <header className={css.moreHead} data-window-drag>
           <Button size="sm" className={css.moreBack} aria-label={t('backToList')} onClick={() => { setView({ kind: 'list' }) }}>

@@ -262,14 +262,14 @@
   gap: 8px;
 }
 
-/* Inside Customize the list matches the Plugins tab's tiles: artwork and action on top, then name, description and facts. */
-:global([data-plugin-customize]) .cards {
+/* In Customize's grid view the list matches the Plugins tab's tiles: artwork and action on top, then name, description and facts. */
+:global([data-plugin-tiles]) .cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: 12px;
 }
 
-:global([data-plugin-customize]) .card {
+:global([data-plugin-tiles]) .card {
   display: grid;
   grid-template-columns: auto 1fr auto;
   grid-template-areas: 'icon . end' 'main main main';
@@ -284,7 +284,7 @@
 }
 
 @media (hover: hover) {
-  :global([data-plugin-customize]) .card:hover {
+  :global([data-plugin-tiles]) .card:hover {
     background: var(--dsw-alias-bg-layer-1);
     transform: translateY(-2px);
     border-color: var(--dsw-alias-border-l4);
@@ -292,43 +292,43 @@
   }
 }
 
-:global([data-plugin-customize]) .card .icon {
+:global([data-plugin-tiles]) .card .icon {
   grid-area: icon;
   width: 40px;
   height: 40px;
   border-radius: 10px;
 }
 
-:global([data-plugin-customize]) .card .main {
+:global([data-plugin-tiles]) .card .main {
   grid-area: main;
   gap: 4px;
 }
 
-:global([data-plugin-customize]) .card .cardEnd {
+:global([data-plugin-tiles]) .card .cardEnd {
   grid-area: end;
 }
 
-:global([data-plugin-customize]) .card .cardOpen {
+:global([data-plugin-tiles]) .card .cardOpen {
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
-:global([data-plugin-customize]) .card .cardOpen::after {
+:global([data-plugin-tiles]) .card .cardOpen::after {
   border-radius: 12px;
 }
 
-:global([data-plugin-customize]) .card .description {
+:global([data-plugin-tiles]) .card .description {
   -webkit-line-clamp: 2;
   line-height: 20px;
   color: var(--dsw-alias-label-secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :global([data-plugin-customize]) .card { transition: none; }
+  :global([data-plugin-tiles]) .card { transition: none; }
 }
 
 @media (hover: hover) and (prefers-reduced-motion: reduce) {
-  :global([data-plugin-customize]) .card:hover { transform: none; }
+  :global([data-plugin-tiles]) .card:hover { transform: none; }
 }
 
 .blocked {
