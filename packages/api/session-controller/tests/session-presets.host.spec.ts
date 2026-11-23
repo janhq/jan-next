@@ -4,9 +4,9 @@ import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@janhq/cordis'
-import AgentRegistry from '@janhq/jan-agent'
+import AgentRegistry, { AgentModel, modelSelectionProjectionDefinition } from '@janhq/jan-agent'
 import SessionProjectionRegistry from '@janhq/jan-session-projection'
-import type { Agent, AgentFactory } from '@janhq/jan-agent'
+import type { Agent, AgentFactory, AgentOptions } from '@janhq/jan-agent'
 import { agentPresetProjectionDefinition } from '@janhq/jan-agent-preset-registry'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@janhq/jan-session'
 import type { Session, SessionEvent, SessionHeader } from '@janhq/jan-session'
@@ -22,12 +22,6 @@ afterEach(async () => {
   await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose()))
   for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
-
-function stubAgent(session: Session): Agent {
-  let selected: { provider: string; model: string } | undefined
-  const model = { current: () => selected, select: (selection: typeof selected) => { selected = selection } }
-  return { id: session.id, session, status: 'idle', model } as never
-}
 
 /** A stored Session the persistence double serves until an Agent resumes it. */
 interface StoredSession {
@@ -71,6 +65,7 @@ async function harness(options: HarnessOptions = {}) {
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(AgentRegistry)
   const preset = await ctx.sessionProjections.register(agentPresetProjectionDefinition)
+  const models = await ctx.sessionProjections.register(modelSelectionProjectionDefinition)
   const presets = options.presets
   const selections: { sessionId: SessionId; agentPreset: string }[] = []
   const resumed: SessionId[] = []
@@ -91,6 +86,19 @@ async function harness(options: HarnessOptions = {}) {
       }
       return wanted
     }
+    const follows = (session: Session): boolean => {
+      const event = session.snapshotEvents().findLast(event => event.type === 'agent-preset/selected')
+      return event?.type === 'agent-preset/selected' && event.data.source === 'route-default'
+    }
+    const select = async (agent: Agent, agentPreset: string, routeDefault = false): Promise<string> => {
+      usable(agentPreset)
+      if (options.locked?.has(agent.id) === true) {
+        throw new RemoteError('agent-preset/locked', 'This session has already started', { sessionId: agent.id, agentPreset })
+      }
+      if (preset.stateOf(agent.session) !== agentPreset) selections.push({ sessionId: agent.id, agentPreset })
+      agent.session.append('agent-preset/selected', { agentPreset, ...(routeDefault ? { source: 'route-default' } : {}) })
+      return agentPreset
+    }
     ctx.provide('agentPresets', {
       defaultId: presets[0],
       defaultFor: (provider: string | undefined) => options.routeDefaults?.[provider ?? ''] ?? presets[0],
@@ -98,17 +106,12 @@ async function harness(options: HarnessOptions = {}) {
       resolve: (id?: string) => Promise.resolve(id === undefined ? undefined : options.resolving?.get(id))
         .then(() => ({ id: known(id) })),
       mount: (_ctx: Context, id?: string) => Promise.resolve().then(() => ({ id: usable(id) })),
-      select: async (agent: Agent, agentPreset: string) => {
-        usable(agentPreset)
-        if (options.locked?.has(agent.id) === true) {
-          throw new RemoteError('agent-preset/locked', 'This session has already started', {
-            sessionId: agent.id, agentPreset,
-          })
-        }
-        selections.push({ sessionId: agent.id, agentPreset })
-        agent.session.append('agent-preset/selected', { agentPreset })
-        return agentPreset
-      },
+      followsRouteDefault: follows,
+      select,
+      selectRouteDefault: (agent: Agent, target: string, previous?: string) =>
+        previous !== undefined && (!follows(agent.session) || preset.stateOf(agent.session) !== previous || previous === target)
+          ? Promise.resolve(undefined)
+          : select(agent, target, true),
     } as never)
   }
   // The default model route new Sessions start on; tests move it between routes.
@@ -142,10 +145,11 @@ async function harness(options: HarnessOptions = {}) {
   /** Enter the Session for setup, then announce creation as the Agent factory does. */
   const publish = async (
     session: Session,
+    agentOptions: AgentOptions,
     setup: Parameters<AgentFactory['createAgent']>[1]['setup'],
   ): Promise<{ agent: Agent; dispose: () => Promise<void> }> => {
-    const agent = stubAgent(session)
-    ;(agent as { ctx?: Context }).ctx = ctx
+    const model = new AgentModel(models.readerFor(session), session, agentOptions)
+    const agent = { id: session.id, session, status: 'idle', ctx, model } as Agent
     const detach = ctx.effect(() => ctx.sessions.enter(session))
     try {
       ctx.sessions.announce(session)
@@ -161,7 +165,7 @@ async function harness(options: HarnessOptions = {}) {
   const factory: AgentFactory = {
     async createAgent(_ownerCtx, create) {
       const session = ctx.sessions.prepare(create.sessionId, create.meta === undefined ? {} : { meta: create.meta })
-      return publish(session, create.setup)
+      return publish(session, create.agentOptions ?? {}, create.setup)
     },
     async resume(_ownerCtx, resume) {
       const id = resume.resumeSessionId
@@ -173,7 +177,7 @@ async function harness(options: HarnessOptions = {}) {
         throw new Error(`test persistence cannot open Session "${id}" for writing`)
       }
       if (options.publishedByOtherResume?.has(id) === true) {
-        await publish(ctx.sessions.prepare(id, { meta: record.header, seed: [...record.events] }), undefined)
+        await publish(ctx.sessions.prepare(id, { meta: record.header, seed: [...record.events] }), resume.agentOptions ?? {}, undefined)
         throw Object.assign(new Error(`session "${id}" is written by this process`), { name: 'SessionAlreadyOwnedError' })
       }
       resumed.push(id)
@@ -181,7 +185,7 @@ async function harness(options: HarnessOptions = {}) {
         meta: record.header,
         seed: [...record.events, ...options.writtenSinceObservation?.get(id) ?? []],
       })
-      return publish(session, resume.setup)
+      return publish(session, resume.agentOptions ?? {}, resume.setup)
     },
   }
   ctx.agents.setFactory(factory)
@@ -257,6 +261,7 @@ describe('session.create Agent preset identity', () => {
     const { remote, presetOf } = await harness({ presets: ['standard', 'minimal', 'cordis'], routeDefaults: { local: 'minimal' } })
     await remote.create({ sessionId: SessionId('blank') })
     await remote.create({ sessionId: SessionId('picked'), agentPreset: 'cordis' })
+    await remote.create({ sessionId: SessionId('picked-default'), agentPreset: 'standard' })
     const toRoute = (sessionId: string, provider: string) =>
       remote.selectModel({ sessionId: SessionId(sessionId), provider, model: 'test-model' })
 
@@ -266,6 +271,8 @@ describe('session.create Agent preset identity', () => {
     expect(presetOf(SessionId('blank'))).toBe('standard')
     await toRoute('picked', 'local')
     expect(presetOf(SessionId('picked'))).toBe('cordis')
+    expect((await toRoute('picked-default', 'local')).ok).toBe(true)
+    expect(presetOf(SessionId('picked-default'))).toBe('standard')
   })
 
   it('rejects an unknown preset', async () => {
@@ -295,6 +302,16 @@ describe('session.create reuse of a live blank Session', () => {
     expect(reused).toMatchObject({ ok: true, value: { sessionId: 'draft', agentPreset: 'standard' } })
     expect(selections).toEqual([{ sessionId: 'draft', agentPreset: 'standard' }])
     expect(presetOf(SessionId('draft'))).toBe('standard')
+  })
+
+  it('uses the retained model route to recompose a live blank Session', async () => {
+    const { remote, route } = await harness({ presets: ['standard', 'minimal'], routeDefaults: { local: 'minimal' } })
+    const sessionId = SessionId('retained-live')
+    await remote.create({ sessionId })
+    await remote.selectModel({ sessionId, provider: 'test', model: 'test-model' })
+    route.provider = 'local'
+
+    expect(await remote.create({ sessionId })).toMatchObject({ ok: true, value: { sessionId, agentPreset: 'standard' } })
   })
 
   it('recomposes a blank Session under the named preset', async () => {
@@ -546,7 +563,20 @@ describe('session.create reuse of a stored blank Session', () => {
     expect(reused).toMatchObject({ ok: true, value: { sessionId: 'stale-draft', agentPreset: 'standard' } })
     expect(resumed).toEqual(['stale-draft'])
     expect(presetOf(draft)).toBe('standard')
-    expect(selectedEvents(draft)).toEqual([{ agentPreset: 'standard' }])
+    expect(selectedEvents(draft)).toEqual([{ agentPreset: 'standard', source: 'route-default' }])
+  })
+
+  it('uses the retained model route to recompose a cold blank Session', async () => {
+    const sessionId = SessionId('retained-cold')
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
+    tempDirs.push(cwd)
+    const { remote, route } = await harness({
+      presets: ['standard', 'minimal'], routeDefaults: { local: 'minimal' },
+      stored: new Map([[sessionId, { header: storedHeader(sessionId, cwd), events: [modelSelection(0)] }]]),
+    })
+    route.provider = 'local'
+
+    expect(await remote.create({ sessionId, cwd })).toMatchObject({ ok: true, value: { sessionId, agentPreset: 'standard' } })
   })
 
   it('resumes a blank Session under the default even when its previous choice is still declared', async () => {
@@ -562,7 +592,7 @@ describe('session.create reuse of a stored blank Session', () => {
 
     expect(reused).toMatchObject({ ok: true, value: { sessionId: 'picked-draft', agentPreset: 'standard' } })
     expect(presetOf(draft)).toBe('standard')
-    expect(selectedEvents(draft)).toEqual([{ agentPreset: 'minimal' }, { agentPreset: 'standard' }])
+    expect(selectedEvents(draft)).toEqual([{ agentPreset: 'minimal' }, { agentPreset: 'standard', source: 'route-default' }])
   })
 
   it('resumes a blank Session under its recorded preset when the caller names it', async () => {
