@@ -22,7 +22,7 @@ The [format references](persistence-changes/historical-formats/README.md) cover 
 | `SessionHeader` | header | `1a3440e3577382704d42a6263aa463504eb74c566734a55e9503a63efcd02445` | [`SessionHeader`](#persistence-type-sha256-1a3440e3577382704d42a6263aa463504eb74c566734a55e9503a63efcd02445) |
 | `JsonlHeaderLine` | header | `18ee62b8900a4c3d046700f05d7a4d49d6cab2a660a020c87481d1603dd8bd4f` | [`HeaderLine`](#persistence-type-sha256-18ee62b8900a4c3d046700f05d7a4d49d6cab2a660a020c87481d1603dd8bd4f) |
 | `SessionEventEnvelope` | envelope | `5776e5553ff2dfe3f5bc202dbb1e7c9f93e35a531aebb7764c23b2b6153b2ccc` | [`union (3 variants)`](#persistence-type-sha256-5776e5553ff2dfe3f5bc202dbb1e7c9f93e35a531aebb7764c23b2b6153b2ccc) |
-| `event:agent-preset/selected` | event | `a10c17474eaf2ddab7095a099e0fe3d046fc18e56c3e344fc8894c05ff9ef97b` | [`{ type: "agent-preset/selected" }`](#persistence-type-sha256-a10c17474eaf2ddab7095a099e0fe3d046fc18e56c3e344fc8894c05ff9ef97b) |
+| `event:agent-preset/selected` | event | `fb337485cb5d29c811f5104371cbeb271b66469f5987ce90713747c6075f4c0c` | [`{ type: "agent-preset/selected" }`](#persistence-type-sha256-fb337485cb5d29c811f5104371cbeb271b66469f5987ce90713747c6075f4c0c) |
 | `event:agent/inbox/spliced` | event | `c1cdbdd7c13951b3229fbfbacf1eccd3b01ddb477473f34c0f4c2ed611f3cd80` | [`{ type: "agent/inbox/spliced" }`](#persistence-type-sha256-c1cdbdd7c13951b3229fbfbacf1eccd3b01ddb477473f34c0f4c2ed611f3cd80) |
 | `event:approval/asked` | event | `3bfeb47b58606f4661904bc723da612782214c463d01e6d61cd6d6193d7374e1` | [`{ type: "approval/asked" }`](#persistence-type-sha256-3bfeb47b58606f4661904bc723da612782214c463d01e6d61cd6d6193d7374e1) |
 | `event:approval/decided` | event | `bb1ab3d08f49a9f3b265f844cd78d5c49813062a7b34b54904b426f85d0ff6e3` | [`{ type: "approval/decided" }`](#persistence-type-sha256-bb1ab3d08f49a9f3b265f844cd78d5c49813062a7b34b54904b426f85d0ff6e3) |
@@ -202,7 +202,7 @@ Source: [`packages/core/agent/src/types.ts:110`](../packages/core/agent/src/type
  * saved selection independently of its creator (`jan-subagent` README,
  * "Restoring child composition").
  */
-'agent-preset/selected': { agentPreset: string }
+'agent-preset/selected': { agentPreset: string; source?: 'route-default' }
 ```
 
 Source: [`packages/preset/agent-preset-registry/src/session.ts:31`](../packages/preset/agent-preset-registry/src/session.ts)
@@ -2416,6 +2416,14 @@ SHA-256: `34d1ab5c5df378186d6054b1a1beea9a41e41965d6f336f0bc0025c441a82e66`
 SHA-256: `63ba8895cc09e4693cf0819fdcd18c084bef195febda5b6a23af279b3852be36`
 
 `"retry"`
+
+<a id="persistence-type-sha256-aa46ae0accf56ff421c80705844aeb6e067bdf3b7fdac09e7c1bc2bf7ef5d268"></a>
+
+### `"route-default"`
+
+SHA-256: `aa46ae0accf56ff421c80705844aeb6e067bdf3b7fdac09e7c1bc2bf7ef5d268`
+
+`"route-default"`
 
 <a id="persistence-type-sha256-24b10f7cdae64928f89c49afc2eca0af9eb4a2f135e16f3416e6b8461fef1748"></a>
 
@@ -5790,17 +5798,18 @@ Sources: [`packages/plan/plan-mode/src/index.ts:53`](../packages/plan/plan-mode/
 |---|---|---|
 | `active` | required | `boolean` |
 
-<a id="persistence-type-sha256-6e52dd55a1d48954ed5464ec46fe34d9eb65f709baabc9561e7a279910b0c406"></a>
+<a id="persistence-type-sha256-c932abfd75a850af1611d34e63dc5c435ce53ce814259adfbc6bd1c1dc220654"></a>
 
-### `{ agentPreset }`
+### `{ agentPreset, source? }`
 
-SHA-256: `6e52dd55a1d48954ed5464ec46fe34d9eb65f709baabc9561e7a279910b0c406`
+SHA-256: `c932abfd75a850af1611d34e63dc5c435ce53ce814259adfbc6bd1c1dc220654`
 
 Sources: [`packages/preset/agent-preset-registry/src/session.ts:31`](../packages/preset/agent-preset-registry/src/session.ts)
 
 | Property | Presence | Type |
 |---|---|---|
 | `agentPreset` | required | `string` |
+| `source` | optional | `"route-default"` |
 
 <a id="persistence-type-sha256-0d47a8f3d847243c4488e755ad4cab7a04ac5d4621b9c81865524cf3f4d8536f"></a>
 
@@ -8092,17 +8101,17 @@ Sources: [`packages/core/session/src/types.ts:294`](../packages/core/session/src
 |---|---|---|
 | `turn` | required | `number` |
 
-<a id="persistence-type-sha256-a10c17474eaf2ddab7095a099e0fe3d046fc18e56c3e344fc8894c05ff9ef97b"></a>
+<a id="persistence-type-sha256-fb337485cb5d29c811f5104371cbeb271b66469f5987ce90713747c6075f4c0c"></a>
 
 <a id="persistence-type-eventagent-presetselected"></a>
 
 ### `{ type: "agent-preset/selected" }`
 
-SHA-256: `a10c17474eaf2ddab7095a099e0fe3d046fc18e56c3e344fc8894c05ff9ef97b`
+SHA-256: `fb337485cb5d29c811f5104371cbeb271b66469f5987ce90713747c6075f4c0c`
 
 | Property | Presence | Type |
 |---|---|---|
-| `data` | required | [`{ agentPreset }`](#persistence-type-sha256-6e52dd55a1d48954ed5464ec46fe34d9eb65f709baabc9561e7a279910b0c406) |
+| `data` | required | [`{ agentPreset, source? }`](#persistence-type-sha256-c932abfd75a850af1611d34e63dc5c435ce53ce814259adfbc6bd1c1dc220654) |
 | `ignorable` | optional | `true` |
 | `seq` | required | `number` |
 | `time` | required | `number` |
