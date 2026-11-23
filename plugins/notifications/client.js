@@ -18,7 +18,7 @@ window.__ModuleLoader__.load({
 
     return {
       name: NS,
-      inject: ['slots', 'locale', 'uiSession', 'sessions', 'remote', 'configForms', 'uiWorkspace'],
+      inject: ['slots', 'locale', 'uiSession', 'sessions', 'remote', 'configForms', 'uiWorkspace', 'layout'],
       apply(ctx) {
         const logger = ctx.logger(NS)
         const form = ctx.configForms.get(NS)
@@ -43,7 +43,8 @@ window.__ModuleLoader__.load({
           const t = ctx.locale.bind(NS)
           const summary = sessionId => ctx.sessions.list.getSnapshot().byId[sessionId]
           const nameOf = sessionId => summary(sessionId)?.title?.trim() || t('untitled')
-          const isMain = sessionId => (summary(sessionId)?.retainedBy?.mainView ?? 0) > 0
+          const isChatVisible = sessionId => ctx.layout.panelInfo.getSnapshot().activePanelId === null
+            && (summary(sessionId)?.retainedBy?.mainView ?? 0) > 0
           const visible = () => document.visibilityState === 'visible'
           let serial = 0
 
@@ -67,7 +68,7 @@ window.__ModuleLoader__.load({
             },
             emit: ({ kind, sessionId }) => {
               const name = nameOf(sessionId)
-              if (kind === 'failed' && visible() && !isMain(sessionId)) {
+              if (kind === 'failed' && visible() && !isChatVisible(sessionId)) {
                 showToast?.({ key: ++serial, sessionId, text: t('toast.failed', { name }) })
               }
               const wanted = preferences()
@@ -79,9 +80,9 @@ window.__ModuleLoader__.load({
                 bridge.show({ id, title: t(`${kind}.title`), body: t(`${kind}.body`, { name }) })
                   .catch(error => { logger.warn('could not show a desktop notification', error) })
               }
-              if (!isMain(sessionId)) { show(); return }
+              if (!isChatVisible(sessionId)) { show(); return }
               // The open chat notifies only while the native window is hidden, minimized or unfocused.
-              bridge.windowActive().then((active) => { if (!active) show() }, (error) => {
+              bridge.windowActive().then((active) => { if (!active || !isChatVisible(sessionId)) show() }, (error) => {
                 logger.warn('could not read the window state', error)
                 show()
               })

@@ -134,3 +134,49 @@ it('forgets a removed Session so a later Session with the same id starts clean',
   f.watcher.observe(f.status({ a: { running: false } }))
   expect(f.events).toEqual([])
 })
+
+it('notifies while a global panel hides the retained chat, but not while that chat is open and focused', async () => {
+  const bridge = { show: vi.fn(async () => {}), windowActive: async () => true, subscribe: () => () => {} }
+  vi.stubGlobal('janDesktop', { notifications: bridge })
+  const disposers: (() => void)[] = []
+  type ClientRequire = ((id: string) => object) & { async(id: string): Promise<object> }
+  type ClientFactory = (require: ClientRequire) => { apply(ctx: object): void }
+  const require = Object.assign(() => ({}), {
+    async: async (id: string) => id === './client.watch.js' ? { createStatusWatcher } : { dictionaries: {} },
+  })
+  const ready = Promise.withResolvers<() => void>()
+  let pendingInteraction: Status['pendingInteraction']
+  let activePanelId: string | null = 'model-hub'
+  const ctx = {
+    effect: (start: () => (() => void) | undefined) => { const dispose = start(); if (dispose) disposers.push(dispose) },
+    logger: () => ({ error: ready.reject }),
+    configForms: { get: () => ({ getSnapshot: () => ({ value: {} }) }) },
+    locale: { register: () => {}, bind: () => (key: string) => key },
+    slots: { inject: () => {} },
+    sessions: { list: { getSnapshot: () => ({ byId: { chat: { title: 'My chat', retainedBy: { mainView: 1 } } } }) } },
+    layout: { panelInfo: { getSnapshot: () => ({ activePanelId }) } },
+    uiSession: { sessionStatus: {
+      getSnapshot: () => new Map([['chat', { running: true, pendingInteraction }]]),
+      subscribe: (sync: () => void) => { ready.resolve(sync); return () => {} },
+    } },
+    remote: { $on: () => () => {} },
+  }
+  vi.stubGlobal('__ModuleLoader__', { load: ({ factory }: { factory: ClientFactory }) => factory(require).apply(ctx) })
+  try {
+    // The browser entry registers itself, so install its module loader before importing it.
+    await import('../client.js')
+    const observe = await ready.promise
+    pendingInteraction = { key: 'first-question' }
+    observe()
+    expect(bridge.show).toHaveBeenCalledWith({ id: 'waiting:1', title: 'waiting.title', body: 'waiting.body' })
+
+    activePanelId = null
+    pendingInteraction = { key: 'second-question' }
+    observe()
+    await Promise.resolve()
+    expect(bridge.show).toHaveBeenCalledTimes(1)
+  } finally {
+    for (const dispose of disposers.reverse()) dispose()
+    vi.unstubAllGlobals()
+  }
+})
