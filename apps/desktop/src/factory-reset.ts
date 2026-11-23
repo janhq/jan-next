@@ -14,6 +14,8 @@ export interface FactoryResetRoots {
   readonly profile: string
   /** Electron userData. */
   readonly userData: string
+  /** Electron's resolved application logs directory, which can be outside userData. */
+  readonly desktopLogs: string
 }
 
 /**
@@ -23,9 +25,13 @@ export interface FactoryResetRoots {
  * @returns absolute paths to remove.
  */
 export function factoryResetTargets(category: FactoryResetCategory, roots: FactoryResetRoots): readonly string[] {
-  const { janHome, profile, userData } = roots
+  const { janHome, profile, userData, desktopLogs } = roots
   switch (category) {
-    case 'chats': return [join(janHome, 'sessions'), join(janHome, 'attachments'), join(janHome, 'storages', 'session_projcache')]
+    case 'chats': return [
+      join(janHome, 'sessions'), join(janHome, 'attachments'), join(janHome, 'storages', 'session_projcache'),
+      // The local worker persists per-conversation state here, separate from the model weights.
+      join(janHome, 'llama-cpp', 'slots'),
+    ]
     case 'settings': return [
       join(profile, 'cordis.patch.yml'), join(janHome, 'storages', 'workspace.json'),
       join(janHome, 'storages', 'llm_pi_ai_model_listings.json'),
@@ -33,9 +39,9 @@ export function factoryResetTargets(category: FactoryResetCategory, roots: Facto
     ]
     // The profile manifest is rewritten with only the shipped bundles at the next launch.
     case 'plugins': return [join(profile, 'package.json'), join(profile, 'node_modules'), join(profile, 'pnpm-lock.yaml')]
-    case 'credentials': return [join(janHome, '.credentials.yaml')]
+    case 'credentials': return [join(janHome, '.credentials.yaml'), join(janHome, 'hosts', 'devices.json')]
     case 'skills': return [join(janHome, 'skills')]
-    case 'logs': return [join(janHome, 'logs')]
+    case 'logs': return [...new Set([join(janHome, 'logs'), desktopLogs])]
   }
 }
 
@@ -53,15 +59,32 @@ export function parseFactoryResetRequest(value: unknown): readonly FactoryResetC
   return FACTORY_RESET_CATEGORIES.filter(category => value.includes(category))
 }
 
+/** Selected categories fully cleared, and removal failures grouped by the data they affect. */
+export interface FactoryResetResult {
+  readonly completed: readonly FactoryResetCategory[]
+  readonly incomplete: ReadonlyMap<FactoryResetCategory, readonly unknown[]>
+}
+
 /**
- * Remove every chosen category's data. The caller has stopped the Host, so no file is in use.
- * All targets are attempted; the first failure is rethrown after the rest are tried.
+ * Attempt all selected removals after the Host has stopped, even if one removal fails.
  * @param categories - validated selection.
  * @param roots - data roots of this installation.
+ * @param clearBrowserStorage - clear Electron's persisted browser settings for the Settings category.
+ * @returns categories that finished and categories where selected data may remain.
  */
-export async function performFactoryReset(categories: readonly FactoryResetCategory[], roots: FactoryResetRoots): Promise<void> {
-  const results = await Promise.allSettled(categories.flatMap(category => factoryResetTargets(category, roots))
-    .map(path => rm(path, { recursive: true, force: true, maxRetries: 3 })))
-  const failure = results.find(result => result.status === 'rejected')
-  if (failure) throw failure.reason
+export async function performFactoryReset(categories: readonly FactoryResetCategory[], roots: FactoryResetRoots,
+  clearBrowserStorage: () => Promise<void>): Promise<FactoryResetResult> {
+  const outcomes = await Promise.all(categories.map(async (category) => {
+    const removals = factoryResetTargets(category, roots).map(path => rm(path, { recursive: true, force: true, maxRetries: 3 }))
+    if (category === 'settings') removals.push(Promise.resolve().then(clearBrowserStorage))
+    const results = await Promise.allSettled(removals)
+    return { category, failures: results.flatMap(result => result.status === 'rejected' ? [result.reason] : []) }
+  }))
+  const completed: FactoryResetCategory[] = []
+  const incomplete = new Map<FactoryResetCategory, readonly unknown[]>()
+  for (const { category, failures } of outcomes) {
+    if (failures.length === 0) completed.push(category)
+    else incomplete.set(category, failures)
+  }
+  return { completed, incomplete }
 }
