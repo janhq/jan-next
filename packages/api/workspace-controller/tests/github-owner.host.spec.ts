@@ -25,16 +25,16 @@ it.each([
   ['https://github.com/Menlo-Research/repo.git', 'Menlo-Research'],
   ['https://gitlab.com/janhq/jan.git', undefined],
   ['https://github.com.evil.example/janhq/jan.git', undefined],
-])('reads the origin owner from %s', (url, owner) => {
-  expect(githubOwnerOf(repository(scratch(), 'repo', origin(url)))).toBe(owner)
+])('reads the origin owner from %s', async (url, owner) => {
+  expect(await githubOwnerOf(repository(scratch(), 'repo', origin(url)))).toBe(owner)
 })
 
-it('finds the repository above a project folder and through a linked worktree', () => {
+it('finds the repository above a project folder and through a linked worktree', async () => {
   const root = scratch()
   const main = repository(root, 'main', origin('git@github.com:janhq/jan.git'))
   const nested = join(main, 'apps', 'web')
   mkdirSync(nested, { recursive: true })
-  expect(githubOwnerOf(nested)).toBe('janhq')
+  expect(await githubOwnerOf(nested)).toBe('janhq')
 
   const linkedGitDir = join(main, '.git', 'worktrees', 'feature')
   mkdirSync(linkedGitDir, { recursive: true })
@@ -42,13 +42,18 @@ it('finds the repository above a project folder and through a linked worktree', 
   const worktree = join(root, 'feature')
   mkdirSync(worktree)
   writeFileSync(join(worktree, '.git'), `gitdir: ${linkedGitDir}\n`)
-  expect(githubOwnerOf(worktree)).toBe('janhq')
+  expect(await githubOwnerOf(worktree)).toBe('janhq')
 })
 
-it('has no owner outside Git or without an origin remote', () => {
+it('has no owner outside Git or without an origin remote', async () => {
   const root = scratch()
   const plain = join(root, 'plain')
   mkdirSync(plain)
-  expect(githubOwnerOf(plain)).toBeUndefined()
-  expect(githubOwnerOf(repository(root, 'local', '[core]\n\tbare = false\n'))).toBeUndefined()
+  expect(await githubOwnerOf(plain)).toBeUndefined()
+  expect(await githubOwnerOf(repository(root, 'local', '[core]\n\tbare = false\n'))).toBeUndefined()
+})
+
+it('ignores an oversized Git config even when the origin appears first', async () => {
+  const content = origin('https://github.com/janhq/repo.git') + '#'.repeat(1024 * 1024)
+  expect(await githubOwnerOf(repository(scratch(), 'oversized', content))).toBeUndefined()
 })

@@ -105,7 +105,7 @@ export class WorkspaceController extends TypertRemoteService {
   @Remote('initializeDefault')
   async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue> {
     const workspace = await this.ctx.workspaceRegistry.ensureDefault(signal)
-    return { workspace: workspaceView(workspace, workspace.id) }
+    return { workspace: await workspaceView(workspace, workspace.id) }
   }
 
   /**
@@ -239,7 +239,7 @@ export class WorkspaceController extends TypertRemoteService {
             delivered.add(workspaceId)
             yield { type: 'upsert', workspace: { ...frame.workspace, sessionIds: sessions(frame.workspace.sessionIds) } }
           } else if (delivered.has(workspaceId)) {
-            yield { type: 'replace', value: filtered(this.feed.baseline()) }
+            yield { type: 'replace', value: filtered(await this.feed.baseline()) }
           }
           break
         }
@@ -248,7 +248,7 @@ export class WorkspaceController extends TypertRemoteService {
           break
         case 'order':
           if (frame.workspaceIds.some(workspaceId => delivered.has(workspaceId) && !visible(workspaceId))) {
-            yield { type: 'replace', value: filtered(this.feed.baseline()) }
+            yield { type: 'replace', value: filtered(await this.feed.baseline()) }
           } else {
             yield { type: 'order', workspaceIds: frame.workspaceIds.filter(visible) }
           }

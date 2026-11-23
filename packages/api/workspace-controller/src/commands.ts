@@ -57,7 +57,7 @@ export class WorkspaceCommands {
     return this.enqueue(async () => {
       try {
         const { workspace, created } = await this.ctx.workspaceRegistry.adopt(request.path)
-        return { workspace: this.view(workspace), created }
+        return { workspace: await this.view(workspace), created }
       } catch (error) {
         if (remoteErrorOf(error) !== undefined) throw error
         throw new RemoteError(
@@ -117,7 +117,7 @@ export class WorkspaceCommands {
         ...(parsedAvatar === undefined ? {} : { avatar: parsedAvatar }),
       })
       if (updated === undefined) throw workspaceNotFound(workspace.id)
-      return { workspace: this.view(updated) }
+      return { workspace: await this.view(updated) }
     })
   }
 
@@ -179,7 +179,7 @@ export class WorkspaceCommands {
         { cause: error },
       )
     }
-    return { workspace: this.view(workspace) }
+    return { workspace: await this.view(workspace) }
   }
 
   /**
@@ -257,7 +257,7 @@ export class WorkspaceCommands {
     return { pinnedSessionIds: [...this.ctx.workspaceRegistry.pinnedSessionIds] }
   }
 
-  private view(workspace: Workspace): WorkspaceView {
+  private view(workspace: Workspace): Promise<WorkspaceView> {
     return workspaceView(workspace, this.ctx.workspaceRegistry.defaultWorkspace?.id)
   }
 
