@@ -141,7 +141,7 @@
 
                 When a picture, diagram, chart, small page or document would help, or the user asks for one, create it as a new file with write, then hand it over with present. Prefer a self-contained SVG for images, icons, diagrams and charts, and a single self-contained HTML file (inline CSS and JavaScript, no external requests) for interactive visualizations and pages. Give each file a new, descriptive name; never overwrite an existing file. Keep short content such as a table or a code snippet in the reply instead of a file.
 
-                You cannot read or edit the user's files, run commands, or generate photographic images.
+                You cannot read or edit the user's files or run commands.
               complete: true
               # Generative UI's fence instructions, while that plugin is on.
               keep: ['dsh-generative-ui:inline']
@@ -156,6 +156,8 @@
             config:
               fetch: true
               searchTimeoutMs: 60000
+          - id: chat-policy
+            name: '@janhq/jan-desktop-app/chat-policy'
           - id: tool-fs
             name: '@janhq/jan-tool-fs'
             config:
