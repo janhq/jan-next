@@ -232,25 +232,83 @@
 .primaryAction > button { width: min(240px, 100%); }
 .primaryAction > button[aria-disabled='true'] { cursor: wait; }
 
-/* Inline in the Jan onboarding flow: match its other steps (flat layer-1 rows,
- * secondary 400-weight copy, one accent, a Continue that is always present). */
-.inlineProcess { position: static; display: grid; gap: 16px; width: min(100%, 648px); transform: none; }
-.inlineProcess .copy h1 { font: 500 24px/32px var(--dsw-font-family-brand); letter-spacing: -0.72px; }
-.inlineProcess .subtitle { margin-top: 8px; font: 400 14px/20px var(--dsw-font-family); letter-spacing: -0.28px; color: var(--dsw-alias-label-secondary); }
+/* Inline in the Jan onboarding flow: wear the main window's material like its other steps
+ * (start-aligned app-font heading, composer-card choices, one accent, Continue at the end of the row). */
+.inlineProcess { position: static; display: grid; gap: 20px; width: 100%; transform: none; }
+.inlineProcess .copy { text-align: start; }
+.inlineProcess .copy h1 { font-family: var(--jan-onboarding-heading-font, inherit); font-size: 24px; line-height: 32px; font-weight: 500; letter-spacing: -0.2px; }
+.inlineProcess .subtitle { margin-top: 6px; font-family: inherit; font-size: 14px; line-height: 20px; font-weight: 400; color: var(--dsw-alias-label-secondary); }
 .inlineProcess .processCards { gap: 8px; min-height: 0; padding-block: 0; }
-.inlineProcess .card { min-height: 0; padding: 12px; gap: 4px; border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-1); box-shadow: none; backdrop-filter: none; }
-.inlineProcess .card::before, .inlineProcess .card::after { display: none; }
-.inlineProcess .selected { box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary); }
-@media (hover: hover) {
-  .inlineProcess .card:not(.selected):hover { background: linear-gradient(var(--dsw-alias-interactive-bg-hover), var(--dsw-alias-interactive-bg-hover)), var(--dsw-alias-bg-layer-1); }
+.inlineProcess .card {
+  min-height: 0; padding: 14px; gap: 4px; border-radius: var(--dsw-radius-lg); background: var(--dsw-specific-input-major);
+  box-shadow: var(--dsw-elevation-soft); backdrop-filter: none;
+  transition: background-color 150ms var(--ds-ease-out), box-shadow 150ms var(--ds-ease-out);
 }
-.inlineProcess .processGlyph { width: 20px; height: 20px; margin-bottom: 4px; background: var(--dsw-alias-label-secondary); mask: no-repeat center / contain; }
+.inlineProcess .card::before, .inlineProcess .card::after { display: none; }
+.inlineProcess .selected {
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, var(--dsw-specific-input-major));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dsw-alias-state-business-primary) 60%, transparent), var(--dsw-elevation-soft);
+}
+@media (hover: hover) {
+  .inlineProcess .card:not(.selected):hover { background: linear-gradient(var(--dsw-alias-interactive-bg-hover), var(--dsw-alias-interactive-bg-hover)), var(--dsw-specific-input-major); }
+}
+.inlineProcess .processGlyph { width: 20px; height: 20px; margin-bottom: 4px; background: var(--dsw-alias-label-secondary); mask: no-repeat center / contain; transition: background-color 150ms var(--ds-ease-out); }
 .inlineProcess .selected .processGlyph { background: var(--dsw-alias-state-business-primary); }
-.inlineProcess .cardTitle { font-size: 14px; line-height: 20px; font-weight: 500; letter-spacing: -0.28px; }
-.inlineProcess .cardDescription { margin-top: 0; font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: -0.13px; color: var(--dsw-alias-label-secondary); }
-.inlineProcess .primaryAction { position: static; min-height: 0; margin-top: 0; }
-.inlineProcess .primaryAction > button { width: auto; min-width: 160px; }
-.inlineProcess .primaryAction > button:not(:disabled) { background-image: linear-gradient(155deg, color-mix(in srgb, var(--dsw-alias-label-primary) 15%, transparent), transparent 62%); }
+.inlineProcess .cardTitle { font-size: 14px; line-height: 20px; font-weight: 500; }
+.inlineProcess .cardDescription { margin-top: 0; font-size: 13px; line-height: 18px; font-weight: 400; color: var(--dsw-alias-label-secondary); }
+.inlineProcess .primaryAction { position: static; min-height: 0; margin-top: 0; justify-content: flex-end; }
+.inlineProcess .primaryAction > button { width: auto; min-width: 120px; }
+
+/* Preview: a miniature turn drawn with the transcript's own process-row type (tertiary 14px icon
+ * and label), replayed whenever the previewed mode changes. Fixed height so the page never jumps;
+ * the turn sits at the bottom like a chat scrolled to its latest message, so a longer Full details
+ * turn slides its prompt up under the faded top edge instead of losing the reply. */
+.demo {
+  position: relative; margin: 0; height: 288px; padding: 28px 16px 12px; box-sizing: border-box;
+  display: flex; flex-direction: column;
+  border-radius: var(--dsw-radius-lg); background: var(--dsw-alias-bg-base);
+  box-shadow: inset 0 0 0 0.5px var(--dsw-alias-border-l2);
+}
+.demoLabel { position: absolute; top: 8px; left: 16px; font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--dsw-alias-label-tertiary); }
+.demoTurn {
+  flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px;
+  font-size: 13px; line-height: 20px;
+  -webkit-mask: linear-gradient(to bottom, transparent, #000 20px);
+  mask: linear-gradient(to bottom, transparent, #000 20px);
+}
+.demoTurn > * { flex: none; }
+.demoUser {
+  align-self: flex-end; max-width: 75%; margin: 0 0 4px; padding: 6px 12px; border-radius: 16px;
+  background: var(--dsw-specific-user-bubble, var(--dsw-alias-bg-layer-2)); color: var(--dsw-alias-label-primary);
+  animation: demoIn 260ms var(--ds-ease-out) both;
+}
+.demoStep { min-width: 0; animation: demoIn 260ms var(--ds-ease-out) calc(220ms + var(--i) * 140ms) both; }
+.demoRow { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--dsw-alias-label-tertiary); white-space: nowrap; }
+.demoRow > svg { flex: none; }
+.demoClip { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.demoLive { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dsw-alias-label-secondary); }
+/* Subagent rows nest under the turn the way the transcript indents a spawned agent's lineage. */
+.demoAgent { padding-inline-start: 12px; color: var(--dsw-alias-label-secondary); }
+.demoLive::before { content: '·'; margin-inline-end: 6px; color: var(--dsw-alias-label-tertiary); }
+.demoThought, .demoThoughtInline { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dsw-alias-label-tertiary); font-style: italic; }
+.demoThought { padding-inline-start: 20px; }
+.demoAnswer { margin: 4px 0 0; color: var(--dsw-alias-label-primary); animation: demoIn 320ms var(--ds-ease-out) calc(300ms + var(--i) * 140ms) both; }
+/* The reply's photos: drawn scenes, not network images, so the preview works offline. */
+.demoPhotos { display: flex; gap: 6px; animation: demoIn 320ms var(--ds-ease-out) calc(300ms + var(--i) * 140ms) both; }
+.demoPhoto {
+  position: relative; display: flex; align-items: flex-end; width: 128px; height: 64px; padding: 6px 8px; box-sizing: border-box;
+  border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 8%);
+  font-size: 11px; line-height: 14px; font-weight: 500; color: #fff; text-shadow: 0 1px 2px rgb(0 0 0 / 35%);
+}
+.demoPhoto > span { position: relative; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.demoPhoto[data-photo='0'] { background: linear-gradient(180deg, #f6c995 0%, #e98f6f 45%, #6f5f73 46%, #4b4a5c 100%); }
+.demoPhoto[data-photo='1'] { background: linear-gradient(180deg, #9fd3f0 0%, #6bb2db 55%, #2f6f99 56%, #23577a 100%); }
+.demoPhoto[data-photo='2'] { background: radial-gradient(circle at 70% 30%, #d9f0a8 0 12%, transparent 13%), linear-gradient(180deg, #bfe3c8 0%, #7fb987 50%, #3f7d4c 51%, #2c5c37 100%); }
+@keyframes demoIn { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) {
+  .inlineProcess :is(.card, .processGlyph) { transition: none; }
+  .demo :is(.demoUser, .demoStep, .demoAnswer, .demoPhotos) { animation: none; }
+}
 
 .navigation {
   pointer-events: none;
