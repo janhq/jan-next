@@ -560,10 +560,9 @@ describe('desktop main startup', () => {
     host.exited.resolve()
     try {
       await vi.waitFor(() => { expect(harness.dialog.showMessageBox).toHaveBeenCalledOnce() })
-      expect(harness.dialog.showMessageBox.mock.lastCall!.at(-1)).toMatchObject({
-        message: expect.stringContaining('Some selected data may remain'),
-        detail: expect.stringMatching(/Completed: Chats\nCould not finish: Settings/u),
-      })
+      const dialog: unknown = harness.dialog.showMessageBox.mock.lastCall!.at(-1)
+      expect(dialog).toHaveProperty('message', expect.stringContaining('Some selected data may remain'))
+      expect(dialog).toHaveProperty('detail', expect.stringMatching(/Completed: Chats\nCould not finish: Settings/u))
       expect(existsSync(chat)).toBe(false)
       expect(harness.app.relaunch).not.toHaveBeenCalled()
     } finally {
@@ -585,9 +584,10 @@ describe('desktop main startup', () => {
     await host.stopping.promise
     host.exited.reject(new Error('Host still running'))
     await reset
-    expect(harness.dialog.showMessageBox).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-      type: 'error', message: expect.stringContaining('No data was removed'),
-    }))
+    expect(harness.dialog.showMessageBox).toHaveBeenCalledOnce()
+    const dialog: unknown = harness.dialog.showMessageBox.mock.lastCall!.at(-1)
+    expect(dialog).toHaveProperty('type', 'error')
+    expect(dialog).toHaveProperty('message', expect.stringContaining('No data was removed'))
     expect(existsSync(chat)).toBe(true)
     expect(harness.app.relaunch).toHaveBeenCalledOnce()
   })
