@@ -204,7 +204,7 @@ it('attributes MCP inventory to the resolved tool even when server names overlap
   `
   const entry = (tool: string) => ({ transport: 'stdio' as const, command, args: ['-e', server, tool] })
   await ctx.plugin(McpServerManager, { servers: { foo__bar: entry('other') } })
-  await ctx.plugin({
+  const connector = await ctx.plugin({
     name: 'fixture-connector',
     inject: ['mcpManager'],
     apply(inner: Context) { inner.mcpManager.register('foo', entry('bar__baz')) },
@@ -219,6 +219,27 @@ it('attributes MCP inventory to the resolved tool even when server names overlap
     { server: 'foo', name: 'bar__baz', origin: { kind: 'plugin', plugin: 'fixture-connector' } },
     { server: 'foo__bar', name: 'other', origin: { kind: 'global' } },
   ]))
+
+  // A tool removed while assembly awaits its waterfall is still the MCP tool assembly priced; its
+  // owning registration is gone, so only the server and name remain to report.
+  const removeDuringAssembly = ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
+    removeDuringAssembly()
+    await connector.dispose()
+    return next()
+  })
+  const removed = await previewContext(agent, signal)
+  expect(removed?.inventory.mcpTools).toEqual(expect.arrayContaining([
+    expect.objectContaining({ server: 'foo', name: 'bar__baz' }),
+  ]))
+  expect(removed?.inventory.tools).not.toContain('mcp__foo__bar__baz')
+  await ctx.plugin({
+    name: 'fixture-connector',
+    inject: ['mcpManager'],
+    apply(inner: Context) { inner.mcpManager.register('foo', entry('bar__baz')) },
+  })
+  await vi.waitFor(() => {
+    expect(ctx.mcpManager.list().map(item => item.status.state)).toEqual(['connected', 'connected'])
+  })
 
   // An ACP Session can shadow the globally managed definition under the same public name.
   await ctx.plugin({
