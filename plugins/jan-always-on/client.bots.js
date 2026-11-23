@@ -319,6 +319,7 @@ window.__ModuleLoader__.load({
           h('div', null, h('dt', null, t('lastCheck')), h('dd', null, time(source.lastCheckAt))),
           h('div', null, h('dt', null, t('nextCheck')), h('dd', null, time(source.nextCheckAt))),
           h('div', null, h('dt', null, t('itemsFound')), h('dd', null, numbers.format(source.lastFound))),
+          source.lastSkipped > 0 && h('div', null, h('dt', null, t('itemsSkipped')), h('dd', null, numbers.format(source.lastSkipped))),
           source.lastError && h('div', { className: 'jao-source-error' }, h('dt', null, t('lastError')),
             h('dd', null, t(sourceErrorKey(source.lastError))))))
     }
