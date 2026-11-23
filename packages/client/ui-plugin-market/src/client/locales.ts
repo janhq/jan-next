@@ -4,6 +4,7 @@
 export const zh = {
   title: '发现',
   refresh: '刷新',
+  intro: '浏览你添加的索引中的插件。插件以你的账户权限运行，请只安装你信任的插件。',
   loading: '正在读取索引',
   retry: '重试',
   close: '关闭',
@@ -101,6 +102,7 @@ export type PluginMarketLocaleKey = keyof typeof zh
 export const en = {
   title: 'Discover',
   refresh: 'Refresh',
+  intro: 'Browse plugins from the indexes you add. A plugin runs with your account permissions, so install only ones you trust.',
   loading: 'Reading the index',
   retry: 'Retry',
   close: 'Close',
@@ -195,6 +197,7 @@ export const en = {
 export const ja = {
   'title': '見つける',
   'refresh': '更新',
+  'intro': '追加したインデックスのプラグインを閲覧できます。プラグインはあなたのアカウント権限で動作するため、信頼できるものだけをインストールしてください。',
   'loading': 'インデックスを読み込み中',
   'retry': '再試行',
   'close': '閉じる',
@@ -289,6 +292,7 @@ export const ja = {
 export const es = {
   title: 'Descubrir',
   refresh: 'Actualizar',
+  intro: 'Explore complementos de los índices que agregue. Un complemento se ejecuta con los permisos de su cuenta, así que instale solo los que sean de confianza.',
   loading: 'leyendo el índice',
   retry: 'Reintentar',
   close: 'Cerrar',
@@ -383,6 +387,7 @@ export const es = {
 export const fr = {
   title: 'Découvrez',
   refresh: 'Actualiser',
+  intro: "Parcourez les plugins des index que vous ajoutez. Un plugin s'exécute avec les autorisations de votre compte : installez uniquement ceux en qui vous avez confiance.",
   loading: "Lire l'index",
   retry: 'Réessayer',
   close: 'Fermer',
@@ -477,6 +482,7 @@ export const fr = {
 export const de = {
   title: 'Entdecken',
   refresh: 'Aktualisieren',
+  intro: 'Plugins aus den hinzugefügten Indizes durchsuchen. Ein Plugin läuft mit den Rechten Ihres Kontos, installieren Sie also nur vertrauenswürdige.',
   loading: 'Den Index lesen',
   retry: 'Erneut versuchen',
   close: 'Schließen',
@@ -571,6 +577,7 @@ export const de = {
 export const ru = {
   title: 'Откройте для себя',
   refresh: 'Обновить',
+  intro: 'Просматривайте плагины из добавленных индексов. Плагин работает с правами вашей учётной записи, поэтому устанавливайте только те, которым доверяете.',
   loading: 'Чтение индекса',
   retry: 'Повторить',
   close: 'Закрыть',
@@ -665,6 +672,7 @@ export const ru = {
 export const pt = {
   title: 'Descubra',
   refresh: 'Atualizar',
+  intro: 'Navegue pelos plug-ins dos índices que você adicionar. Um plug-in é executado com as permissões da sua conta, então instale apenas os confiáveis.',
   loading: 'Lendo o índice',
   retry: 'Tentar novamente',
   close: 'Fechar',
