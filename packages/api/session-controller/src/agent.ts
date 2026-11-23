@@ -402,7 +402,7 @@ export class ApiSessionAgentController {
       const target = composition.agentPreset
       const routeDefault = explicit === undefined
       if (target !== undefined && (this.presetForSession(agent.session) !== target
-        || this.ctx.agentPresets.followsRouteDefault(agent.session) !== routeDefault)) {
+        || this.ctx.get('agentPresets')?.followsRouteDefault(agent.session) !== routeDefault)) {
         agent.session.append('agent-preset/selected', { agentPreset: target, ...(routeDefault ? { source: 'route-default' } : {}) })
       }
       return commit
