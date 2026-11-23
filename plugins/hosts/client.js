@@ -93,6 +93,8 @@ window.__ModuleLoader__.load({
         'devices.title': 'Devices that reach this Jan',
         'devices.lede': 'Turn on device access, then scan the code with a phone on the same network. Each device gets its own sign-in that you can remove here.',
         'devices.switch': 'Device access',
+        'devices.allowInsecureLan': 'Allow unencrypted LAN access',
+        'devices.insecureLanWarning': 'Without HTTPS, anyone who can observe network traffic can capture device sign-ins and activity. Allow this only on a trusted network.',
         'devices.running': 'Listening on {url}',
         'devices.off': 'Off. Only this computer can use this Jan.',
         'devices.empty': 'No paired devices yet.',
@@ -100,7 +102,7 @@ window.__ModuleLoader__.load({
         'devices.pairName': 'Device name',
         'devices.pairPlaceholder': 'Phone',
         'devices.makeCode': 'Make code',
-        'devices.scan': 'Scan with the camera of {name}. The link works only for that device; keep it private.',
+        'devices.scan': 'Scan with the camera of {name}. The link works once and expires after ten minutes; keep it private.',
         'devices.copy': 'Copy link',
         'devices.copied': 'Copied',
         'devices.done': 'Done',
@@ -111,10 +113,52 @@ window.__ModuleLoader__.load({
         'devices.revokeTitle': 'Remove {name}?',
         'devices.revokeDescription': '{name} is signed out at once, including any chat it has open. Pair it again to bring it back.',
         'devices.revokeAck': 'I understand this device loses access now.',
-        'devices.lanWarning': 'Anyone on this network who gets a device link can use this Jan, including its tools and files. Pair only devices you own.',
+        'devices.pairWarning': 'Anyone with an unused device link can use this Jan, including its tools and files. Pair only devices you own.',
         loading: 'Loading...',
         error: 'Hosts are unavailable right now: {error}',
         retry: 'Retry',
+      },
+      zh: {
+        'devices.allowInsecureLan': '允许未加密的局域网访问',
+        'devices.insecureLanWarning': '如果不使用 HTTPS，能监视网络流量的人就可能截获设备登录凭据和操作信息。请仅在受信任的网络上启用此选项。',
+        'devices.scan': '用 {name} 的相机扫描。链接只能使用一次，十分钟后失效，请勿分享。',
+        'devices.pairWarning': '拥有未使用配对链接的人都可以使用此 Jan，包括其工具和文件。请只配对自己的设备。',
+      },
+      ja: {
+        'devices.allowInsecureLan': '暗号化されていない LAN アクセスを許可',
+        'devices.insecureLanWarning': 'HTTPS を使わない場合、通信を監視できる人にデバイスのログイン情報や操作内容を傍受されるおそれがあります。信頼できるネットワークでのみ許可してください。',
+        'devices.scan': '{name} のカメラでスキャンしてください。リンクは一度だけ使え、10 分で期限切れになります。他の人と共有しないでください。',
+        'devices.pairWarning': '未使用のペアリングリンクを持つ人は誰でも、この Jan のツールやファイルを利用できます。自分のデバイスだけをペアリングしてください。',
+      },
+      es: {
+        'devices.allowInsecureLan': 'Permitir acceso sin cifrar en la red local',
+        'devices.insecureLanWarning': 'Sin HTTPS, cualquiera que pueda observar el tráfico de la red puede interceptar las credenciales y la actividad de los dispositivos. Permite este acceso solo en una red de confianza.',
+        'devices.scan': 'Escanea el código con la cámara de {name}. El enlace solo funciona una vez y caduca a los diez minutos. No lo compartas.',
+        'devices.pairWarning': 'Cualquiera que tenga un enlace de vinculación sin usar puede acceder a este Jan, incluidas sus herramientas y archivos. Vincula solo tus propios dispositivos.',
+      },
+      fr: {
+        'devices.allowInsecureLan': 'Autoriser l’accès non chiffré sur le réseau local',
+        'devices.insecureLanWarning': 'Sans HTTPS, toute personne capable d’observer le trafic réseau peut intercepter les identifiants de connexion et l’activité des appareils. N’autorisez cet accès que sur un réseau de confiance.',
+        'devices.scan': 'Scannez le code avec l’appareil photo de {name}. Le lien ne fonctionne qu’une fois et expire au bout de dix minutes. Ne le partagez pas.',
+        'devices.pairWarning': 'Toute personne disposant d’un lien d’association inutilisé peut accéder à ce Jan, y compris à ses outils et fichiers. N’associez que vos propres appareils.',
+      },
+      de: {
+        'devices.allowInsecureLan': 'Unverschlüsselten LAN-Zugriff erlauben',
+        'devices.insecureLanWarning': 'Ohne HTTPS können Personen, die den Netzwerkverkehr beobachten, Anmeldedaten und Aktivitäten der Geräte abfangen. Erlaube den Zugriff nur in einem vertrauenswürdigen Netzwerk.',
+        'devices.scan': 'Scanne den Code mit der Kamera von {name}. Der Link funktioniert nur einmal und läuft nach zehn Minuten ab. Teile ihn nicht.',
+        'devices.pairWarning': 'Wer einen unbenutzten Kopplungslink hat, kann dieses Jan samt Werkzeugen und Dateien nutzen. Kopple nur deine eigenen Geräte.',
+      },
+      ru: {
+        'devices.allowInsecureLan': 'Разрешить доступ без шифрования в локальной сети',
+        'devices.insecureLanWarning': 'Без HTTPS любой, кто может наблюдать за сетевым трафиком, может перехватить данные для входа и сведения о действиях устройств. Разрешайте доступ только в доверенной сети.',
+        'devices.scan': 'Отсканируйте код камерой устройства {name}. Ссылка сработает только один раз и истечёт через десять минут. Не делитесь ею.',
+        'devices.pairWarning': 'Любой, у кого есть неиспользованная ссылка для подключения, может пользоваться этим Jan, включая его инструменты и файлы. Подключайте только свои устройства.',
+      },
+      pt: {
+        'devices.allowInsecureLan': 'Permitir acesso sem criptografia na rede local',
+        'devices.insecureLanWarning': 'Sem HTTPS, qualquer pessoa que possa observar o tráfego da rede pode interceptar as credenciais e a atividade dos dispositivos. Permita esse acesso somente em uma rede confiável.',
+        'devices.scan': 'Escaneie o código com a câmera de {name}. O link funciona uma única vez e expira em dez minutos. Não o compartilhe.',
+        'devices.pairWarning': 'Qualquer pessoa com um link de pareamento não utilizado pode acessar este Jan, incluindo suas ferramentas e arquivos. Pareie apenas os seus próprios dispositivos.',
       },
     }
 
@@ -588,13 +632,23 @@ window.__ModuleLoader__.load({
             h(Switch, {
               label: t('devices.switch'), checked: gateway.enabled, disabled: switching, onChange: async (next) => {
                 setSwitching(true)
-                try { await api('enableGateway', { enabled: next }) } catch (error) { setLoadError(error.message) } finally { setSwitching(false); await refresh() }
+                try { await api('enableGateway', { enabled: next }); setPairing(null) } catch (error) { setLoadError(error.message) } finally { setSwitching(false); await refresh() }
               }
+            })),
+          !gateway.secure && (gateway.lanAvailable || gateway.allowInsecureLan) && h('div', { className: 'jh-group-head' },
+            h('div', null,
+              h('p', { className: 'jh-detail' }, t('devices.allowInsecureLan')),
+              h('p', { className: 'jh-warning' }, t('devices.insecureLanWarning'))),
+            h(Switch, {
+              label: t('devices.allowInsecureLan'), checked: gateway.allowInsecureLan, disabled: switching, onChange: async (allowed) => {
+                setSwitching(true)
+                try { await api('allowInsecureLan', { allowed }); setPairing(null) } catch (error) { setLoadError(error.message) } finally { setSwitching(false); await refresh() }
+              },
             })),
           h('div', { className: 'jh-detail', role: 'status' },
             h(StateDot, { state: gateway.running ? 'done' : gateway.error ? 'error' : 'idle' }), ' ',
             gateway.running ? t('devices.running', { url: gateway.url }) : gateway.error ?? t('devices.off')),
-          gateway.running && h('p', { className: 'jh-warning' }, t('devices.lanWarning')),
+          gateway.running && h('p', { className: 'jh-warning' }, t('devices.pairWarning')),
           gateway.running && !pairing && h('form', {
             className: 'jh-inline', async onSubmit(event) {
               event.preventDefault()
@@ -608,7 +662,7 @@ window.__ModuleLoader__.load({
             h('label', null, t('devices.pairName'), h(Input, { name: 'name', required: true, maxLength: 64, placeholder: t('devices.pairPlaceholder'), autoComplete: 'off' })),
             h(Button, { type: 'submit', size: 'sm', variant: 'primary' }, t('devices.makeCode'))),
           pairError && h('div', { className: 'jh-note', role: 'alert', 'data-error': '' }, pairError),
-          pairing && h(PairPanel, { t, pairing, onDone: () => setPairing(null) }),
+          pairing && h(PairPanel, { t, pairing, onDone: () => { setPairing(null); void refresh() } }),
           h('div', { className: 'jh-list' },
             state.devices.length === 0
               ? h('p', { className: 'jh-empty' }, t('devices.empty'))

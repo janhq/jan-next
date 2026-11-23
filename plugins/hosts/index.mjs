@@ -4,14 +4,16 @@
  * QR code live in `client.js`.
  */
 import { join } from 'node:path'
+import { readFile } from 'node:fs/promises'
+import { isIP } from 'node:net'
 import schema from '@janhq/schemastery'
 import { renderSVG } from 'uqr'
 import { registerApi } from '@janhq/jan-plugin-api'
-import { HostsError, HostsStore } from './store.mjs'
+import { hashToken, HostsError, HostsStore, normalizeDeviceName } from './store.mjs'
 import { openTunnel, testHost } from './remote.mjs'
 import { installRemote, probeRemote, runtimeIdentity, shippedRuntimes, sshArgs, startCommand } from './remote-install.mjs'
 import { startRelay } from './relay.mjs'
-import { lanAddresses, startGateway } from './gateway.mjs'
+import { deviceAddressKind, lanAddresses, startGateway } from './gateway.mjs'
 import { sshConfigHosts } from './ssh-config.mjs'
 import { callRemote, copyable, receiveSetup, setupPayload, setupState } from './setup-copy.mjs'
 import { createHostLink } from './link.mjs'
@@ -26,8 +28,12 @@ export const Config = schema.object({
   // Volatile so the page's switch takes effect without reloading the plugin.
   gatewayEnabled: schema.boolean().default(false).volatile()
     .description('Let paired phones and other devices reach this Jan over the local network.'),
-  gatewayHost: schema.string().default('').description('Address the device gateway listens on. Empty picks the first private network address.'),
+  gatewayAllowInsecureLan: schema.boolean().default(false).volatile()
+    .description('Allow HTTP on a private LAN. Anyone who can observe that traffic can capture device sign-ins and activity.'),
+  gatewayHost: schema.string().default('').description('Single bind IP. Empty picks a private LAN or tailnet address, preferring tailnet for HTTP without LAN opt-in.'),
   gatewayPort: schema.natural().max(65535).default(0).description('Port the device gateway listens on. 0 picks a free port.'),
+  gatewayTlsCertFile: schema.string().default('').description('PEM certificate chain clients trust for the device gateway address.'),
+  gatewayTlsKeyFile: schema.string().default('').description('Unencrypted PEM private key for the device gateway certificate.'),
   // Empty reads JAN_HOST_RUNTIME_DIR at Connect, so a profile patch that rewrites this row's
   // config (the device-access switch does) still finds the archives the launcher staged.
   runtimeDirectory: schema.string().default('')
@@ -41,6 +47,10 @@ const TOKEN_SCOPE = 'jan-hosts'
 function tokenKey(id) {
   // Credential key segments are lowercase words; a UUID qualifies once its letters are.
   return `${TOKEN_SCOPE}/host-${id.toLowerCase()}`
+}
+
+function sameDestination(a, b) {
+  return a !== undefined && b !== undefined && a.kind === b.kind && (a.kind === 'url' ? a.url === b.url : a.ssh === b.ssh)
 }
 
 /** Sign in to this Host's own loopback listener once, for the gateway's upstream requests. */
@@ -62,16 +72,23 @@ export function apply(ctx, config) {
   // What a running Connect is doing, per Host id; cleared when it ends either way.
   const progress = new Map()
   const connecting = new Map()
+  let connectionWrites = Promise.resolve()
   let gateway
   let gatewayError
   let hashes = new Map()
-  let gatewayStart
   const federation = createFederation(ctx)
   // A Gateway from before federation has no forwarder: Hosts still answers copies and folder
   // browsing there, and only another computer's projects stay out of that Jan's own window.
   if (typeof ctx.typertGateway.registerForwarder === 'function') {
     ctx.effect(() => ctx.typertGateway.registerForwarder(federation.forwarder), 'jan-hosts: federation forwarder')
   } else ctx.logger.warn('jan-hosts: this Jan\'s gateway cannot forward calls; other computers\' projects will not show in its window')
+
+  // The saved destination and its credential live in different stores. Keep edits ordered.
+  function writeConnection(write) {
+    const result = connectionWrites.then(write)
+    connectionWrites = result.catch(() => undefined)
+    return result
+  }
 
   /** This computer's side of a customization copy: its settings, skill folders and plugin manager. */
   function customizationSource() {
@@ -80,6 +97,10 @@ export function apply(ctx, config) {
       skillRoots: [join(ctx.janHomePath(), 'skills'), join(resolveAgentsHome(), 'skills')],
       pluginManager: ctx.get('pluginManager'),
     }
+  }
+
+  function providerSource() {
+    return { settings: ctx.settings, credentials: ctx.credentials, llm: ctx.get('llm') }
   }
 
   /** Link a connected SSH Host's Jan into this window's sidebar and chats. */
@@ -92,38 +113,77 @@ export function apply(ctx, config) {
       ctx.logger.warn('jan-hosts: %s is connected but its projects cannot be listed here: %s', entry.name, error.message)
       return
     }
+    // The saved destination may have changed while the remote carrier opened.
+    if (tunnels.get(entry.id) !== tunnel) { link.close(); return }
     federation.attach(entry.id, entry.name, link)
   }
 
-  async function token(id) {
-    const record = await ctx.credentials.readRecord(tokenKey(id))
-    return record?.kind === 'grant' ? record.payload?.token : undefined
+  async function token(entry) {
+    const record = await ctx.credentials.readRecord(tokenKey(entry.id))
+    return record?.kind === 'grant' && record.payload?.url === entry.url ? record.payload?.token : undefined
   }
 
-  async function saveToken(id, value) {
-    await ctx.credentials.modifyRecord(tokenKey(id), () => Promise.resolve({ kind: 'grant', payload: { token: value } }))
+  async function saveToken(entry, value) {
+    await ctx.credentials.modifyRecord(tokenKey(entry.id), () => Promise.resolve({ kind: 'grant', payload: { url: entry.url, token: value } }))
+  }
+
+  function dropTunnel(id, forget = false) {
+    tunnels.get(id)?.close()
+    tunnels.delete(id)
+    federation.detach(id, forget)
+  }
+
+  function tunnelFor(entry) {
+    const tunnel = tunnels.get(entry.id)
+    return tunnel?.destination === entry.ssh ? tunnel : undefined
   }
 
   async function reloadDevices() {
     hashes = await store.deviceHashes()
   }
 
+  function gatewayTransport() {
+    return config.gatewayTlsCertFile || config.gatewayTlsKeyFile ? 'https' : 'http'
+  }
+
+  function gatewayHost(allowInsecureLan, addresses = lanAddresses()) {
+    if (config.gatewayHost) return config.gatewayHost
+    if (gatewayTransport() === 'http' && !allowInsecureLan) {
+      const tailnet = addresses.find(item => deviceAddressKind(item.address) === 'tailnet')
+      if (tailnet !== undefined) return tailnet.address
+    }
+    return addresses[0]?.address
+  }
+
   async function startDeviceGateway(enabled) {
     if (gateway !== undefined) { await gateway.close(); gateway = undefined }
     gatewayError = undefined
     if (!enabled) return
-    const host = config.gatewayHost || lanAddresses()[0]?.address
-    if (host === undefined) { gatewayError = 'This computer has no network address a phone could reach.'; return }
+    const allowInsecureLan = config.gatewayAllowInsecureLan.get()
+    const host = gatewayHost(allowInsecureLan)
+    if (host === undefined) { gatewayError = 'This computer has no private network or tailnet address a phone could reach.'; return }
     try {
+      if (isIP(host) === 0 || host === '0.0.0.0' || host === '::') throw new Error('Choose the IP address of a single network interface.')
+      let tls
+      if (gatewayTransport() === 'https') {
+        if (!config.gatewayTlsCertFile || !config.gatewayTlsKeyFile) throw new Error('Configure both gatewayTlsCertFile and gatewayTlsKeyFile to use HTTPS.')
+        const [cert, key] = await Promise.all([readFile(config.gatewayTlsCertFile), readFile(config.gatewayTlsKeyFile)])
+        tls = { cert, key }
+      }
       await reloadDevices()
       gateway = await startGateway({
-        host, port: config.gatewayPort, upstream: ctx.webServer.getOrigin(),
+        host, port: config.gatewayPort, tls, allowInsecureLan, upstream: ctx.webServer.getOrigin(),
         ownerCookie: () => ownerCookieFor(ctx), hashes: () => hashes,
         seen: (id) => { void store.touchDevice(id).catch(error => ctx.logger.warn('jan-hosts: %s', String(error))) },
-        pair: async (label) => { const paired = await store.pairDevice(label); await reloadDevices(); return paired },
+        pair: async (label) => {
+          const paired = await store.pairDevice(label)
+          hashes.set(hashToken(paired.token), paired.device.id)
+          return paired
+        },
       })
+      if (!gateway.secure && deviceAddressKind(host) === 'lan') ctx.logger.warn('jan-hosts: opted into unencrypted LAN device access. Anyone who can observe traffic can capture sign-in credentials and activity.')
       // Printed beside the `jan web:` line so a board without a screen can pair its first phone.
-      const setup = gateway.setupUrl()
+      const setup = hashes.size === 0 ? gateway.setupUrl() : undefined
       if (setup !== undefined) ctx.logger.info('jan hosts: pair a device at %s', setup)
     } catch (error) {
       gatewayError = error?.code === 'EADDRINUSE'
@@ -132,16 +192,41 @@ export function apply(ctx, config) {
     }
   }
 
+  // Before this option existed, a saved, enabled LAN listener was already cleartext.
+  const entry = ctx.fiber.entry
+  const legacyLan = entry !== undefined && config.gatewayEnabled.get() && gatewayTransport() === 'http'
+    && deviceAddressKind(gatewayHost(true)) === 'lan' && !Object.hasOwn(entry.options.config ?? {}, 'gatewayAllowInsecureLan')
+  let disposed = false
+  const gatewayMigration = legacyLan ? Promise.resolve(ctx.get('loader')?.await()).then(async () => {
+    if (disposed || !config.gatewayEnabled.get() || Object.hasOwn(entry.options.config ?? {}, 'gatewayAllowInsecureLan')) return
+    await ctx.settings.update(entry.options.id, { gatewayAllowInsecureLan: true })
+    ctx.logger.warn('jan-hosts: kept an existing LAN gateway enabled by opting into unencrypted LAN access. Review this option in Settings > Hosts.')
+  }).catch((error) => {
+    ctx.logger.warn('jan-hosts: could not migrate the existing LAN gateway setting: %s', error.message)
+  }) : Promise.resolve()
+  let gatewayStart = Promise.resolve()
+  let initialized = false
+
   // Serialized so a quick off-on cannot leave two listeners racing for one port.
   function restartGateway() {
-    gatewayStart = (gatewayStart ?? Promise.resolve()).then(() => startDeviceGateway(config.gatewayEnabled.get()))
+    gatewayStart = gatewayStart.then(() => {
+      if (!disposed) return startDeviceGateway(config.gatewayEnabled.get())
+    })
     return gatewayStart
   }
-  ctx.effect(() => ctx.on('loader/volatile-update', () => { void restartGateway() }), 'jan-hosts: gateway switch')
+  ctx.effect(() => ctx.on('loader/volatile-update', () => {
+    if (initialized) void restartGateway()
+  }), 'jan-hosts: gateway switch')
 
+  const gatewayReady = gatewayMigration.then(() => {
+    if (disposed) return
+    initialized = true
+    return restartGateway()
+  })
   ctx.effect(() => {
-    void restartGateway()
+    void gatewayReady
     return async () => {
+      disposed = true
       await gatewayStart
       await gateway?.close()
       for (const tunnel of tunnels.values()) tunnel.close()
@@ -157,11 +242,11 @@ export function apply(ctx, config) {
   }
 
   async function connectionView(entry) {
-    const tunnel = tunnels.get(entry.id)
+    const tunnel = tunnelFor(entry)
     return {
-      ...entry, signedIn: entry.kind === 'url' ? (await token(entry.id)) !== undefined : tunnel !== undefined,
+      ...entry, signedIn: entry.kind === 'url' ? (await token(entry)) !== undefined : tunnel !== undefined,
       tunnel: tunnel === undefined ? undefined : { root: tunnel.root, log: tunnel.log },
-      linkState: federation.linkState(entry.id),
+      linkState: tunnel === undefined ? undefined : federation.linkState(entry.id),
       progress: progress.get(entry.id),
     }
   }
@@ -231,11 +316,11 @@ export function apply(ctx, config) {
   /** The URL that opens the Host, with its login token so the window signs in on its own. */
   async function openUrl(entry) {
     if (entry.kind === 'ssh') {
-      const tunnel = tunnels.get(entry.id)
+      const tunnel = tunnelFor(entry)
       if (tunnel === undefined) throw new HostsError('not-connected', 'Connect first.')
       return `${tunnel.root}?token=${tunnel.token}`
     }
-    const value = await token(entry.id)
+    const value = await token(entry)
     return value === undefined ? entry.url : `${entry.url}?token=${value}`
   }
 
@@ -247,20 +332,33 @@ export function apply(ctx, config) {
 
   ctx.effect(() => registerApi(ctx, 'hosts', {
     async state() {
+      await gatewayReady
+      await gatewayStart
+      const allowInsecureLan = config.gatewayAllowInsecureLan.get()
+      const secure = gateway?.secure ?? gatewayTransport() === 'https'
+      const addresses = lanAddresses()
+      const lanAvailable = deviceAddressKind(gatewayHost(true, addresses)) === 'lan'
       const connections = await Promise.all((await store.connections()).map(connectionView))
       return {
         connections: await withSshAddresses(connections),
         devices: await store.devices(),
-        gateway: gateway === undefined
-          ? { running: false, enabled: config.gatewayEnabled.get(), error: gatewayError, addresses: lanAddresses() }
-          : { running: true, enabled: true, url: gateway.url, addresses: lanAddresses() },
+        gateway: {
+          running: gateway !== undefined, enabled: config.gatewayEnabled.get(), secure, allowInsecureLan, lanAvailable,
+          url: gateway?.url, error: gatewayError, addresses,
+        },
       }
     },
     async save(params) {
       try {
-        const { connection, token: pasted } = await store.saveConnection(params)
-        if (pasted !== undefined) await saveToken(connection.id, pasted)
-        return connectionView(connection)
+        return await writeConnection(async () => {
+          const { connection, token: pasted, previous } = await store.saveConnection(params)
+          if (previous !== undefined && !sameDestination(previous, connection)) {
+            dropTunnel(connection.id, true)
+            if (pasted === undefined) await ctx.credentials.deleteRecord(tokenKey(connection.id))
+          }
+          if (pasted !== undefined) await saveToken(connection, pasted)
+          return connectionView(connection)
+        })
       } catch (error) { throw publicError(error) }
     },
     async sshConfig() {
@@ -283,51 +381,54 @@ export function apply(ctx, config) {
       return { imported, failed }
     },
     async remove({ id }) {
-      tunnels.get(id)?.close()
-      tunnels.delete(id)
-      federation.detach(id, true)
-      await store.removeConnection(id)
-      await ctx.credentials.deleteRecord(tokenKey(id))
-      return null
+      return writeConnection(async () => {
+        dropTunnel(id, true)
+        await store.removeConnection(id)
+        await ctx.credentials.deleteRecord(tokenKey(id))
+        return null
+      })
     },
     async test({ id }) {
       const entry = await find(id)
       if (entry.kind === 'ssh') {
-        const tunnel = tunnels.get(id)
+        const tunnel = tunnelFor(entry)
         if (tunnel === undefined) return { http: 'skipped', websocket: 'skipped', message: 'Connect first; SSH Hosts start when you connect.' }
         return testHost(tunnel.root, tunnel.token)
       }
-      return testHost(entry.url, await token(id))
+      return testHost(entry.url, await token(entry))
     },
     async connect({ id }) {
       const entry = await find(id)
       if (entry.kind !== 'ssh') throw new HostsError('kind', 'Only SSH Hosts connect; Address Hosts open directly.')
-      if (tunnels.has(id)) return connectionView(entry)
+      if (tunnelFor(entry) !== undefined) return connectionView(entry)
       // A second press, or a second window, joins the Connect already running.
       if (!connecting.has(id)) {
         const log = []
-        connecting.set(id, connectSsh(entry, line => { log.push(line); if (log.length > 20) log.shift() }).then((tunnel) => {
-          const record = { ...tunnel, log }
+        connecting.set(id, connectSsh(entry, line => { log.push(line); if (log.length > 20) log.shift() }).then(async (tunnel) => {
+          const current = await find(id).catch(error => { tunnel.close(); throw error })
+          if (!sameDestination(entry, current)) {
+            tunnel.close()
+            throw new HostsError('ssh', 'This Host changed while it was connecting. Connect again.')
+          }
+          const record = { ...tunnel, log, destination: entry.ssh }
           tunnels.set(id, record)
           void tunnel.exited.then(() => {
             if (tunnels.get(id) !== record) return
             tunnels.delete(id)
             federation.detach(id)
           })
-          return linkHost(entry, tunnel)
+          return linkHost(current, record)
         }).finally(() => { connecting.delete(id); progress.delete(id) }))
       }
       try {
         await connecting.get(id)
-        return connectionView(entry)
+        return connectionView(await find(id))
       } catch (error) {
         throw new HostsError('ssh', error.message)
       }
     },
     async disconnect({ id }) {
-      tunnels.get(id)?.close()
-      tunnels.delete(id)
-      federation.detach(id)
+      dropTunnel(id)
       return null
     },
     // The folder chooser for a project on another computer lists that computer's folders.
@@ -342,10 +443,10 @@ export function apply(ctx, config) {
     },
     // Answered on the other computer, for the Jan that started it over SSH.
     async setupState() {
-      return setupState(ctx)
+      return setupState(providerSource())
     },
     async receiveSetup(params) {
-      return receiveSetup(ctx, params)
+      return receiveSetup(providerSource(), params)
     },
     // Asked here: what a connected SSH Host could take from this computer's model setup.
     async setupOffer({ id }) {
@@ -354,7 +455,7 @@ export function apply(ctx, config) {
       const remote = await callRemote(tunnel, 'setupState')
       // Only a Jan nobody set up there gets the offer, so a copy never fights choices made on it.
       if (!remote.untouched) return { offer: false, items: [] }
-      const items = await copyable(ctx, remote)
+      const items = await copyable(providerSource(), remote)
       return { offer: items.length > 0, items }
     },
     // Answered on the other computer: which MCP servers, skills and plugin bundles it already has.
@@ -384,29 +485,37 @@ export function apply(ctx, config) {
       if (!Array.isArray(routes) || routes.length === 0) throw new HostsError('routes', 'Choose at least one provider to copy.')
       const remote = await callRemote(tunnel, 'setupState')
       const chosen = new Set(routes)
-      const items = (await copyable(ctx, remote)).filter(item => chosen.has(item.route))
-      if (items.length === 0) throw new HostsError('routes', 'That computer already has these providers.')
-      return callRemote(tunnel, 'receiveSetup', await setupPayload(ctx, items))
+      const source = providerSource()
+      const items = (await copyable(source, remote)).filter(item => chosen.has(item.route))
+      if (items.length === 0) throw new HostsError('routes', 'None of these providers can be copied to that computer.')
+      return callRemote(tunnel, 'receiveSetup', await setupPayload(source, items))
     },
     async enableGateway({ enabled }) {
       if (typeof enabled !== 'boolean') throw new HostsError('enabled', 'Choose on or off.')
-      // Written to the profile so device access survives a restart; the volatile update restarts the gateway.
-      await ctx.settings.update(ctx.fiber.entry.options.id, { gatewayEnabled: enabled })
-      await restartGateway()
+      await gatewayReady
+      // Record the default too, so a fresh device-access setting is never mistaken for legacy consent.
+      await ctx.settings.update(entry.options.id, { gatewayEnabled: enabled, gatewayAllowInsecureLan: config.gatewayAllowInsecureLan.get() })
+      await gatewayStart
+      return null
+    },
+    async allowInsecureLan({ allowed }) {
+      if (typeof allowed !== 'boolean') throw new HostsError('lan-access', 'Choose on or off.')
+      await gatewayReady
+      await ctx.settings.update(entry.options.id, { gatewayAllowInsecureLan: allowed })
+      await gatewayStart
       return null
     },
     async pair({ name: label }) {
       if (gateway === undefined) throw new HostsError('gateway', 'Turn on device access first.')
       try {
-        const { device, token: value } = await store.pairDevice(label)
-        await reloadDevices()
-        const url = gateway.pairUrl(value)
+        const device = { name: normalizeDeviceName(label) }
+        const url = gateway.pairUrl(device.name)
         return { device, url, qr: renderSVG(url, { border: 2 }) }
       } catch (error) { throw publicError(error) }
     },
     async revoke({ id }) {
       await store.revokeDevice(id)
-      await reloadDevices()
+      for (const [hash, device] of hashes) if (device === id) hashes.delete(hash)
       gateway?.disconnect(id)
       return null
     },

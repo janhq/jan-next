@@ -3,18 +3,34 @@
 Hosts lists the other computers that run Jan and the devices that use this one. Open **Settings → Hosts**.
 
 - **Other computers** saves a Jan by its address or over SSH. Test signs in with Jan's own login and opens its live connection, so a different web server on that port does not pass. Open in browser opens that Jan's own page in the system browser; its chats, files and tools stay on that computer. An address entry stores its login token in Jan's credential store, never in `hosts/connections.json`. Import from SSH config lists the concrete `Host` aliases in `~/.ssh/config` and the files it includes (patterns and `Match` blocks are skipped) and saves each chosen one by its alias with no port, so ssh still applies that alias's HostName, User, Port, keys and proxies.
-- **Devices that reach this Jan** starts switched off. Turning it on opens a second listener on this computer's network address. Make code shows a QR code and a link that pairs exactly one device; each device gets a separate token, and Remove signs it out at once, including open chats. The devices file keeps only a hash of each device token. The owner's own login never leaves this computer.
+- **Devices that reach this Jan** starts switched off. Make code creates a link that works once and expires after ten minutes. The device gets a separate session token when it redeems the link, and Remove signs it out at once, including open chats. The devices file holds only token hashes. The owner's own login never leaves this computer.
 
 A computer with no screen prints `jan hosts: pair a device at <link>` beside its `jan web:` line, once, when device access is on and no device is paired yet.
 
+### Device gateway configuration
+
+Set these fields on the `jan-hosts` plugin:
+
+| Setting | Default | Behavior |
+| --- | --- | --- |
+| `gatewayEnabled` | `false` | Start the device listener. Also set by the Device access switch. |
+| `gatewayHost` | empty | Bind to one IP. Automatic selection is limited to RFC 1918 private IPv4 and tailnet IPs; it prefers a tailnet IP when using HTTP without LAN opt-in. |
+| `gatewayPort` | `0` | Use a free port, or set a fixed one. |
+| `gatewayTlsCertFile`, `gatewayTlsKeyFile` | empty | Provide a trusted PEM certificate chain covering the bind IP and its unencrypted PEM private key. Device requests use HTTPS/WSS and get a Secure cookie. Partial or invalid TLS settings never fall back to HTTP. |
+| `gatewayAllowInsecureLan` | `false` | Permit HTTP on a private LAN without TLS. Settings > Hosts shows the risk before opt-in, and Jan logs a warning whenever it starts a cleartext LAN listener. |
+
+Without TLS, loopback and tailnet IPs (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) are allowed without LAN opt-in. Only use tailnet IPs on an actual tailnet, where WireGuard protects the traffic. Any other address except private IPv4 requires HTTPS. On upgrade, a previously enabled cleartext LAN listener gets a one-time saved opt-in, unless the option was already explicitly set.
+
+Changing an Address Host's normalized URL clears its login unless the new address includes a replacement token. Older saved logins without an address binding need a fresh login link. Changing the destination of a connected SSH Host closes its tunnel.
+
 ## Connect over SSH
 
-An SSH entry is only its destination: an ssh config alias, `user@host` or `user@host:port`. Left unnamed, it is called by that destination; a row for a config alias shows the `User@HostName:Port` the config gives it. The SSH key must already work in `BatchMode`, because there is no terminal to type a password into. One Connect press does the whole job and opens no page or window; the new-project menu's Remote row connects the same way:
+An SSH entry is only its destination: an ssh config alias, `user@host` or `user@host:port`. Use brackets for IPv6 with a port, for example `user@[2001:db8::42]:2222`. Left unnamed, it is called by that destination; a row for a config alias shows the `User@HostName:Port` the config gives it. The SSH key must already work in `BatchMode`, because there is no terminal to type a password into. One Connect press does the whole job and opens no page or window; the new-project menu's Remote row connects the same way:
 
 | Step | What happens | Shown as |
 | --- | --- | --- |
 | Check | One `sh` command reports `uname -s`/`-m`, the C library, `$HOME`, `tar`/`gzip`/`sha256sum` and the installed build's identity. Only lines between `JAN_HOSTS_PROBE_BEGIN` and `_END` count, so a login banner cannot answer. | Checking that computer... |
-| Copy | Skipped when `~/.jan/hosts-runtime/VERSION` already names this build. Otherwise the archive for that computer streams through ssh's stdin; the remote checks its SHA-256, unpacks it into a staging directory, moves it to `current/` and writes `VERSION` last. A damaged or cut-off copy leaves the previous build in place, and a copy that ends before its last byte reads as a dropped connection to resend. | Copying Jan: N of M MB |
+| Copy | Skipped when `~/.jan/hosts-runtime/VERSION` already names this build. Otherwise the archive streams through SSH; the remote takes an install lock (`flock` on Linux or `lockf` on macOS), checks the archive's SHA-256, unpacks it into staging, moves it to `current/` and writes `VERSION` last. The OS releases the lock if the installer stops unexpectedly. A damaged or interrupted transfer leaves the previous build in place. | Copying Jan: N of M MB |
 | Start | `ssh -tt -L` runs the copied Node with the `edge` profile under `~/.jan/hosts-runtime/home`, on a loopback port, with `XDG_DOCUMENTS_DIR` defaulting to `~/Documents` so a server with no desktop folders still gets its default project, with `JAN_HOST_NAME` set to the saved connection's name so the remote window names this machine, and forwards that port here. `-tt` ends the remote Jan when the tunnel closes. | Starting Jan there... |
 
 Nothing is downloaded on the other computer, so it needs no internet and no Node. Its model traffic leaves through this computer: a loopback HTTP proxy here (the relay) accepts `CONNECT` tunnels and plain `http://` requests, `ssh -R` forwards a port on the other computer to it, and the remote Jan's `HTTPS_PROXY` points there with a random per-run password, because every local user there can reach that forwarded port. TLS stays end to end between the remote Jan and the provider. Set `relay: false` to let that computer use its own network.
@@ -38,9 +54,11 @@ Once an SSH Host is connected, its row asks the Jan there whether anybody set it
 | Offered | Left out |
 | --- | --- |
 | A route the other Jan lacks, with its key when this computer has one | A route whose endpoint comes from a variable (`baseURLEnv`), such as the local llama.cpp worker: that address belongs to this computer |
-| A key only (shown as "key only"), for a route both Jans have whose key is missing there | A route that needs a key this computer does not have |
+| A key only (shown as "key only"), when both routes use the same fixed endpoint and credential reference and the key is missing there | A route that needs a key this computer does not have, or a route whose key destination cannot be verified |
 
 The receiving Jan adds only what it lacks: a route with the same name, a key that already resolves there (stored or from its environment) and a default model someone picked all stay as they are, and the answer names what it kept. A route is sent as it was saved here; one with a `!!js` field goes as this computer evaluated it, because the expression would read the other computer's environment. Not now hides the offer until the next Connect.
+
+The receiving Jan checks the route's endpoint and credential reference again before storing a key. If something changed or the destination cannot be verified, it does not store the key. Both Jans must support this check to copy keys.
 
 ## Bring MCP servers, skills and plugins to the other computer
 
@@ -49,10 +67,10 @@ A connected SSH Host's row has Bring setup. It asks the Jan there what it has an
 | Kind | How it travels | Left unticked |
 | --- | --- | --- |
 | MCP server | One merge into that Jan's `mcp-manager` settings | A server whose command, arguments or folder is a Windows path on this computer |
-| Skill | The folders as one tar stream over the SSH login into that Jan's `skills` folder; `.git`, `node_modules`, `__pycache__` and `.venv` stay behind, and a symlinked skill goes as its files | None |
+| Skill | The folders as one tar stream over SSH. The selected skill's top-level link is resolved, but nested links are never followed. Links that point outside the skill cannot be copied. `.git`, `node_modules`, `__pycache__` and `.venv` stay behind. | None |
 | Plugin bundle | Enabled there when that Jan has it installed, otherwise installed from the same source | A bundle installed here from a local folder |
 
-The other Jan keeps what it has: a server or skill with the same name is not offered, and tar skips a folder that appears there meanwhile. A plugin that fails is named in the row's note while the rest still land. That Jan's window shows new skills after a reload.
+The other Jan keeps what it has: a server or skill with the same name is not offered, and tar never overwrites existing files. A plugin that fails is named in the row's note while the rest still land. That Jan's window shows new skills after a reload.
 
 ## Versions on the two sides
 
@@ -66,3 +84,5 @@ Each Jan serves its own page, so Open in browser always runs the Client that mat
 | Projects in this window | That Jan's Gateway forwards calls (`registerForwarder`) | A Gateway without it still answers copies and folder browsing; its projects stay out of this window. |
 
 An SSH entry saved by an earlier Hosts also carried a command, profile and port; they are ignored, and dropped when the entry is edited. The hosts files carry `"version": 1`; a file of another version is refused rather than rewritten.
+
+Older saved IPv6 destinations lost their brackets. If an older entry used a custom port and the saved string is also a valid IPv6 address, edit the entry to put the address in brackets and the port after them.
