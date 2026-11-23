@@ -17,6 +17,7 @@ This table connects model-visible tool names to the plugin package and service s
 | --- | --- | --- | --- | --- | --- |
 | `@janhq/jan-plugin-manager` | `plugin_manager` | `ctx.tools`, `ctx.pluginManager`, `ctx.sandboxPolicy` | `tool/call`, `tool/result`, `user/message` | - | - |
 | `@janhq/jan-plugin-market` | `plugin_market` | `ctx.tools`, `ctx.pluginMarket` | `tool/call`, `tool/result` | - | - |
+| `@janhq/jan-tool-capture-media` | `capture_audio`, `capture_camera` | `ctx.tools`, `ctx.mediaCapture` | `tool/call`, `tool/result` | - | Each call waits for the owner to allow, capture and send in the chat; a declined request returns `declined`. |
 | `@janhq/jan-mcp-resources` | `list_mcp_resource_templates`, `list_mcp_resources`, `read_mcp_resource` | `ctx.tools`, `ctx.mcpResources` | `tool/call`, `tool/result` | - | - |
 | `@janhq/jan-experimental-browser-use-stagehand-native` | `stagehand_act`, `stagehand_extract`, `stagehand_navigate`, `stagehand_observe`, `stagehand_screenshot`, `stagehand_tabs` | `ctx.browserUse`, `ctx.agents`, `ctx.tools`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | - |
 | `@janhq/jan-action-cards` | `propose_action` | `ctx.tools`, `ctx.agents`, `ctx.sessionProjections`, `ctx.remoteAccess` | `tool/call`, `tool/result`, `plugin:action-cards/decision`, `user/message` | - | Declared only to an Agent that loaded the skill of a registered card kind; the kind packages register their actions, and the Personalized recommendations bundle supplies the shipped kinds. |
@@ -170,6 +171,63 @@ List the plugin market indexes the user configured, the installable bundles one 
 ```
 
 Source: [`packages/boot/plugin-market/src/tools.ts`](../packages/boot/plugin-market/src/tools.ts)
+
+<a id="janhqjan-tool-capture-media"></a>
+
+## `@janhq/jan-tool-capture-media`
+
+### `capture_audio`
+
+Ask the user to record and share a microphone clip. The user can preview input levels, record, add a note, and decline before sharing. Returns a readable session file and any user note.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "reason": {
+      "type": "string",
+      "description": "A short explanation for the user of why you need this capture."
+    }
+  },
+  "required": [
+    "reason"
+  ]
+}
+```
+
+Source: [`packages/interaction/tool-capture-media/src/index.ts`](../packages/interaction/tool-capture-media/src/index.ts)
+
+### `capture_camera`
+
+Ask the user to share a camera photo or a silent video. The user can preview, capture, annotate, and decline before sharing. A photo returns image content; a video returns a readable session file and any user note. Use capture_audio for microphone sound.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "reason": {
+      "type": "string",
+      "description": "A short explanation for the user of why you need this capture."
+    },
+    "mode": {
+      "type": "string",
+      "description": "Capture a still photo or a silent video.",
+      "enum": [
+        "photo",
+        "video"
+      ]
+    }
+  },
+  "required": [
+    "reason",
+    "mode"
+  ]
+}
+```
+
+Source: [`packages/interaction/tool-capture-media/src/index.ts`](../packages/interaction/tool-capture-media/src/index.ts)
+
+Each call waits for the owner to allow, capture and send in the chat; a declined request returns `declined`.
 
 <a id="janhqjan-mcp-resources"></a>
 
