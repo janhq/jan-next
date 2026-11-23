@@ -361,7 +361,7 @@ export function apply(ctx, config = {}) {
     return { imported: added.length, already: rows.filter(row => row.status === 'already here').length,
       names: rows.map(row => row.name), rows, skipped: scan.skipped, issues: scan.issues, ...(error ? { error } : {}) }
   }
-  const importSelected = async ({ source: origin = 'jan', folder, ids, providers, providerIds, assistants, assistantIds, mcp = false, mcpNames, skills = false, skillNames, instructions = false }, approval) => {
+  const importSelected = async ({ source: origin = 'jan', folder, ids, providers, providerIds, assistants, assistantIds, mcp = false, mcpNames, skills = false, skillNames, instructions = false, runId }, approval) => {
     if (job?.running) throw new Error('An import is already running.')
     const orca = origin === 'orca'
     if (!orca && !MCP_SOURCES.includes(origin)) throw new Error('Choose a supported migration source.')
@@ -376,7 +376,7 @@ export function apply(ctx, config = {}) {
     if (origin === 'jan' && (skills || instructions)) throw new Error('Skills come from Claude Code, Codex, OMP and Cursor.')
     if (!ids.length && !withProviders && !withAssistants && !mcp && !skills && !instructions) throw new Error('Choose chats or settings to import.')
     const unique = [...new Set(ids)]
-    job = { running: true, total: unique.length, done: 0, current: null, results: [], settings: { providers: [], assistants: [] } }
+    job = { running: true, total: unique.length, done: 0, current: null, results: [], settings: { providers: [], assistants: [] }, ...(typeof runId === 'string' ? { runId } : {}) }
     const run = job
     try {
       const source = origin === 'jan' ? await realpath(folderOf(folder)) : !unique.length || orca ? undefined : await agentFolder(origin, folder)

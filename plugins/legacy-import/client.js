@@ -71,11 +71,19 @@ window.__ModuleLoader__.load({
       // Polls the Host until its run ends, so the bar also resumes when the
       // page is reopened mid-import. The Chats list refreshes every few
       // imported sessions, so new rows appear while the run continues.
-      const follow = async () => {
+      // With `run`, only that run's progress counts: a request refused before it starts leaves the
+      // previous run's job on the Host, which must not stand in for this one.
+      const follow = async (run) => {
         let shown = 0
         for (; ;) {
-          const value = await api('progress')
+          const polled = await api('progress')
           if (!alive.current) return null
+          const value = run === undefined || polled?.runId === run.id ? polled : null
+          if (value === null && run !== undefined) {
+            if (run.settled) return null
+            await new Promise(resolve => setTimeout(resolve, 300))
+            continue
+          }
           setJob(value)
           if (value) showResults(value.results)
           const imported = value?.results.filter(result => result.status === 'imported').length ?? 0
@@ -110,10 +118,13 @@ window.__ModuleLoader__.load({
         const chosen = source === 'jan' ? extras : NO_EXTRAS
         setError(''); setResults({}); setSettingsResults(null)
         setJob({ running: true, total: ids.length, done: 0, current: chosen.mcp ? 'MCP servers' : null, results: [] })
-        const request = api('import', { source, folder: listedFolder, ids, ...chosen, ...(chosen.mcp ? { scanId: janSettings?.scanId } : {}) })
+        // Not crypto.randomUUID: a device reaching this Host over plain LAN HTTP is not a secure context.
+        const run = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, settled: false }
+        const request = api('import', { source, folder: listedFolder, ids, ...chosen, ...(chosen.mcp ? { scanId: janSettings?.scanId } : {}), runId: run.id })
+        void request.finally(() => { run.settled = true }).catch(() => { })
         // Start polling only after the Host has the request, so the first read is this run.
         await new Promise(resolve => setTimeout(resolve, 100))
-        const [outcome, followed] = await Promise.allSettled([request, follow()])
+        const [outcome, followed] = await Promise.allSettled([request, follow(run)])
         if (outcome.status === 'rejected') {
           // A long run can outlive the request while the Host finishes it; its last progress still lists what landed.
           const last = followed.status === 'fulfilled' ? followed.value : null

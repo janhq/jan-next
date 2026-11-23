@@ -198,6 +198,17 @@ test('Settings rejects an MCP endpoint changed after its scan even if another fo
   assert.equal(writes[0].remote.url, 'https://replacement.example/mcp')
 }))
 
+test('progress names the run that produced it, so a refused import cannot borrow the previous result', async () => withImporter(async ({ source, rpc, services }) => {
+  await writeFile(join(source, 'mcp_config.json'), JSON.stringify({ mcpServers: { remote: { type: 'http', url: 'https://example.com/mcp' } } }))
+  services.janMcpSettings = { importMissing: async () => ({ added: ['remote'] }) }
+  const scan = (await rpc('list', { folder: source })).body.result
+  const done = await rpc('import', { folder: scan.folder, scanId: scan.scanId, ids: [], mcp: true, runId: 'first' })
+  assert.equal(done.status, 200)
+  const refused = await rpc('import', { folder: scan.folder, scanId: 'evicted-scan', ids: [], mcp: true, runId: 'second' })
+  assert.equal(refused.status, 400)
+  assert.equal((await rpc('progress')).body.result.runId, 'first')
+}))
+
 test('MCP file parse failures do not disclose file contents in legacy import responses', async () => withImporter(async ({ source, rpc, services }) => {
   const secret = 'legacy-token'
   await writeFile(join(source, 'mcp_config.json'), `{"env":${secret}}`)
