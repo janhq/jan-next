@@ -68,7 +68,9 @@ Each Jan serves its own page, so Open in browser always runs the Client that mat
 | Index without login | HTTP 401 with `jan web authentication required` | Releases before 2026-11-16 say `dsh web`; both are accepted. |
 | Sign-in | `GET /connect?token=…&interactions=none` answers 302 with a cookie | Same since 2026-10-10. |
 | Live connection | WebSocket `api/remote.mux` opens with that cookie | Same since 2026-08-22. |
-| Projects in this window | That Jan's Gateway forwards calls (`registerForwarder`) | A Gateway without it still answers copies and folder browsing; its projects stay out of this window. |
+| Projects in this window | That Jan's Gateway forwards calls (`registerForwarder`) | A Gateway without it still answers compatible setup requests and folder browsing; its projects stay out of this window. |
+
+This Jan still answers `setupState`, `receiveSetup`, and `customizationState` requests from older peers. New setup syncs use `syncPreview` and `syncApply` to review and apply changes on a connected SSH Host.
 
 An SSH entry saved by an earlier Hosts also carried a command, profile and port; they are ignored, and dropped when the entry is edited. The hosts files carry `"version": 1`; a file of another version is refused rather than rewritten.
 

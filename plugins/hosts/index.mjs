@@ -15,10 +15,10 @@ import { installRemote, probeRemote, runtimeIdentity, shippedRuntimes, sshArgs, 
 import { startRelay } from './relay.mjs'
 import { deviceAddressKind, lanAddresses, startGateway } from './gateway.mjs'
 import { sshConfigHosts } from './ssh-config.mjs'
-import { callRemote, copyable, receiveSetup, setupPayload, setupState } from './setup-copy.mjs'
+import { callRemote, receiveSetup, setupState } from './setup-copy.mjs'
 import { createHostLink } from './link.mjs'
 import { createFederation } from './federation.mjs'
-import { copyCustomizations, customizationOffer, customizationState } from './customization-copy.mjs'
+import { customizationState } from './customization-copy.mjs'
 import { resolveAgentsHome } from '@janhq/jan-home-paths'
 import { applySync, createSyncReview, syncFingerprints, syncInventory, syncKey, syncPayload, verifySyncPeer } from './setup-sync.mjs'
 
@@ -494,47 +494,9 @@ export function apply(ctx, config) {
     async receiveSetup(params) {
       return receiveSetup(providerSource(), params)
     },
-    // Asked here: what a connected SSH Host could take from this computer's model setup.
-    async setupOffer({ id }) {
-      const tunnel = tunnels.get(id)
-      if (tunnel === undefined) return { offer: false, items: [] }
-      const remote = await callRemote(tunnel, 'setupState')
-      // Only a Jan nobody set up there gets the offer, so a copy never fights choices made on it.
-      if (!remote.untouched) return { offer: false, items: [] }
-      const items = await copyable(providerSource(), remote)
-      return { offer: items.length > 0, items }
-    },
     // Answered on the other computer: which MCP servers, skills and plugin bundles it already has.
     async customizationState() {
       return customizationState({ settings: ctx.settings, janHome: ctx.janHomePath(), pluginManager: ctx.get('pluginManager') })
-    },
-    // Asked here: what a connected SSH Host lacks of this computer's customizations, by kind.
-    async customizationOffer({ id }) {
-      const link = federation.linkOf(id)
-      if (link === undefined) return { servers: [], skills: [], plugins: [] }
-      return customizationOffer(customizationSource(), await callRemote(tunnels.get(id), 'customizationState'))
-    },
-    async copyCustomizations({ id, servers, skills, plugins }) {
-      const tunnel = tunnels.get(id)
-      const link = federation.linkOf(id)
-      if (tunnel === undefined || link === undefined) throw new HostsError('not-connected', 'Connect first.')
-      const chosen = { servers, skills, plugins }
-      if (Object.values(chosen).every(list => !Array.isArray(list) || list.length === 0)) throw new HostsError('items', 'Choose at least one thing to bring.')
-      const source = customizationSource()
-      const offer = await customizationOffer(source, await callRemote(tunnel, 'customizationState'))
-      const entry = await find(id)
-      return copyCustomizations(source, { ssh: sshArgs(entry.ssh), remote: (endpoint, args) => link.call(endpoint, args) }, offer, chosen)
-    },
-    async copySetup({ id, routes }) {
-      const tunnel = tunnels.get(id)
-      if (tunnel === undefined) throw new HostsError('not-connected', 'Connect first.')
-      if (!Array.isArray(routes) || routes.length === 0) throw new HostsError('routes', 'Choose at least one provider to copy.')
-      const remote = await callRemote(tunnel, 'setupState')
-      const chosen = new Set(routes)
-      const source = providerSource()
-      const items = (await copyable(source, remote)).filter(item => chosen.has(item.route))
-      if (items.length === 0) throw new HostsError('routes', 'None of these providers can be copied to that computer.')
-      return callRemote(tunnel, 'receiveSetup', await setupPayload(source, items))
     },
     async enableGateway({ enabled }) {
       if (typeof enabled !== 'boolean') throw new HostsError('enabled', 'Choose on or off.')
