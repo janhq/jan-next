@@ -1,7 +1,7 @@
 /** Isolated update documents share their owner's native window and input lifetime. */
 import { WebContentsView, type BrowserWindow, type WebContents, type View } from 'electron'
 import type { EventEmitter } from 'node:events'
-import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
+import { windowsCaptionHeight } from './windows-layout.ts'
 
 /** Main-owned document with no independent native window or activation state. */
 export interface DesktopUpdateOverlay {
@@ -48,8 +48,7 @@ export class DesktopUpdateOverlays {
     input.active++; input.revision++
     const resize = (): void => {
       const { width, height } = parent.getContentBounds()
-      // The title row is CSS px, so in DIP it grows with the owner page's zoom.
-      const top = process.platform === 'win32' ? Math.round(WINDOWS_TITLEBAR_HEIGHT * ownerContents.getZoomFactor()) : 0
+      const top = process.platform === 'win32' ? windowsCaptionHeight(ownerContents.getZoomFactor()) : 0
       view.setBounds({ x: 0, y: top, width, height: Math.max(0, height - top) })
     }
     const focus = (): void => {
