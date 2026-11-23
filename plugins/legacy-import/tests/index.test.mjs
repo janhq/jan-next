@@ -141,7 +141,8 @@ test('legacy MCP import keeps env and header values off the wire and stores them
 
   const old = await rpc('mcpDocument', { folder: source })
   const scan = await rpc('list', { folder: source })
-  const result = await rpc('import', { folder: source, ids: [], mcp: true })
+  const { folder, scanId } = scan.body.result
+  const result = await rpc('import', { folder, scanId, ids: [], mcp: true })
   const progress = await rpc('progress')
   for (const response of [old, scan, result, progress]) {
     const serialized = JSON.stringify(response.body)
@@ -170,13 +171,41 @@ test('legacy MCP import keeps env and header values off the wire and stores them
   assert.deepEqual(records.get('jan-theme/mcp-remote')?.payload, { env: {}, headers: { Authorization: `Bearer ${headerToken}` } })
 }))
 
+test('Settings rejects an MCP endpoint changed after its scan even if another form rescanned', async () => withImporter(async ({ source, rpc, services, sessions }) => {
+  const path = join(source, 'mcp_config.json')
+  const writeEndpoint = url => writeFile(path, JSON.stringify({ mcpServers: {
+    remote: { type: 'http', url, headers: { Authorization: 'Bearer local-test-token' } },
+  } }))
+  await writeFile(join(source, 'threads', 'sample', 'messages.jsonl'), JSON.stringify({
+    id: 'user-message', role: 'user', created_at: 1000, content: [{ type: 'text', text: 'Hello' }],
+  }))
+  const writes = []
+  services.janMcpSettings = { importMissing: async servers => { writes.push(servers); return { added: ['remote'] } } }
+  await writeEndpoint('https://original.example/mcp')
+  const scan = (await rpc('list', { folder: source })).body.result
+  assert.deepEqual(scan.settings.mcp.names, ['remote'])
+  await writeEndpoint('https://replacement.example/mcp')
+  const refreshed = (await rpc('list', { folder: source })).body.result
+
+  const stale = await rpc('import', { folder: scan.folder, scanId: scan.scanId, ids: ['sample'], mcp: true, mcpNames: ['remote'] })
+  assert.deepEqual(stale, { status: 400, body: { error: 'The selected MCP configuration changed since the import form opened. Open the form and try again.' } })
+  assert.equal(writes.length, 0)
+  assert.equal(sessions.size, 0)
+
+  const fresh = await rpc('import', { folder: refreshed.folder, scanId: refreshed.scanId, ids: [], mcp: true, mcpNames: ['remote'] })
+  assert.equal(fresh.status, 200)
+  assert.equal(fresh.body.result.settings.mcp.imported, 1)
+  assert.equal(writes[0].remote.url, 'https://replacement.example/mcp')
+}))
+
 test('MCP file parse failures do not disclose file contents in legacy import responses', async () => withImporter(async ({ source, rpc, services }) => {
   const secret = 'legacy-token'
   await writeFile(join(source, 'mcp_config.json'), `{"env":${secret}}`)
   services.janMcpSettings = { importMissing: () => assert.fail('invalid JSON must not reach MCP settings') }
 
   const scan = await rpc('list', { folder: source })
-  const result = await rpc('import', { folder: source, ids: [], mcp: true })
+  const { folder, scanId } = scan.body.result
+  const result = await rpc('import', { folder, scanId, ids: [], mcp: true })
   const progress = await rpc('progress')
   for (const response of [scan, result, progress]) assert.equal(JSON.stringify(response.body).includes(secret), false)
   const issues = scan.body.result.settings.mcp.issues

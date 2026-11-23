@@ -95,7 +95,7 @@ window.__ModuleLoader__.load({
           setFolder(value.folder); setListedFolder(value.folder); setOrcaWorkspaces(value.workspaces); setThreads(value.threads); setResults({}); setMissing(value.missing === true); setOlder(value.older ?? 0)
           // Moving from Jan means bringing everything. A coding agent keeps months of sessions, so the person picks.
           setSelected(new Set(next === 'jan' ? value.threads.filter(importable).map(thread => thread.id) : []))
-          setJanSettings(value.settings ?? null); setSettingsResults(null)
+          setJanSettings(value.settings ? { ...value.settings, scanId: value.scanId } : null); setSettingsResults(null)
           setExtras(value.settings ? { providers: value.settings.providers.length > 0, mcp: value.settings.mcp.names.length > 0, assistants: value.settings.assistants.some(item => !item.alreadyImported) } : NO_EXTRAS)
         } catch (error) { if (mine === latestScan.current) setError(error.message) } finally { if (mine === latestScan.current) setScanning(false) }
       }
@@ -110,7 +110,7 @@ window.__ModuleLoader__.load({
         const chosen = source === 'jan' ? extras : NO_EXTRAS
         setError(''); setResults({}); setSettingsResults(null)
         setJob({ running: true, total: ids.length, done: 0, current: chosen.mcp ? 'MCP servers' : null, results: [] })
-        const request = api('import', { source, folder: listedFolder, ids, ...chosen })
+        const request = api('import', { source, folder: listedFolder, ids, ...chosen, ...(chosen.mcp ? { scanId: janSettings?.scanId } : {}) })
         // Start polling only after the Host has the request, so the first read is this run.
         await new Promise(resolve => setTimeout(resolve, 100))
         const [outcome, followed] = await Promise.allSettled([request, follow()])

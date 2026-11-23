@@ -2,6 +2,7 @@ import { readFile, readdir, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { resolve, join, extname, isAbsolute, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import z from '@janhq/schemastery'
 import { credentialRef } from '@janhq/jan-credentials'
@@ -388,7 +389,7 @@ export function apply(ctx, config = {}) {
       const providerRows = withProviders ? selectedRows(janSettings.providers, providerSelection) : []
       const assistantRows = withAssistants ? selectedRows(janSettings.assistants, assistantSelection) : []
       const skillSource = approval && (skills || instructions) ? await skillScan(origin) : undefined
-      const mcpSource = approval && mcp ? selectMcp(await readMcpSource(origin, { folder: source }), mcpNames) : undefined
+      const mcpSource = mcp ? selectMcp(await readMcpSource(origin, { folder: source }), mcpNames) : undefined
       // Check all selected settings before writing any of them. Unselected additions should not block an import.
       if (approval) {
         if (withProviders) ensureUnchanged('The selected model providers', selectedRows(approval.janSettings.providers, providerSelection), providerRows)
@@ -415,7 +416,7 @@ export function apply(ctx, config = {}) {
       if (mcp) {
         run.total++
         run.current = 'MCP servers'
-        try { run.settings.mcp = await importMcp(mcpSource ?? selectMcp(await readMcpSource(origin, { folder: source }), mcpNames)) } catch { run.settings.mcp = { error: 'Could not read MCP configuration. Scan the source again.' } }
+        try { run.settings.mcp = await importMcp(mcpSource) } catch { run.settings.mcp = { error: 'Could not read MCP configuration. Scan the source again.' } }
         run.done++
       }
       // Assistants first, so imported chats can name their preset.
@@ -507,10 +508,32 @@ export function apply(ctx, config = {}) {
     } finally { run.running = false; run.current = null }
   }
   const progress = async () => job
-  // Only the chat form can pass a private scan alongside its redacted list.
+  // Keep normalized definitions and their credentials on the Host. Each form gets its own scan ID.
+  const settingsScans = new Map()
   ctx.effect(() => registerApi(ctx, 'legacy-import', {
-    list: request => list(request), import: request => importSelected(request), progress, preview, offer, dismissOffer,
-  }), 'Jan read-only import API')
+    async list(request) {
+      const approval = {}
+      const listed = await list(request, approval)
+      if (!approval.mcp) return listed
+      const scanId = randomUUID()
+      settingsScans.set(scanId, { source: listed.source, folder: listed.folder, approval, names: listed.settings.mcp.names })
+      if (settingsScans.size > 16) settingsScans.delete(settingsScans.keys().next().value)
+      return { ...listed, scanId }
+    },
+    import(request) {
+      if (!request.mcp) return importSelected(request)
+      const scan = settingsScans.get(request.scanId)
+      if (!scan || scan.source !== (request.source ?? 'jan') || scan.folder !== request.folder) {
+        throw new Error('Scan the source again before importing MCP servers.')
+      }
+      const mcpNames = request.mcpNames ?? scan.names
+      if (!Array.isArray(mcpNames) || mcpNames.some(name => !scan.names.includes(name))) {
+        throw new Error('Choose MCP servers from the current scan.')
+      }
+      return importSelected({ ...request, mcpNames }, scan.approval)
+    },
+    progress, preview, offer, dismissOffer,
+  }), 'Jan import API')
   ctx.inject(['skills'], scope => { registerMigrateSkill(scope) })
   ctx.inject(['tools'], scope => { registerMigrateTools(scope, { list, importSelected }) })
 }
