@@ -97,6 +97,23 @@ export function createHostLink({ root, token, onState = () => { } }) {
     return result.value
   }
 
+  /**
+   * Stream one raw composer upload to the other Jan's upload route and return its wire result.
+   * A streamed body cannot be replayed, so a stale login fails this upload and the next signs in again.
+   * @param {URLSearchParams} query - the upload's query with the other Jan's own Session id.
+   * @param {AsyncIterable<Uint8Array>} body - the upload bytes.
+   * @param {AbortSignal} [signal]
+   */
+  async function upload(query, body, signal) {
+    await signedIn()
+    const response = await fetch(new URL(`api/session/uploadFileBinary?${query}`, base), {
+      method: 'POST', headers: { ...headers(), 'content-type': 'application/octet-stream' }, body, duplex: 'half', signal,
+    })
+    if (response.status === 401) login = undefined
+    if (!response.ok) throw new Error(`The other Jan answered HTTP ${response.status} for the upload. Try again.`)
+    return response.json()
+  }
+
   function connectSocket() {
     if (socketReady !== undefined) return socketReady
     socketReady = (async () => {
@@ -192,6 +209,7 @@ export function createHostLink({ root, token, onState = () => { } }) {
     open: () => connectSocket().then(() => undefined),
     call,
     callWire,
+    upload,
     stream,
     close() {
       closed = true

@@ -82,6 +82,10 @@ export function apply(ctx, config) {
   if (typeof ctx.typertGateway.registerForwarder === 'function') {
     ctx.effect(() => ctx.typertGateway.registerForwarder(federation.forwarder), 'jan-hosts: federation forwarder')
   } else ctx.logger.warn('jan-hosts: this Jan\'s gateway cannot forward calls; other computers\' projects will not show in its window')
+  // Composer uploads travel on their own HTTP route; one for another computer's chat goes there.
+  ctx.effect(() => ctx.on('connection/request', async (request, response, next) => {
+    if (!await federation.upload(request, response)) await next()
+  }), 'jan-hosts: federated uploads')
 
   // The saved destination and its credential live in different stores. Keep edits ordered.
   function writeConnection(write) {
