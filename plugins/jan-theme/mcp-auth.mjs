@@ -41,12 +41,16 @@ export const hostOf = url => { try { return new URL(url).host } catch { return u
  * @param {string} serverUrl
  * @param {{ client?: object, tokens?: object, expiresAt?: number } | undefined} saved
  * @param {(next: object) => Promise<void>} save - persists a refreshed record.
- * @returns {Promise<{ accessToken: string, expiresAt?: number } | undefined>} undefined when there is no usable sign-in.
+ * @returns {Promise<{ accessToken: string, expiresAt?: number, refreshable: boolean } | undefined>} undefined when there is no usable sign-in.
  */
 export async function signedInTokens(serverUrl, saved, save, now = Date.now()) {
   if (!saved?.tokens?.access_token) return undefined
-  if (!saved.expiresAt || saved.expiresAt - now > REFRESH_MARGIN_MS) return { accessToken: saved.tokens.access_token, expiresAt: saved.expiresAt }
-  if (!saved.tokens.refresh_token || !saved.client) return undefined
+  const { expiresAt } = saved
+  const refreshable = Boolean(saved.tokens.refresh_token && saved.client)
+  if (expiresAt === undefined || expiresAt - now > REFRESH_MARGIN_MS || (!refreshable && expiresAt > now)) {
+    return { accessToken: saved.tokens.access_token, expiresAt, refreshable }
+  }
+  if (!refreshable) return undefined
   const info = await discoverOAuthServerInfo(serverUrl)
   const tokens = await refreshAuthorization(info.authorizationServerUrl, {
     metadata: info.authorizationServerMetadata, clientInformation: saved.client,
@@ -55,7 +59,7 @@ export async function signedInTokens(serverUrl, saved, save, now = Date.now()) {
   const record = { ...saved }
   providerFor(serverUrl, record, { interactive: false }).saveTokens(tokens)
   await save(record)
-  return { accessToken: record.tokens.access_token, expiresAt: record.expiresAt }
+  return { accessToken: record.tokens.access_token, expiresAt: record.expiresAt, refreshable }
 }
 
 function providerFor(serverUrl, record, { interactive, redirectUrl, state, onRedirect }) {
@@ -76,8 +80,10 @@ function providerFor(serverUrl, record, { interactive, redirectUrl, state, onRed
     saveClientInformation: (client) => { record.client = client },
     tokens: () => record.tokens,
     saveTokens: (tokens) => {
-      record.tokens = { ...tokens, refresh_token: tokens.refresh_token ?? record.tokens?.refresh_token }
-      record.expiresAt = typeof tokens.expires_in === 'number' ? Date.now() + tokens.expires_in * 1000 : undefined
+      const refreshToken = tokens.refresh_token ?? record.tokens?.refresh_token
+      record.tokens = { ...tokens, ...(refreshToken === undefined ? {} : { refresh_token: refreshToken }) }
+      if (typeof tokens.expires_in === 'number') record.expiresAt = Date.now() + tokens.expires_in * 1000
+      else delete record.expiresAt
     },
     redirectToAuthorization: (url) => {
       if (!interactive) throw new Error('Sign in again to keep using this server.')

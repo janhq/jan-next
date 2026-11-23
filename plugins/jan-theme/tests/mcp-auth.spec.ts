@@ -77,4 +77,12 @@ describe('signing in to a remote MCP server', () => {
     expect(kept?.accessToken).toBe(refreshed?.accessToken)
     expect(await signedInTokens(fixture.url, { tokens: { access_token: 'old' }, expiresAt: Date.now() }, async () => {})).toBeUndefined()
   })
+
+  it('keeps a non-refreshable access token until its actual expiry', async () => {
+    const url = 'https://example.com/mcp'
+    const saved = { tokens: { access_token: 'current' }, expiresAt: 1000 }
+    const save = async () => { throw new Error('must not save') }
+    expect(await signedInTokens(url, saved, save, 999)).toMatchObject({ accessToken: 'current' })
+    expect(await signedInTokens(url, saved, save, 1000)).toBeUndefined()
+  })
 })
