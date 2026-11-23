@@ -11,7 +11,8 @@ import { applicationIconPath } from './application-icon.ts'
 import { access, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   app,
   BrowserWindow,
@@ -1017,7 +1018,16 @@ async function main(): Promise<void> {
           message: messages.factoryResetNotStarted, buttons: [messages.restartApplication] })
         return
       }
-      const { completed, incomplete } = await performFactoryReset(categories, roots, () => session.defaultSession.clearStorageData())
+      const { completed, incomplete } = await performFactoryReset(categories, roots,
+        () => session.defaultSession.clearStorageData(), async () => {
+          // Resolve from the same immutable runtime as the Host, only for a credential reset.
+          const entry = createRequire(join(resources.jan, 'package.json')).resolve('@janhq/jan-credentials-local')
+          const { resetCredentialDocument, CREDENTIALS_FILENAME } = await import(pathToFileURL(entry).href) as {
+            resetCredentialDocument(filename: string): Promise<void>
+            CREDENTIALS_FILENAME: string
+          }
+          await resetCredentialDocument(join(roots.janHome, CREDENTIALS_FILENAME))
+        })
       if (incomplete.size === 0) {
         console.info('desktop factory reset: removed', completed)
       } else {
