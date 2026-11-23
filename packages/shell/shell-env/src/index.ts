@@ -180,8 +180,9 @@ export class ShellEnvRegistry extends Service {
       if (resolved === undefined) continue
       env ??= {}
       for (const [key, value] of Object.entries(resolved)) {
-        // A managed fact the snapshot omits (no agent, no session) must stay absent, not be supplied here.
-        if (!key.startsWith(JAN_ENV_PREFIX)) env[key] = value
+        // A managed fact the snapshot omits (no agent, no session) must stay absent, not be supplied here;
+        // the match ignores case because Windows environment names do.
+        if (!key.toUpperCase().startsWith(JAN_ENV_PREFIX)) env[key] = value
       }
     }
     return env

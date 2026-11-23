@@ -125,7 +125,7 @@ describe('ShellEnvRegistry', () => {
       inject: ['shellEnv'],
       apply(inner: Context) {
         inner.shellEnv.registerOverrides(exec => exec.agent?.session.header.id === 'managed'
-          ? { PATH: '/worker-bin:/usr/bin', GIT_DIR: undefined, JAN_SESSION_ID: 'forged' }
+          ? { PATH: '/worker-bin:/usr/bin', GIT_DIR: undefined, JAN_SESSION_ID: 'forged', jan_profile: 'forged' }
           : undefined)
       },
     })
