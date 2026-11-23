@@ -1,0 +1,63 @@
+/* The SegmentedControl's material at icon size: a hover-fill track with one
+ * raised pill sliding under the chosen mode. Segments are 28px squares, so the
+ * switch sits on a 32px toolbar line beside a search field or a sort menu. */
+.toggle {
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 28px;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.indicator {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: var(--dsw-elevation-soft);
+  transition: transform 160ms var(--ds-ease-out, ease);
+  pointer-events: none;
+}
+
+.toggle[data-mode='list'] .indicator {
+  transform: translateX(30px);
+}
+
+.segment {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.segment[aria-checked='true'] {
+  color: var(--dsw-alias-label-primary);
+}
+
+@media (hover: hover) {
+  .segment[aria-checked='false']:hover {
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .indicator,
+  .segment {
+    transition: none;
+  }
+}

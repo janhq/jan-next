@@ -711,6 +711,18 @@ export const IconGuidesOutlineRegular = productIcon('guides-outline', 'regular')
 /** Medium layout guides. */
 export const IconGuidesOutlineMedium = productIcon('guides-outline', 'medium')
 
+/** Regular grid view: four tiles. */
+export const IconGridViewOutlineRegular = productIcon('grid-view-outline', 'regular')
+
+/** Medium grid view. */
+export const IconGridViewOutlineMedium = productIcon('grid-view-outline', 'medium')
+
+/** Regular list view: two full-width rows. */
+export const IconListViewOutlineRegular = productIcon('list-view-outline', 'regular')
+
+/** Medium list view. */
+export const IconListViewOutlineMedium = productIcon('list-view-outline', 'medium')
+
 /** Regular one-pixel IconImageOutline artwork. */
 export const IconImageOutlineRegular = productIcon('image-outline', 'regular')
 
