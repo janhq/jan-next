@@ -533,7 +533,7 @@ export class ReactLoopAgent implements Agent {
       }
       if (prepared === undefined) throw preparationError
       firstAttempt = false
-      const request = this.buildRequest(prepared.config, preparedCall, assembly.tools, { turn, step }, startsRequestSeries, signal)
+      const request = this.buildRequest(prepared.config, preparedCall, assembly.tools, { turn, step }, startsRequestSeries, signal, yielded)
       const live = new AssistantStreamAttempt(
         this.session.id,
         ++this.assistantAttemptCounter,
@@ -554,13 +554,19 @@ export class ReactLoopAgent implements Agent {
         // request. The turn's own signal stays live, so the step closes and
         // the next one carries the steered input.
         const iterator = stream[Symbol.asyncIterator]()
-        const yieldGate = new Promise<'yielded'>((resolve) => {
-          if (yielded.aborted) resolve('yielded')
-          else yielded.addEventListener('abort', () => { resolve('yielded') }, { once: true })
+        // One listener per read, removed when the read settles, so a long reply keeps no per-chunk state.
+        const nextOrYield = () => new Promise<Awaited<ReturnType<typeof iterator.next>> | 'yielded'>((resolve, reject) => {
+          if (yielded.aborted) { resolve('yielded'); return }
+          const onYield = () => { resolve('yielded') }
+          yielded.addEventListener('abort', onYield, { once: true })
+          iterator.next().then(
+            (result) => { yielded.removeEventListener('abort', onYield); resolve(result) },
+            (error: unknown) => { yielded.removeEventListener('abort', onYield); reject(error) },
+          )
         })
         try {
           while (true) {
-            const next = await Promise.race([iterator.next(), yieldGate])
+            const next = await nextOrYield()
             if (next === 'yielded') yielded.throwIfAborted()
             else if (next.done === true) break
             else {
@@ -747,6 +753,7 @@ export class ReactLoopAgent implements Agent {
     position: { turn: number; step: number },
     startsRequestSeries: boolean,
     signal: AbortSignal,
+    yielded: AbortSignal,
   ): GenerateOptions {
     const { session } = this
     const surfaceGeneration = session.surface.contentGeneration
@@ -825,7 +832,8 @@ export class ReactLoopAgent implements Agent {
       toolHistory: session.toolHistory(),
       ...header.tools !== undefined ? { tools: header.tools } : {},
       sessionId: this.session.id,
-      signal,
+      // A steer ends the provider request; the turn signal stays live for the next step.
+      signal: AbortSignal.any([signal, yielded]),
     }))
     return request
   }

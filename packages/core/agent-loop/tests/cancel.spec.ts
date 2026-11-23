@@ -9,7 +9,7 @@
 import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { ToolCallId, createUserMessage, expandAssistantStream } from '@janhq/jan-llm'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@janhq/cordis'
 import LlmRuntime from '@janhq/jan-llm'
 import SessionStore, { Session, SessionId, SessionLogOffset, TurnEndReason } from '@janhq/jan-session'
@@ -992,6 +992,43 @@ describe('Agent.cancel()', () => {
       .flatMap(e => e.data.content)
       .flatMap(b => b.type === 'text' ? [b.text] : [])
     expect(flat).not.toContain('steer text')
+  })
+
+  it('a steer aborts the pending provider request while the turn signal stays live', async () => {
+    const adapter = new MockAdapter(['hang', textResponse('after steer')])
+    const ctx = await harness(adapter)
+    const agent = await ctx.agentLoop.create(SessionId('steer-aborts-request'), { provider: 'mock', model: 'mock' })
+    const turnSignals: AbortSignal[] = []
+    let firstRequestAbortedAtSecond: boolean | undefined
+    let turnAbortedAtSecond: boolean | undefined
+    ctx.on('agent/request', ({ agent: subject, signal }, next) => {
+      if (subject === agent) {
+        turnSignals.push(signal)
+        if (turnSignals.length === 2) {
+          firstRequestAbortedAtSecond = adapter.requests[0]?.signal?.aborted
+          turnAbortedAtSecond = signal.aborted
+        }
+      }
+      return next()
+    })
+    const idle = waitForIdle(ctx, agent)
+    send(agent, 'long task')
+    // The first stream has delivered its chunk and now waits only on its request signal.
+    await vi.waitFor(() => { expect(adapter.requests).toHaveLength(1) })
+    await new Promise(resolve => setTimeout(resolve, 20))
+    agent.steer(createUserMessage({ content: [{ type: 'text', text: 'change of plan' }], source: { kind: 'user' } }))
+    await idle
+
+    expect(turnSignals).toHaveLength(2)
+    expect(turnSignals[1]).toBe(turnSignals[0])
+    expect(firstRequestAbortedAtSecond).toBe(true)
+    expect(turnAbortedAtSecond).toBe(false)
+    expect(adapter.requests).toHaveLength(2)
+    const replies = agent.session.snapshotEvents()
+      .filter(event => event.type === 'assistant/message')
+      .flatMap(event => event.type === 'assistant/message' ? event.data.message.content : [])
+      .flatMap(block => block.type === 'text' ? [block.text] : [])
+    expect(replies).toContain('after steer')
   })
 
   it('replays replacement work queued synchronously by an abort observer', async () => {
