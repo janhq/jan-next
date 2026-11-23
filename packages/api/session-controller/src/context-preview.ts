@@ -2,17 +2,15 @@
 import type { Agent } from '@janhq/jan-agent'
 import { assembleContextFor } from '@janhq/jan-agent'
 import type {} from '@janhq/jan-agent-preset-registry/types'
+import { mcpToolOrigin } from '@janhq/jan-mcp-client'
 import type {} from '@janhq/jan-mcp-manager'
+import { scopeOf } from '@janhq/jan-scope'
 import { isModelInvocable, isUserInvocable, type SkillSummary } from '@janhq/jan-skill'
 import { joinContextSections, renderContextSections, renderPrompt } from '@janhq/jan-system-prompt'
-import type {} from '@janhq/jan-tools'
+import type { ResolvedToolSet } from '@janhq/jan-tools'
 import type {} from '@janhq/jan-working-directory'
 import { ROLE_OVERHEAD, estimateContent, estimateToolsTokens } from '@janhq/jan-token-meter/estimate'
 import type { SessionContextPreviewValue, SessionInventory, SessionItemOrigin } from './types.ts'
-
-/** MCP tools are registered as `mcp__<server>__<tool>`, with the server name sanitized to these characters. */
-const MCP_TOOL = /^mcp__(.+?)__(.+)$/
-const INVALID_NAME_CHARS = /[^A-Za-z0-9_-]/g
 
 /**
  * Where a skill was found. Filesystem roots name the folder they scanned; any
@@ -42,34 +40,33 @@ function skillOrigin(skill: SkillSummary): SessionItemOrigin {
  * and preset plugins the Agent runs with, each with where it comes from.
  * @param agent - Agent whose scope selects the skill view and preset composition.
  * @param toolNames - tool names the next request offers the model.
+ * @param toolSet - resolved definitions of those offered tools.
  * @param signal - cancels the working-directory and skill reads.
  * @returns the Session inventory.
  */
-async function readInventory(agent: Agent, toolNames: readonly string[], signal: AbortSignal): Promise<SessionInventory> {
-  // Managed servers are profile config or plugin registrations; an MCP tool no
-  // managed server owns was mounted for this Session alone (an ACP client's servers).
-  const managed = (agent.ctx.get('mcpManager')?.list() ?? [])
-    .map(server => ({ ...server, prefix: `mcp__${server.name.replace(INVALID_NAME_CHARS, '_')}__` }))
-    .sort((left, right) => right.prefix.length - left.prefix.length)
+async function readInventory(
+  agent: Agent, toolNames: readonly string[], toolSet: ResolvedToolSet, signal: AbortSignal,
+): Promise<SessionInventory> {
+  const manager = agent.ctx.get('mcpManager')
+  const managed = manager?.list() ?? []
+  const definitions = toolSet.view(agent)
   const tools: string[] = []
   const mcpTools: { server: string; name: string; origin: SessionItemOrigin }[] = []
   for (const name of toolNames) {
-    const server = managed.find(candidate => name.startsWith(candidate.prefix))
-    if (server !== undefined) {
-      mcpTools.push({
-        server: server.name,
-        name: name.slice(server.prefix.length),
-        origin: server.origin.kind === 'plugin' ? { kind: 'plugin', plugin: server.origin.plugin } : { kind: 'global' },
-      })
-      continue
-    }
-    const mcp = MCP_TOOL.exec(name)
-    if (mcp === null) {
+    const definition = definitions.get(name)
+    const mcp = definition === undefined ? undefined : mcpToolOrigin(definition)
+    if (mcp === undefined) {
       tools.push(name)
       continue
     }
-    const [, serverName = '', toolName = ''] = mcp
-    mcpTools.push({ server: serverName, name: toolName, origin: { kind: 'session' } })
+    const { serverName, rawName, connection } = mcp
+    const server = manager?.ownsConnection(serverName, connection) === true
+      ? managed.find(candidate => candidate.name === serverName)
+      : undefined
+    const origin: SessionItemOrigin = server?.origin.kind === 'plugin'
+      ? { kind: 'plugin', plugin: server.origin.plugin }
+      : { kind: scopeOf(connection.ctx) === undefined ? 'global' : 'session' }
+    mcpTools.push({ server: serverName, name: rawName, origin })
   }
   const presets = agent.ctx.get('agentPresets')
   const registry = presets?.serviceFor(agent, 'skills') ?? agent.ctx.get('skills')
@@ -103,7 +100,7 @@ export async function previewContext(agent: Agent, signal: AbortSignal): Promise
       systemTokens: prompt === '' ? 0 : estimateContent([{ type: 'text', text: prompt }]),
       toolsTokens: estimateToolsTokens({ config: { ...modelSelection }, ...assembly.tools.length > 0 ? { tools: assembly.tools } : {} }),
       messageTokens: context === '' ? 0 : estimateContent([{ type: 'text', text: context }]) + ROLE_OVERHEAD,
-      inventory: await readInventory(agent, assembly.tools.map(tool => tool.name), signal),
+      inventory: await readInventory(agent, assembly.tools.map(tool => tool.name), toolSet, signal),
     }
   } finally {
     toolSet.dispose()
