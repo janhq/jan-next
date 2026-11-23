@@ -93,7 +93,9 @@ const BASH_ENV_KEY_SUFFIX = /^[A-Z][A-Z0-9_]*$/
  */
 export class ShellEnvRegistry extends Service {
   private readonly contributors = new Map<string, BashEnvContributor>()
-  private readonly overrides = new Set<{ resolve: (execution: ToolExecution) => Readonly<NodeJS.ProcessEnv> | undefined }>()
+  private readonly overrides = new Set<{
+    resolve: (execution: ToolExecution) => Readonly<Record<string, string | undefined>> | undefined
+  }>()
   private readonly keyOwners = new Map<JanEnvironmentKey, string>()
   private readonly janHome: string
 
@@ -152,10 +154,12 @@ export class ShellEnvRegistry extends Service {
 
   /**
    * Register trusted subprocess environment overrides for matching shell calls.
-   * @param resolve - returns ordinary environment entries or tombstones for a call; returns undefined to leave it unchanged.
+   * `JAN_*` keys are ignored: the managed snapshot from {@link collect} owns that namespace.
+   * @param resolve - returns ordinary environment entries, or `undefined` values that remove inherited
+   *   ones, for a call; returns undefined to leave it unchanged.
    * @returns the disposer, also invoked automatically with the registering plugin.
    */
-  registerOverrides(resolve: (execution: ToolExecution) => Readonly<NodeJS.ProcessEnv> | undefined): () => void {
+  registerOverrides(resolve: (execution: ToolExecution) => Readonly<Record<string, string | undefined>> | undefined): () => void {
     const entry = { resolve }
     const dispose = this.ctx.effect(() => {
       this.overrides.add(entry)
@@ -167,13 +171,18 @@ export class ShellEnvRegistry extends Service {
   /**
    * Collect ordinary environment overrides without changing the managed `JAN_*` snapshot.
    * @param execution - the current tool execution.
-   * @returns a caller-owned overlay, or undefined if no resolver supplied one.
+   * @returns a caller-owned overlay without `JAN_*` keys, or undefined if no resolver supplied one.
    */
-  collectOverrides(execution: ToolExecution): NodeJS.ProcessEnv | undefined {
-    let env: NodeJS.ProcessEnv | undefined
+  collectOverrides(execution: ToolExecution): Record<string, string | undefined> | undefined {
+    let env: Record<string, string | undefined> | undefined
     for (const entry of this.overrides) {
       const resolved = entry.resolve(execution)
-      if (resolved !== undefined) env = { ...env, ...resolved }
+      if (resolved === undefined) continue
+      env ??= {}
+      for (const [key, value] of Object.entries(resolved)) {
+        // A managed fact the snapshot omits (no agent, no session) must stay absent, not be supplied here.
+        if (!key.startsWith(JAN_ENV_PREFIX)) env[key] = value
+      }
     }
     return env
   }

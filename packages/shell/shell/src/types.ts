@@ -91,7 +91,7 @@ export interface ShellExecRequest {
    * model-facing bash tool does not expose it as a parameter.
    * An explicit `undefined` removes an ordinary inherited variable.
    */
-  env?: NodeJS.ProcessEnv | undefined
+  env?: Record<string, string | undefined> | undefined
   /**
    * Harness-owned `JAN_*` variables for this execution (typed to managed
    * keys). Executors discard ambient `JAN_*` entries before merging this
@@ -130,7 +130,7 @@ export interface ShellExecSpec {
    * OPTIONAL on the spec for the same reason as `stdin`: absent means no
    * ordinary extra environment.
    */
-  env?: NodeJS.ProcessEnv | undefined
+  env?: Record<string, string | undefined> | undefined
   /** Managed `JAN_*` snapshot (typed to managed keys); merges after {@link env}. */
   janEnv?: JanEnvironment | undefined
   /** Resolved sandbox policy; ignored by executors that do not confine. */
