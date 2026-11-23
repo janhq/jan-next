@@ -337,8 +337,8 @@
               "type": "usage",
               "usage": {
                 "inputTokens": 3,
-                "outputTokens": 0,
-                "totalTokens": 3
+                "outputTokens": 3,
+                "totalTokens": 6
               }
             }
           },
@@ -349,18 +349,6 @@
               "type": "block-start",
               "index": 0,
               "blockType": "tool-call"
-            }
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "usage",
-              "usage": {
-                "inputTokens": 3,
-                "outputTokens": 3,
-                "totalTokens": 6
-              }
             }
           },
           {
@@ -613,8 +601,8 @@
               "type": "usage",
               "usage": {
                 "inputTokens": 3,
-                "outputTokens": 0,
-                "totalTokens": 3
+                "outputTokens": 3,
+                "totalTokens": 6
               }
             }
           },
@@ -625,18 +613,6 @@
               "type": "block-start",
               "index": 0,
               "blockType": "tool-call"
-            }
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "usage",
-              "usage": {
-                "inputTokens": 3,
-                "outputTokens": 3,
-                "totalTokens": 6
-              }
             }
           },
           {
@@ -856,8 +832,8 @@
               "type": "usage",
               "usage": {
                 "inputTokens": 3,
-                "outputTokens": 0,
-                "totalTokens": 3
+                "outputTokens": 3,
+                "totalTokens": 6
               }
             }
           },
@@ -868,18 +844,6 @@
               "type": "block-start",
               "index": 0,
               "blockType": "text"
-            }
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "usage",
-              "usage": {
-                "inputTokens": 3,
-                "outputTokens": 3,
-                "totalTokens": 6
-              }
             }
           },
           {
@@ -1489,8 +1453,8 @@
                   "type": "usage",
                   "usage": {
                     "inputTokens": 3,
-                    "outputTokens": 0,
-                    "totalTokens": 3
+                    "outputTokens": 3,
+                    "totalTokens": 6
                   }
                 }
               },
@@ -1501,18 +1465,6 @@
                   "type": "block-start",
                   "index": 0,
                   "blockType": "tool-call"
-                }
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "usage",
-                  "usage": {
-                    "inputTokens": 3,
-                    "outputTokens": 3,
-                    "totalTokens": 6
-                  }
                 }
               },
               {
@@ -1819,8 +1771,8 @@
                   "type": "usage",
                   "usage": {
                     "inputTokens": 3,
-                    "outputTokens": 0,
-                    "totalTokens": 3
+                    "outputTokens": 3,
+                    "totalTokens": 6
                   }
                 }
               },
@@ -1831,18 +1783,6 @@
                   "type": "block-start",
                   "index": 0,
                   "blockType": "tool-call"
-                }
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "usage",
-                  "usage": {
-                    "inputTokens": 3,
-                    "outputTokens": 3,
-                    "totalTokens": 6
-                  }
                 }
               },
               {
@@ -2104,8 +2044,8 @@
                   "type": "usage",
                   "usage": {
                     "inputTokens": 3,
-                    "outputTokens": 0,
-                    "totalTokens": 3
+                    "outputTokens": 3,
+                    "totalTokens": 6
                   }
                 }
               },
@@ -2116,18 +2056,6 @@
                   "type": "block-start",
                   "index": 0,
                   "blockType": "text"
-                }
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "usage",
-                  "usage": {
-                    "inputTokens": 3,
-                    "outputTokens": 3,
-                    "totalTokens": 6
-                  }
                 }
               },
               {
