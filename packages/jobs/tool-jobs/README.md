@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-Use `jan-tool-jobs` to read, list, cancel, and watch background work. A watch batches matching new lines without consuming `job_output`. The owning agent receives notices in its next step while busy or starts a follow-up turn while idle. Set `completionDelivery: quiet` to disable background wakes without dropping notices.
+Use `jan-tool-jobs` to read, list, cancel, or watch background work and set one-time reminders. A watch batches matching new lines without consuming `job_output`. The owning agent receives notices in its next step while busy or starts a follow-up turn while idle. Set `completionDelivery: quiet` to disable background wakes without dropping notices.
 
 ## Table of Contents
 
@@ -31,8 +31,9 @@ Load this plugin where an agent should observe and stop background jobs. It requ
 - `job_list()` — List your background jobs with their ids, kinds, and statuses, one per line: `<id> [<kind>] <status> — <label>`.
 - `job_kill(job_id, reason?)` — Request cancellation of a running job immediately; the job settles as `killed` once its work actually stops. A terminal job returns its current snapshot, and the optional reason is recorded and forwarded to the job.
 - `job_watch(job_id, pattern?, max_events?, debounce_ms?)` - Start one watch on a running job owned by this session. The watch starts at the current end of output. `pattern` is a JavaScript regex source, without delimiters or flags; omit it to match every line. Partial lines stay separate by stream, and an unterminated final line is matched at settlement. Lines longer than 16,384 UTF-16 code units are matched on that prefix only. The first match opens a batch window (`debounce_ms`, default `1000`, range `1` to `60000`). The watch stops after `max_events` live batches (default `20`, range `1` to `100`), cancellation, settlement, or session disposal. Settlement includes any pending matches in the ordinary completion notice when there is room; an explicit kill or wait that already collected the terminal state still suppresses that notice.
+- `wake_after(seconds, note)` - Schedule a one-time reminder as an owned timer job. Set a delay from `1` to `86400` seconds and a nonblank note up to `1024` UTF-8 bytes. The tool returns `{ job_id, seconds }` immediately. The timer appears in `job_list`, is cancelled with `job_kill`, and includes the note in its completion notice. The timer ends if its session is disposed and does not survive a host restart.
 
-The control results are `{ text, job }`, `PublicJobSnapshot[]`, `{ outcome, job }`, and `{ watch_id, job_id, max_events, debounce_ms }`, respectively. A public job snapshot includes the id, kind, label, status, start and finish times, and live progress or terminal detail; it omits ownership and ring offsets.
+`job_output`, `job_list`, `job_kill`, and `job_watch` return `{ text, job }`, `PublicJobSnapshot[]`, `{ outcome, job }`, and `{ watch_id, job_id, max_events, debounce_ms }`, respectively. A public job snapshot includes the id, kind, label, status, start and finish times, and live progress or terminal detail; it omits ownership and ring offsets.
 
 ### Completion notices
 

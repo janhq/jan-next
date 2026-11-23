@@ -43,7 +43,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@janhq/jan-experimental-tool-subagent-oar` | `subagent_oar` | `ctx.tools`, `ctx.subagents` | `tool/call`, `tool/result`, `parent subagent catalog and completion notices` | - | The subagent_oar tool selects among configured aliases for external providers. This catalog shows Codex and Claude Code aliases; each deployment chooses its providers. Native model and permission settings belong to the selected provider configuration. |
 | `@janhq/jan-tool-subagent` | `list_subagent_models`, `subagent` | `ctx.tools`, `ctx.subagents`, `ctx.systemPrompt`, `ctx.sessionProjections`, `ctx.llm for model discovery and selected-route validation` | `tool/call`, `tool/result`, `child session events through the chosen provider` | `subagent`, `subagent_fork` | The load-time `toolName` selects the delegation name (default `subagent`); `modelSelection` adds optional route fields. `modelDiscovery` defaults off and registers shared discovery on one instance per scope. Web and Desktop presets enable spawn discovery and route fields and leave `subagent_fork` route fields disabled. The Host settings service records authorization for each new top-level Session; child Sessions inherit it. Without a recorded policy, discovery and explicit selection permit only the current parent route. Every delegation returns the child's name promptly; local children accept follow-ups, while external backends report their single execution automatically. |
 | `@janhq/jan-tool-subagent-control` | `interrupt_agent`, `list_agents`, `send_message`, `wait_agent` | `ctx.tools`, `ctx.subagents`, `ctx.agents` | `tool/call`, `tool/result`, `child session events through ctx.subagents` | - | The shared control tools discover and contact agents in the subagent tree, interrupt owned descendants, and wait for input in the caller’s inbox. Provider-bound `tool-subagent` instances supply delegation tools. |
-| `@janhq/jan-tool-jobs` | `job_kill`, `job_list`, `job_output`, `job_watch` | `ctx.tools`, `ctx.jobs`, `ctx.systemPrompt` | `tool/call`, `tool/result`, `user/message via agent.inject() or agent.followup()` | - | The shared controller for background jobs. Read, list, watch, or cancel jobs by id. Loading the plugin lets producers register work through `ctx.jobs.start()`. |
+| `@janhq/jan-tool-jobs` | `job_kill`, `job_list`, `job_output`, `job_watch`, `wake_after` | `ctx.tools`, `ctx.jobs`, `ctx.systemPrompt` | `tool/call`, `tool/result`, `job/registered`, `job/settled`, `user/message via agent.inject() or agent.followup()` | - | The shared controller for background jobs. Read, list, watch, or cancel jobs by id, and schedule timer jobs that deliver a reminder on completion. |
 | `@janhq/jan-tool-agent-team` | `team_task_create`, `team_task_get`, `team_task_list`, `team_task_update` | `ctx.tools`, `ctx.systemPrompt`, `ctx.agentTeams`, `ctx.subagents`, `an exact live Team member Agent` | `tool/call`, `team/task`, `tool/result` | - | Four task-board tools share the subagent tree’s root Session. Enabling Team mode on the root Session adds task-board guidance alongside standard subagent delegation and control tools. Standard subagent controls provide required identity independently of Team mode. |
 | `@janhq/jan-tool-todo` | `todo_write` | `ctx.tools`, `owning Agent session` | `tool/call`, `todo/write`, `tool/result` | - | todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task. |
 | `@janhq/jan-tool-working-directory` | `working_directory` | `ctx.tools`, `ctx.workingDirectory` | `tool/call`, `working-directory/change`, `user context for directory changes`, `tool/result` | - | Reads or changes the calling Session directory. Existing shells and processes retain their own directories; origin metadata and permission roots stay fixed. |
@@ -2345,7 +2345,33 @@ Watch new output from a running background job without polling. Matching lines a
 
 Source: [`packages/jobs/tool-jobs/src/index.ts`](../packages/jobs/tool-jobs/src/index.ts)
 
-The shared controller for background jobs. Read, list, watch, or cancel jobs by id. Loading the plugin lets producers register work through `ctx.jobs.start()`.
+### `wake_after`
+
+Schedule a one-time reminder to resume work later without polling or blocking. Returns a timer job ID you can list or cancel with job_kill. Completion wakes you if enabled.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "seconds": {
+      "type": "number",
+      "description": "Delay in seconds, from 1 to 86400."
+    },
+    "note": {
+      "type": "string",
+      "description": "Non-blank reminder to include in the completion notice (up to 1024 UTF-8 bytes)."
+    }
+  },
+  "required": [
+    "seconds",
+    "note"
+  ]
+}
+```
+
+Source: [`packages/jobs/tool-jobs/src/index.ts`](../packages/jobs/tool-jobs/src/index.ts)
+
+The shared controller for background jobs. Read, list, watch, or cancel jobs by id, and schedule timer jobs that deliver a reminder on completion.
 
 <a id="janhqjan-tool-agent-team"></a>
 

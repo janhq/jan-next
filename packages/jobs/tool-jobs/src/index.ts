@@ -1,8 +1,8 @@
 /**
- * Model-facing `job_output`, `job_list`, and `job_kill` tools over
+ * Model-facing controls, output watches, and timers over
  * `ctx.jobs`. Loading the plugin attaches the controller required by
- * producers. It also delivers completions the model has not already
- * collected to the owning agent: injected into a busy owner's next step, or
+ * producers. It delivers watch updates and uncollected completions
+ * to the owning agent: injected into a busy owner's next step, or
  * opening a turn on an idle one under the default `wakeup` delivery, unbounded
  * unless `maxConsecutiveWakes` caps it per owner. A notice carries the job's
  * output and result when it fits `inlineOutputBytes`, and `job_output`
@@ -19,7 +19,7 @@ import { TextRetainer } from '@janhq/jan-output-retention'
 import { defineTool } from '@janhq/jan-tools'
 import type { GenericCallView, ToolDefinition, ToolExecution } from '@janhq/jan-tools'
 import { JobId } from '@janhq/jan-jobs'
-import type { JobEvent, JobView, JobRead } from '@janhq/jan-jobs'
+import type { JobEvent, JobOutcome, JobView, JobRead } from '@janhq/jan-jobs'
 import type { Agent } from '@janhq/jan-agent'
 import type {} from '@janhq/jan-agent'
 import { publicJob, renderModelDelta, statusLine } from './render.ts'
@@ -29,6 +29,12 @@ import { OutputWatch } from './watch.ts'
 declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'tool-jobs': { kind: 'tool-jobs' } & ContextFormed
+  }
+}
+
+declare module '@janhq/jan-jobs' {
+  interface JobKindMap {
+    timer: 'timer'
   }
 }
 
@@ -100,6 +106,8 @@ const MAX_WATCH_EVENTS = 100
 const DEFAULT_WATCH_DEBOUNCE_MS = 1_000
 const MAX_WATCH_DEBOUNCE_MS = 60_000
 const MAX_WATCH_PREVIEW_BYTES = 2_048
+const MAX_WAKE_SECONDS = 86_400
+const MAX_WAKE_NOTE_BYTES = 1_024
 
 const encoder = new TextEncoder()
 
@@ -669,6 +677,55 @@ export function apply(ctx: Context, config: Config): void {
       return Promise.resolve({ watch_id: watchId, job_id: id, max_events: maxEvents, debounce_ms: debounceMs })
     },
     presentCall: args => presentJobCall(`Watch background job ${args.job_id}`, 'read', args.job_id),
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'wake_after',
+    description: 'Schedule a one-time reminder to resume work later without polling or blocking. Returns a timer job ID you can list or cancel with job_kill. Completion wakes you if enabled.',
+    parameters: {
+      seconds: { type: 'number', required: true, description: `Delay in seconds, from 1 to ${MAX_WAKE_SECONDS}.` },
+      note: { type: 'string', required: true, description: `Non-blank reminder to include in the completion notice (up to ${MAX_WAKE_NOTE_BYTES} UTF-8 bytes).` },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          job_id: { type: 'string', required: true },
+          seconds: { type: 'number', required: true },
+        },
+      },
+      render: (_args, value) => [{
+        type: 'text',
+        text: `scheduled timer job ${value.job_id} in ${value.seconds} seconds`,
+      }],
+    },
+    execute({ seconds, note }, { agent, callId, rootCallId }) {
+      if (agent === undefined) throw new Error('wake_after requires a live agent to receive the reminder')
+      if (seconds < 1 || seconds > MAX_WAKE_SECONDS) throw new Error(`invalid seconds: expected 1 to ${MAX_WAKE_SECONDS}`)
+      if (note.trim().length === 0 || encoder.encode(note).byteLength > MAX_WAKE_NOTE_BYTES) {
+        throw new Error(`invalid note: expected a non-blank reminder of at most ${MAX_WAKE_NOTE_BYTES} UTF-8 bytes`)
+      }
+      const id = ctx.jobs.start({
+        kind: 'timer',
+        label: `Wake after ${seconds}s`,
+        owner: agent.id,
+        toolCall: { callId, rootCallId },
+        run() {
+          const { promise: done, resolve } = Promise.withResolvers<JobOutcome>()
+          const timer = setTimeout(() => resolve({ status: 'completed', detail: note }), seconds * 1_000)
+          return {
+            done,
+            cancel() {
+              clearTimeout(timer)
+              resolve({ status: 'killed' })
+            },
+          }
+        },
+      })
+      return Promise.resolve({ job_id: id, seconds })
+    },
+    presentCall: args => presentJobCall(`Wake after ${args.seconds}s`, 'execute', args.note),
   }))
 
   ctx.tools.register(defineTool({

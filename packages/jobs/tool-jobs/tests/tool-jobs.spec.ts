@@ -453,6 +453,55 @@ describe('job_watch', () => {
   })
 })
 
+describe('wake_after', () => {
+  it('registers a visible timer whose completion wakes the owner and carries the note', async () => {
+    const { ctx } = await setup()
+    vi.useFakeTimers()
+    const followup = vi.fn<(message: UserMessage) => void>()
+    const inject = vi.fn()
+    try {
+      const owner = await fakeAgent(ctx, 'timer-wake', { followup, inject, status: 'idle' })
+      const timer = await call(ctx, 'wake_after', { seconds: 1, note: 'Check CI results' }, owner)
+      expect(timer.isError).toBe(false)
+      const id = startedId(ctx, 'timer-1')
+      expect(timer.value).toEqual({ job_id: id, seconds: 1 })
+      expect(text(await call(ctx, 'job_list', {}, owner))).toContain(`${id} [timer] running`)
+      await vi.advanceTimersByTimeAsync(999)
+      expect(followup).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(text(await call(ctx, 'job_list', {}, owner))).toContain(`${id} [timer] completed`)
+      expect(followup).toHaveBeenCalledTimes(1)
+      expect(text({ content: [...followup.mock.calls[0]![0].content] })).toContain('Check CI results')
+      expect(inject).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('validates bounds and cancels a timer without waking the owner later', async () => {
+    const { ctx } = await setup()
+    vi.useFakeTimers()
+    const followup = vi.fn()
+    try {
+      const owner = await fakeAgent(ctx, 'timer-kill', { followup, status: 'idle' })
+      for (const seconds of [0, 86_401]) {
+        expect(text(await call(ctx, 'wake_after', { seconds, note: 'Never schedule' }, owner))).toContain('seconds')
+      }
+      expect(text(await call(ctx, 'wake_after', { seconds: 1, note: '  ' }, owner))).toContain('note')
+      expect((await call(ctx, 'wake_after', { seconds: 2, note: 'Check deploy' }, owner)).isError).toBe(false)
+      const id = startedId(ctx, 'timer-1')
+      expect((await call(ctx, 'job_kill', { job_id: id, reason: 'No longer needed' }, owner)).isError).toBe(false)
+      await vi.advanceTimersByTimeAsync(2_000)
+      expect(text(await call(ctx, 'job_output', { job_id: id }, owner))).toBe('(no new output)\n[status: killed, No longer needed]')
+      expect(followup).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+      await ctx.fiber.dispose()
+    }
+  })
+})
+
 describe('job_output', () => {
   it('reads a consuming delta with a trailing status line', async () => {
     const { ctx } = await setup()
