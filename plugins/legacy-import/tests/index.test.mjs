@@ -68,12 +68,16 @@ async function withImporter(callback, { hasDefault = true } = {}) {
     const res = { writeHead(status) { this.status = status }, end(body) { try { resolve({ status: this.status, body: JSON.parse(body) }) } catch (error) { reject(error) } } }
     api.handler(req, res).catch(reject)
   })
+  const confirm = async (selection, scan = undefined) => {
+    scan ??= await rpc('list', { folder: source })
+    return rpc('import', { previewId: scan.body.result.previewId, ...selection })
+  }
   const importImages = async urls => {
     const messages = urls.map((url, index) => ({ id: `u${index}`, role: 'user', created_at: 1000 + index, content: [{ type: 'image_url', image_url: { url } }] }))
     await writeFile(join(source, 'threads', threadId, 'messages.jsonl'), messages.map(message => JSON.stringify(message)).join('\n'))
-    return rpc('import', { folder: source, ids: [threadId] })
+    return confirm({ ids: [threadId] })
   }
-  try { await callback({ source, outside, defaultPath, placement, saved, sessions, failures, importImages, rpc, services }) }
+  try { await callback({ source, outside, defaultPath, placement, saved, sessions, failures, importImages, rpc, confirm, services }) }
   finally { await rm(root, { recursive: true, force: true }) }
 }
 
@@ -116,7 +120,7 @@ test('Jan chats import without project membership when no default is eligible', 
   assert.deepEqual(placement, { initialized: 1, attached: [] })
 }, { hasDefault: false }))
 
-test('legacy MCP import keeps env and header values off the wire and stores them on the Host', async () => withImporter(async ({ source, rpc, services }) => {
+test('legacy MCP import keeps env and header values off the wire and stores them on the Host', async () => withImporter(async ({ source, rpc, confirm, services }) => {
   const envToken = 'legacy-env-token'
   const headerToken = 'legacy-header-token'
   await writeFile(join(source, 'mcp_config.json'), JSON.stringify({ mcpServers: {
@@ -141,8 +145,7 @@ test('legacy MCP import keeps env and header values off the wire and stores them
 
   const old = await rpc('mcpDocument', { folder: source })
   const scan = await rpc('list', { folder: source })
-  const { folder, scanId } = scan.body.result
-  const result = await rpc('import', { folder, scanId, ids: [], mcp: true })
+  const result = await confirm({ mcpNames: ['local-tool', 'remote'] }, scan)
   const progress = await rpc('progress')
   for (const response of [old, scan, result, progress]) {
     const serialized = JSON.stringify(response.body)
@@ -171,7 +174,7 @@ test('legacy MCP import keeps env and header values off the wire and stores them
   assert.deepEqual(records.get('jan-theme/mcp-remote')?.payload, { env: {}, headers: { Authorization: `Bearer ${headerToken}` } })
 }))
 
-test('Settings rejects an MCP endpoint changed after its scan even if another form rescanned', async () => withImporter(async ({ source, rpc, services, sessions }) => {
+test('Settings rejects an MCP endpoint changed after its scan even if another form rescanned', async () => withImporter(async ({ source, rpc, confirm, services, sessions }) => {
   const path = join(source, 'mcp_config.json')
   const writeEndpoint = url => writeFile(path, JSON.stringify({ mcpServers: {
     remote: { type: 'http', url, headers: { Authorization: 'Bearer local-test-token' } },
@@ -182,45 +185,56 @@ test('Settings rejects an MCP endpoint changed after its scan even if another fo
   const writes = []
   services.janMcpSettings = { importMissing: async servers => { writes.push(servers); return { added: ['remote'] } } }
   await writeEndpoint('https://original.example/mcp')
-  const scan = (await rpc('list', { folder: source })).body.result
-  assert.deepEqual(scan.settings.mcp.names, ['remote'])
+  const scan = await rpc('list', { folder: source })
+  assert.deepEqual(scan.body.result.settings.mcp.names, ['remote'])
   await writeEndpoint('https://replacement.example/mcp')
-  const refreshed = (await rpc('list', { folder: source })).body.result
+  const refreshed = await rpc('list', { folder: source })
 
-  const stale = await rpc('import', { folder: scan.folder, scanId: scan.scanId, ids: ['sample'], mcp: true, mcpNames: ['remote'] })
+  const stale = await confirm({ ids: ['sample'], mcpNames: ['remote'] }, scan)
   assert.deepEqual(stale, { status: 400, body: { error: 'The selected MCP configuration changed since the import form opened. Open the form and try again.' } })
   assert.equal(writes.length, 0)
   assert.equal(sessions.size, 0)
 
-  const fresh = await rpc('import', { folder: refreshed.folder, scanId: refreshed.scanId, ids: [], mcp: true, mcpNames: ['remote'] })
+  const fresh = await confirm({ mcpNames: ['remote'] }, refreshed)
   assert.equal(fresh.status, 200)
   assert.equal(fresh.body.result.settings.mcp.imported, 1)
   assert.equal(writes[0].remote.url, 'https://replacement.example/mcp')
 }))
 
-test('progress names the run that produced it, so a refused import cannot borrow the previous result', async () => withImporter(async ({ source, rpc, services }) => {
+test('progress names the run that produced it, so a refused import cannot borrow the previous result', async () => withImporter(async ({ source, rpc, confirm, services }) => {
   await writeFile(join(source, 'mcp_config.json'), JSON.stringify({ mcpServers: { remote: { type: 'http', url: 'https://example.com/mcp' } } }))
   services.janMcpSettings = { importMissing: async () => ({ added: ['remote'] }) }
-  const scan = (await rpc('list', { folder: source })).body.result
-  const done = await rpc('import', { folder: scan.folder, scanId: scan.scanId, ids: [], mcp: true, runId: 'first' })
+  const done = await confirm({ mcpNames: ['remote'], runId: 'first' })
   assert.equal(done.status, 200)
-  const refused = await rpc('import', { folder: scan.folder, scanId: 'evicted-scan', ids: [], mcp: true, runId: 'second' })
+  const refused = await rpc('import', { previewId: 'evicted-preview', mcpNames: ['remote'], runId: 'second' })
   assert.equal(refused.status, 400)
   assert.equal((await rpc('progress')).body.result.runId, 'first')
 }))
 
-test('MCP file parse failures do not disclose file contents in legacy import responses', async () => withImporter(async ({ source, rpc, services }) => {
+test('MCP file parse failures do not disclose file contents in legacy import responses', async () => withImporter(async ({ source, rpc }) => {
   const secret = 'legacy-token'
   await writeFile(join(source, 'mcp_config.json'), `{"env":${secret}}`)
-  services.janMcpSettings = { importMissing: () => assert.fail('invalid JSON must not reach MCP settings') }
-
   const scan = await rpc('list', { folder: source })
-  const { folder, scanId } = scan.body.result
-  const result = await rpc('import', { folder, scanId, ids: [], mcp: true })
-  const progress = await rpc('progress')
-  for (const response of [scan, result, progress]) assert.equal(JSON.stringify(response.body).includes(secret), false)
-  const issues = scan.body.result.settings.mcp.issues
-  assert.deepEqual(issues, [{ file: 'mcp_config.json', reason: 'Could not read MCP configuration from mcp_config.json. Check the file and try again.' }])
-  assert.deepEqual(result.body.result.settings.mcp.issues, issues)
-  assert.deepEqual(progress.body.result.settings.mcp.issues, issues)
+  assert.doesNotMatch(JSON.stringify(scan.body), /legacy-token/)
+  assert.deepEqual(scan.body.result.settings.mcp.issues, [{ file: 'mcp_config.json', reason: 'Could not read MCP configuration from mcp_config.json. Check the file and try again.' }])
+}))
+
+test('AI export preview writes nothing, excludes endpoint and memory text, and cannot be confirmed twice', async () => withImporter(async ({ rpc, services }) => {
+  const writes = []
+  services.janBotImport = {
+    validateRoutine: () => ({ expression: '0 9 * * *', timeZone: 'UTC' }),
+    importBot: async input => { writes.push(input); return { botId: 'atlas', sessionId: 'session-atlas', routines: [] } },
+  }
+  services.janMcpSettings = { importMissing: async value => { writes.push(value); return { added: ['public'] } } }
+  const documents = [JSON.stringify({ format: 'grok-bot-export', version: 1, bots: [{ name: 'Atlas', instructions: 'Private memory text',
+    apps: [{ name: 'Public', mcp_url: 'https://tools.example.com/mcp' }] }] })]
+  const preview = await rpc('previewAiExport', { documents, timeZone: 'UTC' })
+  assert.equal(preview.status, 200)
+  assert.deepEqual(writes, [])
+  assert.doesNotMatch(JSON.stringify(preview), /Private memory text|tools.example.com/)
+  const { previewId, bots, apps } = preview.body.result
+  const selection = { previewId, botIds: [bots[0].id], appIds: [apps[0].id] }
+  assert.equal((await rpc('importAiExport', selection)).body.result.bots[0].sessionId, 'session-atlas')
+  assert.equal((await rpc('importAiExport', selection)).body.error, 'preview-expired')
+  assert.equal(writes.length, 2)
 }))
