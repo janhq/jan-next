@@ -31,6 +31,23 @@
     path: ':memory:'
     openAt: never
 
+# New chats in the app start in Full access; the composer explains this once
+# and Settings > General changes the default for later chats. JAN_PERMISSION_MODE
+# still overrides it, and the CLI keeps the base workspace-write default.
+- id: permission
+  config:
+    presets:
+      read-only:
+        sandbox: read-only
+        approval: ask
+      workspace-write:
+        sandbox: workspace-write
+        approval: ask
+      danger-full-access:
+        sandbox: danger-full-access
+        approval: never
+    defaultPreset: !!js process.env.JAN_PERMISSION_MODE ?? 'danger-full-access'
+
 # ── web-only host rows, the transport layer, and the browser roster ─────────
 
 # `jan.client` rows are the browser roster the modules node half scans into
