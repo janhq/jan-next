@@ -625,13 +625,13 @@ const TOOL_PACKAGES: ToolPackage[] = [
     dir: 'tool-jobs',
     source: 'packages/jobs/tool-jobs/src/index.ts',
     requires: ['ctx.tools', 'ctx.jobs', 'ctx.systemPrompt'],
-    writes: ['tool/call', 'tool/result', 'user/message via agent.inject() for background completion notices'],
+    writes: ['tool/call', 'tool/result', 'user/message via agent.inject() or agent.followup()'],
     async mount(ctx) {
       await ctx.plugin(LocalJobRegistry)
       await ctx.plugin(ToolJobs)
     },
     note:
-      'The kind-agnostic background-job controller: background bash commands and PTY sends are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers\' `ctx.jobs.start()`.',
+      'The shared controller for background jobs. Read, list, watch, or cancel jobs by id. Loading the plugin lets producers register work through `ctx.jobs.start()`.',
   },
   {
     pkg: '@janhq/jan-tool-agent-team',

@@ -70,8 +70,8 @@ async function setup(config: ToolJobs.Config = {}, registry: RegistryConfig = {}
 
 /** The delivery surface a completion notice may reach on a fake owner. */
 interface FakeDelivery {
-  inject?: (...args: unknown[]) => void
-  followup?: (...args: unknown[]) => void
+  inject?: Agent['inject']
+  followup?: Agent['followup']
   remove?: (...args: unknown[]) => boolean
   /** Defaults to `running`, the lane that never wakes, so notice-content tests pin one lane. */
   status?: 'idle' | 'running'
@@ -344,6 +344,112 @@ describe('tool-jobs setup', () => {
     ToolJobs.apply(ctx, {})
     expect(ctx.tools.get('job_output')).toBeDefined()
     expect(() => ctx.jobs.start(producer().spec)).not.toThrow()
+  })
+})
+
+describe('job_watch', () => {
+  it('batches matching new lines without consuming job_output and stops at max_events', async () => {
+    const { ctx } = await setup()
+    vi.useFakeTimers()
+    const followup = vi.fn<(message: UserMessage) => void>()
+    const inject = vi.fn()
+    try {
+      const owner = await fakeAgent(ctx, 'watch-batches', { followup, inject, status: 'idle' })
+      const p = producer({ owner: owner.id, kind: 'test-task', cancel: () => p.settle({ status: 'killed' }) })
+      const id = ctx.jobs.start(p.spec)
+      p.append('ERROR before watch\n')
+      const watch = await call(ctx, 'job_watch', { job_id: id, pattern: '^ERROR', max_events: 2, debounce_ms: 50 }, owner)
+      expect(watch.isError).toBe(false)
+      expect(watch.value).toMatchObject({ watch_id: expect.any(String), job_id: id, max_events: 2, debounce_ms: 50 })
+
+      p.append('ignore\r\nER')
+      p.append('ERROR from stderr\n', { channel: 'stderr' })
+      p.append('ROR one\r\n')
+      await vi.advanceTimersByTimeAsync(49)
+      p.append('ERROR two\n')
+      expect(followup).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(followup.mock.calls.map(([message]) => text({ content: [...message.content] })))
+        .toEqual([expect.stringContaining('ERROR from stderr\nERROR one\nERROR two')])
+      expect(text({ content: [...followup.mock.calls[0]![0].content] })).not.toMatch(/ignore|before watch/)
+      expect(inject).not.toHaveBeenCalled()
+
+      p.append('ERROR three\n')
+      await vi.advanceTimersByTimeAsync(50)
+      p.append('ERROR after limit\n')
+      await vi.advanceTimersByTimeAsync(50)
+      expect(followup).toHaveBeenCalledTimes(2)
+
+      p.settle({ status: 'completed' })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(followup).toHaveBeenCalledTimes(3)
+      const output = text(await call(ctx, 'job_output', { job_id: id }, owner))
+      expect(output).toContain('ERROR before watch\nignore\r\nERROR one\r\nERROR two\nERROR three\nERROR after limit')
+      expect(output).toContain('ERROR from stderr')
+    } finally {
+      vi.useRealTimers()
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('uses quiet injection and flushes pending and trailing text in a single completion notice', async () => {
+    const { ctx } = await setup({ completionDelivery: 'quiet' })
+    vi.useFakeTimers()
+    const followup = vi.fn()
+    const inject = vi.fn<(message: UserMessage) => void>()
+    try {
+      const owner = await fakeAgent(ctx, 'watch-settle', { followup, inject, status: 'idle' })
+      const p = producer({ owner: owner.id, cancel: () => p.settle({ status: 'killed' }) })
+      const id = ctx.jobs.start(p.spec)
+      expect((await call(ctx, 'job_watch', { job_id: id }, owner)).isError).toBe(false)
+      p.append('first line\ntrailing line')
+      p.settle({ status: 'completed' })
+      await vi.advanceTimersByTimeAsync(2_000)
+
+      expect(inject).toHaveBeenCalledTimes(1)
+      const notice = text({ content: [...inject.mock.calls[0]![0].content] })
+      expect(notice).toContain('finished [status: completed]')
+      expect(notice).toContain('first line\ntrailing line')
+      expect(followup).not.toHaveBeenCalled()
+      expect(text(await call(ctx, 'job_output', { job_id: id }, owner))).toBe('first line\ntrailing line\n[status: completed]')
+      expect(text(await call(ctx, 'job_watch', { job_id: id }, owner))).toContain('not running')
+    } finally {
+      vi.useRealTimers()
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('stops queued output on kill and owner teardown and rejects invalid subscriptions', async () => {
+    const { ctx } = await setup()
+    vi.useFakeTimers()
+    const followup = vi.fn()
+    const done = Promise.withResolvers<JobOutcome>()
+    try {
+      const owner = await fakeAgent(ctx, 'watch-abandoned', { followup, status: 'idle' })
+      const killed = producer({ owner: owner.id, done: done.promise })
+      const id = ctx.jobs.start(killed.spec)
+      expect(text(await call(ctx, 'job_watch', { job_id: id, pattern: '[' }, owner))).toContain('invalid pattern')
+      expect(text(await call(ctx, 'job_watch', { job_id: id, max_events: 0 }, owner))).toContain('max_events')
+      expect(text(await call(ctx, 'job_watch', { job_id: id, debounce_ms: 0 }, owner))).toContain('debounce_ms')
+      expect((await call(ctx, 'job_watch', { job_id: id }, owner)).isError).toBe(false)
+      killed.append('queued before kill\n')
+      expect((await call(ctx, 'job_kill', { job_id: id }, owner)).isError).toBe(false)
+      killed.append('queued after kill\n')
+      await vi.advanceTimersByTimeAsync(1_000)
+      done.resolve({ status: 'killed' })
+
+      const abandoned = producer({ owner: owner.id, cancel: () => abandoned.settle({ status: 'killed' }) })
+      const abandonedId = ctx.jobs.start(abandoned.spec)
+      expect((await call(ctx, 'job_watch', { job_id: abandonedId }, owner)).isError).toBe(false)
+      abandoned.append('queued before disposal\n')
+      await disposeAgentScope(owner)
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(followup).not.toHaveBeenCalled()
+    } finally {
+      done.resolve({ status: 'killed' })
+      vi.useRealTimers()
+      await ctx.fiber.dispose()
+    }
   })
 })
 

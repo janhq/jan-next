@@ -29,7 +29,7 @@ Use this package when you are composing a background-job capability or writing a
 
 A producer registers work with a kind and a one-line label; the registry returns a `<kind>-<short-uuid>` id such as `bash-<short-uuid>`, where the suffix is 16 lowercase UUID hex characters. Anyone who owns the job can read output, list jobs, wait up to a timeout for settlement, and request cancellation — each call returns a fresh projection of the job's status, from `running` and `stopping` to the terminal `completed`, `killed`, or `failed`. When a job settles, the registry's event stream announces it and `jan-tool-jobs` turns the settlement into an in-session notice, so no polling is needed. A producer may attach an optional byte cap so each complete model-facing read or notice stays bounded.
 
-A producer streams output by naming pull sources on its spec — non-consuming offset readers the registry pumps at its own cadence — or by pushing chunks through the `JobHandle` its starter receives; both land in the job's bounded ring, where `stdout` and `stderr` chunks reach the model and `log` chunks reach observers only. Observers read retained chunks at absolute byte offsets and are signaled on advancement; the settlement that ends the job also ends the stream, and `updateProgress` publishes a live progress line into every projection until then. Observation is invisible to the model: `readAt` consumes nothing and never touches notice state.
+A producer streams output by supplying pull sources or pushing chunks through its `JobHandle`. Both paths land in the bounded ring. Consuming model reads omit `log` narration; observers such as [`job_watch`](../tool-jobs/README.md#background-job-tools) can use every channel. Observers receive advancement signals and use absolute offsets to read retained chunks without moving the model cursor. Settlement ends the stream, and `updateProgress` publishes a live progress line until then.
 
 The shipped provider also records owned-job lifecycle metadata in the Session. Producers attach `JobSpec.toolCall` when a tool creates the job, preserving nested and root call identity. See the [durable event fields](../../../docs/subsystems/jobs.md#session-lifecycle-records) for timing and restart semantics.
 
@@ -48,7 +48,7 @@ A producer can start work only while a controller that serves the owner is attac
 - name: '@janhq/jan-tool-jobs'
 ```
 
-Loading these two plugins on a harness base that already provides the agent, tools, and system-prompt services gives the full feature: `jan-jobs-local` provides the in-process background-job registry, and `jan-tool-jobs` provides the `job_output`, `job_list`, and `job_kill` tools plus completion-notice delivery.
+Load these plugins on a harness that provides the agent, tools, and system-prompt services. `jan-jobs-local` provides the process-local registry; `jan-tool-jobs` provides model-facing controls, output watches, and completion notices.
 
 ### What can go wrong
 
@@ -100,7 +100,7 @@ Read these pages when the package-level contract is not enough. They move from t
 - [Background task runtime subsystem](../../../docs/subsystems/jobs.md) — the job types, projection fields, and `ctx.jobs` Cordis surface.
 - [jobs group map](../README.md) — the sibling group page and its package table.
 - [Process-local registry](../jobs-local/README.md) — the shipped implementation that runs jobs in this process.
-- [Model-facing job controls](../tool-jobs/README.md) — the `job_output`, `job_list`, and `job_kill` tools and completion notices.
+- [Model-facing job controls](../tool-jobs/README.md) - tools, watches, and completion notices.
 - [Jobs lifecycle and output ownership](../../../.agents/notes/implemented/architecture/2026-09-03-jobs-seam-consolidation.md) — one lifecycle, output ring, and observation stream.
 - [Jobs seam consolidation Agent Note](../../../.agents/notes/implemented/architecture/2026-09-03-jobs-seam-consolidation.md) — one output ring, one projection, one event stream.
 
