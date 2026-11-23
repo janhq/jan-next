@@ -53,12 +53,14 @@ function setup(options: {
     useProjection,
     usePermissionCatalog: bindSnapshotSelector(catalog),
     select,
+    t,
+  } as unknown as PermissionSelectProps
+  const notice: Pick<PermissionSelectProps, 'noticeSeen' | 'dismissNotice' | 'openDefaultSettings'> = {
     noticeSeen: options.noticeSeen ?? (() => true),
     dismissNotice: options.dismissNotice ?? (() => undefined),
     ...options.openDefaultSettings === undefined ? {} : { openDefaultSettings: options.openDefaultSettings },
-    t,
-  } as unknown as PermissionSelectProps
-  const view = render(<PermissionSelect {...props} />)
+  }
+  const view = render(<PermissionSelect {...props} {...notice} />)
   return { catalog, props, select, selection, view }
 }
 
