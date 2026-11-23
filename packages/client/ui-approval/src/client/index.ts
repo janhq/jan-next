@@ -1,6 +1,6 @@
 /** Browser approval consumer over the existing scoped Remote Event waterfall. */
 import type { Context as ClientContext } from '@janhq/cordis'
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import type {} from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-api-session-controller/client'
 import type { ComposerChainProps } from '@janhq/jan-client-ui-conversation/client'
@@ -34,10 +34,9 @@ const FULL_ACCESS_PRESET = 'danger-full-access'
 function useFullAccessSwitch(ctx: ClientContext, request: PendingApproval): (() => Promise<void>) | undefined {
   const session = ctx.sessions.binding(request.sessionId)?.session
   const permissions = session?.projections.faceOf('permissions')
-  const selection = useSyncExternalStore(
-    permissions?.subscribe ?? noSubscription,
-    permissions?.getSnapshot ?? noSelection,
-  ) as { currentValue: string } | undefined
+  const subscribe = useCallback((listener: () => void) => permissions?.subscribe(listener) ?? noUnsubscribe, [permissions])
+  const getSnapshot = useCallback(() => permissions?.getSnapshot(), [permissions])
+  const selection = useSyncExternalStore(subscribe, getSnapshot) as { currentValue: string } | undefined
   const canSwitch = selection !== undefined && selection.currentValue !== FULL_ACCESS_PRESET
   const [availableFor, setAvailableFor] = useState<PendingApproval>()
   useEffect(() => {
@@ -63,12 +62,11 @@ function useFullAccessSwitch(ctx: ClientContext, request: PendingApproval): (() 
     const result = await ctx.remote.commands.execute(request.sessionId, `/permission ${FULL_ACCESS_PRESET}`, [])
     if (!result.ok) throw new Error(`permission switch failed: ${result.error.code}: ${result.error.message}`)
     if (result.value === undefined) throw new Error('the host offers no /permission command')
-    if (result.value.result.kind !== 'success') throw new Error(result.value.result.text ?? 'permission switch failed')
+    if (result.value.result.kind !== 'success') throw new Error(result.value.result.text)
   }
 }
 
-const noSubscription = (): (() => void) => () => {}
-const noSelection = (): undefined => undefined
+const noUnsubscribe = (): void => {}
 
 type ApprovalListener = TypertClientEventListener<'approval/request'>
 type ClientApprovalRequest = Parameters<ApprovalListener>[0]
