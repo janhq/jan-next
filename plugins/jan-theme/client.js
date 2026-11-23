@@ -704,7 +704,7 @@ window.__ModuleLoader__.load({
 .jt-agent-settings .jt-agent-tile h3 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; overflow-wrap: anywhere; }
 .jt-agent-tile .jt-agent-card-meta { display: inline; }
 /* Tile art matches the Hub's and the plugin tiles' 40px frame. */
-.jt-agent-art { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-size: 18px; font-weight: 600; color: #fff; background: linear-gradient(135deg, hsl(var(--jt-hue) 70% 55%), hsl(calc(var(--jt-hue) + 60) 70% 42%)); }
+.jt-agent-art { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-size: 16px; font-weight: 600; color: #fff; background: linear-gradient(135deg, hsl(var(--jt-hue) 70% 55%), hsl(calc(var(--jt-hue) + 60) 70% 42%)); }
 /* A publisher logo sits on white like an app icon, so dark marks stay visible in the dark theme. */
 .jt-registry-logo { background: #fff; box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / .12); overflow: hidden; }
 .jt-registry-logo img { width: 30px; height: 30px; object-fit: contain; }
@@ -717,7 +717,7 @@ window.__ModuleLoader__.load({
 .jt-chip[aria-pressed='true'] { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); font-weight: 500; }
 .jt-chip:focus-visible, .jt-agent-add:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); }
 @media (hover: hover) { .jt-chip:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); } }
-.jt-chip-count { font-size: 11px; color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
+.jt-chip-count { font-size: 12px; color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
 .jt-agent-add { display: grid; justify-items: center; gap: 4px; padding: 20px; border: 1px dashed var(--dsw-alias-border-l2); border-radius: 12px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font: inherit; font-size: 13px; transition: border-color .18s, color .18s; }
 .jt-agent-add span { color: var(--dsw-alias-label-primary); font-weight: 500; }
 .jt-agent-add:hover:not(:disabled) { border-color: var(--dsw-alias-border-l4); }
@@ -979,7 +979,7 @@ window.__ModuleLoader__.load({
   .jt-project-tile:hover { transform: translateY(-2px); border-color: var(--dsw-alias-border-l4); box-shadow: 0 8px 20px color-mix(in oklab, hsl(var(--jt-hue) 60% 45%) 18%, transparent); }
   .jt-project-tile:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); }
   .jt-project-tile > span { max-width: 100%; min-width: 0; }
-  .jt-project-tile-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15px; font-weight: 500; line-height: 22px; }
+  .jt-project-tile-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; font-weight: 500; line-height: 22px; }
   /* rtl clips from the left so the folder name at the end stays visible. */
   .jt-project-tile-path { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; direction: rtl; text-align: left; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; }
   .jt-project-tile-meta { margin-top: auto; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 18px; }
