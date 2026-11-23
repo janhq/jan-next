@@ -217,7 +217,7 @@ window.__ModuleLoader__.load({
     }
 
     async function api(method, params = {}) {
-      const response = await fetch('/jan-api/preset-square', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+      const response = await fetch(new URL('jan-api/preset-square', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
       let body
       try { body = await response.json() } catch { throw new HttpError('error.invalidResponse', response.status) }
       if (body.error) throw new Error(body.error)

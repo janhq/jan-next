@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
     const { useState, useRef, useCallback } = React
     const { Menu, Switch, Tooltip } = require('@janhq/jan-client-ui-primitives')
     const NS = 'jan-status-bar'
-    const API = '/jan-api/status-bar'
+    const API = new URL('jan-api/status-bar', document.baseURI)
     const SLOTS = { left: 'statusbar.left', right: 'statusbar.right' }
     const SETTINGS_SLOT = 'plugins.item'
     const ACTIONS_SLOT = 'plugins.detail.actions'

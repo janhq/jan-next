@@ -5,7 +5,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const { Button, Input, Checkbox, IconCloseOutlineRegular, NotificationPortal } = require('@janhq/jan-client-ui-primitives')
     async function api(method, params = {}) {
-      const response = await fetch('/jan-api/legacy-import', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+      const response = await fetch(new URL('jan-api/legacy-import', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
       const body = await response.json()
       if (!response.ok || body.error) throw new Error(body.error || `HTTP ${response.status}`)
       return body.result

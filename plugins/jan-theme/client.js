@@ -81,7 +81,7 @@ window.__ModuleLoader__.load({
       appearanceListeners.forEach(listener => listener())
     }
     async function appearanceApi(method, params = {}) {
-      const response = await fetch('/jan-api/appearance', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+      const response = await fetch(new URL('jan-api/appearance', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
       const body = await response.json()
       if (!response.ok || body.error) throw new Error(body.error || 'Appearance settings could not be saved.')
       return body.result
@@ -136,7 +136,7 @@ window.__ModuleLoader__.load({
     async function agentApi(method, params = {}) {
       const read = method === 'list' || method === 'readSkill' || method === 'previewImport' || method === 'searchRegistry'
       for (let attempt = 0; ; attempt++) {
-        const response = await fetch('/jan-api/agent-settings', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+        const response = await fetch(new URL('jan-api/agent-settings', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
         const body = response.headers.get('content-type')?.startsWith('application/json') ? await response.json() : undefined
         if (body !== undefined) {
           if (!response.ok || body.error) throw new Error(body.error || 'Settings could not be saved.')
@@ -1651,7 +1651,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       if (scope.uiWorkspace.openProjectSurface?.(workspaceId) !== true) showProject(scope.layout, workspaceId)
     }
     async function projectApi(method, params = {}, signal) {
-      const response = await fetch('/jan-api/project-home', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }), signal })
+      const response = await fetch(new URL('jan-api/project-home', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }), signal })
       // A settings save reloads the Host plugin; its route is briefly absent and answers without JSON.
       if (!response.headers.get('content-type')?.startsWith('application/json')) throw new Error('Jan is reloading. Try again in a moment.')
       const body = await response.json()
@@ -2103,7 +2103,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     const byTime = (a, b) => (b.time ?? 0) - (a.time ?? 0)
 
     async function healthApi(method, params = {}) {
-      const response = await fetch('/jan-api/startup-health', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+      const response = await fetch(new URL('jan-api/startup-health', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
       // A settings save reloads the Host plugin; its route is briefly absent and answers without JSON.
       if (!response.headers.get('content-type')?.startsWith('application/json')) throw new Error('unavailable')
       const body = await response.json()
