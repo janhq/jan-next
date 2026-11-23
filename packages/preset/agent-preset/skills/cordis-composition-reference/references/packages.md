@@ -70,7 +70,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-shortcuts` | yes | Application keyboard command registry and physical-key routing |
 | `@janhq/jan-client-ui-agent-preset` | no | Agent-preset surfaces: the default for later sessions, this session's seat, and the composition editor |
 | `@janhq/jan-client-ui-agent-team` | no | Web shared task board for a subagent tree |
-| `@janhq/jan-client-ui-approval` | no | Approval composer takeover over the scoped Remote Event waterfall |
+| `@janhq/jan-client-ui-approval` | no | Composer dock for tool approval over the scoped Remote Event waterfall |
 | `@janhq/jan-client-ui-attachment` | no | Dynamic attachment presentation plugin for conversation input, message-image, and trajectory image slots |
 | `@janhq/jan-client-ui-brand-official` | no | Jan brand artwork for the sidebar and home hero |
 | `@janhq/jan-client-ui-chat` | no | Chat Conversation target, node definitions, renderers, and details surface |
