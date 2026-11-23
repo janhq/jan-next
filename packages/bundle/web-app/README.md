@@ -166,7 +166,23 @@ None; the plugin contributes no system-prompt text.
 
 ### Persona guidance for visual results
 
-The `standard`, `ptc`, and `cordis` persona prefixes add two sentences (about 50 tokens) asking for a lone `present` of visual results. They are constant per preset, so they stay in the cached prefix.
+#### What the model sees
+
+The `standard`, `ptc`, and `cordis` persona prefixes include this instruction for visual results.
+
+##### Visual result instruction
+
+```markdown
+When you make something the user should see, such as an HTML page, game, chart, diagram, SVG, or image, save it as one file and call present with only that file, so the chat shows it inline under your reply.
+```
+
+#### Token effect
+
+One fixed sentence in the prefix for these presets.
+
+#### KV Cache effect
+
+Prefix-stable while the selected persona is unchanged.
 
 ## Known Limitations and Deferred Work
 

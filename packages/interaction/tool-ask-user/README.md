@@ -121,7 +121,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 #### What the model sees
 
-The shipped Web presets that include the tool expose its questions without a model-editable timeout. The duration comes from the user's settings. A custom Cordis row with `mode: timed` instead includes the model-facing `timeout` parameter and can return a pending result. The model sees only the definition selected by the preset.
+The shipped Web presets that include [`ask_user_question`](../../../docs/tool-catalog.md#janhqjan-tool-ask-user) expose its questions without a model-editable timeout. The duration comes from the user's settings. A custom Cordis row with `mode: timed` instead includes the model-facing `timeout` parameter and can return a pending result. The model sees only the definition selected by the preset.
 
 #### Token effect
 

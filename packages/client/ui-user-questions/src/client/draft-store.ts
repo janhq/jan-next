@@ -40,7 +40,12 @@ type QuestionDraftActions = {
   prune: (draft: QuestionDraftState, keep: readonly string[]) => void
 }
 
-/** Read progress only when it still describes this question batch. */
+/**
+ * Read saved progress only when it can be used for this question batch.
+ * @param value - unvalidated saved progress.
+ * @param questionCount - number of questions in the current batch.
+ * @returns the original progress when valid for that count, or undefined.
+ */
 export function questionDraftProgress(value: unknown, questionCount: number): QuestionDraftProgress | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
   const progress = value as Record<string, unknown>
@@ -56,7 +61,12 @@ export function questionDraftProgress(value: unknown, questionCount: number): Qu
   }) ? value as QuestionDraftProgress : undefined
 }
 
-/** Honor edits made by older browsers that did not persist a wait disposition. */
+/**
+ * Honor edits made by older browsers that did not persist a wait disposition.
+ * @param progress - saved draft, if any.
+ * @param questions - current questions used to identify untouched recommended choices.
+ * @returns the saved disposition, editing for a changed older draft, or undefined for no hold.
+ */
 export function questionDraftHold(progress: QuestionDraftProgress | undefined, questions: readonly AskUserQuestionItem[]): QuestionDraftProgress['wait'] {
   return progress?.wait ?? (progress?.drafts.some((draft, index) => {
     if (draft.custom !== '' || draft.skipped) return true
@@ -67,7 +77,13 @@ export function questionDraftHold(progress: QuestionDraftProgress | undefined, q
   }) ? 'editing' : undefined)
 }
 
-/** Read this browser's saved draft when a timed card has no mounted composer. */
+/**
+ * Read this browser's saved draft when a timed card has no mounted composer.
+ * @param sessionId - Session that owns the draft store.
+ * @param key - request key within that store.
+ * @param questionCount - number of questions in the current batch.
+ * @returns valid saved progress, or undefined if unavailable or invalid.
+ */
 export function persistedQuestionDraft(sessionId: SessionId, key: string, questionCount: number): QuestionDraftProgress | undefined {
   if (typeof localStorage === 'undefined') return undefined
   try {

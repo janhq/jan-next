@@ -50,6 +50,7 @@ export interface WorkspaceIdentityPatch {
 }
 
 /**
+ * Validate the text for a Workspace emoji avatar.
  * @param value - candidate avatar text, without surrounding whitespace.
  * @returns whether it is exactly one Unicode RGI emoji, including complete flags, keycaps and joined sequences.
  */
@@ -58,6 +59,7 @@ export function isWorkspaceEmoji(value: string): boolean {
 }
 
 /**
+ * Check a Workspace image avatar's URL format and length without decoding its contents.
  * @param value - candidate uploaded avatar.
  * @returns whether it is a base64 PNG `data:` URL within {@link MAX_WORKSPACE_IMAGE_LENGTH}.
  */
@@ -66,6 +68,7 @@ export function isWorkspaceImage(value: string): boolean {
 }
 
 /**
+ * Validate the host name used to look up a Workspace favicon.
  * @param value - candidate favicon host, already trimmed and lower-cased.
  * @returns whether it is a dotted DNS host name such as `example.com`, without scheme, port or path.
  */
@@ -74,6 +77,7 @@ export function isWorkspaceDomain(value: string): boolean {
 }
 
 /**
+ * Compare saved avatar choices by kind and value rather than object identity.
  * @param left - one avatar, or undefined for the automatic one.
  * @param right - the other.
  * @returns whether both show the same choice.

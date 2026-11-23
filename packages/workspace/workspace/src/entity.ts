@@ -116,7 +116,10 @@ export class WorkspaceEntity implements Workspace {
     await this.mutate(record => ({ ...record, title }))
   }
 
-  /** @param patch - title and optional appearance changes, applied in one write. */
+  /**
+   * Apply identity changes together, preserving omitted fields and clearing null appearance fields.
+   * @param patch - title and optional appearance changes.
+   */
   async updateIdentity(patch: WorkspaceIdentityPatch): Promise<void> {
     await this.mutate((record) => {
       const title = patch.title ?? record.title

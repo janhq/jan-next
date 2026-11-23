@@ -165,8 +165,8 @@ const subsystemGroups = [
 const reference = [
   ...sectionPages('reference', 'Concepts', [
     { source: 'docs/architecture.md', route: 'reference/index.md', label: 'Architecture' },
-    { source: 'docs/instruction-precedence.md', route: 'reference/instruction-precedence.md', label: 'Instruction precedence' },
     { source: 'docs/cordis-primer.md', route: 'reference/cordis-primer.md', label: 'Cordis primer' },
+    { source: 'docs/instruction-precedence.md', route: 'reference/instruction-precedence.md', label: 'Instruction precedence' },
     { source: 'docs/capability-seams.md', route: 'reference/capability-seams.md', label: 'Capability services' },
     { source: 'docs/agent-lifecycle.md', route: 'reference/agent-lifecycle.md', label: 'Agent lifecycle' },
     { source: 'docs/tool-execution-pipeline.md', route: 'reference/tool-execution-pipeline.md', label: 'Tool execution' },

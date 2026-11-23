@@ -28,10 +28,11 @@ export interface CatalogSources {
  * @param sources - Session list and live status hooks.
  * @returns Catalogs plus the summaries their rows read.
  */
-export function useCatalogs({ useSessions, useSessionStatus }: CatalogSources): {
+export function useCatalogs(sources: CatalogSources): {
   catalogs: Catalogs
   summaries: Readonly<Record<SessionId, SessionSummary>>
 } {
+  const { useSessions, useSessionStatus } = sources
   const projections = useSessions(state => state.projectionsBySession)
   const summaries = useSessions(state => state.byId)
   const statuses = useSessionStatus(value => value)
@@ -55,13 +56,24 @@ export function useCatalogs({ useSessions, useSessionStatus }: CatalogSources): 
   return { catalogs, summaries }
 }
 
-/** Only a local child's last closed, normally completed turn receives the completed marker. */
+/**
+ * Decide whether a catalog row can show the completed marker.
+ * @param entry - direct catalog member with its live activity.
+ * @param summary - the member's Session summary, if loaded.
+ * @returns true only for an inactive local child whose last turn completed normally.
+ */
 export function completedEntry(entry: SubagentCatalogSnapshot['entries'][number], summary: SessionSummary | undefined): boolean {
   return entry.mode !== 'external' && entry.activity === 'inactive'
     && summary?.projectionValues?.subagentTiming?.lastTurnCompleted === true
 }
 
-/** Count direct catalog members without treating external or other inactive entries as completed. */
+/**
+ * Count direct catalog members by activity without counting external or other inactive entries as completed.
+ * @param entries - direct catalog members to count.
+ * @param summaries - Session summaries keyed by Session id.
+ * @param t - roster translator for each category count.
+ * @returns the joined localized counts, omitting empty categories.
+ */
 export function catalogProgress(
   entries: SubagentCatalogSnapshot['entries'],
   summaries: Readonly<Record<SessionId, SessionSummary>>,

@@ -115,6 +115,8 @@ interface AskUserQuestionAnswerItem {
 interface AskUserQuestionAnswer {
   /** Structured answers keyed by question id. */
   answers: AskUserQuestionAnswerItem[]
+  /** The answering Client automatically submitted the batch at its deadline. */
+  autoSubmitted?: true
 }
 ```
 
@@ -138,13 +140,15 @@ interface AskUserQuestionRequestEvent {
     callId: ToolCallId
     /** True for a foreground wait that requires a Client claim; absent for indefinite waits. */
     timed?: boolean
+    /** Submit an answer batch instead of returning pending when the Client countdown expires. */
+    autoSubmit?: true
   }
 }
 ```
 
 ## Timed questions and late replies
 
-A timed question waits for a bounded foreground window and then lets the agent continue independent work. If the user answers inside the window, the tool returns the answer batch; otherwise `TimedUserQuestionResult` is `{ pending: true, callId }`. Pending means the question is still answerable; it is not an empty answer, a refusal, a confirmation, or permission.
+A timed question waits for a bounded foreground window and then lets the agent continue independent work. The tool returns a batch when the user submits one or when an answering Client with `autoSubmit` submits one at its deadline. Without a batch, `TimedUserQuestionResult` is `{ pending: true, callId }`. Pending means the question is still answerable; it is not an empty answer, a refusal, a confirmation, or permission.
 
 ```ts type-equiv
 /** Timed ask result returned when the foreground answer window closes. */

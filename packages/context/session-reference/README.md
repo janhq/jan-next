@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-`jan-session-reference` lets a conversation point at other chats. A host turns a `@label` mention into a canonical URI; the service replaces it with readable `@label` text and adds a short pointer naming each mentioned chat's label, session id, and project folder. Nothing of a mentioned chat is loaded: the model reads one on demand with the `read_chat` tool, a page of messages at a time, and only for chats the user mentioned. Candidate discovery ranks other sessions by working-directory affinity and labels them with their latest titles. It is an opt-in service for hosts that support cross-session mentions; it consumes `ctx.sessionQuery` and needs no SQLite FTS.
+Mention other chats without automatically loading their history. Jan keeps a readable `@label` mention and gives the model a pointer with the chat's label, Session id, and project folder. The model can use `read_chat` to read a page of messages on demand, but only from a chat you mentioned. The picker ranks chats from the same working directory first and uses their latest titles. This opt-in feature works without SQLite full-text search.
 
 ## Table of Contents
 
