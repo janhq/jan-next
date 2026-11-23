@@ -2,6 +2,7 @@ import { readFile, readdir, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { resolve, join, extname, isAbsolute, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
 import z from '@janhq/schemastery'
 import { credentialRef } from '@janhq/jan-credentials'
 import { registerApi } from '@janhq/jan-plugin-api'
@@ -31,6 +32,10 @@ const validId = id => typeof id === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127
 const parseMessages = text => text.split(/\r?\n/).filter(line => line.trim()).map((line, index) => {
   try { return JSON.parse(line) } catch { throw new Error(`Invalid messages.jsonl at line ${index + 1}.`) }
 })
+const selectedRows = (rows, ids) => ids === undefined ? rows : rows.filter(row => ids.has(row.id))
+const ensureUnchanged = (label, before, current) => {
+  if (!isDeepStrictEqual(before, current)) throw new Error(`${label} changed since the import form opened. Open the form and try again.`)
+}
 
 export function apply(ctx, config = {}) {
   const entry = ctx.fiber.entry?.options.id
@@ -155,7 +160,7 @@ export function apply(ctx, config = {}) {
     })
     return { source, folder: root, threads, older: all.length - files.length }
   }
-  const list = async ({ source = 'jan', folder, since }) => {
+  const list = async ({ source = 'jan', folder, since }, approval) => {
     if (source === 'orca') return listOrca({ since })
     if (!MCP_SOURCES.includes(source)) throw new Error('Choose a supported migration source.')
     if (source !== 'jan') {
@@ -163,7 +168,7 @@ export function apply(ctx, config = {}) {
         CONNECTORS_ONLY.includes(source) ? { source, threads: [] } : listAgent({ source, folder, since }).catch(() => ({
           source, folder: folder || defaultFolders()[source], threads: [], missing: true, chatError: 'Could not scan chat files. Check the folder and try again.',
         })),
-        settingsSummary(source),
+        settingsSummary(source, undefined, approval),
       ])
       return { ...conversations, settings }
     }
@@ -187,17 +192,24 @@ export function apply(ctx, config = {}) {
       }
     }
     threads.sort((a, b) => (b.updated ?? 0) - (a.updated ?? 0))
-    return { source, folder: janFolder, threads, settings: await settingsSummary(source, janFolder) }
+    return { source, folder: janFolder, threads, settings: await settingsSummary(source, janFolder, approval) }
   }
-  const settingsSummary = async (source, folder) => {
-    const mcp = summarizeMcp(await readMcpSource(source, { folder }), new Set(ctx.get('janMcpSettings')?.configuredNames?.()))
+  const settingsSummary = async (source, folder, approval) => {
+    const scan = await readMcpSource(source, { folder })
+    if (approval) approval.mcp = scan
+    const mcp = summarizeMcp(scan, new Set(ctx.get('janMcpSettings')?.configuredNames?.()))
     const result = { mcp, providers: [], assistants: [] }
     if (source !== 'jan') {
-      try { result.skills = await skillScan(source) } catch { result.skills = { error: 'Could not read skills. Check the skills folder and try again.' } }
+      try {
+        result.skills = await skillScan(source)
+        if (approval) approval.skills = result.skills
+      } catch { result.skills = { error: 'Could not read skills. Check the skills folder and try again.' } }
       return result
     }
     try {
-      const { providers, assistants } = await readJanSettings(folder, await janKeyNames(folder))
+      const janSettings = await readJanSettings(folder, await janKeyNames(folder))
+      if (approval) approval.janSettings = janSettings
+      const { providers, assistants } = janSettings
       const stored = config.assistants?.get() ?? {}
       const routes = ctx.get('settings')?.describe().find(item => item.ns === PROVIDERS_NS)?.value?.providers ?? {}
       const credentials = ctx.get('credentials')
@@ -323,12 +335,14 @@ export function apply(ctx, config = {}) {
     if (ops.length) await settings.mutate(PROVIDERS_NS, ops)
     return { id: row.id, route: row.route, status: existing ? 'already here' : 'imported', key, ...(reason ? { reason } : {}) }
   }
-  // `names` limits the import to the servers the user ticked; absent brings every ready one.
-  const importMcp = async (origin, folder, names) => {
-    const read = await readMcpSource(origin, { folder })
-    const chosen = names === undefined ? undefined : new Set(names)
-    const scan = chosen === undefined ? read : { ...read, rows: read.rows.filter(row => chosen.has(row.name)),
-      servers: Object.fromEntries(Object.entries(read.servers).filter(([name]) => chosen.has(name))) }
+  // Keep these selections separate from the redacted MCP summary sent to the form.
+  const selectMcp = (scan, names) => {
+    if (names === undefined) return scan
+    const chosen = new Set(names)
+    return { ...scan, rows: scan.rows.filter(row => chosen.has(row.name)),
+      servers: Object.fromEntries(Object.entries(scan.servers).filter(([name]) => chosen.has(name))) }
+  }
+  const importMcp = async scan => {
     const settings = ctx.get('janMcpSettings')
     const summary = summarizeMcp(scan, new Set(settings?.configuredNames?.()))
     let error
@@ -346,46 +360,70 @@ export function apply(ctx, config = {}) {
     return { imported: added.length, already: rows.filter(row => row.status === 'already here').length,
       names: rows.map(row => row.name), rows, skipped: scan.skipped, issues: scan.issues, ...(error ? { error } : {}) }
   }
-  const importSelected = async ({ source: origin = 'jan', folder, ids, providers = false, assistants = false, mcp = false, mcpNames, skills = false, skillNames, instructions = false }) => {
+  const importSelected = async ({ source: origin = 'jan', folder, ids, providers, providerIds, assistants, assistantIds, mcp = false, mcpNames, skills = false, skillNames, instructions = false }, approval) => {
     if (job?.running) throw new Error('An import is already running.')
     const orca = origin === 'orca'
     if (!orca && !MCP_SOURCES.includes(origin)) throw new Error('Choose a supported migration source.')
     if (!Array.isArray(ids) || ids.some(id => !validId(id))) throw new Error('Select valid session IDs.')
     if (CONNECTORS_ONLY.includes(origin) && ids.length) throw new Error('This source only imports MCP servers, not chats.')
-    if (origin !== 'jan' && (providers || assistants)) throw new Error('Model providers and assistants come only from the earlier Jan app.')
+    const providerSelection = providerIds === undefined ? undefined : new Set(providerIds)
+    const assistantSelection = assistantIds === undefined ? undefined : new Set(assistantIds)
+    const withProviders = providerSelection === undefined ? providers === true : providerSelection.size > 0
+    const withAssistants = assistantSelection === undefined ? assistants === true : assistantSelection.size > 0
+    if (origin !== 'jan' && (withProviders || withAssistants)) throw new Error('Model providers and assistants come only from the earlier Jan app.')
     if (orca && (mcp || skills || instructions)) throw new Error('Import MCP servers and skills from the app that configured them.')
     if (origin === 'jan' && (skills || instructions)) throw new Error('Skills come from Claude Code, Codex, OMP and Cursor.')
-    if (!ids.length && !providers && !assistants && !mcp && !skills && !instructions) throw new Error('Choose chats or settings to import.')
+    if (!ids.length && !withProviders && !withAssistants && !mcp && !skills && !instructions) throw new Error('Choose chats or settings to import.')
     const unique = [...new Set(ids)]
     job = { running: true, total: unique.length, done: 0, current: null, results: [], settings: { providers: [], assistants: [] } }
     const run = job
     try {
       const source = origin === 'jan' ? await realpath(folderOf(folder)) : !unique.length || orca ? undefined : await agentFolder(origin, folder)
+      if (approval && source !== undefined) ensureUnchanged('The source folder', folder, source)
       const agentFiles = origin === 'jan' || !unique.length ? undefined
         : orca ? new Map((await orcaFiles()).map(file => [file.key, file]))
           : new Map((await listSessionFiles(origin, source)).map(file => [file.id, { ...file, agent: origin, key: agentId(origin, file.id) }]))
       const workspaces = orca ? await orcaWorkspaces() : undefined
-      const janSettings = providers || assistants ? await readJanSettings(source, providers ? await janKeyNames(source) : []) : undefined
-      if (providers) run.total += janSettings.providers.length
-      if (assistants) run.total++
+      const janSettings = withProviders || withAssistants ? await readJanSettings(source, withProviders ? await janKeyNames(source) : []) : undefined
+      const providerRows = withProviders ? selectedRows(janSettings.providers, providerSelection) : []
+      const assistantRows = withAssistants ? selectedRows(janSettings.assistants, assistantSelection) : []
+      const skillSource = approval && (skills || instructions) ? await skillScan(origin) : undefined
+      const mcpSource = approval && mcp ? selectMcp(await readMcpSource(origin, { folder: source }), mcpNames) : undefined
+      // Check all selected settings before writing any of them. Unselected additions should not block an import.
+      if (approval) {
+        if (withProviders) ensureUnchanged('The selected model providers', selectedRows(approval.janSettings.providers, providerSelection), providerRows)
+        if (withAssistants) ensureUnchanged('The selected assistants', selectedRows(approval.janSettings.assistants, assistantSelection), assistantRows)
+        if (mcpSource) {
+          const approved = selectMcp(approval.mcp, mcpNames)
+          ensureUnchanged('The selected MCP configuration', [approved.rows, approved.servers], [mcpSource.rows, mcpSource.servers])
+        }
+        if (skills) {
+          const chosen = new Set(skillNames)
+          const paths = scan => scan.skills.filter(row => chosen.has(row.name)).map(row => [row.name, row.path])
+          ensureUnchanged('The selected skill folders', [approval.skills.linked, paths(approval.skills)], [skillSource.linked, paths(skillSource)])
+        }
+        if (instructions) ensureUnchanged('The global instructions file', approval.skills.instructions?.path, skillSource.instructions?.path)
+      }
+      run.total += providerRows.length
+      if (withAssistants) run.total++
       if (skills || instructions) {
         run.total++
         run.current = 'Skills'
-        try { run.settings.skills = await importSkills(await skillScan(origin), { skills, names: skillNames, instructions }) } catch { run.settings.skills = { error: 'Could not copy skills. Scan the source again.' } }
+        try { run.settings.skills = await importSkills(skillSource ?? await skillScan(origin), { skills, names: skillNames, instructions }) } catch { run.settings.skills = { error: 'Could not copy skills. Scan the source again.' } }
         run.done++
       }
       if (mcp) {
         run.total++
         run.current = 'MCP servers'
-        try { run.settings.mcp = await importMcp(origin, source, mcpNames) } catch { run.settings.mcp = { error: 'Could not read MCP configuration. Scan the source again.' } }
+        try { run.settings.mcp = await importMcp(mcpSource ?? selectMcp(await readMcpSource(origin, { folder: source }), mcpNames)) } catch { run.settings.mcp = { error: 'Could not read MCP configuration. Scan the source again.' } }
         run.done++
       }
       // Assistants first, so imported chats can name their preset.
-      if (assistants) {
-        try { run.settings.assistants = await importAssistants(janSettings.assistants, run) } catch (error) { run.settings.assistantsError = errorText(error) }
+      if (withAssistants) {
+        try { run.settings.assistants = await importAssistants(assistantRows, run) } catch (error) { run.settings.assistantsError = errorText(error) }
         run.done++
       }
-      if (providers) for (const row of janSettings.providers) {
+      for (const row of providerRows) {
         run.current = `Provider ${row.id}`
         try { run.settings.providers.push(await importProvider(source, row)) } catch (error) { run.settings.providers.push({ id: row.id, status: 'failed', reason: errorText(error) }) }
         run.done++
@@ -469,8 +507,10 @@ export function apply(ctx, config = {}) {
     } finally { run.running = false; run.current = null }
   }
   const progress = async () => job
-  ctx.effect(() => registerApi(ctx, 'legacy-import', { list, import: importSelected, progress, preview, offer, dismissOffer }), 'Jan read-only import API')
-  // The /migrate skill runs the same importer from a chat, with an approval per import.
+  // Only the chat form can pass a private scan alongside its redacted list.
+  ctx.effect(() => registerApi(ctx, 'legacy-import', {
+    list: request => list(request), import: request => importSelected(request), progress, preview, offer, dismissOffer,
+  }), 'Jan read-only import API')
   ctx.inject(['skills'], scope => { registerMigrateSkill(scope) })
   ctx.inject(['tools'], scope => { registerMigrateTools(scope, { list, importSelected }) })
 }

@@ -1,5 +1,6 @@
 // Skills, the global instruction file, and the items that stay behind, read from another agent app.
-import { cp, readFile, readdir, realpath, rename, rm, stat } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { copyFile, cp, lstat, readFile, readdir, realpath, rename, rm, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join, relative, isAbsolute } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -45,6 +46,9 @@ const entriesOf = async path => {
 const exists = async path => {
   try { await stat(path); return true } catch (error) { if (missing(error)) return false; throw error }
 }
+const regularFile = async path => {
+  try { return (await lstat(path)).isFile() } catch (error) { if (missing(error) || error?.code === 'ENOTDIR') return false; throw error }
+}
 const realOrSelf = async path => { try { return await realpath(path) } catch { return path } }
 const inside = (parent, child) => {
   const path = relative(parent, child)
@@ -70,8 +74,8 @@ export async function readSkillSource(source, { janHome, agentsHome, home = home
     const sourceReal = await realOrSelf(spec.skills)
     for (const entry of (await entriesOf(spec.skills) ?? []).sort((a, b) => a.name.localeCompare(b.name))) {
       if (!entry.isDirectory() && !entry.isSymbolicLink()) continue
-      const path = join(spec.skills, entry.name)
-      if (!await exists(join(path, 'SKILL.md'))) continue
+      const path = await realOrSelf(join(spec.skills, entry.name))
+      if (!await regularFile(join(path, 'SKILL.md'))) continue
       skills.push({ name: entry.name, path, status: known.has(entry.name) ? 'already here' : 'ready' })
     }
     // Jan's skills folder can be a link to this app's folder or to a folder outside Jan's home; copying
@@ -87,13 +91,16 @@ export async function readSkillSource(source, { janHome, agentsHome, home = home
 
 async function instructionRow(path, janHome) {
   if (!path) return undefined
-  let text
-  try { text = await readFile(path, 'utf8') } catch (error) { if (missing(error)) return undefined; throw error }
+  let source, text
+  try {
+    source = await realpath(path)
+    text = await readFile(source, 'utf8')
+  } catch (error) { if (missing(error)) return undefined; throw error }
   const target = join(janHome, 'AGENTS.md')
   let current
   try { current = await readFile(target, 'utf8') } catch (error) { if (!missing(error)) throw error }
   const status = current === undefined ? 'ready' : current === text ? 'already here' : 'kept yours'
-  return { name: basename(path), path, target, status, bytes: Buffer.byteLength(text) }
+  return { name: basename(path), path: source, target, status, bytes: Buffer.byteLength(text) }
 }
 
 async function otherRows(others) {
@@ -125,10 +132,12 @@ export async function importSkills(scan, { skills, names, instructions }) {
       if (await exists(destination)) { result.already.push(row.name); continue }
       const staging = join(scan.target, `.${row.name}.importing-${randomUUID()}`)
       try {
-        await cp(await realOrSelf(row.path), staging, {
-          recursive: true, errorOnExist: true, force: false, dereference: true,
-          filter: path => !NOT_COPIED.has(basename(path)),
+        await cp(row.path, staging, {
+          recursive: true, errorOnExist: true, force: false,
+          // An approved skill root may be linked, but nothing inside it may be a link.
+          filter: async path => !NOT_COPIED.has(basename(path)) && !(await lstat(path)).isSymbolicLink(),
         })
+        if (!await regularFile(join(staging, 'SKILL.md'))) throw new Error('The skill no longer has a regular SKILL.md. Scan the source again.')
         await rename(staging, destination)
         result.imported.push(row.name)
       } catch (error) {
@@ -142,7 +151,7 @@ export async function importSkills(scan, { skills, names, instructions }) {
     if (row.status !== 'ready' || await exists(row.target)) result.instructions = { name: row.name, status: row.status === 'kept yours' ? 'kept yours' : 'already here' }
     else {
       try {
-        await cp(row.path, row.target, { errorOnExist: true, force: false })
+        await copyFile(row.path, row.target, constants.COPYFILE_EXCL)
         result.instructions = { name: row.name, status: 'imported' }
       } catch (error) { result.instructions = { name: row.name, status: 'failed', reason: error instanceof Error ? error.message : String(error) } }
     }
