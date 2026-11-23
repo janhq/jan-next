@@ -148,14 +148,16 @@ test('new device access on private LAN does not opt into cleartext', async (t) =
   assert.deepEqual(writes, [{ gatewayEnabled: true, gatewayAllowInsecureLan: false }])
 })
 
-test('upgrading an enabled LAN gateway opts in once without overriding a later refusal', async (t) => {
+test('an enabled LAN gateway saved before the opt-in existed stays off until cleartext is allowed', async (t) => {
   const { call, writes } = await mountedHosts(t, { saved: { gatewayEnabled: true }, gatewayHost: '192.168.112.217' })
+  const before = (await call('state')).gateway
+  assert.equal(before.allowInsecureLan, false)
+  assert.equal(before.running, false)
+  assert.match(before.error, /allow unencrypted LAN access/i)
+  assert.deepEqual(writes, [])
+  await call('allowInsecureLan', { allowed: true })
   assert.equal((await call('state')).gateway.allowInsecureLan, true)
-  await call('allowInsecureLan', { allowed: false })
-  const { gateway } = await call('state')
-  assert.equal(gateway.running, false)
-  assert.match(gateway.error, /allow unencrypted LAN access/i)
-  assert.deepEqual(writes, [{ gatewayAllowInsecureLan: true }, { gatewayAllowInsecureLan: false }])
+  assert.deepEqual(writes, [{ gatewayAllowInsecureLan: true }])
 })
 
 test('incomplete device TLS configuration does not fall back to cleartext', async (t) => {

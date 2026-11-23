@@ -199,18 +199,8 @@ export function apply(ctx, config) {
     }
   }
 
-  // Before this option existed, a saved, enabled LAN listener was already cleartext.
   const entry = ctx.fiber.entry
-  const legacyLan = entry !== undefined && config.gatewayEnabled.get() && gatewayTransport() === 'http'
-    && deviceAddressKind(gatewayHost(true)) === 'lan' && !Object.hasOwn(entry.options.config ?? {}, 'gatewayAllowInsecureLan')
   let disposed = false
-  const gatewayMigration = legacyLan ? Promise.resolve(ctx.get('loader')?.await()).then(async () => {
-    if (disposed || !config.gatewayEnabled.get() || Object.hasOwn(entry.options.config ?? {}, 'gatewayAllowInsecureLan')) return
-    await ctx.settings.update(entry.options.id, { gatewayAllowInsecureLan: true })
-    ctx.logger.warn('jan-hosts: kept an existing LAN gateway enabled by opting into unencrypted LAN access. Review this option in Settings > Hosts.')
-  }).catch((error) => {
-    ctx.logger.warn('jan-hosts: could not migrate the existing LAN gateway setting: %s', error.message)
-  }) : Promise.resolve()
   let gatewayStart = Promise.resolve()
   let initialized = false
 
@@ -225,7 +215,7 @@ export function apply(ctx, config) {
     if (initialized) void restartGateway()
   }), 'jan-hosts: gateway switch')
 
-  const gatewayReady = gatewayMigration.then(() => {
+  const gatewayReady = Promise.resolve().then(() => {
     if (disposed) return
     initialized = true
     return restartGateway()
