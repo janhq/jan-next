@@ -6,7 +6,7 @@ window.__ModuleLoader__.load({
     const {
       Button, Checkbox, Input,
       IconCheckOutlineRegular, IconChevronRightOutlineRegular, IconGoalOutlineRegular,
-      IconPluginPinwheelOutlineRegular, IconSearchOutlineRegular, IconShieldOutlineRegular, IconSlidersTwoOutlineRegular, IconSparkleRegular, IconUserOutlineRegular,
+      IconPanelLeftOutlineRegular, IconPluginPinwheelOutlineRegular, IconSearchOutlineRegular, IconShieldOutlineRegular, IconSlidersTwoOutlineRegular, IconSparkleRegular, IconUserOutlineRegular,
     } = require('@janhq/jan-client-ui-primitives')
 
     // The flow wears the main window's shell: a floating sidebar card listing the steps as nav
@@ -181,7 +181,7 @@ window.__ModuleLoader__.load({
 .jan-onboarding-actions { display: flex; align-items: center; gap: 8px; }
 .jan-onboarding-actions > :first-child:not(.jan-onboarding-primary) { margin-inline-start: -14px; }
 .jan-onboarding-primary { margin-inline-start: auto; min-width: 120px; }
-.jan-onboarding-step[data-step='2'] .jan-onboarding-actions { position: absolute; inset: auto auto 0 0; }
+.jan-onboarding-step[data-step='detail'] .jan-onboarding-actions { position: absolute; inset: auto auto 0 0; }
 .jan-onboarding-alert { position: absolute; inset: auto 0 24px; display: flex; justify-content: center; align-items: center; gap: 8px; color: var(--dsw-alias-label-secondary); font-size: 13px; }
 .jan-onboarding [data-back] { --ob-rise: -6px; }
 .jan-onboarding :is([data-enter], [data-onboarding-entrance]) { animation: jan-onboarding-in var(--ob-enter) var(--ob-ease) both; }
@@ -209,8 +209,17 @@ window.__ModuleLoader__.load({
 }
 `
 
-    const steps = ['about', 'goals', 'detail', 'setup', 'model']
-    const stepIcons = [IconUserOutlineRegular, IconGoalOutlineRegular, IconSlidersTwoOutlineRegular, IconPluginPinwheelOutlineRegular, IconSparkleRegular]
+    // Assistant skips the questions that only tune the full workspace.
+    const stepsFor = mode => mode === 'assistant' ? ['mode', 'about', 'model'] : ['mode', 'about', 'goals', 'detail', 'setup', 'model']
+    const stepIcons = {
+      mode: IconPanelLeftOutlineRegular, about: IconUserOutlineRegular, goals: IconGoalOutlineRegular,
+      detail: IconSlidersTwoOutlineRegular, setup: IconPluginPinwheelOutlineRegular, model: IconSparkleRegular,
+    }
+    // The first question: bot-first with a short sidebar, or every feature on screen.
+    const modes = [
+      { id: 'assistant', title: 'modeAssistant', detail: 'modeAssistantDetail', Icon: IconSparkleRegular },
+      { id: 'workspace', title: 'modeWorkspace', detail: 'modeWorkspaceDetail', Icon: IconSlidersTwoOutlineRegular },
+    ]
     // The two ways to get a model shown as cards; an own API key stays a quiet link under them.
     const routes = [
       { id: 'account', title: 'modelAccount', detail: 'modelAccountDetail', Icon: IconSparkleRegular },
@@ -219,12 +228,13 @@ window.__ModuleLoader__.load({
     // Jan's waving-hand mark, served by jan-theme; hidden if that plugin is absent.
     const LOGO = '/jan-theme/assets/jan-original.png'
 
-    function createFlow({ roles, goalsFor, recommend, recommendModel, applySetup }, operations) {
+    function createFlow({ roles, goalsFor, recommend, recommendModel, applySetup, applyAssistant }, operations) {
       return function OnboardingFlow({ t, busy, finish, retry, settingsError, renderFactorySlot }) {
         // Step -1 is the start screen: the mark, one line on what Jan is, and one way in.
         const [page, setPage] = useState({ step: -1, back: false })
         const [leaving, setLeaving] = useState(false)
         const [name, setName] = useState('')
+        const [mode, setMode] = useState(null)
         const [selectedRoles, setRoles] = useState([])
         const [selectedGoals, setGoals] = useState([])
         const [detail, setDetail] = useState(null)
@@ -245,9 +255,13 @@ window.__ModuleLoader__.load({
         const heading = useRef(null)
         const section = useRef(null)
         const writing = useRef(false)
+        // Bots enabled now (true) or after a restart (false); null until Assistant mode is applied.
+        const botsReady = useRef(null)
         const disabled = busy || working || Boolean(leaving) || finalize !== null || settingsError
         // The rail follows a click at once, while the old step is still fading out.
         const shown = leaving ? leaving.step : page.step
+        const steps = stepsFor(mode)
+        const key = steps[page.step]
         useEffect(() => { heading.current?.focus({ preventScroll: true }) }, [page])
 
         useEffect(() => {
@@ -287,11 +301,11 @@ window.__ModuleLoader__.load({
         }
 
         useEffect(() => {
-          if (page.step === 3 && catalog === null && !catalogError) void readCatalog()
+          if (key === 'setup' && catalog === null && !catalogError) void readCatalog()
         }, [page.step])
 
         useEffect(() => {
-          if (page.step !== 4 || curated !== null || !operations.localAvailable()) return
+          if (key !== 'model' || curated !== null || !operations.localAvailable()) return
           operations.localModels().then(setCurated, () => { setCurated({ budget: 0, models: [] }) })
         }, [page.step])
 
@@ -335,6 +349,12 @@ window.__ModuleLoader__.load({
           setSetup(null)
         }
 
+        // Assistant mode lands on Bots; the chosen model route then opens over it (a local chat replaces it).
+        function connect() {
+          if (botsReady.current === true) operations.openBots()
+          operations.connect(chosen, picked)
+        }
+
         async function submit(skip) {
           if (writing.current) return
           writing.current = true
@@ -343,13 +363,16 @@ window.__ModuleLoader__.load({
           try {
             if (finalize !== null) {
               if (!await retry()) setApplyError(true)
-              else if (finalize === 'finish') operations.connect(chosen, picked)
+              else if (finalize === 'finish') connect()
               return
             }
-            if (!skip) await applySetup(operations, { name, roles: selectedRoles, goals: selectedGoals }, options, checked)
+            const profile = { name, roles: selectedRoles, goals: selectedGoals }
+            if (!skip && mode === 'assistant') botsReady.current = await applyAssistant(operations, profile) === 'applied'
+            else if (!skip) await applySetup(operations, profile, options, checked)
             setFinalize(skip ? 'skip' : 'finish')
-            if (!await finish(skip ? null : detail)) setApplyError(true)
-            else if (!skip) operations.connect(chosen, picked)
+            // Assistant has no detail question: it starts with the compact transcript, fewer things on screen.
+            if (!await finish(skip ? null : mode === 'assistant' ? 'compact' : detail)) setApplyError(true)
+            else if (!skip) connect()
           } catch {
             setApplyError(true)
           } finally {
@@ -397,28 +420,44 @@ window.__ModuleLoader__.load({
               t('getStarted'), h(IconChevronRightOutlineRegular, { size: 16 })),
             h('p', { className: 'jan-onboarding-splash-note' }, t('splashNote')),
             h(Button, { variant: 'ghost', size: 'sm', disabled, onClick: () => { void submit(true) } }, t('skip'))))
-        else if (page.step === 0) content = h(Fragment, null,
+        else if (key === 'mode') content = h(Fragment, null,
+          title('mode', 'modeHint'),
+          h('div', { className: 'jan-onboarding-routes', role: 'radiogroup', 'aria-labelledby': 'jan-onboarding-title', 'data-enter': 'body' },
+            modes.map((item, i) => {
+              const on = mode === item.id
+              return h('button', {
+                key: item.id, type: 'button', role: 'radio', 'aria-checked': on, className: 'jan-onboarding-route',
+                'data-enter': 'item', style: { '--i': i }, disabled, onClick: () => { setMode(item.id) },
+              },
+              h('span', { className: 'jan-onboarding-route-icon' }, h(item.Icon, { size: 18 })),
+              h('span', { className: 'jan-onboarding-route-text' },
+                h('span', { className: 'jan-onboarding-route-title' }, t(item.title)),
+                h('span', { className: 'jan-onboarding-route-detail' }, t(item.detail))),
+              h('span', { className: 'jan-onboarding-route-check', 'aria-hidden': true }, on && h(IconCheckOutlineRegular, { size: 14 })))
+            })),
+          actions({ label: 'continue', action: () => { move(page.step + 1) }, unavailable: mode === null }))
+        else if (key === 'about') content = h(Fragment, null,
           title('about', 'aboutHint'),
           h('label', { className: 'jan-onboarding-name', 'data-enter': 'body' }, h('span', null, t('name')),
             h(Input, { value: name, autoComplete: 'given-name', disabled, onChange: event => { setName(event.target.value) } })),
           chips('roles', roles, 'role', selectedRoles, toggleRole, 3),
-          actions({ label: 'continue', action: () => { move(1) }, unavailable: selectedRoles.length === 0 }))
-        else if (page.step === 1) content = h(Fragment, null,
+          actions({ label: 'continue', action: () => { move(page.step + 1) }, unavailable: selectedRoles.length === 0 }))
+        else if (key === 'goals') content = h(Fragment, null,
           title('goals', 'goalsHint'), chips('goalOptions', goals, 'goal', selectedGoals, goal => {
             setGoals(selectedGoals.includes(goal) ? selectedGoals.filter(item => item !== goal) : [...selectedGoals, goal])
-          }), actions({ label: 'continue', action: () => { move(2) } }))
+          }), actions({ label: 'continue', action: () => { move(page.step + 1) } }))
         // The shared detail selector brings its own Continue; Back is laid over its action row.
-        else if (page.step === 2) content = h(Fragment, null, renderFactorySlot('settings.onboarding.detail', {
-          busy: disabled, process: detail, continueLabel: t('continue'), onSelect: setDetail, onContinue: () => { move(3) },
+        else if (key === 'detail') content = h(Fragment, null, renderFactorySlot('settings.onboarding.detail', {
+          busy: disabled, process: detail, continueLabel: t('continue'), onSelect: setDetail, onContinue: () => { move(page.step + 1) },
         }), actions(null))
-        else if (page.step === 3) content = h(Fragment, null, title('setup', 'setupHint'),
+        else if (key === 'setup') content = h(Fragment, null, title('setup', 'setupHint'),
           options === null ? catalogError ? h('div', { className: 'jan-onboarding-status', role: 'alert' }, t('catalogError'), ' ',
             h(Button, { size: 'sm', disabled, onClick: () => { void readCatalog() } }, t('retry')))
             : h('p', { role: 'status', className: 'jan-onboarding-status' }, t('loading')) : h('div', { className: 'jan-onboarding-list' },
             options.modes.length > 0 && rows('modes', options.modes),
             options.plugins.length > 0 && rows('plugins', options.plugins),
             options.plugins.length === 0 && h('p', { className: 'jan-onboarding-hint', 'data-enter': 'body' }, t('noPlugins'))),
-          actions({ label: 'continue', action: () => { move(4) }, unavailable: options === null }))
+          actions({ label: 'continue', action: () => { move(page.step + 1) }, unavailable: options === null }))
         // Local is chosen: search the curated list and Jan's catalog, one row per model.
         const picker = () => h('div', { className: 'jan-onboarding-models', role: 'group', 'aria-label': t('modelPick') },
           h(Input, {
@@ -443,7 +482,7 @@ window.__ModuleLoader__.load({
             : terms.length > 0 && hubError ? h('p', { role: 'alert', className: 'jan-onboarding-hint' }, t('modelSearchError'))
             : terms.length > 0 && hubRows === null ? h('p', { role: 'status', className: 'jan-onboarding-hint' }, t('loading'))
             : listed.length === 0 && h('p', { role: 'status', className: 'jan-onboarding-hint' }, t('modelSearchEmpty')))
-        if (page.step === 4) content = h(Fragment, null, title('model', 'modelHint'),
+        if (key === 'model') content = h(Fragment, null, title('model', 'modelHint'),
           h('div', { className: 'jan-onboarding-routes', role: 'radiogroup', 'aria-labelledby': 'jan-onboarding-title', 'data-enter': 'body' },
             offered.map((item, i) => {
               const on = chosen === item.id
@@ -466,7 +505,7 @@ window.__ModuleLoader__.load({
               type: 'button', role: 'radio', 'aria-checked': chosen === 'api-key', className: 'jan-onboarding-route-key', disabled,
               onClick: () => { setRoute('api-key') },
             }, chosen === 'api-key' && h(IconCheckOutlineRegular, { size: 14 }), t('modelKey'))),
-          actions({ label: working && finalize === null ? 'working' : 'start', action: () => { void submit(false) }, unavailable: options === null }))
+          actions({ label: working && finalize === null ? 'working' : 'start', action: () => { void submit(false) }, unavailable: mode === 'workspace' && options === null }))
 
         return h('div', { className: 'jan-onboarding', 'data-splash': page.step === -1 || undefined, 'aria-busy': busy || working }, h('style', null, css),
           page.step >= 0 && h('nav', { className: 'jan-onboarding-rail', 'aria-labelledby': 'jan-onboarding-counter' },
@@ -474,20 +513,20 @@ window.__ModuleLoader__.load({
               t('stepCounter', { step: shown + 1, total: steps.length })),
             h('ol', { className: 'jan-onboarding-steps', style: { '--at': shown } },
               h('span', { className: 'jan-onboarding-steps-indicator', 'aria-hidden': true }),
-              steps.map((key, i) => {
+              steps.map((step, i) => {
                 const state = i < shown ? 'done' : i === shown ? 'current' : 'next'
-                const Icon = state === 'done' ? IconCheckOutlineRegular : stepIcons[i]
-                return h('li', { key }, h('button', {
+                const Icon = state === 'done' ? IconCheckOutlineRegular : stepIcons[step]
+                return h('li', { key: step }, h('button', {
                   type: 'button', className: 'jan-onboarding-nav', 'data-state': state, 'aria-current': state === 'current' ? 'step' : undefined,
                   disabled: disabled || state !== 'done', onClick: () => { move(i) },
-                }, h(Icon, { size: 16 }), h('span', null, t(`rail.${key}`))))
+                }, h(Icon, { size: 16 }), h('span', null, t(`rail.${step}`))))
               })),
             h('p', { className: 'jan-onboarding-rail-note' }, t(`progress.${steps[shown]}`)),
             h('button', { type: 'button', className: 'jan-onboarding-nav jan-onboarding-skip', disabled, onClick: () => { void submit(true) } },
               h(IconChevronRightOutlineRegular, { size: 16 }), h('span', null, t('skip')))),
           h('main', { className: 'jan-onboarding-main' },
-            h('section', { key: page.step, ref: section, className: 'jan-onboarding-step', 'data-step': page.step,
-              'aria-labelledby': page.step === 2 ? 'desktop-onboarding-title' : 'jan-onboarding-title',
+            h('section', { key: page.step, ref: section, className: 'jan-onboarding-step', 'data-step': key,
+              'aria-labelledby': key === 'detail' ? 'desktop-onboarding-title' : 'jan-onboarding-title',
               'data-back': page.back || undefined, 'data-exit': leaving ? true : undefined }, content),
             (applyError || settingsError) && h('div', { role: 'alert', className: 'jan-onboarding-alert' }, t('saveError'),
               h(Button, { size: 'sm', disabled: busy || working, onClick: () => {

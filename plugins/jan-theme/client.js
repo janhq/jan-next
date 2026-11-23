@@ -1440,6 +1440,16 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
       try { localStorage.setItem(PINS_KEY, JSON.stringify(sidebarPins)) } catch { /* the choice still holds for this window */ }
       notifySidebar()
     }
+    // Onboarding's Assistant answer: only Bots and Scheduled stay pinned, the rest is under More.
+    // Workspace keeps the default pins or whatever the user already chose.
+    const ASSISTANT_PINS = ['jan-always-on', 'schedules']
+    const setSidebarLayout = (kind) => {
+      if (kind !== 'assistant') return
+      sidebarPins = ASSISTANT_PINS
+      try { localStorage.setItem(PINS_KEY, JSON.stringify(sidebarPins)) } catch { /* the layout still holds for this window */ }
+      if (footerHidden.includes('settings')) setFooterShown('settings', true)
+      else notifySidebar()
+    }
     // Sidebar order: every page Edit sidebar lists, by id; ids it has never seen
     // keep their built-in order after the stored ones.
     const ORDER_KEY = 'jan-theme.sidebar.order'
@@ -2469,6 +2479,8 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
       inject: ['slots'],
       apply(ctx) {
         applyAppearance(preferences)
+        // Onboarding picks the sidebar layout for its Assistant / Workspace answer.
+        ctx.provide('janSidebar', { setLayout: setSidebarLayout })
         ctx.effect(() => () => {
           document.documentElement.removeAttribute('data-jt-hide-navigation')
           document.documentElement.removeAttribute('data-jt-reading')
