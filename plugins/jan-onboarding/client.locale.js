@@ -76,16 +76,16 @@ window.__ModuleLoader__.load({
         ['Discuta ideias, pesquise na web e crie artefatos simples.', 'Trabalhe com código e arquivos usando um conjunto completo de ferramentas.', 'Revise alterações e isole cada tarefa de código em sua própria árvore de trabalho.', 'Encontre trabalhos relacionados em conversas anteriores da mesma área de trabalho.', 'Mantenha os títulos úteis quando a tarefa mudar.', 'Dite rascunhos e ideias em vez de digitá-los.'],
       ],
     }
-    const progressKeys = ['stepCounter', 'progress.about', 'progress.goals', 'progress.detail', 'progress.setup', 'rail.about', 'rail.goals', 'rail.detail', 'rail.setup', 'welcome']
+    const progressKeys = ['stepCounter', 'progress.about', 'progress.goals', 'progress.detail', 'progress.setup', 'rail.about', 'rail.goals', 'rail.detail', 'rail.setup', 'welcome', 'tagline', 'getStarted', 'splashNote']
     const progress = {
-      en: ['Step {step} of {total}', 'Let’s get you set up', 'Nice, a couple more', 'Almost there…', 'All set', 'About you', 'Goals', 'Detail level', 'Setup', 'Welcome to Jan'],
-      zh: ['第 {step} 步，共 {total} 步', '我们开始设置吧', '不错，再来两步', '快完成了…', '准备好了', '关于你', '目标', '详细程度', '设置', '欢迎使用 Jan'],
-      ja: ['{total} ステップ中 {step} ステップ目', 'セットアップを始めましょう', 'あと少しです', 'もうすぐ完了です…', '準備ができました', 'あなたについて', '目標', '表示の詳しさ', 'セットアップ', 'Jan へようこそ'],
-      es: ['Paso {step} de {total}', 'Vamos a preparar todo', 'Bien, quedan un par de pasos', 'Ya casi…', 'Todo listo', 'Sobre ti', 'Objetivos', 'Nivel de detalle', 'Configuración', 'Te damos la bienvenida a Jan'],
-      fr: ['Étape {step} sur {total}', 'Commençons la configuration', 'Parfait, encore deux étapes', 'On y est presque…', 'Tout est prêt', 'À propos de vous', 'Objectifs', 'Niveau de détail', 'Configuration', 'Bienvenue dans Jan'],
-      de: ['Schritt {step} von {total}', 'Los geht’s mit der Einrichtung', 'Prima, noch zwei Schritte', 'Fast geschafft…', 'Alles bereit', 'Über dich', 'Ziele', 'Detailgrad', 'Einrichtung', 'Willkommen bei Jan'],
-      ru: ['Шаг {step} из {total}', 'Давайте начнём настройку', 'Отлично, ещё пара шагов', 'Почти готово…', 'Всё готово', 'О вас', 'Цели', 'Детализация', 'Настройки', 'Добро пожаловать в Jan'],
-      pt: ['Etapa {step} de {total}', 'Vamos começar a configuração', 'Ótimo, faltam mais duas', 'Quase lá…', 'Tudo pronto', 'Sobre você', 'Objetivos', 'Nível de detalhe', 'Configuração', 'Boas-vindas ao Jan'],
+      en: ['Step {step} of {total}', 'Let’s get you set up', 'Nice, a couple more', 'Almost there…', 'All set', 'About you', 'Goals', 'Detail level', 'Setup', 'Welcome to Jan', 'An AI assistant that works on your computer, with your files', 'Get started', 'Four quick steps. You can change everything later in Settings.'],
+      zh: ['第 {step} 步，共 {total} 步', '我们开始设置吧', '不错，再来两步', '快完成了…', '准备好了', '关于你', '目标', '详细程度', '设置', '欢迎使用 Jan', '在你的电脑上、用你的文件工作的 AI 助手', '开始', '四个简单步骤。之后可以随时在设置中修改。'],
+      ja: ['{total} ステップ中 {step} ステップ目', 'セットアップを始めましょう', 'あと少しです', 'もうすぐ完了です…', '準備ができました', 'あなたについて', '目標', '表示の詳しさ', 'セットアップ', 'Jan へようこそ', 'あなたのコンピューターで、あなたのファイルと働く AI アシスタント', '始める', 'かんたんな 4 ステップです。設定は後からいつでも変更できます。'],
+      es: ['Paso {step} de {total}', 'Vamos a preparar todo', 'Bien, quedan un par de pasos', 'Ya casi…', 'Todo listo', 'Sobre ti', 'Objetivos', 'Nivel de detalle', 'Configuración', 'Te damos la bienvenida a Jan', 'Un asistente de IA que trabaja en tu computadora, con tus archivos', 'Empezar', 'Cuatro pasos rápidos. Puedes cambiarlo todo después en Configuración.'],
+      fr: ['Étape {step} sur {total}', 'Commençons la configuration', 'Parfait, encore deux étapes', 'On y est presque…', 'Tout est prêt', 'À propos de vous', 'Objectifs', 'Niveau de détail', 'Configuration', 'Bienvenue dans Jan', 'Un assistant IA qui travaille sur votre ordinateur, avec vos fichiers', 'Commencer', 'Quatre étapes rapides. Vous pourrez tout modifier dans les Paramètres.'],
+      de: ['Schritt {step} von {total}', 'Los geht’s mit der Einrichtung', 'Prima, noch zwei Schritte', 'Fast geschafft…', 'Alles bereit', 'Über dich', 'Ziele', 'Detailgrad', 'Einrichtung', 'Willkommen bei Jan', 'Ein KI-Assistent, der auf deinem Computer mit deinen Dateien arbeitet', 'Los geht’s', 'Vier kurze Schritte. Du kannst alles später in den Einstellungen ändern.'],
+      ru: ['Шаг {step} из {total}', 'Давайте начнём настройку', 'Отлично, ещё пара шагов', 'Почти готово…', 'Всё готово', 'О вас', 'Цели', 'Детализация', 'Настройки', 'Добро пожаловать в Jan', 'ИИ-ассистент, который работает на вашем компьютере с вашими файлами', 'Начать', 'Четыре коротких шага. Всё можно изменить позже в настройках.'],
+      pt: ['Etapa {step} de {total}', 'Vamos começar a configuração', 'Ótimo, faltam mais duas', 'Quase lá…', 'Tudo pronto', 'Sobre você', 'Objetivos', 'Nível de detalhe', 'Configuração', 'Boas-vindas ao Jan', 'Um assistente de IA que trabalha no seu computador, com seus arquivos', 'Começar', 'Quatro etapas rápidas. Você pode mudar tudo depois em Configurações.'],
     }
     return { dictionaries: Object.fromEntries(Object.entries(copy).map(([locale, values]) => [locale,
       Object.fromEntries([

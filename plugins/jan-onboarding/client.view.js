@@ -86,9 +86,18 @@ window.__ModuleLoader__.load({
 }
 .jan-onboarding-step { position: relative; display: grid; gap: 20px; width: min(100%, 600px); }
 .jan-onboarding-step[data-exit] { animation: jan-onboarding-out var(--ob-exit) var(--ob-ease-out) both; }
-.jan-onboarding-hero { display: grid; justify-items: start; gap: 12px; margin-bottom: 4px; }
-.jan-onboarding-hero img { width: 56px; height: 56px; transform-origin: 30% 85%; animation: jan-onboarding-wave 1.1s var(--ds-ease-in-out, ease-in-out) 280ms both; }
-.jan-onboarding-eyebrow { margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: var(--ob-accent); }
+/* Start screen: no rail, one centred column. The mark is the biggest thing on it, the tagline says
+ * what Jan is in one line, and a single pill leads in; skipping stays available but quiet. */
+.jan-onboarding[data-splash] { grid-template-columns: minmax(0, 1fr); }
+.jan-onboarding-splash { display: grid; justify-items: center; gap: 20px; text-align: center; padding-bottom: 6vh; }
+.jan-onboarding-mark { display: flex; align-items: center; gap: 20px; margin: 0; font-family: var(--jan-onboarding-heading-font); font-size: 72px; line-height: 80px; font-weight: 500; letter-spacing: -2px; outline: none; }
+.jan-onboarding-mark img { width: 76px; height: 76px; flex: none; transform-origin: 70% 85%; animation: jan-onboarding-wave 1.1s var(--ds-ease-in-out, ease-in-out) 360ms both; }
+.jan-onboarding-tagline { max-width: 26ch; margin: 0; font-size: 20px; line-height: 28px; color: var(--dsw-alias-label-secondary); text-wrap: balance; }
+.jan-onboarding-splash-actions { display: grid; justify-items: center; gap: 12px; margin-top: 16px; }
+.jan-onboarding .jan-onboarding-cta { height: 44px; padding: 0 22px 0 26px; gap: 6px; border-radius: 999px; font-size: 16px; }
+.jan-onboarding-cta > svg { transition: transform var(--ob-select) var(--ob-ease-out); }
+@media (hover: hover) { .jan-onboarding-cta:not(:disabled):hover > svg { transform: translateX(2px); } }
+.jan-onboarding-splash-note { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .jan-onboarding-heading h1 { margin: 0; font-family: var(--jan-onboarding-heading-font); font-size: 24px; line-height: 32px; font-weight: 500; letter-spacing: -0.2px; outline: none; }
 .jan-onboarding-heading p { margin: 6px 0 0; color: var(--dsw-alias-label-secondary); }
 .jan-onboarding-name { display: grid; gap: 8px; }
@@ -152,7 +161,8 @@ window.__ModuleLoader__.load({
   .jan-onboarding-main { padding-top: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .jan-onboarding :is(.jan-onboarding-rail, [data-enter], [data-onboarding-entrance], .jan-onboarding-hero img, .jan-onboarding-nav > svg), .jan-onboarding-step[data-exit] { animation: none; }
+  .jan-onboarding :is(.jan-onboarding-rail, [data-enter], [data-onboarding-entrance], .jan-onboarding-mark img, .jan-onboarding-nav > svg), .jan-onboarding-step[data-exit] { animation: none; }
+  .jan-onboarding-cta > svg { transition: none; }
   .jan-onboarding :is(.jan-onboarding-steps-indicator, .jan-onboarding-nav, .jan-onboarding-chip, .jan-onboarding-default) { transition: none; }
 }
 `
@@ -164,7 +174,8 @@ window.__ModuleLoader__.load({
 
     function createFlow({ roles, goalsFor, recommend, applySetup }, operations) {
       return function OnboardingFlow({ t, busy, finish, retry, settingsError, renderFactorySlot }) {
-        const [page, setPage] = useState({ step: 0, back: false })
+        // Step -1 is the start screen: the mark, one line on what Jan is, and one way in.
+        const [page, setPage] = useState({ step: -1, back: false })
         const [leaving, setLeaving] = useState(false)
         const [name, setName] = useState('')
         const [selectedRoles, setRoles] = useState([])
@@ -291,10 +302,16 @@ window.__ModuleLoader__.load({
             }, t(defaultMode === id ? 'isDefault' : 'makeDefault'))))))
 
         let content
-        if (page.step === 0) content = h(Fragment, null,
-          h('div', { className: 'jan-onboarding-hero', 'data-enter': '' },
-            h('img', { src: LOGO, alt: '', draggable: false, onError: event => { event.currentTarget.hidden = true } }),
-            h('p', { className: 'jan-onboarding-eyebrow' }, t('welcome'))),
+        if (page.step === -1) content = h('div', { className: 'jan-onboarding-splash' },
+          h('h1', { id: 'jan-onboarding-title', ref: heading, tabIndex: -1, className: 'jan-onboarding-mark', 'aria-label': t('welcome'), 'data-enter': '' },
+            h('img', { src: LOGO, alt: '', draggable: false, onError: event => { event.currentTarget.hidden = true } }), h('span', null, 'Jan')),
+          h('p', { className: 'jan-onboarding-tagline', 'data-enter': 'description' }, t('tagline')),
+          h('div', { className: 'jan-onboarding-splash-actions', 'data-enter': 'action' },
+            h(Button, { className: 'jan-onboarding-cta', variant: 'primary', disabled, onClick: () => { move(0) } },
+              t('getStarted'), h(IconChevronRightOutlineRegular, { size: 16 })),
+            h('p', { className: 'jan-onboarding-splash-note' }, t('splashNote')),
+            h(Button, { variant: 'ghost', size: 'sm', disabled, onClick: () => { void submit(true) } }, t('skip'))))
+        else if (page.step === 0) content = h(Fragment, null,
           title('about', 'aboutHint'),
           h('label', { className: 'jan-onboarding-name', 'data-enter': 'body' }, h('span', null, t('name')),
             h(Input, { value: name, autoComplete: 'given-name', disabled, onChange: event => { setName(event.target.value) } })),
@@ -317,8 +334,8 @@ window.__ModuleLoader__.load({
             options.plugins.length === 0 && h('p', { className: 'jan-onboarding-hint', 'data-enter': 'body' }, t('noPlugins'))),
           actions({ label: working && finalize === null ? 'working' : 'start', action: () => { void submit(false) }, unavailable: options === null }))
 
-        return h('div', { className: 'jan-onboarding', 'aria-busy': busy || working }, h('style', null, css),
-          h('nav', { className: 'jan-onboarding-rail', 'aria-labelledby': 'jan-onboarding-counter' },
+        return h('div', { className: 'jan-onboarding', 'data-splash': page.step === -1 || undefined, 'aria-busy': busy || working }, h('style', null, css),
+          page.step >= 0 && h('nav', { className: 'jan-onboarding-rail', 'aria-labelledby': 'jan-onboarding-counter' },
             h('div', { className: 'jan-onboarding-brand' },
               h('img', { src: LOGO, alt: '', draggable: false, onError: event => { event.currentTarget.hidden = true } }), h('span', null, 'Jan')),
             h('p', { id: 'jan-onboarding-counter', className: 'jan-onboarding-rail-label', 'aria-live': 'polite', 'aria-atomic': true },
