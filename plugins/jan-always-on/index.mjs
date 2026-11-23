@@ -3,6 +3,8 @@ import { lstat } from 'node:fs/promises'
 import { join } from 'node:path'
 import schema from '@janhq/schemastery'
 import { registerApi } from '@janhq/jan-plugin-api'
+import { parseCronInput } from '@janhq/jan-schedule'
+import { seedImportedMemory } from './memory.mjs'
 
 export const name = 'jan-always-on'
 export const inject = ['janHomePath', 'webServer', 'connection', 'schedule', 'agents', 'agentDefaultModel', 'agentPresets',
@@ -144,7 +146,7 @@ export function apply(ctx, config) {
     bindings.set(agent, binding)
     return binding
   }
-  async function startBot(bot, resume = false) {
+  async function startBot(bot, resume = false, scheduleGate) {
     if (runtimes.has(bot.id)) return runtimes.get(bot.id)
     lifetime.signal.throwIfAborted()
     const { openBackground, memoryAt, bindBotAgent, runWithJan, appendBotNotice, botPrompt, delivery, openWatch, createTriage } = await modules()
@@ -156,6 +158,7 @@ export function apply(ctx, config) {
     if (runtimes.has(bot.id)) return runtimes.get(bot.id)
     lifetime.signal.throwIfAborted()
     const runtime = {
+      scheduleGate,
       memory,
       memoryText: initialMemory,
       bind: agent => bindBotAgent(ctx, agent, queue, memory, (input, signal) => schedule(bot, input, signal)),
@@ -184,7 +187,8 @@ export function apply(ctx, config) {
     runtimes.set(bot.id, runtime)
     prompts.set(bot.sessionId, botPrompt(bot, persona))
     try {
-      runtime.destination = ctx.schedule.registerSessionDestination(bot.sessionId, name, ({ id, prompt, payload }) => {
+      runtime.destination = ctx.schedule.registerSessionDestination(bot.sessionId, name, ({ id, taskId, prompt, payload }) => {
+        if (scheduleGate?.staging || scheduleGate?.unconfirmed.has(taskId)) throw new Error('bot-import-in-progress')
         queue.enqueue({ id: `timer:${id}`, kind: payload === undefined ? 'task' : 'follow-up', text: prompt,
           ...(payload === undefined ? {} : { progressPath: payload }) })
       })
@@ -218,6 +222,71 @@ export function apply(ctx, config) {
     return key ? ctx.schedule.createSessionTask(request, { sessionId: bot.sessionId, key, payload: progressPath }, signal)
       : ctx.schedule.create({ ...request, target: { kind: 'session', sessionId: bot.sessionId } }, undefined, signal)
   }
+  async function createBot(input, memory) {
+    const local = await load()
+    const source = input.sourceSessionId === undefined ? undefined : text(input.sourceSessionId, 240)
+    const workspaceId = source === undefined ? await projectId(input.workspaceId)
+      : ctx.workspaceRegistry.list().find(project => project.sessionIds.includes(source))?.id
+    if (!workspaceId) throw new Error('bot-session-project-required')
+    // A new bot starts on the small, fast model; an adopted chat keeps its own.
+    const model = input.model ?? (source === undefined ? botDefaultModel(await ctx.sessionController.modelCatalog()) : null)
+    return local.create({ ...input, model, workspaceId }, async candidate => {
+      if (memory) await seedImportedMemory(local.directory(candidate), memory, lifetime.signal)
+      return prepareSession(candidate, source)
+    }, { uniqueName: Boolean(memory) })
+  }
+  function validateRoutine({ schedule_cron, schedule_text, timezone }, defaultZone = 'UTC') {
+    for (const expression of [schedule_cron, schedule_text]) {
+      if (!expression) continue
+      try { return parseCronInput({ expression, time_zone: timezone === undefined ? defaultZone : timezone }) }
+      catch (error) { if (error.code === 'invalid_time_zone') return { reason: 'invalid-time-zone' } }
+    }
+    return { reason: 'invalid-cron' }
+  }
+  async function importBot({ name, role, description, memory, routines }) {
+    const bot = await createBot({ name, role, description }, memory)
+    const identity = { botId: bot.id, sessionId: bot.sessionId }
+    const gate = { staging: true, unconfirmed: new Set() }
+    let runtime
+    try { runtime = await startBot(bot, false, gate) } catch {
+      return { ...identity, status: 'partial', reason: 'bot-start-failed', routines: [] }
+    }
+    const outcomes = []
+    for (const { name: title, prompt, expression, timeZone, paused } of routines) {
+      let task
+      try {
+        task = await ctx.schedule.create({ title, prompt, timing: { kind: 'cron', cron: { expression, time_zone: timeZone } },
+          target: { kind: 'session', sessionId: bot.sessionId } }, undefined, lifetime.signal)
+      } catch {
+        outcomes.push({ name: title, status: 'failed', reason: 'routine-create-failed' })
+        continue
+      }
+      if (paused) {
+        try {
+          // Throw rather than wait in the destination: Schedule serializes delivery and edits.
+          const updated = await ctx.schedule.edit({ id: task.id, action: 'update', patch: { active: false } })
+          if (updated.status !== 'paused') throw new Error('routine-not-paused')
+        } catch {
+          let removed = false
+          try {
+            const result = await ctx.schedule.edit({ id: task.id, action: 'delete' })
+            removed = result.deleted === true || result.code === 'schedule_not_found'
+          } catch { /* The task may still be active; keep the bot paused. */ }
+          if (!removed) gate.unconfirmed.add(task.id)
+          outcomes.push({ name: title, id: task.id, status: 'failed', reason: removed ? 'pause-failed-removed' : 'pause-cleanup-failed' })
+          continue
+        }
+      }
+      outcomes.push({ name: title, id: task.id, status: paused ? 'paused' : 'active' })
+    }
+    gate.staging = false
+    let held = gate.unconfirmed.size > 0
+    if (!held) {
+      try { await runtime.queue.setPaused(false); runtime.clock.wake() } catch { held = true }
+    }
+    return { ...identity, routines: outcomes, ...(held ? { status: 'partial', reason: 'bot-kept-paused' } : {}) }
+  }
+  ctx.provide('janBotImport', { validateRoutine, importBot })
   const ownsTask = (task, bot) => task.target.kind === 'session' && task.target.sessionId === bot.sessionId
     || bot.id === 'jan' && task.target.kind === 'plugin' && task.target.owner === name
   function roster(bot) {
@@ -284,14 +353,7 @@ export function apply(ctx, config) {
     },
     async detail({ id }) { return detail(await botFor(id)) },
     async create(input) {
-      const local = await load()
-      const source = input.sourceSessionId === undefined ? undefined : text(input.sourceSessionId, 240)
-      const workspaceId = source === undefined ? await projectId(input.workspaceId)
-        : ctx.workspaceRegistry.list().find(project => project.sessionIds.includes(source))?.id
-      if (!workspaceId) throw new Error('bot-session-project-required')
-      // A new bot runs unattended many times a day, so it starts on the small, fast model; an adopted chat keeps its own.
-      const model = input.model ?? (source === undefined ? botDefaultModel(await ctx.sessionController.modelCatalog()) : null)
-      const bot = await local.create({ ...input, model, workspaceId }, candidate => prepareSession(candidate, source))
+      const bot = await createBot(input)
       await startBot(bot, true)
       return roster(bot)
     },
@@ -317,6 +379,7 @@ export function apply(ctx, config) {
       await botFor(id)
       await registry.remove(id, async bot => {
         const runtime = runtimes.get(bot.id)
+        if (runtime.scheduleGate?.staging) throw new Error('bot-import-in-progress')
         await runtime.queue.setPaused(true)
         const tasks = await ctx.schedule.catalog()
         for (const task of tasks) if (ownsTask(task, bot)) await ctx.schedule.edit({ id: task.id, action: 'delete' })
@@ -329,7 +392,16 @@ export function apply(ctx, config) {
       const bot = await botFor(id)
       if (typeof paused !== 'boolean') throw new Error('invalid-input')
       if (!paused && !ctx.workspaceRegistry.get(bot.workspaceId)) throw new Error('project-not-found')
-      await runtimes.get(bot.id).queue.setPaused(paused)
+      const runtime = runtimes.get(bot.id)
+      const gate = runtime.scheduleGate
+      if (gate?.staging) throw new Error('bot-import-in-progress')
+      if (!paused && gate?.unconfirmed.size) {
+        if ((await ctx.schedule.catalog()).some(task => gate.unconfirmed.has(task.id) && task.status === 'active')) {
+          throw new Error('bot-import-in-progress')
+        }
+        gate.unconfirmed.clear()
+      }
+      await runtime.queue.setPaused(paused)
       return true
     },
     async setToken({ kind, token }) {

@@ -79,6 +79,22 @@ window.__ModuleLoader__.load({
       const hooks = { roster, notices, selected, ui, uiFailed, dialogs, workspaces: ctx.workspaces.list, language: {
         getSnapshot: () => ctx.locale.getSnapshot().active, subscribe: listener => ctx.locale.subscribe(listener),
       } }
+      const importSection = 'jan-import'
+      const importAvailable = createSnapshotStore(false)
+      let openImport
+      ctx.inject(['settingsNavigation'], scope => {
+        const navigation = scope.settingsNavigation
+        const update = () => importAvailable.set(navigation.availability.getSnapshot()
+          && ctx.slots.entriesOfSlot('settings.section').some(entry => entry.options.id === importSection))
+        openImport = () => importAvailable.getSnapshot() && navigation.open(importSection)
+        ctx.effect(() => {
+          const offAvailability = navigation.availability.subscribe(update)
+          const offSection = ctx.slots.subscribe('settings.section', update)
+          update()
+          return () => { offAvailability(); offSection(); importAvailable.set(false); openImport = undefined }
+        })
+      })
+      hooks.importAvailable = importAvailable
       let refreshing, dirty = false, style, uniqueNotice = 0, loading
       const seen = new Set()
       function requireUi() {
@@ -164,6 +180,7 @@ window.__ModuleLoader__.load({
       }
       const inject = () => ({ hooks, request, change, refresh, open, openDetail, compact,
         dialog: value => dialogs.set(value), dismissNotice: () => notices.set(null),
+        openImport: () => openImport?.(),
         showRoster: () => ctx.layout.selectPanel(PANEL), openScheduled: () => ctx.layout.selectPanel('schedules'),
         openRoutine: (sessionId, id) => ctx.sidebarRight.openTab('scheduleTask', { params: { sessionId, id } }),
       })

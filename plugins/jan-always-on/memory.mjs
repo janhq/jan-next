@@ -96,3 +96,36 @@ export function memoryAt(home, directory = join(home, 'always-on')) {
     },
   }
 }
+
+function splitAt(buffer, start, limit) {
+  let end = Math.min(buffer.length, start + limit)
+  while (end < buffer.length && (buffer[end] & 0xc0) === 0x80) end--
+  return end
+}
+
+/** Seed a fresh bot's memory before its runtime builds the automatic context. */
+export async function seedImportedMemory(directory, { instructions, memories, facts, skillBindings = [] }, signal) {
+  const memory = memoryAt(undefined, directory)
+  const input = Buffer.from(instructions)
+  const pointer = '\n\nMore imported instructions: see the file list in index.md.'
+  const end = input.length <= MAX_CONTEXT_BYTES ? input.length : splitAt(input, 0, MAX_CONTEXT_BYTES - Buffer.byteLength(pointer))
+  const files = []
+  function spill(stem, buffer, offset = 0) {
+    for (let part = 1; offset < buffer.length; part++) {
+      const end = splitAt(buffer, offset, MAX_FILE_BYTES)
+      files.push([`notes/${stem}${part === 1 ? '' : `-${part}`}.md`, buffer.toString('utf8', offset, end)])
+      offset = end
+    }
+  }
+  spill('imported-instructions', input, end)
+  const section = (title, items) => items.length ? `${title}\n\n${items.join('\n\n')}` : ''
+  spill('imported-memory', Buffer.from([
+    section('# Imported memories', memories), section('# Imported user facts', facts),
+    section('# Routine skills (reference only, not active bindings)', skillBindings),
+  ].filter(Boolean).join('\n\n')))
+  if (input.length) files.push(['instructions.md', input.toString('utf8', 0, end) + (end < input.length ? pointer : '')])
+  const notes = files.filter(([path]) => path.startsWith('notes/')).map(([path]) => `- ${path}`)
+  if (notes.length) files.push(['index.md', `# Imported notes\n\n${notes.join('\n')}\n`])
+  for (const [path, text] of files) memory.validate(path, text)
+  for (const [path, text] of files) await memory.write(path, text, signal)
+}

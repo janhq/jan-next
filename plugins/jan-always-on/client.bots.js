@@ -39,8 +39,8 @@ window.__ModuleLoader__.load({
     function Loading({ t }) {
       return h('div', { className: 'jao-loading', role: 'status', 'aria-label': t('loading') }, h(IconLoadingOutlineRegular, { size: 18, 'aria-hidden': true }))
     }
-    function Empty({ icon, title, description, heading = 'p' }) {
-      return h('div', { className: 'jao-empty' }, icon && h(icon, { size: 24, 'aria-hidden': true }), h(heading, null, title), description && h('p', null, description))
+    function Empty({ icon, title, description, heading = 'p', children }) {
+      return h('div', { className: 'jao-empty' }, icon && h(icon, { size: 24, 'aria-hidden': true }), h(heading, null, title), description && h('p', null, description), children)
     }
     function IconAction({ label, icon: Icon, ...props }) {
       return h(Tooltip, { label, side: 'top', portal: true }, h(Button, { size: 'sm', className: 'jao-icon-action', 'aria-label': label, ...props }, h(Icon, { size: 16, 'aria-hidden': true })))
@@ -62,9 +62,11 @@ window.__ModuleLoader__.load({
         'aria-selected': current === bot.sessionId, className: 'jao-project-row', onClick: () => open(bot) },
         h(Seat, { bot, t, avatar }), h('span', { title: bot.name }, bot.name), bot.unread && h('span', { className: 'jao-unread', title: t('unread') }))))
     }
-    function Roster({ t, avatar, useRoster, useLanguage, useWorkspaces, dialog, open, refresh }) {
+    function Roster({ t, avatar, useRoster, useLanguage, useWorkspaces, useImportAvailable, openImport, dialog, open, refresh }) {
       const { rows, failed } = useRoster(value => value), language = useLanguage(value => value)
       const projects = useWorkspaces(state => state.items)
+      const canImport = useImportAvailable(value => value)
+      const importAction = canImport && h(ButtonAction, { variant: 'outline', onClick: openImport }, t('importBot'))
       const [search, setSearch] = useState('')
       const projectName = bot => {
         const project = projects.find(row => row.workspaceId === bot.workspaceId)
@@ -75,14 +77,15 @@ window.__ModuleLoader__.load({
       return h('main', { className: 'jao-page', 'aria-labelledby': 'jao-roster-title' }, h('div', { className: 'jao-content' },
         h('header', { className: 'jao-roster-head', 'data-window-drag': '' },
           h('h1', { id: 'jao-roster-title' }, t('title')),
-          h(ButtonAction, { className: 'jao-page-action', variant: 'primary', onClick: () => dialog({ mode: 'create' }),
-            icon: h(IconPlusOutlineRegular, { size: 14, 'aria-hidden': true }) }, t('create')),
+          h('div', { className: 'jao-page-action' }, rows?.length > 0 && importAction,
+            h(ButtonAction, { variant: 'primary', onClick: () => dialog({ mode: 'create' }),
+              icon: h(IconPlusOutlineRegular, { size: 14, 'aria-hidden': true }) }, t('create'))),
           h('p', null, t('intro'))),
         failed && h(Failure, { t, retry: refresh }),
         !rows && !failed && h(Loading, { t }),
         rows?.length > 6 && h(Input, { type: 'search', value: search, onChange: event => setSearch(event.currentTarget.value),
           placeholder: t('search'), 'aria-label': t('search'), className: 'jao-search', icon: h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }) }),
-        rows?.length === 0 && h(Empty, { icon: IconUsersOutlineRegular, title: t('empty'), description: t('emptyDetail'), heading: 'h2' }),
+        rows?.length === 0 && h(Empty, { icon: IconUsersOutlineRegular, title: t('empty'), description: t('emptyDetail'), heading: 'h2' }, importAction),
         rows?.length > 6 && matched?.length === 0 && h(Empty, { icon: IconSearchOutlineRegular, title: t('noMatches'), heading: 'h2' }),
         matched?.length > 0 && h('ul', { className: 'jao-roster' }, matched.map(bot => h('li', { key: bot.id, className: 'jao-roster-row' },
           h('button', { type: 'button', className: 'jao-roster-open', onClick: () => open(bot) }, h(Seat, { bot, avatar, t }),
@@ -415,7 +418,8 @@ window.__ModuleLoader__.load({
       .jao-roster-head h1{grid-column:1;grid-row:1;line-height:32px}
       .jao-roster-head p,.jao-hint{margin:4px 0 0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}
       .jao-roster-head p{grid-column:1 / -1;margin:0}
-      .jao-page-action{grid-column:2;grid-row:1;height:32px;padding-inline:12px;gap:6px}
+      .jao-page-action{grid-column:2;grid-row:1;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+      .jao-page-action button{height:32px;padding-inline:12px;gap:6px}
       .jao-roster,.jao-token-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
       .jao-roster-row,.jao-token-row{display:flex;align-items:center;min-width:0;gap:12px;padding-inline-end:12px;
         background:var(--dsw-alias-settings-card-fill);box-shadow:inset 0 0 0 .5px var(--dsw-alias-settings-card-stroke);border-radius:var(--dsw-radius-lg)}
