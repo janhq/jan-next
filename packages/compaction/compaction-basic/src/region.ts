@@ -16,7 +16,7 @@ import {
 } from '@janhq/jan-compaction'
 import type { CompactionResult } from '@janhq/jan-compaction'
 import type { CommandId } from '@janhq/jan-commands/brand'
-import { createUserMessage, errorChain } from '@janhq/jan-llm'
+import { CONTEXT_WINDOW_EXCEEDED_CODE, HarnessError, createUserMessage, errorChain } from '@janhq/jan-llm'
 import type { Message, UserMessage } from '@janhq/jan-llm'
 import type { TokenMeasurement, TokenMeter } from '@janhq/jan-token-meter'
 import { SessionSeq, type Session, type SessionEvent } from '@janhq/jan-session'
@@ -74,7 +74,7 @@ interface CompactionEntryState {
  * built from, distinguished from summarizer and shrink failures so a manual
  * caller can report the two causes differently.
  */
-class SurfaceChangedError extends Error {}
+class SurfaceChangedError extends Error { }
 
 /** Whether the summary may still replace the span it was built from. */
 type StabilityCheck = (
@@ -394,7 +394,7 @@ async function summarizeCompaction(
   signal?: AbortSignal,
 ): Promise<SummarizedCompaction> {
   let summaryResult: SummaryResult
-  for (;;) {
+  for (; ;) {
     signal?.throwIfAborted()
     try {
       summaryResult = await dependencies.summarize(prepared.input, agent, signal)
@@ -402,9 +402,20 @@ async function summarizeCompaction(
     } catch (error: unknown) {
       if (signal?.aborted === true) throw error
       assertStable(dependencies, agent.session, prepared)
-      if (!dependencies.recover(error, agent, prepared.shadowedSeqs, signal)) throw error
-      prepared = prepareCompaction(dependencies, agent.session,
-        validateSurfaceRegion(agent.session, prepared.start, prepared.end))
+      if (dependencies.recover(error, agent, prepared.shadowedSeqs, signal)) {
+        prepared = prepareCompaction(dependencies, agent.session,
+          validateSurfaceRegion(agent.session, prepared.start, prepared.end))
+        continue
+      }
+      if (!(error instanceof HarnessError) || error.code !== CONTEXT_WINDOW_EXCEEDED_CODE) throw error
+      const target = agent.session.requestHeader()?.config
+      if (target === undefined) throw error
+      summaryResult = {
+        provider: target.provider,
+        model: target.model,
+        summary: overflowExcerpt(prepared.input.messages, prepared.shadowedRouteTokenCount),
+      }
+      break
     }
   }
   const checkpointMessage = createUserMessage({
@@ -425,6 +436,27 @@ async function summarizeCompaction(
     ...summaryResult,
     checkpointMessage,
   }
+}
+
+/** Keep recent text when the summarizer itself cannot fit the selected span. */
+function overflowExcerpt(messages: readonly Message[], shadowedTokens: number): SummaryResult['summary'] {
+  const note = 'The summarizer exceeded its context window. Recent excerpts follow. Use read_chat to retrieve earlier messages if that tool is available.'
+  let remaining = Math.min(8192, shadowedTokens) - note.length
+  const excerpts: string[] = []
+  for (let i = messages.length - 1; i >= 0 && remaining > 32; i -= 1) {
+    const message = messages[i]
+    if (message?.role !== 'user' && message?.role !== 'assistant') continue
+    const label = `\n\n${message.role}: `
+    for (let j = message.content.length - 1; j >= 0 && remaining > 32; j -= 1) {
+      const block = message.content[j]
+      if (block?.type !== 'text' || block.text.length === 0) continue
+      const available = remaining - label.length
+      const excerpt = block.text.length <= available ? block.text : `[…] ${block.text.slice(-(available - 5)).replace(/^[\uDC00-\uDFFF]/u, '')}`
+      excerpts.push(label + excerpt)
+      remaining -= label.length + excerpt.length
+    }
+  }
+  return [{ type: 'text', text: note + excerpts.reverse().join('') }]
 }
 
 /** Reject a summary prepared against any earlier surface generation. */
