@@ -2764,6 +2764,17 @@ describe('JsonlSessionPersistence: edge cases', () => {
     await expect(ctx.sessionPersistence.list()).rejects.toThrow(/appears in multiple project directories/)
   })
 
+  it('finds a session again after the project it was listed in no longer holds it', async () => {
+    const id = SessionId('relocated')
+    await writeLog(ctx.sessionPersistence, meta(id, '/before'), oneTurnLog())
+    expect((await ctx.sessionPersistence.list()).map(s => s.header.id)).toEqual([id])
+    await rm(sessionDir(root, '/before', id), { recursive: true })
+
+    await expect(ctx.sessionPersistence.stat(id)).resolves.toBeUndefined()
+    await writeLog(ctx.sessionPersistence, meta(id, '/after'), oneTurnLog())
+    expect((await readAll(ctx.sessionPersistence, id)).meta.cwd).toBe('/after')
+  })
+
   it('create rejects an id already on disk under a different project directory', async () => {
     // Persist the id under cwd A.
     const a = meta('dup-id', '/projA')
