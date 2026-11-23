@@ -721,7 +721,7 @@ describe('ModelSelect keyboard walk', () => {
     expect(screen.queryByRole('group', { name: zh['menu.aria'] })).toBeNull()
   })
 
-  it('asks a provider that cannot list models without a credential to be signed in, and reports other failures', () => {
+  it('omits missing credentials from the composer picker but reports discovery failures', () => {
     const directory = createSnapshotStore<ModelDirectoryState>(state({
       failures: [
         { id: 'tokamak', name: 'Tokamak', message: 'no credential for provider route "tokamak"', code: 'MISSING_CREDENTIAL' },
@@ -737,7 +737,7 @@ describe('ModelSelect keyboard walk', () => {
       t={t}
     />)
     fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
-    expect(screen.getByText('登录 Tokamak 或添加 API 密钥后即可加载其模型')).toBeTruthy()
+    expect(screen.queryByText(/Tokamak/)).toBeNull()
     expect(screen.queryByText(/no credential/)).toBeNull()
     expect(screen.getByText('Gateway 加载失败：answered 503')).toBeTruthy()
   })
