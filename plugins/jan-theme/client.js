@@ -245,7 +245,7 @@ window.__ModuleLoader__.load({
     const REGISTRY_SORTS = { registry: 'Default order', downloads: 'Most downloaded', updated: 'Recently updated' }
     // Recommended connectors and the official MCP Registry. A registry server opens the
     // server editor prefilled and saves disabled; a recommended one runs its own setup.
-    function RegistryBrowser({ busy, recommended, onAdd, onInstall }) {
+    function RegistryBrowser({ busy, recommended, onAdd, onInstall, onConnectComposio, t }) {
       const { Input, SelectMenu, Tag } = require('@janhq/jan-client-ui-primitives')
       const [query, setQuery] = useAgentDraft('registryQuery', '')
       const [since, setSince] = useAgentDraft('registrySince', '')
@@ -281,10 +281,18 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'jt-registry' },
         recommended?.length > 0 && h('section', { 'aria-label': 'Recommended connectors' },
           h('h3', { className: 'jt-registry-heading' }, 'Recommended'),
-          h('div', { className: 'jt-agent-list jt-agent-grid' }, ...recommended.map(item => tile(item.id, item.title,
-            item.installed ? h(Tag, { tone: 'success' }, 'Added') : h(Button, { variant: 'outline', size: 'sm', disabled: busy, 'aria-label': `Install ${item.title}`, onClick: () => onInstall(item) }, 'Install'),
-            h('p', { className: 'jt-agent-clamp' }, item.description),
-            h('div', { className: 'jt-agent-card-title' }, h(Tag, { tone: 'neutral' }, item.license), h('span', { className: 'jt-agent-card-meta' }, item.publisher)))))),
+          h('div', { className: 'jt-agent-list jt-agent-grid' }, ...recommended.map(item => {
+            const projectKey = item.setup === 'project-key'
+            const action = item.installed
+              ? h(Tag, { tone: 'success' }, projectKey ? t('added') : 'Added')
+              : h(Button, { variant: 'outline', size: 'sm', disabled: busy,
+                'aria-label': projectKey ? t('connectTo') : `Install ${item.title}`,
+                onClick: () => projectKey ? onConnectComposio() : onInstall(item),
+              }, projectKey ? t('connect') : 'Install')
+            return tile(item.id, item.title, action,
+              h('p', { className: 'jt-agent-clamp' }, projectKey ? t('description') : item.description),
+              h('div', { className: 'jt-agent-card-title' }, item.license && h(Tag, { tone: 'neutral' }, item.license), h('span', { className: 'jt-agent-card-meta' }, item.publisher)))
+          }))),
         h('section', { 'aria-label': 'MCP Registry' },
           h('h3', { className: 'jt-registry-heading' }, 'MCP Registry'),
           h('p', { className: 'jt-registry-note' }, 'Servers published to the official MCP Registry. Namespaces are verified against their GitHub account or domain; the code itself is not reviewed. Added servers stay off until you enable them.'),
@@ -387,7 +395,68 @@ window.__ModuleLoader__.load({
         h('div', { className: 'jt-agent-actions' }, h(Button, { type: 'submit', variant: 'primary', size: 'sm', disabled: busy || checking || !token.trim() },
           checking && h(StateDot, { state: 'ongoing', size: 12 }), checking ? (route ? `Checking with ${route.title}…` : 'Connecting…') : 'Connect')))
     }
-    function AgentSettings({ skills = false, onCreate }) {
+    const COMPOSIO_LOCALE = 'jan-theme.composio'
+    const COMPOSIO_ERRORS = new Set([
+      'composio-invalid-key', 'composio-permissions', 'composio-unavailable',
+      'composio-invalid-response', 'composio-name-conflict', 'composio-save-failed',
+    ])
+    function ComposioKeyModal({ update, onClose, onSaved, t }) {
+      const { Input } = require('@janhq/jan-client-ui-primitives')
+      const [apiKey, setApiKey] = React.useState('')
+      const [submitting, setSubmitting] = React.useState(false)
+      const [problem, setProblem] = React.useState('')
+      const fieldId = React.useId()
+      const action = update ? 'updateKey' : 'connect'
+      const close = () => { if (!submitting) onClose() }
+      async function submit(event) {
+        event.preventDefault()
+        if (!apiKey.trim() || submitting) return
+        setSubmitting(true); setProblem('')
+        try {
+          await agentApi('connectComposio', { apiKey })
+          setApiKey('')
+          onSaved()
+        } catch (failure) {
+          setProblem(COMPOSIO_ERRORS.has(failure.message) ? failure.message : 'composio-unavailable')
+        } finally { setSubmitting(false) }
+      }
+      return h(Modal, {
+        open: true, title: t(update ? 'updateKey' : 'connectTo'), closeLabel: t('close'), onClose: close,
+        className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content',
+      }, h('form', { className: 'jt-token-form', onSubmit: submit },
+        h('label', { className: 'jt-agent-field' }, t('keyLabel'),
+          h(Input, {
+            type: 'password', autoComplete: 'off', spellCheck: false, required: true, 'data-modal-autofocus': '',
+            'aria-describedby': `${fieldId}-help${problem ? ` ${fieldId}-problem` : ''}`, 'aria-invalid': !!problem,
+            disabled: submitting, value: apiKey, onChange: event => { setApiKey(event.target.value); setProblem('') },
+          })),
+        h('p', { id: `${fieldId}-help`, className: 'jt-agent-card-meta' }, t('help'), ' ',
+          h('a', { href: 'https://dashboard.composio.dev', target: '_blank', rel: 'noopener noreferrer' }, t('dashboard'))),
+        problem && h('p', { id: `${fieldId}-problem`, role: 'alert', className: 'jt-agent-row-status', 'data-state': 'failed' }, t(problem)),
+        h('div', { className: 'jt-agent-actions' },
+          h(Button, { type: 'submit', variant: 'primary', disabled: submitting || !apiKey.trim() },
+            submitting && h(StateDot, { state: 'ongoing', size: 12 }), t(submitting ? 'connecting' : action)),
+          h(Button, { variant: 'outline', disabled: submitting, onClick: close }, t('cancel')))))
+    }
+
+    function ConnectorSettings({ locale, loadLocale, onCreate }) {
+      const subscribe = React.useCallback(listener => locale.subscribe(listener), [locale])
+      React.useSyncExternalStore(subscribe, () => locale.getSnapshot())
+      const t = locale.bind(COMPOSIO_LOCALE)
+      const [loaded, setLoaded] = React.useState(false)
+      const [failed, setFailed] = React.useState(false)
+      const [attempt, retry] = React.useReducer(value => value + 1, 0)
+      React.useEffect(() => {
+        let active = true
+        void loadLocale(locale).then(() => { if (active) setLoaded(true) }, () => { if (active) setFailed(true) })
+        return () => { active = false }
+      }, [loadLocale, locale, attempt])
+      if (loaded) return h(AgentSettings, { onCreate, t })
+      return failed ? h('p', { role: 'alert' }, t('load.failed'), ' ',
+        h(Button, { onClick: () => { setFailed(false); retry() } }, t('retry')))
+        : h('p', { role: 'status' }, t('loading'))
+    }
+    function AgentSettings({ skills = false, onCreate, t }) {
       const { Input, Modal, RiskConfirmation, SelectMenu, Tag } = require('@janhq/jan-client-ui-primitives')
       const { data, error: loadError } = React.useSyncExternalStore(agentList.subscribe, agentList.getSnapshot)
       const [failure, setError] = React.useState('')
@@ -399,6 +468,7 @@ window.__ModuleLoader__.load({
       const [replaceSecrets, setReplaceSecrets] = useAgentDraft('replaceSecrets', false)
       const [importText, setImportText] = useAgentDraft('import', '')
       const [importOpen, setImportOpen] = React.useState(false)
+      const [composioMode, setComposioMode] = React.useState(null)
       const [skillQuery, setSkillQuery] = useAgentDraft('skillQuery', '')
       const [skillFilter, setSkillFilter] = useAgentDraft('skillFilter', 'all')
       const [directories, setDirectories] = useAgentDraft('directories', null)
@@ -509,6 +579,7 @@ window.__ModuleLoader__.load({
         ) : h(React.Fragment, null,
           data && data.servers.length === 0 && empty(IconToolOutlineMedium, 'No MCP servers yet. Paste the MCP setup you use in Cursor, VS Code, Claude Desktop or Zed, or a single command or URL.'),
           data?.servers.length > 0 && h('div', { className: 'jt-agent-list' }, ...data.servers.map(row => {
+            const composio = row.connector === 'composio'
             const [tone, label] = SERVER_STATE[row.state] ?? SERVER_STATE.empty
             const waiting = row.state === 'connecting' || row.state === 'signing-in'
             const retryable = row.state === 'failed' || row.state === 'empty'
@@ -519,27 +590,33 @@ window.__ModuleLoader__.load({
             }, '')
             const toolCount = count => count === 1 ? '1 tool' : `${count} tools`
             return card(row.name,
-              [h('div', { className: 'jt-agent-card-title', 'aria-live': 'polite' }, h('h3', null, row.name),
+              [h('div', { className: 'jt-agent-card-title', 'aria-live': 'polite' }, h('h3', null, composio ? 'Composio' : row.name),
                 h(Tag, { tone }, waiting && h(StateDot, { state: 'ongoing', size: 12 }), row.state === 'ready' ? `${label} · ${toolCount(row.tools.length)}` : label),
                 row.signedIn && row.state === 'ready' && h(Tag, { tone: 'quiet' }, 'Signed in'),
                 row.secretConfigured && h(Tag, { tone: 'quiet' }, 'Credentials saved')),
               h(Switch, { label: `Enable ${row.name}`, checked: row.enabled, disabled: busy, onChange: enabled => enabled ? ask('Enable MCP server?', 'The server can run commands or access external services. Enable it only if you trust its source.', () => run(() => agentApi('toggle', { name: row.name, enabled }), 'Server enabled.')) : run(() => agentApi('toggle', { name: row.name, enabled }), 'Server disabled.') })],
-              h('code', { className: 'jt-agent-card-meta' }, row.transport === 'stdio' ? [row.command, ...(row.args ?? [])].join(' ') : row.url),
-              row.enabled && row.state !== 'ready' && h('p', { className: 'jt-agent-row-status', 'data-state': row.state }, row.status),
+              !composio && h('code', { className: 'jt-agent-card-meta' }, row.transport === 'stdio' ? [row.command, ...(row.args ?? [])].join(' ') : row.url),
+              row.enabled && row.state !== 'ready' && h('p', { className: 'jt-agent-row-status', 'data-state': row.state }, composio && row.statusCode ? t(row.statusCode) : row.status),
               row.state === 'signing-in' && h('p', { className: 'jt-agent-row-status' }, 'Browser did not open? ', h('a', { href: row.signInUrl, target: '_blank', rel: 'noopener noreferrer' }, 'Open the sign-in page')),
-              row.enabled && (row.state === 'needs-auth' || row.signInRefused) && h(TokenForm, { key: `${row.name}-token`, row, busy, open: row.signInRefused || !!row.tokenRoute }),
+              !composio && row.enabled && (row.state === 'needs-auth' || row.signInRefused) && h(TokenForm, { key: `${row.name}-token`, row, busy, open: row.signInRefused || !!row.tokenRoute }),
               h('div', { className: 'jt-agent-card-foot' },
                 row.tools?.length > 0 ? h('details', { className: 'jt-mcp-tools' }, h('summary', null, `Show ${toolCount(row.tools.length)}`), h('ul', null, row.tools.map(tool => h(McpTool, { key: tool.name, tool, server: row.name })))) : h('span'),
                 h('div', { className: 'jt-agent-actions' },
-                  row.enabled && row.state === 'needs-auth' && !row.signInRefused && h(Button, { variant: 'primary', size: 'sm', disabled: busy, 'aria-label': `Sign in to ${row.name}`, onClick: signIn }, 'Sign in'),
+                  !composio && row.enabled && row.state === 'needs-auth' && !row.signInRefused && h(Button, { variant: 'primary', size: 'sm', disabled: busy, 'aria-label': `Sign in to ${row.name}`, onClick: signIn }, 'Sign in'),
                   row.state === 'signing-in' && h(Button, { variant: 'outline', size: 'sm', disabled: busy, 'aria-label': `Cancel sign-in to ${row.name}`, onClick: () => run(() => agentApi('cancelSignIn', { name: row.name }), 'Sign-in cancelled.') }, 'Cancel'),
                   row.enabled && !waiting && row.state !== 'needs-auth' && h(Button, { variant: retryable ? 'outline' : 'ghost', size: 'sm', disabled: busy, 'aria-label': `${retryable ? 'Try again' : 'Reconnect'} ${row.name}`, onClick: () => run(() => agentApi('reconnect', { name: row.name }), '') }, retryable ? 'Try again' : 'Reconnect'),
-                  h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => edit(row) }, 'Edit'),
+                  composio
+                    ? h(Button, { variant: 'ghost', size: 'sm', disabled: busy, onClick: () => setComposioMode('update') }, t('updateKey'))
+                    : h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => edit(row) }, 'Edit'),
                   h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Remove ${row.name}`, onClick: () => ask('Remove MCP server?', 'This removes the connection, its saved credentials and its sign-in. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')) }, 'Remove'))))
           }), h('button', { type: 'button', className: 'jt-agent-add', disabled: busy, onClick: () => setImportOpen(true) },
             h(IconToolOutlineMedium, { size: 20, 'aria-hidden': true }), h('span', null, 'Add servers'),
             h('small', null, 'Paste a setup from Cursor, VS Code or Claude, a command, or a URL'))),
-          data && h(RegistryBrowser, { busy, recommended: data.recommended, onAdd: addFromRegistry, onInstall: installConnector }),
+          data && h(RegistryBrowser, { busy, recommended: data.recommended, onAdd: addFromRegistry, onInstall: installConnector, onConnectComposio: () => setComposioMode('connect'), t }),
+          composioMode && h(ComposioKeyModal, { update: composioMode === 'update', t,
+            onClose: () => setComposioMode(null),
+            onSaved: () => { setComposioMode(null); setError(''); setNotice(''); void refresh().catch(() => {}) },
+          }),
           h('details', { className: 'jt-agent-note' }, h('summary', null, 'MCP servers, skills, plugins and agent presets'), h('p', null, 'MCP servers provide tools. Skills provide reusable instructions. Plugins add app features through Plugin manager. Agent presets hold saved instructions and working modes.')),
           draft && h(Modal, {
             open: true, title: original ? `Edit ${original}` : 'Add MCP server', closeLabel: 'Close editor', onClose: () => setDraft(null), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Save server', () => run(async () => {
@@ -2432,6 +2509,15 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           scope.effect(() => form.subscribe(sync), 'jan-theme: saved appearance')
           sync()
         })
+        let connectorLocale
+        let active = true
+        ctx.effect(() => () => { active = false }, 'jan-theme: connector locale lifetime')
+        function loadConnectorLocale(locale) {
+          connectorLocale ??= require.async('./client.locale.js').then(({ dictionaries }) => {
+            if (active) ctx.effect(() => locale.register(COMPOSIO_LOCALE, dictionaries), 'jan-theme: connector copy')
+          }).catch(error => { connectorLocale = undefined; throw error })
+          return connectorLocale
+        }
         ctx.inject(['locale'], (scope) => {
           const t = scope.locale.bind('jan-theme')
           // Directly under General's theme (10) and font size (11) rows, before the conversation rows at 12.
@@ -2440,7 +2526,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-reading-style', order: 11.25, locale: 'jan-theme' }, ReadingStyleRow))
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-appearance-reset', order: 11.3, locale: 'jan-theme' }, AppearanceResetRow))
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-navigation-buttons', order: 11.4, locale: 'jan-theme' }, NavigationButtonsRow))
-          scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: () => t('section.mcp'), locale: 'jan-theme' }, () => h(AgentSettings, { key: 'mcp' })))
+          scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: () => t('section.mcp'), locale: 'jan-theme' }, () => h(ConnectorSettings, { key: 'mcp', locale: scope.locale, loadLocale: loadConnectorLocale })))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-skills', order: 31, label: () => t('section.skills'), locale: 'jan-theme' }, () => h(AgentSettings, { skills: true, key: 'skills' })))
         })
         // Distinct nav glyphs: the settings dialog falls back to the gear for ids it does not know.
@@ -3299,7 +3385,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           const startCreator = (skill, key) => { startDraft(`/${skill} ${t(key)}`, 'cordis') }
           // Customize groups Plugins, Skills and Connectors as tabs of one page, as Settings keeps them as sections.
           scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-skills', order: 10, label: () => t('section.skills'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { skills: true, key: 'skills', onCreate: () => startCreator('create-skill', 'createSkill.prompt') }))))
-          scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-connectors', order: 11, label: () => t('tab.connectors'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { key: 'mcp', onCreate: () => startCreator('create-connector', 'createConnector.prompt') }))))
+          scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-connectors', order: 11, label: () => t('tab.connectors'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(ConnectorSettings, { key: 'mcp', locale: scope.locale, loadLocale: loadConnectorLocale, onCreate: () => startCreator('create-connector', 'createConnector.prompt') }))))
           // Each tab shows how many it holds, read from the list both tabs share.
           scope.slots.inject('plugins.tab.count', () => scope.slots.register({ name: 'plugins.tab.count', key: 'jt-skills' }, () => h(AgentCount, { pick: data => data.skills.skills.length })))
           scope.slots.inject('plugins.tab.count', () => scope.slots.register({ name: 'plugins.tab.count', key: 'jt-connectors' }, () => h(AgentCount, { pick: data => data.servers.length })))

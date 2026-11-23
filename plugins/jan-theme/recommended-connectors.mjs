@@ -1,6 +1,6 @@
-// Connectors Customize recommends before the user searches anything. Each one
-// installs through its publisher's own setup command, pinned to a version Jan
-// was tried with, and yields one stdio MCP server plus an optional skill folder.
+// Connectors Customize recommends before the user searches anything. Local setup
+// commands are pinned to the version Jan was tried with; hosted connectors have
+// their own provisioning flow.
 
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
@@ -12,6 +12,7 @@ export const RECOMMENDED_CONNECTORS = [
   {
     id: 'openmotion',
     serverName: 'openmotion',
+    setup: 'local-install',
     title: 'OpenMotion',
     description: 'Turn a reference video into editable motion graphics with your brand kit, then export MP4s for YouTube, Shorts, Reels and TikTok. Adds the OpenMotion Studio tools and its video-making skills.',
     publisher: 'nexu-io',
@@ -20,6 +21,14 @@ export const RECOMMENDED_CONNECTORS = [
     package: '@openmotion/app',
     version: '0.2.1',
     requirement: 'Node.js 22.18 or later with npm',
+  },
+  {
+    id: 'composio',
+    serverName: 'composio',
+    setup: 'project-key',
+    title: 'Composio',
+    publisher: 'Composio',
+    homepage: 'https://composio.dev',
   },
 ]
 
@@ -53,7 +62,7 @@ export function runCommand(command, args, { timeoutMs = SETUP_TIMEOUT_MS, env = 
  * @returns {Promise<{ server: object, skillsDirectory: string }>}
  */
 export async function installRecommended(id, { baseDir, run = runCommand }) {
-  const item = RECOMMENDED_CONNECTORS.find(row => row.id === id)
+  const item = RECOMMENDED_CONNECTORS.find(row => row.id === id && row.setup === 'local-install')
   if (!item) throw new Error('Choose a recommended connector.')
   const root = join(baseDir, item.id)
   const skillsDirectory = join(root, 'skills')
