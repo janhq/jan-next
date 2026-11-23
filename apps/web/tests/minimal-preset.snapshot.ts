@@ -137,6 +137,7 @@ describe('minimal agent preset', () => {
         "prompt": "You are a helpful software engineer assistant.",
         "tools": [
           "bash",
+          "read_chat",
           "read_image",
           "working_directory",
         ],
@@ -325,6 +326,7 @@ describe('minimal manual compaction', () => {
 describe('minimal image reading', () => {
   const snapshotDir = fileURLToPath(new URL('../../../snapshots/web/minimal-read-image', import.meta.url))
   const prompt = 'Use read_image to inspect red.png. Then reply exactly MINIMAL_IMAGE_OK and stop.'
+  const imageCall = '[data-chat-call-id="minimal-image-read"]'
   let scaffold: WebScaffold
   let handle: AgentHandle
   let browser: Browser | undefined
@@ -341,7 +343,7 @@ describe('minimal image reading', () => {
   }
 
   async function imageCard(current: Page): Promise<Locator> {
-    const card = current.locator('[data-tool="read_image"]').first()
+    const card = current.locator(imageCall)
     await card.waitFor({ state: 'attached' })
     await expandOwningTurnProcess(current, card)
     const row = card.locator('[data-disclosure-row]')
@@ -392,7 +394,7 @@ describe('minimal image reading', () => {
 
   it('logs a durable image with the minimal tool roster', async () => {
     const session = handle.agent.session
-    expect(session.requestHeader()?.tools?.map(tool => tool.name)).toEqual(['bash', 'read_image', 'working_directory'])
+    expect(session.requestHeader()?.tools?.map(tool => tool.name)).toEqual(['bash', 'read_chat', 'read_image', 'working_directory'])
     const result = session.snapshotEvents().find(event => event.type === 'tool/result')
     expect(result?.data.message.isError).toBe(false)
     expect(result?.data.meta).toEqual({ path: join(scaffold.workspaceCwd, 'red.png') })
@@ -545,7 +547,7 @@ describe('minimal image reading', () => {
       expect(await card.locator('[aria-busy="true"]').count()).toBe(0)
       expect(await card.locator('img').count()).toBe(0)
       await compareOrRefreshGolden(join(snapshotDir, 'missing-image.expected.md'),
-        await captureStableAria(page, '[data-tool="read_image"]', scaffold.workspaceCwd), MODE)
+        await captureStableAria(page, imageCall, scaffold.workspaceCwd), MODE)
     } finally {
       await scaffold.ctx.attachments.saveImage({ data: stored.data, mediaType: stored.ref.mediaType })
     }
