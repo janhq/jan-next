@@ -201,11 +201,10 @@ export interface ApprovalInjected {
   useAllowAll(request: PendingApproval): (() => Promise<void>) | undefined
 }
 
-/** Full props of the approval composer takeover. */
+/** Full props of the tool approval in the composer dock. */
 export type ApprovalComposerProps =
-  PropsRuntime<'conversation.composer'>
+  PropsRuntime<'conversation.input.dock'>
   & PropsRenderFactories
-  & { matched: PendingApproval }
   & PropsLocale<'approval'>
   & ApprovalInjected
 

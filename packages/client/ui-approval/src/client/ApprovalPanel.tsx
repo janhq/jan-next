@@ -1,15 +1,20 @@
 /** Composer adapter for one pending tool-approval waterfall. */
-import type { ApprovalComposerProps } from './contract/slots.ts'
+import { PendingApproval, type ApprovalComposerProps } from './contract/slots.ts'
 
 /**
  * Render the shared card using the tool approval's one-shot decision policy.
  * Allow all grants this request and switches its Session to Full access, so
  * later calls in the same chat run without asking.
- * @param props Selector-matched request and standard Slot props.
- * @returns The approval composer takeover.
+ * @param props Bound session and approval presentation callbacks.
+ * @returns The pending tool approval above the composer, or nothing.
  */
 export function ApprovalPanel(props: ApprovalComposerProps) {
-  const approval = props.matched
+  const approval = props.useSessionStatus(status => status.get(props.sessionId)?.pendingInteraction)
+  return approval instanceof PendingApproval ? <ApprovalDecisionPanel {...props} approval={approval} /> : null
+}
+
+function ApprovalDecisionPanel(props: ApprovalComposerProps & { approval: PendingApproval }) {
+  const { approval } = props
   const reason = approval.displayReason === undefined ? approval.reason : props.resolveReason(approval.displayReason)
   const allowAll = props.useAllowAll(approval)
   return props.renderFactorySlot('conversation.approval.card', {
