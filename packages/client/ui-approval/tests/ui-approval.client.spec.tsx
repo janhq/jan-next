@@ -41,7 +41,6 @@ interface PluginBench {
   releasePending(): Promise<void>
   registration(): {
     options: {
-      select(props: { pendingInteraction: PendingApproval | undefined }): PendingApproval | null
       inject(): ApprovalInjected
     }
     component: unknown
@@ -57,7 +56,6 @@ async function setupPlugin({ binding, catalog, execute }: {
   let listener: ApprovalListener | undefined
   let registration: {
     options: {
-      select(props: { pendingInteraction: PendingApproval | undefined }): PendingApproval | null
       inject(): ApprovalInjected
     }
     component: unknown
@@ -84,19 +82,19 @@ async function setupPlugin({ binding, catalog, execute }: {
     const dispose = ctx.effect(() => mount())
     return () => { void dispose() }
   })
+  if (catalog !== undefined) ctx.provide('remote.permissionPresets', { catalog } as never)
+  if (execute !== undefined) ctx.provide('remote.commands', { execute } as never)
   ctx.provide('remote', {
-    permissionPresets: { catalog },
-    commands: { execute },
     $on: (event: string, callback: ApprovalListener) => {
       if (event === 'approval/request') listener = callback
-      return () => {}
+      return () => { }
     },
   } as never)
   ctx.provide('sessions', { scopeOf, binding } as never)
   ctx.provide('uiSession', { registerPendingInteraction } as never)
   const registerFactory = vi.fn()
   ctx.provide('slots', { inject: injectSlot, register, registerFactory } as never)
-  const shortcuts = vi.fn((entry: { label: () => string }) => { entry.label(); return () => {} })
+  const shortcuts = vi.fn((entry: { label: () => string }) => { entry.label(); return () => { } })
   ctx.provide('shortcuts', { registerFixed: shortcuts } as never)
   ctx.provide('locale', {
     bind: () => (key: string) => key,
@@ -246,7 +244,7 @@ describe('approval Remote Event consumer', () => {
     expect(bench.shortcuts.mock.calls.map(([entry]) => entry.label())).toEqual(['allow', 'reject'])
   })
 
-  it('publishes one scoped takeover, returns the answer, and keeps stable registrations', async () => {
+  it('publishes one scoped approval, returns the answer, and keeps stable registrations', async () => {
     const bench = await setupPlugin()
     const scope = createScope(bench.ctx, id('s1'))
     await scope.fiber.await()
@@ -265,8 +263,6 @@ describe('approval Remote Event consumer', () => {
     expect(component).toBe(ApprovalPanel)
     expect(pending.displayReason).toEqual({ en: 'Display reason', zh: '展示原因' })
     expect(options.inject().resolveReason(pending.displayReason!)).toBe('Display reason')
-    expect(options.select({ pendingInteraction: undefined })).toBeNull()
-    expect(options.select({ pendingInteraction: pending })).toBe(pending)
     expect(pending).toMatchObject({
       kind: 'approval',
       sessionId: id('s1'),
@@ -361,9 +357,14 @@ function panelProps(
     allowAllHint: 'Switches this chat to Full access',
   }
   return {
-    matched: pending,
-    renderFactorySlot: (_name: string, input: ApprovalCardInput) => <ApprovalCard {...{ ...input, renderSlot,
-      t: (key: string) => messages[key] ?? key } as FactoryComponentPropsOf<'conversation.approval.card'>} />,
+    sessionId: pending.sessionId,
+    useSessionStatus: selector => selector(new Map([[pending.sessionId, {
+      running: true, pendingInteraction: pending, completionUnread: false,
+    }]])),
+    renderFactorySlot: (_name: string, input: ApprovalCardInput) => <ApprovalCard {...{
+      ...input, renderSlot,
+      t: (key: string) => messages[key] ?? key,
+    } as FactoryComponentPropsOf<'conversation.approval.card'>} />,
     resolveReason: (reason: NonNullable<PendingApproval['displayReason']>) => reason.en,
     useAllowAll,
     t: (key: string) => messages[key] ?? key,
@@ -446,7 +447,7 @@ describe('ApprovalPanel', () => {
       .mockResolvedValueOnce({ ok: true, value: { result: { kind: 'success' } } })
     const catalog = vi.fn(async () => ({ ok: true, value: { options: available ? [{ value: 'danger-full-access' }] : [] } }))
     const selection = { currentValue: 'default' }
-    const permissions = { getSnapshot: () => selection, subscribe: () => () => {} }
+    const permissions = { getSnapshot: () => selection, subscribe: () => () => { } }
     const session = { projections: { faceOf: () => permissions }, command }
     const bench = await setupPlugin({ binding: () => ({ session }), catalog, execute })
     const pending = new PendingApproval(id('s1'), { toolName: 'desktop_act' })
@@ -554,7 +555,7 @@ describe('ApprovalPanel', () => {
     expect(answer).toHaveBeenCalledExactlyOnceWith('allowed-once')
     await act(async () => { gate.resolve(undefined); await gate.promise })
     pending.abort(new Error('test cleanup'))
-    await pending.result.catch(() => {})
+    await pending.result.catch(() => { })
   })
 
   it('does not settle an aborted request or let its late rejection unlock its replacement', async () => {
@@ -566,13 +567,13 @@ describe('ApprovalPanel', () => {
     group.focus()
     fireEvent.keyDown(group, { key: 'Enter', code: 'Enter' })
     first.abort(new Error('request withdrawn'))
-    await first.result.catch(() => {})
+    await first.result.catch(() => { })
     const second = new PendingApproval(id('s1'), { toolName: 'read' })
     view.rerender(<ApprovalPanel {...panelProps(second)} />)
-    await act(async () => { gate.reject(new Error('late transport failure')); await gate.promise.catch(() => {}) })
+    await act(async () => { gate.reject(new Error('late transport failure')); await gate.promise.catch(() => { }) })
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Reject' }).disabled).toBe(false)
     second.abort(new Error('request withdrawn'))
-    await second.result.catch(() => {})
+    await second.result.catch(() => { })
     const answer = vi.spyOn(second, 'answer')
     group = screen.getByRole('group', { name: 'Approval details' })
     group.focus()
@@ -593,7 +594,7 @@ describe('ApprovalPanel', () => {
     })
     expect(document.querySelector('[data-approval-key]')?.getAttribute('aria-busy')).toBe('false')
     pending.abort(new Error('test cleanup'))
-    await pending.result.catch(() => {})
+    await pending.result.catch(() => { })
   })
 })
 
@@ -605,7 +606,7 @@ describe('package entries', () => {
 })
 
 it.each(['allow', 'reject', 'always', 'keyboard'] as const)('settles a fixed application decision through %s without free text', async (choice) => {
-  const onAllow = vi.fn(async () => {}), onReject = vi.fn(async () => {}), onAlways = vi.fn(async () => {})
+  const onAllow = vi.fn(async () => { }), onReject = vi.fn(async () => { }), onAlways = vi.fn(async () => { })
   const actions = { allow: onAllow, reject: onReject, always: onAlways }
   render(<ApprovalCard {...{
     requestKey: 'app-approval', title: 'Control this app?', description: 'Only for this task.',
@@ -633,7 +634,7 @@ it.each(['allow', 'reject', 'always', 'keyboard'] as const)('settles a fixed app
 })
 
 it('opens and dismisses risk details without answering the approval', () => {
-  const onAllow = vi.fn(async () => {}), onReject = vi.fn(async () => {})
+  const onAllow = vi.fn(async () => { }), onReject = vi.fn(async () => { })
   const props = {
     requestKey: 'risk-approval', title: 'Control this app?',
     warning: { label: 'Risks', title: 'Computer use risks', detail: 'Background control.\n\nAccount restrictions.\n\nStop in Jan.' },
@@ -666,7 +667,7 @@ it('opens and dismisses risk details without answering the approval', () => {
 
 it('keeps risk details readable across the pointer gap and after a touch tap', () => {
   vi.useFakeTimers()
-  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener() {}, removeEventListener() {} })))
+  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener() { }, removeEventListener() { } })))
   render(<ApprovalWarning warning={{ label: 'Risks', title: 'Computer use risks', detail: 'Background control.' }} />)
   const trigger = screen.getByRole('button', { name: 'Risks' })
   const pointer = (target: Element, type: string, pointerType = 'mouse') => {

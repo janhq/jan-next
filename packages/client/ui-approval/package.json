@@ -1,6 +1,6 @@
 {
   "name": "@janhq/jan-client-ui-approval",
-  "description": "Approval composer takeover over the scoped Remote Event waterfall",
+  "description": "Composer dock for tool approval over the scoped Remote Event waterfall",
   "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
