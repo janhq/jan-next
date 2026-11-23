@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { copyCustomizations, customizationOffer, customizationState, skillFolders } from '../customization-copy.mjs'
@@ -30,6 +30,42 @@ test('skill folders are the directories holding SKILL.md, with their description
   const root = skillsRoot(['writing', 'research'])
   assert.deepEqual(skillFolders(root).map(skill => [skill.name, skill.description]), [['research', 'Does research'], ['writing', 'Does writing']])
   assert.deepEqual(skillFolders(join(root, 'missing')), [])
+})
+
+test('skill listing skips dangling links without losing other skills', { skip: process.platform === 'win32' }, (t) => {
+  const root = skillsRoot(['writing'])
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  symlinkSync('gone', join(root, 'stale'))
+  assert.deepEqual(skillFolders(root).map(skill => skill.name), ['writing'])
+})
+
+test('skill uploads preserve the selected alias and safe nested links without overwriting files', { skip: process.platform === 'win32' }, async (t) => {
+  const root = skillsRoot([])
+  const sources = skillsRoot(['original', 'unsafe'])
+  const home = mkdtempSync(join(tmpdir(), 'jan-hosts-skill-dest-'))
+  const dest = join(home, '.jan/hosts-runtime/home/skills')
+  const env = { PATH: process.env.PATH, HOME: process.env.HOME }
+  t.after(() => {
+    Object.assign(process.env, env)
+    for (const directory of [root, sources, home]) rmSync(directory, { recursive: true, force: true })
+  })
+  symlinkSync(join(sources, 'original'), join(root, 'renamed'))
+  symlinkSync(join(sources, 'unsafe'), join(root, 'unsafe'))
+  symlinkSync('SKILL.md', join(sources, 'original', 'same'))
+  symlinkSync('../original/SKILL.md', join(sources, 'unsafe', 'outside'))
+  mkdirSync(join(dest, 'renamed'), { recursive: true })
+  writeFileSync(join(dest, 'renamed', 'SKILL.md'), 'existing')
+  writeFileSync(join(home, 'ssh'), '#!/bin/sh\nfor arg do command=$arg; done\nexec sh -c "$command"\n', { mode: 0o755 })
+  process.env.PATH = `${home}:${env.PATH}`
+  process.env.HOME = home
+  const source = { settings: settingsWith({}), skillRoots: [root] }
+  const target = { ssh: ['box'] }
+  const offer = await customizationOffer(source, { skills: [], servers: [], plugins: false })
+  await assert.rejects(copyCustomizations(source, target, offer, { skills: ['unsafe'] }), /outside the skill/)
+  const result = await copyCustomizations(source, target, offer, { skills: ['renamed'] })
+  assert.deepEqual(result.skills, ['renamed'])
+  assert.equal(readFileSync(join(dest, 'renamed', 'SKILL.md'), 'utf8'), 'existing')
+  assert.equal(readlinkSync(join(dest, 'renamed', 'same')), 'SKILL.md')
 })
 
 test('the offer lists only what the other Jan lacks, and marks what would not run there', async () => {
