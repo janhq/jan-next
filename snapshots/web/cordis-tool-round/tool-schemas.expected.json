@@ -504,6 +504,34 @@
       }
     },
     {
+      "name": "job_watch",
+      "description": "Watch new output from a running background job without polling. Matching lines arrive in batched notices, waking you when idle if enabled. Does not consume job_output.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "description": "ID of a running background job owned by this session."
+          },
+          "pattern": {
+            "type": "string",
+            "description": "JavaScript regular expression source (no delimiters or flags) to match each line. Omit to watch every line."
+          },
+          "max_events": {
+            "type": "integer",
+            "description": "Maximum live batches before the watch stops (1-100, default 20). The normal completion notice is separate."
+          },
+          "debounce_ms": {
+            "type": "integer",
+            "description": "Milliseconds to collect matches after the first match in a batch (1-60000, default 1000)."
+          }
+        },
+        "required": [
+          "job_id"
+        ]
+      }
+    },
+    {
       "name": "list_agents",
       "description": "List your continuable background subagents by durable id and label. Use it to recall which ones you started, not to poll for completion — you are told when one finishes. Status comes from the live registry: running means the agent is working right now; inactive means no turn is executing, whether the child is loaded or must be resumed. inactive does not describe task completion, success, failure, or waiting for other agents. A `send_message` steers a running child at its nearest step boundary or starts or resumes a turn for an inactive child, and a direct child remains a `send_message` candidate in every status. The snapshot is not a delivery promise — `send_message` performs the authoritative check and may still fail.",
       "parameters": {
@@ -759,6 +787,27 @@
           "goal_id",
           "revision",
           "action"
+        ]
+      }
+    },
+    {
+      "name": "wake_after",
+      "description": "Schedule a one-time reminder to resume work later without polling or blocking. Returns a timer job ID you can list or cancel with job_kill. Completion wakes you if enabled.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "seconds": {
+            "type": "number",
+            "description": "Delay in seconds, from 1 to 86400."
+          },
+          "note": {
+            "type": "string",
+            "description": "Non-blank reminder to include in the completion notice (up to 1024 UTF-8 bytes)."
+          }
+        },
+        "required": [
+          "seconds",
+          "note"
         ]
       }
     },
