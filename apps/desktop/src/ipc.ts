@@ -116,7 +116,8 @@ export interface JanDesktopProductApi {
    */
   deviceInfo(): Promise<string>
   /**
-   * Stop Jan, remove the chosen data, and relaunch. Rejects for an invalid selection; otherwise Jan quits.
+   * Stop Jan, remove the chosen data, and relaunch. Invalid selections reject before removal.
+   * The shell warns before relaunching if it cannot start or finish removing the selected data.
    * @param categories - nonempty subset of chats, settings, plugins, credentials, skills and logs.
    */
   factoryReset(categories: readonly string[]): Promise<void>

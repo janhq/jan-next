@@ -27,6 +27,7 @@ const state = vi.hoisted(() => ({
   loadWorkspace: vi.fn<(url: string) => Promise<void>>().mockResolvedValue(undefined),
   showWorkspace: vi.fn(),
   showInactiveWorkspace: vi.fn(),
+  focusApp: vi.fn(),
   focusWorkspace: vi.fn(),
   moveTopWorkspace: vi.fn(),
   openDevTools: vi.fn(),
@@ -55,8 +56,7 @@ vi.mock('electron', () => ({
     name: 'Harness',
     requestSingleInstanceLock: () => true,
     setAsDefaultProtocolClient: vi.fn(),
-    // macOS raises Jan once a browser sign-in lands.
-    focus: vi.fn(),
+    focus: state.focusApp,
     whenReady: () => Promise.resolve(),
     getLocale: () => 'en',
     getVersion: () => '1.0.0',
@@ -185,7 +185,8 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   state.hasApiKey = false
   state.operations = undefined
   state.accountState.mockResolvedValue({ status: 'signed-out', attempt: null, links: { usageUrl: '', topUpUrl: '' } })
-  if (updated) vi.stubGlobal('process', { ...process, platform: 'win32', argv: ['desktop', '--updated'] })
+  vi.stubGlobal('process', { ...process, platform: updated ? 'win32' : 'darwin',
+    ...(updated ? { argv: ['desktop', '--updated'] } : {}) })
   vi.useFakeTimers()
   vi.stubEnv('JAN_CLIENT_VERSION', '1.2.3')
   vi.stubEnv('JAN_DESKTOP_DEV_PROJECT_DIR', '/development-profile')
@@ -301,6 +302,8 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   await vi.waitFor(() => { expect(state.showInactiveWorkspace).toHaveBeenCalledOnce() })
   // Approval happened in the browser, so the landed sign-in brings Jan back to the front once.
   await vi.waitFor(() => { expect(state.focusWorkspace).toHaveBeenCalledOnce() })
+  if (process.platform === 'darwin') expect(state.focusApp).toHaveBeenCalledExactlyOnceWith({ steal: true })
+  else expect(state.focusApp).not.toHaveBeenCalled()
   expect(state.showWorkspace).toHaveBeenCalledOnce()
   expect(state.moveTopWorkspace).not.toHaveBeenCalled()
   expect(state.openDevTools).not.toHaveBeenCalled()

@@ -33,7 +33,7 @@ import {
 } from 'electron'
 import { resolveDesktopPaths } from './paths.ts'
 import { resolveJanHome } from '@janhq/jan-home-paths'
-import { parseFactoryResetRequest, performFactoryReset } from './factory-reset.ts'
+import { parseFactoryResetRequest, performFactoryReset, type FactoryResetCategory } from './factory-reset.ts'
 import { DesktopProjectManager } from './project-manager.ts'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError } from './host-process.ts'
 import { DesktopPlatformView, PLATFORM_IPC, platformBounds } from './platform-view.ts'
@@ -931,8 +931,8 @@ async function main(): Promise<void> {
     return platformView.open(owner, page, platformBounds(bounds))
   })
   ipcMain.handle(PLATFORM_IPC.bounds, (event, bounds: unknown) => {
-    assertMainApplication(event)
-    platformView.setBounds(platformBounds(bounds))
+    const owner = assertMainApplication(event)
+    platformView.setBounds(owner, platformBounds(bounds))
   })
   ipcMain.handle(PLATFORM_IPC.close, (event) => { assertMainApplication(event); platformView.close() })
   // Only the main window may synchronize its palette with the native material.
@@ -1003,31 +1003,59 @@ async function main(): Promise<void> {
   ipcMain.handle(DESKTOP_IPC.factoryReset, async (event, value: unknown) => {
     assertProductSender(event)
     const categories = parseFactoryResetRequest(value)
+    if (shuttingDown) throw new Error('desktop factory reset: Desktop is already shutting down')
+    const roots = { janHome: resolveJanHome(), profile: paths.profile, userData: app.getPath('userData'), desktopLogs: app.getPath('logs') }
+    const { id: language, messages } = locale
     shuttingDown = true
     try {
-      // Nothing may hold the files open while they are removed.
-      await stopForRecovery()
-      if (categories.includes('settings')) await session.defaultSession.clearStorageData()
-      await performFactoryReset(categories, { janHome: resolveJanHome(), profile: paths.profile, userData: app.getPath('userData') })
-      console.info('desktop factory reset: removed', categories)
-    } catch (error) {
-      console.error('desktop factory reset: incomplete', error)
+      try {
+        // The local worker can write chat state during shutdown, so wait before deleting anything.
+        await stopForRecovery()
+      } catch (error) {
+        console.error('desktop factory reset: refused before removal', error)
+        await dialog.showMessageBox({ type: 'error', title: messages.factoryResetTitle,
+          message: messages.factoryResetNotStarted, buttons: [messages.restartApplication] })
+        return
+      }
+      const { completed, incomplete } = await performFactoryReset(categories, roots, () => session.defaultSession.clearStorageData())
+      if (incomplete.size === 0) {
+        console.info('desktop factory reset: removed', completed)
+      } else {
+        console.error('desktop factory reset: incomplete', incomplete)
+        const list = new Intl.ListFormat(language)
+        const categoryLabels: Record<FactoryResetCategory, string> = {
+          chats: messages.factoryResetChats, settings: messages.factoryResetSettings, plugins: messages.factoryResetPlugins,
+          credentials: messages.factoryResetCredentials, skills: messages.factoryResetSkills, logs: messages.factoryResetLogs,
+        }
+        const affected = formatDesktopMessage(messages.factoryResetIncompleteItems, {
+          categories: list.format(Array.from(incomplete.keys(), category => categoryLabels[category])),
+        })
+        const detail = completed.length === 0 ? affected
+          : `${formatDesktopMessage(messages.factoryResetCompletedItems, { categories: list.format(completed.map(category => categoryLabels[category])) })}\n${affected}`
+        await dialog.showMessageBox({ type: 'warning', title: messages.factoryResetTitle,
+          message: messages.factoryResetIncomplete, detail, buttons: [messages.restartApplication] })
+      }
     } finally {
-      // The Host is already down, so Jan relaunches even after a partial reset; it reopens on what remains.
+      // Relaunch with whatever remains after the user acknowledges any failure.
       app.relaunch()
       quitWithoutConfirmation()
     }
   })
-  const notifications = new DesktopNotifications({
-    focus: () => { focusPrimaryWindow() },
-    clicked: (id) => {
-      const window = mainWindow
-      if (window !== undefined && !window.isDestroyed()) window.webContents.send(DESKTOP_IPC.notificationClicked, id)
-    },
-  })
+  const notifications = new DesktopNotifications()
   ipcMain.handle(DESKTOP_IPC.notificationShow, (event, request: unknown) => {
-    assertProductSender(event)
-    return notifications.show(parseDesktopNotificationRequest(request))
+    const window = assertProductSender(event)
+    const contents = window.webContents
+    return notifications.show(parseDesktopNotificationRequest(request), contents.id, (id) => {
+      if (shuttingDown || window.isDestroyed() || contents.isDestroyed()) return
+      if (isMandatory()) { mandatoryUI?.focus(); return }
+      if (window === mainWindow) focusPrimaryWindow()
+      else {
+        if (window.isMinimized()) window.restore()
+        window.show()
+        window.focus()
+      }
+      contents.send(DESKTOP_IPC.notificationClicked, id)
+    })
   })
   ipcMain.handle(DESKTOP_IPC.notificationWindowActive, event => isWindowActive(assertProductSender(event)))
   ipcMain.handle(DESKTOP_IPC.captureRegion, (event, request: unknown) =>
@@ -1305,11 +1333,13 @@ async function main(): Promise<void> {
       contents.setZoomLevel(zoomLevel)
       fitCaption(contents)
     }
+    platformView.refreshBounds()
   }
   app.on('web-contents-created', (_event, contents) => {
     contents.on('did-finish-load', () => {
       if (zoomLevel !== 0) contents.setZoomLevel(zoomLevel)
       fitCaption(contents)
+      platformView.refreshBounds()
     })
     // Electron reports Ctrl+wheel and trackpad pinch here but applies no zoom itself.
     contents.on('zoom-changed', (_zoomEvent, direction) => {
@@ -1317,21 +1347,20 @@ async function main(): Promise<void> {
       applyZoom(zoomLevel + (direction === 'in' ? 0.5 : -0.5))
     })
   })
-  const zoomItems: MenuItemConstructorOptions[] = [
-    { label: 'Actual Size', accelerator: 'CmdOrCtrl+0', click: () => { applyZoom(0) } },
-    { label: 'Zoom In', accelerator: 'CmdOrCtrl+=', click: () => { applyZoom(zoomLevel + 0.5) } },
+  const zoomItems = (messages: DesktopMessages): MenuItemConstructorOptions[] => [
+    { label: messages.zoomActualSize, accelerator: 'CmdOrCtrl+0', click: () => { applyZoom(0) } },
+    { label: messages.zoomIn, accelerator: 'CmdOrCtrl+=', click: () => { applyZoom(zoomLevel + 0.5) } },
     {
-      label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', visible: false, acceleratorWorksWhenHidden: true,
+      label: messages.zoomIn, accelerator: 'CmdOrCtrl+Plus', visible: false, acceleratorWorksWhenHidden: true,
       click: () => { applyZoom(zoomLevel + 0.5) },
     },
-    { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', click: () => { applyZoom(zoomLevel - 0.5) } },
+    { label: messages.zoomOut, accelerator: 'CmdOrCtrl+-', click: () => { applyZoom(zoomLevel - 0.5) } },
   ]
-  const viewMenu: MenuItemConstructorOptions = { label: 'View', submenu: zoomItems }
-  // Windows draws its own title bar and installs no visible menu, so its hidden menu carries the zoom keys.
-  const windowsZoomShortcuts: MenuItemConstructorOptions[] = zoomItems.map(item => ({ ...item, visible: false }))
-  const platformMenus = (): MenuItemConstructorOptions[] => darwin
-    ? [shortcuts.fileMenu(currentDesktopLocale().messages), macEditMenu(currentDesktopLocale().messages), viewMenu, { role: 'windowMenu' }]
-    : [{ role: 'editMenu' }, viewMenu]
+  const platformMenus = (messages: DesktopMessages): MenuItemConstructorOptions[] => {
+    const viewMenu = { label: messages.viewMenu, submenu: zoomItems(messages) }
+    return darwin ? [shortcuts.fileMenu(messages), macEditMenu(messages), viewMenu, { role: 'windowMenu' }]
+      : [{ role: 'editMenu' }, viewMenu]
+  }
   const hideCommands: MenuItemConstructorOptions[] = darwin
     ? [{ role: 'hide', label: currentDesktopLocale().messages.hideApplication },
       { role: 'hideOthers', label: currentDesktopLocale().messages.hideOtherApplications },
@@ -1375,11 +1404,13 @@ async function main(): Promise<void> {
     devToolsF12Shortcut,
   ]
   const refreshApplicationMenu = (): void => {
+    const { messages } = currentDesktopLocale()
+    // Windows installs no visible menu; its hidden menu carries the zoom keys.
     Menu.setApplicationMenu(Menu.buildFromTemplate(process.platform === 'win32'
-      ? [...windowsDevToolsShortcuts, ...windowsZoomShortcuts] : [{
-        label: darwin ? app.name : currentDesktopLocale().messages.application,
+      ? [...windowsDevToolsShortcuts, ...zoomItems(messages).map(item => ({ ...item, visible: false }))] : [{
+        label: darwin ? app.name : messages.application,
         submenu: [...applicationItems(), devToolsF12Shortcut],
-      }, ...platformMenus()]))
+      }, ...platformMenus(messages)]))
     tray?.relabel()
   }
   refreshApplicationMenu()
