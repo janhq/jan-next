@@ -71,9 +71,13 @@ describe('jan-base bundle', () => {
       apiKeyEnv: 'TOKAMAK_API_KEY',
       modelListing: { refreshIntervalMs: 600000, timeoutMs: 15000, preferredDefaults: ['tokamak/auto'], exclude: ['openai/gpt-image-*'] },
     })
-    // Undeclared router models read images; entries only mark the text-only ones and the router still decides the served set.
+    // Only the text-only exceptions override input; reasoning-only rows must inherit text + image.
     expect(tokamak?.['defaultInput']).toEqual(['text', 'image'])
-    expect(tokamak?.['models']).toEqual(['deepseek-flash', 'deepseek-v4-pro', 'openai/gpt-oss-120b-medium'].map(id => ({ id, input: ['text'] })))
+    const models = tokamak?.['models'] as { id: string; input?: string[]; reasoningEfforts?: Record<string, string> }[]
+    expect(models.filter(model => model.input !== undefined)).toEqual(
+      ['deepseek-flash', 'deepseek-v4-pro', 'openai/gpt-oss-120b-medium'].map(id => ({ id, input: ['text'] })),
+    )
+    expect(models.find(model => model.id === 'tokamak/auto')?.reasoningEfforts).toEqual({ low: 'low', medium: 'medium', high: 'high' })
     expect(manifest.dependencies).toHaveProperty('@janhq/jan-tokamak-account')
     expect(rows.find(row => row.id === 'tool-web')?.config).toMatchObject({ fetch: true })
     expect(manifest.dependencies).not.toHaveProperty('@janhq/jan-subagent-codex')
