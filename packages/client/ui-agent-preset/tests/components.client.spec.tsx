@@ -293,7 +293,7 @@ describe('a refused switch', () => {
       const banner = screen.getByRole('alert')
       expect(banner.textContent).toContain(reason)
       expect(banner.textContent).toContain(en.presetCordisName)
-      expect(screen.queryByRole('button')).toBeNull()
+      expect(screen.queryByRole('button', { expanded: false })).toBeNull()
 
       act(() => { vi.advanceTimersByTime(7000) })
       act(() => { actions.store.set({ ...actions.store.getSnapshot(), error: { ...refusal } }) })
@@ -422,6 +422,13 @@ describe('the composer preset chip of a started session', () => {
     fireEvent.click(control)
     fireEvent.click(screen.getAllByRole('menuitem').find(item => item.textContent?.startsWith('mine'))!)
     await waitFor(() => { expect(select).toHaveBeenCalledExactlyOnceWith('s1', 'mine') })
+  })
+
+  it('sends an explicit selection of the current preset', async () => {
+    const { select } = renderLabel({ blank: true, projectionValues: { agentPreset: 'standard' } })
+    fireEvent.click(screen.getByRole('button', { name: `${en.headerHint}: ${en.presetStandardName}` }))
+    fireEvent.click(screen.getAllByRole('menuitem').find(item => item.textContent?.startsWith(en.presetStandardName))!)
+    await waitFor(() => { expect(select).toHaveBeenCalledExactlyOnceWith('s1', 'standard') })
   })
 
   it('shows a refusal toast when the injected selection rejects', async () => {

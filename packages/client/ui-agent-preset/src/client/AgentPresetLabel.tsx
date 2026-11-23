@@ -123,7 +123,7 @@ export function AgentPresetLabel({
         selectedId={preset}
         onSelect={(id) => {
           setOpen(false)
-          if (id === preset || runModeAction(modeActions, id, sessionId)) return
+          if (runModeAction(modeActions, id, sessionId)) return
           setBusy(true)
           void select(sessionId, id).then((reason) => {
             if (reason === undefined) return
