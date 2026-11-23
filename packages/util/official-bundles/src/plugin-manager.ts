@@ -68,7 +68,6 @@ export const EXPERIMENTAL_BUNDLES: ReadonlySet<string> = new Set([
   '@janhq/jan-experimental-auto-review',
   '@janhq/jan-experimental-inspector-profile',
   '@janhq/jan-experimental-forge-bundle',
-  '@janhq/dsh-superagent',
   '@janhq/jan-experimental-tool-worktree',
   '@janhq/jan-experimental-cot-translation-bundle',
   '@janhq/jan-experimental-session-search',

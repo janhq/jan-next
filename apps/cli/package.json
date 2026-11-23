@@ -110,8 +110,7 @@
     "@janhq/jan-cua-bundle": "workspace:*",
     "@janhq/jan-experimental-plugin-market-bundle": "workspace:*",
     "@janhq/jan-personalized-recommendations": "workspace:*",
-    "@janhq/jan-experimental-forge-bundle": "workspace:*",
-    "@janhq/dsh-superagent": "workspace:~"
+    "@janhq/jan-experimental-forge-bundle": "workspace:*"
   },
   "devDependencies": {
     "@janhq/jan-skill-badge": "workspace:*",
