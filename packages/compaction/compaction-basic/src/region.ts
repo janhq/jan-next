@@ -17,14 +17,16 @@ import {
 import type { CompactionResult } from '@janhq/jan-compaction'
 import type { CommandId } from '@janhq/jan-commands/brand'
 import { CONTEXT_WINDOW_EXCEEDED_CODE, HarnessError, createUserMessage, errorChain } from '@janhq/jan-llm'
-import type { Message, UserMessage } from '@janhq/jan-llm'
+import type { LlmResolvedModelInfo, Message, UserMessage } from '@janhq/jan-llm'
 import type { TokenMeasurement, TokenMeter } from '@janhq/jan-token-meter'
+import { estimateContent, ROLE_OVERHEAD } from '@janhq/jan-token-meter/estimate'
 import { SessionSeq, type Session, type SessionEvent } from '@janhq/jan-session'
 import type { Agent } from '@janhq/jan-agent'
 import { frameSummary } from './summarizer.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
 interface RegionDependencies {
   readonly meter: TokenMeter
+  resolveModelInfo(provider: string, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo>
   summarize(input: SummarizationInput, agent: Agent, signal?: AbortSignal): Promise<SummaryResult>
   recover(error: unknown, agent: Agent, sourceEventSeqs: readonly SessionSeq[], signal?: AbortSignal): boolean
 }
@@ -408,12 +410,24 @@ async function summarizeCompaction(
         continue
       }
       if (!(error instanceof HarnessError) || error.code !== CONTEXT_WINDOW_EXCEEDED_CODE) throw error
-      const target = agent.session.requestHeader()?.config
-      if (target === undefined) throw error
+      const header = agent.session.requestHeader()
+      if (header === undefined) throw error
+      const { provider, model, maxTokens } = header.config
+      const context = agent.session.requestContext()
+      const loggedRoute = context?.provider === provider && context.model === model
+      const info = loggedRoute ? undefined : await dependencies.resolveModelInfo(provider, model, signal)
+      const window = loggedRoute ? context.contextWindow : info?.context?.contextWindow
+      if (window === undefined) throw error
+      // The retry retains everything outside the selected span, including the
+      // system prompt and tool schemas. Leave room for its completion as well.
+      const retained = prepared.measurement.totalTokens - prepared.shadowedRouteTokenCount
+      const budget = Math.min(prepared.shadowedRouteTokenCount - 1, window - (maxTokens ?? info?.defaultMaxTokens ?? 0) - retained)
+      const summary = overflowExcerpt(prepared.input.messages, budget)
+      if (summary === undefined) throw error
       summaryResult = {
-        provider: target.provider,
-        model: target.model,
-        summary: overflowExcerpt(prepared.input.messages, prepared.shadowedRouteTokenCount),
+        provider,
+        model,
+        summary,
       }
       break
     }
@@ -439,9 +453,13 @@ async function summarizeCompaction(
 }
 
 /** Keep recent text when the summarizer itself cannot fit the selected span. */
-function overflowExcerpt(messages: readonly Message[], shadowedTokens: number): SummaryResult['summary'] {
+function overflowExcerpt(messages: readonly Message[], budget: number): SummaryResult['summary'] | undefined {
   const note = 'The summarizer exceeded its context window. Recent excerpts follow. Use read_chat to retrieve earlier messages if that tool is available.'
-  let remaining = Math.min(8192, shadowedTokens) - note.length
+  const fixedTokens = ROLE_OVERHEAD + estimateContent(frameSummary([{ type: 'text', text: note }]))
+  if (fixedTokens > budget) return undefined
+  // Budget excerpts in UTF-8 bytes, at one byte per remaining token, so dense
+  // text does not fill the retry window based on the meter's average density.
+  let remaining = Math.min(8192, budget - fixedTokens)
   const excerpts: string[] = []
   for (let i = messages.length - 1; i >= 0 && remaining > 32; i -= 1) {
     const message = messages[i]
@@ -450,13 +468,25 @@ function overflowExcerpt(messages: readonly Message[], shadowedTokens: number): 
     for (let j = message.content.length - 1; j >= 0 && remaining > 32; j -= 1) {
       const block = message.content[j]
       if (block?.type !== 'text' || block.text.length === 0) continue
-      const available = remaining - label.length
-      const excerpt = block.text.length <= available ? block.text : `[…] ${block.text.slice(-(available - 5)).replace(/^[\uDC00-\uDFFF]/u, '')}`
+      const available = remaining - Buffer.byteLength(label)
+      const excerpt = clipExcerpt(block.text, available)
       excerpts.push(label + excerpt)
-      remaining -= label.length + excerpt.length
+      remaining -= Buffer.byteLength(label + excerpt)
+      if (excerpt !== block.text) break
     }
   }
   return [{ type: 'text', text: note + excerpts.reverse().join('') }]
+}
+
+function clipExcerpt(text: string, bytes: number): string {
+  if (text.length <= bytes && Buffer.byteLength(text) <= bytes) return text
+  const marker = '[...] '
+  const suffix = text.slice(-(bytes - marker.length)).replace(/^[\uDC00-\uDFFF]/u, '')
+  if (Buffer.byteLength(suffix) <= bytes - marker.length) return marker + suffix
+  const tail = Buffer.from(suffix).subarray(-(bytes - marker.length))
+  let start = 0
+  while (((tail[start] ?? 0) & 0xc0) === 0x80) start += 1
+  return marker + tail.toString('utf8', start)
 }
 
 /** Reject a summary prepared against any earlier surface generation. */

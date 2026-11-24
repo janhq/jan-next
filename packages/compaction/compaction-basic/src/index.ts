@@ -512,6 +512,7 @@ export class BasicCompactionEngine extends CompactionEngine {
   private regionDependencies(): Parameters<typeof compactSurfaceRegion>[0] {
     return {
       meter: this.ctx.tokenMeter,
+      resolveModelInfo: (provider, model, signal) => this.ctx.llm.resolveModelInfo(provider, model, signal),
       summarize: (input, owner, abort) => this.summarize(input, owner, abort),
       recover: (error, agent, sourceEventSeqs, signal) => this.ctx.waterfall('compaction/summary-error', {
         session: agent.session,
