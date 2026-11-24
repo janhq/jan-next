@@ -56,6 +56,19 @@ it('adds a project file larger than the generic plugin request limit', async () 
   expect((await readFile(join(root, 'report.bin'))).equals(bytes)).toBe(true)
 })
 
+it('counts context files without counting folders or estimating binary or oversized files', async () => {
+  const { root, call } = await projectHome()
+  await mkdir(join(root, 'docs'))
+  await mkdir(join(root, 'node_modules'))
+  await writeFile(join(root, 'docs', 'nested.md'), 'not listed at this level')
+  await writeFile(join(root, 'notes.md'), '世界ab')
+  await writeFile(join(root, 'README'), 'text')
+  await writeFile(join(root, 'photo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]))
+  await writeFile(join(root, 'large.txt'), 'a'.repeat(4 * 1024 * 1024 + 1))
+
+  expect((await call('read')).body.result).toMatchObject({ contextSummary: { fileCount: 4, estimatedTokens: 3 } })
+})
+
 it('enforces the instruction byte limit on the text that will actually be saved', async () => {
   const { root, call } = await projectHome()
   const file = join(root, 'AGENTS.md')
@@ -198,6 +211,18 @@ function fakeScopedSettings(project: string, globallyOff: string[] = []) {
   }
   return { scopedSettings, calls }
 }
+
+it('estimates only the names and descriptions in enabled skill folders and skills', async () => {
+  const workspaceParent = join(tmpdir(), 'jan-rail-text-estimate')
+  const { scopedSettings } = fakeScopedSettings(join(workspaceParent, 'project'), ['deploy'])
+  const { call } = await projectHome([], 0, { scopedSettings })
+  await call('setSkillFolder', { path: join(workspaceParent, 'styles'), enabled: false })
+
+  // The remaining row is `- \`review\`: review skill\n` (25 UTF-8 bytes).
+  expect((await call('skills')).body.result).toMatchObject({ active: 1, total: 4, estimatedTokens: 7 })
+  await call('setSkill', { name: 'review', enabled: false })
+  expect((await call('skills')).body.result).toMatchObject({ estimatedTokens: 0 })
+})
 
 it('routes the project page skill switches to the project scope of scoped settings', async () => {
   const root = await mkdtemp(join(tmpdir(), 'jan-project-skills-'))

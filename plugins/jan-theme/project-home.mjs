@@ -15,6 +15,7 @@ const MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 // Base64 expands uploads by a third; leave room for the JSON envelope and file name.
 const MAX_REQUEST_BYTES = 34 * 1024 * 1024
 const MAX_LISTED = 300
+const MAX_CONTEXT_ESTIMATE_BYTES = 4 * 1024 * 1024
 const MAX_PREVIEW_BYTES = 4 * 1024 * 1024
 const MAX_ICON_BYTES = 256 * 1024
 const MAX_LINKS = 32
@@ -108,6 +109,15 @@ async function contextPath(workspace, settings, folderId, parts = []) {
 
 const IMAGE_TYPES = new Map(Object.entries({ '.avif': 'avif', '.gif': 'gif', '.ico': 'x-icon', '.jpeg': 'jpeg', '.jpg': 'jpeg', '.png': 'png', '.svg': 'svg+xml', '.webp': 'webp', '.bmp': 'bmp' }))
 const LANGUAGES = { '.cjs': 'javascript', '.mjs': 'javascript', '.ts': 'typescript', '.js': 'javascript', '.py': 'python', '.rb': 'ruby', '.sh': 'bash', '.yml': 'yaml', '.htm': 'html', '.h': 'c', '.cc': 'cpp', '.rs': 'rust' }
+const CONTEXT_TEXT_EXTENSIONS = new Set([
+  ...Object.keys(LANGUAGES), '.bash', '.c', '.cfg', '.conf', '.cpp', '.cs', '.css', '.csv', '.go', '.hpp', '.html', '.ini',
+  '.java', '.json', '.jsonc', '.jsonl', '.jsx', '.kt', '.log', '.lua', '.markdown', '.md', '.mdx', '.php', '.ps1', '.rst',
+  '.sass', '.scss', '.sql', '.svg', '.swift', '.toml', '.tsv', '.tsx', '.txt', '.xml', '.yaml', '.zsh',
+])
+const CONTEXT_TEXT_NAMES = new Set(['.editorconfig', '.gitattributes', '.gitignore', '.npmrc', 'dockerfile', 'license', 'makefile', 'readme'])
+
+// Use one token per four UTF-8 bytes for both rail estimates; no model tokenizer is selected here.
+const tokensFromBytes = byteCount => Math.ceil(byteCount / 4)
 
 async function readPreview(target) {
   // Check before open as well as after it, so a directory or FIFO is never treated as a document.
@@ -306,16 +316,22 @@ async function writeAtomic(path, text, mode) {
   }
 }
 
-async function listFiles(root) {
+async function listFiles(root, summarize = false) {
   const entries = await readdir(root, { withFileTypes: true })
   const visible = entries.filter(entry => !HIDDEN_FILES.has(entry.name))
     .sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name))
+  let contextBytes = 0
   const rows = await Promise.all(visible.slice(0, MAX_LISTED).map(async (entry) => {
     const directory = entry.isDirectory()
     let size
     let modified
     try {
       const info = await lstat(join(root, entry.name))
+      // Only estimate listed regular files with known text names, using their existing stat sizes.
+      if (summarize && info.isFile() && info.size <= MAX_CONTEXT_ESTIMATE_BYTES
+        && (CONTEXT_TEXT_EXTENSIONS.has(extname(entry.name).toLowerCase()) || CONTEXT_TEXT_NAMES.has(entry.name.toLowerCase()))) {
+        contextBytes += info.size
+      }
       size = directory ? undefined : info.size
       modified = info.mtimeMs
     } catch (error) {
@@ -324,7 +340,13 @@ async function listFiles(root) {
     }
     return { name: entry.name, directory, size, modified }
   }))
-  return { files: rows, truncated: visible.length > MAX_LISTED }
+  return {
+    files: rows, truncated: visible.length > MAX_LISTED,
+    ...(summarize && { contextSummary: {
+      fileCount: visible.reduce((count, entry) => count + Number(entry.isFile()), 0),
+      estimatedTokens: tokensFromBytes(contextBytes),
+    } }),
+  }
 }
 
 
@@ -598,7 +620,7 @@ export function mountProjectHome(ctx) {
     async read({ workspaceId }) {
       const { id, path: root } = getProject(ctx, workspaceId)
       const [instructions, memory, listing, gitState, inventory] = await Promise.all([
-        readText(join(root, FILES.instructions)), readText(join(root, FILES.memory)), listFiles(root), gitInfo(root),
+        readText(join(root, FILES.instructions)), readText(join(root, FILES.memory)), listFiles(root, true), gitInfo(root),
         readInventory(ctx, root),
       ])
       return { path: root, instructions, memory, ...listing, git: gitState, inventory, ...settings.read(id) }
@@ -607,10 +629,24 @@ export function mountProjectHome(ctx) {
     preview: async ({ workspaceId, folderId, parts }) => readPreview(await contextPath(getProject(ctx, workspaceId), settings, folderId, parts)),
     usage: ({ workspaceId }) => readUsage(getProject(ctx, workspaceId)),
     /** Every skill a chat in this project could see, grouped by folder, with this project's switches. */
-    skills({ workspaceId, rescan }) {
+    async skills({ workspaceId, rescan }) {
       const workspace = getProject(ctx, workspaceId)
       if (rescan === true) ctx.get('skills')?.refresh()
-      return projectSkills.list(workspace)
+      const { folders } = await projectSkills.list(workspace)
+      let active = 0
+      let total = 0
+      let bytes = 0
+      for (const folder of folders) {
+        total += folder.skills.length
+        if (!folder.enabled) continue
+        for (const skill of folder.skills) {
+          if (!skill.enabled) continue
+          active++
+          // Estimate full catalog rows (name and summary), not the bodies loaded on demand.
+          bytes += Buffer.byteLength(skill.name) + Buffer.byteLength(skill.description) + 7 // Markdown and newline.
+        }
+      }
+      return { folders, active, total, estimatedTokens: tokensFromBytes(bytes) }
     },
     setSkillFolder: ({ workspaceId, path, enabled }) => projectSkills.setFolder(getProject(ctx, workspaceId), path, enabled),
     setSkill: ({ workspaceId, name, enabled }) => projectSkills.setSkill(getProject(ctx, workspaceId), name, enabled),

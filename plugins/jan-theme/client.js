@@ -234,7 +234,7 @@ window.__ModuleLoader__.load({
     }
     // Popularity facts the registries publish, never estimates: last week's npm or PyPI
     // downloads of a server's package, and when the MCP Registry last changed it.
-    const compactCount = count => new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(count)
+    const compactCount = (count, locale) => new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(count)
     function updatedAgo(iso) {
       const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000)
       if (!Number.isFinite(days)) return ''
@@ -1145,6 +1145,7 @@ window.__ModuleLoader__.load({
   .jt-project-card { padding: 14px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; }
   .jt-project-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .jt-project-card-head h2 { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; }
+  .jt-project-card-heading { min-width: 0; }
   .jt-project-card-text { margin: 4px 0 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
   .jt-project-card-text[data-empty='true'] { color: var(--dsw-alias-label-tertiary); }
   .jt-project-files { margin: 8px 0 0; padding: 0; list-style: none; max-height: 220px; overflow-y: auto; }
@@ -1155,7 +1156,8 @@ window.__ModuleLoader__.load({
   .jt-project-task { padding: 6px 0; border-top: 0.5px solid var(--dsw-alias-border-l2); font-size: 13px; line-height: 18px; }
   .jt-project-task:first-child { border-top: 0; }
   .jt-project-task-meta { color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
-  .jt-project-skill-count { color: var(--dsw-alias-label-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .jt-project-card-summary { color: var(--dsw-alias-label-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .jt-project-card-head > .jt-project-card-summary { text-align: end; }
   .jt-project-skill-folders { margin: 8px 0 0; padding: 0; list-style: none; max-height: 320px; overflow-y: auto; }
   .jt-project-skill-folder { border-top: 0.5px solid var(--dsw-alias-border-l2); }
   .jt-project-skill-folder:first-child { border-top: 0; }
@@ -1845,6 +1847,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
     }
     const fileSize = (bytes) => bytes === undefined ? ''
       : bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
+    const projectTokenEstimate = (count, t) => t(count === 1 ? 'project.tokens.one' : 'project.tokens', { count: compactCount(count, t('project.locale')) })
     const readBase64 = (file) => new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => { resolve(String(reader.result).split(',', 2)[1] ?? '') }
@@ -1993,11 +1996,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
       const { data, error, busy, toggle } = useProjectRailSwitches('skills', workspaceId, refreshToken)
       const [open, setOpen] = React.useState(() => new Set())
       const folders = data?.folders ?? []
-      const total = folders.reduce((sum, folder) => sum + folder.skills.length, 0)
-      const active = folders.reduce((sum, folder) => sum + (folder.enabled ? folder.skills.filter(skill => skill.enabled).length : 0), 0)
+      const summary = data === null ? null : t('project.skills.count', {
+        active: data.active, total: data.total, estimate: projectTokenEstimate(data.estimatedTokens, t),
+      })
       return h('section', { className: 'jt-project-card', 'aria-label': t('project.skills') },
         h('div', { className: 'jt-project-card-head' }, h('h2', null, t('project.skills')),
-          data !== null && h('span', { className: 'jt-project-skill-count' }, t('project.skills.count', { active, total }))),
+          summary !== null && h('span', { className: 'jt-project-card-summary' }, summary)),
         data === null && !error ? h('p', { className: 'jt-project-card-text' }, t('loading'))
           : folders.length === 0 ? h('p', { className: 'jt-project-card-text', 'data-empty': true }, t('project.skills.empty'))
             : h('ul', { className: 'jt-project-skill-folders' }, folders.map((folder) => {
@@ -2040,7 +2044,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
         total += rows.length
         for (const row of rows) if (row.enabled) active++
       }
-      return card('project.tools.title', data !== null && h('span', { className: 'jt-project-skill-count' }, t('project.tools.count', { active, total })),
+      return card('project.tools.title', data !== null && h('span', { className: 'jt-project-card-summary' }, t('project.tools.count', { active, total })),
         h(React.Fragment, null,
           data === null && !error && h('p', { className: 'jt-project-card-text' }, t('loading')),
           data !== null && total === 0 && h('p', { className: 'jt-project-card-text', 'data-empty': true }, t('project.tools.empty')),
@@ -2199,6 +2203,39 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
     }
     const ProjectConversationViews = props => props.renderSlot('conversation.session', { view: 'chat' })
 
+    function ProjectScheduledTasks({ tasks, t }) {
+      const [now, setNow] = React.useState(Date.now)
+      const hasNextRun = tasks.some(task => task.status !== 'paused')
+      React.useEffect(() => {
+        if (!hasNextRun) return
+        setNow(Date.now())
+        const timer = setInterval(() => { setNow(Date.now()) }, 60_000)
+        return () => { clearInterval(timer) }
+      }, [hasNextRun])
+      const locale = t('project.locale')
+      const narrow = React.useMemo(() => new Intl.RelativeTimeFormat(locale, { style: 'narrow' }), [locale])
+      const day = React.useMemo(() => new Intl.RelativeTimeFormat(locale), [locale])
+      const absolute = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }), [locale])
+      const today = new Date(now).toDateString()
+      return h('ul', { className: 'jt-project-tasks' }, tasks.map(task => {
+        let next = t('project.task.paused')
+        if (task.status !== 'paused') {
+          const scheduled = Date.parse(task.scheduledAt)
+          const floor = Date.parse(task.deliveryFloorEndsAt)
+          const at = floor > scheduled ? floor : scheduled
+          const minutes = (at - now) / 60_000
+          const distance = Math.abs(minutes)
+          const relative = minutes <= 0 && new Date(at).toDateString() === today ? t('project.task.dueToday')
+            : distance >= 1440 ? day.format(Math.sign(minutes) * Math.floor(distance / 1440), 'day')
+            : distance >= 60 ? narrow.format(Math.sign(minutes) * Math.floor(distance / 60), 'hour')
+            : narrow.format(Math.sign(minutes) * Math.max(1, Math.floor(distance)), 'minute')
+          next = h('time', { dateTime: new Date(at).toISOString(), title: absolute.format(at) }, relative)
+        }
+        return h('li', { key: task.id, className: 'jt-project-task' },
+          h('div', null, task.title), h('div', { className: 'jt-project-task-meta' }, next))
+      }))
+    }
+
     function ProjectDetails({ workspace, useArchived, useSessions, useSessionStatus, useScheduleTasks, connectDraft, SessionProvider, renderSlot, openChat, editProject, backToProjects, createSchedule, openScheduled, refreshScheduled, openConnectors, t }) {
       const { workspaceId } = workspace
       const title = workspaceDisplayTitle(workspace, t('workspace.defaultName'))
@@ -2303,8 +2340,13 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
         if (unit === 'now') return t('time.now')
         return unit === 'minutes' || unit === 'hours' ? t(`time.${unit}`, { n }) : dateFormat.format(new Date(at))
       }
-      const card = (titleKey, action, body) => h('section', { className: 'jt-project-card', 'aria-label': t(titleKey) },
-        h('div', { className: 'jt-project-card-head' }, h('h2', null, t(titleKey)), action), body)
+      const card = (titleKey, action, body, summary) => h('section', { className: 'jt-project-card', 'aria-label': t(titleKey) },
+        h('div', { className: 'jt-project-card-head' }, summary == null ? h('h2', null, t(titleKey))
+          : h('div', { className: 'jt-project-card-heading' }, h('h2', null, t(titleKey)), h('div', { className: 'jt-project-card-summary' }, summary)), action), body)
+      const contextSummary = details?.contextSummary
+      const contextLabel = contextSummary === undefined ? null : t(`project.context.count.${contextSummary.fileCount === 1 ? 'one' : 'other'}`, {
+        count: contextSummary.fileCount.toLocaleString(t('project.locale')), estimate: projectTokenEstimate(contextSummary.estimatedTokens, t),
+      })
       const preview = (text, emptyKey) => h('p', { className: 'jt-project-card-text', 'data-empty': text.trim() === '' || undefined },
         text.trim() === '' ? t(emptyKey) : text.trim())
       return h('div', { className: 'jt-project' },
@@ -2375,7 +2417,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
                   h('span', { className: 'jt-project-file-size' }, fileSize(file.size))))),
               details?.truncated && h('p', { className: 'jt-project-card-text' }, t('project.context.more')),
               h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: openFolder }, t('project.openFolder')),
-              fileError && h('p', { className: 'jt-project-error', role: 'alert' }, fileError))),
+              fileError && h('p', { className: 'jt-project-error', role: 'alert' }, fileError)), contextLabel),
           card('project.memory',
             h(Button, { size: 'sm', variant: 'outline', disabled: details === null, onClick: () => { setEditing('memory') } }, t(details?.memory.trim() ? 'project.edit' : 'project.add')),
             preview(details?.memory ?? '', 'project.memory.empty')),
@@ -2386,9 +2428,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
             h(React.Fragment, null,
               projectTasks.length === 0
                 ? (taskStatus !== 'error' && preview('', taskStatus === 'loading' ? 'loading' : 'project.scheduled.empty'))
-                : h('ul', { className: 'jt-project-tasks' }, projectTasks.map(task => h('li', { key: task.id, className: 'jt-project-task' },
-                  h('div', null, task.title),
-                  h('div', { className: 'jt-project-task-meta' }, task.status === 'paused' ? t('project.task.paused') : t('project.task.next', { when: new Date(task.scheduledAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) }))))),
+                : h(ProjectScheduledTasks, { tasks: projectTasks, t }),
               projectTasks.length > 0 && h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: openScheduled }, t('project.task.manage')),
               taskStatus === 'error' && h('p', { className: 'jt-project-error', role: 'alert' }, t('load.failed'))))),
         h(ProjectTextEditor, {
@@ -2818,6 +2858,11 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "Context",
               'project.context.empty': "No files in this folder yet.",
               'project.context.more': "Showing the first 300 items.",
+              'project.locale': "en",
+              'project.context.count.one': "{count} file · {estimate}",
+              'project.context.count.other': "{count} files · {estimate}",
+              'project.tokens': "~{count} tokens",
+              'project.tokens.one': "~{count} token",
               'project.addFiles': "Add files",
               'project.openFolder': "Open folder",
               'project.copyPath': "Copy path",
@@ -2826,7 +2871,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.git.branch': "Current branch",
               'project.git.open': "Open {name} on {host}",
               'project.skills': "Skills",
-              'project.skills.count': "{active} of {total} on",
+              'project.skills.count': "{active} of {total} on · {estimate}",
               'project.skills.folderCount': "{active} of {total}",
               'project.skills.off': "Off",
               'project.skills.offGlobally': "Off in global settings",
@@ -2859,7 +2904,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "Times use {zone}.",
               'project.task.create': "Create task",
               'project.task.missing': "Give the task a name and instructions.",
-              'project.task.next': "Next {when}",
+              'project.task.dueToday': "Due today",
               'project.task.paused': "Paused",
               'project.task.manage': "Manage scheduled tasks",
               'projects.search': 'Search projects',
@@ -2932,6 +2977,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "上下文",
               'project.context.empty': "此文件夹中还没有文件。",
               'project.context.more': "仅显示前 300 项。",
+              'project.locale': "zh-CN",
+              'project.context.count.one': "{count} 个文件 · {estimate}",
+              'project.context.count.other': "{count} 个文件 · {estimate}",
+              'project.tokens': "约 {count} 个词元",
+              'project.tokens.one': "约 {count} 个词元",
+              'project.skills.count': "已启用 {active}/{total} 项 · {estimate}",
               'project.addFiles': "添加文件",
               'project.openFolder': "打开文件夹",
               'project.copyPath': "复制路径",
@@ -2963,7 +3014,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "时间采用 {zone}。",
               'project.task.create': "创建任务",
               'project.task.missing': "请填写任务名称和说明。",
-              'project.task.next': "下次 {when}",
+              'project.task.dueToday': "今天到期",
               'project.task.paused': "已暂停",
               'project.task.manage': "管理定时任务",
               'projects.search': '搜索项目',
@@ -3039,6 +3090,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "コンテキスト",
               'project.context.empty': "このフォルダーにはまだファイルがありません。",
               'project.context.more': "最初の 300 件を表示しています。",
+              'project.locale': "ja-JP",
+              'project.context.count.one': "{count} ファイル · {estimate}",
+              'project.context.count.other': "{count} ファイル · {estimate}",
+              'project.tokens': "約 {count} トークン",
+              'project.tokens.one': "約 {count} トークン",
+              'project.skills.count': "{total} 件中 {active} 件オン · {estimate}",
               'project.addFiles': "ファイルを追加",
               'project.openFolder': "フォルダーを開く",
               'project.copyPath': "パスをコピー",
@@ -3070,7 +3127,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "時刻は {zone} です。",
               'project.task.create': "タスクを作成",
               'project.task.missing': "タスクの名前と指示を入力してください。",
-              'project.task.next': "次回 {when}",
+              'project.task.dueToday': "本日が期限",
               'project.task.paused': "一時停止中",
               'project.task.manage': "スケジュールタスクを管理",
               'projects.search': 'プロジェクトを検索',
@@ -3146,6 +3203,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "Contexto",
               'project.context.empty': "Esta carpeta todavía no tiene archivos.",
               'project.context.more': "Se muestran los primeros 300 elementos.",
+              'project.locale': "es",
+              'project.context.count.one': "{count} archivo · {estimate}",
+              'project.context.count.other': "{count} archivos · {estimate}",
+              'project.tokens': "~{count} tokens",
+              'project.tokens.one': "~{count} token",
+              'project.skills.count': "{active} de {total} activadas · {estimate}",
               'project.addFiles': "Añadir archivos",
               'project.openFolder': "Abrir carpeta",
               'project.copyPath': "Copiar ruta",
@@ -3177,7 +3240,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "Las horas usan {zone}.",
               'project.task.create': "Crear tarea",
               'project.task.missing': "Pon un nombre y unas instrucciones a la tarea.",
-              'project.task.next': "Siguiente: {when}",
+              'project.task.dueToday': "Vence hoy",
               'project.task.paused': "En pausa",
               'project.task.manage': "Gestionar tareas programadas",
               'projects.search': 'Buscar proyectos',
@@ -3253,6 +3316,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "Contexte",
               'project.context.empty': "Ce dossier n'a pas encore de fichiers.",
               'project.context.more': "Les 300 premiers éléments sont affichés.",
+              'project.locale': "fr",
+              'project.context.count.one': "{count} fichier · {estimate}",
+              'project.context.count.other': "{count} fichiers · {estimate}",
+              'project.tokens': "~{count} jetons",
+              'project.tokens.one': "~{count} jeton",
+              'project.skills.count': "{active} sur {total} activées · {estimate}",
               'project.addFiles': "Ajouter des fichiers",
               'project.openFolder': "Ouvrir le dossier",
               'project.copyPath': "Copier le chemin",
@@ -3284,7 +3353,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "Les heures suivent {zone}.",
               'project.task.create': "Créer la tâche",
               'project.task.missing': "Donnez un nom et des instructions à la tâche.",
-              'project.task.next': "Prochaine : {when}",
+              'project.task.dueToday': "Prévue aujourd’hui",
               'project.task.paused': "En pause",
               'project.task.manage': "Gérer les tâches planifiées",
               'projects.search': 'Rechercher des projets',
@@ -3360,6 +3429,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "Kontext",
               'project.context.empty': "Dieser Ordner enthält noch keine Dateien.",
               'project.context.more': "Die ersten 300 Einträge werden angezeigt.",
+              'project.locale': "de",
+              'project.context.count.one': "{count} Datei · {estimate}",
+              'project.context.count.other': "{count} Dateien · {estimate}",
+              'project.tokens': "~{count} Tokens",
+              'project.tokens.one': "~{count} Token",
+              'project.skills.count': "{active} von {total} aktiv · {estimate}",
               'project.addFiles': "Dateien hinzufügen",
               'project.openFolder': "Ordner öffnen",
               'project.copyPath': "Pfad kopieren",
@@ -3391,7 +3466,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "Uhrzeiten gelten in {zone}.",
               'project.task.create': "Aufgabe erstellen",
               'project.task.missing': "Gib der Aufgabe einen Namen und Anweisungen.",
-              'project.task.next': "Nächste: {when}",
+              'project.task.dueToday': "Heute fällig",
               'project.task.paused': "Pausiert",
               'project.task.manage': "Geplante Aufgaben verwalten",
               'projects.search': 'Projekte suchen',
@@ -3467,6 +3542,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "Контекст",
               'project.context.empty': "В этой папке пока нет файлов.",
               'project.context.more': "Показаны первые 300 элементов.",
+              'project.locale': "ru",
+              'project.context.count.one': "Файлов: {count} · {estimate}",
+              'project.context.count.other': "Файлов: {count} · {estimate}",
+              'project.tokens': "~{count} токенов",
+              'project.tokens.one': "~{count} токен",
+              'project.skills.count': "Включено {active} из {total} · {estimate}",
               'project.addFiles': "Добавить файлы",
               'project.openFolder': "Открыть папку",
               'project.copyPath': "Копировать путь",
@@ -3498,7 +3579,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "Время указано в {zone}.",
               'project.task.create': "Создать задачу",
               'project.task.missing': "Укажите название и инструкции задачи.",
-              'project.task.next': "Следующий запуск: {when}",
+              'project.task.dueToday': "Срок сегодня",
               'project.task.paused': "Приостановлена",
               'project.task.manage': "Управлять задачами",
               'projects.search': 'Поиск проектов',
@@ -3574,6 +3655,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "Contexto",
               'project.context.empty': "Esta pasta ainda não tem arquivos.",
               'project.context.more': "Mostrando os primeiros 300 itens.",
+              'project.locale': "pt-BR",
+              'project.context.count.one': "{count} arquivo · {estimate}",
+              'project.context.count.other': "{count} arquivos · {estimate}",
+              'project.tokens': "~{count} tokens",
+              'project.tokens.one': "~{count} token",
+              'project.skills.count': "{active} de {total} ativadas · {estimate}",
               'project.addFiles': "Adicionar arquivos",
               'project.openFolder': "Abrir pasta",
               'project.copyPath': "Copiar caminho",
@@ -3605,7 +3692,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "Horários em {zone}.",
               'project.task.create': "Criar tarefa",
               'project.task.missing': "Dê um nome e instruções à tarefa.",
-              'project.task.next': "Próxima: {when}",
+              'project.task.dueToday': "Prevista para hoje",
               'project.task.paused': "Pausada",
               'project.task.manage': "Gerenciar tarefas agendadas",
               'projects.search': 'Pesquisar projetos',
