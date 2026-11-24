@@ -86,7 +86,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-ui-goal` | no | Session goal surface: GoalBar docked above the composer, read from the goal session projection |
 | `@janhq/jan-client-ui-guidance` | no | Optional guided tours and local guidance preferences |
 | `@janhq/jan-client-ui-input-trigger` | no | Input trigger pipeline: '/' and '@' detection, candidate menu, pick routing to registered sources |
-| `@janhq/jan-client-ui-jobs` | no | Session-header background-job list with on-demand streaming record panels |
+| `@janhq/jan-client-ui-jobs` | no | Composer dock background-job list with on-demand streaming output |
 | `@janhq/jan-client-ui-layout` | no | Shell plugin: three-column AppFrame with drag handles, ctx.layout viewing-state service (navigation + panels) |
 | `@janhq/jan-client-ui-media-capture` | no | Inline browser consent, camera and microphone capture for model requests |
 | `@janhq/jan-client-ui-message-feedback` | no | The Web feedback surface: per-message Like/Dislike in the assistant-message action strip and the feedback dialog behind both ratings and /feedback, backed by the messageFeedback and sessionFeedback Host Remotes |
