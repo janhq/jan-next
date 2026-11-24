@@ -193,7 +193,7 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
     command: contributionOf,
     popup: (): PopupSelectSpec => {
       const ui = contributionOf('model').ui
-      if (ui.kind !== 'popupSelect') throw new Error('expected the popupSelect kind')
+      if (ui?.kind !== 'popupSelect') throw new Error('expected the popupSelect kind')
       return ui
     },
     seat: () => seats.get('conversation.input.model')!,
@@ -230,7 +230,7 @@ describe('ui-model-selection dual entry', () => {
   it('registers the /model contribution and the composer model seat', async () => {
     const b = await bench()
     expect(b.contribution().name).toBe('model')
-    expect(b.contribution().ui.kind).toBe('popupSelect')
+    expect(b.contribution().ui?.kind).toBe('popupSelect')
     expect(b.seat().inject).toBeTypeOf('function')
     // Copy rides the standard locale seat.
     expect(b.seat().locale).toBe('model')
