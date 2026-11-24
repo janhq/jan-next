@@ -2235,7 +2235,7 @@ Wait for input at your next step, including agent messages, completion notificat
   "properties": {
     "timeout_ms": {
       "type": "integer",
-      "description": "Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000."
+      "description": "Wait duration in milliseconds, from 10000; values above 270000 (4.5 minutes, inside the provider prompt-cache window) are clamped to it. Defaults to 30000. Call again to keep waiting."
     }
   }
 }
