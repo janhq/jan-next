@@ -12,6 +12,7 @@ import { useEffect, useId, useRef, useState, useSyncExternalStore, type CSSPrope
 import { createPortal } from 'react-dom'
 import type { PluginInstallFailureKind, Registry } from '@janhq/jan-api-remotes/client'
 import {
+  FailureActions,
   Button, IconCheckCircleFillRegular, IconChevronDownOutlineRegular, IconChevronLeftOutlineMedium,
   IconChevronRightOutlineRegular, IconCloseOutlineMedium,
   IconDownloadOutlineRegular, IconGlobeOutlineRegular, IconInfoOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular,
@@ -1957,6 +1958,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
             <Toast
               key={state.notice.seq}
               text={noticeLine}
+              failure={state.notice.kind === 'failed' || state.notice.kind === 'install' ? state.notice.failure : undefined}
               icon={<IconWarningOutlineRegular />}
               holdMs={toastHoldMs(noticeLine)}
               onDone={props.dismissNotice}
@@ -1969,6 +1971,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
                 <StateDot state="error" />{t(state.refreshStatus === 'failed' ? 'refreshError' : 'error')}
               </p>
               <Button variant="outline" size="sm" onClick={props.refresh}>{t('retry')}</Button>
+              {state.loadFailure !== undefined && <FailureActions kind="inline" failure={state.loadFailure} closeLabel={t('close')} />}
             </div>
           )
           : null}

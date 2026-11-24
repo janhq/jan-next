@@ -41,8 +41,8 @@ it('reports failures by reason, reads again on retry, and settles a retried key 
   controller.load('a', '1.0.0', 'en', false)
   controller.load('b', '1.0.0', 'en', false)
   await vi.waitFor(() => {
-    expect(state('a', '1.0.0', 'en')).toEqual({ status: 'error', failure: 'too-large' })
-    expect(state('b', '1.0.0', 'en')).toEqual({ status: 'error', failure: 'other' })
+    expect(state('a', '1.0.0', 'en')).toMatchObject({ status: 'error', failure: 'too-large', diagnostics: { operation: 'pluginManager.readBundleDetail' } })
+    expect(state('b', '1.0.0', 'en')).toMatchObject({ status: 'error', failure: 'other' })
   })
   let first: (value: Answer<BundleDetail>) => void = () => {}
   manager.readBundleDetail.mockImplementationOnce(() => new Promise((resolve) => { first = resolve }))
