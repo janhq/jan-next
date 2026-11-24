@@ -36,11 +36,12 @@ export class SubscriptionProxy {
   #removing = false
   #error
 
-  constructor(process, publishModels, { pollMs = 1000, onError = () => {} } = {}) {
+  constructor(process, publishModels, { pollMs = 1000, onError = () => {}, downloads } = {}) {
     this.process = process
     this.publishModels = publishModels
     this.pollMs = pollMs
     this.onError = onError
+    this.downloads = downloads
   }
 
   state() {
@@ -49,7 +50,11 @@ export class SubscriptionProxy {
 
   async restore() {
     try { if (await this.process.hasAccounts()) await this.start() }
-    catch (error) { this.onError('restore', error); this.#status = { phase: 'error', error: 'startup' } }
+    catch (error) {
+      if (this.#status.phase === 'idle' && error.name === 'AbortError') return
+      this.onError('restore', error)
+      this.#status = { phase: 'error', error: 'startup' }
+    }
   }
 
   start() {
@@ -65,8 +70,23 @@ export class SubscriptionProxy {
 
   async #launch(signal) {
     let session
+    const downloads = this.downloads?.()
+    const downloadAbort = downloads === undefined ? undefined : new AbortController()
     try {
-      session = await this.process.start(signal, status => { this.#status = status }, child => this.#exited(child))
+      session = await this.process.start(signal, status => { this.#status = status }, child => this.#exited(child),
+        downloadAbort === undefined ? undefined : {
+          downloads, downloadSignal: downloadAbort.signal,
+          cancel: async () => {
+            downloadAbort.abort()
+            await this.cancel()
+            await this.#starting?.catch(() => { /* The launch owns its cancellation result. */ })
+          },
+          retry: async () => {
+            await this.#starting?.catch(() => { /* The launch owns its failure result. */ })
+            signal.throwIfAborted()
+            await this.retry()
+          },
+        })
       this.#session = session
       await this.#refresh(session)
       this.#status = { phase: 'running' }
@@ -76,6 +96,10 @@ export class SubscriptionProxy {
       if (owned) this.#session = undefined
       await session?.stop()
       if (!signal.aborted && owned) {
+        if (error === downloadAbort?.signal.reason && downloadAbort?.signal.aborted) {
+          this.#status = { phase: 'idle' }
+          throw error
+        }
         this.#status = { phase: 'error', error: START_ERRORS.has(error.message) ? error.message : 'startup' }
         this.onError('startup', error)
       }

@@ -42,10 +42,10 @@ export class ProxyProcess {
     }
   }
 
-  async start(signal, report, onExit) {
+  async start(signal, report, onExit, downloadOptions) {
     await mkdir(this.authDir, { recursive: true, mode: 0o700 })
     const binary = await this.install(this.root, AbortSignal.any([signal, AbortSignal.timeout(300_000)]),
-      percent => report({ phase: 'downloading', percent }))
+      percent => report({ phase: 'downloading', percent }), downloadOptions)
     report({ phase: 'starting' })
     const port = await availablePort()
     const origin = `http://${LOOPBACK}:${port}`

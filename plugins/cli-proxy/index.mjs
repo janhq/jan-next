@@ -15,6 +15,7 @@ export const inject = ['llm', 'webServer', 'connection']
 /** Mount the route and restore saved accounts without delaying Host startup. */
 export function apply(ctx) {
   const proxy = new SubscriptionProxy(new ProxyProcess(join(resolveJanHome(), 'cli-proxy')), modelRoute(ctx), {
+    downloads: () => ctx.get('downloads'),
     // Upstream OAuth errors may carry codes or callback URLs. Do not log their causes.
     onError: operation => ctx.logger.warn(`CLIProxyAPI: ${operation} failed`),
   })

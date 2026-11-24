@@ -21,7 +21,7 @@ const ASSETS = {
 
 /** Install only the verified version's executable, never the archive's ancillary files. */
 export async function installBinary(root, signal, progress, {
-  fetchAsset = fetch, platform = process.platform, arch = process.arch,
+  fetchAsset = fetch, platform = process.platform, arch = process.arch, downloads, cancel, downloadSignal, retry,
 } = {}) {
   const asset = ASSETS[`${platform}-${arch}`]
   if (!asset) throw new Error('unsupported')
@@ -33,38 +33,84 @@ export async function installBinary(root, signal, progress, {
     if (!(await lstat(destination)).isFile()) throw new Error('Untrusted CLIProxyAPI executable')
     return destination
   } catch (error) { if (error.code !== 'ENOENT') throw error }
-  await mkdir(directory, { recursive: true, mode: 0o700 })
-  const staging = await mkdtemp(join(directory, 'install-'))
+  const transfer = downloads?.start({
+    id: 'cli-proxy-api', kind: 'backend', name: `CLIProxyAPI v${VERSION}`, ...(cancel === undefined ? {} : { actions: { cancel } }),
+  })
+  let canCancel = cancel !== undefined
+  const removeCancel = () => {
+    if (!canCancel) return
+    canCancel = false
+    transfer?.update({ actions: {} })
+  }
+  const archiveSignal = downloadSignal === undefined ? signal : AbortSignal.any([signal, downloadSignal])
+  let committed = false
   try {
-    progress(null)
-    const response = await fetchAsset(`${BASE_URL}CLIProxyAPI_${VERSION}_${suffix}`, { signal })
-    if (!response.ok || !response.body) throw new Error('download')
-    const total = Number(response.headers.get('content-length'))
-    const archive = join(staging, 'archive')
-    const hash = createHash('sha256')
-    let bytes = 0
-    await pipeline(response.body, new Transform({ transform(chunk, _encoding, callback) {
-      bytes += chunk.length
-      if (bytes > 128 * 1024 * 1024) { callback(new Error('download')); return }
-      hash.update(chunk)
-      if (total > 0) progress(Math.min(99, Math.floor(bytes / total * 100)))
-      callback(null, chunk)
-    } }), createWriteStream(archive, { mode: 0o600 }), { signal })
-    if (hash.digest('hex') !== expectedHash) throw new Error('checksum')
-    const candidate = join(staging, exe)
-    if (suffix.endsWith('.zip')) {
-      const entries = unzipSync(await readFile(archive, { signal }), { filter: entry => entry.name === exe })
-      if (!Object.hasOwn(entries, exe)) throw new Error('download')
-      await writeFile(candidate, entries[exe], { mode: 0o700, flag: 'wx', signal })
-    } else {
-      await extract({ cwd: staging, file: archive, strict: true, filter: (path, entry) => path === exe && entry.type === 'File' })
-      await chmod(candidate, 0o700)
+    archiveSignal.throwIfAborted()
+    await mkdir(directory, { recursive: true, mode: 0o700 })
+    const staging = await mkdtemp(join(directory, 'install-'))
+    try {
+      archiveSignal.throwIfAborted()
+      progress(null)
+      transfer?.update({ state: 'downloading' })
+      const response = await fetchAsset(`${BASE_URL}CLIProxyAPI_${VERSION}_${suffix}`, { signal: archiveSignal })
+      if (!response.ok || !response.body) throw new Error('download', { cause: new Error(`CLIProxyAPI archive HTTP ${response.status}`) })
+      const encoding = response.headers.get('content-encoding')
+      const length = Number(response.headers.get('content-length'))
+      const total = (encoding === null || encoding === 'identity') && Number.isSafeInteger(length) && length > 0 ? length : undefined
+      const initialBytes = total === undefined ? { receivedBytes: 0 } : { totalBytes: total, receivedBytes: 0 }
+      transfer?.update(initialBytes)
+      const archive = join(staging, 'archive')
+      const hash = createHash('sha256')
+      let bytes = 0
+      let lastPercent = null
+      await pipeline(response.body, new Transform({ transform(chunk, _encoding, callback) {
+        bytes += chunk.length
+        if (bytes > 128 * 1024 * 1024) {
+          callback(new Error('download', { cause: new Error('CLIProxyAPI archive exceeds 128 MiB') }))
+          return
+        }
+        hash.update(chunk)
+        transfer?.update({ receivedBytes: bytes })
+        if (total !== undefined) {
+          const percent = Math.min(99, Math.floor(bytes / total * 100))
+          if (percent !== lastPercent) { lastPercent = percent; progress(percent) }
+        }
+        callback(null, chunk)
+      } }), createWriteStream(archive, { mode: 0o600 }), { signal: archiveSignal })
+      removeCancel()
+      archiveSignal.throwIfAborted()
+      if (hash.digest('hex') !== expectedHash) throw new Error('checksum')
+      const candidate = join(staging, exe)
+      if (suffix.endsWith('.zip')) {
+        const entries = unzipSync(await readFile(archive, { signal }), { filter: entry => entry.name === exe })
+        if (!Object.hasOwn(entries, exe)) throw new Error('download', { cause: new Error(`CLIProxyAPI archive does not contain ${exe}`) })
+        await writeFile(candidate, entries[exe], { mode: 0o700, flag: 'wx', signal })
+      } else {
+        await extract({ cwd: staging, file: archive, strict: true, filter: (path, entry) => path === exe && entry.type === 'File' })
+        await chmod(candidate, 0o700)
+      }
+      signal.throwIfAborted()
+      await rename(candidate, destination)
+      committed = true
+      progress(100)
+    } catch (error) {
+      removeCancel()
+      throw error
+    } finally {
+      await rm(staging, { recursive: true, force: true })
     }
-    signal.throwIfAborted()
-    await rename(candidate, destination)
-    progress(100)
+    transfer?.finish('done')
     return destination
-  } finally {
-    await rm(staging, { recursive: true, force: true })
+  } catch (error) {
+    if (archiveSignal.aborted && archiveSignal.reason?.name !== 'TimeoutError' && error.name === 'AbortError') {
+      transfer?.finish('cancelled')
+      if (downloadSignal?.aborted && archiveSignal.reason === downloadSignal.reason) throw downloadSignal.reason
+    } else {
+      const diagnostic = signal.aborted && signal.reason?.name === 'TimeoutError' ? signal.reason.message
+        : error.message === 'checksum' ? 'CLIProxyAPI archive checksum mismatch'
+          : error.cause?.message ?? error.message
+      transfer?.finish('failed', diagnostic, !committed && retry !== undefined ? { retry } : undefined)
+    }
+    throw error
   }
 }

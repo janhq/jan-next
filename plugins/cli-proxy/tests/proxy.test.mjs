@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { once, EventEmitter } from 'node:events'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -168,10 +169,63 @@ test('withdraws the model route on child exit and restores it after a restart', 
 
 test('refuses a release with a mismatched checksum before extracting it', async t => {
   const root = await mkdtemp(join(tmpdir(), 'jan-cli-proxy-download-test-'))
+  const states = []
+  const archive = 'not an upstream release'
+  const downloads = { start: input => {
+    states.push(input)
+    return { update: update => states.push(update), finish: (...result) => states.push(result) }
+  } }
   t.after(() => rm(root, { recursive: true, force: true }))
   await assert.rejects(installBinary(root, AbortSignal.timeout(3000), () => {}, {
-    fetchAsset: async () => new Response('not an upstream release'),
+    downloads,
+    fetchAsset: async () => new Response(archive, { headers: { 'content-length': String(archive.length) } }),
     platform: 'darwin', arch: 'arm64',
   }), /checksum/i)
+  assert.deepEqual(states[0], { id: 'cli-proxy-api', kind: 'backend', name: 'CLIProxyAPI v8.1.2' })
+  assert.deepEqual(states[1], { state: 'downloading' })
+  assert.deepEqual(states[2], { receivedBytes: 0, totalBytes: archive.length })
+  assert.equal(states.findLast(state => state.receivedBytes !== undefined)?.receivedBytes, archive.length)
+  assert.deepEqual(states.at(-1).slice(0, 2), ['failed', 'CLIProxyAPI archive checksum mismatch'])
   await assert.rejects(readFile(join(root, 'v8.1.2', 'cli-proxy-api')), { code: 'ENOENT' })
+})
+
+test('settles a cancelled archive fetch without publishing an executable', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'jan-cli-proxy-cancel-test-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const cancellation = new AbortController()
+  const fetching = Promise.withResolvers()
+  let cancelAction
+  let outcome
+  const installing = installBinary(root, AbortSignal.timeout(3000), () => {}, {
+    platform: 'darwin', arch: 'arm64',
+    downloadSignal: cancellation.signal,
+    cancel: () => cancellation.abort(),
+    downloads: { start: ({ actions }) => {
+      cancelAction = actions.cancel
+      return { update: () => {}, finish: state => { outcome = state } }
+    } },
+    fetchAsset: (_url, { signal }) => new Promise((_, reject) => {
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      fetching.resolve()
+    }),
+  })
+  await fetching.promise
+  await cancelAction()
+  await assert.rejects(installing, { name: 'AbortError' })
+  assert.equal(outcome, 'cancelled')
+  await assert.rejects(readFile(join(root, 'v8.1.2', 'cli-proxy-api')), { code: 'ENOENT' })
+})
+
+test('does not create an inbox item for a cached proxy executable', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'jan-cli-proxy-cache-test-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const directory = join(root, 'v8.1.2')
+  const binary = join(directory, 'cli-proxy-api')
+  await mkdir(directory)
+  await writeFile(binary, '')
+  assert.equal(await installBinary(root, AbortSignal.timeout(3000), () => assert.fail('unexpected progress'), {
+    platform: 'darwin', arch: 'arm64',
+    fetchAsset: () => assert.fail('unexpected download'),
+    downloads: { start: () => assert.fail('unexpected inbox item') },
+  }), binary)
 })
