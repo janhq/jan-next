@@ -52,6 +52,8 @@ export interface StartSessionOptions extends DraftInitializationOptions {
 type WorkspaceConnectionOptions = Pick<StartSessionOptions, 'agentPreset'> & {
   /** Disable Workspace blank reuse for an independent new tab. */
   readonly reuseBlank?: boolean
+  /** Explicit profile for the connection's chat, including null for plain Jan. */
+  readonly agentProfile?: string | null
 }
 
 /** Workspace archive and directory operations consumed by Client UI domains. */
@@ -270,9 +272,10 @@ export class DirectoryBrowseError extends Error {
 
 /** Implements Workspace archive and directory UI operations. */
 class UiWorkspaceService extends Service implements UiWorkspace {
-  /** The latest in-flight connection per Workspace; a request joins it only when both name the same preset. */
+  /** The latest in-flight connection per Workspace, keyed by both explicit chat choices. */
   private readonly connecting = new Map<WorkspaceId, {
     readonly agentPreset: string | undefined
+    readonly agentProfile: string | null | undefined
     readonly attempt: Promise<SessionId>
   }>()
   private readonly lifetime = new AbortController()
@@ -365,20 +368,22 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     if (reuse.reuseBlank === false) return this.createNamed({
       workspaceId: workspace.workspaceId,
       ...(reuse.agentPreset === undefined ? {} : { agentPreset: reuse.agentPreset }),
+      ...(reuse.agentProfile === undefined ? {} : { agentProfile: reuse.agentProfile }),
     })
     const { workspaceId } = workspace
     const inflight = this.connecting.get(workspaceId)
-    if (inflight !== undefined && inflight.agentPreset === reuse.agentPreset) return inflight.attempt
+    if (inflight !== undefined && inflight.agentPreset === reuse.agentPreset
+      && inflight.agentProfile === reuse.agentProfile) return inflight.attempt
 
     const attempt = this.createInWorkspace(workspace, reuse).finally(() => {
       if (this.connecting.get(workspaceId)?.attempt === attempt) this.connecting.delete(workspaceId)
     })
-    this.connecting.set(workspaceId, { agentPreset: reuse.agentPreset, attempt })
+    this.connecting.set(workspaceId, { agentPreset: reuse.agentPreset, agentProfile: reuse.agentProfile, attempt })
     return attempt
   }
 
   /** Name the first reusable member blank; a requested preset also skips blanks listing another preset. */
-  private createInWorkspace(workspace: WorkspaceView, options: Pick<StartSessionOptions, 'agentPreset'>): Promise<SessionId> {
+  private createInWorkspace(workspace: WorkspaceView, options: WorkspaceConnectionOptions): Promise<SessionId> {
     const archived = new Set(this.workspaces.list.getSnapshot().archivedSessionIds)
     const members = new Set(workspace.sessionIds)
     const sessions = this.sessions.list.getSnapshot()
@@ -394,6 +399,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       workspaceId: workspace.workspaceId,
       ...(blank === undefined ? {} : { sessionId: blank }),
       ...(options.agentPreset === undefined ? {} : { agentPreset: options.agentPreset }),
+      ...(options.agentProfile === undefined ? {} : { agentProfile: options.agentProfile }),
     })
   }
 
@@ -406,6 +412,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     readonly workspaceId: WorkspaceId
     readonly sessionId?: SessionId
     readonly agentPreset?: string
+    readonly agentProfile?: string | null
   }): Promise<SessionId> {
     const sessionId = await this.sessions.create(request)
     const named = request.sessionId

@@ -41,6 +41,7 @@ export function ConversationContent(props: ConversationContentProps) {
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pendingWorkspaceId, setPendingWorkspaceId] = useState<WorkspaceId | undefined>()
+  const [pendingAgent, setPendingAgent] = useState<{ id: string | null; workspaceId?: WorkspaceId }>()
   const pickerAnchor = useRef<HTMLButtonElement>(null)
   const composerStack = useRef<HTMLDivElement>(null)
 
@@ -85,6 +86,10 @@ export function ConversationContent(props: ConversationContentProps) {
     }
   }, [pendingWorkspaceId, sessionWorkspace?.workspaceId, workspaces.phase, pendingWorkspace])
 
+  useEffect(() => {
+    if (sessionId !== undefined) setPendingAgent(undefined)
+  }, [sessionId])
+
   const zone: InputZone | undefined =
     session === undefined || inputState === undefined ? undefined : { session, input: inputState }
 
@@ -99,14 +104,14 @@ export function ConversationContent(props: ConversationContentProps) {
   // A title still automatic reads in the reader's language, matching the
   // sidebar row the same Workspace has there.
   const chipWorkspace = pendingWorkspace ?? (sessionId === undefined ? undefined : sessionWorkspace)
+  const defaultWorkspaceId = sessionId === undefined ? workspaces.items.find(workspace => workspace.isDefault)?.workspaceId : undefined
+  const agentWorkspaceId = chipWorkspace?.workspaceId ?? defaultWorkspaceId
+  const pendingMatches = pendingAgent?.workspaceId === undefined || pendingAgent.workspaceId === agentWorkspaceId
   const chipTitle = chipWorkspace === undefined
     ? sessionId === undefined || workspaces.phase === 'ready' || cwd === undefined || cwd === '' ? undefined : workspaceLabel(cwd)
     : workspaceDisplayTitle(chipWorkspace, t('workspace.defaultName'))
 
-  // The project and preset row: the Hero's New Session pickers, and under a
-  // started Session's composer the same project chip beside its preset control.
-  // Once the chat leaves the Hero (its first turn has begun) it belongs to its
-  // project, so the chip stays as a dimmed label instead of a picker that would navigate away.
+  // A started chat keeps its project label fixed, while its mode and agent can change between turns.
   const workspaceLocked = phase === 'active'
   const workspaceRow = (
     <div className={css.heroWorkspaceRow}>
@@ -129,7 +134,10 @@ export function ConversationContent(props: ConversationContentProps) {
             const input = composerStack.current?.querySelector<HTMLDivElement>('[data-composer-input]')
             return input?.innerText ?? input?.textContent ?? ''
           } : undefined
-          void (readText === undefined ? selectWorkspace(workspaceId) : selectWorkspace(workspaceId, readText)).catch(() => {
+          const profile = sessionId === undefined && (pendingAgent?.workspaceId === undefined || pendingAgent.workspaceId === workspaceId)
+            ? pendingAgent?.id : undefined
+          void (profile !== undefined ? selectWorkspace(workspaceId, readText, profile)
+            : readText === undefined ? selectWorkspace(workspaceId) : selectWorkspace(workspaceId, readText)).catch(() => {
             setPendingWorkspaceId(current => current === workspaceId ? undefined : current)
           })
         },
@@ -138,12 +146,25 @@ export function ConversationContent(props: ConversationContentProps) {
       {hero
         ? renderSlot('conversation.hero.agentPreset', {})
         : sessionId === undefined ? null : renderSlot('conversation.composer.agentPreset', {})}
+      {chipWorkspace?.hostId === undefined && (hero
+        ? renderSlot('conversation.hero.agentProfile', {
+          workspaceId: agentWorkspaceId,
+          pending: sessionId === undefined && pendingMatches ? pendingAgent?.id : undefined,
+          onPick: (id, scope) => {
+            setPendingAgent({ id, ...scope === 'project' && agentWorkspaceId !== undefined ? { workspaceId: agentWorkspaceId } : {} })
+          },
+        })
+        : sessionId === undefined ? null : renderSlot('conversation.composer.agentProfile', { workspaceId: agentWorkspaceId }))}
       {hero && sessionId !== undefined ? <div className={css.heroOptions}>{renderSlot('conversation.hero.options', {})}</div> : null}
     </div>
   )
 
   // A sessionless home opens the default draft on interaction, never on render.
-  const activateDraft = sessionId === undefined && hero && props.variant !== 'embedded' ? openDefaultDraft : undefined
+  const pendingDefaultAgent = pendingAgent?.workspaceId === undefined || pendingAgent.workspaceId === defaultWorkspaceId
+    ? pendingAgent?.id : undefined
+  const activateDraft = sessionId === undefined && hero && props.variant !== 'embedded' && openDefaultDraft !== undefined
+    ? pendingDefaultAgent === undefined ? openDefaultDraft : (readText: () => string) => openDefaultDraft(readText, pendingDefaultAgent)
+    : undefined
   const inert = sessionId === undefined || (hero && chipTitle === undefined)
   // A raised block is the same inert posture with the blocker's own reason:
   // one disabled textarea, never a second tree. The no-workspace state wins
@@ -155,7 +176,7 @@ export function ConversationContent(props: ConversationContentProps) {
     || (inputState.phase !== 'plain' && inputState.phase !== 'claimed')
   const inputBar = renderSlot('conversation.composer.bar', {
     variant: hero ? 'hero' : 'composer',
-    // Embedded panes and subagent transcripts have no project or preset of their own to change.
+    // Embedded active panes and subagent transcripts do not own the project row.
     ...(hero || (sessionId !== undefined && props.variant !== 'embedded' && (session === undefined || session.subagent === null))
       ? { dockStart: workspaceRow }
       : {}),

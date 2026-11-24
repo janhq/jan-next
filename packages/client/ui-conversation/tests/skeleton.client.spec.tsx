@@ -933,14 +933,17 @@ describe('ConversationRoot resident composer', () => {
     expect(b.slotCalls).toContain('conversation.hero.options')
   })
 
-  it('seats the New Session options after the agent-preset chip, and only for a Session', () => {
+  it('seats the agent profile after the preset and before session-only options', () => {
     const b = mount(sessionSnapshotOf({ blank: true }))
     const preset = within(b.view.container).getByTestId('view-conversation.hero.agentPreset')
+    const profile = within(b.view.container).getByTestId('view-conversation.hero.agentProfile')
     const options = within(b.view.container).getByTestId('view-conversation.hero.options')
-    expect(options.parentElement?.previousElementSibling).toBe(preset)
+    expect(profile.previousElementSibling).toBe(preset)
+    expect(options.parentElement?.previousElementSibling).toBe(profile)
 
     const cold = mount(sessionSnapshotOf(), [], undefined, { sessionId: undefined })
     expect(cold.slotCalls).toContain('conversation.hero.agentPreset')
+    expect(cold.slotCalls).toContain('conversation.hero.agentProfile')
     expect(cold.slotCalls).not.toContain('conversation.hero.options')
   })
 

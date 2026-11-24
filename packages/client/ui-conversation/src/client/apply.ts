@@ -126,7 +126,7 @@ interface WorkspaceNavigation {
   openWorkspace(
     workspaceId: Parameters<ConversationInjected['selectWorkspace']>[0] | undefined,
     beforeOpen: (sessionId: SessionId) => void,
-    options?: { readonly reuseBlank: boolean },
+    options?: { readonly reuseBlank: boolean; readonly agentProfile?: string | null },
   ): Promise<void>
 }
 
@@ -426,6 +426,8 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       'conversation.hero.workspace': { kind: 'single', scope: 'root' },
       'conversation.hero.agentPreset': { kind: 'single', scope: 'session-maybe' },
       'conversation.composer.agentPreset': { kind: 'single', scope: 'session' },
+      'conversation.hero.agentProfile': { kind: 'single', scope: 'session-maybe' },
+      'conversation.composer.agentProfile': { kind: 'single', scope: 'session' },
       'conversation.hero.options': { kind: 'list', scope: 'session' },
     },
     slots: {
@@ -451,11 +453,11 @@ export function apply(ctx: Context, config: Config = Config({})): void {
         composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId),
         heroPlaceholder,
       },
-      openDefaultDraft: readText => workspaceNavigation.openWorkspace(undefined, (nextId) => {
+      openDefaultDraft: (readText, agentProfile) => workspaceNavigation.openWorkspace(undefined, (nextId) => {
         const text = readText()
         if (text !== '') inputHub.shell(nextId).appendDraft(text, [])
-      }, { reuseBlank: false }),
-      selectWorkspace: (workspaceId, readText) => workspaceNavigation.openWorkspace(workspaceId, (nextId) => {
+      }, { reuseBlank: false, ...agentProfile === undefined ? {} : { agentProfile } }),
+      selectWorkspace: (workspaceId, readText, agentProfile) => workspaceNavigation.openWorkspace(workspaceId, (nextId) => {
         if (sessionId === undefined) {
           const text = readText?.() ?? ''
           if (text !== '') inputHub.shell(nextId).appendDraft(text, [])
@@ -483,7 +485,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
             }
           }
         }
-      }, { reuseBlank: sessionId !== undefined }),
+      }, { reuseBlank: sessionId !== undefined, ...agentProfile === undefined ? {} : { agentProfile } }),
     }),
   }, ConversationContent)
 
