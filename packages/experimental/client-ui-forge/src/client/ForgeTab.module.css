@@ -320,7 +320,7 @@
 .chevron {
   flex: none;
   color: var(--dsw-alias-label-tertiary);
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .chevronOpen {
@@ -550,7 +550,7 @@
 .mergeCaret {
   flex: none;
   transform: rotate(90deg);
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .mergeCaretOpen {

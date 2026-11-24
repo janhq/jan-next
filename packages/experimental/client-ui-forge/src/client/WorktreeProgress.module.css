@@ -196,7 +196,7 @@
 .chevron,
 .chevronOpen {
   flex: none;
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .chevronOpen {

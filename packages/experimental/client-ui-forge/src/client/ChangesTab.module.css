@@ -366,7 +366,7 @@
 }
 
 .chevron {
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .file:not([data-expanded]) .chevron {
@@ -570,7 +570,7 @@
 
 .localToggle svg {
   color: var(--dsw-alias-label-tertiary);
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .localToggle[aria-expanded='true'] svg {
