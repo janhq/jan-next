@@ -73,7 +73,12 @@ describe('jan-base bundle', () => {
     })
     // Undeclared router models read images; entries only mark the text-only ones and the router still decides the served set.
     expect(tokamak?.['defaultInput']).toEqual(['text', 'image'])
-    expect(tokamak?.['models']).toEqual(['deepseek-flash', 'deepseek-v4-pro', 'openai/gpt-oss-120b-medium'].map(id => ({ id, input: ['text'] })))
+    const models = tokamak?.['models'] as Array<Record<string, unknown>>
+    expect(models.filter(model => 'input' in model)).toEqual(['deepseek-flash', 'deepseek-v4-pro', 'openai/gpt-oss-120b-medium'].map(id => ({ id, input: ['text'] })))
+    // The listing reports no reasoning metadata, so entries declare the router's effort levels.
+    const reasoning = models.filter(model => !('input' in model))
+    expect(reasoning.map(model => model['id'])).toContain('tokamak/auto')
+    for (const model of reasoning) expect(model).toEqual({ id: model['id'], reasoningEfforts: { low: 'low', medium: 'medium', high: 'high' } })
     expect(manifest.dependencies).toHaveProperty('@janhq/jan-tokamak-account')
     expect(rows.find(row => row.id === 'tool-web')?.config).toMatchObject({ fetch: true })
     expect(manifest.dependencies).not.toHaveProperty('@janhq/jan-subagent-codex')

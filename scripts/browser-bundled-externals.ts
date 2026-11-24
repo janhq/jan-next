@@ -13,7 +13,13 @@ interface Manifest {
   private?: boolean
   jan?: { client?: unknown }
   exports?: Record<string, unknown>
+  dependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
+  optionalDependencies?: Record<string, string>
+  peerDependencies?: Record<string, string>
 }
+
+const DEPENDENCY_KINDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const
 
 interface ResolveContext {
   resolve(source: string, importer: string, options: { skipSelf: boolean }): Promise<{ id: string } | null>
@@ -176,6 +182,14 @@ export async function browserBundledExternals(root: string): Promise<Set<string>
     }
   }
   const names = new Set([...manifests.values()].map(manifest => manifest.name))
+  // Vendored sources keep upstream import names through `workspace:` aliases.
+  for (const manifest of manifests.values()) {
+    for (const kind of DEPENDENCY_KINDS) {
+      for (const [alias, range] of Object.entries(manifest[kind] ?? {})) {
+        if (range.startsWith('workspace:')) names.add(alias)
+      }
+    }
+  }
   const seen = new Set<string>()
   await collectClientBundles(root, manifests, names, seen)
   await collectShell(root, names, seen)

@@ -427,7 +427,7 @@ describe('artifacts registration', () => {
     face.openChat(sid('chat-7'))
     expect(openSession).toHaveBeenCalledWith('chat-7')
     face.hydrate([sid('legacy')])
-    await vi.waitFor(() => { expect(refreshProjections).toHaveBeenCalledWith('legacy') })
+    await vi.waitFor(() => { expect(refreshProjections).toHaveBeenCalledWith('legacy', { background: true }) })
     await face.checkAvailability({ key: 'chat-7:2:0', sessionId: sid('chat-7'), path: '/w/a.md' })
     expect(stat).toHaveBeenCalledWith('chat-7', '/w/a.md', expect.any(AbortSignal))
     expect(face.hooks.availability.getSnapshot()).toEqual({ 'chat-7:2:0': 'available' })

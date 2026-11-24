@@ -95,11 +95,11 @@ describe('Assembled liveshare viewer page', () => {
     await workspaceMenu.ready
     expect(workspaceMenu.source.getSnapshot()).toEqual([])
     workspaceMenu.dispose()
-    // A Session row keeps its menu for Copy Session ID, and every write verb in it hides itself.
+    // A Session row keeps its menu for opening a tab and Copy Session ID, and every write verb in it hides itself.
     const rowMenu = screen.getAllByRole('button', { name: /^Session actions for / })[0]
     if (rowMenu === undefined) throw new Error('no Session row menu')
     await act(async () => { fireEvent.click(rowMenu) })
-    expect((await screen.findAllByRole('menuitem')).map(item => item.textContent)).toEqual(['Copy Session ID'])
+    expect((await screen.findAllByRole('menuitem')).map(item => item.textContent)).toEqual(['Open in new tab', 'Copy Session ID'])
     await act(async () => { fireEvent.keyDown(document, { key: 'Escape' }) })
     await waitFor(() => { expect(screen.queryByRole('menu')).toBeNull() })
     expect(document.body.textContent).not.toContain('Fork session')
