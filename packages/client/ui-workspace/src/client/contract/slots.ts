@@ -1,3 +1,4 @@
+import type { FailureDetails } from '@janhq/jan-client-ui-primitives'
 /**
  * ui-workspace contracts. Two registrations share this package:
  *
@@ -394,7 +395,7 @@ export type SessionRowActionProps<Injected extends object = object> =
   & InjectFace<Injected>
 
 /** One transient Workspace notice rendered by the overlay toast entry. */
-export type RowToast =
+export type RowToast = (
   | { kind: 'archived'; sessionId: SessionId }
   | { kind: 'stoppedAndArchived'; sessionId: SessionId }
   | { kind: 'sessionIdCopied' }
@@ -417,6 +418,7 @@ export type RowToast =
    * a report can be searched by it — and any other failure's own message.
    */
   | { kind: 'createFailed'; message: string }
+) & { failure?: FailureDetails }
 
 /** Notices a folder dropped on the Sidebar can raise. */
 export type FolderDropNotice = Extract<RowToast, { kind: 'folderAdded' | 'folderDropNotFolder' | 'folderDropFailed' }>

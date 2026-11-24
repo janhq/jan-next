@@ -30,7 +30,7 @@ import type {
 import type { RemoteEndpoint } from '@janhq/jan-api-remote-access/client'
 import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
 import { createSnapshotStore } from '@janhq/jan-client-store'
-import { writeClipboard } from '@janhq/jan-client-ui-primitives'
+import { captureFailure, writeClipboard } from '@janhq/jan-client-ui-primitives'
 import type { HostObservable, SnapshotSelectorHook } from '@janhq/jan-client-ui-slots'
 import type { SessionId } from '@janhq/jan-session/types'
 // Type-only: pulls the Controller service merges.
@@ -256,10 +256,14 @@ export function apply(ctx: Context): void {
     // Pin failures surface as a notice: nothing else on the surface moves, so
     // a silent failure would read as a dead action.
     pinSession: (sessionId) => {
-      uiWorkspace.pinSession(sessionId).catch(() => { notify({ kind: 'pinFailed' }) })
+      uiWorkspace.pinSession(sessionId).catch((error: unknown) => {
+        notify({ kind: 'pinFailed', failure: captureFailure('workspace.pinSession', error) })
+      })
     },
     unpinSession: (sessionId) => {
-      uiWorkspace.unpinSession(sessionId).catch(() => { notify({ kind: 'unpinFailed' }) })
+      uiWorkspace.unpinSession(sessionId).catch((error: unknown) => {
+        notify({ kind: 'unpinFailed', failure: captureFailure('workspace.unpinSession', error) })
+      })
     },
   })
   const archiveInjected = (): ArchiveSessionInjected => ({
@@ -284,7 +288,7 @@ export function apply(ctx: Context): void {
     unarchiveSession,
   })
   installWorkspaceShortcuts(ctx, uiWorkspace, shortcutControls, archiveInjected().archiveSession,
-    (reason) => { notify({ kind: 'shortcutForkFailed', reason }) })
+    (reason, error) => { notify({ kind: 'shortcutForkFailed', reason, failure: captureFailure('session.fork', error) }) })
   installNavigationShortcuts(ctx, uiWorkspace)
   const archiveConfirmInjected = (): SessionArchiveConfirmInjected => ({
     hooks: { archiveRequest },
@@ -301,7 +305,7 @@ export function apply(ctx: Context): void {
       }, { allowMigration: false }).catch((error: unknown) => {
         if (error instanceof Error && error.name === 'SessionForkError'
           && (error as SessionForkError).rpcError.code === 'session/migration-required') {
-          notify({ kind: 'forkRequiresOpen', sessionId })
+          notify({ kind: 'forkRequiresOpen', sessionId, failure: captureFailure('session.fork', error) })
         }
       })
     },
@@ -309,7 +313,9 @@ export function apply(ctx: Context): void {
   const sessionIdInjected = (): SessionIdInjected => ({
     copySessionId: async (sessionId) => {
       const copied = await writeClipboard(sessionId)
-      notify({ kind: copied ? 'sessionIdCopied' : 'sessionIdCopyFailed' })
+      notify(copied ? { kind: 'sessionIdCopied' } : {
+        kind: 'sessionIdCopyFailed', failure: captureFailure('clipboard.copySessionId', 'clipboard/write-rejected'),
+      })
     },
   })
   const renameInjected = (): RenameSessionInjected => ({ requestSessionRename })

@@ -713,9 +713,11 @@ describe('UiWorkspaceService', () => {
     b.sessions.create.mockRejectedValueOnce(refused)
     b.uiWorkspace.startSession(wid('a'))
     await vi.waitFor(() => {
-      expect(b.notify).toHaveBeenCalledExactlyOnceWith({
+      expect(b.notify.mock.calls).toHaveLength(1)
+      expect(b.notify.mock.lastCall?.[0]).toMatchObject({
         kind: 'createFailed',
         message: 'agent-preset/invalid: agent-presets: preset "broken" failed to mount: row "workflow-ptc" names a plugin that cannot be resolved',
+        failure: { operation: 'session.create' },
       })
     })
     expect(warning).toHaveBeenCalledExactlyOnceWith('new session failed:', refused)
@@ -725,10 +727,12 @@ describe('UiWorkspaceService', () => {
     // failure that is not a Host refusal keeps its own message.
     b.sessions.create.mockRejectedValueOnce(new Error('create failed'))
     await expect(b.uiWorkspace.openWorkspace(wid('a'))).rejects.toThrow('create failed')
-    expect(b.notify).toHaveBeenLastCalledWith({ kind: 'createFailed', message: 'create failed' })
+    expect(b.notify.mock.lastCall?.[0]).toMatchObject({ kind: 'createFailed', message: 'create failed', failure: { operation: 'session.create' } })
     b.sessions.create.mockRejectedValueOnce('rejected without an Error')
     await expect(b.uiWorkspace.openWorkspace(wid('a'))).rejects.toBe('rejected without an Error')
-    expect(b.notify).toHaveBeenLastCalledWith({ kind: 'createFailed', message: 'rejected without an Error' })
+    expect(b.notify.mock.lastCall?.[0]).toMatchObject({
+      kind: 'createFailed', message: 'rejected without an Error', failure: { operation: 'session.create' },
+    })
     expect(b.notify).toHaveBeenCalledTimes(3)
   })
 
@@ -742,7 +746,8 @@ describe('UiWorkspaceService', () => {
     ), undefined)
     b.sessions.create.mockRejectedValueOnce(refused)
     await expect(b.uiWorkspace.openWorkspace(wid('a'))).rejects.toBe(refused)
-    expect(b.notify).toHaveBeenCalledExactlyOnceWith({ kind: 'createFailed', message })
+    expect(b.notify).toHaveBeenCalledOnce()
+    expect(b.notify.mock.lastCall?.[0]).toMatchObject({ kind: 'createFailed', message, failure: { operation: 'session.create' } })
   })
 
   it('ignores the retained chat and recent projects when starting a global New Session', async () => {
@@ -953,8 +958,10 @@ describe('UiWorkspaceService', () => {
         b.uiWorkspace.startSession(wid('a'), { prompt: 'unsent' })
         await expect(lastOpening(opening)).rejects.toThrow('Could not fill the draft. Please try again shortly.')
 
-        expect(b.notify).toHaveBeenCalledExactlyOnceWith({
+        expect(b.notify).toHaveBeenCalledOnce()
+        expect(b.notify.mock.lastCall?.[0]).toMatchObject({
           kind: 'createFailed', message: 'Could not fill the draft. Please try again shortly.',
+          failure: { operation: 'session.prepareDraft' },
         })
         expect(warning).toHaveBeenCalledExactlyOnceWith('new session failed:', expect.any(Error))
         expect(b.sessions.retained[0]!.release).not.toHaveBeenCalled()
@@ -988,7 +995,10 @@ describe('UiWorkspaceService', () => {
 
       b.uiWorkspace.startSession(undefined, { prompt: 'unsent' })
 
-      await vi.waitFor(() => { expect(b.notify).toHaveBeenCalledExactlyOnceWith({ kind: 'defaultWorkspaceFailed' }) })
+      await vi.waitFor(() => {
+        expect(b.notify).toHaveBeenCalledOnce()
+        expect(b.notify.mock.lastCall?.[0]).toMatchObject({ kind: 'defaultWorkspaceFailed', failure: { operation: 'workspace.initializeDefault' } })
+      })
       expect(b.sessions.create).not.toHaveBeenCalled()
       expect(b.requestDraftInitialization).not.toHaveBeenCalled()
       expect(b.sessions.retained[0]!.release).not.toHaveBeenCalled()
@@ -1007,8 +1017,10 @@ describe('UiWorkspaceService', () => {
       b.uiWorkspace.startSession(wid('missing'), { prompt: 'unsent' })
       await expect(lastOpening(opening)).rejects.toThrow('unknown workspace missing')
 
-      expect(b.notify).toHaveBeenCalledExactlyOnceWith({
+      expect(b.notify).toHaveBeenCalledOnce()
+      expect(b.notify.mock.lastCall?.[0]).toMatchObject({
         kind: 'createFailed', message: 'uiWorkspace.connectWorkspace: unknown workspace missing',
+        failure: { operation: 'session.create' },
       })
       expect(warning).toHaveBeenCalledExactlyOnceWith('new session failed:', expect.any(Error))
       expect(b.requestDraftInitialization).not.toHaveBeenCalled()
@@ -1370,7 +1382,8 @@ describe('UiWorkspaceService', () => {
     created.reject(new Error('creation refused'))
 
     await vi.waitFor(() => {
-      expect(b.notify).toHaveBeenCalledExactlyOnceWith({ kind: 'createFailed', message: 'creation refused' })
+      expect(b.notify).toHaveBeenCalledOnce()
+      expect(b.notify.mock.lastCall?.[0]).toMatchObject({ kind: 'createFailed', message: 'creation refused', failure: { operation: 'session.create' } })
     })
     expect(b.sessions.create).toHaveBeenCalledTimes(2)
     expect(b.sessions.retain).not.toHaveBeenCalled()

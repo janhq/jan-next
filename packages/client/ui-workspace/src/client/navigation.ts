@@ -1,3 +1,4 @@
+import { captureFailure } from '@janhq/jan-client-ui-primitives'
 /** Workspace archive and directory UI capability. */
 
 import { Service, type Context } from '@janhq/cordis'
@@ -494,7 +495,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       }
     } catch (error: unknown) {
       // Startup restoration connects directly and stays console-only on Session creation failure.
-      if (!navigation.aborted) this.notify({ kind: 'createFailed', message: this.creationFailureMessage(error) })
+      if (!navigation.aborted) this.notify({ kind: 'createFailed', message: this.creationFailureMessage(error), failure: captureFailure('session.create', error) })
       throw error
     }
     if (navigation.aborted) return
@@ -543,8 +544,9 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
   private draftPreparationFailed(): never {
     const message = this.ctx.locale.bind('workspace')('draft.initializationFailed')
-    this.notify({ kind: 'createFailed', message })
-    throw new Error(message)
+    const error = new Error(message)
+    this.notify({ kind: 'createFailed', message, failure: captureFailure('session.prepareDraft', error) })
+    throw error
   }
 
   async archiveSession(sessionId: SessionId, options: { readonly stopActivity?: boolean } = {}): Promise<void> {
@@ -758,8 +760,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   private async initializeDefaultWorkspace(signal: AbortSignal): Promise<WorkspaceView | undefined> {
     try {
       return await this.workspaces.initializeDefault(signal)
-    } catch (_error: unknown) {
-      if (!signal.aborted) this.notify({ kind: 'defaultWorkspaceFailed' })
+    } catch (error: unknown) {
+      if (!signal.aborted) this.notify({ kind: 'defaultWorkspaceFailed', failure: captureFailure('workspace.initializeDefault', error) })
       return undefined
     }
   }

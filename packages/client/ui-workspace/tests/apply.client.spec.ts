@@ -509,10 +509,18 @@ describe('ui-workspace apply', () => {
 
     b.pinSession.mockRejectedValueOnce(new Error('pin wire down'))
     pin.pinSession(sid('one'))
-    await vi.waitFor(() => { expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'pinFailed', seq: 1 }) })
+    await vi.waitFor(() => {
+      expect(toast.hooks.toast.getSnapshot()).toMatchObject({ kind: 'pinFailed', seq: 1, failure: {
+        operation: 'workspace.pinSession', errors: [{ message: 'pin wire down' }],
+      } })
+    })
     b.unpinSession.mockRejectedValueOnce(new Error('unpin wire down'))
     pin.unpinSession(sid('one'))
-    await vi.waitFor(() => { expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'unpinFailed', seq: 2 }) })
+    await vi.waitFor(() => {
+      expect(toast.hooks.toast.getSnapshot()).toMatchObject({ kind: 'unpinFailed', seq: 2, failure: {
+        operation: 'workspace.unpinSession', errors: [{ message: 'unpin wire down' }],
+      } })
+    })
     expect(view.getSnapshot().sessionOrderByAccount).toEqual({})
   })
 
@@ -730,7 +738,7 @@ describe('ui-workspace apply', () => {
 
     fork.forkSession(sid('source'))
     await vi.waitFor(() => {
-      expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'forkRequiresOpen', sessionId: 'source', seq: 1 })
+      expect(toast.hooks.toast.getSnapshot()).toMatchObject({ kind: 'forkRequiresOpen', sessionId: 'source', seq: 1, failure: { operation: 'session.fork' } })
     })
 
     expect(b.fork).toHaveBeenCalledOnce()
@@ -760,7 +768,7 @@ describe('ui-workspace apply', () => {
       const toast = faceOf(entry(b.slots, 'shell.overlay', 'workspace.row-toast')) as RowToastInjected
       fork.forkSession(sid('source'))
       await vi.waitFor(() => {
-        expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'forkRequiresOpen', sessionId: 'source', seq: 1 })
+        expect(toast.hooks.toast.getSnapshot()).toMatchObject({ kind: 'forkRequiresOpen', sessionId: 'source', seq: 1, failure: { operation: 'session.fork' } })
       })
       if (timing === 'after the notice') b.setWorkspaces(workspaceState([], [sid('source')]))
 

@@ -69,7 +69,7 @@ export function installWorkspaceShortcuts(
   navigation: Pick<UiWorkspace, 'startSession' | 'forkSession'>,
   controls: ReturnType<typeof createWorkspaceShortcutControls>,
   archiveSession: (sessionId: SessionId) => void,
-  reportForkFailure: (reason: 'unavailable' | 'failed') => void,
+  reportForkFailure: (reason: 'unavailable' | 'failed', error: unknown) => void,
 ): void {
   const t = ctx.locale.bind('workspace')
   const current = () => Object.values(ctx.sessions.list.getSnapshot().byId)
@@ -117,7 +117,7 @@ export function installWorkspaceShortcuts(
           // Client plugin bundles do not share error-class identity.
           const unavailable = error instanceof Error && error.name === 'SessionForkError'
             && (error as SessionForkError).rpcError.code === 'session/fork-unavailable'
-          reportForkFailure(unavailable ? 'unavailable' : 'failed')
+          reportForkFailure(unavailable ? 'unavailable' : 'failed', error)
           if (!unavailable) console.warn('session fork rejected:', error)
         })
       },

@@ -1,4 +1,5 @@
 /** Keyed Workspace notices and the shared Toast Factory's display data. */
+import type { FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type {
   FactoryComponentPropsOf, InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime, PropsStore,
 } from '@janhq/jan-client-ui-slots'
@@ -13,6 +14,7 @@ export interface ToastDisplay {
   text: string
   tone: 'plain' | 'warning' | 'success'
   holdMs?: number
+  failure?: FailureDetails | undefined
   actions?: readonly { label: string; prefix?: string; onClick: () => void }[]
 }
 /** Per-display identity and dismissal; neither changes when localized content updates. */
