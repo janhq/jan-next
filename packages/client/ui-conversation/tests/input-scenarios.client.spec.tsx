@@ -123,7 +123,7 @@ const COMMANDS: FakeCommand[] = [
 const PNG: SubmitAttachment = { type: 'image', mediaType: 'image/png', data: 'AA==' }
 
 /** Real scope bench: a Controller-owned Session scope + InputTriggerController + shell listeners. */
-async function scopedBench(register?: (inputTriggers: InputTriggerService) => void) {
+async function scopedBench(register?: (inputTriggers: InputTriggerService) => void, running = false) {
   const runtime = await SlotTestRuntime.create()
   onTestFinished(() => runtime.dispose())
   const ctx = runtime.ctx
@@ -151,7 +151,7 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
   actx.on('slash/input-consume-token', req => shell.consumeToken(req.guard) ? true : undefined)
   actx.on('slash/input-insert-text', req => shell.insertText(req.text, req.span, req.continue === true, req.submit === true) ? true : undefined)
   const wiring = shell
-  const sessionStore = createSnapshotStore<SessionSnapshot>(sessionSnapshot(sessionId))
+  const sessionStore = createSnapshotStore<SessionSnapshot>({ ...sessionSnapshot(sessionId), running })
   const barProps: InputBarProps = {
     usePanelInfo: selector => selector({ activePanelId: null }),
     sessionId,
@@ -282,6 +282,23 @@ describe('inline command completion', () => {
     expect(b.shell.snapshot.draft).toBe('')
     expect(b.sink).not.toHaveBeenCalled()
   })
+})
+
+it('runs a side command without queueing or stopping the busy main conversation', async () => {
+  const run = vi.fn(async (): Promise<SubmitOutcome> => ({ kind: 'success' }))
+  const b = await scopedBench((inputTriggers) => {
+    inputTriggers.registerSource({
+      trigger: '/', name: 'command', candidates: async () => [], onPick: () => undefined,
+      matchEnter: async (_session, line) => line.startsWith('/btw ')
+        ? { claim: { name: 'btw', token: '/btw ', submit: run } }
+        : undefined,
+    })
+  }, true)
+  b.type('/btw What changed?')
+  await act(async () => { fireEvent.keyDown(b.textarea, { key: 'Enter' }) })
+  expect(run).toHaveBeenCalledExactlyOnceWith('What changed?', expect.anything(), [])
+  expect(b.sink).not.toHaveBeenCalled()
+  expect(b.shell.snapshot.draft).toBe('')
 })
 
 describe('scenario A: menu-pick /goal, type args, enter submits', () => {
