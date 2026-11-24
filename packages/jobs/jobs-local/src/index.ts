@@ -433,6 +433,7 @@ export class LocalJobRegistry extends JobRegistry {
         earliest: job.ring.earliest,
         ...spillPaths.length > 0 ? { spillPaths } : {},
       },
+      ...job.toolCall !== undefined ? { toolCall: job.toolCall } : {},
     }
   }
 

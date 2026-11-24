@@ -6,7 +6,7 @@
  * @module @janhq/jan-jobs/view
  */
 
-import type { SessionId } from '@janhq/jan-session/types'
+import type { SessionId, ToolCallId } from '@janhq/jan-session/types'
 // Type-only: the Workspace registry's archive-admission family map this seam merges `job` into.
 import type {} from '@janhq/jan-workspace/types'
 import type { JobId } from './brand.ts'
@@ -56,6 +56,14 @@ export interface JobChunk {
   readonly gapBefore?: true
 }
 
+/** Tool dispatch that created a job; nested calls retain their root invocation. */
+export interface JobToolCall {
+  /** Exact invocation, including a PTC sub-call when applicable. */
+  readonly callId: ToolCallId
+  /** Root model-requested invocation owning this execution. */
+  readonly rootCallId: ToolCallId
+}
+
 /**
  * Read-only projection of one job — a fresh object per call, never live
  * registry state. The model tools, the browser roster, and the observation
@@ -96,4 +104,9 @@ export interface JobView {
    * chunk, so a reader below `earliest` can still name where the bytes went.
    */
   readonly output: { readonly total: number; readonly earliest: number; readonly spillPaths?: readonly string[] }
+  /**
+   * The tool call that started the job, when a tool did. A transcript row
+   * uses it to find the live job behind its own call.
+   */
+  readonly toolCall?: JobToolCall
 }
