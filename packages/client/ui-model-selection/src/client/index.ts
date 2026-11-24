@@ -15,9 +15,9 @@ import { createElement } from 'react'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { ModelSelection } from '@janhq/jan-api-session-controller/types'
-import type { } from '@janhq/jan-api-session-controller/client'
+import type { ISessions } from '@janhq/jan-api-session-controller/client'
 import type { Context as ClientContext } from '@janhq/cordis'
-import type { CommandUiContract, SelectOption } from '@janhq/jan-client-ui-commands/client'
+import type { CommandArgumentOption, CommandUiContract, SelectOption } from '@janhq/jan-client-ui-commands/client'
 // Type-only: pulls the ui-conversation SlotMap merge (the input.model seat).
 import type { } from '@janhq/jan-client-ui-conversation/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
@@ -28,7 +28,7 @@ import type { } from '@janhq/jan-client-ui-settings-general/client'
 import type { TranslateNS } from '@janhq/jan-client-ui-slots'
 import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import { IconDataOutlineRegular } from '@janhq/jan-client-ui-primitives'
-import type { ModelDirectoryState } from './directory.ts'
+import type { ModelDirectory, ModelDirectoryState } from './directory.ts'
 import { ModelDirectoryResolver } from './service.ts'
 import type { ModelSelectInjected } from './slots.ts'
 import { ModelSelect } from './ModelSelect.tsx'
@@ -110,7 +110,8 @@ function modelInjection(
 ): (sessionId: SessionId) => ModelSelectInjected {
   return (sessionId) => {
     const directory = ctx.modelDirectories.directoryFor(sessionId)
-    const available = ctx.sessions.subagentAddress(sessionId) === undefined
+    const sessions = ctx.get('sessions') as ISessions
+    const available = sessions.subagentAddress(sessionId) === undefined
     return {
       available, directory: directory.store,
       load: () => { if (available) void directory.load().catch(() => { /* surfaced on the store */ }) },
@@ -156,6 +157,25 @@ function optionsOf(directory: ModelDirectoryState, t: TranslateNS<'model'>): Sel
     })
   }
   return rows
+}
+
+/** Use the catalog model id unless its provider is needed to identify the route. */
+function argumentOptionsOf(state: ModelDirectoryState): CommandArgumentOption[] {
+  const ids = new Set<string>()
+  const duplicates = new Set<string>()
+  const routes = new Set<string>()
+  for (const group of state.groups) {
+    for (const model of group.models) {
+      if (ids.has(model.id)) duplicates.add(model.id)
+      ids.add(model.id)
+      routes.add(rowId(group.id, model.id))
+    }
+  }
+  return state.groups.flatMap(group => group.models.map(model => ({
+    value: duplicates.has(model.id) || routes.has(model.id) ? rowId(group.id, model.id) : model.id,
+    label: model.name,
+    group: group.name,
+  })))
 }
 
 /**
@@ -208,7 +228,8 @@ export function apply(ctx: ClientContext): void {
   // Warn before a plain message the selected model cannot hold.
   ctx.inject(['conversation', 'modelDirectories'], (scope: ClientContext) => {
     scope.effect(() => scope.conversation.input.addSendCheck((sessionId, text) => {
-      const pressure = scope.sessions.binding(sessionId)?.session.projections.faceOf('contextPressure')
+      const sessions = scope.get('sessions') as ISessions
+      const pressure = sessions.binding(sessionId)?.session.projections.faceOf('contextPressure')
         .getSnapshot() as ContextPressureProjection | undefined
       const overflow = overflowOf(text, { directory: scope.modelDirectories.directoryFor(sessionId).store.getSnapshot(), pressure })
       if (overflow === undefined) return undefined
@@ -219,7 +240,8 @@ export function apply(ctx: ClientContext): void {
     // The context meter reads the selected model's window until the first request reports one.
     scope.effect(() => scope.conversation.input.setContextWindowSource((sessionId) => {
       // A Session without a retained scope (an addressed subagent, a closing tab) has no directory.
-      if (scope.sessions.scope(sessionId) === undefined || scope.sessions.binding(sessionId) === undefined) return NO_WINDOW
+      const sessions = scope.get('sessions') as ISessions
+      if (sessions.scope(sessionId) === undefined || sessions.binding(sessionId) === undefined) return NO_WINDOW
       const directory = scope.modelDirectories.directoryFor(sessionId)
       const windowOf = (state: ModelDirectoryState): number | undefined => {
         const current = state.current
@@ -239,7 +261,8 @@ export function apply(ctx: ClientContext): void {
     scope.slots.inject('conversation.input.dock', () => scope.slots.register({
       name: 'conversation.input.dock', id: 'model-image', order: 30, locale: NS,
       inject: (sessionId: SessionId): ImageNoticeInjected => {
-        const actx = scope.sessions.scope(sessionId)
+        const sessions = scope.get('sessions') as ISessions
+        const actx = sessions.scope(sessionId)
         if (actx === undefined) throw new Error(`ui-model-selection: session "${String(sessionId)}" resolved no scope`)
         const input = scope.conversation.input.for(actx).state
         const directory = scope.modelDirectories.directoryFor(sessionId)
@@ -278,13 +301,40 @@ export function apply(ctx: ClientContext): void {
   ctx.inject(['commandUi', 'modelDirectories'], (scope: ClientContext) => {
     const command = scope.get('commandUi') as CommandUiContract
     const models = scope.modelDirectories
-    const sessions = scope.sessions
+    const sessions = scope.get('sessions') as ISessions
+    const directoryFor = (sessionId: SessionId) => {
+      if (sessions.subagentAddress(sessionId) !== undefined) {
+        throw new Error('model selection is unavailable for addressed subagent sessions')
+      }
+      return models.directoryFor(sessionId)
+    }
+    const select = async (directory: ModelDirectory, selection: ModelSelection) => {
+      const result = await directory.select(selection)
+      if (!result.ok) {
+        if (result.error.code === 'session/writer-held') throw new Error(t('error.sessionInUse'))
+        throw result.error
+      }
+    }
     scope.effect(() => command.register({
       name: 'model',
       label: () => t('command.label'),
       description: () => t('command.description'),
       icon: IconDataOutlineRegular,
       available: session => sessions.subagentAddress(session.sessionId) === undefined,
+      arguments: {
+        complete: async (_query, session) => argumentOptionsOf(await directoryFor(session.sessionId).load()),
+        run: async (argument, session) => {
+          const directory = directoryFor(session.sessionId)
+          const state = await directory.load()
+          const route = selectionOf(state, argument)
+          if (route !== undefined) return select(directory, route)
+          const groups = state.groups.filter(group => group.models.some(model => model.id === argument))
+          const group = groups.length === 1 ? groups[0] : undefined
+          const selection = group === undefined ? undefined : selectionOf(state, rowId(group.id, argument))
+          if (selection === undefined) throw new Error(t('search.empty'))
+          return select(directory, selection)
+        },
+      },
       ui: {
         kind: 'popupSelect',
         searchLabels: () => ({
@@ -292,26 +342,14 @@ export function apply(ctx: ClientContext): void {
           empty: t('empty.models'),
           noResults: t('search.empty'),
         }),
-        options: async (session) => {
-          if (sessions.subagentAddress(session.sessionId) !== undefined) {
-            throw new Error('model selection is unavailable for addressed subagent sessions')
-          }
-          return optionsOf(await models.directoryFor(session.sessionId).load(), t)
-        },
+        options: async session => optionsOf(await directoryFor(session.sessionId).load(), t),
         onSelect: async (option, session) => {
-          if (sessions.subagentAddress(session.sessionId) !== undefined) {
-            throw new Error('model selection is unavailable for addressed subagent sessions')
-          }
-          const directory = models.directoryFor(session.sessionId)
+          const directory = directoryFor(session.sessionId)
           const selection = selectionOf(directory.store.getSnapshot(), option.id)
           if (selection === undefined) {
             throw new Error('this provider\'s catalog failed to load — pick a model from a loaded group')
           }
-          const result = await directory.select(selection)
-          if (!result.ok) {
-            if (result.error.code === 'session/writer-held') throw new Error(t('error.sessionInUse'))
-            throw result.error
-          }
+          await select(directory, selection)
         },
       },
     }), 'ui-model-selection: /model contribution')

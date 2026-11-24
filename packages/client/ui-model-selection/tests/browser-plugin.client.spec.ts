@@ -229,6 +229,24 @@ describe('ui-model-selection dual entry', () => {
     expect(b.seat().locale).toBe('model')
   })
 
+  it('selects a catalog model from its inline argument without the popup', async () => {
+    const b = await bench('en')
+    b.mint('s1')
+    const args = b.contribution().arguments!
+    const session = projection('s1')
+    expect(await args.complete('pro', session, new AbortController().signal)).toContainEqual({
+      value: 'tokamak-1-pro', label: 'Tokamak 1 Pro', group: 'Tokamak',
+    })
+    await args.run('tokamak-1-pro', session)
+    expect(b.hostCurrent()).toEqual({ provider: 'example', model: 'tokamak-1-pro', reasoningEffort: 'high' })
+    expect(await args.complete('', session, new AbortController().signal)).toContainEqual({
+      value: 'external/tokamak-1-preview', label: 'External Flash', group: 'External Provider',
+    })
+    await args.run('external/tokamak-1-preview', session)
+    expect(b.hostCurrent()).toEqual({ provider: 'external', model: 'tokamak-1-preview' })
+    await expect(args.run('missing-model', session)).rejects.toThrow('No matching models.')
+  })
+
   it.each([['zh', '新'], ['en', 'New']] as const)('resolves seat badge text for the active %s locale', async (locale, expected) => {
     const b = await bench(locale)
     b.mint('s1')
