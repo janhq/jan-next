@@ -247,6 +247,25 @@ describe('inline command arguments', () => {
     expect(command.popupFor(mint('s1').ctx).state.getSnapshot().command).toBe('theme')
     expect(run).not.toHaveBeenCalled()
   })
+
+  it('claims a registered free-text command from the leading menu, Space, and pasted Enter', async () => {
+    const { command, source, mint, executeCalls } = await bench()
+    const run = vi.fn()
+    command.register({
+      name: 'btw', available: () => true,
+      arguments: { inputHint: () => 'Question', complete: async () => [], run },
+    })
+    const session = proj('s1')
+    expect((await source.candidates(session, req('btw'))).map(row => row.name)).toContain('btw')
+    expect((await source.candidates(session, req('btw', 'inline'))).map(row => row.name)).not.toContain('btw')
+    expect(menuPick(source, 'btw', session)).toMatchObject({ claim: { token: '/btw ' } })
+    expect(source.matchSpace?.(session, '/btw')).toMatchObject({ claim: { token: '/btw ' } })
+    const result = await source.matchEnter?.(session, '/btw A question?', new AbortController().signal, { attachments: 0 })
+    if (typeof result !== 'object' || !('claim' in result)) throw new Error('Expected a free-text command')
+    await expect(result.claim.submit('A question?', mint('s1').ctx, [])).resolves.toEqual({ kind: 'success' })
+    expect(run).toHaveBeenCalledExactlyOnceWith('A question?', session)
+    expect(executeCalls).toEqual([])
+  })
 })
 
 describe('registration', () => {

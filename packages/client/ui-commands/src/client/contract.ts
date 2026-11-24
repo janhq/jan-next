@@ -99,6 +99,8 @@ export interface CommandArgumentOption {
 
 /** A client command's optional inline arguments, independent of its bare invocation. */
 export interface CommandArguments {
+  /** When supplied, the command's menu row and following Space open a free-text command chip. */
+  inputHint?(): string
   /**
    * List candidates from the session's current catalog. The menu further ranks matches by value and label
    * unless {@link CommandArguments.ordered} is set.
@@ -144,7 +146,7 @@ export interface CommandContribution {
   /** Capability filter, called with a fresh projection per candidate pass. */
   available(session: ClientSessionContext): boolean
   /** The command's UI behavior. */
-  readonly ui: CommandUiSpec
+  readonly ui?: CommandUiSpec
   /** When absent, only a bare invocation is handled by this contribution. */
   readonly arguments?: CommandArguments
 }
