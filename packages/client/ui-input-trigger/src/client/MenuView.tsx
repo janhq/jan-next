@@ -84,7 +84,8 @@ export function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t
   // when the composer grows).
   const maxHeight = useAnchoredMaxHeight(listRef, MAX_HEIGHT, state, TOP_MARGIN)
   const highlight = state.open ? state.highlight : null
-  const compact = state.open && state.groups.length > 0 && state.groups.every(group => COMPACT_SOURCES.has(group.source))
+  const compact = state.open && state.hit?.arguments !== true
+    && state.groups.length > 0 && state.groups.every(group => COMPACT_SOURCES.has(group.source))
   const description = highlight === null || !state.open
     ? undefined
     : state.groups.find(group => group.source === highlight.source)?.items[highlight.index]?.description
