@@ -1445,10 +1445,11 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
     const readPins = () => {
       try {
         const stored = JSON.parse(localStorage.getItem(PINS_KEY) ?? 'null')
-        return Array.isArray(stored) ? stored.filter(id => typeof id === 'string') : DEFAULT_PINS
-      } catch { return DEFAULT_PINS }
+        return Array.isArray(stored) ? stored.filter(id => typeof id === 'string') : undefined
+      } catch { return undefined }
     }
-    let sidebarPins = readPins()
+    const storedPins = readPins()
+    let sidebarPins = storedPins ?? DEFAULT_PINS
     let sidebarEditorOpen = false
     const sidebarListeners = new Set()
     const notifySidebar = () => { for (const listener of sidebarListeners) listener() }
@@ -1460,9 +1461,13 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
     }
     const SEEN_KEY = 'jan-theme.sidebar.seen'
     const sidebarSeen = new Set()
+    let migrateSidebarPins = storedPins !== undefined
     try {
       const stored = JSON.parse(localStorage.getItem(SEEN_KEY) ?? 'null')
-      if (Array.isArray(stored)) for (const id of stored) if (typeof id === 'string') sidebarSeen.add(id)
+      if (Array.isArray(stored)) {
+        migrateSidebarPins = false
+        for (const id of stored) if (typeof id === 'string') sidebarSeen.add(id)
+      }
     } catch { /* storage can be unavailable */ }
     const observeSidebarPanels = (entries) => {
       let changed = false
@@ -1471,12 +1476,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
         if (id === undefined || sidebarSeen.has(id)) continue
         sidebarSeen.add(id)
         changed = true
-        if (owner && !owner.startsWith('@janhq/') && !sidebarPins.includes(id)) {
+        if (!migrateSidebarPins && owner && !owner.startsWith('@janhq/') && !sidebarPins.includes(id)) {
           sidebarPins = [...sidebarPins, id]
           pinned = true
         }
       }
-      if (!changed) return
+      if (!changed || migrateSidebarPins) return
       try {
         if (pinned) localStorage.setItem(PINS_KEY, JSON.stringify(sidebarPins))
         localStorage.setItem(SEEN_KEY, JSON.stringify([...sidebarSeen]))
@@ -3767,6 +3772,19 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
             const update = () => observeSidebarPanels(scope.slots.entriesOfSlot('sidebar.panellist'))
             const stop = scope.slots.subscribe('sidebar.panellist', update)
             update()
+            if (migrateSidebarPins) {
+              // Existing panels can register throughout boot. Record them without overriding the saved pin list.
+              let disposed = false
+              const finish = () => {
+                if (disposed) return
+                migrateSidebarPins = false
+                try { localStorage.setItem(SEEN_KEY, JSON.stringify([...sidebarSeen])) } catch { /* keep this window's baseline */ }
+              }
+              const loader = scope.get('loader')
+              if (loader === undefined) finish()
+              else void loader.await().then(finish)
+              return () => { disposed = true; stop() }
+            }
             return stop
           }, 'jan-theme: discover sidebar panels')
           // Other plugins' sidebar pages; Edit sidebar can pin them as rows too.
