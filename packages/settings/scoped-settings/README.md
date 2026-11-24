@@ -32,6 +32,8 @@ The web-app bundle mounts it after the workspace controller:
 
 It needs `agents`, `workspaceRegistry` and `tools`; `agentPresets` is optional and only checks that a project mode still exists.
 
+Open **Project settings** from a project's context menu to choose its default model, reasoning effort and mode, or to switch off tools in that project. Use `/tools` in a chat or **Settings > General > Tools for every chat** to edit the other two scopes. A checked tool is not switched off at the scope you are editing; a wider scope can still switch it off.
+
 | Setting | Chat | Project | Global | Resolution |
 |---|---|---|---|---|
 | Model and reasoning effort | Chat's own selection (session log) | `model` | `agent-default-model` | Chat, then project, then global |
@@ -82,6 +84,7 @@ Switching a tool off or on changes the tool list, so the next request of each af
 - Jan has no chat deletion today, so chat entries stay in the document until removed through `write`.
 - Scoped registrations inside a preset are not listed by `toolCatalog()` and are switched off only by exact name.
 - Plugins that run once per Host (theme, sidebar, bundles) stay global.
+- Projects and chats on a remote Host are not covered yet.
 
 <a id="dev-note"></a>
 ### Dev Note

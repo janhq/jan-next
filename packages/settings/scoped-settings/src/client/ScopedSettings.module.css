@@ -1,0 +1,105 @@
+.dialog {
+  max-height: 100%;
+}
+
+.content {
+  min-height: 0;
+  overflow: auto;
+}
+
+.form {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+}
+
+.field > button {
+  justify-self: start;
+  max-width: 100%;
+}
+
+.field > span,
+.tools legend {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.tools {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.tools legend {
+  padding: 0;
+  margin-bottom: 4px;
+}
+
+.choices {
+  display: grid;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.hint {
+  margin: 0 0 8px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.notice {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.loading svg {
+  animation: spin var(--ds-transition-duration-loop) linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading svg { animation: none; }
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.title {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.description {
+  margin: 4px 0 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}

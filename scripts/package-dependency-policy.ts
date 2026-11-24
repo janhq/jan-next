@@ -88,6 +88,8 @@ const PEER_REQUIRED_HOST_EXPORTS = {
   '@janhq/jan-experimental-worktree': ['generatedWorktreeName'],
   // The forge panel matches ctx.fs failures with `instanceof FsError`.
   '@janhq/jan-fs': ['FsError'],
+  // Origins live in the registering mcp-client instance's WeakMap; another copy answers undefined for every tool.
+  '@janhq/jan-mcp-client': ['mcpToolOrigin'],
   // Stateless; peer resolution keeps Liveshare's default owner-state path on the host's home resolver.
   '@janhq/jan-home-paths': ['janHomePath'],
   '@janhq/jan-scope': ['carrierKeyOf', 'createScope', 'scopeOf', 'scopeTarget'],

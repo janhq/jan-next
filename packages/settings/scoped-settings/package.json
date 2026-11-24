@@ -18,6 +18,10 @@
       "types": "./lib/types/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
     "./types": {
       "types": "./lib/types/types.d.ts",
       "default": "./lib/types/types.js"
@@ -34,6 +38,21 @@
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json"
   },
+  "jan": {
+    "client": {
+      "inject": [
+        "@janhq/jan-api-remotes",
+        "@janhq/jan-client-locale",
+        "@janhq/jan-client-ui-commands",
+        "@janhq/jan-client-ui-context-menu",
+        "@janhq/jan-client-ui-layout",
+        "@janhq/jan-client-ui-renderer",
+        "@janhq/jan-client-ui-settings",
+        "@janhq/jan-client-ui-workspace"
+      ],
+      "platform": "web"
+    }
+  },
   "scripts": {
     "bundle": "tsdown",
     "watch": "tsdown --watch"
@@ -41,6 +60,7 @@
   "files": [
     "locale/*.json",
     "lib/index.js",
+    "lib/client.js",
     "lib/types/**/*.js",
     "lib/types/**/*.d.ts",
     "lib/typert.host.js",
@@ -66,12 +86,27 @@
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-agent-preset-registry": "workspace:*",
+    "@janhq/jan-api-remotes": "workspace:*",
+    "@janhq/jan-api-session-controller": "workspace:*",
+    "@janhq/jan-client-locale": "workspace:*",
+    "@janhq/jan-client-store": "workspace:*",
+    "@janhq/jan-client-test-runtime": "workspace:*",
+    "@janhq/jan-client-ui-commands": "workspace:*",
+    "@janhq/jan-client-ui-context-menu": "workspace:*",
+    "@janhq/jan-client-ui-layout": "workspace:*",
+    "@janhq/jan-client-ui-primitives": "workspace:*",
+    "@janhq/jan-client-ui-renderer": "workspace:*",
+    "@janhq/jan-client-ui-settings": "workspace:*",
+    "@janhq/jan-client-ui-slots": "workspace:*",
+    "@janhq/jan-client-ui-workspace": "workspace:*",
     "@janhq/jan-mcp-client": "workspace:*",
     "@janhq/jan-scope": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-settings": "workspace:*",
     "@janhq/jan-system-prompt": "workspace:*",
     "@janhq/jan-tools": "workspace:*",
-    "@janhq/jan-workspace": "workspace:*"
+    "@janhq/jan-workspace": "workspace:*",
+    "@testing-library/react": "^16.3.3",
+    "react": "^18.2.0"
   }
 }

@@ -15759,6 +15759,45 @@ importers:
       '@janhq/jan-agent-preset-registry':
         specifier: workspace:*
         version: link:../../preset/agent-preset-registry
+      '@janhq/jan-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
+      '@janhq/jan-api-session-controller':
+        specifier: workspace:*
+        version: link:../../api/session-controller
+      '@janhq/jan-client-locale':
+        specifier: workspace:*
+        version: link:../../client/locale
+      '@janhq/jan-client-store':
+        specifier: workspace:*
+        version: link:../../client/store
+      '@janhq/jan-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@janhq/jan-client-ui-commands':
+        specifier: workspace:*
+        version: link:../../client/ui-commands
+      '@janhq/jan-client-ui-context-menu':
+        specifier: workspace:*
+        version: link:../../client/ui-context-menu
+      '@janhq/jan-client-ui-layout':
+        specifier: workspace:*
+        version: link:../../client/ui-layout
+      '@janhq/jan-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../../client/ui-primitives
+      '@janhq/jan-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../../client/ui-renderer
+      '@janhq/jan-client-ui-settings':
+        specifier: workspace:*
+        version: link:../../client/ui-settings
+      '@janhq/jan-client-ui-slots':
+        specifier: workspace:*
+        version: link:../../client/ui-slots
+      '@janhq/jan-client-ui-workspace':
+        specifier: workspace:*
+        version: link:../../client/ui-workspace
       '@janhq/jan-mcp-client':
         specifier: workspace:*
         version: link:../../mcp/mcp-client
@@ -15780,6 +15819,12 @@ importers:
       '@janhq/jan-workspace':
         specifier: workspace:*
         version: link:../../workspace/workspace
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
 
   packages/settings/settings:
     dependencies:
