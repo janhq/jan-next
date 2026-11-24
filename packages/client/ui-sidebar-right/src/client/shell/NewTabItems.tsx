@@ -38,7 +38,7 @@ type Props = ConversationNewTabItemOwnerProps & InjectFace<NewTabItemsInjected> 
 /** @param props - the pane's chat, the menu dismissal, and the offered types. @returns one row per type. */
 export function NewTabItems({ sessionId, dismiss, offeredIn, useShortcuts, openIn, t }: Props): ReactNode {
   const offered = useMemo(() => offeredIn(sessionId), [offeredIn, sessionId])
-  const entries = useSyncExternalStore(offered.subscribe, offered.getSnapshot)
+  const entries = useSyncExternalStore(fn => offered.subscribe(fn), () => offered.getSnapshot())
   const shortcuts = useShortcuts(value => value)
   return entries.map((entry) => {
     const Icon = entry.icon ?? CubeGlyph
