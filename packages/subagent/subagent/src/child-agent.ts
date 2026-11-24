@@ -27,6 +27,7 @@ import type {} from '@janhq/jan-permission-presets'
 import type {} from '@janhq/jan-agent-preset-registry'
 import { delegationDepthOf } from './depth.ts'
 import { SubagentError } from './error.ts'
+import { isWiderSandboxMode } from './sandbox-mode.ts'
 
 /** Thrown when starting a child would exceed the requested depth cap. */
 export class SubagentDepthError extends Error {
@@ -161,6 +162,8 @@ export interface ChildComposition {
   readonly persona?: string | undefined
   /** Tool restriction applied on creation and restored from the descriptor on cold resume. */
   readonly toolFilter?: ToolRestriction | undefined
+  /** Sandbox ceiling fixed at delegation or restored from the child descriptor. */
+  readonly sandboxMode?: SandboxMode | undefined
 }
 
 /**
@@ -226,7 +229,7 @@ export interface DelegatedPolicyOverrides {
    * the child keeps it under the pinned `never` approval policy.
    */
   readonly permissionPreset: 'auto' | 'danger-full-access' | undefined
-  /** The parent session's explicit sandbox-mode override, or `undefined` without one. */
+  /** The parent's sandbox override, or its effective mode narrowed to the requested cap. */
   readonly sandboxMode: SandboxMode | undefined
   /**
    * `'never'` whenever the approval capability is composed, `undefined`
@@ -241,19 +244,27 @@ export interface DelegatedPolicyOverrides {
  * the child start's first await: a later parent switch belongs to the
  * parent's future, not to this child. Auto and Full access identities are
  * inherited only through the in-process Jan path so either can replace a stale
- * same-bundle fork value. Only the parent session's explicit sandbox override
- * is captured — never deployment defaults or one-shot grants — and the approval
- * policy is pinned to `'never'` regardless of the parent's own policy.
+ * same-bundle fork value. Uncapped children inherit only the explicit sandbox
+ * override; capped children use the parent's effective mode, never a one-shot grant.
+ * The approval policy is pinned to `'never'` regardless of the parent's policy.
  * @param parent - the delegating parent agent.
- * @returns the sandbox override (or `undefined` without one) and the approval pin.
+ * @param cap - optional ceiling on the child's sandbox mode.
+ * @returns the captured sandbox mode, preset identity, and approval pin.
+ * @throws PRESET_UNAVAILABLE if a capped request has no parent sandbox policy.
  */
-export function captureDelegatedPolicyOverrides(parent: Agent): DelegatedPolicyOverrides {
+export function captureDelegatedPolicyOverrides(parent: Agent, cap?: SandboxMode): DelegatedPolicyOverrides {
   const preset = parent.ctx.get('permissionPresets')?.current(parent.session)
-  return {
-    permissionPreset: preset === 'auto' || preset === 'danger-full-access' ? preset : undefined,
-    sandboxMode: parent.ctx.get('sandboxPolicy')?.overrideOf(parent.session),
-    approvalPolicy: parent.ctx.get('approval') === undefined ? undefined : 'never',
+  const sandboxPolicy = parent.ctx.get('sandboxPolicy')
+  const permissionPreset = preset === 'auto' || preset === 'danger-full-access' ? preset : undefined
+  const approvalPolicy = parent.ctx.get('approval') === undefined ? undefined : 'never'
+  if (cap === undefined) return { permissionPreset, sandboxMode: sandboxPolicy?.overrideOf(parent.session), approvalPolicy }
+  if (sandboxPolicy === undefined) {
+    throw new SubagentError('an agent profile sandbox cap requires a parent sandbox policy service', 'PRESET_UNAVAILABLE')
   }
+  const parentMode = sandboxPolicy.resolve({ session: parent.session }).mode
+  return isWiderSandboxMode(parentMode, cap)
+    ? { permissionPreset: undefined, sandboxMode: cap, approvalPolicy }
+    : { permissionPreset, sandboxMode: parentMode, approvalPolicy }
 }
 
 /**

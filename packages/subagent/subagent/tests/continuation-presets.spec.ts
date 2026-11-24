@@ -133,6 +133,12 @@ describe('child preset start validation', () => {
       inheritsParentContext: false,
       start: () => { throw new Error('external startup should not be reached') },
     })
+    ctx.subagents.registerProvider({
+      name: 'external-independent',
+      capabilities: { agentOptions: false, agentPreset: true, outputSchema: false, depthLimit: false },
+      inheritsParentContext: false,
+      start: () => { throw new Error('external startup should not be reached') },
+    })
     const initialEvents = parent.session.snapshotEvents()
 
     for (const profile of [{ persona: 'Review only.' }, { toolFilter: { allow: [] } }]) {
@@ -141,9 +147,20 @@ describe('child preset start validation', () => {
           .rejects.toMatchObject({ code: 'PROFILE_UNSUPPORTED' })
       }
     }
+    for (const provider of ['fork', 'external', 'external-independent']) {
+      await expect(ctx.subagents.startActivation({ ...startSpec(parent, undefined, provider), sandboxMode: 'read-only' }))
+        .rejects.toMatchObject({ code: 'PROFILE_UNSUPPORTED' })
+    }
     expect(parent.session.snapshotEvents()).toEqual(initialEvents)
     expect(ctx.agents.list().map(agent => agent.id)).toEqual([parent.id])
     expect(adapter.requests).toEqual([])
+  })
+
+  it('rejects capped delegation when there is no parent sandbox policy', async () => {
+    const { ctx, parent } = await setup()
+    await expect(ctx.subagents.startActivation({ ...startSpec(parent), sandboxMode: 'read-only' }))
+      .rejects.toMatchObject({ code: 'PRESET_UNAVAILABLE' })
+    expect(ctx.agents.list().map(agent => agent.id)).toEqual([parent.id])
   })
 
   it('rolls back an independent spawn when the preset service has unloaded', async () => {
@@ -212,10 +229,17 @@ describe('continuable child presets', () => {
     }
     const parentTools = ctx.tools.schemas(parent).map(tool => tool.name)
     const toolFilter = { allow: ['evidence_read', 'evidence_write', 'retired_tool'], deny: ['evidence_write'] }
-    const started = await ctx.subagents.startActivation({ ...startSpec(parent, 'reviewing'), persona, toolFilter })
+    const label = 'Check the files (only those changed)'
+    const agent = 'team/reviewer'
+    const started = await ctx.subagents.startActivation({ ...startSpec(parent, 'reviewing'), label, agent, persona, toolFilter })
     const initial = await settled(ctx, started.childId)
     expect(initial.events.find(event => event.type === 'subagent/descriptor')?.data)
-      .toMatchObject({ persona, toolFilter })
+      .toMatchObject({ label, agent, persona, toolFilter })
+    expect(ctx.sessionProjections.snapshot(parent.session).values.subagentCatalog).toMatchObject([
+      { id: started.childId, label, agent },
+    ])
+    using observed = await ctx.sessionQuery.observeSession(started.childId)
+    expect(observed.projections?.values.subagent).toMatchObject({ mode: 'continuable', label, agent })
     expect(ctx.agents.get(started.childId)).toBeUndefined()
     await spawn.dispose()
 

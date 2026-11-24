@@ -10,6 +10,7 @@
 import type { Agent, AgentOptions } from '@janhq/jan-agent'
 import type { Branded } from '@janhq/jan-brand'
 import type { ContentBlock, MessageId } from '@janhq/jan-llm'
+import type { SandboxMode } from '@janhq/jan-sandbox'
 import type { SessionEvent, SessionId } from '@janhq/jan-session'
 import type { ObjectJsonSchema, ToolRestriction } from '@janhq/jan-tools'
 
@@ -150,10 +151,14 @@ export interface SubagentStartRequest {
    * parent context.
    */
   readonly agentPreset?: string
+  /** Id of the profile already resolved by the caller. Records identity only; requires independent composition. */
+  readonly agent?: string
   /** Literal child system-prompt persona; omission leaves the preset or deployment persona intact. Requires independent composition. */
   readonly persona?: string
   /** Additional child tool restriction; omission leaves the composed tools unchanged. Requires independent composition. */
   readonly toolFilter?: ToolRestriction
+  /** Maximum sandbox mode, never a grant beyond the parent's effective mode. Requires in-process independent composition. */
+  readonly sandboxMode?: SandboxMode
   /** Optional short display label persisted with a session-backed child. */
   readonly label?: string
   /** Content delivered as the child's user message. */
