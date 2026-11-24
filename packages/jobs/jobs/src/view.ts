@@ -6,7 +6,7 @@
  * @module @janhq/jan-jobs/view
  */
 
-import type { SessionId, ToolCallId } from '@janhq/jan-session/types'
+import type { SessionEventMap, SessionId } from '@janhq/jan-session/types'
 // Type-only: the Workspace registry's archive-admission family map this seam merges `job` into.
 import type {} from '@janhq/jan-workspace/types'
 import type { JobId } from './brand.ts'
@@ -59,9 +59,9 @@ export interface JobChunk {
 /** Tool dispatch that created a job; nested calls retain their root invocation. */
 export interface JobToolCall {
   /** Exact invocation, including a PTC sub-call when applicable. */
-  readonly callId: ToolCallId
+  readonly callId: SessionEventMap['tool/call']['callId']
   /** Root model-requested invocation owning this execution. */
-  readonly rootCallId: ToolCallId
+  readonly rootCallId: SessionEventMap['tool/call']['callId']
 }
 
 /**

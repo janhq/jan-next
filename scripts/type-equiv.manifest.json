@@ -1114,7 +1114,7 @@
     {
       "doc": "docs/subsystems/jobs.md",
       "symbol": "JobToolCall",
-      "source": "packages/jobs/jobs/src/types.ts"
+      "source": "packages/jobs/jobs/src/view.ts"
     },
     {
       "doc": "docs/subsystems/jobs.md",
