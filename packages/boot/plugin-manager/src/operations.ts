@@ -117,8 +117,8 @@ export function anchorPathSpec(argument: string, cwd: string): string {
   return `${match.groups.prefix ?? ''}${resolve(cwd, match.groups.path)}`
 }
 
-/** A bare spec: one token with no prefix a registry, git host, or path form claims. */
-const BARE_SPEC = /^[^\s@:\\/]+$/
+/** A single argv item with no prefix a registry, git host, or path form claims. */
+const BARE_SPEC = /^[^@:\\/]+$/
 
 /** Resolve a named install spec that names something already on disk in the caller's directory.
  * A bare `plugin.tgz` or `plugin` is a package name to pnpm, so a file or directory the caller

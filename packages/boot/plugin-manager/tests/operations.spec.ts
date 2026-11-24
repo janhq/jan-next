@@ -604,15 +604,23 @@ it('anchors a bare local directory or tarball the caller can see, and leaves a p
   expect(anchorInstallSpec('./plugin-dir', home)).toBe(join(home, 'plugin-dir'))
 })
 
-it('installs a bare local directory the caller names, without a registry lookup', async () => {
+it('anchors a quoted bare tarball filename from the invocation directory', async () => {
+  const { home, context } = fixture()
+  const filename = 'My Plugin.tgz'
+  writeFileSync(join(home, filename), '')
+  await runPluginCommand(context, ['add', filename], { execution: 'cli', outputBytes: 100 })
+  expect(command.run.mock.calls[0]?.[1]).toEqual(['add', join(home, filename)])
+})
+
+it.each(['plugin-dir', 'My Plugin'])('installs the bare local directory %j without a registry lookup', async (directory) => {
   const { home, context, pnpm } = fixture()
-  mkdirSync(join(home, 'plugin-dir'), { recursive: true })
-  writeFileSync(join(home, 'plugin-dir', 'package.json'), JSON.stringify({ name: 'plugin', version: '1.0.0' }))
+  mkdirSync(join(home, directory), { recursive: true })
+  writeFileSync(join(home, directory, 'package.json'), JSON.stringify({ name: 'plugin', version: '1.0.0' }))
   pnpm.mutate = (target) => { install(target, 'plugin') }
-  expect(await runProfilePnpm(context, ['add', 'plugin-dir'], { execution: 'service', outputBytes: 8192 }))
+  expect(await runProfilePnpm(context, ['add', directory], { execution: 'service', outputBytes: 8192 }))
     .toMatchObject({ exitCode: 0 })
   expect(pnpm.views).toEqual([])
-  expect(command.run.mock.calls[0]?.[1]).toEqual(['add', join(home, 'plugin-dir')])
+  expect(command.run.mock.calls[0]?.[1]).toEqual(['add', join(home, directory)])
 })
 
 it('activates newly installed bundles and leaves retained disabled dependencies disabled', async () => {
