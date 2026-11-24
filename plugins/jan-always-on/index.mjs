@@ -212,8 +212,8 @@ export function apply(ctx, config) {
     runtimes.set(bot.id, runtime)
     prompts.set(bot.sessionId, botPrompt(bot))
     try {
-      runtime.destination = ctx.schedule.registerSessionDestination(bot.sessionId, name, ({ id, taskId, prompt, payload }) => {
-        if (scheduleGate?.staging || scheduleGate?.unconfirmed.has(taskId)) throw new Error('bot-import-in-progress')
+      runtime.destination = ctx.schedule.registerSessionDestination(bot.sessionId, name, ({ id, prompt, payload }) => {
+        if (scheduleGate?.staging) throw new Error('bot-import-in-progress')
         queue.enqueue({ id: `timer:${id}`, kind: payload === undefined ? 'task' : 'follow-up', text: prompt,
           ...(payload === undefined ? {} : { progressPath: payload }) })
       })
@@ -294,7 +294,7 @@ export function apply(ctx, config) {
   async function importBot({ name, role, description, memory, routines }) {
     const bot = await createBot({ name, role, newAgent: { description } }, memory)
     const identity = { botId: bot.id, sessionId: bot.sessionId }
-    const gate = { staging: true, unconfirmed: new Set() }
+    const gate = { staging: true }
     let runtime
     try { runtime = await startBot(bot, false, gate) } catch {
       return { ...identity, status: 'partial', reason: 'bot-start-failed', routines: [] }
@@ -304,35 +304,18 @@ export function apply(ctx, config) {
       let task
       try {
         task = await ctx.schedule.create({ title, prompt, timing: { kind: 'cron', cron: { expression, time_zone: timeZone } },
-          target: { kind: 'session', sessionId: bot.sessionId } }, undefined, lifetime.signal)
+          target: { kind: 'session', sessionId: bot.sessionId }, active: !paused }, undefined, lifetime.signal)
       } catch {
         outcomes.push({ name: title, status: 'failed', reason: 'routine-create-failed' })
         continue
       }
-      if (paused) {
-        try {
-          // Throw rather than wait in the destination: Schedule serializes delivery and edits.
-          const updated = await ctx.schedule.edit({ id: task.id, action: 'update', patch: { active: false } })
-          if (updated.status !== 'paused') throw new Error('routine-not-paused')
-        } catch {
-          let removed = false
-          try {
-            const result = await ctx.schedule.edit({ id: task.id, action: 'delete' })
-            removed = result.deleted === true || result.code === 'schedule_not_found'
-          } catch { /* The task may still be active; keep the bot paused. */ }
-          if (!removed) gate.unconfirmed.add(task.id)
-          outcomes.push({ name: title, id: task.id, status: 'failed', reason: removed ? 'pause-failed-removed' : 'pause-cleanup-failed' })
-          continue
-        }
-      }
-      outcomes.push({ name: title, id: task.id, status: paused ? 'paused' : 'active' })
+      outcomes.push({ name: title, id: task.id, status: task.status })
     }
     gate.staging = false
-    let held = gate.unconfirmed.size > 0
-    if (!held) {
-      try { await runtime.queue.setPaused(false); runtime.clock.wake() } catch { held = true }
+    try { await runtime.queue.setPaused(false); runtime.clock.wake() } catch {
+      return { ...identity, routines: outcomes, status: 'partial', reason: 'bot-kept-paused' }
     }
-    return { ...identity, routines: outcomes, ...(held ? { status: 'partial', reason: 'bot-kept-paused' } : {}) }
+    return { ...identity, routines: outcomes }
   }
   ctx.provide('janBotImport', { validateRoutine, importBot })
   const ownsTask = (task, bot) => task.target.kind === 'session' && task.target.sessionId === bot.sessionId
@@ -493,12 +476,6 @@ export function apply(ctx, config) {
       const runtime = runtimes.get(bot.id)
       const gate = runtime.scheduleGate
       if (gate?.staging) throw new Error('bot-import-in-progress')
-      if (!paused && gate?.unconfirmed.size) {
-        if ((await ctx.schedule.catalog()).some(task => gate.unconfirmed.has(task.id) && task.status === 'active')) {
-          throw new Error('bot-import-in-progress')
-        }
-        gate.unconfirmed.clear()
-      }
       await runtime.queue.setPaused(paused)
       return true
     },

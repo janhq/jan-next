@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 import { apply } from '../index.mjs'
 
-async function harness(t, { failPause = false, failDelete = false, seed } = {}) {
+async function harness(t, { failCreate = false, seed } = {}) {
   const home = await mkdtemp(join(tmpdir(), 'jan-bot-import-'))
   const services = {}, destinations = new Map(), tasks = [], sessions = new Map(), cleanups = [], attempts = []
   const profiles = new Map(), selections = [], listeners = new Map()
@@ -50,27 +50,21 @@ async function harness(t, { failPause = false, failDelete = false, seed } = {}) 
       registerDestination() { return () => {} }, registerWakeSource() { return { dispose() {}, wake() {} } },
       catalog: async () => tasks,
       async create(request) {
-        const row = { ...request, id: `task-${tasks.length + 1}`, status: 'active' }
+        if (failCreate) throw new Error('create failed')
+        const row = { ...request, id: `task-${tasks.length + 1}`, status: request.active === false ? 'paused' : 'active' }
         tasks.push(row)
         assert.ok(destinations.has(request.target.sessionId))
-        if (/Paused/.test(row.title)) {
+        if (row.status === 'active' && request.active !== undefined) {
           const receive = destinations.get(request.target.sessionId)
           await assert.rejects(async () => receive({ id: 'during-import', taskId: row.id, prompt: 'Do not enqueue' }), /bot-import-in-progress/)
           attempts.push(row.id)
         }
         return row
       },
-      async edit({ id, action, patch }) {
-        const i = tasks.findIndex(row => row.id === id)
-        if (action === 'delete') {
-          if (failDelete) throw new Error('delete failed')
-          tasks.splice(i, 1)
-          return { id, deleted: true }
-        }
-        assert.deepEqual(patch, { active: false })
-        if (failPause) throw new Error('pause failed')
-        tasks[i].status = 'paused'
-        return tasks[i]
+      async edit({ id, action }) {
+        if (action !== 'delete') throw new Error('Unexpected Schedule edit during import')
+        tasks.splice(tasks.findIndex(row => row.id === id), 1)
+        return { id, deleted: true }
       },
     },
   }, { enabled: { get: () => false } })
@@ -94,7 +88,7 @@ const packet = {
   ],
 }
 
-test('creates a canonical bot, preserves full UTF-8 memory and denies delivery while a paused task is being staged', async t => {
+test('creates a canonical bot, preserves UTF-8 memory and creates paused routines without editing them', async t => {
   const h = await harness(t)
   assert.deepEqual(h.validateRoutine({ schedule_text: '0 9 * * *' }, 'America/New_York'), { expression: '0 9 * * *', timeZone: 'America/New_York' })
   assert.deepEqual(h.validateRoutine({ schedule_cron: '0 9 * * *', timezone: 'Not/AZone' }, 'UTC'), { reason: 'invalid-time-zone' })
@@ -106,7 +100,7 @@ test('creates a canonical bot, preserves full UTF-8 memory and denies delivery w
   assert.deepEqual(h.selections, [{ sessionId: result.sessionId, id: 'atlas' }])
   assert.deepEqual(h.tasks.map(({ title, target, timing, status }) => ({ title, target, timing, status })), packet.routines.map(row => ({ title: row.name,
     target: { kind: 'session', sessionId: result.sessionId }, timing: { kind: 'cron', cron: { expression: row.expression, time_zone: row.timeZone } }, status: row.paused ? 'paused' : 'active' })))
-  assert.deepEqual(h.attempts, ['task-2'])
+  assert.deepEqual(h.attempts, ['task-1'])
   const detail = await h.rpc('detail', { id: result.botId })
   assert.equal(detail.paused, false)
   assert.deepEqual(detail.events, [])
@@ -181,20 +175,12 @@ test('backfills an existing bot chat selection once without changing its saved m
   assert.deepEqual(h.selections, [{ sessionId, id: 'pr-watcher', keepModel: true }])
 })
 
-test('deletes a newly created task when pausing it fails', async t => {
-  const h = await harness(t, { failPause: true })
+test('reports a failed routine create without leaving a task or keeping the bot paused', async t => {
+  const h = await harness(t, { failCreate: true })
   const result = await h.importBot({ ...packet, routines: [packet.routines[1]] })
-  assert.equal(result.routines[0].reason, 'pause-failed-removed')
+  assert.deepEqual(result.routines, [{ name: 'Paused daily', status: 'failed', reason: 'routine-create-failed' }])
   assert.equal(h.tasks.length, 0)
   assert.equal((await h.rpc('detail', { id: result.botId })).paused, false)
-})
-
-test('keeps the bot paused and reports the remaining task when cleanup fails', async t => {
-  const h = await harness(t, { failPause: true, failDelete: true })
-  const result = await h.importBot({ ...packet, routines: [packet.routines[1]] })
-  assert.equal(result.routines[0].reason, 'pause-cleanup-failed')
-  assert.equal(result.routines[0].id, h.tasks[0].id)
-  assert.equal((await h.rpc('detail', { id: result.botId })).paused, true)
 })
 
 test('creates a template bot with its agent and localized routines in the user time zone', async t => {
