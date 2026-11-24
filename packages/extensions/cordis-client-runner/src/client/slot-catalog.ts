@@ -1811,7 +1811,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.hero.workspace.directoryFlow\', () => ctx.slots.register(\n      { name: \'conversation.hero.workspace.directoryFlow\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:184',
+    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:185',
   },
   {
     key: 'conversation.image.preview.actions',
@@ -3378,9 +3378,10 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     ownerProps: [
       '/** Native file action selected by an explicit user gesture. */\nexport type PresentedAction = \'open\' | \'reveal\'',
-      '/**\n * Settled result of one native file gesture, for the contributed control to\n * announce: the Host acknowledged an application open or a file-manager\n * reveal, the gesture failed, or the request was deliberately dropped because\n * the same file was already opening or this controller was disposed. Only an\n * acknowledged operation may be announced as a success.\n */\nexport type PresentedOpenOutcome =\n  | { readonly kind: \'opened\' }\n  | { readonly kind: \'revealed\' }\n  | { readonly kind: \'failed\'; readonly failure: PresentedOpenFailure }\n  | { readonly kind: \'skipped\' }',
+      '/**\n * Settled result of one native file gesture, for the contributed control to\n * announce: the Host acknowledged an application open or a file-manager\n * reveal, the gesture failed, or the request was deliberately dropped because\n * the same file was already opening or this controller was disposed. Only an\n * acknowledged operation may be announced as a success.\n */\nexport type PresentedOpenOutcome =\n  | { readonly kind: \'opened\' }\n  | { readonly kind: \'revealed\' }\n  | { readonly kind: \'failed\'; readonly failure: PresentedOpenFailure; readonly details?: FailureDetails }\n  | { readonly kind: \'skipped\' }',
     ],
     ownerPropsReferences: [
+      'FailureDetails',
       'PresentedOpenFailure',
     ],
     standardProps: [
@@ -6505,7 +6506,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.session.row.hover\', () => ctx.slots.register(\n      { name: \'sidebar.session.row.hover\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:210',
+    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:211',
   },
   {
     key: 'sidebar.session.row.leading',
@@ -6561,7 +6562,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.session.row.leading\', () => ctx.slots.register(\n      { name: \'sidebar.session.row.leading\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:196',
+    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:197',
   },
   {
     key: 'sidebar.session.row.trailing',
@@ -6616,7 +6617,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.session.row.trailing\', () => ctx.slots.register(\n      { name: \'sidebar.session.row.trailing\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:205',
+    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:206',
   },
   {
     key: 'sidebar.settings',
@@ -6805,7 +6806,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     occupants: [],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.workspaces.actions\', () => ctx.slots.register(\n      { name: \'sidebar.workspaces.actions\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:92',
+    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:93',
   },
   {
     key: 'sidebar.workspaces.directoryFlow',
@@ -6840,7 +6841,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.workspaces.directoryFlow\', () => ctx.slots.register(\n      { name: \'sidebar.workspaces.directoryFlow\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:186',
+    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:187',
   },
   {
     key: 'sidebar.workspaces.group.leading',
@@ -6889,7 +6890,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     occupants: [],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.workspaces.group.leading\', () => ctx.slots.register(\n      { name: \'sidebar.workspaces.group.leading\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:99',
+    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:100',
   },
   {
     key: 'sidebar.workspaces.header',
@@ -6921,7 +6922,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     occupants: [],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.workspaces.header\', () => ctx.slots.register(\n      { name: \'sidebar.workspaces.header\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:97',
+    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:98',
   },
   {
     key: 'sidebar.workspaces.primary',
@@ -7008,7 +7009,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     occupants: [],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    const copyLabel = \'Copy session title\' // Localize in the contributing package.\n    ctx.slots.inject(\'sidebar.workspaces.session.menu.item\', () => ctx.slots.register(\n      { name: \'sidebar.workspaces.session.menu.item\', id: \'copy-session-title\', order: 500 },\n      ({ displayTitle, useMenuOpenState }) => {\n        const [, setMenuOpen] = useMenuOpenState()\n        return React.createElement(\n          \'button\',\n          {\n            type: \'button\', role: \'menuitem\',\n            onClick: () => { setMenuOpen(false); void navigator.clipboard.writeText(displayTitle) },\n          },\n          copyLabel,\n        )\n      },\n    ))\n  },\n}',
-    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:240',
+    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:241',
   },
   {
     key: 'sidebar.workspaces.session.row.action',
@@ -7064,7 +7065,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.workspaces.session.row.action\', () => ctx.slots.register(\n      { name: \'sidebar.workspaces.session.row.action\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:261',
+    source: 'packages/client/ui-workspace/src/client/contract/slots.ts:262',
   },
   {
     key: 'tool.call.images',
@@ -7377,7 +7378,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'workspace.toast\', () => ctx.slots.register(\n      { name: \'workspace.toast\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-workspace/src/client/contract/toast.ts:53',
+    source: 'packages/client/ui-workspace/src/client/contract/toast.ts:55',
   },
 ]
 /* jscpd:ignore-end */
