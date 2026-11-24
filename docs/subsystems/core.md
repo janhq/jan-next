@@ -783,6 +783,13 @@ snapshot(workspaceId?: WorkspaceId): AgentProfileList
 profileForSession(session: Session): string | null
 
 /**
+ * Whether a chat ever recorded a profile choice, plain Jan included.
+ * @param session - the chat's session.
+ * @returns true once any selection was logged, so a project default must leave the chat alone.
+ */
+hasSelection(session: Session): boolean
+
+/**
  * Project a chat belongs to.
  * @param agent - the chat.
  * @returns the project listing the chat, else the innermost project folder holding its folder.
@@ -790,7 +797,9 @@ profileForSession(session: Session): string | null
 projectOf(agent: Agent): WorkspaceId | undefined
 
 /**
- * Profile a live chat selected, as currently on disk.
+ * Profile a live chat selected, pinned as first read for the chat's lifetime. Later edits to the file reach the
+ * chat only when the profile is picked again or the chat is reopened, so a hot edit never rewrites a running
+ * chat's system prompt or tool set and its cached prompt prefix stays reusable.
  * @param agent - the chat.
  * @returns the profile, or undefined for plain Jan or a selection no visible profile matches.
  */
