@@ -78,16 +78,16 @@ function waitForInput(
 }
 
 /**
- * Register one inbox wait tool and cancel its waits when the plugin unloads.
- * @param ctx - plugin context owning the tool, event listeners, and wait lifetime.
- */
-/**
  * Longest single wait. Providers drop the prompt cache after about five
  * minutes idle; waking before that and waiting again keeps the next request
  * cheap, so longer requests are clamped here instead of rejected.
  */
 const MAX_WAIT_MS = 270_000
 
+/**
+ * Register one inbox wait tool and cancel its waits when the plugin unloads.
+ * @param ctx - plugin context owning the tool, event listeners, and wait lifetime.
+ */
 export function registerWaitAgent(ctx: Context): void {
   const lifetime = new AbortController()
   const reported: ReportedInput = new WeakMap()
