@@ -33,7 +33,7 @@ import type {
 } from './shell-contract.ts'
 import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
 import { createSettingsShellStore, type SettingsShellStore } from './shell-store.ts'
-import { createSettingsSearchSource, type SettingsSearchTarget } from './settings-search.ts'
+import { createSettingsSearchSource, type SettingsSearchTarget, type SettingsTargetRegistration } from './settings-search.ts'
 import { SettingsRoot } from './SettingsRoot.tsx'
 import { DesktopUpdateBadge } from './DesktopUpdateIndicator.tsx'
 import { HostStatusChip, type HostStatusChipInjected } from './HostStatusChip.tsx'
@@ -58,14 +58,20 @@ declare module '@janhq/cordis' {
     settingsNavigation: {
       /** Live availability of the Settings dialog. */
       availability: ObservableSnapshot<boolean>
-      /** Live localized page and owned-row results. */
+      /** Live localized page and subsection results. */
       targets: ObservableSnapshot<readonly SettingsSearchTarget[]>
       /**
        * Open the Settings dialog at a registered section when access allows it.
-       * @param section - id of a Settings section, such as `models`.
+       * @param section - a section id or a contributed legacy alias.
        * @returns whether Settings opened at that section.
        */
       open(section: string): boolean
+      /**
+       * Publish a destination in an existing settings section, with optional deep-link aliases.
+       * @param target - localized row metadata and its stable destination id.
+       * @returns disposer that removes the result and its aliases.
+       */
+      registerTarget(target: SettingsTargetRegistration): () => void
       /**
        * Open Settings and reveal a current search result.
        * @param target - a result from the current targets snapshot.
@@ -86,7 +92,7 @@ export type { SettingsDocumentActionInjected, SettingsDocumentActionProps } from
 export type { SettingsDocumentState } from './settings-document-store.ts'
 export { SettingsDocumentStore } from './settings-document-store.ts'
 export type { SettingsKey } from './locales.ts'
-export type { SettingsSearchTarget } from './settings-search.ts'
+export type { SettingsSearchTarget, SettingsTargetRegistration } from './settings-search.ts'
 
 declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -123,8 +129,14 @@ export function apply(ctx: ClientContext): void {
   ctx.provide('settingsNavigation', {
     availability,
     targets,
+    registerTarget: targets.register,
     open: (section) => {
       if (shellActions === undefined) return false
+      const snapshot = targets.getSnapshot()
+      if (!snapshot.some(target => target.sectionId === section)) {
+        const alias = snapshot.find(target => target.aliases?.includes(section))
+        if (alias !== undefined) return openSearchTarget(alias)
+      }
       shellActions.openSection(section)
       return true
     },

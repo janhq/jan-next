@@ -48,10 +48,10 @@ const CHILD_NAMES = Object.keys(CHILD_SPECS) as Array<keyof typeof CHILD_SPECS>
 
 /**
  * Section ids the web-app roster registers, in nav order: this package, then
- * ui-settings-models, ui-settings-plugins, and ui-agent-preset. A plugin
+ * ui-settings-models, ui-settings-plugins, ui-agent-preset, and agent profiles. A plugin
  * adding a section changes this list.
  */
-const PRODUCT_SECTIONS: readonly string[] = ['general', 'models', 'plugins', 'agent-presets']
+const PRODUCT_SECTIONS: readonly string[] = ['general', 'models', 'plugins', 'agent-presets', 'agents']
 /** Onboarding steps the web-app roster registers, in coordinator order; both come from ui-settings-models. */
 const PRODUCT_ONBOARDING: readonly { id: string; order: number }[] = [
   { id: 'welcome-notice', order: -100 },
@@ -104,6 +104,23 @@ describe('ui-settings-general shell', () => {
     expect(instance.getSnapshot()).toMatchObject({ open: false })
     expect(c.ctx.settingsNavigation.open('models')).toBe(true)
     expect(instance.getSnapshot()).toMatchObject({ open: true, activeId: 'models' })
+  }, COLD_BOOT_TIMEOUT_MS)
+
+  it('opens a contributed subsection from search and its old section id', async ({ start }) => {
+    const c = await start()
+    const navigation = c.ctx.settingsNavigation
+    const decl = c.ctx.slots.entries('sidebar.settings')[0]!.store!
+    const instance = (typeof decl === 'function' ? decl() : decl).create()
+    const remove = navigation.registerTarget({
+      sectionId: 'models', id: 'subscription', title: () => 'Bring your own subscription', aliases: ['former-page'],
+    })
+    const target = navigation.targets.getSnapshot().find(row => row.title === 'Bring your own subscription')!
+    expect(target).toMatchObject({ sectionId: 'models', destination: { kind: 'row', id: 'subscription' } })
+    expect(navigation.open('former-page')).toBe(true)
+    expect(instance.getSnapshot()).toMatchObject({ activeId: 'models', reveal: target })
+    remove()
+    expect(navigation.targets.getSnapshot()).not.toContain(target)
+    expect(navigation.openTarget(target)).toBe(false)
   }, COLD_BOOT_TIMEOUT_MS)
 
   withoutSettingsAccess('leaves sidebar.settings unoccupied while the current Peer may not read the settings description', async ({ start }) => {

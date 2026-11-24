@@ -165,7 +165,12 @@ function SettingsPanel({
           aria-label={activeRow?.label || (reveal?.sectionId === active ? reveal?.sectionTitle : undefined)}>
           {(failedSelection || (reveal !== undefined && unavailableSequence === revealSequence)) &&
             <div role="status" className={css.searchMessage}>{t('search.unavailable')}</div>}
-          {active !== undefined && renderSlot('settings.section', { close: onClose }, { only: active })}
+          {active !== undefined && renderSlot('settings.section', {
+            close: onClose,
+            ...(reveal?.sectionId === active && reveal.destination.kind === 'row'
+              ? { reveal: { id: reveal.destination.id, sequence: revealSequence } }
+              : {}),
+          }, { only: active })}
         </div>
       </div>
     </div>
