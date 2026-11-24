@@ -6,13 +6,16 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 import { apply } from '../index.mjs'
 
-async function harness(t, { failCreate = false, seed } = {}) {
+async function harness(t, { failCreate = false, seed, resolveToken = async () => 'test-token' } = {}) {
   const home = await mkdtemp(join(tmpdir(), 'jan-bot-import-'))
   const services = {}, destinations = new Map(), tasks = [], sessions = new Map(), cleanups = [], attempts = []
   const profiles = new Map(), selections = [], listeners = new Map()
+  const liveAgents = new Map()
+  const warnings = []
   await seed?.(home)
   let handler
-  apply({ janHomePath: () => home, logger: { warn: () => {} }, get: () => undefined,
+  apply({ janHomePath: () => home, logger: { warn: (_format, warning) => { warnings.push(warning) } },
+    get: name => name === 'tokamakAccount' ? { resolveToken } : undefined,
     provide: (name, service) => { services[name] = service }, on: (event, listener) => { listeners.set(event, listener) },
     effect(fn) { const cleanup = fn(); if (typeof cleanup === 'function') cleanups.push(cleanup) },
     webServer: { register(route) { if (route.path === '/jan-api/always-on') handler = route.handler; return () => {} } },
@@ -20,7 +23,7 @@ async function harness(t, { failCreate = false, seed } = {}) {
     credentials: { readRecord: async () => undefined },
     workspaceController: { initializeDefault: async () => ({ workspace: { workspaceId: 'default' } }), archiveSession: async () => {} },
     workspaceRegistry: { get: () => ({ title: 'Default' }) },
-    agents: { get: () => undefined, turnBoundaryOf: () => ({ openTurnStartSeq: null }) },
+    agents: { get: id => liveAgents.get(id), turnBoundaryOf: () => ({ openTurnStartSeq: null }) },
     sessionPersistence: { stat: async id => sessions.get(id) },
     agentProfiles: {
       snapshot: () => ({ profiles: [...profiles.values()] }),
@@ -76,7 +79,7 @@ async function harness(t, { failCreate = false, seed } = {}) {
     handler(req, res).catch(reject)
     return promise
   }
-  return { ...services.janBotImport, tasks, sessions, attempts, rpc, profiles, selections, listeners, home }
+  return { ...services.janBotImport, tasks, sessions, attempts, rpc, profiles, selections, listeners, liveAgents, warnings, home }
 }
 
 const packet = {
@@ -181,6 +184,56 @@ test('reports a failed routine create without leaving a task or keeping the bot 
   assert.deepEqual(result.routines, [{ name: 'Paused daily', status: 'failed', reason: 'routine-create-failed' }])
   assert.equal(h.tasks.length, 0)
   assert.equal((await h.rpc('detail', { id: result.botId })).paused, false)
+})
+
+test('only sends watched item text to Tokamak when the bot chat actually selects Tokamak', async t => {
+  const responses = []
+  let items = [{ number: 1, title: 'Baseline', body: 'old' }]
+  t.mock.method(globalThis, 'fetch', async (input, init) => {
+    if (new URL(input).hostname === 'api.github.com') return Response.json(items)
+    assert.ok(new URL(input).pathname.endsWith('/systemone'))
+    responses.push(JSON.parse(init.body))
+    return Response.json({ answers: { item_0: { noul: 0.05 } } })
+  })
+  const tokenStarted = Promise.withResolvers()
+  const token = Promise.withResolvers()
+  let delayToken = false
+  const h = await harness(t, { resolveToken: () => {
+    if (!delayToken) return Promise.resolve('test-token')
+    tokenStarted.resolve()
+    return token.promise
+  } })
+  const bot = await h.rpc('create', { name: 'Watcher', role: 'Release QA',
+    newAgent: { description: 'Crashes', model: { provider: 'tokamak', model: 'fixture' } },
+    sources: [{ kind: 'github', target: 'example/repo' }] })
+  await h.rpc('setPaused', { id: bot.id, paused: true })
+  await h.rpc('checkNow', { id: bot.id })
+
+  let provider = 'llama-cpp'
+  h.liveAgents.set(bot.sessionId, { model: { current: () => ({ provider, model: 'fixture' }) } })
+  items = [{ number: 2, title: 'Private issue', body: 'Keep this local' }, ...items]
+  await h.rpc('checkNow', { id: bot.id })
+  assert.deepEqual(responses, [])
+  const local = await h.rpc('detail', { id: bot.id })
+  assert.equal(local.sources[0].lastFound, 1)
+  assert.equal(local.sources[0].lastSkipped, 0)
+  assert.match(h.warnings.at(-1), /skipped Tokamak triage.*not using Tokamak/u)
+
+  provider = 'tokamak'
+  items = [{ number: 3, title: 'Cloud issue', body: 'Classify this item' }, ...items]
+  await h.rpc('checkNow', { id: bot.id })
+  assert.equal(responses.length, 1)
+  assert.match(responses[0].state.item_0, /Classify this item/u)
+
+  delayToken = true
+  items = [{ number: 4, title: 'Another private issue', body: 'Model changed before send' }, ...items]
+  const checking = h.rpc('checkNow', { id: bot.id })
+  await Promise.race([tokenStarted.promise, checking.then(() => { throw new Error('Triage did not resolve a token') })])
+  provider = 'llama-cpp'
+  token.resolve('test-token')
+  await checking
+  assert.equal(responses.length, 1)
+  assert.match(h.warnings.at(-1), /skipped Tokamak triage.*not using Tokamak/u)
 })
 
 test('creates a template bot with its agent and localized routines in the user time zone', async t => {

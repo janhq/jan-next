@@ -65,9 +65,9 @@ export function apply(ctx, config) {
   }
   // Jev answers through the signed-in Tokamak account; without one the call fails and the triage keeps every item.
   let tokamak
-  async function systemOne(body, signal) {
+  async function systemOne(body, signal, beforeSend) {
     tokamak ??= import('@janhq/jan-tokamak/api').then(({ createTokamakApi }) => createTokamakApi(ctx))
-    const reply = await (await tokamak).request('/systemone', 'classification', { json: { model: JEV_MODEL, ...body }, signal })
+    const reply = await (await tokamak).request('/systemone', 'classification', { json: { model: JEV_MODEL, ...body }, signal, beforeSend })
     return reply.json()
   }
   function modules() {
@@ -207,8 +207,27 @@ export function apply(ctx, config) {
       },
     })
     runtime.queue = queue
+    const triage = (items, signal) => {
+      let skipReported = false
+      const maySend = () => {
+        if (ctx.agents.get(bot.sessionId)?.model.current()?.provider === 'tokamak') return true
+        if (!skipReported) {
+          report(`skipped Tokamak triage for bot ${bot.id}: the chat is not using Tokamak or its selected provider is unknown`)
+          skipReported = true
+        }
+        return false
+      }
+      if (!maySend()) return new Set()
+      const beforeSend = () => {
+        if (!maySend()) throw new Error('bot-triage-not-authorized')
+      }
+      return createTriage({
+        request: (body, deadline) => systemOne(body, deadline, beforeSend),
+        profile: () => registry.get(bot.id), agentProfiles: ctx.agentProfiles,
+      })(items, signal)
+    }
     runtime.watch = openWatch({ queue, sources: () => registry.get(bot.id)?.sources ?? [], token: sourceToken,
-      triage: createTriage({ request: systemOne, profile: () => registry.get(bot.id), agentProfiles: ctx.agentProfiles }), changed: activityChanged, report })
+      triage, changed: activityChanged, report })
     runtimes.set(bot.id, runtime)
     prompts.set(bot.sessionId, botPrompt(bot))
     try {
