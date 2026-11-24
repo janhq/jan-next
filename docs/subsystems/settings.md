@@ -126,10 +126,11 @@ resolveToolsDisabled(sessionId: SessionId, cwd?: string): string[]
 @Remote async setSwitch(address: ScopeAddress, key: ScopeListKey, entry: string, off: boolean): Promise<ScopedValues>
 
 /**
- * List what a scope can switch off.
- * @returns global tool names outside MCP and the MCP servers that registered tools.
+ * List what a scope can switch off: the global tools plus those the default preset registers
+ * inside a new chat's Agent scope, which is where shell, file and web tools live.
+ * @returns tool names outside MCP and the MCP servers that registered tools.
  */
-@Remote toolCatalog(): ScopedToolCatalog
+@Remote async toolCatalog(): Promise<ScopedToolCatalog>
 ```
 
 Types: [SessionId](core.md) · [WorkspaceId](workspace.md)

@@ -742,6 +742,13 @@ Reads, watches and writes agent profile files, records which profile each chat s
 @Remote async list(request: AgentProfileListRequest): Promise<AgentProfileList>
 
 /**
+ * Follow catalog changes: a file change in any folder, a write, or a chat's selection change.
+ * @param signal - stream lifetime.
+ * @returns one tick per coalesced batch of changes since the previous read.
+ */
+@Remote({ mode: 'stream' }) async *watchChanges(signal: AbortSignal): AsyncIterable<number>
+
+/**
  * Read one profile with its instructions.
  * @param request - the id, the project it is resolved in, and optionally the exact listed file.
  * @returns the precedence winner, or the named file.
