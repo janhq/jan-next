@@ -179,7 +179,8 @@ it('shows progress and pauses or cancels a transfer from its card', async () => 
   allModels()
   const card = (await screen.findByRole('heading', { name: 'Qwen3-Coder' })).closest('li')!
   expect(within(card).getByRole('progressbar').getAttribute('value')).toBe('50')
-  expect(within(card).getByText('42 MB/s')).toBeTruthy()
+  // 500 MB left at 42 MB/s: 11.9 s, rounded up so it never reads 0 before the end.
+  expect(within(card).getByText(/^42 MB\/s · 12 s(ec)? left$/)).toBeTruthy()
   await act(async () => { fireEvent.click(within(card).getByRole('button', { name: 'Pause' })) })
   expect(pauseDownload).toHaveBeenCalledWith('qwen')
   fireEvent.click(await within(card).findByRole('button', { name: 'Cancel download' }))
