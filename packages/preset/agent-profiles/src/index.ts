@@ -414,7 +414,14 @@ export default class AgentProfiles extends TypertRemoteService {
   private promptText(agent: Agent): string {
     const profile = this.selectedProfile(agent)
     if (profile === undefined) return ''
-    return [`Agent: ${profile.id}`, profile.description.trim(), profile.instructions].filter(part => part !== '').join('\n\n')
+    const description = profile.description.trim()
+    return [
+      `# Active agent: ${profile.id}`,
+      `The user chose to run this chat as the agent "${profile.id}"${description === '' ? '' : ` (${description})`}. `
+        + 'Follow its instructions below in every reply. They take priority over the default assistant persona, name and style above; '
+        + 'safety rules and the user\'s explicit requests still apply.',
+      profile.instructions === '' ? '' : `<agent_instructions>\n${profile.instructions}\n</agent_instructions>`,
+    ].filter(part => part !== '').join('\n\n')
   }
 
   private compose(states: readonly RootState[], withInstructions: boolean): AgentProfileList {

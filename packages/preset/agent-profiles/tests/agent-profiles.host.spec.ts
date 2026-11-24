@@ -172,11 +172,13 @@ it('selects a profile at a turn boundary, logs it, switches the model and adds t
   expect(agent.session.events).toEqual([{ type: 'agent-profile/selected', data: { agentProfile: 'pirate' } }])
   expect(h.selected).toEqual([{ provider: 'tokamak', model: 'anthropic/claude-haiku-5-5' }])
   expect(h.profiles.toolLimitsFor(agent)).toEqual({ allow: ['read'], deny: [] })
-  expect(await h.prompt(agent)).toContain('Agent: pirate\n\nTalks like a pirate\n\nAlways answer like a pirate.')
+  const prompt = await h.prompt(agent)
+  expect(prompt).toContain('# Active agent: pirate')
+  expect(prompt).toContain('<agent_instructions>\nAlways answer like a pirate.\n</agent_instructions>')
 
   await h.profiles.select({ sessionId: agent.id, id: null })
   expect(h.profiles.profileForSession(agent.session as never)).toBeNull()
-  expect(await h.prompt(agent)).not.toContain('Agent: pirate')
+  expect(await h.prompt(agent)).not.toContain('Active agent: pirate')
 })
 
 it('keeps a running chat on the profile it first read, so a hot edit never rewrites its prompt or tools', async () => {
