@@ -119,8 +119,7 @@ Use [jan-client-ui-ux](../../.agents/skills/jan-client-ui-ux/SKILL.md) for UI de
 
 [docs/web-styling.md](../../docs/web-styling.md) is authoritative. Shared `--dsw-*` tokens and global sheets live in `ui-theme/src/styles/`; feature components consume semantic aliases through CSS Modules and `clsx`, with no literal colors, literal motion durations or curves ([motion standard](../../docs/ui-motion.md)), component library, or Tailwind. Code comments are English. Design judgment beyond those rules — feedback surfaces, loading states, overlay safety, platform window adaptation, motion — follows [jan-client-ui-ux](../../.agents/skills/jan-client-ui-ux/SKILL.md); responsive layout and telling a mobile or touch client from a desktop one follow [jan-responsive-ui](../../.agents/skills/jan-responsive-ui/SKILL.md).
 
-<a id="guard-tests"></a>
-**Guard tests:** fix what a style, radius or catalog guard reports; do not re-freeze it. Its allowlist or frozen file under `tests/expected/` changes only for a deliberate exception whose reason is written in that file or the commit, and running `vitest -u` to make a guard pass is not a fix. Plugin `client*.js` CSS strings are under the same guards ([plugins](../../plugins/AGENTS.md#browser-half)).
+<a id="guard-tests"></a>**Guard tests:** fix what a style, radius or catalog guard reports; do not re-freeze it. Its allowlist or frozen file under `tests/expected/` changes only for a deliberate exception whose reason is written in that file or the commit, and running `vitest -u` to make a guard pass is not a fix. Plugin `client*.js` CSS strings are under the same guards ([plugins](../../plugins/AGENTS.md#browser-half)).
 
 Menus use `Menu` or `MenuSurface`, including custom listboxes, except the explicitly listed schedule containers. Preserve the shared transparency and blur ([rules](../../docs/web-styling.md#component-rules)).
 
