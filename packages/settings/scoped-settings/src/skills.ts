@@ -7,6 +7,10 @@ import type { InheritedOff, ScopedSkillCatalog, ScopedSkillFolder, ScopedValues 
 /** Skill switch lists of one scope. */
 export type SkillSwitches = Pick<ScopedValues, 'skillsDisabled' | 'skillFoldersDisabled'>
 
+function isWithin(relativePath: string): boolean {
+  return relativePath !== '..' && !relativePath.startsWith(`..${sep}`) && !isAbsolute(relativePath)
+}
+
 /**
  * Whether `child` is `parent` or inside it.
  * @param parent - absolute folder.
@@ -14,8 +18,7 @@ export type SkillSwitches = Pick<ScopedValues, 'skillsDisabled' | 'skillFoldersD
  * @returns true when `child` does not leave `parent`.
  */
 export function within(parent: string, child: string): boolean {
-  const rest = relative(parent, child)
-  return rest === '' || (!rest.startsWith('..') && !isAbsolute(rest))
+  return isWithin(relative(parent, child))
 }
 
 /**
@@ -56,7 +59,7 @@ export function skillVisibility(scopes: readonly SkillSwitches[]): ((skill: Skil
 /** Show a folder under the home directory as `~/...`, the name people recognise. */
 function homeRelative(path: string): string {
   const rest = relative(homedir(), path)
-  return rest !== '' && !rest.startsWith('..') && !isAbsolute(rest) ? `~/${rest.split(sep).join('/')}` : path
+  return rest !== '' && isWithin(rest) ? `~/${rest.split(sep).join('/')}` : path
 }
 
 /**
