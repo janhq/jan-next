@@ -4,7 +4,7 @@ import { open, realpath, stat } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import type { WorkspaceView } from './types.ts'
 
-type GitMetadata = Pick<WorkspaceView, 'githubOwner' | 'repository' | 'branch'>
+type GitMetadata = Pick<WorkspaceView, 'githubOwner' | 'repository' | 'checkoutRoot' | 'branch'>
 type GitCheckout = { readonly head: string; readonly metadata: GitMetadata }
 const MAX_METADATA_BYTES = 1024 * 1024
 const checkouts = new Map<string, Promise<GitCheckout | undefined>>()
@@ -43,7 +43,7 @@ async function readCheckout(directory: string): Promise<GitCheckout | undefined>
   const githubOwner = githubOriginOwner(await readText(join(repository, 'config')))
   return {
     head: join(dirs.checkout, 'HEAD'),
-    metadata: githubOwner === undefined ? { repository } : { repository, githubOwner },
+    metadata: { repository, checkoutRoot: dirs.root, ...githubOwner === undefined ? {} : { githubOwner } },
   }
 }
 
@@ -57,17 +57,17 @@ function githubOriginOwner(config: string | undefined): string | undefined {
 }
 
 /** The nearest `.git` directory at or above `directory`; a worktree's `.git` file leads to its shared common directory. */
-async function findGitDirs(directory: string): Promise<{ checkout: string; common: string } | undefined> {
+async function findGitDirs(directory: string): Promise<{ root: string; checkout: string; common: string } | undefined> {
   for (let current = directory; ; current = dirname(current)) {
     const candidate = join(current, '.git')
     const kind = await entryKind(candidate)
-    if (kind === 'directory') return { checkout: candidate, common: candidate }
+    if (kind === 'directory') return { root: current, checkout: candidate, common: candidate }
     if (kind === 'file') {
       const pointer = /^gitdir:([^\r\n]*)/m.exec(await readText(candidate) ?? '')?.[1]?.trim()
       if (pointer === undefined || pointer === '') return undefined
       const checkout = resolve(current, pointer)
       const common = (await readText(join(checkout, 'commondir')))?.trim()
-      return { checkout, common: common ? resolve(checkout, common) : checkout }
+      return { root: current, checkout, common: common ? resolve(checkout, common) : checkout }
     }
     if (dirname(current) === current) return undefined
   }

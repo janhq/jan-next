@@ -838,6 +838,27 @@ describe('WorkspaceBrowser', () => {
     expect(screen.getByText('child-session')).toBeTruthy()
   })
 
+  it('keeps sibling project names inside one checkout and groups only linked checkout roots', () => {
+    const repository = '/projects/main/.git'
+    const main = { ...workspace('main', [], 'Repository'), repository, checkoutRoot: '/projects/main', branch: 'main' }
+    const app = { ...main, workspaceId: wid('app'), path: '/projects/main/app', title: 'App' }
+    const docs = { ...main, workspaceId: wid('docs'), path: '/projects/main/docs', title: 'Docs' }
+    const linked = { ...workspace('linked', [], 'Linked checkout'), repository, checkoutRoot: '/projects/linked', branch: 'feature' }
+    mount({ useWorkspaces: hook(workspaceState([app, docs, linked, main])) })
+
+    const repositorySection = screen.getByText('Repository').closest<HTMLElement>('[class*="groupSection"]')!
+    expect(within(repositorySection).getByText('feature')).toBeTruthy()
+    expect(screen.getByText('App')).toBeTruthy()
+    expect(screen.getByText('Docs')).toBeTruthy()
+    expect(within(repositorySection).queryByText('App')).toBeNull()
+    expect(within(repositorySection).queryByText('Docs')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '视图选项' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '按工作区树' }))
+    expect(within(repositorySection).getByText('App')).toBeTruthy()
+    expect(within(repositorySection).getByText('Docs')).toBeTruthy()
+  })
+
   it('persists flat-list drag order locally and applies Last updated within that account', async () => {
     const sessions = sessionState([summary('one', 3), summary('two', 2), summary('three', 1)])
     const workspaces = workspaceState([
@@ -2825,11 +2846,11 @@ describe('WorkspaceBrowser', () => {
 it.each(['workspace', 'workspace-tree'] as const)('groups linked checkouts by repository in %s mode', (mode) => {
   createWorkspaceViewStore().create().actions.setGroupBy(mode)
   const repository = '/projects/main/.git'
-  const head = { ...workspace('main', [], 'Project'), repository, createdAt: '2026-02-01T00:00:00.000Z' }
-  const first = { ...workspace('scratch-one', ['branch-chat']), repository, branch: 'topic/one' }
-  const second = { ...workspace('scratch-two', []), repository, branch: 'topic/two' }
-  const other = { ...workspace('other', [], 'Other'), repository: '/projects/other/.git' }
-  const remote = { ...workspace('remote', [], 'Remote project'), repository, hostId: 'remote' }
+  const head = { ...workspace('main', [], 'Project'), repository, checkoutRoot: '/projects/main', createdAt: '2026-02-01T00:00:00.000Z' }
+  const first = { ...workspace('scratch-one', ['branch-chat']), repository, checkoutRoot: '/projects/scratch-one', branch: 'topic/one' }
+  const second = { ...workspace('scratch-two', []), repository, checkoutRoot: '/projects/scratch-two', branch: 'topic/two' }
+  const other = { ...workspace('other', [], 'Other'), repository: '/projects/other/.git', checkoutRoot: '/projects/other' }
+  const remote = { ...workspace('remote', [], 'Remote project'), repository, checkoutRoot: '/projects/remote', hostId: 'remote' }
   mount({
     useWorkspaces: hook(workspaceState([first, second, other, remote, head])),
     useSessions: hook(sessionState([summary('branch-chat', 1)], { main: sid('branch-chat') })),

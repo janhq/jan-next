@@ -659,7 +659,7 @@ export function deriveSearchResults(
 }
 
 /**
- * Derive the sidebar hierarchy, preserving repository edges ahead of folder edges.
+ * Group registered checkout roots by repository, then optionally nest folders by path.
  * @param workspaces - registered Workspaces in display order.
  * @param nestFolders - whether to also nest by folder ancestry.
  * @returns parent ids and the labels for repository children.
@@ -679,21 +679,28 @@ export function workspaceHierarchy(workspaces: readonly WorkspaceView[], nestFol
     else host.push(workspace)
   }
   for (const host of byHost.values()) {
-    const heads = new Map<string, WorkspaceView>()
+    const groups = new Map<string, { head: WorkspaceView; roots: WorkspaceView[] }>()
     for (const workspace of host) {
-      if (workspace.repository === undefined) continue
-      const head = heads.get(workspace.repository)
-      if (head === undefined || (!mainCheckout(head) && (mainCheckout(workspace)
-        || workspace.createdAt < head.createdAt
-        || (workspace.createdAt === head.createdAt && workspace.workspaceId < head.workspaceId)))) {
-        heads.set(workspace.repository, workspace)
+      if (workspace.repository === undefined || workspace.checkoutRoot === undefined
+        || folderPath(workspace.path) !== folderPath(workspace.checkoutRoot)) continue
+      const group = groups.get(workspace.repository)
+      if (group === undefined) {
+        groups.set(workspace.repository, { head: workspace, roots: [workspace] })
+        continue
+      }
+      group.roots.push(workspace)
+      const head = group.head
+      if (!mainCheckout(head) && (mainCheckout(workspace) || workspace.createdAt < head.createdAt
+        || (workspace.createdAt === head.createdAt && workspace.workspaceId < head.workspaceId))) {
+        group.head = workspace
       }
     }
-    for (const workspace of host) {
-      const head = workspace.repository === undefined ? undefined : heads.get(workspace.repository)
-      if (head === undefined || head === workspace) continue
-      parents.set(workspace.workspaceId, head.workspaceId)
-      branchLabels.set(workspace.workspaceId, workspace.branch ?? workspaceLabel(workspace.path))
+    for (const { head, roots } of groups.values()) {
+      for (const workspace of roots) {
+        if (head === workspace) continue
+        parents.set(workspace.workspaceId, head.workspaceId)
+        branchLabels.set(workspace.workspaceId, workspace.branch ?? workspaceLabel(workspace.path))
+      }
     }
     if (!nestFolders) continue
     const byPath = new Map(host.map(workspace => [workspace.path, workspace.workspaceId]))

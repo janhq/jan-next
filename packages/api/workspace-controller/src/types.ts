@@ -31,6 +31,8 @@ export interface WorkspaceView {
   readonly githubOwner?: string
   /** Canonical common Git directory, shared by all linked checkouts on this Host. */
   readonly repository?: string
+  /** Root of this checkout, whether the Workspace is at the root or inside a subdirectory. */
+  readonly checkoutRoot?: string
   /** The checkout's current local branch, or an abbreviated detached commit. */
   readonly branch?: string
   /** Sessions accounted to this Workspace in manual order. */
