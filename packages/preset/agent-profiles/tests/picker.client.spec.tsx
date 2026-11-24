@@ -58,7 +58,7 @@ function mount() {
   const renderSlot = ((name: string, owner: object, options?: { children?: React.ReactNode }) => {
     if (name === 'conversation.hero.agentProfile') return <AgentProfilePicker sessionId={undefined} useSessions={standard.useSessions} useProjection={standard.useProjection}
       {...owner as Pick<AgentProfilePickerProps, 'workspaceId' | 'pending' | 'onPick'>}
-      list={list} select={select} manage={() => {}} useProfileRevision={read => read(0)} t={makeTranslate(en, common)} />
+      list={list} select={select} manage={() => {}} watchChanges={() => () => {}} t={makeTranslate(en, common)} />
     if (name === 'conversation.composer.bar') {
       const props = owner as ComposerBarOwnerProps
       return <>{props.dockStart}<button type="button" onClick={() => { void props.onActivateDraft?.(() => 'hello') }}>Start draft</button></>

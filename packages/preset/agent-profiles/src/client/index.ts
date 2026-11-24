@@ -4,7 +4,7 @@ import type {} from '@janhq/jan-api-remotes/client'
 import type { ISessions } from '@janhq/jan-api-session-controller/client'
 import type {} from '@janhq/jan-api-workspace-controller/client'
 import type {} from '@janhq/jan-client-locale/client'
-import { createSnapshotStore } from '@janhq/jan-client-store'
+import { createSnapshotStore, type ObservableSnapshot } from '@janhq/jan-client-store'
 import type { CommandArgumentOption } from '@janhq/jan-client-ui-commands/client'
 import type {} from '@janhq/jan-client-ui-renderer/client'
 import type {} from '@janhq/jan-client-ui-settings/client'
@@ -53,20 +53,37 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
 }
 
 function registerUi(ctx: Context): void {
-  const profileRevision = createSnapshotStore(0)
-  const invalidate = () => { profileRevision.set(profileRevision.getSnapshot() + 1) }
+  const revision = createSnapshotStore(0)
+  const invalidate = () => { revision.set(revision.getSnapshot() + 1) }
   // Follow streams carry collection changes; a forwarded Host event would make the Remote package import this one.
-  const changes = ctx.remote.$stream<number>({
-    name: 'agent profile changes', open: signal => ctx.remote.agentProfiles.watchChanges(signal),
-    ended: () => new Error('agent profile change stream ended'),
-  })
-  ctx.effect(() => () => changes.dispose(), 'agent-profiles: catalog changes')
-  void (async () => { for await (const frame of changes) { invalidate(); frame.accept() } })().catch(() => {})
+  // The stream is open only while an open picker menu or Settings > Agents shows profiles; both read fresh on open.
+  let watchers = 0
+  let stopWatch: (() => void) | undefined
+  const watch = (): (() => void) => {
+    const changes = ctx.remote.$stream<number>({
+      name: 'agent profile changes', open: signal => ctx.remote.agentProfiles.watchChanges(signal),
+      ended: () => new Error('agent profile change stream ended'),
+    })
+    void (async () => { for await (const frame of changes) { invalidate(); frame.accept() } })().catch(() => {})
+    return () => { void changes.dispose() }
+  }
+  const profileRevision: ObservableSnapshot<number> = {
+    getSnapshot: () => revision.getSnapshot(),
+    subscribe(listener) {
+      const off = revision.subscribe(listener)
+      if (watchers++ === 0) stopWatch = watch()
+      return () => {
+        off()
+        if (--watchers === 0) { stopWatch?.(); stopWatch = undefined }
+      }
+    },
+  }
+  ctx.effect(() => () => { stopWatch?.(); stopWatch = undefined }, 'agent-profiles: catalog changes')
   ctx.on('connection/reset', invalidate)
   ctx.effect(() => ctx.locale.register(NS, { de, en, es, fr, ja, pt, ru, zh }), 'agent-profiles: dictionaries')
   const t = ctx.locale.bind(NS)
   const picker: AgentProfilePickerInjected = {
-    hooks: { profileRevision },
+    watchChanges: onChange => profileRevision.subscribe(onChange),
     list: async (request) => {
       const result = await ctx.remote.agentProfiles.list(request)
       if (!result.ok) throw result.error
@@ -88,6 +105,7 @@ function registerUi(ctx: Context): void {
     const options = async (sessionId: SessionId): Promise<CommandArgumentOption[]> => {
       const project = scope.workspaces.list.getSnapshot().items.find(workspace => workspace.sessionIds.includes(sessionId))
       const workspaceId = project?.workspaceId
+      fresh()
       let load = catalogs.get(workspaceId)
       if (load === undefined) {
         const pending = picker.list(workspaceId === undefined ? {} : { workspaceId }).catch((error: unknown) => {
@@ -117,7 +135,13 @@ function registerUi(ctx: Context): void {
       }
       if (result === 'locked') throw new Error(t('locked'))
     }
-    scope.effect(() => profileRevision.subscribe(() => { catalogs.clear() }), 'agent-profiles: invalidate command choices')
+    // Cached command choices last one revision, and only while a watcher keeps the revision live.
+    let cachedRevision = revision.getSnapshot()
+    const fresh = () => {
+      if (watchers > 0 && cachedRevision === revision.getSnapshot()) return
+      catalogs.clear()
+      cachedRevision = revision.getSnapshot()
+    }
     scope.effect(() => scope.commandUi.register({
       name: 'agent',
       label: () => t('command.label'),
@@ -141,7 +165,7 @@ function registerUi(ctx: Context): void {
   })
   const settings: AgentProfilesSectionInjected = {
     list: picker.list,
-    hooks: picker.hooks,
+    hooks: { profileRevision },
     get: async (request) => {
       const result = await ctx.remote.agentProfiles.get(request)
       if (!result.ok) throw result.error

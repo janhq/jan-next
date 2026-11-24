@@ -6,7 +6,6 @@ import {
   Menu, Tag, Toast, Tooltip, type MenuEntry,
 } from '@janhq/jan-client-ui-primitives'
 import type {} from '@janhq/jan-client-ui-conversation/client'
-import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { AgentProfileList, AgentProfileListRequest, AgentProfileSelectRequest, AgentProfileSummary } from '../types.ts'
 import css from './AgentProfiles.module.css'
 
@@ -18,7 +17,8 @@ type Locale = PropsLocale<'agentProfiles'>
 
 /** Data and actions contributed by the Agent Profiles Client. */
 export interface AgentProfilePickerInjected {
-  readonly hooks: { readonly profileRevision: ObservableSnapshot<number> }
+  /** Follow catalog changes; the picker watches only while its menu is open. */
+  readonly watchChanges: (onChange: () => void) => () => void
   readonly list: (request: AgentProfileListRequest) => Promise<AgentProfileList>
   readonly select: (request: AgentProfileSelectRequest) => Promise<'locked' | undefined>
   readonly manage: () => void
@@ -48,11 +48,11 @@ export function ProfileBadges({ profile, t }: Locale & { profile: AgentProfileSu
 }
 
 /**
- * Show the selected agent, and fetch usable choices only while the menu is open.
+ * Show the selected agent, and fetch usable choices and follow their changes only while the menu is open.
  * @param props - chat identity, optional hero stage, and injected operations.
  * @returns the chip, its selection menu, and the most recent refused operation.
  */
-export function AgentProfilePicker({ sessionId, workspaceId, pending, onPick, useSessions, useProjection, useProfileRevision,
+export function AgentProfilePicker({ sessionId, workspaceId, pending, onPick, useSessions, useProjection, watchChanges,
   list, select, manage, t }: AgentProfilePickerProps) {
   const recorded = useProjection('agentProfile')
   const running = useSessions(state => sessionId !== undefined && state.byId[sessionId]?.running === true)
@@ -64,7 +64,8 @@ export function AgentProfilePicker({ sessionId, workspaceId, pending, onPick, us
   const [refusal, setRefusal] = useState<{ key: number; reason: 'locked' | 'selectError' | 'manageError' }>()
   const attempt = useRef(0)
   const visible = open && !running
-  const revision = useProfileRevision(value => visible ? value : 0)
+  const [revision, setRevision] = useState(0)
+  useEffect(() => visible ? watchChanges(() => { setRevision(value => value + 1) }) : undefined, [visible, watchChanges])
   useEffect(() => {
     if (running) setOpen(false)
   }, [running])

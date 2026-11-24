@@ -4,6 +4,7 @@ import type { WorkspaceView } from '@janhq/jan-api-workspace-controller/types'
 import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import { Button, IconLoadingOutlineRegular, Modal } from '@janhq/jan-client-ui-primitives'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { AgentProfileList, AgentProfileRemoveRequest, AgentProfileSummary } from '../types.ts'
 import type { AgentProfilePickerInjected } from './AgentProfilePicker.tsx'
 import { ProfileBadges } from './AgentProfilePicker.tsx'
@@ -15,7 +16,8 @@ type FileManager = 'finder' | 'folder'
 type WorkspaceId = WorkspaceView['workspaceId']
 
 /** Settings actions and the live catalog revision supplied by the Client plugin. */
-export interface AgentProfilesSectionInjected extends AgentProfileEditorActions, Pick<AgentProfilePickerInjected, 'list' | 'hooks'> {
+export interface AgentProfilesSectionInjected extends AgentProfileEditorActions, Pick<AgentProfilePickerInjected, 'list'> {
+  readonly hooks: { readonly profileRevision: ObservableSnapshot<number> }
   readonly fileManager: () => Promise<FileManager | undefined>
   readonly reveal: (path: string) => Promise<void>
   readonly remove: (request: AgentProfileRemoveRequest) => Promise<void>
