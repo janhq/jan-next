@@ -7894,6 +7894,10 @@ importers:
         version: 18.3.1
 
   packages/client/ui-workspace:
+    dependencies:
+      '@janhq/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~
@@ -7952,6 +7956,9 @@ importers:
       '@janhq/jan-client-ui-session':
         specifier: workspace:*
         version: link:../ui-session
+      '@janhq/jan-client-ui-settings':
+        specifier: workspace:*
+        version: link:../ui-settings
       '@janhq/jan-client-ui-sidebar':
         specifier: workspace:*
         version: link:../ui-sidebar
@@ -7967,6 +7974,9 @@ importers:
       '@janhq/jan-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@janhq/jan-settings':
+        specifier: workspace:*
+        version: link:../../settings/settings
       '@janhq/jan-subagent':
         specifier: workspace:*
         version: link:../../subagent/subagent

@@ -384,6 +384,19 @@
   from { opacity: 0; }
 }
 
+/* Running chats repeated above the list; the label reads like the section heading. */
+.working {
+  flex: none;
+  margin-bottom: 12px;
+}
+
+.workingLabel {
+  padding-left: var(--jan-sidebar-row-padding);
+  margin-bottom: 2px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
 /* Rows keep their natural height inside the list seat's scroller. */
 .list {
   flex: 1;

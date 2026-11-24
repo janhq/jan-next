@@ -157,6 +157,8 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     openProject: vi.fn(),
     useProjectSurface: selector => selector(false),
     useHiddenSessions: selector => selector(new Set()),
+    // Specs that count rows see only the list; the Working section has its own cases.
+    useWorkingSection: selector => selector(false),
     createWorkspace: vi.fn(async () => workspace('created', [])),
     createDirectory: vi.fn(async (parent: string, name: string) => `${parent}/${name}`),
     useRemoteMachines: selector => selector(undefined),
@@ -204,6 +206,34 @@ describe('WorkspaceBrowser', () => {
         label: '工作区“alpha”的操作', className: rowCss.iconButton,
       })
     }
+  })
+
+  describe('Working section', () => {
+    const running = hook<SessionStatusSnapshot>(new Map([[sid('busy'), { running: true, pendingInteraction: undefined, completionUnread: false }]]))
+    const sessions = hook(sessionState([summary('busy', 20), summary('quiet', 10)]))
+    const projects = hook(workspaceState([workspace('alpha', ['busy', 'quiet'])]))
+    const workingTree = () => screen.queryByRole('tree', { name: t('section.working') })
+
+    it('stays absent while no chat runs', () => {
+      mount({ useSessions: sessions, useWorkspaces: projects, useWorkingSection: selector => selector(true) })
+      expect(workingTree()).toBeNull()
+    })
+
+    it('repeats a running chat above the list, which still lists it in its project', () => {
+      mount({ useSessions: sessions, useWorkspaces: projects, useSessionStatus: running, useWorkingSection: selector => selector(true) })
+      const working = workingTree()
+      expect(working).not.toBeNull()
+      expect(within(working as HTMLElement).getAllByRole('treeitem').map(row => within(row).getByText(/^(busy|quiet)$/u).textContent))
+        .toEqual(['busy'])
+      fireEvent.click(screen.getByText('alpha'))
+      const list = screen.getAllByRole('tree').find(tree => tree !== working) as HTMLElement
+      expect(within(list).getByText('busy')).toBeTruthy()
+    })
+
+    it('is hidden while the General switch is off', () => {
+      mount({ useSessions: sessions, useWorkspaces: projects, useSessionStatus: running, useWorkingSection: selector => selector(false) })
+      expect(workingTree()).toBeNull()
+    })
   })
 
   it('binds the list area as the section scroller only while the sidebar is wide', () => {

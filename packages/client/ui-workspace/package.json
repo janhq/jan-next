@@ -41,7 +41,8 @@
         "@janhq/jan-client-ui-renderer",
         "@janhq/jan-client-ui-session",
         "@janhq/jan-client-ui-sidebar",
-        "@janhq/jan-client-ui-context-menu"
+        "@janhq/jan-client-ui-context-menu",
+        "@janhq/jan-client-ui-settings"
       ],
       "platform": "web"
     }
@@ -86,7 +87,12 @@
     "react-dom": "^18.2.0",
     "@janhq/jan-client-shortcuts": "workspace:*",
     "@janhq/jan-client-product-analytics": "workspace:*",
-    "@janhq/jan-client-ui-context-menu": "workspace:*"
+    "@janhq/jan-client-ui-context-menu": "workspace:*",
+    "@janhq/jan-client-ui-settings": "workspace:*",
+    "@janhq/jan-settings": "workspace:*"
+  },
+  "dependencies": {
+    "@janhq/schemastery": "workspace:~"
   },
   "files": [
     "locale/*.json",

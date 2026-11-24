@@ -534,6 +534,32 @@ export function deriveFlat(
 }
 
 /**
+ * Running top-level Sessions, newest first, for the Working section. A Session
+ * counts while its own turn or one of its subagents runs; waiting on the user
+ * is not working. Blank and archived Sessions never count, and the rows also
+ * stay in their usual place.
+ * @param list - sessions list snapshot.
+ * @param rowState - registry-global pin and archive sets plus the archived filter.
+ * @param statuses - unified UI status by Session.
+ * @returns the running rows.
+ */
+export function deriveWorking(list: SessionListState, rowState: SessionRowState, statuses: SessionStatuses): SessionNode[] {
+  const archived = new Set(rowState.archivedSessionIds)
+  const pinned = new Set(rowState.pinnedSessionIds)
+  const current = mainSessionId(list)
+  const nodes: SessionNode[] = []
+  for (const id of list.ids) {
+    const session = list.byId[id]
+    if (session === undefined || session.blank || archived.has(id)) continue
+    if (!sessionVisible(session, current, archived, rowState.archivedFilter, rowState.hiddenSessionIds)) continue
+    const node = sessionNode(session, list, statuses, pinned, archived)
+    if (node.running || node.runningSubagentCount > 0) nodes.push(node)
+  }
+  // The order of orderByRecency: newest first, then Session identity.
+  return nodes.sort((a, b) => a.updatedAt !== b.updatedAt ? b.updatedAt - a.updatedAt : a.id < b.id ? -1 : 1)
+}
+
+/**
  * Merge immediate title/Workspace/Session id substring matches with ranked Host content
  * matches. Local rows lead newest-first, content-only rows retain backend
  * order, and duplicate sessions receive the backend snippet in place.

@@ -20,6 +20,7 @@ import type { } from '@janhq/jan-client-ui-context-menu/client'
  * packages/client/AGENTS.md.
  */
 import type { } from '@janhq/jan-client-product-analytics/client'
+import type { } from '@janhq/jan-client-ui-settings/client'
 import type { Context } from '@janhq/cordis'
 import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
 import type { ISessions, SessionForkError } from '@janhq/jan-api-session-controller/client'
@@ -61,6 +62,7 @@ import { SessionRenameDialog } from './session-actions/RenameSession.tsx'
 import { RowActionToast } from './session-actions/RowActionToast.tsx'
 import { registerToasts } from './toast/register.ts'
 import { WorkspacePicker } from './WorkspacePicker.tsx'
+import { WorkingSectionRow, type WorkingSectionRowInjected } from './WorkingSectionRow.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type WorkspaceKey } from './locales.ts'
 
 export type { StartSessionOptions, UiWorkspace } from './navigation.ts'
@@ -104,6 +106,9 @@ declare module '@janhq/jan-api-session-controller/client' {
 
 /** Dictionary namespace owned by this plugin. */
 const NS = 'workspace'
+
+/** Host Config entry of this plugin in the Web composition, whose form holds `workingSection`. */
+const CONFIG_ENTRY = 'ui-workspace'
 
 /**
  * Required services (cordis fiber inject). The target slots are declared by
@@ -201,6 +206,22 @@ export function apply(ctx: Context): void {
     subscribe: listener => ctx.on('connection/reset', listener),
   }
   const pickerFlowSource = flowSource('conversation.hero.workspace.directoryFlow')
+  // The General switch lives on the Host entry. `configForms` may arrive after this plugin, so each
+  // read and subscription looks it up again; the section shows until the form says otherwise.
+  const workingForm = () => ctx.get('configForms')?.get<{ workingSection?: boolean }>(CONFIG_ENTRY)
+  const workingSection: HostObservable<boolean> = {
+    getSnapshot: () => workingForm()?.getSnapshot().value?.workingSection !== false,
+    subscribe: listener => workingForm()?.subscribe(listener) ?? (() => {}),
+  }
+  ctx.inject(['configForms'], (scope) => {
+    scope.slots.inject('settings.general.item', () => scope.slots.register({
+      name: 'settings.general.item', id: 'working-section', order: 17, locale: NS,
+      inject: (): WorkingSectionRowInjected => ({
+        hooks: { workingSection },
+        setShown: shown => scope.configForms.get(CONFIG_ENTRY).set('workingSection', shown),
+      }),
+    }, WorkingSectionRow))
+  })
   const openSession: WorkspaceBrowserInjected['open'] = (sessionId, modifiers) => {
     const newTab = modifiers !== undefined
       && (ctx.shortcuts.platform === 'macos' ? modifiers.meta : modifiers.control)
@@ -370,7 +391,7 @@ export function apply(ctx: Context): void {
       primaryActions, workspaceActionRequest, contextMenuTarget: ctx.contextMenus.active, directoryFlow: browserFlowSource, hostInfo,
       remoteMachines: uiWorkspace.remoteMachines,
       workspaceShortcuts: shortcutControls.state, shortcuts: ctx.shortcuts.catalog, projectSurface: uiWorkspace.projectSurface,
-      hiddenSessions: uiWorkspace.hiddenSessions,
+      hiddenSessions: uiWorkspace.hiddenSessions, workingSection,
     },
   })
   const pickerInjected = (): WorkspacePickerInjected => ({

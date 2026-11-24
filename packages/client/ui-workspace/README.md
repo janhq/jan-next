@@ -55,6 +55,12 @@ Open **Project actions** on a project row and choose **Edit project...** to chan
 
 The sidebar, the Workspace picker and the Jan theme's project page title use the saved appearance; `ProjectAvatar` is exported for that title, which draws it at 32px and opens the same editor when clicked. A project with no saved avatar shows its GitHub owner's picture, or the folder glyph outside a GitHub checkout. A picture that fails to load, for example offline, falls back to the folder glyph, or a globe for a favicon. The editor is available only to callers with `workspace/update` access.
 
+### Working section
+
+While any top-level Session runs a turn or a subagent, a **Working** label and its rows sit above the list, newest first. They repeat the running Sessions; each one also keeps its place in its project or in the flat list. Waiting on the user is not working, so a Session that only asks a question or awaits approval stays out, and so do blank and archived Sessions. The section is its own `tree` labelled Working, so the main tree still lists every Session once. It does not show in the collapsed rail or while a search query replaces the list, and it disappears when nothing runs.
+
+Settings > General > **Show running chats at the top** turns it off. The switch writes the volatile `workingSection` field of this package's Host Config (entry `ui-workspace`, on by default) through `configForms`, so every window follows it without a restart. The Host half exists only to declare that Config and to keep the automatic settings page off.
+
 ### Search
 
 The search shortcut expands a closed sidebar, including a drawer that retains its wide content, before focusing the search field.

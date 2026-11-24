@@ -35,7 +35,7 @@ import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { ArchivedFilter, GroupNode, SessionNode, SessionOrderBy, SessionRowState } from '../tree.ts'
 import {
-  deriveFlat, deriveGroups, deriveSearchResults, orderByRecency, owningGroupKey, workspaceHierarchy,
+  deriveFlat, deriveGroups, deriveSearchResults, deriveWorking, orderByRecency, owningGroupKey, workspaceHierarchy,
   pinCurrentBlank, reconcileManualOrder, sessionMemberIds, UNGROUPED_KEY,
 } from '../tree.ts'
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './Rows.tsx'
@@ -833,6 +833,54 @@ function FlatList({
   )
 }
 
+/**
+ * Running Sessions repeated above the list, newest first; each also keeps its
+ * usual row. Its own tree, so the main tree lists every Session once. Renders
+ * nothing while no Session runs.
+ */
+function WorkingSection({
+  list, rowState, useSessionStatus, useSessionAccess, usePanelInfo, open, onSessionRenameRequest,
+  renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu, home, t,
+}: Pick<
+  SessionTreeProps,
+  | 'useSessionStatus' | 'useSessionAccess' | 'usePanelInfo' | 'open' | 'onSessionRenameRequest'
+  | 'renderSlot' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu' | 'rowState' | 'home' | 't'
+> & { list: SessionListState }) {
+  const panelActive = usePanelInfo(info => info.activePanelId !== null)
+  const statuses = useSessionStatus(s => s)
+  const rows = useMemo(() => deriveWorking(list, rowState, statuses), [list, rowState, statuses])
+  if (rows.length === 0) return null
+  const currentId = panelActive
+    ? undefined
+    : Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
+  const now = Date.now()
+  return (
+    <div className={css.working} data-sidebar-working="">
+      <div className={css.workingLabel} id="workspace-working-label">{t('section.working')}</div>
+      <HoverCardGroup className={css.wide}>
+        <div className={css.flatList} role="tree" aria-labelledby="workspace-working-label">
+          {rows.map(node => (
+            <SessionNodeItem
+              key={`working:${node.id}`}
+              node={node}
+              currentId={currentId}
+              now={now}
+              onOpen={open}
+              onRenameRequest={onSessionRenameRequest}
+              renderSlot={renderSlot}
+              renderFactorySlot={renderFactorySlot} useContextMenu={useContextMenu}
+              useContextMenuTarget={useContextMenuTarget}
+              useSessionAccess={useSessionAccess}
+              home={home}
+              t={t}
+            />
+          ))}
+        </div>
+      </HoverCardGroup>
+    </div>
+  )
+}
+
 interface RemoteSearchState {
   query: string
   status: 'idle' | 'loading' | 'ready' | 'error'
@@ -982,6 +1030,7 @@ export function WorkspaceBrowser({
   openProject,
   useProjectSurface,
   useHiddenSessions,
+  useWorkingSection,
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
   t,
 }: WorkspaceBrowserProps) {
@@ -992,6 +1041,7 @@ export function WorkspaceBrowser({
   const machine = useHostInfo(info => info.name === undefined ? undefined : info.remote || !info.isLoopback ? info.name : localMachine)
   const projectSurface = useProjectSurface(present => present)
   const hiddenSessionIds = useHiddenSessions(ids => ids)
+  const workingSection = useWorkingSection(shown => shown)
   const shortcuts = useShortcuts(rows => rows)
   const searchShortcut = shortcuts.find(row => row.id === 'session.search')
   const addShortcut = shortcuts.find(row => row.id === 'workspace.add')
@@ -1440,6 +1490,22 @@ export function WorkspaceBrowser({
       {/* Always-mounted seat keeps the region's flex slot while the list
           itself is wide-only. */}
       <div ref={wide ? bindScrollerRef : undefined} className={css.listArea} data-sidebar-list-area="">
+        {wide && normalizedQuery === '' && workingSection && (
+          <WorkingSection
+            list={list}
+            rowState={rowState}
+            useSessionStatus={useSessionStatus}
+            useSessionAccess={useSessionAccess}
+            usePanelInfo={usePanelInfo}
+            open={guardedOpen}
+            onSessionRenameRequest={requestSessionRename}
+            renderSlot={renderSlot}
+            renderFactorySlot={renderFactorySlot} useContextMenu={useContextMenu}
+            useContextMenuTarget={useContextMenuTarget}
+            home={home}
+            t={t}
+          />
+        )}
         {wide && (normalizedQuery !== ''
           ? (
             <SearchResults

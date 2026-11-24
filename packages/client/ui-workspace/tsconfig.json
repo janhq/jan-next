@@ -30,6 +30,12 @@
       "path": "../../../vendor/cordis"
     },
     {
+      "path": "../../../vendor/schemastery"
+    },
+    {
+      "path": "../ui-settings/tsconfig.client.json"
+    },
+    {
       "path": "../ui-slots"
     },
     {

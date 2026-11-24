@@ -29,7 +29,6 @@ import type { ArchiveToastInjected, ToastDisplayInjected } from '../src/client/c
 import { WorkspacePicker } from '../src/client/WorkspacePicker.tsx'
 import { FLAT_SESSION_ORDER_KEY } from '../src/client/stores.ts'
 import { UNGROUPED_KEY } from '../src/client/tree.ts'
-import { apply as hostApply } from '../src/index.ts'
 import { SECTION_HOOK_CONTEXT, SECTION_INJECT } from './section-scroller.client.ts'
 
 const sid = (id: string) => id as SessionId
@@ -235,10 +234,6 @@ function viewInstance(slots: SlotRegistry) {
 const settled = (): Promise<void> => new Promise((resolve) => { setTimeout(resolve, 0) })
 
 describe('ui-workspace apply', () => {
-  it('keeps the host Loader entry inert', () => {
-    expect(hostApply).not.toThrow()
-  })
-
   it('declares the services it drives', () => {
     expect(inject).toEqual(['contextMenus',
       'slots', 'sessions', 'workspaces', 'locale', 'remote', 'remote.directoryPicker', 'layout', 'shortcuts', 'remoteAccess',

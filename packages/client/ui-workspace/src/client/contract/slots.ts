@@ -319,6 +319,8 @@ export type WorkspaceBrowserInjected = Pick<DirectoryPickingInjected, 'createDir
     projectSurface: HostObservable<boolean>
     /** Active Sessions whose sidebar presentation is supplied by a plugin. */
     hiddenSessions: HostObservable<ReadonlySet<SessionId>>
+    /** Whether running Sessions repeat in a Working section above the list (Settings > General). */
+    workingSection: HostObservable<boolean>
   }
   /**
    * Open the registered project surface for a Workspace row.
