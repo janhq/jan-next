@@ -39,7 +39,7 @@ export function orchestrationTools(runtime) {
         host: string('Local by default; use local or a computer id or name from orchestration_targets.'),
         project: string('Exact project title or path. Defaults to the coordinator project locally or the remote default project.'),
         worktree: { ...choice(['new', 'current']), default: 'new' },
-        mode: string('Agent mode preset id.'),
+        mode: string('Agent mode preset id. Defaults to Code mode (standard) where this computer has it.'),
         agent: string('Agent profile id.'),
         retry_of: string('Task id of a failed, completed or stopped task to retry.'),
       } } },

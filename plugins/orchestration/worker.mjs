@@ -50,6 +50,16 @@ async function addGitWorktree(cwd, name, signal) {
   return { path, branch }
 }
 
+// Workers edit files and run commands, so a dispatch without a mode starts in
+// Code mode when this Host has it, not in the route default (Chat mode on Desktop).
+const CODE_PRESET = 'standard'
+
+async function workerPreset(ctx, mode) {
+  if (mode) return mode
+  const presets = ctx.get('agentPresets')
+  return presets && (await presets.list()).some(preset => preset.id === CODE_PRESET) ? CODE_PRESET : undefined
+}
+
 /** Bind worker operations and a session index to one orchestration instance.
  * @param {object} ctx - project, session and working-directory services.
  * @param {object} store - durable orchestration state.
@@ -118,8 +128,9 @@ export function createWorkers(ctx, store, delivery, emit) {
       if (isolation.kind === 'shared') cwd = await ctx.workingDirectory.ensure(agent, signal)
     } else {
       const id = workspaceId(project, coordinator)
+      const preset = await workerPreset(ctx, mode)
       const created = await ctx.sessionController.create({ ...(id ? { workspaceId: id } : {}),
-        ...(mode ? { agentPreset: mode } : {}), ...(profile === undefined ? {} : { agentProfile: profile }) })
+        ...(preset ? { agentPreset: preset } : {}), ...(profile === undefined ? {} : { agentProfile: profile }) })
       sessionId = created.sessionId
       agent = await resolveAgent(sessionId)
       assertActive(dispatchId, signal)

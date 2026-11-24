@@ -7,7 +7,7 @@ import test from 'node:test'
 import { newId, openStore } from '../store.mjs'
 import { createWorkers } from '../worker.mjs'
 
-async function setup(t) {
+async function setup(t, { presets, expectedCreate = { workspaceId: 'repo' } } = {}) {
   const home = await mkdtemp(join(tmpdir(), 'jan-orch-worker-'))
   t.after(() => rm(home, { recursive: true, force: true }))
   const directory = await realpath(home)
@@ -21,11 +21,11 @@ async function setup(t) {
   const directories = []
   const store = await openStore(join(directory, 'state.json'), console)
   const ctx = {
-    get: () => undefined,
+    get: name => name === 'agentPresets' && presets ? { list: async () => presets.map(id => ({ id })) } : undefined,
     workspaceRegistry: { list: () => [{ id: 'repo', title: 'Repository', path: directory, sessionIds: ['control'] }] },
     sessionController: {
       create: async request => {
-        assert.deepEqual(request, { workspaceId: 'repo' })
+        assert.deepEqual(request, expectedCreate)
         return { sessionId: agent.id }
       },
       resolveAgent: async () => ({ agent }),
@@ -84,6 +84,16 @@ test('continues with a shared folder when the project is not a git repository', 
   assert.match(isolation.reason, /not a git repository/)
   assert.deepEqual(directories, [])
   assert.match(inputs[0].body, /shared project folder/)
+})
+
+test('starts a worker without a mode in Code mode when the Host has it', async t => {
+  const { start } = await setup(t, { presets: ['chat', 'standard'], expectedCreate: { workspaceId: 'repo', agentPreset: 'standard' } })
+  await start('current')
+})
+
+test('leaves the route default when the Host has no Code mode preset', async t => {
+  const { start } = await setup(t, { presets: ['chat'] })
+  await start('current')
 })
 
 test('reports only one idle update per turn with the latest assistant text', async t => {

@@ -38,6 +38,10 @@ Connect a peer in **Settings > Hosts**. For SSH peers, the worker opens in this 
 | Acknowledge | The coordinator Host records its progress and acknowledges those reports to the executing Host. It resumes any outstanding acknowledgement after restart. |
 | Retain | The executing Host keeps a report in its outbox until the coordinator acknowledges it. Replayed reports keep their original delivery IDs. |
 
+## Worker mode
+
+A worker chat starts in Code mode (the `standard` preset) when its Host has that preset, because workers edit files and run commands. This holds even where new chats start in Chat mode, as on Desktop. The coordinator can pass another preset as `mode` on a task, or an agent profile as `agent`.
+
 ## Local data
 
 Task and message state is stored in `$JAN_HOME/orchestration/state.json`. Git worktrees normally live under `<project>/.agents/worktrees/`; orchestration never removes those directories or their branches. With no worktree service, the Git fallback disables hooks and skips Git LFS smudging, but other repository-configured checkout filters still run like a manual `git worktree add`. A Git checkout failure starts the worker in the shared project folder and leaves the reason on the task.
