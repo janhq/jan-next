@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { BootPage } from '../src/boot-page.ts'
 
@@ -32,6 +34,14 @@ describe('BootPage', () => {
     expect(progress?.style.getPropertyValue('--jan-boot-progress')).toBe('100%')
     expect(el.textContent).toContain('Loading plugins…')
     expect(el.textContent).not.toContain('Failed to load plugins')
+  })
+
+  it('lets reduced motion override the boot progress transition', () => {
+    const css = readFileSync(resolve(import.meta.dirname, '../src/boot-page.module.css'), 'utf8')
+    const [base = '', reduced = ''] = css.split('@media (prefers-reduced-motion: reduce)')
+    expect(base).toMatch(/\.progress::after\s*\{[^}]*transition:\s*width\b/)
+    const transitions = [...reduced.matchAll(/\.progress::after\s*\{[^}]*transition:\s*([^;]+);/g)]
+    expect(transitions.at(-1)?.[1]).toBe('none')
   })
 
   it('lists failed entries', () => {

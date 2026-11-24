@@ -39,7 +39,7 @@ Boot supplies the Host release version and a synchronous connection-state reader
 
 ### The boot page
 
-The boot page uses plain DOM and local CSS, so bundle and plugin-activation failures remain visible: it shows Jan's waving hand and wordmark over one progress bar that grows as entries activate. The bar and the wave's animation phase persist until the full UI replaces the boot page. When a required plugin fails import or activation, the page names every inactive plugin with the reason (missing service, import failure, or activation error) and marks the required ones, instead of a blank page. An optional plugin's failure appears in one console warning and does not stop the application. The console contains the original import error.
+The boot page uses plain DOM and local CSS, so bundle and plugin-activation failures remain visible: it shows Jan's waving hand and wordmark over one progress bar that grows as entries activate. The bar and the wave's animation phase persist until the full UI replaces the boot page. With reduced motion, the hand is still and the bar updates without a transition. When a required plugin fails import or activation, the page names every inactive plugin with the reason (missing service, import failure, or activation error) and marks the required ones, instead of a blank page. An optional plugin's failure appears in one console warning and does not stop the application. The console contains the original import error.
 
 <a id="the-shared-module-table"></a>
 ### The shared module table
