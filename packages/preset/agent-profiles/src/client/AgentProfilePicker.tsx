@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
   IconChevronDownOutlineRegular, IconUserOutlineRegular, IconWarningOutlineRegular,
-  Menu, Tag, Toast, Tooltip, type MenuEntry,
+  Menu, Tag, Toast, Tooltip, captureFailure, type FailureDetails, type MenuEntry,
 } from '@janhq/jan-client-ui-primitives'
 import type {} from '@janhq/jan-client-ui-conversation/client'
 import type { AgentProfileList, AgentProfileListRequest, AgentProfileSelectRequest, AgentProfileSummary } from '../types.ts'
@@ -61,7 +61,8 @@ export function AgentProfilePicker({ sessionId, workspaceId, pending, onPick, us
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [load, setLoad] = useState<{ workspaceId: typeof workspaceId; profiles: readonly AgentProfileSummary[] | null }>()
-  const [refusal, setRefusal] = useState<{ key: number; reason: 'locked' | 'selectError' | 'manageError' }>()
+  // A lock is the chat's state, not a failure, so only real failures carry details.
+  const [refusal, setRefusal] = useState<{ key: number; reason: 'locked' | 'selectError' | 'manageError'; failure?: FailureDetails }>()
   const attempt = useRef(0)
   const visible = open && !running
   const [revision, setRevision] = useState(0)
@@ -100,7 +101,7 @@ export function AgentProfilePicker({ sessionId, workspaceId, pending, onPick, us
     setOpen(false)
     const notice = ++attempt.current
     if (key === MANAGE) {
-      try { manage() } catch { setRefusal({ key: notice, reason: 'manageError' }) }
+      try { manage() } catch (error) { setRefusal({ key: notice, reason: 'manageError', failure: captureFailure('agentProfiles.manage', error) }) }
       return
     }
     const id = key === JAN ? null : key
@@ -112,8 +113,8 @@ export function AgentProfilePicker({ sessionId, workspaceId, pending, onPick, us
     try {
       const reason = await select({ sessionId, id })
       if (reason !== undefined) setRefusal({ key: notice, reason })
-    } catch {
-      setRefusal({ key: notice, reason: 'selectError' })
+    } catch (error) {
+      setRefusal({ key: notice, reason: 'selectError', failure: captureFailure('agentProfiles.select', error) })
     } finally {
       setBusy(false)
     }
@@ -135,7 +136,7 @@ export function AgentProfilePicker({ sessionId, workspaceId, pending, onPick, us
         <span className={css.ellipsis}>{name}</span>
         <IconChevronDownOutlineRegular size={14} aria-hidden="true" />
       </button>} />
-    {refusal !== undefined && <Toast key={refusal.key} text={t(refusal.reason)}
+    {refusal !== undefined && <Toast key={refusal.key} text={t(refusal.reason)} failure={refusal.failure}
       icon={<IconWarningOutlineRegular />} holdMs={8000} onDone={() => { setRefusal(undefined) }} />}
   </>
 }
