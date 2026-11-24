@@ -139,6 +139,7 @@
     "@janhq/jan-command-goal": "workspace:*",
     "@janhq/jan-compaction-basic": "workspace:*",
     "@janhq/jan-compaction-tool-result-pruner": "workspace:*",
+    "@janhq/jan-context-usage": "workspace:*",
     "@janhq/jan-cordis-client-runner": "workspace:*",
     "@janhq/jan-cordis-host-runner": "workspace:*",
     "@janhq/jan-deliverable-file-references": "workspace:*",

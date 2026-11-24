@@ -976,6 +976,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'contextUsage',
+    summary: 'Reads one chat\'s context composition on demand; it adds nothing to the chat.',
+    description: 'Reads one chat\'s context composition on demand; it adds nothing to the chat.',
+    methods: [
+      {
+        signature: '@Remote(\'breakdown\') async breakdown(agent: Agent, signal: AbortSignal): Promise<ContextUsage>',
+        description: 'Break the chat\'s next request down into categories and named entries.',
+        parameters: [{ name: 'agent', description: 'chat to measure.' }, { name: 'signal', description: 'cancels prompt assembly and capacity lookups.' }],
+        returns: 'categories that sum to the occupancy the composer meter shows, plus capacity and threshold.',
+      },
+    ],
+  },
+  {
     key: 'cotTranslation',
     summary: 'Optional reasoning translation delegates Session-bound storage to the translator.',
     description: 'Optional reasoning translation delegates Session-bound storage to the translator.',
@@ -7012,8 +7025,24 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ContentBlockType = keyof ContentBlockMap;',
   },
   {
+    name: 'ContextCategoryId',
+    declaration: 'export type ContextCategoryId = typeof CONTEXT_CATEGORIES[number];',
+  },
+  {
     name: 'ContextPressureProjection',
     declaration: 'export interface ContextPressureProjection {\n    pressureTokens?: number;\n    projectedTokens?: number;\n    contextWindow?: number;\n}',
+  },
+  {
+    name: 'ContextUsage',
+    declaration: 'export interface ContextUsage {\n    readonly model?: {\n        readonly provider: string;\n        readonly model: string;\n    };\n    readonly contextWindow?: number;\n    readonly usedTokens: number;\n    readonly usedSource: \'provider\' | \'estimate\';\n    readonly autoCompactTokens?: number;\n    readonly categories: readonly ContextUsageCategory[];\n}',
+  },
+  {
+    name: 'ContextUsageCategory',
+    declaration: 'export interface ContextUsageCategory {\n    readonly id: ContextCategoryId;\n    readonly tokens: number;\n    readonly entries: readonly ContextUsageEntry[];\n}',
+  },
+  {
+    name: 'ContextUsageEntry',
+    declaration: 'export interface ContextUsageEntry {\n    readonly label: string;\n    readonly tokens: number;\n}',
   },
   {
     name: 'ContinuableCreateRequest',

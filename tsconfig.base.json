@@ -441,6 +441,8 @@
       "@janhq/jan-native-command/types": ["./packages/util/native-command/src/types.ts"],
       "@janhq/jan-message-quotes/client": ["./packages/session/message-quotes/src/client/index.ts"],
       "@janhq/jan-btw/client": ["./packages/session/btw/src/client/index.ts"],
+      "@janhq/jan-context-usage/client": ["./packages/llm/context-usage/src/client/index.ts"],
+      "@janhq/jan-context-usage/types": ["./packages/llm/context-usage/src/types.ts"],
       "@janhq/jan-ptc-runtime-node/configuration": ["./packages/ptc-runtime/ptc-runtime-node/src/configuration.ts"],
       // BEGIN generated package aliases — pnpm run gen-tsconfig-paths
       "@janhq/jan-acp": ["./packages/acp/acp/src"],
@@ -476,6 +478,7 @@
       "@janhq/jan-compaction-image-offload": ["./packages/compaction/compaction-image-offload/src"],
       "@janhq/jan-compaction-tool-result-pruner": ["./packages/compaction/compaction-tool-result-pruner/src"],
       "@janhq/jan-config-editor": ["./packages/boot/config-editor/src"],
+      "@janhq/jan-context-usage": ["./packages/llm/context-usage/src"],
       "@janhq/jan-credentials": ["./packages/credentials/credentials/src"],
       "@janhq/jan-credentials-local": ["./packages/credentials/credentials-local/src"],
       "@janhq/jan-cua-bundle": ["./packages/experimental/cua-bundle/src"],

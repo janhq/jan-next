@@ -3732,6 +3732,9 @@ importers:
       '@janhq/jan-compaction-tool-result-pruner':
         specifier: workspace:*
         version: link:../../compaction/compaction-tool-result-pruner
+      '@janhq/jan-context-usage':
+        specifier: workspace:*
+        version: link:../../llm/context-usage
       '@janhq/jan-cordis-client-runner':
         specifier: workspace:*
         version: link:../../extensions/cordis-client-runner
@@ -13828,6 +13831,85 @@ importers:
       '@janhq/jan-tools':
         specifier: workspace:*
         version: link:../../core/tools
+
+  packages/llm/context-usage:
+    dependencies:
+      '@janhq/jan-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@janhq/jan-agent-loop':
+        specifier: workspace:*
+        version: link:../../core/agent-loop
+      '@janhq/jan-agent-loop-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/agent-loop-testkit
+      '@janhq/jan-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
+      '@janhq/jan-api-session-controller':
+        specifier: workspace:*
+        version: link:../../api/session-controller
+      '@janhq/jan-client-locale':
+        specifier: workspace:*
+        version: link:../../client/locale
+      '@janhq/jan-client-store':
+        specifier: workspace:*
+        version: link:../../client/store
+      '@janhq/jan-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@janhq/jan-client-ui-commands':
+        specifier: workspace:*
+        version: link:../../client/ui-commands
+      '@janhq/jan-client-ui-conversation':
+        specifier: workspace:*
+        version: link:../../client/ui-conversation
+      '@janhq/jan-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../../client/ui-primitives
+      '@janhq/jan-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../../client/ui-renderer
+      '@janhq/jan-client-ui-slots':
+        specifier: workspace:*
+        version: link:../../client/ui-slots
+      '@janhq/jan-compaction':
+        specifier: workspace:*
+        version: link:../../compaction/compaction
+      '@janhq/jan-compaction-basic':
+        specifier: workspace:*
+        version: link:../../compaction/compaction-basic
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../llm
+      '@janhq/jan-mcp-client':
+        specifier: workspace:*
+        version: link:../../mcp/mcp-client
+      '@janhq/jan-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@janhq/jan-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@janhq/jan-token-meter':
+        specifier: workspace:*
+        version: link:../token-meter
+      '@janhq/jan-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
 
   packages/llm/llama-cpp:
     dependencies:

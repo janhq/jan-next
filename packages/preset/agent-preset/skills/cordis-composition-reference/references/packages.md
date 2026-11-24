@@ -287,6 +287,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@janhq/jan-downloads` | no | Track downloads from Jan services and present the sidebar download inbox |
 | `@janhq/jan-host-directory-picker-auto` | no | Adaptive chooser of the directory-picker seam: resolves the host situation at boot and mounts the native or browse backend for the Jan web GUI host |
 | `@janhq/jan-host-directory-picker-browse` | yes | In-app browsing backend of the directory-picker seam (listing/creation primitives over the host filesystem) |
 | `@janhq/jan-host-directory-picker-native` | no | Native-OS-chooser backend of the directory-picker seam for the Jan web GUI host |
@@ -319,6 +320,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@janhq/jan-context-usage` | no | The /context command: a chat's context window broken down by prompt section, tool, message kind and file |
 | `@janhq/jan-llama-cpp` | yes | Download and verify GGUF models and supervise the bundled jan-llama-worker that serves them |
 | `@janhq/jan-llm` | no | Provider-neutral LLM service interface for Jan |
 | `@janhq/jan-llm-fallback` | yes | Model fallback chain for Jan: continue a failed reply on the next configured model, return to the chosen model when it is cheap to switch |

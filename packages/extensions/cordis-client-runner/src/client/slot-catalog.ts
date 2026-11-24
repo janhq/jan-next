@@ -2082,6 +2082,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
       'experimental-client-ui-claude-code-mods Band id \'claude-code-mods\'',
       'experimental-client-ui-forge WorktreeProgress id \'forge-panel.worktree\'',
       'experimental-client-ui-forge GitStrip id \'forge-panel.git\'',
+      'context-usage ContextPanel id \'context-usage\'',
       'btw SideAnswerPanel id \'btw\'',
     ],
     replaceRisk: 'none',

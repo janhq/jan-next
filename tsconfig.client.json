@@ -63,6 +63,7 @@
     { "path": "./packages/client/ui-file-drag" },
     { "path": "./packages/session/message-quotes" },
     { "path": "./packages/session/btw/tsconfig.client.json" },
+    { "path": "./packages/llm/context-usage/tsconfig.client.json" },
     { "path": "./packages/experimental/client-ui-cot-translation/tsconfig.client.json" },
     { "path": "./packages/settings/scoped-settings/tsconfig.client.json" },
     { "path": "./packages/preset/agent-profiles/tsconfig.client.json" },

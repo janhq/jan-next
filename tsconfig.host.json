@@ -365,6 +365,7 @@
     { "path": "./packages/client/file-upload/tsconfig.host.json" },
     { "path": "./packages/llm/llm" },
     { "path": "./packages/llm/token-meter" },
+    { "path": "./packages/llm/context-usage/tsconfig.host.json" },
     { "path": "./packages/core/session" },
     { "path": "./packages/core/scope" },
     { "path": "./packages/typert/protocol" },

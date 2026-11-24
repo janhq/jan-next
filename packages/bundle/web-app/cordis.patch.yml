@@ -150,6 +150,9 @@
     - id: btw
       name: '@janhq/jan-btw'
 
+    - id: context-usage
+      name: '@janhq/jan-context-usage'
+
     # One background job's observation record streamed over Typert Remote;
     # the roster rides the session control stream above.
     - id: job-controller
