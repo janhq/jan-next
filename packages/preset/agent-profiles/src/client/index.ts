@@ -1,7 +1,7 @@
 /** Browser entry for the conversation Agent picker and Settings > Agents. */
 import type { Context } from '@janhq/cordis'
 import type {} from '@janhq/jan-api-remotes/client'
-import type { ISessions } from '@janhq/jan-api-session-controller/client'
+import type {} from '@janhq/jan-api-session-controller/client'
 import type {} from '@janhq/jan-api-workspace-controller/client'
 import type {} from '@janhq/jan-client-locale/client'
 import { createSnapshotStore, type ObservableSnapshot } from '@janhq/jan-client-store'
@@ -104,7 +104,8 @@ function registerUi(ctx: Context): void {
     },
   }
   ctx.inject(['commandUi', 'sessions', 'workspaces'], (scope) => {
-    const sessions = scope.get('sessions') as unknown as Pick<ISessions, 'subagentAddress'>
+    const sessions = scope.get('sessions')
+    if (sessions === undefined) throw new Error('agent-profiles: sessions service unavailable')
     const catalogs = new Map<WorkspaceId | undefined, Promise<AgentProfileList>>()
     const options = async (sessionId: SessionId): Promise<CommandArgumentOption[]> => {
       const project = scope.workspaces.list.getSnapshot().items.find(workspace => workspace.sessionIds.includes(sessionId))

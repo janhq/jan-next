@@ -113,11 +113,8 @@ export interface IdentityState {
   identity?: SubagentIdentityProjection | undefined
 }
 
-// The cast bridges optional label and profile fields: Zod's optional output
-// includes explicit `undefined`, which exactOptionalPropertyTypes excludes
-// from the public interface. The no-value state itself is the serializable
-// `null` arm — never `undefined` — so every registry read and push frame
-// survives JSON.stringify losslessly.
+// Omit absent optional fields from parsed identities. The wire schema uses
+// null for a missing identity so its absence is preserved in JSON frames.
 const identityValueSchema = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('one-shot'),
@@ -130,7 +127,14 @@ const identityValueSchema = z.discriminatedUnion('mode', [
     agent: z.string().optional(),
     seq: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
   }).strict(),
-]) as unknown as z.ZodType<SubagentIdentityProjection>
+]).transform((identity): SubagentIdentityProjection => {
+  if (identity.mode === 'one-shot') {
+    const { mode, seq, label } = identity
+    return { mode, seq, ...(label === undefined ? {} : { label }) }
+  }
+  const { mode, seq, label, agent } = identity
+  return { mode, seq, label, ...(agent === undefined ? {} : { agent }) }
+})
 
 const identitySchema = identityValueSchema.nullable()
 

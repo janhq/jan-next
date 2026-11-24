@@ -26,6 +26,11 @@ const root = (callId: string, call: ToolResultNode['call']): ToolResultNode => (
 /** One stable title view, as the bound hook returns between changes. */
 const TITLES = { display: (text: string) => text, request: () => {} }
 
+// Among the tree's child slots, only the keyed tool view carries a call phase.
+function isToolCallOwner(owner: object): owner is ToolCallOwnerProps {
+  return 'phase' in owner
+}
+
 function props(
   block: ToolCallBlock,
   home?: string,
@@ -33,11 +38,11 @@ function props(
 ): ToolTreeProps {
   const snapshot = {} as SessionSnapshot
   const useSession = ((selector: (value: SessionSnapshot) => unknown) => selector(snapshot)) as ToolTreeProps['useSession']
-  const renderSlot = ((key: string, owner: ToolCallOwnerProps, options?: { fallback?: React.ReactNode }) => {
+  const renderSlot: ToolTreeProps['renderSlot'] = (key, owner, options) => {
     if (key !== 'tool.call.toolview') return null
-    owners?.push(owner)
+    if (isToolCallOwner(owner)) owners?.push(owner)
     return options?.fallback ?? null
-  }) as unknown as ToolTreeProps['renderSlot']
+  }
   const fixture: Partial<ToolTreeProps> = {
     useDisclosure,
     useTurnData: () => undefined,

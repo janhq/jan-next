@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import { makeTranslate } from '@janhq/jan-client-test-runtime'
+import { allowAllAccess, contextMenuHook, makeTranslate } from '@janhq/jan-client-test-runtime'
 import type { JobsSnapshot, JobView, ObservedJob } from '@janhq/jan-api-job-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
+import type {} from '../src/client/index.ts'
 import { JobCallStatus, type JobCallStatusProps } from '../src/client/JobCallStatus.tsx'
 import { latestLine } from '../src/client/live-line.ts'
 import { en } from '../src/client/locales.ts'
@@ -14,7 +15,7 @@ afterEach(() => {
 })
 
 const SESSION = 'session' as SessionId
-const t = makeTranslate(en) as JobCallStatusProps['t']
+const t: JobCallStatusProps['t'] = makeTranslate(en)
 const STARTED = 1_700_000_000_000
 
 function job(over: Partial<JobView> = {}): JobView {
@@ -30,6 +31,10 @@ function job(over: Partial<JobView> = {}): JobView {
   }
 }
 
+function unexpectedStandardProp(): never {
+  throw new Error('JobCallStatus unexpectedly accessed an unconfigured standard prop')
+}
+
 function mount(
   jobs: readonly JobView[],
   observed: Readonly<Record<string, ObservedJob>> = {},
@@ -41,10 +46,35 @@ function mount(
   function useJobs<T>(select: (value: JobsSnapshot) => T): T {
     return select(state)
   }
-  const props = {
+  const props: JobCallStatusProps = {
     sessionId: SESSION, callId: owner.callId ?? 'call-1', toolName: 'bash', settledAt: owner.settledAt,
     useJobs, observe, watchRows, t,
-  } as unknown as JobCallStatusProps
+    ...allowAllAccess,
+    useContextMenu: contextMenuHook(),
+    useSession: unexpectedStandardProp,
+    useProjection: unexpectedStandardProp,
+    useConversation: unexpectedStandardProp,
+    useInput: unexpectedStandardProp,
+    useChat: unexpectedStandardProp,
+    usePanelInfo: unexpectedStandardProp,
+    useSessions: unexpectedStandardProp,
+    useSessionStatus: unexpectedStandardProp,
+    useSessionRetainInfo: unexpectedStandardProp,
+    useWorkspaces: unexpectedStandardProp,
+    useResource: unexpectedStandardProp,
+    useTrajectory: unexpectedStandardProp,
+    inputActions: {
+      insertQuote: unexpectedStandardProp,
+      captureInsertion: unexpectedStandardProp,
+      insertText: unexpectedStandardProp,
+      setDraft: unexpectedStandardProp,
+      persistDraft: unexpectedStandardProp,
+      addAttachments: unexpectedStandardProp,
+      removeAttachment: unexpectedStandardProp,
+      pruneAttachments: unexpectedStandardProp,
+      submit: unexpectedStandardProp,
+    },
+  }
   const view = render(<JobCallStatus {...props} />)
   return { view, observe, watchRows }
 }
