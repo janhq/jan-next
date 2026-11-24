@@ -1,19 +1,21 @@
-- banner:
-  - navigation "セッション階層": "Using ONE run_code program: run"
-  - text: PTC モード
+- tablist "チャットタブ":
+  - 'tab "Using ONE run_code program: run チャットタブを閉じる" [selected]':
+    - text: "Using ONE run_code program: run"
+    - button "チャットタブを閉じる"
+  - button "新しいタブ"
   - button "その他の操作"
   - button "右サイドバーを開く"
-  - tablist:
-    - tab "チャット" [selected]
-    - tab "軌跡"
-  - button "その他の会話ビュー"
+- tablist:
+  - tab "チャット" [selected]
+  - tab "軌跡"
+- button "その他の会話ビュー"
 - text: "Using ONE run_code program: run bash `echo CODE_ROUND_OK`, then read the file missing.txt catching its error in the program. Return an object with both outcomes. Then reply DONE and stop. {{clock}}"
 - button "コピー"
 - status: 完了
 - button "完了まで {{duration}}" [expanded]
 - button "コードを実行しました、コマンドを実行しました、ファイルを読み取りました" [expanded]
-- button "コンテキスト注入 runtime-context"
-- button "コンテキスト注入 time-context"
+- button "コンテキストを注入 runtime-context"
+- button "コンテキストを注入 time-context"
 - 'button "思考 The user wants me to write a single `run_code` program that:"'
 - button "コード Run bash echo and catch missing file read"
 - button "Bash Echo CODE_ROUND_OK" [expanded]
@@ -30,9 +32,11 @@
 - text: {{clock}}
 - textbox "メッセージを送信するかタスクを実行、/ コマンド、@ ファイルやセッション"
 - button "ファイルを追加またはコマンドを実行"
-- 'button "アクセスモード、現在: ワークスペース書き込み"': ワークスペース書き込み
+- 'button "アクセスモード、現在: フルアクセス"': フルアクセス
 - button "モデルを選択、現在 Tokamak 1 Preview": Tokamak 1 Preview
 - button "メッセージを送信" [disabled]
+- button "ワークスペースを選択" [disabled]: workspace
+- 'button "このタスクで使用するエージェントプリセットを切り替え: PTC モード"': PTC モード
 - button "1ターン 2ステップ · {{throughput}} tok/s": 1ターン 2ステップ{{throughput}} tok/s
 - button "17.5K tok · キャッシュヒット 52%": 17.5K tokキャッシュヒット 52%
 - button "コンテキストの7%を使用中": 7%

@@ -1,10 +1,9 @@
 ## Menu
 
-- menu "模型与推理等级":
-  - menuitem "模型 Tokamak 1 Preview"
-  - text: 启用智能体团队协作
-  - button "关于智能体团队协作"
-  - switch "启用智能体团队协作" [checked]
+- menu "模型":
+  - group "Tokamak":
+    - menuitemradio "Tokamak 1 Preview" [checked]
+    - menuitemradio "Tokamak 1 Vision Experimental"
 
 ## Confirmation
 

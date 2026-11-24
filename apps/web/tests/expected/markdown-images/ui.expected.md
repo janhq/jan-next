@@ -1,11 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": Markdown image policy
+- tablist "Chat tabs":
+  - tab "Markdown image policy Close chat tab" [selected]:
+    - text: Markdown image policy
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Show the Markdown image policy. {{clock}}
 - button "Copy"
 - status: Completed
@@ -46,4 +49,5 @@
 - 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]
 - button "1 turns 1 steps"

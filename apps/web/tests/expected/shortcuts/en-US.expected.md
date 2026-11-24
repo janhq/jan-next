@@ -54,6 +54,12 @@
       - listitem:
         - button "Edit shortcut for Close current page or window"
         - text: Close current page or window Ctrl + Alt + W
+      - listitem:
+        - button "Edit shortcut for Back"
+        - text: Back Ctrl + Alt + [
+      - listitem:
+        - button "Edit shortcut for Forward"
+        - text: Forward Ctrl + Alt + ]
   - region "Message input":
     - heading "Message input" [level=3]
     - list:

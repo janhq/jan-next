@@ -1,1 +1,3 @@
-- alert: This session has no completed turn
+- alert:
+  - text: This session has no completed turn
+  - button "Dismiss"

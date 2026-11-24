@@ -1,12 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": /user-invoke-demo @"meeting notes-this-i
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "/user-invoke-demo @\"meeting notes-this-i Close chat tab" [selected]:
+    - text: /user-invoke-demo @"meeting notes-this-i
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - button "/user-invoke-demo"
 - button "meeting notes-this-is-a-very-long-filename-for-testing-user-message-file-references-and-preview-layout.md"
 - text: and confirm the fixture wiring {{clock}}
@@ -19,9 +21,11 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
-- button "1 turns 1 steps · {{throughput}} tok/s": 1 turns 1 steps{{throughput}} tok/s
+- button "Choose project" [disabled]: workspace
+- 'button "Switch the agent preset for this task: Standard mode"': Standard mode
+- button "1 turns 1 steps"
 - button "272 tok · Cache hit 0%": 272 tokCache hit 0%
 - button "0% of context used": 0%

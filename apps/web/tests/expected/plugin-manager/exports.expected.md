@@ -6,6 +6,7 @@
 - text: v0.0.1
 - paragraph:
   - code: "@fixture/bundle"
+- button "翻译成中文"
 - paragraph: Registry description for the fixture bundle.
 - region "详细介绍":
   - heading "Fixture bundle" [level=1]

@@ -1,5 +1,5 @@
 - tree "Sessions":
-  - treeitem "{{workspace}}" [expanded]
+  - treeitem "{{workspace}} test-ubuntu-1x3090" [expanded]
   - treeitem "Newest conversation now" [selected]
   - treeitem "Middle conversation 1min"
   - treeitem "Oldest conversation 2min"

@@ -1,2 +1,3 @@
-- button "Account menu": Jan ·Local
+- button "Log in"
+- button "Account menu"
 - button "Reconnecting, reconnect now": Reconnecting

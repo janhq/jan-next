@@ -9,9 +9,10 @@
 - button "Copy"
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
-- button "Context injection runtime-context"
-- button "Context injection time-context"
-- button "Tools updated 34 added"
+- button "Analysis completed"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
+- button "Tools updated 39 added"
 - button "Think Both files have been read. a.txt contains \"alpha\" and b.txt contains \"beta\". I'll now reply with DONE as instructed."
 - paragraph: DONE
 - button "Copy"

@@ -1,4 +1,5 @@
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Preparing to run code"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - 'button "Think The user wants me to write a single `run_code` program that:"'
 - text: Preparing tool call Code

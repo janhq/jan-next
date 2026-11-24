@@ -3,3 +3,6 @@
   - menuitem "PTC mode Includes all Standard mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results."
   - menuitem "Minimal mode The agent uses a terminal and image reading, with context compaction. Useful for testing and comparing its basic performance."
   - menuitem "Creator mode Customize Jan through conversation. Let the agent write plugins that add features or UI, or combine tools and prompts to create your own mode."
+  - menuitem "reviewer Read-only diff review and tests that do not write files."
+  - menuitem "scout Read-only repository discovery; fast, inexpensive model."
+  - menuitem "worker Implement changes with read, shell, and full file editing tools."

@@ -1,4 +1,5 @@
 - button "New session"
+- status "Connected to test-ubuntu-1x3090": test-ubuntu-1x3090
 - button "Collapse sidebar"
 - button "Back" [disabled]
 - button "Forward" [disabled]
@@ -16,18 +17,23 @@
 - button "View options"
 - button "Add project"
 - tree "Sessions":
-  - treeitem "workspace" [expanded]
+  - treeitem "Default project test-ubuntu-1x3090"
+  - treeitem "workspace test-ubuntu-1x3090" [expanded]
   - treeitem "New Session" [selected]
-- button "Account menu": Jan ·Local
-- banner:
+- button "Log in"
+- button "Account menu"
+- tablist "Chat tabs":
+  - tab "New chat Close chat tab" [selected]:
+    - text: New chat
+    - button "Close chat tab"
+  - button "New tab"
   - button "Open right sidebar"
 - text: Into the Unknown Preview
-- button "Choose project": workspace
-- button "Standard mode"
-- textbox "Describe what you want to build, / commands, @ files or sessions":
-  - paragraph
+- textbox "Describe what you want to build, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
-- button "8% of context used": 8%
+- button "Choose project": workspace
+- button "Standard mode"
+- button "9% of context used": 9%

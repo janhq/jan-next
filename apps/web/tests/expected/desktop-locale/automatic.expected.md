@@ -9,7 +9,7 @@
   - button "打开配置文件"
   - button "关闭"
   - text: 权限 选择新会话的默认权限模式
-  - button "工作区内修改"
+  - button "完全权限"
   - text: 语言
   - button "中文"
   - text: 外观
@@ -34,6 +34,4 @@
   - button "编辑快捷键"
   - text: 性能与用量 选择性能与用量信息展示的详细程度
   - button "详细"
-  - text: 在使用官方模型 API 时上传 Session Log 帮助改进 DeepSeek 模型与产品
-  - switch "在使用官方模型 API 时上传 Session Log"
   - text: 当前版本：{{version}}

@@ -1,10 +1,13 @@
-- banner:
-  - navigation "Session hierarchy": Inline code links
+- tablist "Chat tabs":
+  - tab "Inline code links Close chat tab" [selected]:
+    - text: Inline code links
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Show the local preview URL. {{clock}}
 - button "Copy"
 - status: Completed
@@ -34,4 +37,5 @@
 - 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]
 - button "1 turns 1 steps"

@@ -4,7 +4,7 @@
 - button "刷新"
 - group "添加插件":
   - button "添加插件"
-  - button "选择添加插件方式"
+  - button "更多插件操作"
 - heading "内置插件配置" [level=3]
 - list:
   - listitem:
@@ -50,5 +50,6 @@
     - switch "启用 @fixture/live-client"
   - listitem:
     - button "查看 jan-web-scaffold-defaults": jan-web-scaffold-defaults
+    - button "翻译成中文"
     - status
     - switch "启用 jan-web-scaffold-defaults" [checked]

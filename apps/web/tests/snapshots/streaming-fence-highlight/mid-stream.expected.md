@@ -1,27 +1,32 @@
-- banner:
-  - navigation "Session hierarchy": Stream one TypeScript fence for
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Stream one TypeScript fence for Close chat tab" [selected]:
+    - text: Stream one TypeScript fence for
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Stream one TypeScript fence for the highlighting snapshot. {{clock}}
 - button "Copy"
+- button "Injected context"
 - button "Inject context runtime-context"
 - button "Inject context time-context"
 - text: ts
 - button "Wrap lines" [pressed]
 - button "Copy"
 - code: "const first: number = 1 const second = \"two\" let tail"
-- status: Deep diving
-- text: Deep diving for {{duration}} ···
+- status: Writing
+- text: Writing - {{duration}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
-- button "Select model, current streaming-fence-highlight-test/streaming-fence": streaming-fence-highlight-test/streaming-fence
+- 'button "Access mode, current: Full access"': Full access
+- button "Select model, current streaming-fence": streaming-fence
 - button "Stop generating"
+- button "Choose project" [disabled]: workspace
+- 'button "Finish the current reply before switching: Standard mode" [disabled]': Standard mode
 
 ---
 
