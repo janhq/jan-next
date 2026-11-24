@@ -161,7 +161,7 @@ export function attribute(input: BreakdownInput): Tally {
       // Producers declare their source kinds in their own packages; this reader keeps them as plain strings.
       const kind: string = source.kind
       const named = (key: string): string | undefined => {
-        const value: unknown = (source as unknown as Record<string, unknown>)[key]
+        const value: unknown = Reflect.get(source, key)
         return typeof value === 'string' ? value : undefined
       }
       switch (kind) {
@@ -181,7 +181,7 @@ export function attribute(input: BreakdownInput): Tally {
           for (const block of message.content) parts.push(['userMessages', blockLabel(block), estimateContent([block]), block.type === 'image'])
           break
         default: {
-          const sections: unknown = named('form') === 'snapshot' ? (source as unknown as Record<string, unknown>).sections : undefined
+          const sections: unknown = named('form') === 'snapshot' ? Reflect.get(source, 'sections') : undefined
           if (Array.isArray(sections) && sections.length > 0) {
             for (const section of sections as readonly { name: string; text: string }[]) {
               parts.push(['injectedContext', section.name, section.text.length / CHARS_PER_TOKEN, false])

@@ -20,6 +20,7 @@ export const inject = ['remote', 'slots', 'locale', 'commandUi', 'sessions']
  * @param ctx - client plugin context.
  * @returns disposer for the UI and remote registrations.
  */
+/* jscpd:ignore-start -- Remote-owning Client plugins share one mount-then-UI lifecycle (btw, agent-profiles, scoped-settings). */
 export async function apply(ctx: Context): Promise<() => Promise<void>> {
   const unmount = await ctx.remote.$mount(remote)
   const ui = ctx.inject(['remote.contextUsage', ...inject], register)
@@ -33,6 +34,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
     try { await ui.dispose() } finally { await unmount() }
   }
 }
+/* jscpd:ignore-end */
 
 function register(ctx: Context): void {
   const sessions = ctx.get('sessions') as ISessions
