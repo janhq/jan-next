@@ -15,8 +15,8 @@ import {
   type StoredEntry, type StoredFactory, type Translate,
 } from '@janhq/jan-client-ui-slots'
 import {
-  HostContext, RootStandardProvider, ScopeBindingProvider, ScopeProvider,
-  keyedObservableHook, maybeObservableHook, observableHook, useHost, useRootBinding,
+  HostContext, RootStandardProvider, ScopeBindingProvider, ScopeProvider, assembledBefore,
+  keyedObservableHook, markAssembled, maybeObservableHook, observableHook, useHost, useRootBinding,
   useScopeBinding,
 } from './bindings.tsx'
 import { SlotAssemblyError } from './errors.ts'
@@ -1443,7 +1443,11 @@ function renderChainResult(
   )
 }
 
-/** Root outlet: the shell's single ctx-level render entry — an unregistered 'root' is a boot-order failure, never a silent blank. */
+/**
+ * Root outlet: the shell's single ctx-level render entry. A 'root' that never registered is a
+ * boot-order failure, never a silent blank; once it rendered, a gap is a plugin reload in flight
+ * and renders nothing until the new code registers again.
+ */
 function RootOutlet({ ownerProps }: { ownerProps: object }) {
   const host = useHost()
   useSyncExternalStore(
@@ -1457,8 +1461,10 @@ function RootOutlet({ ownerProps }: { ownerProps: object }) {
     // dry, so the crash face replaces the tree (registered-but-broken is a
     // crash, not the boot-order assembly failure below).
     if (host.entriesOf('root').length > 0) return <div data-slot-error="root" />
+    if (assembledBefore(host, 'root')) return null
     throw new SlotAssemblyError("renderSlot('root') before any 'root' registration (boot order)")
   }
+  markAssembled(host, 'root')
   // Same anchor contract as SlotOutlet: 'root' is a slot like any other, and
   // display:contents keeps the wrapper out of the shell's layout.
   return (

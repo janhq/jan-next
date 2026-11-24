@@ -123,7 +123,7 @@ function makeHost() {
       : <>{children}</>,
   }
   const scopeRevision = observable(0)
-  let activeScopeAdapter = sessionAdapter
+  let activeScopeAdapter: SlotScopeAdapter | undefined = sessionAdapter
 
   const bump = (key: string) => {
     versions.set(key, (versions.get(key) ?? 0) + 1)
@@ -242,7 +242,7 @@ function makeHost() {
       if (source === undefined) throw new Error(`unknown test session: ${id}`)
       source.set(snapshot)
     },
-    replaceScope: (adapter: SlotScopeAdapter) => {
+    replaceScope: (adapter: SlotScopeAdapter | undefined) => {
       activeScopeAdapter = adapter
       scopeRevision.set(scopeRevision.getSnapshot() + 1)
     },
@@ -314,6 +314,25 @@ describe('root outlet', () => {
     expect(() => render(<>{createSlotRenderer().renderRoot(empty.host, {})}</>))
       .toThrow(/boot order/)
     spy.mockRestore()
+  })
+
+  it('waits through a plugin reload that takes root and the scope adapter away after they rendered', () => {
+    const h = makeHost()
+    const adapter = h.host.scope('session-maybe')
+    let dispose = h.add('root', { component: () => <b>shell</b> })
+    const view = render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
+    expect(view.container.textContent).toBe('shell')
+    // The reload disposes the old code's registrations before the new code applies.
+    act(() => {
+      dispose()
+      h.replaceScope(undefined)
+    })
+    expect(view.container.textContent).toBe('')
+    act(() => { h.replaceScope(adapter) })
+    expect(view.container.textContent).toBe('')
+    act(() => { dispose = h.add('root', { component: () => <b>shell again</b> }) })
+    expect(view.container.textContent).toBe('shell again')
+    dispose()
   })
 
   it('passes renderRoot owner props into the root component', () => {
