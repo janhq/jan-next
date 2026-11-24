@@ -835,7 +835,9 @@ export class LocalCredentialProvider extends CredentialProvider {
   private async readNative(marker: KeychainMarker): Promise<unknown> {
     try {
       const value = await (await this.getKeychain()).read(marker.keychain)
-      return value === undefined ? undefined : JSON.parse(value) as unknown
+      if (value === undefined) return undefined
+      const parsed: unknown = JSON.parse(value)
+      return parsed
     } catch {
       throw new Error(KEYCHAIN_UNREADABLE)
     }
