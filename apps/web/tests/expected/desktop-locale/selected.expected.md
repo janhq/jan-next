@@ -2,7 +2,7 @@
   - text: Settings
   - navigation:
     - button "General"
-    - button "Models"
+    - button "AI Models"
     - button "Agent loop"
     - button "Built-in plugins"
     - button "Agent presets"
