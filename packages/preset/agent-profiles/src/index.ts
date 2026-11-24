@@ -17,7 +17,7 @@ import type { ToolRestriction } from '@janhq/jan-tools'
 import type { WorkspaceId } from '@janhq/jan-workspace'
 import { draftProblem, renderProfile } from './parse.ts'
 import { globalRoots, projectRoots, scanRoot, watchRoot, type AgentRoot, type RootScan, type RootWatch } from './roots.ts'
-import { agentProfileProjectionDefinition } from './session.ts'
+import { agentProfileChosenProjectionDefinition, agentProfileProjectionDefinition } from './session.ts'
 import type {
   AgentProfile, AgentProfileGetRequest, AgentProfileList, AgentProfileListRequest, AgentProfileModel, AgentProfileProblem,
   AgentProfileRemoveRequest, AgentProfileSaveRequest, AgentProfileScope, AgentProfileSelectRequest, AgentProfileSummary, AgentToolLimits,
@@ -85,6 +85,7 @@ export default class AgentProfiles extends TypertRemoteService {
   })
 
   private projection!: ProjectionHandle<string | null>
+  private chosenProjection!: ProjectionHandle<boolean>
   private readonly global: RootState[] = []
   private readonly projects = new Map<WorkspaceId, { readonly path: string; readonly roots: RootState[] }>()
   private readonly selections = new Map<string, Promise<unknown>>()
@@ -99,6 +100,7 @@ export default class AgentProfiles extends TypertRemoteService {
 
   protected async [Service.init](): Promise<void> {
     this.projection = await this.ctx.sessionProjections.register(agentProfileProjectionDefinition)
+    this.chosenProjection = await this.ctx.sessionProjections.register(agentProfileChosenProjectionDefinition)
     const homes = {
       janHome: resolveJanHome(this.config.janHome),
       agentsHome: resolveAgentsHome(this.config.agentsHome),
@@ -245,6 +247,15 @@ export default class AgentProfiles extends TypertRemoteService {
   }
 
   /**
+   * Whether a chat ever recorded a profile choice, plain Jan included.
+   * @param session - the chat's session.
+   * @returns true once any selection was logged, so a project default must leave the chat alone.
+   */
+  hasSelection(session: Session): boolean {
+    return this.chosenProjection.stateOf(session)
+  }
+
+  /**
    * Project a chat belongs to.
    * @param agent - the chat.
    * @returns the project listing the chat, else the innermost project folder holding its folder.
@@ -340,7 +351,7 @@ export default class AgentProfiles extends TypertRemoteService {
       if (profile === undefined) throw new RemoteError('agent-profiles/not-found', `No agent named "${id}".`, { id })
       if (profile.use === 'subagent') throw invalid(`Agent "${id}" only runs delegated tasks.`)
     }
-    if (this.profileForSession(agent.session) !== id) {
+    if (this.profileForSession(agent.session) !== id || !this.hasSelection(agent.session)) {
       agent.session.append('agent-profile/selected', { agentProfile: id })
       this.ctx.emit('agent-profiles/changed')
     }

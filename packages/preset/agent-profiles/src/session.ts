@@ -28,3 +28,12 @@ export const agentProfileProjectionDefinition = {
   wire: { viewSchema: agentProfileSchema, view: state => state },
   stateVersion: 1,
 } satisfies ProjectionDefinition<'agentProfile', string | null>
+
+/** Host-only state: whether the chat ever recorded a choice, so a project default never overrides one. */
+export const agentProfileChosenProjectionDefinition = {
+  key: 'agentProfileChosen',
+  stateSchema: z.boolean(),
+  init: () => false,
+  apply: (state, event) => state || event.type === 'agent-profile/selected',
+  stateVersion: 1,
+} satisfies ProjectionDefinition<'agentProfileChosen', boolean>
