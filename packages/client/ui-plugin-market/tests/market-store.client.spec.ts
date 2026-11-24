@@ -379,8 +379,8 @@ describe('detail reads', () => {
     face.loadDetail(BUNDLE, 'en')
     face.loadDetail(ENTRY, 'en')
     await vi.waitFor(() => {
-      expect(controller.details.getSnapshot()[detailKey(BUNDLE, 'en')]).toEqual({ status: 'error', failure: 'too-large' })
-      expect(controller.details.getSnapshot()[detailKey(ENTRY, 'en')]).toEqual({ status: 'error', failure: 'other' })
+      expect(controller.details.getSnapshot()[detailKey(BUNDLE, 'en')]).toMatchObject({ status: 'error', failure: 'too-large', diagnostics: { operation: 'pluginMarket.readEntryDetail' } })
+      expect(controller.details.getSnapshot()[detailKey(ENTRY, 'en')]).toMatchObject({ status: 'error', failure: 'other' })
     })
     face.retryDetail(BUNDLE, 'en')
     await vi.waitFor(() => { expect(controller.details.getSnapshot()[detailKey(BUNDLE, 'en')]).toEqual({ status: 'ready', detail: { status: 'none' } }) })

@@ -3,6 +3,7 @@ import { NPMMIRROR_REGISTRY } from '@janhq/jan-plugin-manager/registry'
 import type { Context as ClientContext } from '@janhq/cordis'
 import type { LocalizedText } from '@janhq/jan-package-manifest'
 import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
+import { captureFailure, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type { HostObservable } from '@janhq/jan-client-ui-slots'
 import type { MarketIndexSummary, MarketSearchResult, PluginDetail, PluginDetailDocumentId, RemoteFailure } from '@janhq/jan-api-remotes/client'
 import type { LocaleSnapshot } from '@janhq/jan-client-locale/client'
@@ -65,7 +66,7 @@ export type DetailFailureKind = 'too-large' | 'network' | 'denied' | 'git-unavai
 export type DetailState =
   | { readonly status: 'loading' }
   | { readonly status: 'ready'; readonly detail: PluginDetail }
-  | { readonly status: 'error'; readonly failure: DetailFailureKind }
+  | { readonly status: 'error'; readonly failure: DetailFailureKind; readonly diagnostics: FailureDetails }
 
 /** Detail reads by {@link detailKey}. */
 export type DetailsState = Readonly<Record<string, DetailState>>
@@ -281,7 +282,9 @@ export class DiscoverController {
     }
     const { url, name, version } = request
     const answer = await remote.pluginMarket.readEntryDetail(url, name, version, language, { refresh, npmFileSources })
-    if (current()) this.publishDetail(key, answer.ok ? { status: 'ready', detail: answer.value } : { status: 'error', failure: detailFailure(answer.error) })
+    if (current()) this.publishDetail(key, answer.ok ? { status: 'ready', detail: answer.value } : {
+      status: 'error', failure: detailFailure(answer.error), diagnostics: captureFailure('pluginMarket.readEntryDetail', answer.error),
+    })
   }
 
   private publishDetail(key: string, state: DetailState): void {
