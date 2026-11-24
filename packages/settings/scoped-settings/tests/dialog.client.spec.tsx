@@ -33,7 +33,7 @@ function open({ scope = 'project', id = scope === 'project' ? 'project-c' : unde
   render(<ScopedSettingsDialog scope={scope} {...id === undefined ? {} : { id }} title="Project C" t={t} write={write} close={close}
     retry={vi.fn()}
     presetName={preset => preset.name ?? preset.id}
-    state={{ status: 'ready', values: {}, catalog, skillCatalog, models, modes, codingTools: false }} {...overrides} />)
+    state={{ status: 'ready', values: {}, catalog, skillCatalog, models, modes, agents: [], codingTools: false }} {...overrides} />)
   return { write, close, dialog: screen.getByRole('dialog') }
 }
 
@@ -59,24 +59,25 @@ it('saves the project model, reasoning effort, mode and disabled tools together'
   } })
 })
 
-it('writes null for both inherited project defaults and a cleared tool list', async () => {
-  const { dialog, write, close } = open({ state: { status: 'ready', catalog, skillCatalog, models, modes, codingTools: false, values: {
-    model: { provider: 'anthropic', model: 'haiku', reasoningEffort: 'high' }, mode: 'chat', toolsDisabled: ['bash'],
+it('writes null for cleared project defaults and tool switches', async () => {
+  const { dialog, write, close } = open({ state: { status: 'ready', catalog, skillCatalog, models, modes, agents: ['reviewer'], codingTools: false, values: {
+    model: { provider: 'anthropic', model: 'haiku', reasoningEffort: 'high' }, mode: 'chat', agent: 'reviewer', toolsDisabled: ['bash'],
   } } })
   choose(dialog, en['model.label'], en['inherit.global'])
   choose(dialog, en['mode.label'], en['inherit.global'])
+  choose(dialog, en['agent.label'], en['agent.none'])
   fireEvent.click(within(dialog).getByRole('checkbox', { name: 'bash', checked: false }))
   fireEvent.click(within(dialog).getByRole('button', { name: common.save }))
   await waitFor(() => { expect(close).toHaveBeenCalledOnce() })
   expect(write).toHaveBeenCalledExactlyOnceWith({ scope: 'project', id: 'project-c', values: {
-    model: null, mode: null, toolsDisabled: null,
+    model: null, mode: null, agent: null, toolsDisabled: null,
   } })
 })
 
 it('offers the Coding Tools presets only with that preference, as the composer does', () => {
   const roster = [...modes, { id: 'ptc', isDefault: false }, { id: 'hidden', name: 'Hidden', isDefault: false, showInModePicker: false }]
   const offered = (codingTools: boolean) => {
-    const { dialog } = open({ state: { status: 'ready', values: { mode: 'ptc' }, catalog, skillCatalog, models, modes: roster, codingTools } })
+    const { dialog } = open({ state: { status: 'ready', values: { mode: 'ptc' }, catalog, skillCatalog, models, modes: roster, agents: [], codingTools } })
     const picker = within(dialog).getByRole('button', { name: en['mode.label'] })
     const label = picker.textContent
     fireEvent.click(picker)
@@ -94,6 +95,7 @@ it('shows Tools and Skills for a chat and leaves untouched skill switches out of
   const { dialog, write, close } = open({ scope: 'session', id: 'session-a' })
   expect(within(dialog).queryByRole('button', { name: en['model.label'] })).toBeNull()
   expect(within(dialog).queryByRole('button', { name: en['mode.label'] })).toBeNull()
+  expect(within(dialog).queryByRole('button', { name: en['agent.label'] })).toBeNull()
   expect(within(dialog).getByRole('group', { name: en['tools.label'] })).toBeTruthy()
   expect(within(dialog).getByRole('group', { name: 'Skills' })).toBeTruthy()
   fireEvent.click(within(dialog).getByRole('checkbox', { name: 'read_file', checked: true }))
@@ -139,7 +141,7 @@ it('shows why inherited folders and skills cannot be turned on for this chat', (
     ] },
   ] }
   const { dialog } = open({ scope: 'session', id: 'session-a',
-    state: { status: 'ready', values: {}, catalog, models, modes, codingTools: false, skillCatalog: inherited } })
+    state: { status: 'ready', values: {}, catalog, models, modes, agents: [], codingTools: false, skillCatalog: inherited } })
   const skills = within(within(dialog).getByRole('group', { name: 'Skills' }))
   const folder = skills.getByRole('checkbox', { name: '/repo/shared', checked: false })
   expect(folder).toHaveProperty('disabled', true)
@@ -159,7 +161,7 @@ it('removes stored skill switches when their last entries are turned back on', a
     ] },
   ] }
   const { dialog, write, close } = open({ scope: 'global',
-    state: { status: 'ready', catalog, models, modes, codingTools: false, skillCatalog: disabled,
+    state: { status: 'ready', catalog, models, modes, agents: [], codingTools: false, skillCatalog: disabled,
       values: { skillsDisabled: ['summarize'], skillFoldersDisabled: ['/repo/skills'] } } })
   const skills = within(within(dialog).getByRole('group', { name: 'Skills' }))
   fireEvent.click(skills.getByRole('checkbox', { name: '/repo/skills', checked: false }))

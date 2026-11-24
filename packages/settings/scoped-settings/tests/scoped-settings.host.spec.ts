@@ -5,6 +5,8 @@ import { join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
 import { Context } from '@janhq/cordis'
 import type { Agent } from '@janhq/jan-agent'
+import type { AgentToolLimits } from '@janhq/jan-agent-profiles/types'
+import { syncTools } from '@janhq/jan-mcp-client/src/tools.ts'
 import { createScope } from '@janhq/jan-scope'
 import { SessionId } from '@janhq/jan-session'
 import SystemPrompt from '@janhq/jan-system-prompt'
@@ -12,20 +14,11 @@ import ToolRuntime, { defineTool } from '@janhq/jan-tools'
 import type { Workspace, WorkspaceId } from '@janhq/jan-workspace'
 import ScopedSettings from '../src/index.ts'
 
-const mcpServers = vi.hoisted(() => new Map<string, string>())
-vi.mock('@janhq/jan-mcp-client', () => ({
-  mcpToolOrigin: (definition: { name: string }) => {
-    const serverName = mcpServers.get(definition.name)
-    return serverName === undefined ? undefined : { serverName, rawName: definition.name }
-  },
-}))
-
 const roots: Context[] = []
 const dirs: string[] = []
 afterEach(async () => {
   for (const ctx of roots.splice(0)) await ctx.fiber.dispose()
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
-  mcpServers.clear()
 })
 
 const PROJECT = 'project-c' as WorkspaceId
@@ -37,6 +30,13 @@ function tool(name: string) {
     output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
     async execute() { return name },
   })
+}
+
+async function registerMcpTools(ctx: Context, names: string[]): Promise<void> {
+  await syncTools({
+    getServerCapabilities: () => ({ tools: {} }),
+    listTools: async () => ({ tools: names.map(name => ({ name, inputSchema: { type: 'object' } })) }),
+  } as never, ctx, { serverName: 'github', toolCallTimeoutMs: 1_000, signal: new AbortController().signal }, new Map())
 }
 
 interface Setup {
@@ -52,8 +52,8 @@ async function setup(options: Setup = {}) {
   roots.push(ctx)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
-  for (const name of ['bash', 'read', 'github_search', 'github_issue']) ctx.tools.register(tool(name))
-  mcpServers.set('github_search', 'github').set('github_issue', 'github')
+  for (const name of ['bash', 'read']) ctx.tools.register(tool(name))
+  await registerMcpTools(ctx, ['search', 'issue'])
   const workspaces: Workspace[] = [
     { id: PROJECT, path: '/repo/c', sessionIds: [SessionId('chat-a')] } as never,
     { id: OTHER, path: '/repo/d', sessionIds: [SessionId('chat-b')] } as never,
@@ -124,11 +124,28 @@ it('removes a key on null or an empty list, and drops a scope with nothing left'
   expect(JSON.parse(readFileSync(h.file, 'utf8'))).toEqual({ version: 1, global: {}, projects: {}, sessions: {} })
 })
 
+it('stores, restores and clears a project default agent', async () => {
+  const h = await setup()
+  const settings = await h.start()
+  await settings.write({ scope: 'project', id: PROJECT, values: { agent: 'team/reviewer' } })
+  expect(settings.resolveAgent(PROJECT)).toBe('team/reviewer')
+  expect(settings.resolveAgent(OTHER)).toBeUndefined()
+
+  const again = await (await setup({ file: h.file })).start()
+  expect(again.resolveAgent(PROJECT)).toBe('team/reviewer')
+  await again.write({ scope: 'project', id: PROJECT, values: { agent: null } })
+  expect(again.resolveAgent(PROJECT)).toBeUndefined()
+})
+
 it('refuses keys a scope does not store and projects that do not exist', async () => {
   const settings = await (await setup()).start()
   await expect(settings.write({ scope: 'global', values: { model: { provider: 'p', model: 'm' } } }))
     .rejects.toMatchObject({ code: 'scoped-settings/invalid' })
   await expect(settings.write({ scope: 'session', id: 'chat-a', values: { mode: 'chat' } }))
+    .rejects.toMatchObject({ code: 'scoped-settings/invalid' })
+  await expect(settings.write({ scope: 'global', values: { agent: 'reviewer' } }))
+    .rejects.toMatchObject({ code: 'scoped-settings/invalid' })
+  await expect(settings.write({ scope: 'session', id: 'chat-a', values: { agent: 'reviewer' } }))
     .rejects.toMatchObject({ code: 'scoped-settings/invalid' })
   await expect(settings.write({ scope: 'project', id: 'gone', values: { mode: 'chat' } }))
     .rejects.toMatchObject({ code: 'workspace/not-found' })
@@ -153,7 +170,7 @@ it('switches tools off as the union of every scope and lifts the switch when it 
   const inProject = await h.addAgent('chat-a', '/repo/c')
   const elsewhere = await h.addAgent('chat-b', '/repo/d')
   const settings = await h.start()
-  const all = ['bash', 'github_issue', 'github_search', 'read']
+  const all = ['bash', 'mcp__github__issue', 'mcp__github__search', 'read']
   expect(h.visible(inProject)).toEqual(all)
 
   await settings.write({ scope: 'global', values: { toolsDisabled: ['read'] } })
@@ -161,12 +178,50 @@ it('switches tools off as the union of every scope and lifts the switch when it 
   await settings.write({ scope: 'session', id: 'chat-a', values: { toolsDisabled: ['bash'] } })
   expect(settings.resolveToolsDisabled(SessionId('chat-a'))).toEqual(['bash', 'mcp:github', 'read'])
   expect(h.visible(inProject)).toEqual([])
-  expect(h.visible(elsewhere)).toEqual(['bash', 'github_issue', 'github_search'])
+  expect(h.visible(elsewhere)).toEqual(['bash', 'mcp__github__issue', 'mcp__github__search'])
 
   await settings.write({ scope: 'project', id: PROJECT, values: { toolsDisabled: null } })
   await settings.write({ scope: 'global', values: { toolsDisabled: null } })
-  expect(h.visible(inProject)).toEqual(['github_issue', 'github_search', 'read'])
+  expect(h.visible(inProject)).toEqual(['mcp__github__issue', 'mcp__github__search', 'read'])
   expect(h.visible(elsewhere)).toEqual(all)
+})
+
+it('combines a profile allowlist with global tool switches and refreshes when the profile changes', async () => {
+  const h = await setup()
+  const reviewer = await h.addAgent('chat-a', '/repo/c')
+  const plain = await h.addAgent('chat-b', '/repo/d')
+  let limits: AgentToolLimits = { allow: ['read'], deny: [] }
+  h.ctx.provide('agentProfiles', {
+    toolLimitsFor: (agent: Agent): AgentToolLimits => agent === reviewer ? limits : { deny: [] },
+  } as never)
+  const settings = await h.start()
+  expect(h.visible(reviewer)).toEqual(['read'])
+  expect(h.visible(plain)).toContain('bash')
+
+  await settings.write({ scope: 'global', values: { toolsDisabled: ['read'] } })
+  expect(h.visible(reviewer)).toEqual([])
+  expect(h.visible(plain)).not.toContain('read')
+
+  limits = { allow: ['mcp:github'], deny: ['mcp__github__issue'] }
+  h.ctx.emit('agent-profiles/changed')
+  expect(h.visible(reviewer)).toEqual(['mcp__github__search'])
+})
+
+it('keeps an empty expanded profile allowlist distinct from no allowlist', async () => {
+  const h = await setup()
+  const chat = await h.addAgent('chat-a', '/repo/c')
+  let limits: AgentToolLimits = { deny: [] }
+  h.ctx.provide('agentProfiles', { toolLimitsFor: () => limits } as never)
+  await h.start()
+  expect(h.visible(chat)).toContain('read')
+
+  limits = { allow: ['mcp:absent'], deny: [] }
+  h.ctx.emit('agent-profiles/changed')
+  expect(h.visible(chat)).toEqual([])
+
+  limits = { deny: [] }
+  h.ctx.emit('agent-profiles/changed')
+  expect(h.visible(chat)).toContain('read')
 })
 
 it('applies switches to an agent created later and to MCP tools that register later', async () => {
@@ -177,8 +232,7 @@ it('applies switches to an agent created later and to MCP tools that register la
   await h.ctx.serial('agent/created' as never, { agent: late, source: 'new' } as never)
   expect(h.visible(late)).toEqual(['bash', 'read'])
 
-  mcpServers.set('github_pulls', 'github')
-  h.ctx.tools.register(tool('github_pulls'))
+  await registerMcpTools(h.ctx, ['pulls'])
   expect(h.visible(late)).toEqual(['bash', 'read'])
   expect(settings.toolCatalog()).toEqual({ tools: ['bash', 'read'], mcpServers: ['github'] })
 })

@@ -22,6 +22,8 @@
     { "path": "../../client/ui-slots" },
     { "path": "../../client/ui-workspace" },
     { "path": "../../preset/agent-preset-registry" },
-    { "path": "../../typert/protocol" }
+    { "path": "../../preset/agent-profiles/tsconfig.client.json" },
+    { "path": "../../typert/protocol" },
+    { "path": "../../workspace/workspace" }
   ]
 }

@@ -1,6 +1,7 @@
 /** Browser entry for project defaults and scoped tool and skill switches. */
 import { presetDisplayText, type PresetDisplaySource } from '@janhq/jan-agent-preset-registry/display'
 import type { Context } from '@janhq/cordis'
+import type {} from '@janhq/jan-agent-profiles/remote'
 import type {} from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-client-locale/client'
 import type {} from '@janhq/jan-client-ui-agent-preset/client'
@@ -13,6 +14,7 @@ import type {} from '@janhq/jan-client-ui-workspace/client'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import { IconSettingsOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import remote from '@janhq/jan-scoped-settings/remote'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
 import type { ScopedWriteRequest } from '../types.ts'
 import { ScopedSettingsOverlay, type ScopedDialogRequest } from './ScopedSettingsDialog.tsx'
 import { GlobalToolsRow } from './GlobalToolsRow.tsx'
@@ -62,13 +64,15 @@ function registerUi(ctx: Context): void {
       const { scope, id } = address
       const session = scope === 'project' ? ctx.get('remote.session') as Context['remote']['session'] | undefined : undefined
       const presets = scope === 'project' ? ctx.get('remote.agentPresets') as Context['remote']['agentPresets'] | undefined : undefined
+      const profiles = scope === 'project' ? ctx.get('remote.agentProfiles') as Context['remote']['agentProfiles'] | undefined : undefined
       const target = { scope, ...id === undefined ? {} : { id } }
-      const [stored, tools, skills, models, modes] = await Promise.all([
+      const [stored, tools, skills, models, modes, agents] = await Promise.all([
         ctx.remote.scopedSettings.read(target),
         ctx.remote.scopedSettings.toolCatalog(),
         ctx.remote.scopedSettings.skillCatalog(target),
         session?.modelCatalog(),
         presets?.list(),
+        id === undefined ? undefined : profiles?.list({ workspaceId: id as WorkspaceId }),
       ])
       if (request.getSnapshot() !== loading) return
       if (!stored.ok) throw stored.error
@@ -76,8 +80,11 @@ function registerUi(ctx: Context): void {
       if (!skills.ok) throw skills.error
       if (models?.ok === false) throw models.error
       if (modes?.ok === false && modes.error.code !== 'gateway/invocation-unavailable') throw modes.error
+      if (agents?.ok === false && agents.error.code !== 'gateway/invocation-unavailable') throw agents.error
       request.set({ address, state: { status: 'ready', values: stored.value, catalog: tools.value, skillCatalog: skills.value,
         models: models?.value.groups ?? [], modes: modes?.ok ? modes.value.presets : [],
+        agents: agents?.ok ? agents.value.profiles.filter(profile => profile.use !== 'subagent' && profile.shadowedBy === undefined)
+          .map(profile => profile.id) : [],
         codingTools: ctx.get('configForms')?.developerTools.enabled.getSnapshot() ?? false,
       } })
     } catch (error) {

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 /** The configured project, chat and General Settings actions open the shared editor. */
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import type { AgentProfileListRequest, AgentProfileSummary } from '@janhq/jan-agent-profiles/types'
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
 import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
 import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
@@ -43,9 +44,14 @@ it('opens the correct scope from each entry point and excludes federated chats a
       { id: 'cordis', isDefault: false },
       { id: 'scout', isDefault: false, showInModePicker: false },
     ] } }))
+    const profile: AgentProfileSummary = { id: 'reviewer', description: '', use: 'all', scope: 'project', source: 'jan',
+      path: '/repo/.jan/agents/reviewer.md', writable: true, disallowedTools: [], warnings: [] }
+    const listProfiles = vi.fn(async (_request: AgentProfileListRequest) => ({ ok: true as const, value: { profiles: [
+      profile, { ...profile, id: 'worker', use: 'subagent' }, { ...profile, id: 'shadowed', shadowedBy: profile.path },
+    ], problems: [] } }))
     const mountRemote = vi.spyOn(runtime.remote, '$mount').mockImplementation(async () => {
       runtime.remote.provideNamespaces({ scopedSettings: { read, write, toolCatalog, skillCatalog },
-        session: { modelCatalog }, agentPresets: { list } })
+        session: { modelCatalog }, agentPresets: { list }, agentProfiles: { list: listProfiles } })
       return unmountRemote
     })
     await runtime.declare({
@@ -77,10 +83,14 @@ it('opens the correct scope from each entry point and excludes federated chats a
     // Without the Coding Tools preference the dialog hides PTC, as the composer's mode picker does.
     expect(screen.queryByRole('menuitem', { name: presetEn.presetPtcName })).toBeNull()
     fireEvent.click(screen.getByRole('menuitem', { name: presetEn.presetCordisName }))
+    expect(listProfiles).toHaveBeenCalledExactlyOnceWith({ workspaceId: 'project-c' })
+    fireEvent.click(within(project).getByRole('button', { name: en['agent.label'] }))
+    expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([en['agent.none'], 'reviewer'])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'reviewer' }))
     fireEvent.click(within(project).getByRole('button', { name: commonEn.save }))
     await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull() })
     expect(write).toHaveBeenNthCalledWith(1, { scope: 'project', id: 'project-c', values: {
-      model: null, mode: 'cordis', toolsDisabled: null,
+      model: null, mode: 'cordis', agent: 'reviewer', toolsDisabled: null,
     } })
 
     const command = chatCommand.mock.calls[0]![0]
@@ -120,6 +130,7 @@ it('opens the correct scope from each entry point and excludes federated chats a
     expect(write).toHaveBeenCalledTimes(2)
     expect(modelCatalog).toHaveBeenCalledOnce()
     expect(list).toHaveBeenCalledOnce()
+    expect(listProfiles).toHaveBeenCalledOnce()
 
     await feature.dispose()
     expect(unregisterProject).toHaveBeenCalledOnce()

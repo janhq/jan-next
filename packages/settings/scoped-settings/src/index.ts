@@ -2,11 +2,12 @@
 import { Context, Service } from '@janhq/cordis'
 import z from '@janhq/schemastery'
 import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
-import { mcpToolOrigin } from '@janhq/jan-mcp-client'
+import { expandMcpServerEntries, mcpToolOrigin } from '@janhq/jan-mcp-client'
 import type { Agent } from '@janhq/jan-agent'
 import type { SessionId } from '@janhq/jan-session'
 import type {} from '@janhq/jan-tools'
 import type { WorkspaceId } from '@janhq/jan-workspace'
+import type {} from '@janhq/jan-agent-profiles'
 import type {} from '@janhq/jan-agent-preset-registry'
 import type {} from '@janhq/jan-settings'
 import type { SkillViewOptions } from '@janhq/jan-skill'
@@ -28,7 +29,7 @@ export interface Config {
 
 declare module '@janhq/cordis' {
   interface Context {
-    /** Chat, project and global values for model, mode, tools and skills. */
+    /** Chat, project and global values for model, mode, agent profile, tools and skills. */
     scopedSettings: ScopedSettings
   }
 
@@ -43,15 +44,14 @@ declare module '@janhq/cordis' {
 }
 
 interface Restriction {
-  /** Sorted deny list the restriction was built from. */
+  /** Canonical allow and deny lists the restriction was built from. */
   readonly key: string
   lift?: () => void
 }
 
 /**
- * Stores per-scope values in one document, applies the tool switches to every live agent and
- * hides switched-off skills from every lookup. Chat model and mode already live in each chat's
- * own log; this service adds the project layer for new chats and the switches for every scope.
+ * Stores project defaults for new chats and scoped tool and skill switches. Merges each live agent's
+ * profile limits with the tool switches and hides switched-off skills from every lookup.
  */
 export default class ScopedSettings extends TypertRemoteService {
   static inject = ['agents', 'workspaceRegistry', 'tools']
@@ -79,6 +79,7 @@ export default class ScopedSettings extends TypertRemoteService {
     this.ctx.on('agent/disposed', ({ agent }) => { this.restrictions.delete(agent) }, { global: true })
     this.ctx.on('tools/change', refresh)
     this.ctx.on('scoped-settings/changed', refresh)
+    this.ctx.on('agent-profiles/changed', refresh)
     // Skill catalogs are cached per lookup; a switch change must reach the next turn's catalog.
     this.ctx.on('scoped-settings/changed', () => { this.ctx.get('skills')?.refresh() })
     this.ctx.inject(['skills'], (child) => {
@@ -137,6 +138,15 @@ export default class ScopedSettings extends TypertRemoteService {
     const presets = this.ctx.get('agentPresets')
     if (mode === undefined || presets === undefined) return undefined
     return (await presets.list()).some(preset => preset.id === mode && preset.broken === undefined) ? mode : undefined
+  }
+
+  /**
+   * Default agent profile stored for a project's new chats.
+   * @param workspaceId - the project, or undefined outside any project.
+   * @returns the stored profile id, without checking whether the profile is still available.
+   */
+  resolveAgent(workspaceId: WorkspaceId | undefined): string | undefined {
+    return workspaceId === undefined ? undefined : this.document.projects[workspaceId]?.agent
   }
 
   /**
@@ -304,37 +314,30 @@ export default class ScopedSettings extends TypertRemoteService {
     return { ...this.document, [key]: Object.keys(values).length === 0 ? rest : { ...rest, [id ?? '']: values } }
   }
 
-  /** Expand `mcp:<server>` entries against the registered tools. */
-  private denyList(disabled: readonly string[]): string[] {
-    const servers = new Set(disabled.filter(name => name.startsWith(MCP_SERVER_PREFIX)).map(name => name.slice(MCP_SERVER_PREFIX.length)))
-    const names = new Set(disabled.filter(name => !name.startsWith(MCP_SERVER_PREFIX)))
-    if (servers.size > 0) {
-      for (const definition of this.ctx.tools.definitions()) {
-        const origin = mcpToolOrigin(definition)
-        if (origin !== undefined && servers.has(origin.serverName)) names.add(definition.name)
-      }
-    }
-    return [...names].sort()
-  }
-
   /**
-   * Keep one restriction per agent that matches its chat's switches. The key is
-   * recorded before the restriction changes, because lifting or adding one emits
-   * `tools/change`, which calls back here.
+   * Keep one restriction per agent for the combined switches and profile limits.
+   * Record the key first because lifting or adding a restriction emits `tools/change`.
    */
   private applyTools(agent: Agent): void {
-    const deny = this.denyList(this.resolveToolsDisabled(agent.id, agent.session.header.cwd))
-    const key = deny.join('\n')
+    const limits = this.ctx.get('agentProfiles')?.toolLimitsFor(agent)
+    const disabled = this.resolveToolsDisabled(agent.id, agent.session.header.cwd)
+    if (limits?.deny.length) disabled.push(...limits.deny)
+    const hasMcp = disabled.some(name => name.startsWith(MCP_SERVER_PREFIX))
+      || limits?.allow?.some(name => name.startsWith(MCP_SERVER_PREFIX))
+    const definitions = hasMcp ? this.ctx.tools.definitions() : []
+    const deny = expandMcpServerEntries(disabled, definitions)
+    const allow = limits?.allow === undefined ? undefined : expandMcpServerEntries(limits.allow, definitions)
+    const key = JSON.stringify([allow, deny])
     const current = this.restrictions.get(agent)
     if (current?.key === key) return
     const next: Restriction = { key }
     this.restrictions.set(agent, next)
     current?.lift?.()
-    if (deny.length === 0) return
+    if (allow === undefined && deny.length === 0) return
     try {
-      next.lift = agent.ctx.tools.restrict({ deny }, { allowUnregistered: true })
+      next.lift = agent.ctx.tools.restrict({ ...(allow === undefined ? {} : { allow }), deny }, { allowUnregistered: true })
     } catch (error) {
-      this.ctx.logger.warn(`scoped settings: could not switch tools off for ${agent.id}: ${(error as Error).message}`)
+      this.ctx.logger.warn(`scoped settings: could not restrict tools for ${agent.id}: ${String(error)}`)
     }
   }
 }

@@ -27,6 +27,8 @@ export interface ScopedValues {
   readonly model?: ScopedModel | undefined
   /** Agent preset (mode) new chats start in. Project scope only. */
   readonly mode?: string
+  /** Agent profile id new chats select by default. Project scope only. */
+  readonly agent?: string | undefined
   /** Tool names, or `mcp:<server>` for every tool of one MCP server, switched off. */
   readonly toolsDisabled?: string[]
   /** Skill names switched off. */
@@ -39,6 +41,8 @@ export interface ScopedValues {
 export interface ScopedValuesPatch {
   readonly model?: ScopedModel | null
   readonly mode?: string | null
+  /** Default agent profile id, or `null` to clear it. Project scope only. */
+  readonly agent?: string | null
   readonly toolsDisabled?: string[] | null
   readonly skillsDisabled?: string[] | null
   readonly skillFoldersDisabled?: string[] | null

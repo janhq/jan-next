@@ -20,6 +20,7 @@ type Ready = {
   readonly skillCatalog: ScopedSkillCatalog
   readonly models: readonly ModelProviderGroup[]
   readonly modes: readonly AgentPresetRow[]
+  readonly agents: readonly string[]
   /** Whether the Coding Tools preference offers the presets that require it, as in the composer's mode picker. */
   readonly codingTools: boolean
 }
@@ -129,6 +130,7 @@ function SettingsForm({ initial, scope, formId, saving, save, presetName, t }: L
 }) {
   const [model, setModel] = useState(initial.values.model)
   const [mode, setMode] = useState(initial.values.mode ?? '')
+  const [agent, setAgent] = useState(initial.values.agent ?? '')
   const [tools, setTools] = useState(() => new Set(initial.values.toolsDisabled))
   const [skills, setSkills] = useState(() => new Set(initial.values.skillsDisabled))
   const [folders, setFolders] = useState(() => new Set(initial.values.skillFoldersDisabled))
@@ -143,6 +145,7 @@ function SettingsForm({ initial, scope, formId, saving, save, presetName, t }: L
     const skillsDisabled = changedSwitches(initial.values.skillsDisabled, skills)
     const skillFoldersDisabled = changedSwitches(initial.values.skillFoldersDisabled, folders)
     void save({ ...scope === 'project' ? { model: model ?? null, mode: mode || null } : {},
+      ...scope === 'project' && agent !== (initial.values.agent ?? '') ? { agent: agent || null } : {},
       toolsDisabled: tools.size === 0 ? null : [...tools].sort(),
       ...skillsDisabled === undefined ? {} : { skillsDisabled },
       ...skillFoldersDisabled === undefined ? {} : { skillFoldersDisabled },
@@ -152,6 +155,12 @@ function SettingsForm({ initial, scope, formId, saving, save, presetName, t }: L
       <ModelFields groups={initial.models} model={model} setModel={setModel} saving={saving} t={t} />
       <ModeField modes={initial.modes} codingTools={initial.codingTools} mode={mode} setMode={setMode} saving={saving}
         presetName={presetName} t={t} />
+      <div className={css.field}>
+        <span>{t('agent.label')}</span>
+        <SelectMenu align="start" label={t('agent.label')} value={agent} disabled={saving} onChange={setAgent}
+          placeholder={agent !== '' && !initial.agents.includes(agent) ? t('choice.unavailable', { name: agent }) : undefined}
+          options={[{ id: '', label: t('agent.none') }, ...initial.agents.map(id => ({ id, label: id }))]} />
+      </div>
     </>}
     <fieldset className={css.switches}>
       <legend>{t('tools.label')}</legend>

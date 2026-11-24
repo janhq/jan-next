@@ -1,5 +1,5 @@
 ---
-description: "Model, mode, tool and skill switches that resolve per chat, then per project, then globally."
+description: "Project defaults for model, mode and agent profile, plus scoped tool and skill switches."
 kind: "package-reference"
 ---
 
@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-Give each project its own default model and mode for new chats, and switch tools and skills off for every chat, one project or one chat. Values live in one document in Jan's home, not in the project folder. A chat's own model and mode choices stay in its log and always win.
+Give each project its own default model, mode and agent for new chats, and switch tools and skills off for every chat, one project or one chat. Settings live in a document in Jan's home, not in the project folder. A chat's own selections stay in its log.
 
 ## Table of Contents
 
@@ -30,14 +30,15 @@ The web-app bundle mounts it after the workspace controller:
     file: !!js janHomePath('settings', 'scoped.json')
 ```
 
-It needs `agents`, `workspaceRegistry` and `tools`; `agentPresets` is optional and only checks that a project mode still exists, and `skills` is optional and receives the skill filter.
+The service requires `agents`, `workspaceRegistry` and `tools`. Optional `agentPresets` validates the project mode, `agentProfiles` supplies chat tool limits, and `skills` receives the skill filter.
 
-Open **Project settings** from a project's context menu to choose its default model, reasoning effort and mode, or to switch off tools and skills in that project. Use `/tools` in a chat (**Tools and skills for this chat**) or **Settings > General > Tools and skills for every chat** to edit the other two scopes. A checked tool or skill is not switched off at the scope you are editing; a wider scope can still switch it off.
+Open **Project settings** from a project's context menu to choose its default model, reasoning effort, mode and agent, or to switch off tools and skills in that project. The **Default agent** menu offers profiles that can run a chat; **None** clears the default. Use `/tools` in a chat (**Tools and skills for this chat**) or **Settings > General > Tools and skills for every chat** to edit the other two scopes. A checked tool or skill is not switched off at the scope you are editing; a wider scope can still switch it off.
 
 | Setting | Chat | Project | Global | Resolution |
 |---|---|---|---|---|
 | Model and reasoning effort | Chat's own selection (session log) | `model` | `agent-default-model` | Chat, then project, then global |
 | Mode (agent preset) | Chat's own selection (session log) | `mode` | `agent-preset-registry` default | Chat, then project, then global |
+| Agent profile | Chat's own selection (session log) | `agent` | None | Requested profile or plain Jan, then project default |
 | Tools off | `toolsDisabled` | `toolsDisabled` | `toolsDisabled` | Union: any scope can switch a tool off |
 | Skills off | `skillsDisabled`, `skillFoldersDisabled` | same | same | Union: any scope can switch a skill or its folder off |
 
@@ -53,7 +54,7 @@ Remote methods (`ctx.remote.scopedSettings`):
 - `toolCatalog()` lists global tool names outside MCP and the MCP servers with tools.
 - `skillCatalog({ scope, id? })` lists every skill a chat in that scope could load, grouped by folder, with the scope's own switches and `offAt` naming the wider scope that already switched one off.
 
-Host callers use `resolveModel(sessionId, workspaceHint?)`, `resolveMode(workspaceId)`, `resolveToolsDisabled(sessionId)` and `projectOf(sessionId, cwd?)`. The session controller reads the first two when it creates a chat. Each write emits `scoped-settings/changed`.
+Host callers use `resolveModel(sessionId, workspaceHint?)`, `resolveMode(workspaceId)`, `resolveAgent(workspaceId)`, `resolveToolsDisabled(sessionId)` and `projectOf(sessionId, cwd?)`. The session controller reads the project defaults when it creates a chat. Each write emits `scoped-settings/changed`.
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
@@ -63,7 +64,7 @@ Host callers use `resolveModel(sessionId, workspaceHint?)`, `resolveMode(workspa
 
 The [store](src/store.ts) validates the document with the same schema on every load. A file that does not parse is renamed to `scoped.json.invalid-<timestamp>` with a warning, and Jan starts empty. Writes run one at a time and replace the file atomically with mode `0600`.
 
-The [service](src/index.ts) keeps one `tools.restrict({ deny })` per live agent. It recomputes on `agent/created`, `tools/change` and `scoped-settings/changed`, and changes the restriction only when the deny list changed, because changing it emits `tools/change` again. A chat belongs to the project whose session list holds it, or else to the innermost project whose folder holds the chat's folder.
+The [service](src/index.ts) keeps at most one tool restriction per live agent. It expands MCP server entries against the current registry and refreshes on agent creation, tool registration changes, scoped settings writes, and profile changes. A chat belongs to the project whose session list holds it, or else to the innermost project whose folder holds the chat's folder.
 
 Skills use one `skills.registerFilter` entry. For a lookup whose scope is a chat's agent, it unions the global, project and chat switches; a lookup without an agent (a new chat, the project page) uses the global switches and the project that holds its folder. Each write calls `skills.refresh()`, so the next turn gets a new skill catalog. [Skill matching](src/skills.ts) groups skills by the folder above `<name>/SKILL.md` or `<name>.md`.
 
@@ -82,7 +83,7 @@ Skills use one `skills.registerFilter` entry. For a lookup whose scope is a chat
 
 #### What the model sees
 
-A tool named in any scope's `toolsDisabled`, or covered by an `mcp:<server>` entry, is absent from the chat's tool list from the next request; the model is not told it was removed. A project's default `model` and `mode` apply only to chats created after the change.
+A tool named in any scope's `toolsDisabled` or denied by the chat's agent profile is absent from the chat's tool list from the next request. A profile allowlist also hides global tools it does not include; it cannot restore a denied tool. The model is not told what was removed. A project's defaults apply only when starting a new chat.
 
 #### Token effect
 

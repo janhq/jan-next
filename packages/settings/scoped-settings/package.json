@@ -1,6 +1,6 @@
 {
   "name": "@janhq/jan-scoped-settings",
-  "description": "Model, mode and tool switches that resolve per chat, then per project, then globally",
+  "description": "Project defaults for model, mode and agent profile, plus scoped tool and skill switches",
   "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
@@ -71,7 +71,13 @@
   "license": "MIT",
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent-profiles": "workspace:*",
     "@janhq/jan-mcp-client": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@janhq/jan-agent-profiles": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@janhq/jan-atomic-write": "workspace:*",
@@ -83,6 +89,7 @@
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-agent-preset-registry": "workspace:*",
+    "@janhq/jan-agent-profiles": "workspace:*",
     "@janhq/jan-api-remotes": "workspace:*",
     "@janhq/jan-api-session-controller": "workspace:*",
     "@janhq/jan-client-locale": "workspace:*",

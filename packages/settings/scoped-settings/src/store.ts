@@ -16,8 +16,12 @@ const Model: z<ScopedModel> = z.object({
 })
 const LISTS = { toolsDisabled: Names, skillsDisabled: Names, skillFoldersDisabled: Names }
 const ListValues = z.object(LISTS)
-// A project may store a mode or tools without a model; an absent object must not be validated as `{}`.
-const ProjectValues = z.object({ model: z.union([Model, z.const(undefined)]), mode: z.string().min(1), ...LISTS })
+const Agent = z.string().min(1)
+// An absent model object has to survive validation without becoming `{}`.
+const ProjectValues = z.object({
+  model: z.union([Model, z.const(undefined)]), mode: z.string().min(1),
+  agent: z.union([Agent, z.const(undefined)]), ...LISTS,
+})
 const Document: z<ScopedSettingsDocument> = z.object({
   version: z.const(1).required(),
   global: ListValues,
@@ -25,10 +29,10 @@ const Document: z<ScopedSettingsDocument> = z.object({
   sessions: z.dict(ListValues),
 })
 
-/** Keys each scope stores; model and mode choose how a new chat starts, so only projects carry them. */
+/** Only projects store the defaults that choose how a new chat starts. */
 const SCOPE_KEYS: Readonly<Record<SettingScope, readonly string[]>> = {
   global: SCOPE_LIST_KEYS,
-  project: ['model', 'mode', ...SCOPE_LIST_KEYS],
+  project: ['model', 'mode', 'agent', ...SCOPE_LIST_KEYS],
   session: SCOPE_LIST_KEYS,
 }
 
@@ -66,6 +70,7 @@ export function checkPatch(scope: SettingScope, patch: ScopedValuesPatch): Scope
   return {
     ...patch.model === undefined ? {} : { model: patch.model === null ? null : Model(patch.model) },
     ...patch.mode === undefined ? {} : { mode: patch.mode === null ? null : z.string().min(1)(patch.mode) },
+    ...patch.agent === undefined ? {} : { agent: patch.agent === null ? null : Agent(patch.agent) },
     ...lists,
   }
 }
@@ -80,8 +85,10 @@ export function patchValues(current: ScopedValues, patch: ScopedValuesPatch): Sc
   const next: { -readonly [K in keyof ScopedValues]: ScopedValues[K] } = {}
   const model = patch.model === undefined ? current.model : patch.model ?? undefined
   const mode = patch.mode === undefined ? current.mode : patch.mode ?? undefined
+  const agent = patch.agent === undefined ? current.agent : patch.agent ?? undefined
   if (model !== undefined) next.model = model
   if (mode !== undefined) next.mode = mode
+  if (agent !== undefined) next.agent = agent
   for (const key of SCOPE_LIST_KEYS) {
     const value = patch[key] === undefined ? current[key] : patch[key]
     if (value !== null && value !== undefined && value.length > 0) next[key] = [...new Set(value)].sort()
