@@ -332,3 +332,21 @@ it('keeps a running chat on the profile it first read, so a hot edit never rewri
   expect(await h.prompt(agent)).toContain('Squawk.')
   expect(h.profiles.toolLimitsFor(agent)).toEqual({ allow: ['read', 'grep'], deny: [] })
 })
+
+it('keeps the previous profile pinned when a profile switch is refused', async () => {
+  const h = await setup()
+  const file = join(h.project, '.jan', 'agents', 'pirate.md')
+  write(file, '---\nname: pirate\ntools: Read\n---\nArr.')
+  const agent = h.addAgent('chat-a')
+  await h.profiles.select({ sessionId: agent.id, id: 'pirate' })
+  const before = await h.prompt(agent)
+  expect(before).toContain('Arr.')
+
+  await expect(h.profiles.select({ sessionId: agent.id, id: 'missing' })).rejects.toMatchObject({ code: 'agent-profiles/not-found' })
+  write(file, '---\nname: pirate\ntools: Grep\n---\nSquawk.')
+  expect((await h.profiles.get({ id: 'pirate', workspaceId: PROJECT })).instructions).toBe('Squawk.')
+
+  expect(h.profiles.profileForSession(agent.session as never)).toBe('pirate')
+  expect(await h.prompt(agent)).toBe(before)
+  expect(h.profiles.toolLimitsFor(agent)).toEqual({ allow: ['read'], deny: [] })
+})

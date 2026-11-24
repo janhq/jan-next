@@ -385,7 +385,7 @@ export default class AgentProfiles extends TypertRemoteService {
     const selection = model === undefined ? undefined : await this.prepareModel(model)
     if (this.ctx.agents.turnBoundaryOf(agent.session).openTurnStartSeq !== null) throw busy()
 
-    const commit = async (): Promise<void> => {
+    const commit = (): Promise<void> => {
       // An explicit pick, even of the same profile, takes the file as it is now.
       this.pinned.delete(agent.id)
       const changed = this.profileForSession(agent.session) !== id || !this.hasSelection(agent.session)
@@ -400,6 +400,7 @@ export default class AgentProfiles extends TypertRemoteService {
         }
       }
       if (changed) this.ctx.emit('agent-profiles/changed')
+      return Promise.resolve()
     }
     let committing: Promise<void>
     try {
@@ -569,8 +570,8 @@ async function realpathWithMissingFolders(path: string): Promise<string> {
   const missing: string[] = []
   let current = path
   for (;;) {
-    const existing = await lstat(current).catch((error: NodeJS.ErrnoException) => {
-      if (error.code !== 'ENOENT') throw error
+    const existing = await lstat(current).catch((error: unknown) => {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error
       return undefined
     })
     if (existing !== undefined) return join(await realpath(current), ...missing.reverse())
