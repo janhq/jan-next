@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "智能体配置",
+    "description": "拥有自己指令、模型和工具的命名智能体，可与 Claude Code、opencode 和 Codex 共用。"
+  }
+}

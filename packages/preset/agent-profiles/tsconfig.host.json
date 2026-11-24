@@ -1,0 +1,56 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo"
+  },
+  "files": [
+    "src/index.ts",
+    "src/parse.ts",
+    "src/roots.ts",
+    "src/session.ts",
+    "src/types.ts"
+  ],
+  "references": [
+    {
+      "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../../vendor/schemastery"
+    },
+    {
+      "path": "../../typert/protocol"
+    },
+    {
+      "path": "../../core/agent"
+    },
+    {
+      "path": "../../core/session"
+    },
+    {
+      "path": "../../core/system-prompt"
+    },
+    {
+      "path": "../../core/tools"
+    },
+    {
+      "path": "../../session/session-projection"
+    },
+    {
+      "path": "../../workspace/workspace"
+    },
+    {
+      "path": "../../llm/llm"
+    },
+    {
+      "path": "../../util/home-paths"
+    },
+    {
+      "path": "../../util/atomic-write"
+    },
+    {
+      "path": "../../mcp/mcp-client"
+    }
+  ]
+}

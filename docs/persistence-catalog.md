@@ -23,6 +23,7 @@ The [format references](persistence-changes/historical-formats/README.md) cover 
 | `JsonlHeaderLine` | header | `18ee62b8900a4c3d046700f05d7a4d49d6cab2a660a020c87481d1603dd8bd4f` | [`HeaderLine`](#persistence-type-sha256-18ee62b8900a4c3d046700f05d7a4d49d6cab2a660a020c87481d1603dd8bd4f) |
 | `SessionEventEnvelope` | envelope | `5776e5553ff2dfe3f5bc202dbb1e7c9f93e35a531aebb7764c23b2b6153b2ccc` | [`union (3 variants)`](#persistence-type-sha256-5776e5553ff2dfe3f5bc202dbb1e7c9f93e35a531aebb7764c23b2b6153b2ccc) |
 | `event:agent-preset/selected` | event | `fb337485cb5d29c811f5104371cbeb271b66469f5987ce90713747c6075f4c0c` | [`{ type: "agent-preset/selected" }`](#persistence-type-sha256-fb337485cb5d29c811f5104371cbeb271b66469f5987ce90713747c6075f4c0c) |
+| `event:agent-profile/selected` | event | `776de1b95df5e96176c53d045a96d576a0936d81b7ec50266ed4a23dcbc0b3db` | [`{ type: "agent-profile/selected" }`](#persistence-type-sha256-776de1b95df5e96176c53d045a96d576a0936d81b7ec50266ed4a23dcbc0b3db) |
 | `event:agent/inbox/spliced` | event | `49db4ed6efc91e5793e149f39bcd7f72689eb8122b962b69196139758e1811d4` | [`{ type: "agent/inbox/spliced" }`](#persistence-type-sha256-49db4ed6efc91e5793e149f39bcd7f72689eb8122b962b69196139758e1811d4) |
 | `event:approval/asked` | event | `3bfeb47b58606f4661904bc723da612782214c463d01e6d61cd6d6193d7374e1` | [`{ type: "approval/asked" }`](#persistence-type-sha256-3bfeb47b58606f4661904bc723da612782214c463d01e6d61cd6d6193d7374e1) |
 | `event:approval/decided` | event | `bb1ab3d08f49a9f3b265f844cd78d5c49813062a7b34b54904b426f85d0ff6e3` | [`{ type: "approval/decided" }`](#persistence-type-sha256-bb1ab3d08f49a9f3b265f844cd78d5c49813062a7b34b54904b426f85d0ff6e3) |
@@ -206,6 +207,22 @@ Source: [`packages/core/agent/src/types.ts:110`](../packages/core/agent/src/type
 ```
 
 Source: [`packages/preset/agent-preset-registry/src/session.ts:31`](../packages/preset/agent-preset-registry/src/session.ts)
+
+### `agent-profile/*`
+
+<a id="agent-profileselected--log-only"></a>
+
+#### `agent-profile/selected` — log-only
+
+```ts persistence-catalog
+/**
+ * The chat's agent profile was chosen, or cleared with `null`, at a turn boundary. Log-only: later turns add
+ * that profile's instructions and tool limits; nothing above the event is rewritten.
+ */
+'agent-profile/selected': { agentProfile: string | null }
+```
+
+Source: [`packages/preset/agent-profiles/src/session.ts:16`](../packages/preset/agent-profiles/src/session.ts)
 
 ### `approval/*`
 
@@ -1378,6 +1395,14 @@ SHA-256: `82470020b5bfcb1a843e2aa05602af7d37df99e82d01f015c7c589ba054fd89d`
 SHA-256: `557e148d30b79ee48645850832b30c717d7c3b64641deb5d6133b8b4e91ee0b8`
 
 `"agent-preset/selected"`
+
+<a id="persistence-type-sha256-656f10d68a463e42a1ae3aa517902459dbc763a3201473e4f2f339b8cfea3059"></a>
+
+### `"agent-profile/selected"`
+
+SHA-256: `656f10d68a463e42a1ae3aa517902459dbc763a3201473e4f2f339b8cfea3059`
+
+`"agent-profile/selected"`
 
 <a id="persistence-type-sha256-829a2fb3be6efd4ba36aef8ed2d381a4c6fb2a0aaf50c823a6f3f8290786b809"></a>
 
@@ -5601,7 +5626,7 @@ Array of `number`.
 
 SHA-256: `4cd48f3e5108bd6ebedf7301c3638839b8b2b9db8dbd493974177fbdeb91a01b`
 
-Sources: [`packages/api/session-controller/src/types.ts:446`](../packages/api/session-controller/src/types.ts) · [`packages/attachment/attachment/src/brand.ts:6`](../packages/attachment/attachment/src/brand.ts) · [`packages/compaction/compaction/src/brand.ts:4`](../packages/compaction/compaction/src/brand.ts) · [`packages/core/session/src/types.ts:21`](../packages/core/session/src/types.ts) · [`packages/experimental/webhook/src/brand.ts:12`](../packages/experimental/webhook/src/brand.ts) · [`packages/experimental/webhook/src/brand.ts:6`](../packages/experimental/webhook/src/brand.ts) · [`packages/experimental/webhook/src/brand.ts:9`](../packages/experimental/webhook/src/brand.ts) · [`packages/feedback/message-feedback/src/types.ts:14`](../packages/feedback/message-feedback/src/types.ts) · [`packages/goal/goal/src/types.ts:17`](../packages/goal/goal/src/types.ts) · [`packages/interaction/commands/src/brand.ts:31`](../packages/interaction/commands/src/brand.ts) · [`packages/interaction/user-approval/src/types.ts:17`](../packages/interaction/user-approval/src/types.ts) · [`packages/jobs/jobs/src/brand.ts:19`](../packages/jobs/jobs/src/brand.ts) · [`packages/llm/llm-retry/src/brand.ts:4`](../packages/llm/llm-retry/src/brand.ts) · [`packages/llm/llm/src/brand.ts:16`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:31`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:43`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:67`](../packages/llm/llm/src/brand.ts) · [`packages/schedule/schedule/src/types.ts:13`](../packages/schedule/schedule/src/types.ts) · [`packages/session/session-title/src/index.ts:42`](../packages/session/session-title/src/index.ts) · [`packages/session/session-title/src/types.ts:17`](../packages/session/session-title/src/types.ts) · [`packages/team/agent-team/src/types.ts:20`](../packages/team/agent-team/src/types.ts) · [`packages/team/agent-team/src/types.ts:32`](../packages/team/agent-team/src/types.ts) · [`packages/team/agent-team/src/types.ts:8`](../packages/team/agent-team/src/types.ts) · [`packages/workflow/workflow/src/types.ts:13`](../packages/workflow/workflow/src/types.ts)
+Sources: [`packages/api/session-controller/src/types.ts:448`](../packages/api/session-controller/src/types.ts) · [`packages/attachment/attachment/src/brand.ts:6`](../packages/attachment/attachment/src/brand.ts) · [`packages/compaction/compaction/src/brand.ts:4`](../packages/compaction/compaction/src/brand.ts) · [`packages/core/session/src/types.ts:21`](../packages/core/session/src/types.ts) · [`packages/experimental/webhook/src/brand.ts:12`](../packages/experimental/webhook/src/brand.ts) · [`packages/experimental/webhook/src/brand.ts:6`](../packages/experimental/webhook/src/brand.ts) · [`packages/experimental/webhook/src/brand.ts:9`](../packages/experimental/webhook/src/brand.ts) · [`packages/feedback/message-feedback/src/types.ts:14`](../packages/feedback/message-feedback/src/types.ts) · [`packages/goal/goal/src/types.ts:17`](../packages/goal/goal/src/types.ts) · [`packages/interaction/commands/src/brand.ts:31`](../packages/interaction/commands/src/brand.ts) · [`packages/interaction/user-approval/src/types.ts:17`](../packages/interaction/user-approval/src/types.ts) · [`packages/jobs/jobs/src/brand.ts:19`](../packages/jobs/jobs/src/brand.ts) · [`packages/llm/llm-retry/src/brand.ts:4`](../packages/llm/llm-retry/src/brand.ts) · [`packages/llm/llm/src/brand.ts:16`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:31`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:43`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:67`](../packages/llm/llm/src/brand.ts) · [`packages/schedule/schedule/src/types.ts:13`](../packages/schedule/schedule/src/types.ts) · [`packages/session/session-title/src/index.ts:42`](../packages/session/session-title/src/index.ts) · [`packages/session/session-title/src/types.ts:17`](../packages/session/session-title/src/types.ts) · [`packages/team/agent-team/src/types.ts:20`](../packages/team/agent-team/src/types.ts) · [`packages/team/agent-team/src/types.ts:32`](../packages/team/agent-team/src/types.ts) · [`packages/team/agent-team/src/types.ts:8`](../packages/team/agent-team/src/types.ts) · [`packages/workflow/workflow/src/types.ts:13`](../packages/workflow/workflow/src/types.ts)
 
 `string`
 
@@ -5811,6 +5836,18 @@ Sources: [`packages/preset/agent-preset-registry/src/session.ts:31`](../packages
 |---|---|---|
 | `agentPreset` | required | `string` |
 | `source` | optional | `"route-default"` |
+
+<a id="persistence-type-sha256-141d6d60cf89de0b3814c3ab35bf050d5af6d9e7218d418a64c38bcd75f78673"></a>
+
+### `{ agentProfile }`
+
+SHA-256: `141d6d60cf89de0b3814c3ab35bf050d5af6d9e7218d418a64c38bcd75f78673`
+
+Sources: [`packages/preset/agent-profiles/src/session.ts:16`](../packages/preset/agent-profiles/src/session.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `agentProfile` | required | [`union (2 variants)`](#persistence-type-sha256-799231ac91869a6695666505343003905638e1b4d11349bff953d4dbfe3191ba) |
 
 <a id="persistence-type-sha256-0d47a8f3d847243c4488e755ad4cab7a04ac5d4621b9c81865524cf3f4d8536f"></a>
 
@@ -7253,7 +7290,7 @@ SHA-256: `db06ef35b27a38425046b2228fa6bce9582abe140d781d363137eb2f4d233a1c`
 
 SHA-256: `8f1062573ea9184129dfdec43df1e8136eb5808746fd809bf6b539f3fd11362e`
 
-Sources: [`packages/api/session-controller/src/types.ts:457`](../packages/api/session-controller/src/types.ts)
+Sources: [`packages/api/session-controller/src/types.ts:459`](../packages/api/session-controller/src/types.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -7772,7 +7809,7 @@ Sources: [`packages/core/tools/src/index.ts:28`](../packages/core/tools/src/inde
 
 SHA-256: `a4afec59b75aad5d13ef82d6931f35cc2d98918503916cf069355b77c5e42302`
 
-Sources: [`packages/api/session-controller/src/types.ts:455`](../packages/api/session-controller/src/types.ts)
+Sources: [`packages/api/session-controller/src/types.ts:457`](../packages/api/session-controller/src/types.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -8117,6 +8154,22 @@ SHA-256: `fb337485cb5d29c811f5104371cbeb271b66469f5987ce90713747c6075f4c0c`
 | `seq` | required | `number` |
 | `time` | required | `number` |
 | `type` | required | `"agent-preset/selected"` |
+
+<a id="persistence-type-sha256-776de1b95df5e96176c53d045a96d576a0936d81b7ec50266ed4a23dcbc0b3db"></a>
+
+<a id="persistence-type-eventagent-profileselected"></a>
+
+### `{ type: "agent-profile/selected" }`
+
+SHA-256: `776de1b95df5e96176c53d045a96d576a0936d81b7ec50266ed4a23dcbc0b3db`
+
+| Property | Presence | Type |
+|---|---|---|
+| `data` | required | [`{ agentProfile }`](#persistence-type-sha256-141d6d60cf89de0b3814c3ab35bf050d5af6d9e7218d418a64c38bcd75f78673) |
+| `ignorable` | optional | `true` |
+| `seq` | required | `number` |
+| `time` | required | `number` |
+| `type` | required | `"agent-profile/selected"` |
 
 <a id="persistence-type-sha256-49db4ed6efc91e5793e149f39bcd7f72689eb8122b962b69196139758e1811d4"></a>
 

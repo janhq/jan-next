@@ -1994,6 +1994,9 @@ importers:
       '@janhq/jan-agent-preset-registry':
         specifier: workspace:*
         version: link:../../preset/agent-preset-registry
+      '@janhq/jan-agent-profiles':
+        specifier: workspace:*
+        version: link:../../preset/agent-profiles
       '@janhq/jan-agent-team':
         specifier: workspace:*
         version: link:../../team/agent-team
@@ -2163,6 +2166,9 @@ importers:
       '@janhq/jan-agent-preset-registry':
         specifier: workspace:*
         version: link:../../preset/agent-preset-registry
+      '@janhq/jan-agent-profiles':
+        specifier: workspace:*
+        version: link:../../preset/agent-profiles
       '@janhq/jan-api-gateway':
         specifier: workspace:*
         version: link:../gateway
@@ -3462,6 +3468,9 @@ importers:
       '@janhq/jan-agent-preset-registry':
         specifier: workspace:*
         version: link:../../preset/agent-preset-registry
+      '@janhq/jan-agent-profiles':
+        specifier: workspace:*
+        version: link:../../preset/agent-profiles
       '@janhq/jan-agent-tool-presentation':
         specifier: workspace:*
         version: link:../../core/agent-tool-presentation
@@ -14527,6 +14536,109 @@ importers:
         specifier: ^4.0.9
         version: 4.0.9
 
+  packages/preset/agent-profiles:
+    dependencies:
+      '@janhq/jan-atomic-write':
+        specifier: workspace:*
+        version: link:../../util/atomic-write
+      '@janhq/jan-home-paths':
+        specifier: workspace:*
+        version: link:../../util/home-paths
+      '@janhq/jan-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
+      '@janhq/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      chokidar:
+        specifier: 5.0.0
+        version: 5.0.0
+      smol-toml:
+        specifier: 1.9.0
+        version: 1.9.0
+      yaml:
+        specifier: ^2.4.2
+        version: 2.9.0
+      zod:
+        specifier: 4.6.6
+        version: 4.6.6
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@janhq/jan-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
+      '@janhq/jan-api-session-controller':
+        specifier: workspace:*
+        version: link:../../api/session-controller
+      '@janhq/jan-api-workspace-controller':
+        specifier: workspace:*
+        version: link:../../api/workspace-controller
+      '@janhq/jan-client-locale':
+        specifier: workspace:*
+        version: link:../../client/locale
+      '@janhq/jan-client-store':
+        specifier: workspace:*
+        version: link:../../client/store
+      '@janhq/jan-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@janhq/jan-client-ui-conversation':
+        specifier: workspace:*
+        version: link:../../client/ui-conversation
+      '@janhq/jan-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../../client/ui-primitives
+      '@janhq/jan-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../../client/ui-renderer
+      '@janhq/jan-client-ui-session':
+        specifier: workspace:*
+        version: link:../../client/ui-session
+      '@janhq/jan-client-ui-settings':
+        specifier: workspace:*
+        version: link:../../client/ui-settings
+      '@janhq/jan-client-ui-settings-general':
+        specifier: workspace:*
+        version: link:../../client/ui-settings-general
+      '@janhq/jan-client-ui-slots':
+        specifier: workspace:*
+        version: link:../../client/ui-slots
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@janhq/jan-mcp-client':
+        specifier: workspace:*
+        version: link:../../mcp/mcp-client
+      '@janhq/jan-scoped-settings':
+        specifier: workspace:*
+        version: link:../../settings/scoped-settings
+      '@janhq/jan-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@janhq/jan-session-projection':
+        specifier: workspace:*
+        version: link:../../session/session-projection
+      '@janhq/jan-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+      '@janhq/jan-workspace':
+        specifier: workspace:*
+        version: link:../../workspace/workspace
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+
   packages/preset/persona:
     dependencies:
       '@janhq/schemastery':
@@ -15768,6 +15880,9 @@ importers:
       '@janhq/jan-agent-preset-registry':
         specifier: workspace:*
         version: link:../../preset/agent-preset-registry
+      '@janhq/jan-agent-profiles':
+        specifier: workspace:*
+        version: link:../../preset/agent-profiles
       '@janhq/jan-api-remotes':
         specifier: workspace:*
         version: link:../../api/remotes
@@ -17377,6 +17492,9 @@ importers:
       '@janhq/jan-agent-preset-registry':
         specifier: workspace:*
         version: link:../../preset/agent-preset-registry
+      '@janhq/jan-agent-profiles':
+        specifier: workspace:*
+        version: link:../../preset/agent-profiles
       '@janhq/jan-llm':
         specifier: workspace:*
         version: link:../../llm/llm

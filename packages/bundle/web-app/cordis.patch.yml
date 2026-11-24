@@ -213,6 +213,10 @@
     - id: workspace-controller
       name: '@janhq/jan-api-workspace-controller'
 
+    # Named agents from Jan, .agents, Claude Code, opencode and Codex agent folders, and the agent each chat selected.
+    - id: agent-profiles
+      name: '@janhq/jan-agent-profiles'
+
     # Project defaults for new chats and tool switches per chat, project and globally.
     - id: scoped-settings
       name: '@janhq/jan-scoped-settings'

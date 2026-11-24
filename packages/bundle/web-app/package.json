@@ -58,6 +58,7 @@
     "@janhq/jan-agent-instructions": "workspace:*",
     "@janhq/jan-agent-preset": "workspace:*",
     "@janhq/jan-agent-preset-registry": "workspace:*",
+    "@janhq/jan-agent-profiles": "workspace:*",
     "@janhq/jan-agent-tool-presentation": "workspace:*",
     "@janhq/jan-api-job-controller": "workspace:*",
     "@janhq/jan-api-remotes": "workspace:*",
