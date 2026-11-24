@@ -128,6 +128,12 @@
     # fence) inline in the chat, or a canvas file that opens beside it.
     - id: dsh-generative-ui
       name: '@janhq/dsh-generative-ui'
+      config:
+        # The card guide is long and rides in every request. The coding modes
+        # leave it out; the generative-ui skill still loads it on demand.
+        inlinePromptByMode:
+          standard: 'off'
+          ptc: 'off'
 
     # Chat mode: conversation, web research, simple visual artifacts and
     # subagents. The agent searches and reads the web, can create new files it

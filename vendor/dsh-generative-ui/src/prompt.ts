@@ -36,6 +36,24 @@ export const inlinePrompt = (capabilities: Capabilities = DEFAULT_CAPABILITIES):
     .replaceAll("__CAPABILITY_SET__", NUMBER_WORDS[capabilityList(capabilities).split(", ").length])
     .replaceAll("__CAPABILITY_LIST__", capabilityList(capabilities));
 
+/** How much of the guidance rides in every request: all of it, the trigger and syntax alone, or nothing. */
+export type InlinePromptMode = "full" | "brief" | "off";
+
+/**
+ * The `brief` section: what a reply needs to route to the skill and to open a block correctly.
+ * Every rule for writing the card stays in the `generative-ui` skill, which loads on demand.
+ */
+export const briefPrompt = (capabilities: Capabilities = DEFAULT_CAPABILITIES): string => `# Generative UI
+
+You can answer with a live, interactive interface instead of prose: an inline card in the reply, or a canvas file that opens beside the conversation.
+
+- **Load the \`${SKILL_NAME}\` skill before drafting whenever the request might want an interface**: a value the user may change, a calculation or unit conversion, a comparison, a set of options, a plan or checklist, an expression to explore, or anything to save and reuse. The skill holds every rule for writing a card; do not write one from memory.
+- An inline card is a fenced block opened with **four backticks** and the info string \`${FENCE_LANG}\`, never \`tsx\`. Its module must \`export default\` a component taking no props.
+- A canvas is the file \`${CANVAS_DIR}/<id>${CANVAS_SUFFIX}\`, written with the ordinary file tools. Use it only when the user wants something durable.
+- Cards import host capabilities from \`$dsh/<name>\`. Only ${capabilityList(capabilities)} exist here.
+- Text that is already fine as text stays text.
+`;
+
 /**
  * The closed set, as a list rather than a string to subtract from. Built by filtering because the
  * subtraction form was silently wrong: it searched for a differently-escaped spelling of the very

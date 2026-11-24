@@ -4383,7 +4383,7 @@ export interface Config {
 ## `@janhq/jan-tool-skill`
 
 - `inject`: `agents` · `tools` · `skills` · `workingDirectory`
-- `source`: [`packages/skill/tool-skill/src/index.ts:90`](../packages/skill/tool-skill/src/index.ts)
+- `source`: [`packages/skill/tool-skill/src/index.ts:97`](../packages/skill/tool-skill/src/index.ts)
 
 ```ts config-catalog
 /** Model-facing skill catalog configuration. */
@@ -4391,15 +4391,18 @@ export interface Config {
   /** Maximum normalized description length rendered in the session catalog; minimum 3. */
   catalogDescriptionMaxLength?: number
   /**
-   * `full` lists every model-invocable skill with its description. `search`
-   * lists only `pinnedSkills` with descriptions plus a bare name index, and
-   * registers `skill_search` for finding the rest by description.
+   * `search` lists `pinnedSkills` with their capped description and the other
+   * skills with a shortened one, and registers `skill_search` for finding a
+   * skill by its longer description. `full` lists every model-invocable skill
+   * with its capped description.
    */
   catalogMode?: 'full' | 'search'
-  /** Skills `search` mode still lists with descriptions; unknown names are ignored. */
+  /** Skills `search` mode lists with their capped description; unknown names are ignored. */
   pinnedSkills?: string[]
-  /** Whether `search` mode lists the names of unpinned skills, without descriptions. */
+  /** Whether `search` mode lists unpinned skills at all. */
   listSkillNames?: boolean
+  /** Description length for an unpinned skill listed in `search` mode; 0 lists its name alone, otherwise minimum 3. */
+  listedDescriptionMaxLength?: number
   /** Most results one `skill_search` call returns; minimum 1. */
   searchResultLimit?: number
 }
