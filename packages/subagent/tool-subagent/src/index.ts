@@ -160,7 +160,7 @@ function availableAgentContext(profiles: readonly AgentProfileSummary[]): string
   const lines: string[] = []
   for (const profile of profiles) {
     if (!isSubagentProfile(profile)) continue
-    const prefix = `\n- ${profile.id}: `
+    const prefix = `\n- ${profile.id}${profile.sandbox === undefined ? '' : ` [${profile.sandbox}]`}: `
     const prefixBytes = Buffer.byteLength(prefix)
     if (prefixBytes > remaining) break
     remaining -= prefixBytes
@@ -417,15 +417,17 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
           prompt: [{ type: 'text', text: args.prompt }] as ContentBlock[],
           parent,
           ...agentPreset === undefined ? {} : { agentPreset },
+          ...profile === undefined ? {} : { agent: profile.id },
           ...profile?.instructions ? { persona: profile.instructions } : {},
           ...toolFilter === undefined ? {} : { toolFilter },
+          ...profile?.sandbox === undefined ? {} : { sandboxMode: profile.sandbox },
           ...requestedChildAgentOptions !== undefined ? { agentOptions: requestedChildAgentOptions } : {},
           ...maxDepth !== undefined ? { maxDepth } : {},
         }
 
         const started = await ctx.subagents.startActivation({
           provider: config.provider,
-          label: profile === undefined ? args.description : `${args.description} (${profile.id})`,
+          label: args.description,
           ...args.name === undefined ? {} : { name: args.name },
           ...request,
           signal: exec.signal,

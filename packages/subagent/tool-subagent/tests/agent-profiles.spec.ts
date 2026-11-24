@@ -56,7 +56,7 @@ describe('named subagent profiles', () => {
       text: 'Available agents (pass as `agent`):\n- reviewer: Reviews {{examples}}.', interpolate: false,
     })
     const expectedComposition = {
-      label: 'Review the evidence (reviewer)', persona: 'Review only.', toolFilter: { deny: ['write'] },
+      label: 'Review the evidence', agent: 'reviewer', persona: 'Review only.', toolFilter: { deny: ['write'] },
     }
 
     expect((await callSubagent(ctx, { ...args, agent: 'reviewer' })).isError).not.toBe(true)
@@ -65,6 +65,9 @@ describe('named subagent profiles', () => {
       ...expectedComposition,
       agentOptions: { provider: 'alpha', model: 'fast-model', reasoningEffort: ReasoningEffortId('high') },
     }))
+    expect(ctx.sessionProjections.snapshot(agent.session).values.subagentCatalog).toMatchObject([
+      { label: args.description, agent: 'reviewer' },
+    ])
 
     expect((await callSubagent(ctx, {
       ...args, agent: 'reviewer', provider: 'alpha', model: 'parent-model',

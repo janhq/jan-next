@@ -73,7 +73,7 @@ Compose persona and tools in the [preset plugin list](../../preset/agent-preset-
 
 ### Selecting a named agent
 
-On spawn, `agent` selects a Jan agent profile usable for delegation in the caller's project or globally. The profile supplies the child's instructions, tool restrictions, and an optional model default without changing its preset. Explicit authorized `provider` and `model` arguments win; an unavailable profile model leaves the configured route defaults in place. The child's label includes the profile id. Missing or primary-only profiles return an error listing the eligible ids, without starting work.
+On spawn, `agent` selects a Jan agent profile usable for delegation in the caller's project or globally. The profile supplies the child's instructions, tool restrictions, and an optional model default without changing its preset. Explicit authorized `provider` and `model` arguments win; an unavailable profile model leaves the configured route defaults in place. The child's label remains the supplied description, and the parent catalog records the profile id separately. Missing or primary-only profiles return an error listing the eligible ids, without starting work.
 
 ### Selecting a child LLM
 
