@@ -112,24 +112,17 @@ The shell's elevation tokens (`--dsw-elevation-*`) are not mapped to these yet.
 
 ## Motion
 
-Mimi's file has no motion; Jan uses the shell's motion tokens from `ui-theme`. Feature CSS writes these tokens, never a literal duration or curve.
+Mimi's file has no motion. Jan uses the shell's motion tokens from `ui-theme`, including in plugin JavaScript styles. The [Jan motion standard](../../../docs/ui-motion.md) owns the values, usage rules, reduced motion and review of deliberate exceptions.
 
-| Token | Value | Use for |
-|---|---|---|
-| `--ds-transition-duration-fast` | 100 ms | Hover, press and focus changes of color, opacity or a small icon |
-| `--ds-transition-duration` | 200 ms | Menus, popovers and tooltips opening; expand and collapse; tabs and panes moving |
-| `--ds-transition-duration-slow` | 300 ms | A whole surface entering: dialogs, onboarding steps, side panels |
-| `--ds-ease-out` | `cubic-bezier(0.23, 1, 0.32, 1)` | Anything that enters or answers the pointer, so the response reads at once |
-| `--ds-ease-in-out` | `cubic-bezier(0.4, 0, 0.2, 1)` | Something moving between two resting places on screen |
-
-- Animate `transform` and `opacity`; a change of width, height or position that the layout has to follow uses the 200 ms token at most.
-- Every animation has a `@media (prefers-reduced-motion: reduce)` rule that removes the movement and keeps the end state.
-- Loops of half a second or longer (spinners, shimmer, pulses) are drawings and keep their own timing.
-
-[`style-literals.client.spec.ts`](../../../packages/client/ui-theme/tests/style-literals.client.spec.ts) fails when a feature stylesheet adds a literal duration, curve or color. The literals already in the tree are listed in its `expected/style-literals.expected.json` and are left until their owners touch them; regenerate that file with `vitest -u` only for a deliberate exception, and say why in the commit.
+| Role | Tokens |
+|---|---|
+| Interaction durations | `--ds-transition-duration-fast`, `--ds-transition-duration`, `--ds-transition-duration-slow` |
+| Repeating durations | `--ds-transition-duration-loop`, `--ds-transition-duration-ambient` |
+| Entrance, exit and state curves | `--ds-ease-out`, `--ds-ease-in`, `--ds-ease-in-out`, `--ds-ease-emphasized` |
+| Symmetric pulse curve | `--ds-ease-pulse` |
 
 ## Known gaps
 
 - Figma variable names are not available. The Variables API needs an Enterprise plan, so the snapshot keeps each value's variable id instead.
-- Shadows, spacing and line heights are recorded but not enforced. Motion and color literals are enforced for feature stylesheets under `packages/`, not for `client.js` or other plugin CSS written in JavaScript.
+- Shadows, spacing and line heights are recorded but not enforced. The color literal snapshot covers feature stylesheets under `packages/client` and `packages/experimental`.
 - Mimi has not drawn dark mode for dividers or the selected sidebar row.

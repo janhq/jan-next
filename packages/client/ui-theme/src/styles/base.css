@@ -12,19 +12,34 @@
     'Liberation Mono', Menlo, Courier, 'PingFang SC', 'Microsoft YaHei';
   --ds-font-family-code: var(--jan-font-family-code-default);
   --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  /* Entrances and exits: starts fast so the response reads immediately. */
+  /* Entrances start fast so the response reads immediately. */
   --ds-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ds-ease-in: cubic-bezier(0.4, 0, 1, 1);
   /* Content arriving in place (welcome, inserted rows, inspector): a long, soft settle. */
   --ds-ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+  --ds-ease-pulse: cubic-bezier(0.36, 0, 0.64, 1);
   --ds-transition-duration: 0.2s;
   --ds-transition-duration-fast: 0.1s;
   --ds-transition-duration-slow: 0.3s;
+  --ds-transition-duration-loop: 1s;
+  --ds-transition-duration-ambient: 2s;
   --dsw-radius-xs: 4px;
   --dsw-radius-sm: 8px;
   --dsw-radius-md: 12px;
   --dsw-radius-lg: 16px;
   --dsw-radius-xl: 20px;
   --dsw-radius-panel: 28px;
+}
+
+/* Keep completion events for finite transitions, but skip the visible motion. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ds-transition-duration-fast: 0.01ms;
+    --ds-transition-duration: 0.01ms;
+    --ds-transition-duration-slow: 0.01ms;
+    --ds-transition-duration-loop: 0.01ms;
+    --ds-transition-duration-ambient: 0.01ms;
+  }
 }
 
 /* User font lists (--jan-font-family-text/-code, written on body by the theme
