@@ -14650,9 +14650,6 @@ importers:
       '@janhq/jan-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@janhq/jan-mcp-client':
-        specifier: workspace:*
-        version: link:../../mcp/mcp-client
       '@janhq/jan-scoped-settings':
         specifier: workspace:*
         version: link:../../settings/scoped-settings
@@ -17165,6 +17162,9 @@ importers:
       '@janhq/jan-llm-pi-ai':
         specifier: workspace:*
         version: link:../../llm/llm-pi-ai
+      '@janhq/jan-mcp-client':
+        specifier: workspace:*
+        version: link:../../mcp/mcp-client
       '@janhq/jan-permission-presets':
         specifier: workspace:*
         version: link:../../interaction/permission-presets
