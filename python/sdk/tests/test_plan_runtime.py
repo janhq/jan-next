@@ -79,8 +79,9 @@ def test_plan_body_uses_native_input_then_off_removes_guidance_but_keeps_exit_to
         first = runtime.model.captured()[0]
         assert "Design this change without tools." in _request_texts(first)
         assert "/计划  Design this change without tools. " not in _request_texts(first)
-        assert _GUIDANCE in _effective_system(first)
-        assert "Do not edit or write files" in _effective_system(first)
+        system = _effective_system(first)
+        assert _GUIDANCE in system
+        assert "Do not edit files, change configuration, run mutating commands, or carry out the plan." in system
         assert {"exit_plan_mode", "write", "edit"} <= _tool_names(first)
         _assert_request_permission(first, "workspace-write", "ask")
         _command(runtime, session, "/plan off")
