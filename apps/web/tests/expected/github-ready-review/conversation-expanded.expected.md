@@ -25,7 +25,6 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Injected context" [expanded]
-- button "Show full trace"
 - button "Inject context runtime-context"
 - button "Inject context time-context"
 - paragraph: "Review complete: no actionable findings."

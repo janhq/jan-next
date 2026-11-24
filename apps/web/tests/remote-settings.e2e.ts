@@ -23,7 +23,7 @@ const MODE = webSnapshotMode()
  */
 async function expectOnboardingSettled(page: Page): Promise<Locator> {
   await page.waitForSelector('#root', { timeout: 30_000 })
-  await page.getByRole('textbox', { name: '选择工作区' }).waitFor({ timeout: 30_000 })
+  await page.getByRole('button', { name: '选择工作区', exact: true }).waitFor({ timeout: 30_000 })
   await openSettings(page, 'zh')
   const dialog = page.getByRole('dialog', { name: '设置' })
   await dialog.getByRole('button', { name: '模型', exact: true }).click()
@@ -86,7 +86,10 @@ describe.skipIf(MODE === 'record')('web e2e: trusted remote host preferences', (
 
     await page.emulateMedia({ colorScheme: 'light' })
     await dialog.getByRole('button', { name: '添加模型提供商', exact: true }).click()
-    await dialog.getByLabel('提供商', { exact: true }).selectOption('minimax-cn')
+    const provider = dialog.getByLabel('提供商', { exact: true })
+    await provider.click()
+    await page.getByRole('menu').getByRole('menuitem', { name: 'minimax-cn', exact: true }).click()
+    await expect.poll(() => provider.textContent()).toBe('minimax-cn')
     await dialog.getByRole('button', { name: '保存', exact: true }).click()
     await dialog.getByText('已保存 minimax-cn。', { exact: true }).waitFor({ timeout: 15_000 })
     await expect.poll(() => readFile(settingsPath, 'utf8'), { timeout: 10_000 })

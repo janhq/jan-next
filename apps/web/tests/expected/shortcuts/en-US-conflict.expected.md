@@ -1,1 +1,3 @@
-- alert: Already used by “Open keyboard shortcuts”
+- alert:
+  - text: Already used by “Open keyboard shortcuts”
+  - button "Dismiss"

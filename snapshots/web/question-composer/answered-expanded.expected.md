@@ -1,21 +1,25 @@
-- banner:
-  - navigation "Session hierarchy": Use the ask_user_question tool to
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Use the ask_user_question tool to Close chat tab" [selected]:
+    - text: Use the ask_user_question tool to
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: "Use the ask_user_question tool to ask me exactly one multi-select question with id \"color\", question \"Which color do you prefer?\", header \"Pick one\", and two options: label \"Blue\" with description \"A cool recessive hue that reads as calm and trustworthy in long reading sessions and dense dashboards.\", and label \"Green\" with description \"A restful mid-spectrum hue with the highest perceived brightness, easiest on the eye over long sessions.\" Set multi_select to true. After I answer, reply with the single word DONE and stop. {{clock}}"
 - button "Copy"
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Asked questions" [expanded]
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - button "Think The user wants me to use the ask_user_question tool with specific parameters. Let me do exactly that."
-- button "Ask question 1/1 answered" [expanded]
+- button "Ask question" [expanded]
+- text: Ask question 1/1 answered
+- button "View answers"
 - term: Which color do you prefer?
 - definition: Blue Include accessibility notes
 - button "Inspect"
@@ -32,9 +36,11 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]: workspace
+- 'button "Switch the agent preset for this task: Standard mode"': Standard mode
 - button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
 - button "8.8K tok · Cache hit 95%": 8.8K tokCache hit 95%
 - button "3% of context used": 3%

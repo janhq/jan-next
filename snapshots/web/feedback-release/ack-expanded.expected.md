@@ -14,7 +14,6 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Analysis completed" [expanded]
-- button "Show full trace"
 - button "Inject context runtime-context"
 - button "Inject context time-context"
 - button "Think The user wants me to reply with a single word. Let me comply."

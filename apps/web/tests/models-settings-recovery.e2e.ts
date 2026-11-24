@@ -69,7 +69,10 @@ describe('web e2e: repairs a stored provider after catalog drift', () => {
     // Both modes stay offered beside a failed route: the card opens on the
     // third-party mode with the custom-API segment enabled.
     expect(await dialog.getByRole('tab', { name: 'Custom model API' }).isEnabled()).toBe(true)
-    await dialog.getByLabel('Provider', { exact: true }).selectOption('minimax-cn')
+    const provider = dialog.getByLabel('Provider', { exact: true })
+    await provider.click()
+    await page.getByRole('menu').getByRole('menuitem', { name: 'minimax-cn', exact: true }).click()
+    await expect.poll(() => provider.textContent()).toBe('minimax-cn')
     await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
     await dialog.getByText('Saved minimax-cn.', { exact: true }).waitFor()
     expect(await readFile(join(home, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8')).toContain('minimax-cn: {}')

@@ -3,7 +3,6 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Ran code and coordinated subagents" [expanded]
-- button "Show full trace"
 - button "Inject context runtime-context"
 - button "Inject context time-context"
 - button "Code Delegate through the official Claude bundle"

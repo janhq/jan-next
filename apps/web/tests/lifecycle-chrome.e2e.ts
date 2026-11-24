@@ -52,7 +52,8 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
   let page: Page
   let tripwire: ReturnType<typeof watchConsole>
   const sessionEvents: SessionEvent[] = []
-  const turnEndCwds: string[] = []
+  // A Session without a cwd records undefined, which the Workspace path assertion rejects.
+  const turnEndCwds: (string | undefined)[] = []
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold(MODE === 'record'
@@ -606,8 +607,14 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
       await recoveryPage.mouse.up()
 
       await expect.poll(() => sockets.length).toBe(12)
+      // Hold page time so the 2s confirmation cannot lapse before the geometry read on a loaded host.
+      await recoveryPage.clock.pauseAt(await recoveryPage.evaluate(() => Date.now() + 100))
       const recovered = recoveryPage.getByRole('status', { name: 'Connected', exact: true })
-      await recovered.waitFor({ timeout: 10_000 })
+      await expect.poll(async () => {
+        if (await recovered.isVisible()) return true
+        await recoveryPage.clock.runFor(100)
+        return false
+      }, { timeout: 10_000 }).toBe(true)
       expect(await recovered.innerText()).toBe('Connected')
       // The pill sizes to its current label; chrome height and icon box stay fixed.
       const recoveredGeometry = await connectionIndicatorGeometry(recovered)
@@ -615,6 +622,7 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
       expect(recoveredGeometry.icon).toEqual(connectingGeometry.icon)
       expect(await connectionIndicatorTextAlignment(recovered)).toBe('left')
       await recoveryPage.clock.fastForward(2_000)
+      await recoveryPage.clock.resume()
       await recovered.waitFor({ state: 'detached', timeout: 5_000 })
       expect(recoveryTripwire.pageErrors).toEqual([])
       expect(recoveryTripwire.warnings.filter(warning => /connection lost, retry #/i.test(warning)))

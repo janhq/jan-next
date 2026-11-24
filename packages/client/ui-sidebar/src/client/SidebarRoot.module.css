@@ -26,7 +26,8 @@
 }
 
 :global([data-animating]:not([data-dragging])) .root {
-  transition: width var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+  /* The AppFrame track tween, so the content edge and its controls follow the divider. */
+  transition: width var(--ds-transition-duration) var(--ds-ease-out);
 }
 
 /* macOS desktop: the AppFrame column owns the translucent sidebar tint; an

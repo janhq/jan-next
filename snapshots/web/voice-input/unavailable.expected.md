@@ -6,6 +6,6 @@
     - option "Detect automatically" [selected]
   - strong: Recorded recognizer
   - text: Checking local resources…
-  - status: Waiting 1795510235 seconds
+  - status: Waiting {{seconds}} seconds
   - button "Cancel preparation"
   - button "Cancel"

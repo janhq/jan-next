@@ -1,4 +1,4 @@
-- text: {{cwd}}/keyboard-project
+- text: {{cwd}}/Documents/jan/default-workspace
 - button "Reload"
 - button "Open in Finder"
 - button "More ways to open"

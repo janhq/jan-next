@@ -64,7 +64,8 @@ it.skipIf(webSnapshotMode() === 'record').each([
   }
   await page.getByRole('combobox', { name: 'Type keyword', exact: true }).fill('user/message')
   await page.getByRole('option', { name: 'user/message', exact: true }).click()
-  await raw.getByRole('button', { name: 'user/message', exact: true }).first().click()
+  // The runtime-context snapshot precedes the prompt in the first request.
+  await raw.getByRole('button', { name: 'user/message', exact: true }).nth(1).click()
   const panel = page.locator('section[aria-label="Raw log"]')
   const details = panel.getByRole('separator').locator('..').locator('ul').first()
   expect(await details.innerText()).toContain(prompts[0])

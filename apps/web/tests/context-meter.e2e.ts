@@ -29,8 +29,9 @@ describe.skipIf(webSnapshotMode() === 'record').each([
         await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
         await connectFreshWorkspace(page, scaffold.workspaceCwd)
         const card = page.locator('[data-composer-card]')
+        // The hero's project and preset dock closes the composer with no bottom pad.
         expect(await card.evaluate(element =>
-          element.parentElement!.getBoundingClientRect().bottom - element.getBoundingClientRect().bottom,
+          element.parentElement!.getBoundingClientRect().bottom - element.nextElementSibling!.getBoundingClientRect().bottom,
         )).toBe(0)
         const prompts = fixtureUserPrompts(await readFile(fixture, 'utf8'))
         expect(prompts).toHaveLength(1)

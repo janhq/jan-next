@@ -390,27 +390,30 @@ it.skipIf(MODE === 'record')('reads local Git with full access when the sandbox 
   await page.getByText('LIGHTHOUSE', { exact: true }).waitFor()
   await page.locator('[data-forge-header]').click()
   const panel = page.locator('[data-forge-panel]')
-  await panel.getByText('Git information could not be read', { exact: true }).waitFor({ timeout: 20_000 })
+  const local = page.locator('[data-forge-local]')
+  const viewChanges = local.getByRole('button', { name: 'View the changes of this Session: 1 files, 1 lines added, 0 lines deleted', exact: true })
+  // Sessions start with Full access, which reads Git without the sandbox runner.
+  await viewChanges.waitFor({ timeout: 20_000 })
 
   const permission = page.locator('button[aria-label^="Access mode"]').first()
+  await permission.click()
+  await page.getByRole('menuitem', { name: 'Project Write', exact: true }).click()
+  if (!await panel.isVisible()) await page.locator('[data-forge-header]').click()
+  await panel.getByText('Git information could not be read', { exact: true }).waitFor({ timeout: 20_000 })
+
   await permission.click()
   await page.getByRole('menuitem', { name: 'Full access', exact: true }).click()
   const confirmation = page.getByRole('dialog', { name: 'Enable Full access?' })
   await confirmation.getByRole('checkbox', { name: 'I understand the risks and want to continue' }).check()
   await confirmation.getByRole('button', { name: 'Enable Full access' }).click()
-  const local = page.locator('[data-forge-local]')
-  await local.getByRole('button', { name: 'View the changes of this Session: 1 files, 1 lines added, 0 lines deleted', exact: true }).waitFor({ timeout: 20_000 })
-  await compareOrRefreshGolden(join(EXPECTED, 'full-access.expected.md'), await captureStableAria(page, '[data-forge-local]', scaffold.workspaceCwd), MODE)
-  await local.getByRole('button', { name: 'View the changes of this Session: 1 files, 1 lines added, 0 lines deleted', exact: true }).click()
-  await page.locator('[data-forge-diff-file="README.md"]').getByText('changed', { exact: true }).waitFor()
-
-  await permission.click()
-  await page.getByRole('menuitem', { name: 'Project Write', exact: true }).click()
   if (!await panel.isVisible()) await page.locator('[data-forge-header]').click()
-  await panel.getByText('Git information could not be read', { exact: true }).waitFor({ timeout: 20_000 })
+  await viewChanges.waitFor({ timeout: 20_000 })
+  await compareOrRefreshGolden(join(EXPECTED, 'full-access.expected.md'), await captureStableAria(page, '[data-forge-local]', scaffold.workspaceCwd), MODE)
+  await viewChanges.click()
+  await page.locator('[data-forge-diff-file="README.md"]').getByText('changed', { exact: true }).waitFor()
   await expect.poll(async () => (await readPersistedEvents(scaffold, sessionId))
     .filter(event => event.type === 'sandbox/mode').map(event => event.data.mode).slice(-2))
-    .toEqual(['danger-full-access', 'workspace-write'])
+    .toEqual(['workspace-write', 'danger-full-access'])
   expect(tripwire.pageErrors).toEqual([])
   expect(tripwire.warnings).toEqual([])
 })
@@ -1330,7 +1333,12 @@ it.skipIf(MODE === 'record')('keeps long branch details accessible by touch and 
   for (const [locale, label] of [['zh', `当前分支：${branch}`], ['en', `Current branch: ${branch}`], ['de', `Aktueller Branch: ${branch}`]] as const) {
     await scaffold.ctx.settings.update('locale', { preference: locale })
     await option.getByRole('button', { name: label, exact: true }).waitFor()
-    for (const width of [390, 600, 601, 700, 1280]) {
+    // A composer dock at most 600px wide hides the plugin options beside the project and preset chips.
+    for (const width of [390, 601]) {
+      await page.setViewportSize({ width, height: 844 })
+      await chip.waitFor({ state: 'hidden' })
+    }
+    for (const width of [700, 1280]) {
       await page.setViewportSize({ width, height: 844 })
       await chip.scrollIntoViewIfNeeded()
       await expect.poll(() => option.evaluate((element) => {
@@ -1346,7 +1354,7 @@ it.skipIf(MODE === 'record')('keeps long branch details accessible by touch and 
   }
   await scaffold.ctx.settings.update('locale', { preference: 'en' })
   await option.getByRole('button', { name: `Current branch: ${branch}`, exact: true }).waitFor()
-  await page.setViewportSize({ width: 390, height: 844 })
+  await page.setViewportSize({ width: 700, height: 844 })
   expect(await chip.locator('span').evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
   const tooltip = page.getByRole('tooltip', { exact: true, name: `Current branch: ${branch}` })
   await chip.tap()

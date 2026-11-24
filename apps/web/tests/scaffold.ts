@@ -1648,6 +1648,9 @@ export async function captureExpandedTurnProcessAria(
     opened.push(index)
   }
   try {
+    // A half-open group overflows its capped body and briefly shows "Show full trace" (#172).
+    await page.waitForFunction(() => document.getAnimations().every(animation =>
+      animation.playState !== 'running' || animation.effect?.getTiming().iterations === Infinity))
     if (options.scrollToBottom === true) {
       const backToBottom = page.getByRole('button', { name: 'Back to bottom', exact: true })
       const scroll = page.locator('[data-conversation-scroll]')

@@ -219,6 +219,16 @@ async function menuOptions(page: Page): Promise<string[]> {
   return await menu.getByRole('option').allTextContents()
 }
 
+
+/**
+ * Start a Session from the connected Workspace's row; the global New Session opens the Default project.
+ * @param page - page showing the Sessions tree.
+ */
+async function newSessionInWorkspace(page: Page): Promise<void> {
+  const row = page.getByRole('treeitem').filter({ has: page.getByText('workspace', { exact: true }) })
+  await row.hover()
+  await row.getByRole('button', { name: 'New session in workspace', exact: true }).click()
+}
 describe('web e2e: agent-preset selection', () => {
   let scaffold: WebScaffold
   let browser: Browser
@@ -306,8 +316,9 @@ describe('web e2e: agent-preset selection', () => {
     // The chip stages; the blank session the workspace connect produced is
     // what the stage lands on. The host's own answer is what comes back.
     await expect.poll(() => livePreset(scaffold), { timeout: 15_000 }).toBe('minimal')
-    const roster = await scaffold.ctx.agentPresets.remoteExportList()
-    expect(roster.presets.find(preset => preset.isDefault)?.id).toBe('standard')
+    // The last picked mode becomes the new task default.
+    await expect.poll(async () => (await scaffold.ctx.agentPresets.remoteExportList()).presets
+      .find(preset => preset.isDefault)?.id).toBe('minimal')
   })
 
   it('omits eagerly failed presets from selection and retains their diagnostics', async () => {
@@ -382,13 +393,13 @@ describe('web e2e: agent-preset selection', () => {
     await page.keyboard.press('Escape')
     await expect.poll(async () => (await scaffold.ctx.agentPresets.remoteExportList()).presets.find(preset => preset.isDefault)?.id).toBe('standard')
 
-    // The current Session is still the Workspace's only blank, so New Session names it for
-    // reuse and the Host runs it under the reset default instead of its kept Minimal mode.
+    // The current Session is still the Workspace's only blank, so the Workspace's New session names it
+    // for reuse and the Host runs it under the reset default instead of its kept Minimal mode.
     const currentSessionId = await page.evaluate(() =>
       (JSON.parse(localStorage.getItem('jan.sessions.current') ?? '{}') as { sessionId?: string }).sessionId)
     expect(currentSessionId).toBeDefined()
     const creation = page.waitForResponse('**/api/session/create')
-    await page.getByRole('button', { name: 'New session', exact: true }).last().click()
+    await newSessionInWorkspace(page)
     const created = await creation
     expect(created.request().postDataJSON()).toHaveProperty('payload.args.request.sessionId', currentSessionId)
     expect(created.request().postDataJSON()).not.toHaveProperty('payload.args.request.agentPreset')
@@ -461,7 +472,7 @@ it.each([false, true])('starts Creator from Plugins with Coding Tools=%s without
     await writeComposerDraft(page, composerOf(standard.id), draft)
 
     await page.getByRole('navigation', { name: 'Global panels' }).getByRole('button', { name: 'Plugins', exact: true }).click()
-    await page.getByRole('button', { name: 'Choose how to add a plugin', exact: true }).click()
+    await page.getByRole('button', { name: 'More plugin actions', exact: true }).click()
     // The draft's blank lists Standard, so the Creator entry names no blank and the Host creates a separate Creator Session.
     const [creation] = await Promise.all([
       page.waitForResponse('**/api/session/create'),
@@ -489,11 +500,12 @@ it.each([false, true])('starts Creator from Plugins with Coding Tools=%s without
     // The Session starts under Creator; a chip selection after the list updates records no switch.
     expect(creator.session.snapshotEvents().filter(event => event.type === 'agent-preset/selected')).toEqual([])
     expect(creator.session.snapshotEvents().some(event => event.type === 'user/message' || event.type === 'turn/start')).toBe(false)
-    // The draft's blank keeps its preset and starts no turn.
+    // The draft's blank keeps its route-default preset and starts no turn.
     expect(scaffold.ctx.sessionProjections.checkpoint(standard.session).agentPreset?.val).toBe('standard')
     expect(scaffold.ctx.agentPresets.composedPreset(standard.ctx)).toBe('standard')
-    expect(standard.session.snapshotEvents().some(event => event.type === 'agent-preset/selected'
-      || event.type === 'user/message' || event.type === 'turn/start')).toBe(false)
+    expect(standard.session.snapshotEvents().filter(event => event.type === 'agent-preset/selected').map(event => event.data))
+      .toEqual([{ agentPreset: 'standard', source: 'route-default' }])
+    expect(standard.session.snapshotEvents().some(event => event.type === 'user/message' || event.type === 'turn/start')).toBe(false)
     expect(scaffold.ctx.settings.describe().find(row => row.ns === 'ui-settings')?.value).toMatchObject({ enabled: developerTools })
     expect(scaffold.ctx.agentPresets.defaultId).toBe('standard')
 
@@ -505,9 +517,8 @@ it.each([false, true])('starts Creator from Plugins with Coding Tools=%s without
     creator.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     await scaffold.ctx.sessions.flush(creator.session)
     await page.getByText('Creator fixture completed without a model call.', { exact: true }).waitFor()
-    // New Session returns to the Standard blank and its unsent draft.
-    const newSession = page.getByRole('button', { name: 'New session', exact: true }).filter({ hasText: 'New Session' })
-    const [reopening] = await Promise.all([page.waitForResponse('**/api/session/create'), newSession.click()])
+    // The Workspace's New session returns to the Standard blank and its unsent draft.
+    const [reopening] = await Promise.all([page.waitForResponse('**/api/session/create'), newSessionInWorkspace(page)])
     expect(reopening.request().postDataJSON()).toHaveProperty('payload.args.request.sessionId', standard.id)
     expect(await reopening.json()).toMatchObject({ result: { ok: true, value: { sessionId: standard.id, agentPreset: 'standard' } } })
     await composerOf(standard.id).filter({ hasText: draft }).waitFor()

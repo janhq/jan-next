@@ -145,7 +145,8 @@ describe('web e2e: sidebar subagent activity', () => {
     )
     expect(await ownerRow.locator('[data-state="ongoing"]').count()).toBe(1)
     await ownerRow.click()
-    const runningTrigger = page.getByRole('button', { name: '1 subagent', exact: true })
+    const roster = page.getByRole('region', { name: 'Subagents', exact: true })
+    const runningTrigger = roster.getByRole('button', { name: /^1 subagent/u })
     await runningTrigger.waitFor({ timeout: 10_000 })
     expect(await runningTrigger.locator('[data-state="ongoing"]').count()).toBe(1)
     // This directly created owner has no tool preset; the fixture collects its own job.
@@ -164,46 +165,47 @@ describe('web e2e: sidebar subagent activity', () => {
       const jobTrigger = page.getByRole('button', { name: '1 background job', exact: true })
       await jobTrigger.waitFor()
       expect(await jobTrigger.evaluate(element => document.getElementById(element.getAttribute('aria-describedby')!)?.textContent)).toBe('Running')
-      const controls = [
-        { trigger: runningTrigger, icon: '[data-icon="dsw-icon-users-outline-regular"]', count: '[data-subagent-count]' },
-        { trigger: jobTrigger, icon: '[data-icon="dsw-icon-layers-outline-regular"]', count: '[data-job-count]' },
-      ]
-      for (const { trigger, icon, count } of controls) {
-        expect(await trigger.locator(count).isVisible()).toBe(true)
-        expect(await trigger.locator('[data-state="ongoing"]').isVisible()).toBe(true)
-        expect(await trigger.locator(icon).isVisible()).toBe(false)
+      const jobIcon = jobTrigger.locator('[data-icon="dsw-icon-layers-outline-regular"]')
+      const jobCount = jobTrigger.locator('[data-job-count]')
+      // The composer roster keeps its count and running dot at every width; only the header job control compacts.
+      const assertRoster = async (): Promise<void> => {
+        expect(await runningTrigger.locator('[data-subagent-count]').isVisible()).toBe(true)
+        expect(await runningTrigger.locator('[data-state="ongoing"]').isVisible()).toBe(true)
       }
+      expect(await jobCount.isVisible()).toBe(true)
+      expect(await jobTrigger.locator('[data-state="ongoing"]').isVisible()).toBe(true)
+      expect(await jobIcon.isVisible()).toBe(false)
+      await assertRoster()
       await runningTrigger.focus()
       await page.setViewportSize({ width: 390, height: 700 })
-      for (const { trigger, icon, count } of controls) {
-        await expect.poll(() => trigger.locator(count).isVisible()).toBe(false)
-        expect(await trigger.locator(icon).isVisible()).toBe(true)
-        expect(await trigger.locator('[data-state="ongoing"]').isVisible()).toBe(false)
-      }
+      await expect.poll(() => jobCount.isVisible()).toBe(false)
+      expect(await jobIcon.isVisible()).toBe(true)
+      expect(await jobTrigger.locator('[data-state="ongoing"]').isVisible()).toBe(false)
+      await assertRoster()
       expect(await runningTrigger.evaluate(element => element === document.activeElement)).toBe(true)
       expect(await jobTrigger.evaluate(element => document.getElementById(element.getAttribute('aria-describedby')!)?.textContent)).toBe('Running')
       await compareOrRefreshGolden(
         join(SNAPSHOT_DIR, 'compact-running.expected.md'),
-        await captureStableAria(page, 'header:has([data-subagent-action])', scaffold.workspaceCwd),
+        await captureStableAria(page, '[data-dockkit-strip]:has([data-job-count])', scaffold.workspaceCwd),
         MODE,
       )
       await saveFailureShot(page, 'web-e2e-compact-running-icons')
       await runningTrigger.click()
       const members = page.locator('[data-subagent-panel]')
       await members.waitFor()
-      expect(await members.getByRole('treeitem').locator('[data-state="ongoing"]').isVisible()).toBe(true)
-      await page.keyboard.press('Escape')
+      expect(await members.locator('[data-state="ongoing"]').isVisible()).toBe(true)
+      await runningTrigger.click()
+      await members.waitFor({ state: 'detached' })
       await jobTrigger.click()
       const jobs = page.getByRole('list', { name: 'Background jobs', exact: true })
       await jobs.waitFor()
       expect(await jobs.locator('[data-state="ongoing"]').isVisible()).toBe(true)
       await page.keyboard.press('Escape')
       await page.setViewportSize(viewport)
-      for (const { trigger, icon, count } of controls) {
-        await expect.poll(() => trigger.locator(count).isVisible()).toBe(true)
-        expect(await trigger.locator('[data-state="ongoing"]').isVisible()).toBe(true)
-        expect(await trigger.locator(icon).isVisible()).toBe(false)
-      }
+      await expect.poll(() => jobCount.isVisible()).toBe(true)
+      expect(await jobTrigger.locator('[data-state="ongoing"]').isVisible()).toBe(true)
+      expect(await jobIcon.isVisible()).toBe(false)
+      await assertRoster()
     } finally {
       completion.resolve({ status: 'completed' })
       await scaffold.ctx.jobs.wait(jobId, 5_000, ownerId)

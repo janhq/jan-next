@@ -58,6 +58,12 @@ interface Rect {
 
 const EMPTY: Rect = { x: 0, y: 0, width: 0, height: 0 }
 
+/** The conversation desk's tab strip: the conversation's only window-drag row in the desk layout. */
+const CHAT_STRIP = '[data-dockkit-strip]:not([data-sidebar-right-panel] *)'
+
+/** macOS `--jan-frame-top-clearance`: the 23px title inset plus the 38px strip step (ui-layout AppFrame). */
+const DARWIN_TOP_CLEARANCE = 23 + 38
+
 /** A browser-half bundle whose row registers configuration into the plugin page. */
 const FIXTURE_PLUGINS = fileURLToPath(new URL('./fixtures/plugins', import.meta.url))
 
@@ -294,14 +300,14 @@ describe('web e2e: macOS window drag coverage', () => {
         await page.waitForFunction(() => !document.querySelector('[data-plugin-bar]')?.hasAttribute('data-compact'))
         const before = await toolbarGeometry()
         expect(before.top).toBe(platform === 'darwin' ? 0 : 40)
-        expect(before.padding).toBe(platform === 'darwin' ? 76 : 28)
+        expect(before.padding).toBe(platform === 'darwin' ? 28 + DARWIN_TOP_CLEARANCE : 28)
         expect(before.buttons).toHaveLength(2)
         await body.evaluate((element) => { element.scrollTop = 120 })
         await page.waitForFunction(() => document.querySelector('[data-plugin-bar]')?.hasAttribute('data-compact'))
         const after = await toolbarGeometry()
         // macOS only needs the top strip cleared while the sidebar is collapsed; with it open the
         // native controls live in the sidebar, so the compact bar keeps its own 16px spacing.
-        const compactTop = platform === 'darwin' && collapsed ? 56 : 16
+        const compactTop = platform === 'darwin' && collapsed ? 8 + DARWIN_TOP_CLEARANCE : 16
         expect(after.padding).toBe(before.padding)
         expect(await bar.evaluate(element => Number.parseFloat(getComputedStyle(element, '::before').height))).toBe(compactTop + 48)
         expect(after.buttons).toEqual(before.buttons.map(button => ({ ...button, y: button.y - (before.padding - compactTop) })))
@@ -337,10 +343,10 @@ describe('web e2e: macOS window drag coverage', () => {
           await body.evaluate((element) => { element.scrollTop = 0 })
           await page.waitForFunction(() => !document.querySelector('[data-plugin-bar]')?.hasAttribute('data-compact'))
           expect(await bar.locator('h1').evaluate(element => element.getBoundingClientRect().top)
-            - (await bar.boundingBox())!.y).toBe(platform === 'darwin' ? 76 : 28)
+            - (await bar.boundingBox())!.y).toBe(platform === 'darwin' ? 28 + DARWIN_TOP_CLEARANCE : 28)
           await body.evaluate((element) => { element.scrollTop = 500 })
           await page.waitForFunction(() => document.querySelector('[data-plugin-bar]')?.hasAttribute('data-compact'))
-          const inset = platform === 'darwin' ? 56 : 16
+          const inset = platform === 'darwin' ? 8 + DARWIN_TOP_CLEARANCE : 16
           expect(await top()).toBe(inset)
           expect(await bar.evaluate(element => Number.parseFloat(getComputedStyle(element, '::before').height)))
             .toBe(inset + (hasTabs ? 34 : 32) + 16)
@@ -384,14 +390,16 @@ describe('web e2e: macOS window drag coverage', () => {
       ).toBe(false)
 
       const regions = await collectedRegions(page, INTERACTIVE_SELECTOR)
-      const strip = await rectOf(page, '[data-dockkit-strip]')
+      const strip = await rectOf(page, '[data-sidebar-right-panel] [data-dockkit-strip]')
       const panel = await rectOf(page, '[data-sidebar-right-panel]')
       const tabs = await rectOf(page, '[data-conversation-tabs]')
-      const header = await rectOf(page, '[data-slot="conversation.header"] > header')
+      const chatStrip = await rectOf(page, CHAT_STRIP)
+      const chatFill = await rectOf(page, `${CHAT_STRIP} [data-dockkit-strip-fill]`)
       const seat = await rectOf(page, '[data-shell-leading]')
       // The sidebar column drags through its own rows (ui-sidebar), so its
       // coverage is the rows' geometry rather than a frame band's height.
       const toggle = await rectOf(page, 'button[aria-label="Collapse sidebar"]')
+      const logoRow = await rectOf(page, '[class*="logoRow"][data-window-drag]')
 
       const probes: CoverageProbe[] = [
         {
@@ -407,23 +415,23 @@ describe('web e2e: macOS window drag coverage', () => {
           drag: false,
         },
         {
-          row: 'conversation header',
-          what: 'the blank run right of the view tabs, on the tab strip row',
+          row: 'conversation tab strip',
+          what: 'the strip row top inset, above the chips',
+          at: () => [chatStrip.x + chatStrip.width / 2, chatStrip.y + 4],
+          drag: true,
+        },
+        {
+          row: 'conversation tab strip',
+          what: 'the blank run between the new-chat button and the title row',
+          at: () => [chatFill.x + chatFill.width / 2, chatStrip.y + chatStrip.height / 2],
+          drag: true,
+        },
+        {
+          row: 'conversation pane body',
+          what: 'the blank run right of the view tabs, below the strip row',
           // The last tab's press target overhangs the tablist by 10px and the
           // More launcher starts 20px past it; probe the run between them.
           at: () => [tabs.x + tabs.width + 15, tabs.y + tabs.height / 2],
-          drag: true,
-        },
-        {
-          row: 'conversation header',
-          what: 'the title row blank run',
-          at: () => [header.x + header.width / 2, header.y + 4],
-          drag: true,
-        },
-        {
-          row: 'conversation header',
-          what: 'the transcript run below the header block',
-          at: () => [header.x + header.width / 2, header.y + header.height + 4],
           drag: false,
         },
       ]
@@ -438,7 +446,7 @@ describe('web e2e: macOS window drag coverage', () => {
           {
             row: 'sidebar column',
             what: 'the content run below the chrome rows',
-            at: () => [toggle.x - 40, toggle.y + toggle.height + 70],
+            at: () => [toggle.x - 40, logoRow.y + logoRow.height + 4],
             drag: false,
           },
         )
@@ -472,21 +480,22 @@ describe('web e2e: macOS window drag coverage', () => {
     }
   }, 180_000)
 
-  it('keeps the Conversation header draggable over the collapsed column, and the seat out of it', async () => {
+  it('keeps the conversation tab strip draggable over the collapsed column, and the seat out of it', async () => {
     const { page, tripwire } = await desktopPage()
     try {
       await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click()
       await page.locator('[data-shell-leading]').waitFor({ state: 'visible', timeout: 15_000 })
       await settled(page)
       const regions = await collectedRegions(page, INTERACTIVE_SELECTOR)
-      const header = await rectOf(page, '[data-slot="conversation.header"] > header')
+      const chatStrip = await rectOf(page, CHAT_STRIP)
       const seat = await rectOf(page, '[data-shell-leading]')
 
       // With the column hidden the centre starts at the frame's left edge, where
-      // the Conversation header owns the run.
+      // the conversation tab strip owns the run.
+      expect(chatStrip.x).toBe(0)
       expect(
-        isDraggableAt(regions, header.x + 40, header.y + 4),
-        'the Conversation header over the frame’s left edge',
+        isDraggableAt(regions, chatStrip.x + 4, chatStrip.y + 4),
+        'the conversation tab strip over the frame’s left edge',
       ).toBe(true)
       expect(
         isDraggableAt(regions, seat.x + seat.width / 2, seat.y + seat.height / 2),
@@ -518,7 +527,8 @@ describe('web e2e: macOS window drag coverage', () => {
       const regions = await collectedRegions(page, INTERACTIVE_SELECTOR)
       const y = button.y + button.height / 2
       expect(isDraggableAt(regions, seat.x + seat.width / 2, y), 'the inactive header controls behind the drawer').toBe(true)
-      expect(isDraggableAt(regions, (seat.x + seat.width + button.x) / 2, y), 'the gap before the close button').toBe(true)
+      // The seat's back and forward controls extend past the close button, so probe the strip's own run.
+      expect(isDraggableAt(regions, button.x - 8, y), 'the gap before the close button').toBe(true)
       expect(isDraggableAt(regions, button.x + button.width / 2, y), 'the close button').toBe(false)
       expect(swallowedBoxes(regions)).toEqual([])
       await toggle.click()

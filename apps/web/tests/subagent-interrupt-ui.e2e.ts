@@ -8,7 +8,7 @@
 // Replay-binding note: only the PRIMARY script can hang, and scripts bind by
 // first-call order, so the child issues the composition's first model call
 // (claiming the overridden primary) and the parent's one UI prompt — needed
-// so the non-blank parent renders its header catalog — binds to a derived
+// so the non-blank parent renders its subagent roster — binds to a derived
 // child fixture afterwards.
 import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -86,6 +86,14 @@ function textCompletion(text: string): object {
   }
 }
 
+/** Open the running child's chat from the parent composer's subagent roster. */
+async function openChildChat(page: Page): Promise<void> {
+  await page.locator('[data-subagent-action]').getByRole('button', { name: /^1 subagent\b/u }).click()
+  const panel = page.locator('[data-subagent-panel]')
+  await panel.getByRole('button', { name: new RegExp(LABEL), expanded: false }).click()
+  await panel.getByRole('button', { name: 'Open chat', exact: true }).click()
+}
+
 describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running continuable child', () => {
   let scaffold: WebScaffold
   let browser: Browser
@@ -158,8 +166,8 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     childId = started.childId
     await waitFor(() => existsSync(readyFile), 'the held child turn to open')
 
-    // One prompted parent turn makes the parent non-blank so the session
-    // header (and its subagent catalog action) renders.
+    // One prompted parent turn makes the parent non-blank so its composer
+    // subagent roster renders.
     const parentSettled = scaffold.whenTurnSettled()
     const parentInput = page.locator('[data-composer-input][contenteditable="true"]').first()
     await parentInput.fill('Ask a research subagent to explain event sourcing.')
@@ -209,8 +217,7 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
       await page.reload({ waitUntil: 'load' })
       await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
       acknowledgeReloadConnectionLoss(tripwire, warningStart)
-      await page.getByRole('button', { name: /1 subagent/ }).click()
-      await page.getByRole('treeitem', { name: new RegExp(LABEL) }).press('Enter')
+      await openChildChat(page)
       const input = page.locator('[data-composer-input]').first()
       await input.waitFor({ timeout: 15_000 })
       await page.getByText(/^Explain event sourcing in one sentence\./)
@@ -267,10 +274,9 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     await page.reload({ waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     acknowledgeReloadConnectionLoss(tripwire, warningStart)
-    await page.getByRole('navigation', { name: 'Session hierarchy' })
-      .getByRole('button').first().click()
-    await page.getByRole('button', { name: /1 subagent/ }).click()
-    await page.getByRole('treeitem', { name: new RegExp(LABEL) }).press('Enter')
+    await page.getByRole('tree', { name: 'Sessions' })
+      .getByRole('treeitem', { name: /Ask a research subagent to/ }).click()
+    await openChildChat(page)
     // A live continuable child advertises the ordinary steer-all gesture, so
     // that placeholder is the composer's accessible name in this window. It
     // changes back as the queue drains, so later interactions address the

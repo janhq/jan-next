@@ -21,7 +21,6 @@
   - code: exit_plan_mode
   - text: .
 - button "Called tools" [expanded]
-- button "Show full trace"
 - 'button "Tool call exit_plan_mode · # Add `--greeting` flag to CLI"'
 - 'button "Think The plan was approved. The user''s last instruction says: \"Once the plan is approved, reply with the single word DONE and stop.\" So I should just reply with DONE and stop."'
 - paragraph: DONE

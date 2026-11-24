@@ -109,12 +109,14 @@ it.skipIf(webSnapshotMode() === 'record')('guides voice setup, records from stan
   expect(await setup.count()).toBe(0)
   expect(await input.evaluate(element => element === document.activeElement)).toBe(true)
   expect(recognize).not.toHaveBeenCalled()
-  preparation = { phase: 'checking', step: 'check', startedAt: 0 }
+  preparation = { phase: 'checking', step: 'check', startedAt: Date.now() }
   for (const listener of readinessListeners) listener()
   await setupMic.click()
   await setup.getByText('Checking local resources…').waitFor()
+  const checking = (await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd))
+    .replace(/Waiting \d+ seconds/, 'Waiting {{seconds}} seconds')
   await compareOrRefreshGolden(fileURLToPath(new URL('../../../snapshots/web/voice-input/unavailable.expected.md', import.meta.url)),
-    await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd), webSnapshotMode())
+    checking, webSnapshotMode())
   await page.setViewportSize({ width: 420, height: 900 })
   const dialogBox = await setup.boundingBox()
   expect(dialogBox!.x).toBeGreaterThanOrEqual(0)

@@ -46,6 +46,10 @@ describe('web e2e: plugin manager', () => {
     })
     browser = await chromium.launch()
     page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
+    // Screen detection would otherwise raise translation offers for the English fixtures at varying moments.
+    await page.addInitScript((packages) => {
+      for (const name of packages) localStorage.setItem(`jan.plugin-translation.never.v1:${name}`, '1')
+    }, ['@fixture/bundle', '@fixture/missing-bundle', SCAFFOLD_DEFAULTS_BUNDLE])
     tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -229,7 +233,7 @@ describe('web e2e: plugin manager', () => {
           }
           await probe.setViewportSize({ width: 390, height: 1000 })
           await expect.poll(async () => validLayout(await measure())).toBe(true)
-          const menuTrigger = header.getByRole('button', { name: language === 'en' ? 'Choose how to add a plugin' : '选择添加插件方式' })
+          const menuTrigger = header.getByRole('button', { name: language === 'en' ? 'More plugin actions' : '更多插件操作' })
           await menuTrigger.click()
           await probe.getByRole('menu').waitFor()
           await probe.keyboard.press('Escape')
@@ -323,7 +327,7 @@ describe('web e2e: plugin manager', () => {
       await probe.getByRole('tooltip', { name: 'Refresh', exact: true }).waitFor()
       await pointAt(add)
       await probe.getByRole('tooltip', { name: 'Add plugin', exact: true }).waitFor()
-      await bar.getByRole('button', { name: 'Choose how to add a plugin', exact: true }).click()
+      await bar.getByRole('button', { name: 'More plugin actions', exact: true }).click()
       await probe.getByRole('menu').waitFor()
       await probe.keyboard.press('Escape')
       await probe.getByRole('menu').waitFor({ state: 'hidden' })
@@ -568,7 +572,7 @@ describe('web e2e: plugin manager', () => {
           skeletons: await panel.locator('[data-plugin-loading]').count(),
           alerts: await panel.getByRole('alert').allTextContents(),
           retry: await panel.getByRole('button', { name: '重试', exact: true }).count(),
-          toasts: await probe.locator('body > [role="alert"]').allTextContents(),
+          toasts: await probe.locator('[data-jan-notifications] [role="alert"]').allTextContents(),
         }))
       }
       const bounds = await refresh.boundingBox()
@@ -628,7 +632,7 @@ describe('web e2e: plugin manager', () => {
             expect(await panel.locator('[data-plugin-loading]').count()).toBe(0)
             expect(await tooltip.count()).toBe(0)
             expect(await panel.getByRole('alert').count()).toBe(0)
-            expect(await probe.locator('body > [role="alert"]').count()).toBe(0)
+            expect(await probe.locator('[data-jan-notifications] [role="alert"]').count()).toBe(0)
             await recordRefresh(`${outcome}: pending`)
 
             release.resolve(undefined)
@@ -641,7 +645,7 @@ describe('web e2e: plugin manager', () => {
             expect(await panel.locator('[data-plugin-loading]').count()).toBe(0)
             expect(await panel.getByRole('alert').count()).toBe(0)
             expect(await panel.getByRole('button', { name: '重试', exact: true }).count()).toBe(0)
-            const toasts = probe.locator('body > [role="alert"]')
+            const toasts = probe.locator('[data-jan-notifications] [role="alert"]')
             await expect.poll(() => toasts.allTextContents()).toEqual(['刷新失败，请重试'])
             await recordRefresh(`${outcome}: settled`)
           } finally {
@@ -1377,7 +1381,7 @@ describe('web e2e: plugin manager', () => {
     await expect.poll(() => field.evaluate(element => document.activeElement === element)).toBe(true)
     await dialog.getByRole('button', { name: '关闭', exact: true }).click()
     await dialog.waitFor({ state: 'hidden' })
-    await panel.getByRole('button', { name: '选择添加插件方式', exact: true }).click()
+    await panel.getByRole('button', { name: '更多插件操作', exact: true }).click()
     const menu = page.getByRole('menu')
     await menu.getByRole('menuitem', { name: /^安装第三方插件/ }).click()
     await menu.waitFor({ state: 'hidden' })
@@ -1569,10 +1573,12 @@ describe('web e2e: startup-applied plugin management', () => {
       }
       expect(mounted()?.fiber?.state).toBeUndefined()
       await toggle.click()
-      // The selection is saved and the switch turns on, but nothing mounts before the next start; a toast says so.
+      // The selection is saved and the switch turns on, but nothing mounts before the next start; a toast and the card say so.
       await expect.poll(bundles, { timeout: PLUGIN_TOGGLE_SETTLE_MS }).toEqual([...SCAFFOLD_BUNDLES, '@fixture/bundle'])
       await expect.poll(() => toggle.getAttribute('aria-checked'), { timeout: PLUGIN_TOGGLE_SETTLE_MS }).toBe('true')
-      await page.getByText('请重启 Jan 使更改生效。这个 profile 只在启动时应用更改。', { exact: true }).waitFor({ timeout: 10_000 })
+      const restartNotice = '请重启 Jan 使更改生效。这个 profile 只在启动时应用更改。'
+      await page.locator('[data-jan-notifications]').getByText(restartNotice, { exact: true }).waitFor({ timeout: 10_000 })
+      await panel.getByRole('status').filter({ hasText: restartNotice }).waitFor()
       expect(mounted()?.fiber?.state).toBeUndefined()
       // The pack's page lists its rows from their declarations, with no live entry to switch.
       await panel.getByRole('button', { name: '查看 @fixture/bundle' }).click()

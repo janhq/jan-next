@@ -303,8 +303,8 @@
 }
 
 :global(html:not([data-platform])) .frame[data-sidebar-drawer] {
-  /* 12px seat offset + 28px opener + 8px gap; Desktop keeps room for its four controls. */
-  --jan-frame-leading-clearance: 48px;
+  /* 12px seat offset + opener, Back and Forward (3 × 28 + 2 × 8) + 8px gap; Desktop keeps room for its four controls. */
+  --jan-frame-leading-clearance: 120px;
 }
 
 .frame[data-sidebar-drawer] .mainPanel[data-global-panel] {

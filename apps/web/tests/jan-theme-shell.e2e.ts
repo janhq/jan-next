@@ -67,6 +67,8 @@ describe('web e2e: Jan theme shell', () => {
     scaffold = await launchWebScaffold({ extraOverlayPath: OVERLAY, extraInstallAnchors: ANCHORS })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
+    // Web New Chat and Search carry shortcut hints only on macOS and Windows defaults.
+    await page.addInitScript(() => { Object.defineProperty(navigator, 'platform', { value: 'MacIntel' }) })
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await connectFreshWorkspace(page, scaffold.workspaceCwd, PROJECT)
   })
@@ -87,7 +89,7 @@ describe('web e2e: Jan theme shell', () => {
       }
       return { label: font('.jt-nav-row'), heading: font('.jt-list-heading'), shortcut: font('.jt-nav-row [class*="shortcut"]') }
     })
-    expect(type).toEqual({ label: '14px 400', heading: '12px 500', shortcut: '11px 400' })
+    expect(type).toEqual({ label: '14px 400', heading: '12px 500', shortcut: '12px 400' })
   })
 
   for (const scheme of ['light', 'dark'] as const) {

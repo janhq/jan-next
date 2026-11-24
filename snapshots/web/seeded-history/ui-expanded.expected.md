@@ -17,7 +17,6 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Read files" [expanded]
-- button "Show full trace"
 - button "Think The user wants me to read a.txt and b.txt, then reply with \"DONE\". Let me do both reads in parallel."
 - button "Read a.txt":
   - text: Read

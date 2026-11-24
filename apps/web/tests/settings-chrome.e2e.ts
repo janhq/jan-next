@@ -97,7 +97,7 @@ describe('web e2e: settings modal and General preferences', () => {
     expect(await dialog.getByRole('button', { name: '关闭', exact: true }).evaluate(el => el === document.activeElement)).toBe(true)
     // General is active by default; Permission, Language and Appearance are functional.
     expect(await dialog.getByRole('button', { name: '通用设置' }).getAttribute('aria-current')).toBe('true')
-    await dialog.getByRole('button', { name: '工作区内修改' }).waitFor({ timeout: 10_000 })
+    await dialog.getByRole('button', { name: '完全权限' }).waitFor({ timeout: 10_000 })
     await expect.poll(() => dialog.getByText('语言', { exact: true }).count(), { timeout: 5_000 }).toBe(1)
     await expect.poll(() => dialog.getByText('外观', { exact: true }).count(), { timeout: 5_000 }).toBe(1)
     await dialog.getByText('工作步骤展示', { exact: true }).locator('../..')
@@ -146,7 +146,7 @@ describe('web e2e: settings modal and General preferences', () => {
     // rather than the whole inventory so adding an unrelated plugin does not
     // rewrite this surface's golden.
     await dialog.getByRole('button', { name: '内置插件', exact: true }).click()
-    await dialog.getByRole('heading', { name: '内置插件', exact: true }).waitFor({ timeout: 10_000 })
+    await expect.poll(() => dialog.getByRole('button', { name: '内置插件', exact: true }).getAttribute('aria-current'), { timeout: 5_000 }).toBe('true')
     // The preset group starts open under its display-only switcher; the global group starts folded.
     const presetSwitcher = dialog.getByRole('button', { name: '选择要查看的 Agent 预设' })
     await presetSwitcher.waitFor({ timeout: 10_000 })
@@ -179,8 +179,8 @@ describe('web e2e: settings modal and General preferences', () => {
     expect(await dialog.getByText('由 Agent 预设按会话组成', { exact: true }).count()).toBe(1)
     expect(await dialog.getByText('系统与所有会话共用', { exact: true }).count()).toBe(1)
     expect(await dialog.getByRole('button', { name: '内置插件', exact: true }).getAttribute('aria-current')).toBe('true')
-    // One contribution shows as the page itself, without a tab row.
-    expect(await dialog.getByRole('tab').count()).toBe(0)
+    expect(await dialog.getByRole('tab').allTextContents()).toEqual(['插件列表', '插件翻译'])
+    expect(await dialog.getByRole('tab', { name: '插件列表', exact: true }).getAttribute('aria-selected')).toBe('true')
     expect(await dialog.getByRole('button', { name: '模型', exact: true }).getAttribute('aria-current')).toBeNull()
     const pluginsSnapshot = await captureStableAria(
       page,
@@ -319,7 +319,7 @@ describe('web e2e: settings modal and General preferences', () => {
     await expect.poll(() => dialog.getByText('权限', { exact: true }).count(), { timeout: 5_000 }).toBe(1)
     const permissionRow = dialog.getByText('权限', { exact: true }).locator('..')
     const permissionBox = await permissionRow.boundingBox()
-    const controlBox = await dialog.getByRole('button', { name: '工作区内修改' }).boundingBox()
+    const controlBox = await dialog.getByRole('button', { name: '完全权限' }).boundingBox()
     expect(controlBox).not.toBeNull()
     expect(permissionBox).not.toBeNull()
     expect(controlBox!.y).toBeLessThan(permissionBox!.y + permissionBox!.height)
@@ -373,12 +373,12 @@ describe('web e2e: settings modal and General preferences', () => {
     }
     const existing = await createSession('settings-permission-before')
     expect(existing.snapshotEvents().find(event => event.type === 'permission/preset')?.data)
-      .toEqual({ preset: 'workspace-write' })
+      .toEqual({ preset: 'danger-full-access' })
 
     await openSettings(page, 'zh')
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor({ timeout: 10_000 })
-    const selector = dialog.getByRole('button', { name: '工作区内修改' })
+    const selector = dialog.getByRole('button', { name: '完全权限' })
     await selector.waitFor({ timeout: 10_000 })
     await expect.poll(() => selector.isEnabled(), { timeout: 5_000 }).toBe(true)
     await selector.click()
@@ -389,7 +389,7 @@ describe('web e2e: settings modal and General preferences', () => {
     expect(document).toContain('id: permission')
     expect(document).toContain('defaultPreset: read-only')
     expect(existing.snapshotEvents().find(event => event.type === 'permission/preset')?.data)
-      .toEqual({ preset: 'workspace-write' })
+      .toEqual({ preset: 'danger-full-access' })
 
     const created = await createSession('settings-permission-after')
     expect(created.snapshotEvents().map(event => [event.type, event.data])).toEqual([

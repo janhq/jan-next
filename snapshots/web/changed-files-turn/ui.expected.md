@@ -3,7 +3,6 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Ran commands, wrote files, read files, etc." [expanded]
-- button "Show full trace"
 - button "Inject context runtime-context"
 - button "Inject context time-context"
 - button "Think The user wants four things done directly. But I need to read intro.md before editing (fs-observation-policy requires reading existing file first). The user says don't look at the directory first, but reading intro.md is needed for the edit tool. Let me just do it."
