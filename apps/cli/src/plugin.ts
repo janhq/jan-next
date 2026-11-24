@@ -36,7 +36,7 @@ export interface PluginCommandReport {
   /** Whether the command ended successfully; the same fact as a zero `exitCode`. */
   ok: boolean
   exitCode: number
-  /** Direct dependencies this command installed or removed, or every declared dependency for `list`. */
+  /** Direct dependencies whose saved spec or installed version changed, or the declared dependencies selected by `list`. */
   packages: PluginCommandPackage[]
   /** The bundle this command activated, when it activated one. */
   bundle?: string
@@ -133,7 +133,7 @@ function snapshotProfile(dir: string): ProfileSnapshot {
 function changedPackages(before: ProfileSnapshot, after: ProfileSnapshot): PluginCommandPackage[] {
   const names = new Set([...Object.keys(before.dependencies), ...Object.keys(after.dependencies)])
   return [...names].flatMap((name) => {
-    if (before.dependencies[name] === after.dependencies[name]) return []
+    if (before.dependencies[name] === after.dependencies[name] && before.versions[name] === after.versions[name]) return []
     const version = after.versions[name] ?? before.versions[name]
     return [version === undefined ? { name } : { name, version }]
   })
@@ -143,6 +143,62 @@ function changedPackages(before: ProfileSnapshot, after: ProfileSnapshot): Plugi
 function namedTargets(targets: readonly string[], dependencies: Readonly<Record<string, string>>): string[] {
   return [...new Set(targets.flatMap(spec =>
     Object.keys(dependencies).filter(name => spec === name || spec.startsWith(`${name}@`))))]
+}
+
+/** Use pnpm's own list JSON for its package selectors, version ranges and list flags. */
+function selectedListPackages(output: string): Set<string> {
+  const projects: unknown = JSON.parse(output)
+  if (!Array.isArray(projects)) throw new Error('pnpm list did not return a JSON project list')
+  const names = new Set<string>()
+  for (const project of projects) {
+    if (typeof project !== 'object' || project === null) throw new Error('pnpm list returned an invalid JSON project')
+    for (const field of ['dependencies', 'devDependencies', 'optionalDependencies'] as const) {
+      const packages: unknown = Reflect.get(project, field)
+      if (typeof packages === 'object' && packages !== null) {
+        for (const name of Object.keys(packages)) names.add(name)
+      }
+    }
+  }
+  return names
+}
+
+/** The CLI exits on return, so a report must finish writing even when stdout is a full pipe. */
+function writeReport(report: PluginCommandReport): Promise<void> {
+  const { promise, resolve, reject } = Promise.withResolvers<void>()
+  process.stdout.write(JSON.stringify(report) + '\n', (error) => { if (error) reject(error); else resolve() })
+  return promise
+}
+
+/** Build the report from both snapshots of one locked operation. */
+function describe(
+  command: PluginCommandReport['command'], invocation: PluginInvocation, result: PackageResult,
+  before: ProfileSnapshot, after: ProfileSnapshot, earlierBuilds: readonly string[], approvedBuilds: string[],
+  listOutput: string | undefined,
+): PluginCommandReport {
+  const ok = result.exitCode === 0
+  const packages = command === 'list' ? [] : changedPackages(before, after)
+  let names: readonly string[] = []
+  if (command === 'list' && ok) {
+    const selected = listOutput === undefined ? undefined : selectedListPackages(listOutput)
+    names = Object.keys(after.dependencies).filter(name => selected === undefined || selected.has(name))
+  } else if (command === 'add' && ok && packages.length === 0) {
+    names = namedTargets(invocation.targets, after.dependencies)
+  }
+  for (const name of names) {
+    const version = after.versions[name]
+    packages.push(version === undefined ? { name } : { name, version })
+  }
+  const bundle = after.bundles.find(name => !before.bundles.includes(name))
+  const pendingBuilds = ok ? [] : blockedBuildNames(result.output).filter(name => !earlierBuilds.includes(name))
+  return {
+    command, ok, exitCode: result.exitCode, packages,
+    bundles: [...after.bundles],
+    ...bundle === undefined ? {} : { bundle },
+    ...approvedBuilds.length === 0 ? {} : { approvedBuilds },
+    ...pendingBuilds.length === 0 ? {} : { pendingBuilds },
+    ...result.incompatible === undefined ? {} : { incompatible: result.incompatible },
+    logPath: result.logPath,
+  }
 }
 
 /** Parse only Jan-owned commands; all other arguments remain pnpm's responsibility. */
@@ -197,7 +253,8 @@ async function versionCommand(profile: string, args: readonly string[]): Promise
  * @param profile Profile name; Desktop's reserved profile must already be initialized by the application.
  * @param args Jan exemption command or pnpm arguments relative to the invoking directory.
  * @param packageManager Installation-owned executable and environment for pnpm operations.
- * @returns Zero on success; nonzero on invalid approval or package-manager failure.
+ * @returns Zero on success; nonzero on invalid approval or package-manager failure. Without `--json`, unexpected operation errors reject.
+ * An operation that throws before its state can be reported returns an error document with empty state arrays.
  * With `--json`, one report document is the whole of stdout; pnpm output and warnings stay on stderr.
  * With `--yes-builds`, an `add` that pnpm blocked on build scripts approves exactly the keys it
  * reported and repeats once, leaving any earlier undecided key pending.
@@ -205,38 +262,29 @@ async function versionCommand(profile: string, args: readonly string[]): Promise
 export async function runPlugin(profile: string, args: readonly string[], packageManager?: ProfileContext['packageManager']): Promise<number> {
   const invocation = parsePluginArguments(args)
   const { json, yesBuilds, command } = invocation
-  const reports = reportsCommand(command)
-  const report = (fields: Omit<PluginCommandReport, 'command'>): void => {
-    if (!reports) return
-    process.stdout.write(JSON.stringify({ command, ...fields }) + '\n')
-  }
-  /** Refuse before anything runs, as the report or as a stderr line. */
-  const refuse = (message: string): number => {
-    if (json && reports) report({ ok: false, exitCode: 1, packages: [], bundles: [], error: message })
-    else process.stderr.write(`jan: ${message}\n`)
+  const reportCommand = json && reportsCommand(command) ? command : undefined
+  const refuse = async (error: string, diagnostic = error): Promise<number> => {
+    if (reportCommand !== undefined) await writeReport({ command: reportCommand, ok: false, exitCode: 1, packages: [], bundles: [], error })
+    else process.stderr.write(`jan: ${diagnostic}\n`)
     return 1
   }
   if (yesBuilds && command !== 'add') return refuse('--yes-builds applies to add')
+  let dir: string
+  try { dir = resolveProfileDir(profile) } catch (error) {
+    if (reportCommand === undefined) throw error
+    return refuse(error instanceof Error ? error.message : String(error))
+  }
   if (profile === 'desktop') {
-    try { requireDesktopProfile(resolveProfileDir(profile)) } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      if (json) report({ ok: false, exitCode: 1, packages: [], bundles: [], error: message })
-      else process.stderr.write(`jan: ${String(error)}\n`)
-      return 1
+    try { requireDesktopProfile(dir) } catch (error) {
+      return refuse(error instanceof Error ? error.message : String(error), String(error))
     }
   }
   const versionResult = await versionCommand(profile, invocation.args)
   if (versionResult !== undefined) return versionResult
-  const dir = resolveProfileDir(profile)
-  if (existsSync(join(dir, 'package.json'))) {
-    for (const warning of readProfileCompatibility(dir).warnings) process.stderr.write(`jan: warning: ${warning}\n`)
-  }
-  // The state the report compares against: what the command changed, what it activated, and the
-  // version a removal takes away. A non-desktop profile may not exist yet, which reads as empty.
-  const before = snapshotProfile(dir)
-  // Keys that were already pending belong to earlier work: the report names only what this run introduced,
-  // which is also exactly the set `--yes-builds` would approve.
-  const earlierBuilds: readonly string[] = await readPendingBuilds(dir).catch(() => [])
+  // Let pnpm evaluate selectors and flags rather than maintaining a second argument parser for list.
+  const pnpmList = reportCommand === 'list' && invocation.args.length > 1
+  const pnpmArgs = pnpmList ? [...invocation.args, '--json'] : invocation.args
+  const listOutput: string[] = []
   let approvedBuilds: string[] = []
   const context = { profile, dir, installAnchor: INSTALL_ANCHOR, cwd: process.cwd() }
   const options: PackageOperationOptions = {
@@ -245,53 +293,37 @@ export async function runPlugin(profile: string, args: readonly string[], packag
     outputBytes: 16384,
     lockWaitMs: 120000,
     lookupTimeoutMs: 120000,
-    // A report owns stdout, so pnpm's own output is captured and replayed on stderr; approval likewise
-    // needs the run's report to name the keys it blocked.
-    ...json || yesBuilds ? { captureOutput: true } : {},
-    ...yesBuilds ? { approveReportedBuilds: true } : {},
-    onOutput: (text, stream) => { (json ? process.stderr : process[stream]).write(text) },
-    ...yesBuilds ? { onBuildsApproved: (names: readonly string[]) => { approvedBuilds = [...names] } } : {},
+    ...json ? { captureOutput: true } : {},
+    ...yesBuilds ? { approveReportedBuilds: true, onBuildsApproved: (names: readonly string[]) => { approvedBuilds = [...names] } } : {},
+    onOutput: (text, stream) => {
+      if (pnpmList && stream === 'stdout') listOutput.push(text)
+      else (json ? process.stderr : process[stream]).write(text)
+    },
   }
-  // The report describes the profile the run left behind, so a Desktop run takes its snapshot and writes
-  // the document before the shared lock is released: no other writer can land between the two.
-  const describe = (result: PackageResult): void => {
-    if (!json || !reports) return
-    const after = snapshotProfile(dir)
-    const declared = Object.keys(after.dependencies)
-    const packages: PluginCommandPackage[] = command === 'list'
-      ? declared.map(name => after.versions[name] === undefined ? { name } : { name, version: after.versions[name] })
-      : changedPackages(before, after)
-    // A second `add` of the same version saves no new spec, so the spec's own name is what the report
-    // answers with; a path or tarball target's name is only known once pnpm recorded it.
-    if (command === 'add' && packages.length === 0) {
-      for (const name of namedTargets(invocation.targets, after.dependencies)) {
-        packages.push(after.versions[name] === undefined ? { name } : { name, version: after.versions[name] })
-      }
-    }
-    const activated = after.bundles.filter(name => !before.bundles.includes(name))
-    const pendingBuilds = result.exitCode === 0
-      ? [] : blockedBuildNames(result.output).filter(name => !earlierBuilds.includes(name))
-    report({
-      ok: result.exitCode === 0,
-      exitCode: result.exitCode,
-      packages,
-      bundles: [...after.bundles],
-      ...activated[0] === undefined ? {} : { bundle: activated[0] },
-      ...approvedBuilds.length === 0 ? {} : { approvedBuilds },
-      ...pendingBuilds.length === 0 ? {} : { pendingBuilds },
-      ...result.incompatible === undefined ? {} : { incompatible: result.incompatible },
-      logPath: result.logPath,
-    })
+  let document: PluginCommandReport | undefined
+  const runLocked = async (run: () => Promise<PackageResult>): Promise<PackageResult> => {
+    for (const warning of readProfileCompatibility(dir).warnings) process.stderr.write(`jan: warning: ${warning}\n`)
+    if (reportCommand === undefined) return run()
+    const before = snapshotProfile(dir)
+    const earlierBuilds = reportCommand === 'add' ? await readPendingBuilds(dir).catch(() => []) : []
+    const result = await run()
+    document = describe(reportCommand, invocation, result, before, snapshotProfile(dir), earlierBuilds, approvedBuilds,
+      pnpmList ? listOutput.join('') : undefined)
+    return result
   }
-  const result = profile === 'desktop'
-    ? await withFileLock(join(dir, 'package.json'), async () => {
-      requireDesktopProfile(dir)
-      const run = await runProfilePnpm(context, invocation.args, options)
-      describe(run)
-      return run
-    }, { waitMs: 120000 })
-    : await runPluginCommand(context, invocation.args, options)
-  if (profile !== 'desktop') describe(result)
+  let result: PackageResult
+  try {
+    result = profile === 'desktop'
+      ? await withFileLock(join(dir, 'package.json'), async () => {
+        requireDesktopProfile(dir)
+        return runLocked(() => runProfilePnpm(context, pnpmArgs, options))
+      }, { waitMs: 120000 })
+      : await runPluginCommand(context, pnpmArgs, options, runLocked)
+  } catch (error) {
+    if (reportCommand === undefined) throw error
+    return refuse(error instanceof Error ? error.message : String(error))
+  }
+  if (document !== undefined) await writeReport(document)
   if (!json) {
     if (result.exitCode === 127) process.stderr.write('jan: pnpm was not found; install pnpm and make it available on PATH.\n')
     for (const { name, version, runtimeVersion } of result.incompatible ?? []) {

@@ -2,9 +2,12 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { setImmediate } from 'node:timers/promises'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { getJanRuntimeVersion, initProfile, readProfileVersionExemptions } from '@janhq/jan-app-boot'
+import { withFileLock } from '@janhq/jan-atomic-write'
 import { PROFILE_TEMPLATES } from '@janhq/jan-official-bundles'
+import * as operations from '@janhq/jan-plugin-manager/operations'
 import { runPluginCommand, runProfilePnpm } from '@janhq/jan-plugin-manager/operations'
 import { runPlugin } from '../src/plugin.ts'
 
@@ -15,15 +18,26 @@ vi.mock('@janhq/jan-plugin-manager/operations', async importOriginal => ({
   runProfilePnpm: vi.fn(),
 }))
 
+const packageRun = vi.fn<typeof runPluginCommand>()
+
 function fixture() {
   const home = mkdtempSync(join(tmpdir(), 'cli-version-exemptions-'))
   vi.stubEnv('JAN_HOME', home)
-  const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+  const stdout = vi.spyOn(process.stdout, 'write').mockImplementation((_text, encoding, callback) => {
+    if (typeof encoding === 'function') encoding()
+    else callback?.()
+    return true
+  })
   const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+  vi.mocked(runPluginCommand).mockImplementation((context, args, options, runLocked) => {
+    const run = () => packageRun(context, args, options)
+    return runLocked === undefined ? run() : runLocked(run)
+  })
   onTestFinished(() => {
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
     vi.mocked(runPluginCommand).mockReset()
+    packageRun.mockReset()
     vi.mocked(runProfilePnpm).mockReset()
     rmSync(home, { recursive: true, force: true })
   })
@@ -31,11 +45,11 @@ function fixture() {
 }
 
 /** Record a dependency the way a successful pnpm run leaves it: an exact spec and installed contents. */
-function declarePlugin(dir: string, name: string, version: string): void {
+function declarePlugin(dir: string, name: string, version: string, spec = version): void {
   const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as {
     dependencies?: Record<string, string>
   }
-  writeFileSync(join(dir, 'package.json'), JSON.stringify({ ...manifest, dependencies: { ...manifest.dependencies, [name]: version } }))
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ ...manifest, dependencies: { ...manifest.dependencies, [name]: spec } }))
   mkdirSync(join(dir, 'node_modules', name), { recursive: true })
   writeFileSync(join(dir, 'node_modules', name, 'package.json'), JSON.stringify({ name, version }))
 }
@@ -91,7 +105,7 @@ it('uses shipped profile defaults when listing a missing profile', async () => {
 
 it.each([0, 1])('forwards ordinary pnpm output and exit status %s', async (exitCode) => {
   const { stdout, stderr } = fixture()
-  vi.mocked(runPluginCommand).mockImplementation(async (_context, _args, options) => {
+  packageRun.mockImplementation(async (_context, _args, options) => {
     options.onOutput?.('pnpm output', 'stdout')
     return { exitCode, output: '', truncated: false, logPath: '/profile/log' }
   })
@@ -103,7 +117,7 @@ it.each([0, 1])('forwards ordinary pnpm output and exit status %s', async (exitC
 
 it('names the exact grant command for each package a compatibility check refused', async () => {
   const { stderr } = fixture()
-  vi.mocked(runPluginCommand).mockResolvedValue({
+  packageRun.mockResolvedValue({
     exitCode: 1, output: '', truncated: false, logPath: '/profile/log',
     incompatible: [{ name: '@example/plugin', version: '1.2.3', runtimeVersion: '0.1.0', requirements: { '@janhq/jan': '^9.0.0' } }],
   })
@@ -116,16 +130,16 @@ it('names the exact grant command for each package a compatibility check refused
 
 it('forwards all other commands unchanged and retains package diagnostics', async () => {
   const { stderr } = fixture()
-  vi.mocked(runPluginCommand).mockResolvedValue({ exitCode: 127, output: '', truncated: false, logPath: '/profile/log' })
+  packageRun.mockResolvedValue({ exitCode: 127, output: '', truncated: false, logPath: '/profile/log' })
   const args = ['add', 'github:example/plugin']
   expect(await runPlugin('test', args)).toBe(127)
-  expect(runPluginCommand).toHaveBeenCalledWith(expect.objectContaining({ profile: 'test' }), args, expect.objectContaining({ execution: 'cli' }))
+  expect(runPluginCommand).toHaveBeenCalledWith(expect.objectContaining({ profile: 'test' }), args, expect.objectContaining({ execution: 'cli' }), expect.any(Function))
   expect(stderr.mock.calls.map(call => call[0]).join('')).toContain('pnpm was not found')
 })
 
 it('uses the installation package runtime without changing CLI authentication or output policy', async () => {
   fixture()
-  vi.mocked(runPluginCommand).mockResolvedValue({ exitCode: 0, output: '', truncated: false, logPath: '/profile/log' })
+  packageRun.mockResolvedValue({ exitCode: 0, output: '', truncated: false, logPath: '/profile/log' })
   const packageManager = {
     command: '/installation/electron',
     args: ['--expose-internals', '/installation/pnpm.mjs'],
@@ -134,7 +148,7 @@ it('uses the installation package runtime without changing CLI authentication or
   expect(await runPlugin('test', ['list'], packageManager)).toBe(0)
   expect(runPluginCommand).toHaveBeenCalledWith(
     expect.objectContaining({ profile: 'test' }), ['list'],
-    expect.objectContaining({ ...packageManager, execution: 'cli' }),
+    expect.objectContaining({ ...packageManager, execution: 'cli' }), expect.any(Function),
   )
 })
 
@@ -197,7 +211,7 @@ it('applies version approvals to the existing Desktop profile without replacing 
 it('reports one JSON document for add, including the installed version and activated bundle', async () => {
   const { dir, stdout } = fixture()
   initProfile(dir, [])
-  vi.mocked(runPluginCommand).mockImplementation(async () => {
+  packageRun.mockImplementation(async () => {
     declarePlugin(dir, 'example-plugin', '1.2.3')
     const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as Record<string, unknown>
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ ...manifest, jan: { profile: { bundles: ['example-plugin'] } } }))
@@ -220,16 +234,37 @@ it('reports a repeated add by the name the spec asked for', async () => {
   const { dir, stdout } = fixture()
   initProfile(dir, [])
   declarePlugin(dir, 'example-plugin', '1.2.3')
-  vi.mocked(runPluginCommand).mockResolvedValue({ exitCode: 0, output: '', truncated: false, logPath: '/profile/log' })
+  packageRun.mockResolvedValue({ exitCode: 0, output: '', truncated: false, logPath: '/profile/log' })
   expect(await runPlugin('test', ['add', 'example-plugin@1.2.3', '--json'])).toBe(0)
   expect(report(stdout)).toMatchObject({ packages: [{ name: 'example-plugin', version: '1.2.3' }] })
+})
+
+it('reports the installed version changed by replacing a tarball at the same path', async () => {
+  const { dir, stdout } = fixture()
+  initProfile(dir, [])
+  declarePlugin(dir, 'example-plugin', '1.2.3', 'file:./plugin.tgz')
+  packageRun.mockImplementation(async () => {
+    declarePlugin(dir, 'example-plugin', '2.0.0', 'file:./plugin.tgz')
+    return { exitCode: 0, output: '', truncated: false, logPath: '/profile/log' }
+  })
+  expect(await runPlugin('test', ['add', './plugin.tgz', '--json'])).toBe(0)
+  expect(report(stdout)).toMatchObject({ packages: [{ name: 'example-plugin', version: '2.0.0' }] })
+})
+
+it('does not report an unchanged plugin when an add of another version fails', async () => {
+  const { dir, stdout } = fixture()
+  initProfile(dir, [])
+  declarePlugin(dir, 'example-plugin', '1.2.3')
+  packageRun.mockResolvedValue({ exitCode: 1, output: '', truncated: false, logPath: '/profile/log' })
+  expect(await runPlugin('test', ['add', 'example-plugin@2.0.0', '--json'])).toBe(1)
+  expect(report(stdout)).toMatchObject({ ok: false, packages: [] })
 })
 
 it('reports a failed add with the pending build scripts it introduced and the key it approved', async () => {
   const { dir, stdout } = fixture()
   initProfile(dir, [])
   writeFileSync(join(dir, 'pnpm-workspace.yaml'), 'allowBuilds:\n  earlier@1.0.0: set this to true or false\n')
-  vi.mocked(runPluginCommand).mockImplementation(async (_context, _args, options) => {
+  packageRun.mockImplementation(async (_context, _args, options) => {
     // pnpm reports every pending key in the tree; only the one this run added is its own answer.
     options.onBuildsApproved?.(['example-plugin'])
     return {
@@ -247,18 +282,97 @@ it('lists declared dependencies with their installed versions as JSON', async ()
   declarePlugin(dir, 'example-plugin', '1.2.3')
   declarePlugin(dir, 'not-installed', '2.0.0')
   rmSync(join(dir, 'node_modules', 'not-installed'), { recursive: true })
-  vi.mocked(runPluginCommand).mockResolvedValue({ exitCode: 0, output: '', truncated: false, logPath: '/profile/log' })
+  packageRun.mockResolvedValue({ exitCode: 0, output: '', truncated: false, logPath: '/profile/log' })
   expect(await runPlugin('test', ['list', '--json'])).toBe(0)
   expect(report(stdout)).toMatchObject({
     command: 'list', ok: true, packages: [{ name: 'example-plugin', version: '1.2.3' }, { name: 'not-installed' }],
   })
 })
 
+it('lists only packages selected by pnpm in JSON mode', async () => {
+  const { dir, stdout, stderr } = fixture()
+  initProfile(dir, [])
+  declarePlugin(dir, 'one-plugin', '1.2.3')
+  declarePlugin(dir, 'another-plugin', '2.0.0')
+  packageRun.mockImplementation(async (_context, args, options) => {
+    const output = args.includes('--json')
+      ? JSON.stringify([{ dependencies: { 'one-plugin': { version: '1.2.3' } } }]) : 'one-plugin 1.2.3\n'
+    options.onOutput?.(output, 'stdout')
+    options.onOutput?.('pnpm diagnostic\n', 'stderr')
+    return { exitCode: 0, output, truncated: false, logPath: '/profile/log' }
+  })
+  expect(await runPlugin('test', ['list', 'one-*', '--json'])).toBe(0)
+  expect(report(stdout)).toMatchObject({ packages: [{ name: 'one-plugin', version: '1.2.3' }] })
+  expect(stderr).toHaveBeenCalledWith('pnpm diagnostic\n')
+})
+
+it('writes one JSON failure when pnpm operation logging cannot start', async () => {
+  const { dir, stdout } = fixture()
+  initProfile(dir, [])
+  mkdirSync(join(dir, '.plugin-manager'))
+  writeFileSync(join(dir, '.plugin-manager', 'logs'), 'not a directory')
+  const actual = await vi.importActual<typeof operations>('@janhq/jan-plugin-manager/operations')
+  vi.mocked(runPluginCommand).mockImplementation(actual.runPluginCommand)
+  expect(await runPlugin('test', ['list', '--json'])).toBe(1)
+  expect(report(stdout)).toMatchObject({ command: 'list', ok: false, exitCode: 1, packages: [], error: expect.stringContaining('logs') })
+})
+
+it.each(['test', 'desktop'])('compares the %s profile before and after under its writer lock', async (profile) => {
+  const { home, stdout } = fixture()
+  const dir = join(home, 'profiles', profile)
+  initProfile(dir, [])
+  const actual = await vi.importActual<typeof operations>('@janhq/jan-plugin-manager/operations')
+  vi.mocked(runPluginCommand).mockImplementation(actual.runPluginCommand)
+  const script = join(home, 'fake-pnpm.cjs')
+  writeFileSync(script, `
+    const fs = require('node:fs');
+    if (process.argv[2] === 'view') { console.log('{}'); return; }
+    const manifest = JSON.parse(fs.readFileSync('package.json'));
+    manifest.dependencies = { ...manifest.dependencies, added: '1.0.0' };
+    fs.writeFileSync('package.json', JSON.stringify(manifest));
+    fs.mkdirSync('node_modules/added', { recursive: true });
+    fs.writeFileSync('node_modules/added/package.json', '{"name":"added","version":"1.0.0"}');
+  `)
+  vi.mocked(runProfilePnpm).mockImplementation(actual.runProfilePnpm)
+  const manager = { command: process.execPath, args: [script] }
+  const ready = Promise.withResolvers<undefined>()
+  const release = Promise.withResolvers<undefined>()
+  const prior = withFileLock(join(dir, 'package.json'), async () => {
+    ready.resolve(undefined)
+    await release.promise
+    declarePlugin(dir, 'earlier', '1.0.0')
+  })
+  await ready.promise
+  const add = runPlugin(profile, ['add', 'added', '--json'], manager)
+  release.resolve(undefined)
+  await prior
+  expect(await add).toBe(0)
+  expect(report(stdout)).toMatchObject({ packages: [{ name: 'added', version: '1.0.0' }] })
+})
+
+it('waits for the JSON stdout write to complete before returning the exit code', async () => {
+  const { stdout } = fixture()
+  const written = Promise.withResolvers<undefined>()
+  let finish: (() => void) | undefined
+  stdout.mockImplementation((_text, encoding, callback) => {
+    finish = typeof encoding === 'function' ? encoding : callback
+    written.resolve(undefined)
+    return false
+  })
+  packageRun.mockResolvedValue({ exitCode: 0, output: '', truncated: false, logPath: '/profile/log' })
+  let exited = false
+  const run = runPlugin('test', ['list', '--json']).then((code) => { exited = true; return code })
+  await written.promise
+  await setImmediate()
+  try { expect(exited).toBe(false) } finally { finish?.() }
+  expect(await run).toBe(0)
+})
+
 it('removes a dependency and reports the version it took away', async () => {
   const { dir, stdout } = fixture()
   initProfile(dir, [])
   declarePlugin(dir, 'example-plugin', '1.2.3')
-  vi.mocked(runPluginCommand).mockImplementation(async () => {
+  packageRun.mockImplementation(async () => {
     const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { jan?: unknown }
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ dependencies: {}, jan: manifest.jan }))
     return { exitCode: 0, output: '', truncated: false, logPath: '/profile/log' }
@@ -285,8 +399,8 @@ it('refuses --yes-builds on anything but add', async () => {
 
 it('forwards --json to a command Jan does not report on', async () => {
   fixture()
-  vi.mocked(runPluginCommand).mockResolvedValue({ exitCode: 0, output: '', truncated: false, logPath: '/profile/log' })
+  packageRun.mockResolvedValue({ exitCode: 0, output: '', truncated: false, logPath: '/profile/log' })
   expect(await runPlugin('test', ['why', 'example-plugin', '--json'])).toBe(0)
   expect(runPluginCommand).toHaveBeenCalledWith(expect.anything(), ['why', 'example-plugin', '--json'],
-    expect.not.objectContaining({ captureOutput: true }))
+    expect.not.objectContaining({ captureOutput: true }), expect.any(Function))
 })

@@ -791,10 +791,12 @@ async function runPnpmOnce(
  * @param context Launcher-owned locations.
  * @param args Pnpm arguments.
  * @param options Output and cancellation policy.
+ * @param runLocked Optional wrapper for command-specific reads under the profile lock; it must await the run.
  * @returns Completed package-manager result.
  */
 export async function runPluginCommand(
   context: PackageOperationContext, args: readonly string[], options: PackageOperationOptions,
+  runLocked: (run: () => Promise<PackageResult>) => Promise<PackageResult> = run => run(),
 ): Promise<PackageResult> {
   const dir = context.dir ?? resolveProfileDir(context.profile, context.home)
   await mkdir(dir, { recursive: true })
@@ -804,7 +806,7 @@ export async function runPluginCommand(
       initProfile(dir, template?.bundles ?? DEFAULT_PROFILE_BUNDLES)
       options.onOutput?.(`jan: initialized profile ${context.profile} at ${dir}\n`, 'stderr')
     }
-    return runProfilePnpm(context, args, options)
+    return runLocked(() => runProfilePnpm(context, args, options))
   }, options.lockWaitMs === undefined ? undefined : { waitMs: options.lockWaitMs })
 }
 
