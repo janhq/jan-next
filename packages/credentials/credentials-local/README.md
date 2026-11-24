@@ -162,7 +162,7 @@ This section explains the design decisions behind the provider and points at the
 
 ### Resolution and write paths
 
-`resolve` picks the first source, reads a keychain marker if needed, and resolves a password-manager reference only in the managed layer. `set`/`unset` queue onto the same exclusive operation chain. Under the writer lock, a native write stages a fresh entry, commits its marker to YAML, and then removes the old native entry. A failed YAML commit discards the staged entry. Removing an entry publishes its deletion before attempting native cleanup.
+`resolve` picks the first source, reads a keychain marker if needed, and resolves a password-manager reference only in the managed layer. `set`/`unset` queue onto the same exclusive operation chain. Under the writer lock, a native write stages a fresh entry and commits its marker to YAML. Replacing or unsetting an entry also records its old native ID in the same write. Jan clears that ID only after native removal succeeds, so factory reset can retry any remaining removals. A failed YAML commit discards a newly staged entry.
 
 `modifyRecord` runs on the same chain and lock: it re-reads the document, passes the record as it stands to the mutation, admits the result — a non-empty API key, a grant payload that survives a JSON round trip — renders the record wholesale, and commits, firing `credentials/record-updated` once. A composition the product CLI did not boot has only the inherited environment as its layer.
 

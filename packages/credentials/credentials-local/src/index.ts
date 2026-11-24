@@ -58,6 +58,7 @@ import { resolvePasswordManagerValue, vaultCli } from './password-manager.ts'
 
 const KEYCHAIN_UNREADABLE = 'Jan could not read this saved credential from the OS keychain. Unlock it or save the credential again.'
 const KEYCHAIN_FALLBACK = 'The OS keychain is unavailable. Jan will save new credentials in its private file for this run.'
+const PENDING_REMOVALS = 'keychainPendingRemovals'
 
 /** Basename of the credentials document inside the harness home. */
 export const CREDENTIALS_FILENAME = '.credentials.yaml'
@@ -185,12 +186,14 @@ function readMarker(value: unknown, where: string, fieldCount: number): Keychain
   return { keychain }
 }
 
-/** One parsed credentials document: the two key spaces it stores, keyed as written, plus the top-level keys it does not read. */
+/** Parsed credential entries and native cleanup metadata. */
 export interface CredentialsDocument {
   /** Reference entries, keyed by {@link CredentialRef}. */
   refs: Map<string, StoredRef>
   /** Stored records, keyed by {@link CredentialKey}. */
   records: Map<string, StoredRecord>
+  /** Native entry IDs no longer referenced by a credential but not confirmed removed. */
+  pendingRemovals: Set<string>
   /** Top-level keys this build does not read; they stay on disk and resolve nothing. */
   ignoredKeys: string[]
 }
@@ -206,7 +209,7 @@ export interface CredentialsDocument {
  * and needs no version.
  * @param text - the document's text.
  * @param filename - absolute path, quoted in errors.
- * @returns the parsed references, records, and ignored top-level keys.
+ * @returns the parsed references, records, pending native removals, and ignored top-level keys.
  */
 export function parseCredentialsDocument(text: string, filename: string): CredentialsDocument {
   // `prettyErrors` is on only for `linePos`; `error.message` is never used,
@@ -227,7 +230,7 @@ export function parseCredentialsDocument(text: string, filename: string): Creden
   const keys = Object.keys(fields)
   // An empty (or comment-only) document is the empty store and needs no
   // version: there is nothing in it a later layout could have meant.
-  if (keys.length === 0) return { refs: new Map(), records: new Map(), ignoredKeys: [] }
+  if (keys.length === 0) return emptyCredentialsDocument()
   if (!('version' in fields)) {
     throw new Error(
       `credentials-local: ${filename} uses the pre-release flat layout. Add \`version: ${DOCUMENT_VERSION}\``
@@ -244,8 +247,21 @@ export function parseCredentialsDocument(text: string, filename: string): Creden
   return {
     refs: parseRefs(fields['refs'], filename),
     records: parseRecords(fields['records'], filename),
-    ignoredKeys: keys.filter(key => key !== 'version' && key !== 'refs' && key !== 'records'),
+    pendingRemovals: parsePendingRemovals(fields[PENDING_REMOVALS], filename),
+    ignoredKeys: keys.filter(key => key !== 'version' && key !== 'refs' && key !== 'records' && key !== PENDING_REMOVALS),
   }
+}
+
+function emptyCredentialsDocument(): CredentialsDocument {
+  return { refs: new Map(), records: new Map(), pendingRemovals: new Set(), ignoredKeys: [] }
+}
+
+function parsePendingRemovals(value: unknown, filename: string): Set<string> {
+  if (value === undefined) return new Set()
+  if (!Array.isArray(value) || !value.every(id => typeof id === 'string' && KEYCHAIN_ENTRY_ID.test(id))) {
+    throw new TypeError(`credentials-local: invalid pending OS keychain removals in ${filename}`)
+  }
+  return new Set<string>(value)
 }
 
 /**
@@ -348,8 +364,7 @@ export async function resetCredentialDocument(filename: string): Promise<void> {
       })
       if (text === undefined) return
       if (renderFlatLayoutMigration(text) === undefined) {
-        const { refs, records } = parseCredentialsDocument(text, filename)
-        const entries = new Set<string>()
+        const { refs, records, pendingRemovals: entries } = parseCredentialsDocument(text, filename)
         for (const value of refs.values()) if (typeof value === 'object') entries.add(value.keychain)
         for (const record of records.values()) if ('keychain' in record) entries.add(record.keychain)
         if (entries.size > 0) {
@@ -491,13 +506,13 @@ function mutableDocument(text: string | undefined): Document {
  * @param text - the current document text, `undefined` while the file is absent.
  * @param ref - the reference to write.
  * @param value - the new value, or `undefined` to delete the key.
- * @returns the text to persist.
+ * @returns the document to persist.
  */
-function renderRef(text: string | undefined, ref: CredentialRef, value: StoredRef | undefined): string {
+function renderRef(text: string | undefined, ref: CredentialRef, value: StoredRef | undefined): Document {
   const document = mutableDocument(text)
   if (value === undefined) deleteSectionEntry(document, 'refs', ref)
   else document.setIn(['refs', ref], value)
-  return document.toString()
+  return document
 }
 
 /**
@@ -507,13 +522,18 @@ function renderRef(text: string | undefined, ref: CredentialRef, value: StoredRe
  * @param text - the current document text, `undefined` while the file is absent.
  * @param key - the record to write.
  * @param record - the new record, or `undefined` to delete it.
- * @returns the text to persist.
+ * @returns the document to persist.
  */
-function renderRecord(text: string | undefined, key: CredentialKey, record: StoredRecord | undefined): string {
+function renderRecord(text: string | undefined, key: CredentialKey, record: StoredRecord | undefined): Document {
   const document = mutableDocument(text)
   if (record === undefined) deleteSectionEntry(document, 'records', key)
   else document.setIn(['records', key], record)
-  return document.toString()
+  return document
+}
+
+function renderPendingRemovals(document: Document, entries: ReadonlySet<string>): void {
+  if (entries.size > 0) document.set(PENDING_REMOVALS, [...entries])
+  else document.delete(PENDING_REMOVALS)
 }
 
 /**
@@ -585,6 +605,7 @@ export class LocalCredentialProvider extends CredentialProvider {
   private values = new Map<string, StoredRef>()
   /** Parsed record snapshot; replaced wholesale on every reload. */
   private records = new Map<string, StoredRecord>()
+  private pendingRemovals = new Set<string>()
   /**
    * Single exclusive operation chain: watcher reloads and line edits run one
    * at a time in queue order (settled tail), so an edit can never render from
@@ -764,9 +785,10 @@ export class LocalCredentialProvider extends CredentialProvider {
         const record = parseRecord(key, next, this.spec.filename)
         const marker = await this.seal(record)
         const replacement = marker === undefined ? record : { kind: record.kind, ...marker }
-        await this.publishDocument(() => renderRecord(this.text, key, replacement), marker)
+        const retired = stored !== undefined && 'keychain' in stored ? stored : undefined
+        await this.publishDocument(() => renderRecord(this.text, key, replacement), marker, retired)
         this.records.set(key, replacement)
-        if (stored !== undefined && 'keychain' in stored) await this.discard(stored)
+        if (retired !== undefined) await this.removeRetired(retired)
         this.notifyRecordUpdated(key)
         return record
       }, { waitMs: DOCUMENT_LOCK_WAIT_MS })
@@ -784,9 +806,10 @@ export class LocalCredentialProvider extends CredentialProvider {
         await this.reconcileFromDisk()
         const stored = this.records.get(key)
         if (stored === undefined) return
-        await this.publishDocument(() => renderRecord(this.text, key, undefined), undefined)
+        const retired = 'keychain' in stored ? stored : undefined
+        await this.publishDocument(() => renderRecord(this.text, key, undefined), undefined, retired)
         this.records.delete(key)
-        if ('keychain' in stored) await this.discard(stored)
+        if (retired !== undefined) await this.removeRetired(retired)
         this.notifyRecordUpdated(key)
       }, { waitMs: DOCUMENT_LOCK_WAIT_MS })
     })
@@ -814,21 +837,47 @@ export class LocalCredentialProvider extends CredentialProvider {
     }
   }
 
-  /** Roll back a newly allocated generation if rendering or the YAML commit fails. */
-  private async publishDocument(render: () => string, marker: KeychainMarker | undefined): Promise<void> {
+  /** Commit the index change with the retired ID before attempting native cleanup. */
+  private async publishDocument(render: () => Document, marker: KeychainMarker | undefined, retired?: KeychainMarker): Promise<void> {
     try {
-      const text = render()
-      await writeFileAtomic(this.spec.filename, text, { mode: 0o600, dirMode: 0o700 })
-      this.text = text
+      const document = render()
+      if (retired !== undefined) renderPendingRemovals(document, new Set([...this.pendingRemovals, retired.keychain]))
+      await this.persistDocument(document)
+      if (retired !== undefined) this.pendingRemovals.add(retired.keychain)
     } catch (error) {
       if (marker !== undefined) await this.discard(marker)
       throw error
     }
   }
 
-  private async discard(marker: KeychainMarker): Promise<void> {
-    try { await (await this.getKeychain()).remove(marker.keychain) } catch {
+  private async persistDocument(document: Document): Promise<void> {
+    const text = document.toString()
+    await writeFileAtomic(this.spec.filename, text, { mode: 0o600, dirMode: 0o700 })
+    this.text = text
+  }
+
+  private async removeRetired(marker: KeychainMarker): Promise<void> {
+    if (!await this.discard(marker)) return
+    const remaining = new Set(this.pendingRemovals)
+    remaining.delete(marker.keychain)
+    try {
+      const document = mutableDocument(this.text)
+      renderPendingRemovals(document, remaining)
+      await this.persistDocument(document)
+      this.pendingRemovals = remaining
+    } catch {
+      // The native entry is gone. Reset can safely retry it if the index update failed.
+      this.ctx.logger.warn('Jan could not update the OS keychain cleanup index.')
+    }
+  }
+
+  private async discard(marker: KeychainMarker): Promise<boolean> {
+    try {
+      await (await this.getKeychain()).remove(marker.keychain)
+      return true
+    } catch {
       this.ctx.logger.warn(KEYCHAIN_REMOVE_FAILURE)
+      return false
     }
   }
 
@@ -920,10 +969,11 @@ export class LocalCredentialProvider extends CredentialProvider {
         if (value === undefined && existing === undefined) return
         const marker = value === undefined ? undefined : await this.seal(value)
         const replacement = marker ?? value
-        await this.publishDocument(() => renderRef(this.text, ref, replacement), marker)
+        const retired = typeof existing === 'object' ? existing : undefined
+        await this.publishDocument(() => renderRef(this.text, ref, replacement), marker, retired)
         if (replacement === undefined) this.values.delete(ref)
         else this.values.set(ref, replacement)
-        if (typeof existing === 'object') await this.discard(existing)
+        if (retired !== undefined) await this.removeRetired(retired)
         // After the commit: a broken observer must never make the durable
         // write look failed.
         this.notifyUpdated(ref)
@@ -953,6 +1003,7 @@ export class LocalCredentialProvider extends CredentialProvider {
     this.warnIgnoredKeys(document)
     this.values = document.refs
     this.records = document.records
+    this.pendingRemovals = document.pendingRemovals
     this.text = text
   }
 
@@ -1023,7 +1074,7 @@ export class LocalCredentialProvider extends CredentialProvider {
     }
     if (text === this.text || this.isClosed()) return
     const next = text === undefined
-      ? { refs: new Map<string, StoredRef>(), records: new Map<string, StoredRecord>(), ignoredKeys: [] }
+      ? emptyCredentialsDocument()
       : parseCredentialsDocument(text, this.spec.filename)
     this.warnIgnoredKeys(next)
     const changedRefs = this.changedRefs(this.values, next.refs)
@@ -1031,6 +1082,7 @@ export class LocalCredentialProvider extends CredentialProvider {
     this.text = text
     this.values = next.refs
     this.records = next.records
+    this.pendingRemovals = next.pendingRemovals
     for (const ref of changedRefs) this.notifyUpdated(ref)
     for (const key of changedRecords) this.notifyRecordUpdated(key)
   }

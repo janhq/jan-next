@@ -180,6 +180,57 @@ it('logs failed native cleanup without reviving a removed document entry', async
   expect(await readFile(path, 'utf8')).not.toContain('keychain:')
 })
 
+it('keeps failed removals discoverable after unsetting and rotating credentials so reset can retry them', async () => {
+  const path = await documentPath()
+  const { ctx, credentials, dispose } = await boot(path)
+  vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+  await credentials.set(REF, 'reference to remove')
+  await credentials.set(OTHER, 'reference to rotate')
+  await credentials.modifyRecord(API_KEY, async () => ({ kind: 'api-key', key: 'key to rotate' }))
+  await credentials.modifyRecord(GRANT, async () => ({ kind: 'grant', payload: 'grant to remove' }))
+
+  native.remove.mockRejectedValue(new Error('keychain locked'))
+  await credentials.unset(REF)
+  await credentials.set(OTHER, 'rotated reference')
+  await credentials.modifyRecord(API_KEY, async () => ({ kind: 'api-key', key: 'rotated key' }))
+  await credentials.deleteRecord(GRANT)
+  expect(native.entries.size).toBe(6)
+  await dispose()
+
+  const fresh = await boot(path, false)
+  expect(await fresh.credentials.resolve(REF)).toEqual({ source: 'env', value: 'ambient-account' })
+  expect(await fresh.credentials.describeRecord(GRANT)).toEqual({ configured: false, writable: true })
+  expect(await fresh.credentials.resolve(OTHER)).toEqual({ source: 'file', value: 'rotated reference' })
+  expect(await fresh.credentials.readRecord(API_KEY)).toEqual({ kind: 'api-key', key: 'rotated key' })
+  // Clearing the remaining credentials must not make a reset falsely succeed.
+  await fresh.credentials.unset(OTHER)
+  await fresh.credentials.deleteRecord(API_KEY)
+  await fresh.dispose()
+  await expect(resetCredentialDocument(path)).rejects.toThrow('Jan could not remove a credential entry from the OS keychain.')
+
+  native.remove.mockImplementation(async address => native.entries.delete(address))
+  await resetCredentialDocument(path)
+  expect(native.entries.size).toBe(0)
+  await expect(readFile(path, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+it('writes the retired ID before native removal and clears the ID after success', async () => {
+  const path = await documentPath()
+  const { credentials } = await boot(path)
+  await credentials.set(REF, 'stored')
+  const retired = [...native.entries.keys()][0]!
+  const id = retired.split('/').at(-1)!
+  let duringRemoval: string | undefined
+  native.remove.mockImplementationOnce(async (address) => {
+    duringRemoval = await readFile(path, 'utf8')
+    return native.entries.delete(address)
+  })
+  await credentials.unset(REF)
+  expect(duringRemoval).toContain(id)
+  expect(duringRemoval).not.toContain(REF)
+  expect(await readFile(path, 'utf8')).not.toContain(id)
+})
+
 it('reads the authoritative marker after another provider removes a stale generation', async () => {
   const path = await documentPath()
   const writer = await boot(path)
