@@ -69,7 +69,7 @@ it('pins a manual source to one preparation without changing deployment defaults
   worker.prepare({ downloadSource: 'https://hf-mirror.com' })
   await vi.waitFor(() => { expect(worker.snapshot().phase).toBe('ready') })
   expect(prepareRuntime).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ modelOrigin: 'https://hf-mirror.com' }),
-    expect.any(AbortSignal), expect.any(Function))
+    expect.any(AbortSignal), expect.any(Function), expect.any(Function))
 })
 
 it('rejects unadvertised sources and preserves private and offline deployments', async () => {
@@ -369,7 +369,9 @@ it('retains completed preparation steps when cancellation settles the active ste
   expect(worker.snapshot().steps?.map(step => [step.kind, step.status])).toEqual([
     ['check', 'complete'], ['model', 'complete'], ['vad', 'complete'], ['verify', 'running'], ['load', 'pending'],
   ])
-  await worker.cancel()
+  const cancel = vi.mocked(prepareRuntime).mock.lastCall?.[4]
+  expect(cancel).toBeTypeOf('function')
+  await cancel?.()
   expect(worker.snapshot().steps?.find(step => step.kind === 'verify')?.status).toBe('cancelled')
   worker.prepare()
   await vi.waitFor(() => { expect(worker.snapshot().phase).toBe('ready') }, { timeout: 10000 })

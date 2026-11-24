@@ -184,17 +184,19 @@ export class SenseVoiceWorker {
     const source = options.downloadSource
     if (source !== undefined && !this.downloadSources.includes(source)) throw new Error('Speech download source is unavailable')
     const config = source === undefined ? this.config : Object.assign({}, this.config, { modelOrigin: source })
-    this.runPreparation(async (signal) => { await this.start(signal, config) }, source)
+    this.runPreparation(async (signal, cancel) => { await this.start(signal, config, cancel) }, source)
   }
 
-  private runPreparation(run: (signal: AbortSignal) => Promise<void>, downloadSource?: string): void {
+  private runPreparation(run: (signal: AbortSignal, cancel: () => Promise<void>) => Promise<void>, downloadSource?: string): void {
     if (this.preparing && this.preparing.downloadSource !== downloadSource) throw new Error('Cancel preparation before changing its download source')
     if (this.preparing || this.worker) return
     this.lifetime.signal.throwIfAborted()
     const abort = new AbortController()
     const task = { abort, settled: Promise.resolve(), completed: false, downloadSource }
     this.preparing = task
-    task.settled = this.enqueue(run, abort.signal)
+    task.settled = this.enqueue(async (signal) => {
+      await run(signal, async () => { if (this.preparing === task) await this.cancel() })
+    }, abort.signal)
       .catch((error: unknown) => {
         if (this.lifetime.signal.aborted) return
         this.publish(abort.signal.aborted ? { phase: 'cancelled' }
@@ -247,13 +249,14 @@ export class SenseVoiceWorker {
     return await job
   }
 
-  private async start(signal: AbortSignal, preparationConfig: Config = this.config): Promise<Worker> {
+  private async start(signal: AbortSignal, preparationConfig: Config = this.config, cancel?: () => Promise<void>): Promise<Worker> {
     if (this.worker?.closed) await this.stop()
     if (this.worker) return this.worker
     using setup = deadline(signal, this.config.prepareTimeoutMs, 'SPEECH_PREPARE_TIMEOUT')
     const cached = this.runtime !== undefined
     if (!cached) this.publish({ phase: 'checking', step: 'check', startedAt: Date.now() })
-    const runtime = this.runtime ?? await prepareRuntime(this.ctx, preparationConfig, setup.signal, (state) => { this.publish(state) })
+    const runtime = this.runtime
+      ?? await prepareRuntime(this.ctx, preparationConfig, setup.signal, (state) => { this.publish(state) }, cancel)
     this.runtime = runtime
     setup.signal.throwIfAborted()
     this.publish({ phase: cached ? 'waking' : 'loading', step: 'load', startedAt: Date.now() })
