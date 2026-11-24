@@ -32,6 +32,7 @@
       "@janhq/jan-client-ui-file-actions/client": ["./packages/client/ui-file-actions/src/client/index.ts"],
       "@janhq/jan-client-ui-file-actions/types": ["./packages/client/ui-file-actions/src/types.ts"],
       "@janhq/jan-downloads/types": ["./packages/host/downloads/src/types.ts"],
+      "@janhq/jan-downloads/client": ["./packages/host/downloads/client.js"],
       "@janhq/jan-client-ui-context-menu": ["./packages/client/ui-context-menu/src/index.ts"],
       "@janhq/jan-client-ui-context-menu/client": ["./packages/client/ui-context-menu/src/client/index.ts"],
       "@janhq/jan-client-ui-entry-customization": ["./packages/client/ui-entry-customization/src/index.ts"],
