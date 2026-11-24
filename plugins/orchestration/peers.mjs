@@ -68,6 +68,8 @@ export function createPeers(ctx, store, workers, accept, signal) {
     return hosts.callPlugin(id, FEATURE, method, params, control)
   }
 
+  // A peer that answered with an error refused the operation (code `rejected`);
+  // any other failure means it could not be reached.
   async function call(peerId, method, params, control) {
     try {
       return await request(peerId, method, params, control)
@@ -75,7 +77,8 @@ export function createPeers(ctx, store, workers, accept, signal) {
       control.throwIfAborted()
       const list = await known()
       const name = list.find(peer => peer.id === peerId)?.name || peerId
-      throw new Error(`${name} is not reachable: ${error.message}`, { cause: error })
+      const rejected = error.code === 'rejected'
+      throw Object.assign(new Error(rejected ? `${name} refused: ${error.message}` : `${name} is not reachable: ${error.message}`, { cause: error }), { rejected })
     }
   }
 
@@ -213,10 +216,16 @@ export function createPeers(ctx, store, workers, accept, signal) {
             if (!forgotten.has(id)) state.peerAcks[id] = after
           })
         }
-        // A stop recorded while this peer was unreachable reaches it now.
+        // A stop recorded while this peer was unreachable reaches it now. A
+        // refused stop is final, so it no longer holds up this peer's updates.
         for (const dispatch of Object.values(store.read().dispatches)) {
           if (dispatch.host !== id || !dispatch.remoteStop) continue
-          await request(id, 'peerStop', { ref, dispatchId: dispatch.id }, control)
+          try {
+            await request(id, 'peerStop', { ref, dispatchId: dispatch.id }, control)
+          } catch (error) {
+            if (error.code !== 'rejected') throw error
+            ctx.logger.warn(`${id} refused to stop orchestration dispatch ${dispatch.id}: ${error.message}`)
+          }
           await store.mutate(() => { delete dispatch.remoteStop })
         }
         if (!hasActive(id)) return

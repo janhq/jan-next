@@ -16,6 +16,7 @@ async function pair(t) {
   const addresses = new Map()
   const calls = []
   let offline = false
+  let refuseStop = false
   let beforeAck
   const auth = 'Bearer federation-test'
   async function host(id, peerId, kind) {
@@ -38,11 +39,12 @@ async function pair(t) {
         assert.equal(feature, 'orchestration')
         calls.push([id, method])
         if (offline && id === 'a' && (method === 'peerPull' || method === 'peerStop')) throw new Error('Peer is offline.')
+        if (refuseStop && method === 'peerStop') throw Object.assign(new Error('Unknown remote worker dispatch.'), { code: 'rejected' })
         if (id === 'a' && method === 'peerAck' && beforeAck) await beforeAck(signal)
         const response = await fetch(addresses.get(target), { method: 'POST',
           headers: { 'content-type': 'application/json', authorization: auth }, body: JSON.stringify({ method, params }), signal })
         const body = await response.json()
-        if (body.error) throw new Error(body.error)
+        if (body.error) throw Object.assign(new Error(body.error), { code: 'rejected' })
         assert.equal(response.status, 200)
         return body.result
       },
@@ -60,7 +62,8 @@ async function pair(t) {
   const inbox = () => a.notifications.filter(update => update.id === a.coordinator.id)
   const state = async host => JSON.parse(await readFile(join(host.home, 'orchestration', 'state.json'), 'utf8'))
   const outbox = async () => (await state(b)).outbox
-  return { a, b, start, inbox, outbox, state, auth, calls, blockAck: fn => { beforeAck = fn }, setOffline: value => { offline = value } }
+  return { a, b, start, inbox, outbox, state, auth, calls, blockAck: fn => { beforeAck = fn },
+    setOffline: value => { offline = value }, setRefuseStop: value => { refuseStop = value } }
 }
 
 test('delivers sends and ordered reports between two Hosts, then clears the outbox', async t => {
@@ -152,6 +155,29 @@ test('stops a task whose Host is offline and delivers the stop once it is back',
   await eventually(async () => (await state(b)).dispatches[task.dispatchId].status === 'stopped', 10_000)
   await eventually(async () => (await state(a)).dispatches[task.dispatchId].remoteStop === undefined)
   assert.ok(calls.some(([id, method]) => id === 'a' && method === 'peerStop'))
+})
+
+test('drops a stop the returning Host refuses and keeps receiving its other updates', async t => {
+  const { a, b, inbox, state, setOffline, setRefuseStop } = await pair(t)
+  setOffline(true)
+  const draft = { spec: 'Write the notes.', host: 'host b', worktree: 'current' }
+  const { tasks: [first, second] } = await a.call('start', { tasks: [{ title: 'First', ...draft }, { title: 'Second', ...draft }] })
+  await a.call('stop', { task: first.taskId })
+  setRefuseStop(true)
+  setOffline(false)
+  await eventually(async () => (await state(a)).dispatches[first.dispatchId].remoteStop === undefined, 10_000)
+  await b.call('done', { outcome: 'succeeded', summary: 'Second finished.' }, b.agents.get(second.sessionId))
+  await eventually(() => inbox().some(update => /Second finished/.test(update.text)), 30_000)
+})
+
+test('records a stop the remote Host refuses without retrying it', async t => {
+  const { a, start, state, setRefuseStop } = await pair(t)
+  const { task } = await start()
+  setRefuseStop(true)
+  const result = await a.call('stop', { task: task.taskId })
+  assert.match(result.note, /Host B refused: Unknown remote worker dispatch\. The task is stopped here\./)
+  assert.equal((await state(a)).dispatches[task.dispatchId].remoteStop, undefined)
+  assert.equal((await a.call('tasks', {})).tasks[0].status, 'stopped')
 })
 
 test('refuses worker operations from a Host other than the coordinator that started it', async t => {

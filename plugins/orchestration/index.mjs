@@ -408,8 +408,9 @@ export async function apply(ctx) {
       if (terminalTask(task)) return { stopped: true }
       const dispatch = task.status === 'pending' ? undefined : current(store.read(), task)
       // An unreachable Host must not keep the task running here: record the
-      // stop, and the peer's poll loop delivers it when that Host is back.
-      let unreachable
+      // stop, and the peer's poll loop delivers it when that Host is back. A
+      // Host that refuses the stop answered, so there is nothing to retry.
+      let unreachable, refused
       if (dispatch && dispatch.host !== 'local') {
         await launches.get(dispatch.id)
         if (dispatch.sessionId) {
@@ -417,7 +418,8 @@ export async function apply(ctx) {
             await peers.call(dispatch.host, 'peerStop', { ref: store.read().hostId, dispatchId: dispatch.id }, control)
           } catch (error) {
             control.throwIfAborted()
-            unreachable = error.message
+            if (error.rejected) refused = error.message
+            else unreachable = error.message
           }
         }
       }
@@ -432,6 +434,7 @@ export async function apply(ctx) {
         const worker = store.read().workers[dispatch.id]
         if (worker) ctx.agents.get(worker.sessionId)?.cancel({ kind: 'hook', reason: 'Stopped by the coordinator' })
       }
+      if (refused) return { stopped: true, note: `${refused} The task is stopped here.` }
       if (!unreachable) return { stopped: true }
       peers.watch(dispatch.host)
       return { stopped: true, note: `${unreachable} The worker there stops once that computer is reachable again.` }
