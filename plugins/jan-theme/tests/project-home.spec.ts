@@ -188,27 +188,30 @@ it('counts owned turns only and replaces duplicate usage within an attempt', asy
 })
 
 /** In-memory project layer of scoped settings: the catalog reflects the switches written through setSwitch. */
-function fakeScopedSettings(project: string, globallyOff: string[] = []) {
+function fakeScopedSettings(project: string, globallyOff: string[] = [], chatSkill?: string) {
   const stored = { skillsDisabled: [] as string[], skillFoldersDisabled: [] as string[] }
   const calls: unknown[][] = []
   const folders = [['styles', ['look-a', 'look-b']], ['shared', ['review', 'deploy']]] as const
   const scopedSettings = {
     projectOf: (_id: string, cwd?: string) => cwd !== undefined && (cwd === project || cwd.startsWith(`${project}/`)) ? 'project' : undefined,
-    skillCatalog: async () => ({
-      folders: folders.map(([folder, names]) => ({
-        path: join(project, '..', folder), label: folder, off: stored.skillFoldersDisabled.includes(join(project, '..', folder)),
-        skills: names.map(name => ({
-          name, description: `${name} skill`, off: stored.skillsDisabled.includes(name),
-          ...globallyOff.includes(name) ? { offAt: 'global' } : {},
-        })),
-      })),
-    }),
+    skillCatalog: async () => catalog(folders),
+    skillCatalogForProject: async (_id: string, agent: { id: string }) => catalog(
+      chatSkill !== undefined && agent.id === 'chat' ? [...folders, ['chat-mode', [chatSkill]]] : folders),
     setSwitch: async (address: unknown, key: keyof typeof stored, entry: string, off: boolean) => {
       calls.push([address, key, entry, off])
       stored[key] = off ? [...stored[key].filter(value => value !== entry), entry] : stored[key].filter(value => value !== entry)
       return { [key]: stored[key] }
     },
   }
+  const catalog = (entries: readonly (readonly [string, readonly string[]])[]) => ({
+    folders: entries.map(([folder, names]) => ({
+      path: join(project, '..', folder), label: folder, off: stored.skillFoldersDisabled.includes(join(project, '..', folder)),
+      skills: names.map(name => ({
+        name, description: `${name} skill`, off: stored.skillsDisabled.includes(name),
+        ...globallyOff.includes(name) ? { offAt: 'global' } : {},
+      })),
+    }))
+  })
   return { scopedSettings, calls }
 }
 
@@ -296,7 +299,7 @@ it('lets the agent read and change its own project skill switches, asking once a
   onTestFinished(() => rm(root, { recursive: true, force: true }))
   const project = join(root, 'project')
   await mkdir(project)
-  const { scopedSettings, calls } = fakeScopedSettings(project, ['deploy'])
+  const { scopedSettings, calls } = fakeScopedSettings(project, ['deploy'], 'chat-mode-review')
   const tools = new Map<string, { execute: (args: unknown, exec: unknown) => Promise<{ ok?: boolean; message?: string; folders?: unknown }> }>()
   let gate: ((exec: unknown, next: () => Promise<{ kind: string }>) => Promise<{ kind: string; reason?: string }>) | undefined
   const workspace = { id: 'project', path: project, sessionIds: [] }
@@ -322,6 +325,8 @@ it('lets the agent read and change its own project skill switches, asking once a
 
   const listed = await tools.get('project_skills_read')!.execute({}, { agent: agentIn(project) })
   expect(JSON.stringify(listed.folders)).toContain('deploy (off globally)')
+  const chatFolder = join(root, 'chat-mode')
+  expect(listed.folders).toContainEqual({ path: chatFolder, label: 'chat-mode', enabled: true, skills: ['chat-mode-review'] })
   expect((await tools.get('project_skills_read')!.execute({}, { agent: agentIn(root) })).message).toContain('not in a Jan project')
 
   const outside = execFor({ skill: 'look-a', enabled: false }, root)
@@ -337,4 +342,9 @@ it('lets the agent read and change its own project skill switches, asking once a
   const again = execFor({ skill: 'look-a', enabled: false })
   expect(await gate!(again, async () => ({ kind: 'ask' }))).toEqual({ kind: 'allow' })
   expect((await tools.get('project_skills_change')!.execute(again.arguments, again)).message).toContain('already off')
+
+  const chatChange = execFor({ folder: chatFolder, enabled: false })
+  expect(await gate!(chatChange, async () => ({ kind: 'allow' }))).toMatchObject({ kind: 'ask' })
+  expect(await tools.get('project_skills_change')!.execute(chatChange.arguments, chatChange)).toMatchObject({ ok: true })
+  expect(calls.at(-1)).toEqual([{ scope: 'project', id: 'project' }, 'skillFoldersDisabled', chatFolder, true])
 })

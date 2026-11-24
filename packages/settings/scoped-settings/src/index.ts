@@ -179,9 +179,24 @@ export default class ScopedSettings extends TypertRemoteService {
   @Remote
   async skillCatalog(address: ScopeAddress): Promise<ScopedSkillCatalog> {
     const id = this.checkAddress(address)
+    return this.readSkillCatalog(address, id, address.scope === 'session'
+      ? this.ctx.agents.list().find(candidate => candidate.id === id) : undefined)
+  }
+
+  /**
+   * List skill folders visible to a chat's preset with the project's switches, not the chat's own switches.
+   * @param workspaceId - the project whose switches the chat is editing.
+   * @param agent - the calling chat, which supplies the registry scope and working directory.
+   * @returns folders with their project and wider switch state.
+   */
+  async skillCatalogForProject(workspaceId: WorkspaceId, agent: Agent): Promise<ScopedSkillCatalog> {
+    const address = { scope: 'project', id: workspaceId } as const
+    return this.readSkillCatalog(address, this.checkAddress(address), agent)
+  }
+
+  private async readSkillCatalog(address: ScopeAddress, id: string | undefined, agent: Agent | undefined): Promise<ScopedSkillCatalog> {
     const registry = this.ctx.get('skills')
     if (registry === undefined) return { folders: [] }
-    const agent = address.scope === 'session' ? this.ctx.agents.list().find(candidate => candidate.id === id) : undefined
     const project = address.scope === 'project' ? id as WorkspaceId
       : address.scope === 'session' ? this.projectOf(id as SessionId, agent?.session.header.cwd) : undefined
     const cwd = agent?.session.header.cwd ?? (project === undefined ? undefined : this.ctx.workspaceRegistry.get(project)?.path)

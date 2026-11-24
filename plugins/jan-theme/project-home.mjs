@@ -469,7 +469,7 @@ function registerSkillTools(scope, projectSkills) {
       throw new Error('Name one skill or one folder path from project_skills_read, and whether to turn it on.')
     }
     const workspace = projectOf(agent)
-    const { folders } = await projectSkills.list(workspace)
+    const { folders } = await projectSkills.list(workspace, agent)
     const state = args.enabled ? 'on' : 'off'
     if (typeof args.folder === 'string') {
       const folder = folders.find(entry => entry.path !== null && relative(entry.path, args.folder) === '')
@@ -500,7 +500,7 @@ function registerSkillTools(scope, projectSkills) {
       output: { schema: {}, render: renderMessage },
       async execute(args, exec) {
         try {
-          const { folders } = await projectSkills.list(projectOf(exec.agent))
+          const { folders } = await projectSkills.list(projectOf(exec.agent), exec.agent)
           return {
             folders: folders.map(folder => {
               const detail = typeof args?.folder === 'string' && folder.path !== null && relative(folder.path, args.folder) === ''
@@ -581,8 +581,11 @@ export function mountProjectHome(ctx) {
       const id = ctx.get('scopedSettings')?.projectOf(agent.id, agent.session.header.cwd)
       return id === undefined ? undefined : ctx.get('workspaceRegistry')?.get(id)
     },
-    async list(workspace) {
-      const { folders } = await scoped().skillCatalog({ scope: 'project', id: workspace.id })
+    async list(workspace, agent) {
+      const settings = scoped()
+      const { folders } = await (agent === undefined
+        ? settings.skillCatalog({ scope: 'project', id: workspace.id })
+        : settings.skillCatalogForProject(workspace.id, agent))
       return {
         folders: folders.map(folder => ({
           path: folder.path, label: folder.label, enabled: enabled(folder), ...folder.offAt === undefined ? {} : { offAt: folder.offAt },
