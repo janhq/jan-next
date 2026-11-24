@@ -18703,6 +18703,9 @@ importers:
       '@janhq/jan-compaction-tool-result-pruner':
         specifier: workspace:*
         version: link:../../packages/compaction/compaction-tool-result-pruner
+      '@janhq/jan-dev-reload':
+        specifier: workspace:*
+        version: link:../dev-reload
       '@janhq/jan-diagnostics':
         specifier: workspace:*
         version: link:../diagnostics
@@ -18754,6 +18757,18 @@ importers:
       '@janhq/jan-wall-of-quotes':
         specifier: workspace:*
         version: link:../wall-of-quotes
+
+  plugins/dev-reload:
+    dependencies:
+      '@janhq/jan-home-paths':
+        specifier: workspace:*
+        version: link:../../packages/util/home-paths
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
 
   plugins/diagnostics:
     dependencies:
