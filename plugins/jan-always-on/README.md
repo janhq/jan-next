@@ -27,6 +27,8 @@ Choose **Import a bot** or **Settings -> Import -> AI app export** to bring bots
 
 Avatars use the bot's color and shape and follow the system's reduced-motion preference. Activity takes precedence from the top of this table down.
 
+The **Bots mode** picker row shows up to four avatars from the Bots roster, ordered by latest chat activity or creation time for a bot with no activity. If there are no bots, it shows the four built-in shapes. Opening the picker mounts the lineup; closing it stops animation and pointer tracking. Reduced motion keeps the silhouettes still while preserving happy eyes on hover and keyboard focus.
+
 | Bots activity | Avatar |
 | --- | --- |
 | Off or paused | Idle, dimmed and still |

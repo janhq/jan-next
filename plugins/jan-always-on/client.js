@@ -1,7 +1,7 @@
 window.__ModuleLoader__.load({
   id: '@janhq/jan-always-on',
   factory(require) {
-    const { createElement: h, useEffect } = require('react')
+    const { createElement: h, useEffect, useState } = require('react')
     const { Button, IconLoadingOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const { createSnapshotStore } = require('@janhq/jan-client-store')
     // The sidebar draws panel glyphs at 16px on labelled rows and 18px on the rail;
@@ -22,12 +22,29 @@ window.__ModuleLoader__.load({
       ru: ['Режим ботов', 'Создайте бота с постоянным чатом.', 'Загрузка ботов', 'Не удалось загрузить ботов.', 'Повторить'],
       pt: ['Modo Bots', 'Crie um bot com uma conversa contínua.', 'Carregando bots', 'Não foi possível carregar os bots.', 'Tentar de novo'],
     }
-    let chunks
+    let chunks, avatars
+    function loadAvatars() {
+      avatars ??= require.async('./client.avatar.js')
+        .then(async avatar => ({ ...avatar, mountBotAvatar: await avatar.loadAvatarRenderer() }))
+        .catch(error => { avatars = undefined; throw error })
+      return avatars
+    }
     function load() {
-      chunks ??= Promise.all([require.async('./client.bots.js'), require.async('./client.avatar.js'), require.async('./client.copy.js')])
-        .then(async ([ui, avatar, copy]) => ({ ...ui, ...avatar, copy, mountBotAvatar: await avatar.loadAvatarRenderer() }))
+      chunks ??= Promise.all([require.async('./client.bots.js'), loadAvatars(), require.async('./client.copy.js')])
+        .then(([ui, avatar, copy]) => ({ ...ui, ...avatar, copy }))
         .catch(error => { chunks = undefined; throw error })
       return chunks
+    }
+    function ModeDecoration({ useRoster }) {
+      const rows = useRoster(state => state.rows)
+      const [avatar, setAvatar] = useState(null)
+      useEffect(() => {
+        let mounted = true
+        void loadAvatars().then(value => { if (mounted) setAvatar(value) },
+          error => { if (mounted) console.warn('[Bots]', error) })
+        return () => { mounted = false }
+      }, [])
+      return avatar && h(avatar.ModeSquad, { rows, mountBotAvatar: avatar.mountBotAvatar })
     }
     async function call(method, params, signal) {
       const response = await fetch(PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
@@ -174,6 +191,9 @@ window.__ModuleLoader__.load({
           },
         }))
       })
+      ctx.slots.inject('mode.picker.decoration', () => ctx.slots.register({
+        name: 'mode.picker.decoration', key: 'action:bots', inject: () => ({ hooks: { roster } }),
+      }, ModeDecoration))
       function compact(bot) {
         void change('compact', { id: bot.id }).then(result => notices.set({ id: ++uniqueNotice, copy: result ? 'compacted' : 'noCompact' }),
           () => notices.set({ id: ++uniqueNotice, copy: 'compactFailed', error: true }))

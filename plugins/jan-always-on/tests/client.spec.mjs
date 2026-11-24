@@ -27,7 +27,7 @@ test('ships all bot dialogue and activity keys in eight product languages', () =
 
 test('derives a repeatable default avatar from a bot name', () => {
   const modules = { react: {}, '@janhq/jan-client-ui-primitives': {} }
-  const { appearanceFor } = loadChunk('client.bots.js', id => modules[id])
+  const { appearanceFor } = loadChunk('client.avatar.js', id => modules[id])
   assert.deepEqual(appearanceFor('  NOVA  '), appearanceFor('Nova'))
   assert.notDeepEqual(appearanceFor('Nova'), appearanceFor('Archivist'))
   assert.match(appearanceFor('Nova').color, /^#[0-9a-f]{6}$/)
@@ -47,6 +47,7 @@ test('offers the localized import action in the empty roster only when the desti
     return node.children.map(findAction).find(Boolean)
   }
   const view = available => Roster({ t: key => fr[key], useRoster: pick => pick({ rows: [], failed: false }),
+    avatar: {},
     useLanguage: pick => pick('fr'), useWorkspaces: pick => pick({ items: [] }), useImportAvailable: pick => pick(available),
     openImport: () => opened.push('jan-import') })
   assert.equal(findAction(view(false)), undefined)

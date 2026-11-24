@@ -6,7 +6,6 @@ window.__ModuleLoader__.load({
       IconClockOutlineRegular, IconEditOutlineRegular, IconLinkOutlineRegular, IconLoadingOutlineRegular,
       IconPauseOutlineRegular, IconPlayOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular,
       IconSearchOutlineRegular, IconSettingsOutlineRegular, IconTrashOutlineRegular, IconUsersOutlineRegular } = require('@janhq/jan-client-ui-primitives')
-    const palette = ['#42688f', '#8c553d', '#75558b', '#467568', '#676d3e', '#915571', '#436b83', '#974c4c']
     const shapes = ['bubble', 'round', 'square', 'capsule']
     const STOP = Symbol('aborted')
     const NEW_AGENT = '$new', KEEP_AGENT = '$keep'
@@ -18,8 +17,6 @@ window.__ModuleLoader__.load({
     const modelLabel = model => model.provider ? `${model.provider} / ${model.model}` : model.model
     const idParams = id => id === null ? undefined : { id }
     const botFor = (rows, sessionId) => rows?.find(bot => bot.sessionId === sessionId)
-    const nameHash = name => { let hash = 0; for (const ch of name) hash = (Math.imul(hash, 31) + ch.codePointAt(0)) >>> 0; return hash }
-    const appearanceFor = name => { const hash = nameHash(name.trim().toLowerCase()); return { shape: hash % 4, color: palette[(hash >>> 2) % palette.length], locked: false } }
     const formatTime = (locale, value) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
     const callError = error => ({ 'project-not-found': 'missingProject', 'invalid-sources': 'invalidSources',
       'agent-missing': 'missingAgent', 'agent-read-only': 'agentReadOnly', 'bot-session-busy': 'botBusy' })[error?.message] ?? 'error'
@@ -60,7 +57,7 @@ window.__ModuleLoader__.load({
         h(SelectMenu, { ...props, label, align: 'start', className: 'jao-select' }))
     }
     function Seat({ bot, t, avatar }) {
-      const appearance = bot.avatar ?? appearanceFor(bot.name)
+      const appearance = bot.avatar ?? avatar.appearanceFor(bot.name)
       return h(avatar.Avatar, { t, name: bot.name, appearance, mountBotAvatar: avatar.mountBotAvatar, snapshot: bot })
     }
     function ProjectRows({ workspaceId, useRoster, useSelected, open, avatar, t }) {
@@ -82,7 +79,7 @@ window.__ModuleLoader__.load({
         const project = projects.find(row => row.workspaceId === bot.workspaceId)
         return project?.isDefault && project.title === 'default-workspace' ? t('defaultProject') : project?.title ?? bot.project ?? t('missingProject')
       }
-      const matched = rows?.toSorted((a, b) => (b.latest?.at ?? b.createdAt) - (a.latest?.at ?? a.createdAt))
+      const matched = rows?.toSorted(avatar.compareBotRecency)
         .filter(bot => rows.length <= 6 || `${bot.name} ${bot.role} ${bot.agentDescription ?? ''} ${projectName(bot)}`.toLocaleLowerCase(language).includes(search.trim().toLocaleLowerCase(language)))
       return h('main', { className: 'jao-page', 'aria-labelledby': 'jao-roster-title' }, h('div', { className: 'jao-content' },
         h('header', { className: 'jao-roster-head', 'data-window-drag': '' },
@@ -189,7 +186,7 @@ window.__ModuleLoader__.load({
         catch (reason) { setError(callError(reason)) }
         finally { setBusy(false) }
       }
-      const appearance = custom ?? appearanceFor(name)
+      const appearance = custom ?? avatar.appearanceFor(name)
       const title = t(mode === 'edit' ? 'edit' : mode === 'duplicate' ? 'duplicate' : 'create')
       async function save(event) {
         event.preventDefault()
@@ -226,7 +223,8 @@ window.__ModuleLoader__.load({
       }
       function randomize() {
         const [a, b] = crypto.getRandomValues(new Uint32Array(2))
-        setCustom({ shape: (appearance.shape + 1 + a % 3) % 4, color: palette[b % palette.length], locked: false })
+        const colors = avatar.palette
+        setCustom({ shape: (appearance.shape + 1 + a % 3) % 4, color: colors[b % colors.length], locked: false })
       }
       const models = (options.value?.models ?? []).flatMap(group => group.models.map(item => ({
         id: modelKey({ provider: group.id, model: item.id }), label: `${group.name} / ${item.name}`, name: item.name,
@@ -608,6 +606,6 @@ window.__ModuleLoader__.load({
       @media(pointer:coarse){.jao-field textarea,.jao-field input:not([type=color]){font-size:16px}}
       @media(prefers-reduced-motion:reduce){.jao-tab-panel:not([hidden]),.jao-roster-open,.jao-project-row{transition:none}.jao-loading svg{animation:none}}
     `
-    return { css, Roster, ProjectRows, HeaderAvatar, HeaderTools, Details, Approvals, Overlays, appearanceFor }
+    return { css, Roster, ProjectRows, HeaderAvatar, HeaderTools, Details, Approvals, Overlays }
   },
 })
