@@ -17,7 +17,13 @@ type WorkspaceId = WorkspaceView['workspaceId']
 
 /** Settings actions and the live catalog revision supplied by the Client plugin. */
 export interface AgentProfilesSectionInjected extends AgentProfileEditorActions, Pick<AgentProfilePickerInjected, 'list'> {
-  readonly hooks: { readonly profileRevision: ObservableSnapshot<number> }
+  readonly hooks: {
+    readonly profileRevision: ObservableSnapshot<number>
+    /** Changes when the picker asks for a new agent; read the request with `takeCreateRequest`. */
+    readonly createRequest: ObservableSnapshot<number>
+  }
+  /** Claim a pending "New agent" request from the picker; true at most once per request. */
+  readonly takeCreateRequest: () => boolean
   readonly fileManager: () => Promise<FileManager | undefined>
   readonly reveal: (path: string) => Promise<void>
   readonly remove: (request: AgentProfileRemoveRequest) => Promise<void>
@@ -35,7 +41,7 @@ type DeleteTarget = { readonly workspace: WorkspaceView | undefined; readonly pr
  * @returns the Agents section content.
  */
 export function AgentProfilesSection({
-  useWorkspaces, useProfileRevision, list, fileManager, reveal, remove, get, save, models, tools, t,
+  useWorkspaces, useProfileRevision, useCreateRequest, takeCreateRequest, list, fileManager, reveal, remove, get, save, models, tools, t,
 }: AgentProfilesSectionProps) {
   const { items, state } = useWorkspaces(value => value)
   const revision = useProfileRevision(value => value)
@@ -68,6 +74,12 @@ export function AgentProfilesSection({
     }
     return () => { current = false }
   }, [items, list, revision, retry])
+  const createSeq = useCreateRequest(value => value)
+  const globalCatalog = catalog.get(undefined)
+  useEffect(() => {
+    if (globalCatalog == null || !takeCreateRequest()) return
+    setEditor({ scope: 'global', janIds: new Set(globalCatalog.profiles.filter(row => row.scope === 'global' && row.writable).map(row => row.id)) })
+  }, [createSeq, globalCatalog, takeCreateRequest])
 
   return <section className={css.section}>
     <p className={css.intro}>{t('intro')}</p>

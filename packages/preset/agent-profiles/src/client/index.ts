@@ -55,6 +55,9 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
 function registerUi(ctx: Context): void {
   const revision = createSnapshotStore(0)
   const invalidate = () => { revision.set(revision.getSnapshot() + 1) }
+  // Raised by the picker's "New agent" entry; Settings > Agents claims it once and opens the editor.
+  const createRequest = createSnapshotStore(0)
+  let createPending = false
   // Follow streams carry collection changes; a forwarded Host event would make the Remote package import this one.
   // The stream is open only while an open picker menu or Settings > Agents shows profiles; both read fresh on open.
   let watchers = 0
@@ -95,7 +98,8 @@ function registerUi(ctx: Context): void {
       if (result.error.code === 'agent-profiles/locked') return 'locked'
       throw result.error
     },
-    manage: () => {
+    manage: (intent) => {
+      if (intent === 'create') { createPending = true; createRequest.set(createRequest.getSnapshot() + 1) }
       if (ctx.get('settingsNavigation')?.open(SECTION) !== true) throw new Error('Agents settings section unavailable')
     },
   }
@@ -165,7 +169,12 @@ function registerUi(ctx: Context): void {
   })
   const settings: AgentProfilesSectionInjected = {
     list: picker.list,
-    hooks: { profileRevision },
+    hooks: { profileRevision, createRequest },
+    takeCreateRequest: () => {
+      const pending = createPending
+      createPending = false
+      return pending
+    },
     get: async (request) => {
       const result = await ctx.remote.agentProfiles.get(request)
       if (!result.ok) throw result.error

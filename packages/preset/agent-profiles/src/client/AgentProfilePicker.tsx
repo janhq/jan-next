@@ -12,6 +12,7 @@ import css from './AgentProfiles.module.css'
 /** Menu and `/agent` value for plain Jan; profile ids cannot contain a colon, so no profile collides. */
 export const JAN = 'jan:no-profile'
 const MANAGE = 'jan:manage-profiles'
+const CREATE = 'jan:new-profile'
 
 type Locale = PropsLocale<'agentProfiles'>
 
@@ -21,7 +22,8 @@ export interface AgentProfilePickerInjected {
   readonly watchChanges: (onChange: () => void) => () => void
   readonly list: (request: AgentProfileListRequest) => Promise<AgentProfileList>
   readonly select: (request: AgentProfileSelectRequest) => Promise<'locked' | undefined>
-  readonly manage: () => void
+  /** Open Settings > Agents; `create` also opens the new-agent editor there. */
+  readonly manage: (intent?: 'create') => void
 }
 
 type Hero = PropsRuntime<'conversation.hero.agentProfile'>
@@ -100,8 +102,8 @@ export function AgentProfilePicker({ sessionId, workspaceId, pending, onPick, us
   const choose = async (key: string) => {
     setOpen(false)
     const notice = ++attempt.current
-    if (key === MANAGE) {
-      try { manage() } catch (error) { setRefusal({ key: notice, reason: 'manageError', failure: captureFailure('agentProfiles.manage', error) }) }
+    if (key === MANAGE || key === CREATE) {
+      try { manage(key === CREATE ? 'create' : undefined) } catch (error) { setRefusal({ key: notice, reason: 'manageError', failure: captureFailure('agentProfiles.manage', error) }) }
       return
     }
     const id = key === JAN ? null : key
@@ -122,7 +124,7 @@ export function AgentProfilePicker({ sessionId, workspaceId, pending, onPick, us
   return <>
     <Menu portal side="top" open={visible} onClose={() => { setOpen(false) }} items={items}
       className={css.chipAnchor} listClassName={css.menu} selectedId={selected ?? JAN}
-      footer={[{ id: MANAGE, label: t('manage') }]}
+      footer={[{ id: CREATE, label: t('new') }, { id: MANAGE, label: t('manage') }]}
       header={visible && (profiles === undefined || profiles === null) ? <div className={css.menuStatus}
         role={profiles === null ? 'alert' : 'status'}>{t(profiles === null ? 'listError' : 'loading')}</div> : undefined}
       onSelect={(id) => { void choose(id) }}

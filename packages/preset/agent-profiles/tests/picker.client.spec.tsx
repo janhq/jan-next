@@ -46,6 +46,7 @@ function mount() {
     profile('shadowed', { shadowedBy: '/project-a/.jan/agents/shadowed.md' }),
   ], problems: [] }))
   const select = vi.fn<AgentProfilePickerProps['select']>(async () => undefined)
+  const manage = vi.fn<AgentProfilePickerProps['manage']>()
   const openDefaultDraft = vi.fn<NonNullable<ConversationContentProps['openDefaultDraft']>>(async () => {})
   const standard = {
     sessionId: undefined, useSession: () => undefined, useProjection: () => undefined,
@@ -58,7 +59,7 @@ function mount() {
   const renderSlot = ((name: string, owner: object, options?: { children?: React.ReactNode }) => {
     if (name === 'conversation.hero.agentProfile') return <AgentProfilePicker sessionId={undefined} useSessions={standard.useSessions} useProjection={standard.useProjection}
       {...owner as Pick<AgentProfilePickerProps, 'workspaceId' | 'pending' | 'onPick'>}
-      list={list} select={select} manage={() => {}} watchChanges={() => () => {}} t={makeTranslate(en, common)} />
+      list={list} select={select} manage={manage} watchChanges={() => () => {}} t={makeTranslate(en, common)} />
     if (name === 'conversation.composer.bar') {
       const props = owner as ComposerBarOwnerProps
       return <>{props.dockStart}<button type="button" onClick={() => { void props.onActivateDraft?.(() => 'hello') }}>Start draft</button></>
@@ -74,7 +75,7 @@ function mount() {
     renderFactorySlot={unused} renderSlot={renderSlot}
     renderSlotChain={((_name, _owner, options) => options?.fallback) as ConversationContentProps['renderSlotChain']}
     t={makeTranslate(conversation, common)} />)
-  return { list, select, openDefaultDraft }
+  return { list, select, manage, openDefaultDraft }
 }
 
 it('offers Jan, then project and global profiles, without hidden choices', async () => {
@@ -86,6 +87,7 @@ it('offers Jan, then project and global profiles, without hidden choices', async
   expect(within(menu).getAllByRole('menuitem')).toEqual([
     within(menu).getByRole('menuitem', { name: 'Jan (no agent)' }), reviewer,
     within(menu).getByRole('menuitem', { name: 'global-helper' }),
+    within(menu).getByRole('menuitem', { name: 'New agent' }),
     within(menu).getByRole('menuitem', { name: 'Manage agents…' }),
   ])
   expect(menu.textContent).toMatch(/Project agents.*project-reviewer.*Global agents.*global-helper/s)
@@ -93,6 +95,17 @@ it('offers Jan, then project and global profiles, without hidden choices', async
   expect(within(reviewer).getByText('Reviews code')).toBeTruthy()
   expect(within(reviewer).getByLabelText('Profile warnings: Unmapped key: memory')).toBeTruthy()
   expect(list).toHaveBeenCalledExactlyOnceWith({ workspaceId })
+})
+
+it('creates an agent straight from the picker, and manages without opening the editor', async () => {
+  const { manage, select } = mount()
+  fireEvent.click(screen.getByRole('button', { name: 'Choose agent: Jan' }))
+  fireEvent.click(await screen.findByRole('menuitem', { name: 'New agent' }))
+  expect(manage).toHaveBeenLastCalledWith('create')
+  fireEvent.click(screen.getByRole('button', { name: 'Choose agent: Jan' }))
+  fireEvent.click(await screen.findByRole('menuitem', { name: 'Manage agents…' }))
+  expect(manage).toHaveBeenLastCalledWith(undefined)
+  expect(select).not.toHaveBeenCalled()
 })
 
 it('starts the draft with the pending selection, including explicit plain Jan', async () => {
