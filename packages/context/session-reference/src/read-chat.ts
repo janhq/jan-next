@@ -167,7 +167,7 @@ async function readChat(ctx: Context, agent: Agent | undefined, args: ReadChatAr
     throw new HarnessError('before must not be negative', 'SESSION_REFERENCE_INVALID_REFERENCE')
   }
   const own = agent !== undefined && (args.session_id === undefined || args.session_id === agent.session.id)
-  const id = own ? agent?.session.id : args.session_id === undefined ? undefined : SessionId(args.session_id)
+  const id = own ? agent.session.id : args.session_id === undefined ? undefined : SessionId(args.session_id)
   const label = own ? 'This chat' : id === undefined || agent === undefined
     ? undefined : mentionedChats(agent.session.deriveMessages()).get(id)
   if (id === undefined || label === undefined) {
