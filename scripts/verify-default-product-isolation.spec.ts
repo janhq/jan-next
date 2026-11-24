@@ -181,6 +181,27 @@ describe('default product isolation', () => {
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`@janhq/jan dependencies -> ${experimental}`)
   })
 
+  it('lets a template select an optional bundle only when PROFILE_BUNDLE_ADDITIONS adds it to that template', () => {
+    const root = fixture()
+    const profileWith = (additions: string): void => {
+      write(root, profile, `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] }, desktop: { bundles: ['${base}', '${experimental}'] } }\n`
+        + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`
+        + `export const OPTIONAL_BUNDLES = ['${experimental}']\n`
+        + `export const PROFILE_BUNDLE_ADDITIONS = ${additions}\n`)
+    }
+    const defaultFailure = `optional bundle ${experimental} must not be a default bundle`
+
+    profileWith(`{ desktop: [{ id: 'once', bundle: '${experimental}' }] }`)
+    expect(verifyDefaultProductIsolation(root).failures.join('\n')).not.toContain(defaultFailure)
+
+    // An addition declared for another template does not excuse this one.
+    profileWith(`{ web: [{ id: 'once', bundle: '${experimental}' }] }`)
+    expect(() => verifyDefaultProductIsolation(root)).toThrow('PROFILE_BUNDLE_ADDITIONS.web adds')
+
+    profileWith('{}')
+    expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(defaultFailure)
+  })
+
   it.each(['dependencies', 'optionalDependencies', 'peerDependencies'])(
     'rejects transitive experimental %s',
     (section) => {

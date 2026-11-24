@@ -1,7 +1,8 @@
 /**
  * Keep experimental packages outside default installations, runtime imports, and shipped compositions.
  * The one declared exception is a bundle the launcher names in `OPTIONAL_BUNDLES`: shipped for the person to
- * switch on, selected by no shipped template, its own dependency graph outside the default product's.
+ * switch, its own dependency graph outside the default product's, and selected by a shipped template only when
+ * `PROFILE_BUNDLE_ADDITIONS` adds it once to that template's profiles so a later removal sticks.
  */
 
 import { existsSync, globSync, readFileSync, statSync } from 'node:fs'
@@ -84,8 +85,8 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
   if (cli?.manifest.name !== '@janhq/jan') {
     failures.push('apps/cli/package.json must identify @janhq/jan')
   }
-  // The bundles the launcher ships switched off: each a runtime dependency of the installation that is a bundle
-  // with an icon and locale display metadata for the plugin manager's Official group, none a default.
+  // The bundles the launcher ships for the person to switch: each a runtime dependency of the installation that is
+  // a bundle with an icon and locale display metadata for the plugin manager's Official group, none a default.
   const profilePath = resolve(root, PROFILE_SOURCE)
   const selection = existsSync(profilePath) ? profilePackages(readFileSync(profilePath, 'utf8')) : undefined
   const optionalBundles = new Set(selection?.optionalBundles ?? [])
@@ -359,18 +360,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/** Read the literal package lists that define installation-owned profile defaults and the optional bundles it ships. */
+/**
+ * Read the literal package lists that define installation-owned profile defaults and the optional bundles it ships.
+ * A template may select an optional bundle only when `PROFILE_BUNDLE_ADDITIONS` adds it to that template once, so
+ * a person's later removal sticks; that selection stays optional rather than a default bundle.
+ */
 function profilePackages(source: string): { packages: string[]; webBundles: string[]; optionalBundles: string[] } {
   const file = ts.createSourceFile(PROFILE_SOURCE, source, ts.ScriptTarget.Latest, true)
   const required = new Set(['PROFILE_TEMPLATES', 'DEFAULT_PROFILE_BUNDLES'])
+  const scanned = new Set([...required, 'INSTALLATION_OWNED_PROFILE_TUPLES', 'OPTIONAL_BUNDLES', 'PROFILE_BUNDLE_ADDITIONS'])
   const found = new Set<string>()
-  const packages: string[] = []
+  const selected: { name: string; template: string | undefined }[] = []
   const webBundles: string[] = []
   const optionalBundles: string[] = []
+  const additions = new Set<string>()
   const literals = (node: ts.Node, path: string[]): void => {
     if (ts.isStringLiteralLike(node)) {
       if (path[0] === 'OPTIONAL_BUNDLES') optionalBundles.push(node.text)
-      else if (node.text.startsWith('@')) packages.push(node.text)
+      else if (path[0] === 'PROFILE_BUNDLE_ADDITIONS') {
+        if (path.at(-1) === 'bundle') additions.add(`${path[1] ?? ''}\n${node.text}`)
+      } else if (node.text.startsWith('@')) {
+        selected.push({ name: node.text, template: path[0] === 'PROFILE_TEMPLATES' ? path[1] : undefined })
+      }
       if (path.join('.') === 'PROFILE_TEMPLATES.web.bundles') webBundles.push(node.text)
     } else if (ts.isArrayLiteralExpression(node)) node.elements.forEach((child) => { literals(child, path) })
     else if (ts.isObjectLiteralExpression(node)) node.properties.forEach((child) => { literals(child, path) })
@@ -387,20 +398,29 @@ function profilePackages(source: string): { packages: string[]; webBundles: stri
   for (const statement of file.statements) {
     if (!ts.isVariableStatement(statement)) continue
     for (const declaration of statement.declarationList.declarations) {
-      if (!ts.isIdentifier(declaration.name)
-        || !required.has(declaration.name.text) && declaration.name.text !== 'INSTALLATION_OWNED_PROFILE_TUPLES'
-        && declaration.name.text !== 'OPTIONAL_BUNDLES') continue
+      if (!ts.isIdentifier(declaration.name) || !scanned.has(declaration.name.text)) continue
       if (declaration.initializer === undefined) continue
       if (required.has(declaration.name.text)) found.add(declaration.name.text)
-      const before = packages.length
+      const before = selected.length
       literals(declaration.initializer, [declaration.name.text])
-      if (declaration.name.text !== 'OPTIONAL_BUNDLES' && packages.length === before) {
+      if (declaration.name.text !== 'OPTIONAL_BUNDLES' && declaration.name.text !== 'PROFILE_BUNDLE_ADDITIONS'
+        && selected.length === before) {
         throw new Error(`${PROFILE_SOURCE}: ${declaration.name.text} has no default bundles`)
       }
     }
   }
   if (found.size !== required.size) throw new Error(`${PROFILE_SOURCE}: missing default profile declarations`)
   if (webBundles.length === 0) throw new Error(`${PROFILE_SOURCE}: missing default Web bundle list`)
+  for (const addition of additions) {
+    const [template, name] = addition.split('\n')
+    if (!selected.some(entry => entry.template === template && entry.name === name)) {
+      throw new Error(`${PROFILE_SOURCE}: PROFILE_BUNDLE_ADDITIONS.${String(template)} adds ${String(name)}, which that template does not select`)
+    }
+  }
+  const optional = new Set(optionalBundles)
+  const packages = selected
+    .filter(entry => entry.template === undefined || !optional.has(entry.name) || !additions.has(`${entry.template}\n${entry.name}`))
+    .map(entry => entry.name)
   return { packages, webBundles, optionalBundles }
 }
 
