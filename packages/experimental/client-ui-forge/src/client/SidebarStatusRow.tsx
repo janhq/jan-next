@@ -1,10 +1,8 @@
 /** Settings > General switch that shows or hides pull request status on chat rows. */
-import { useState } from 'react'
-import { Switch } from '@janhq/jan-client-ui-primitives'
+import { SettingsSwitchRow } from '@janhq/jan-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale } from '@janhq/jan-client-ui-slots'
 import type {} from '@janhq/jan-client-ui-settings/client'
 import type { NS } from './locales.ts'
-import css from './SidebarStatusRow.module.css'
 
 /** Accepted switch value and its Host write. */
 export interface SidebarStatusRowInjected {
@@ -30,22 +28,7 @@ export function SidebarStatusRow({ useSidebarStatus, useRelevant, setShown, t }:
   PropsLocale<typeof NS> & InjectFace<SidebarStatusRowInjected>) {
   const shown = useSidebarStatus(value => value)
   const relevant = useRelevant(value => value)
-  const [busy, setBusy] = useState(false)
-  const [failed, setFailed] = useState(false)
   if (!relevant) return null
-  return <div className={css.row} role="group" aria-label={t('settings.sidebarStatus.title')}
-    data-settings-search-row="forge-sidebar-status" tabIndex={-1}>
-    <div>
-      <div className={css.title}>{t('settings.sidebarStatus.title')}</div>
-      <div className={css.description}>{t('settings.sidebarStatus.description')}</div>
-      {failed && <div role="alert">{t('settings.sidebarStatus.error')}</div>}
-    </div>
-    <Switch checked={shown} disabled={busy} label={t('settings.sidebarStatus.title')}
-      onChange={(next) => {
-        setFailed(false)
-        setBusy(true)
-        void setShown(next).then((accepted) => { if (!accepted) setFailed(true) }, () => { setFailed(true) })
-          .finally(() => { setBusy(false) })
-      }} />
-  </div>
+  return <SettingsSwitchRow title={t('settings.sidebarStatus.title')} description={t('settings.sidebarStatus.description')}
+    error={t('settings.sidebarStatus.error')} searchId="forge-sidebar-status" checked={shown} save={next => setShown(next)} />
 }

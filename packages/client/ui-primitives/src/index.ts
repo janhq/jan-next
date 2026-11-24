@@ -105,6 +105,8 @@ export { SettingsForm } from './settings-form/SettingsForm.tsx'
 export type { SettingsFormLabels, SettingsFormProps } from './settings-form/SettingsForm.tsx'
 export { SettingsSecretField, SettingsValueField } from './settings-form/fields.tsx'
 export type { SettingsFieldProps } from './settings-form/fields.tsx'
+export { SettingsSwitchRow } from './settings-form/SettingsSwitchRow.tsx'
+export type { SettingsSwitchRowProps } from './settings-form/SettingsSwitchRow.tsx'
 export { SettingsFormModel, settingsNumberField, settingsTextField } from './settings-form/form-model.ts'
 export type {
   SettingsFieldSpec, SettingsFieldState, SettingsFieldWrite, SettingsFormActions, SettingsFormPathOp, SettingsFormScope,
