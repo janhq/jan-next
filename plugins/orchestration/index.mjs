@@ -440,10 +440,12 @@ export async function apply(ctx) {
       let unreachable, refused
       // A local start still creating its chat and worktree finishes first, so
       // the stop finds and cancels a recorded worker instead of orphaning them.
-      if (dispatch?.host === 'local') await launches.get(dispatch.id)
+      // How the start ended does not matter here; the stop goes ahead either way.
+      const launched = () => launches.get(dispatch.id)?.catch(() => {})
+      if (dispatch?.host === 'local') await launched()
       if (dispatch && dispatch.host !== 'local') {
         launchAborts.get(dispatch.id)?.abort()
-        await launches.get(dispatch.id)
+        await launched()
         // A start whose reply never arrived may have created the worker, so the
         // stop goes out even without a session id; a refusal then only means
         // that start never reached the Host.
