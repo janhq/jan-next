@@ -44,7 +44,7 @@ describe('plugin translation prompt', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(h.dismiss).toHaveBeenCalledWith(cad.pkg, 'later')
     expect(screen.getByText('Presentations is in Chinese. Translate to English?')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: "Don't show again", exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: "Don't show again" }))
     expect(h.dismiss).toHaveBeenCalledWith(ppt.pkg, 'never')
     expect(screen.queryByRole('button', { name: en.actionTranslate })).toBeNull()
   })
