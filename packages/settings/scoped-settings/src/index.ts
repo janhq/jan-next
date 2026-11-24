@@ -273,17 +273,24 @@ export default class ScopedSettings extends TypertRemoteService {
   }
 
   /**
-   * List what a scope can switch off.
-   * @returns global tool names outside MCP and the MCP servers that registered tools.
+   * List what a scope can switch off: the global tools plus those the default preset registers
+   * inside a new chat's Agent scope, which is where shell, file and web tools live.
+   * @returns tool names outside MCP and the MCP servers that registered tools.
    */
   @Remote
-  toolCatalog(): ScopedToolCatalog {
+  async toolCatalog(): Promise<ScopedToolCatalog> {
     const tools = new Set<string>()
     const mcpServers = new Set<string>()
-    for (const definition of this.ctx.tools.definitions()) {
-      const origin = mcpToolOrigin(definition)
-      if (origin === undefined) tools.add(definition.name)
-      else mcpServers.add(origin.serverName)
+    const lease = await this.ctx.get('agentPresets')?.acquireScope().catch(() => undefined)
+    try {
+      const definitions = [...this.ctx.tools.definitions(), ...lease === undefined ? [] : this.ctx.tools.definitions(lease.key)]
+      for (const definition of definitions) {
+        const origin = mcpToolOrigin(definition)
+        if (origin === undefined) tools.add(definition.name)
+        else mcpServers.add(origin.serverName)
+      }
+    } finally {
+      await lease?.[Symbol.asyncDispose]()
     }
     return { tools: [...tools].sort(), mcpServers: [...mcpServers].sort() }
   }

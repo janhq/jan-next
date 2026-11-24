@@ -234,7 +234,22 @@ it('applies switches to an agent created later and to MCP tools that register la
 
   await registerMcpTools(h.ctx, ['pulls'])
   expect(h.visible(late)).toEqual(['bash', 'read'])
-  expect(settings.toolCatalog()).toEqual({ tools: ['bash', 'read'], mcpServers: ['github'] })
+  expect(await settings.toolCatalog()).toEqual({ tools: ['bash', 'read'], mcpServers: ['github'] })
+})
+
+it('lists the tools a new chat gets from its preset, and releases the preset afterwards', async () => {
+  const h = await setup()
+  let released = 0
+  const key = { id: 'preset-scope' }
+  await h.ctx.plugin(Object.assign((inner: Context) => {
+    createScope(inner, key).ctx.tools.register(tool('shell'))
+  }, { inject: ['tools'] }))
+  h.ctx.provide('agentPresets', {
+    acquireScope: async () => ({ key, [Symbol.asyncDispose]: async () => { released++ } }),
+  } as never)
+  const settings = await h.start()
+  expect(await settings.toolCatalog()).toEqual({ tools: ['bash', 'read', 'shell'], mcpServers: ['github'] })
+  expect(released).toBe(1)
 })
 
 it('uses a project mode only while that preset exists', async () => {
