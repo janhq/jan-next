@@ -27,7 +27,7 @@ import type { McpConnectionStatusHandle } from './status.ts'
 // Side-effect type import: declaration-merges `ctx.tools` onto Context.
 import type {} from '@janhq/jan-tools'
 
-export { createMcpToolDefinition, mcpToolOrigin } from './tools.ts'
+export { createMcpToolDefinition, expandMcpServerEntries, mcpToolOrigin } from './tools.ts'
 export type { McpResult, McpToolDefinitionOptions, McpToolOrigin } from './tools.ts'
 export type { ReconnectConfig, ResolvedReconnectPolicy } from './connection.ts'
 export type { McpConnectionStatusHandle } from './status.ts'

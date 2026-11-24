@@ -63,6 +63,26 @@ export function mcpToolOrigin(definition: ToolDefinition): McpToolOrigin | undef
   return toolOrigins.get(definition)
 }
 
+/**
+ * Expand `mcp:<server>` entries of a tool-name list into the public names of the tools that server registered.
+ * Other entries pass through unchanged.
+ * @param names - tool names and `mcp:<server>` entries.
+ * @param definitions - tools currently registered.
+ * @returns sorted, deduplicated tool names.
+ */
+export function expandMcpServerEntries(names: readonly string[], definitions: Iterable<ToolDefinition>): string[] {
+  const prefix = 'mcp:'
+  const servers = new Set(names.filter(name => name.startsWith(prefix)).map(name => name.slice(prefix.length)))
+  const expanded = new Set(names.filter(name => !name.startsWith(prefix)))
+  if (servers.size > 0) {
+    for (const definition of definitions) {
+      const origin = mcpToolOrigin(definition)
+      if (origin !== undefined && servers.has(origin.serverName)) expanded.add(definition.name)
+    }
+  }
+  return [...expanded].sort()
+}
+
 /** Canonical MCP result exposed to PTC mode without discarding protocol blocks. */
 export type McpResult<Structured extends JsonValue = JsonValue> = {
   content: JsonValue[]
