@@ -366,6 +366,8 @@ export interface Config {
   maxUntrackedFiles?: number
   /** Most UTF-8 bytes of change request diffs kept in memory for later reads at the same head commit and base branch. */
   maxCachedDiffBytes?: number
+  /** Whether chat rows in the sidebar show their change request status; volatile, so a change applies without a restart. */
+  sidebarStatus?: boolean
 }
 
 declare module '@janhq/jan-typert-protocol' {

@@ -270,6 +270,9 @@ export const zh = {
   'toast.expandStale': '文件在读取变更后又有修改，刷新后再展开',
   'toast.prompted': '已发送：{text}',
   'toast.promptFailed': '无法发送消息',
+  'settings.sidebarStatus.title': '在侧边栏显示拉取请求状态',
+  'settings.sidebarStatus.description': '聊天行显示其拉取请求的状态和检查结果，并按状态着色',
+  'settings.sidebarStatus.error': '无法保存此设置，请重试',
 } as const
 
 /** Key of the forge panel dictionaries. */
@@ -542,6 +545,9 @@ export const en: Record<ForgePanelKey, string> = {
   'toast.expandStale': 'The file changed after its changes were read; refresh before expanding',
   'toast.prompted': 'Sent: {text}',
   'toast.promptFailed': 'The message could not be sent',
+  'settings.sidebarStatus.title': 'Show pull request status in the sidebar',
+  'settings.sidebarStatus.description': 'Chat rows show the state and checks of their pull request, colored by state',
+  'settings.sidebarStatus.error': 'This setting could not be saved. Try again.',
 }
 
 declare module '@janhq/jan-client-ui-slots' {
@@ -818,6 +824,9 @@ export const ja: Record<ForgePanelKey, string> = {
   'toast.expandStale': '変更の読み取り後にファイルが更新されています。更新してから展開してください',
   'toast.prompted': '送信しました：{text}',
   'toast.promptFailed': 'メッセージを送信できませんでした',
+  'settings.sidebarStatus.title': 'サイドバーにプルリクエストの状態を表示',
+  'settings.sidebarStatus.description': 'チャット行にプルリクエストの状態とチェック結果を状態別の色で表示します',
+  'settings.sidebarStatus.error': 'この設定を保存できませんでした。もう一度お試しください',
 }
 
 /** Spanish copy with the same keys. */
@@ -1087,6 +1096,9 @@ export const es: Record<ForgePanelKey, string> = {
   'toast.expandStale': 'El archivo cambió después de leer sus cambios; actualiza antes de expandir',
   'toast.prompted': 'Enviado: {text}',
   'toast.promptFailed': 'No se pudo enviar el mensaje',
+  'settings.sidebarStatus.title': 'Mostrar el estado de las solicitudes de cambios en la barra lateral',
+  'settings.sidebarStatus.description': 'Las filas de chat muestran el estado y las comprobaciones de su solicitud, con el color de cada estado',
+  'settings.sidebarStatus.error': 'No se pudo guardar este ajuste. Inténtalo de nuevo.',
 }
 
 /** French copy with the same keys. */
@@ -1356,6 +1368,9 @@ export const fr: Record<ForgePanelKey, string> = {
   'toast.expandStale': 'Le fichier a changé depuis la lecture des modifications ; actualisez avant de développer',
   'toast.prompted': 'Envoyé : {text}',
   'toast.promptFailed': 'Impossible d’envoyer le message',
+  'settings.sidebarStatus.title': 'Afficher l’état des pull requests dans la barre latérale',
+  'settings.sidebarStatus.description': 'Les lignes de discussion affichent l’état et les vérifications de leur pull request, colorés selon l’état',
+  'settings.sidebarStatus.error': 'Impossible d’enregistrer ce réglage. Réessayez.',
 }
 
 /** German copy with the same keys. */
@@ -1625,6 +1640,9 @@ export const de: Record<ForgePanelKey, string> = {
   'toast.expandStale': 'Die Datei wurde nach dem Lesen der Änderungen verändert; vor dem Aufklappen aktualisieren',
   'toast.prompted': 'Gesendet: {text}',
   'toast.promptFailed': 'Nachricht konnte nicht gesendet werden',
+  'settings.sidebarStatus.title': 'Pull-Request-Status in der Seitenleiste anzeigen',
+  'settings.sidebarStatus.description': 'Chatzeilen zeigen Status und Prüfungen ihres Pull Requests, farbig nach Status',
+  'settings.sidebarStatus.error': 'Diese Einstellung konnte nicht gespeichert werden. Bitte erneut versuchen.',
 }
 
 /** Russian copy with the same keys. */
@@ -1894,6 +1912,9 @@ export const ru: Record<ForgePanelKey, string> = {
   'toast.expandStale': 'Файл изменился после чтения изменений; обновите перед разворачиванием',
   'toast.prompted': 'Отправлено: {text}',
   'toast.promptFailed': 'Не удалось отправить сообщение',
+  'settings.sidebarStatus.title': 'Показывать статус пул-реквестов на боковой панели',
+  'settings.sidebarStatus.description': 'Строки чатов показывают состояние и проверки своего пул-реквеста с цветом по состоянию',
+  'settings.sidebarStatus.error': 'Не удалось сохранить настройку. Попробуйте ещё раз.',
 }
 
 /** Portuguese copy with the same keys. */
@@ -2163,4 +2184,7 @@ export const pt: Record<ForgePanelKey, string> = {
   'toast.expandStale': 'O arquivo mudou após a leitura das alterações; atualize antes de expandir',
   'toast.prompted': 'Enviado: {text}',
   'toast.promptFailed': 'Não foi possível enviar a mensagem',
+  'settings.sidebarStatus.title': 'Mostrar o status dos pull requests na barra lateral',
+  'settings.sidebarStatus.description': 'As linhas de chat mostram o estado e as verificações do pull request, com a cor de cada estado',
+  'settings.sidebarStatus.error': 'Não foi possível salvar esta configuração. Tente novamente.',
 }

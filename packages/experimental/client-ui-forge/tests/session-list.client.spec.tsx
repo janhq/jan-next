@@ -16,6 +16,7 @@ import { sessionForgeFacts, type ChangeRequestStates } from '../src/client/sessi
 import { HOVER_CHANGE_REQUEST_LIMIT, SessionHoverForge, type SessionHoverForgeProps } from '../src/client/SessionHoverForge.tsx'
 import { SessionRowForge, stateLine, type SessionRowForgeProps } from '../src/client/SessionRowForge.tsx'
 import css from '../src/client/SessionList.module.css'
+import glyphCss from '../src/client/ForgeTab.module.css'
 import type { ForgeChangeRequestListState } from '../src/types.ts'
 import { created, listState as state } from './client-fixtures.client.ts'
 
@@ -51,14 +52,18 @@ function listed(values: Values | undefined): SessionListState {
 function stores(values: Values | undefined, states: ReadonlyMap<string, ForgeChangeRequestListState> = new Map()) {
   const sessions = createSnapshotStore<SessionListState>(listed(values))
   const changeRequests = createSnapshotStore<ChangeRequestStates>({ state: states, disconnected: false })
-  const props = { sessionId: S1, useSessions: bindSnapshotSelector(sessions), useStates: bindSnapshotSelector(changeRequests), t }
-  return { sessions, changeRequests, props }
+  const shown = createSnapshotStore(true)
+  const props = {
+    sessionId: S1, useSessions: bindSnapshotSelector(sessions), useStates: bindSnapshotSelector(changeRequests),
+    useSidebarStatus: bindSnapshotSelector(shown), t,
+  }
+  return { sessions, changeRequests, shown, props }
 }
 
 function renderRow(values: Values | undefined, states?: ReadonlyMap<string, ForgeChangeRequestListState>) {
-  const { sessions, changeRequests, props } = stores(values, states)
+  const { sessions, changeRequests, shown, props } = stores(values, states)
   const view = render(<SessionRowForge {...props as SessionRowForgeProps} />)
-  return { view, sessions, changeRequests }
+  return { view, sessions, changeRequests, shown }
 }
 
 function renderHover(values: Values | undefined, states?: ReadonlyMap<string, ForgeChangeRequestListState>) {
@@ -109,6 +114,19 @@ describe('SessionRowForge', () => {
     const change = screen.getByRole('img', { name: 'Change request state: Open · Checks running' })
     expect(change.getAttribute('data-forge-row-change')).toBe('open')
     expect(change.querySelector(`.${css.dot}`)?.getAttribute('data-checks')).toBe('pending')
+    // Every state, open included, takes its state color.
+    expect(change.querySelector(`[data-forge-glyph="open"].${glyphCss.tinted}`)).not.toBeNull()
+  })
+
+  it('hides its icons while the General switch is off and shows them again when it is on', () => {
+    const { shown } = renderRow({ forgeWorktree: created(), forgeChangeRequests: [binding(1)] }, statesOf(state(1)))
+    screen.getByRole('img', { name: /^Change request state: Open/u })
+
+    act(() => { shown.set(false) })
+    expect(screen.queryByRole('img')).toBeNull()
+
+    act(() => { shown.set(true) })
+    screen.getByRole('img', { name: en['list.worktree'] })
   })
 
   it('names only the state of a finished or unpolled change request, without a checks dot', () => {

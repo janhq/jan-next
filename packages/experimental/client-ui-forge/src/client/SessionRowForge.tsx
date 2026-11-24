@@ -1,9 +1,8 @@
 /**
  * Session row icons after the time label: a branch glyph while the Session
  * works in the worktree the panel created for it, and the state glyph of its
- * most urgent change request. Glyphs of open change requests stay in the
- * row's subdued color with a dot for their checks; merged and closed ones keep
- * their state color.
+ * most urgent change request in that state's color, with a dot for the checks
+ * of an open one. Settings > General can hide both.
  */
 
 import type { ReactNode } from 'react'
@@ -57,11 +56,13 @@ export type SessionRowForgeProps =
 /**
  * Render a Session row's forge icons.
  * @param props - the row's Session, the shared hooks, and copy.
- * @returns the icons, or nothing for a Session without a worktree or change requests.
+ * @returns the icons, or nothing for a Session without a worktree or change requests, or while the switch is off.
  */
-export function SessionRowForge({ sessionId, useSessions, useStates, t }: SessionRowForgeProps): ReactNode {
+export function SessionRowForge({ sessionId, useSessions, useStates, useSidebarStatus, t }: SessionRowForgeProps): ReactNode {
   const facts = useSessionForgeFacts(useSessions, useStates, sessionId)
+  const shown = useSidebarStatus(value => value)
   const top = facts.changeRequests[0]
+  if (!shown) return null
   return (
     <>
       {facts.worktree !== null && (
@@ -76,7 +77,7 @@ export function SessionRowForge({ sessionId, useSessions, useStates, t }: Sessio
           aria-label={t('change.stateAria', { state: stateLine(top, t) })}
           data-forge-row-change={top.tone}
         >
-          <ChangeRequestGlyph tone={top.tone} tinted={top.tone === 'merged' || top.tone === 'closed'} size={14} />
+          <ChangeRequestGlyph tone={top.tone} tinted size={14} />
           {rowChecks(top) !== 'none' && <span className={css.dot} data-checks={rowChecks(top)} />}
         </span>
       )}

@@ -9933,6 +9933,9 @@ importers:
       '@janhq/jan-client-ui-session':
         specifier: workspace:*
         version: link:../../client/ui-session
+      '@janhq/jan-client-ui-settings':
+        specifier: workspace:*
+        version: link:../../client/ui-settings
       '@janhq/jan-client-ui-sidebar-right':
         specifier: workspace:*
         version: link:../../client/ui-sidebar-right

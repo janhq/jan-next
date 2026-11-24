@@ -8,13 +8,14 @@ import type {} from '@janhq/jan-client-ui-conversation/client'
 import type {} from '@janhq/jan-client-ui-layout/client'
 import { IconBranchOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-settings/client'
 import type {} from '@janhq/jan-client-ui-sidebar-right/client'
 import type { HostObservable } from '@janhq/jan-client-ui-slots'
 import type {} from '@janhq/jan-client-ui-workspace/client'
 import type {} from '@janhq/jan-experimental-client-ui-forge/remote'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { RemoteResult, TypertRemoteContribution } from '@janhq/jan-typert-protocol'
-import type { ForgeChangeRequestListState, ForgeChangeRequestStatesFrame, ForgePanelChangeRequest } from '../types.ts'
+import type { Config, ForgeChangeRequestListState, ForgeChangeRequestStatesFrame, ForgePanelChangeRequest } from '../types.ts'
 import { ReviewQueue } from './review-queue.ts'
 import { formatReviewComment, type ReviewSelection } from './review.ts'
 import { ActionToast } from './ActionToast.tsx'
@@ -29,6 +30,7 @@ import { de, en, es, fr, ja, NS, pt, ru, zh, type ForgePanelKey } from './locale
 import type { SessionListInjected } from './session-list.ts'
 import { SessionHoverForge } from './SessionHoverForge.tsx'
 import { SessionRowForge } from './SessionRowForge.tsx'
+import { SidebarStatusRow, type SidebarStatusRowInjected } from './SidebarStatusRow.tsx'
 import {
   createNoticeSource, createPanelSource, createStreamSource, createVisibilitySource, foldStates, type PanelSource, type VisibilitySource,
 } from './source.ts'
@@ -45,6 +47,9 @@ export const TAB_ID = '@janhq/jan-experimental-client-ui-forge'
 
 /** Kind of the forge tab. */
 export const TAB_KIND = 'forge-panel'
+
+/** Host Config entry of the forge panel in the forge bundle, whose form holds `sidebarStatus`. */
+export const CONFIG_ENTRY = 'forge-panel'
 
 /**
  * Open a URL in a new browsing context without giving it access to this page.
@@ -334,13 +339,39 @@ function registerUi(ctx: Context): void {
     subscribeReset: listener => ctx.on('connection/reset', listener),
   }, new Map(), foldStates)
   ctx.effect(() => () => { states.close() }, 'forge-panel: change request states')
-  const listFace = (): SessionListInjected => ({ hooks: { states: states.observable } })
+  const listFace = (): SessionListInjected => ({ hooks: { states: states.observable, sidebarStatus: sidebarStatusOf(ctx) } })
   ctx.slots.inject('sidebar.session.row.trailing', () => ctx.slots.register({
     name: 'sidebar.session.row.trailing', id: 'forge-panel.row', order: 10, locale: NS, inject: listFace,
   }, SessionRowForge))
   ctx.slots.inject('sidebar.session.row.hover', () => ctx.slots.register({
     name: 'sidebar.session.row.hover', id: 'forge-panel.row', order: 20, locale: NS, inject: listFace,
   }, SessionHoverForge))
+  // The switch writes the Host entry's volatile field, so every window follows it without a restart.
+  ctx.inject(['configForms'], (scope) => {
+    const form = scope.configForms.get<Pick<Config, 'sidebarStatus'>>(CONFIG_ENTRY)
+    scope.slots.inject('settings.general.item', () => scope.slots.register({
+      name: 'settings.general.item', id: 'forge-sidebar-status', order: 16, locale: NS,
+      inject: (): SidebarStatusRowInjected => ({
+        hooks: { sidebarStatus: sidebarStatusOf(scope) },
+        setShown: shown => form.set('sidebarStatus', shown),
+      }),
+    }, SidebarStatusRow))
+  })
+}
+
+/** Rows show their icons until the Host form says otherwise, including while it loads. */
+const SHOWN: HostObservable<boolean> = { getSnapshot: () => true, subscribe: () => () => {} }
+
+/**
+ * Read the General switch from the forge panel's Host Config entry.
+ * @param ctx - a client context that may carry `configForms`.
+ * @returns whether rows show their forge icons.
+ */
+function sidebarStatusOf(ctx: Context): HostObservable<boolean> {
+  const forms = ctx.get('configForms')
+  if (forms === undefined) return SHOWN
+  const form = forms.get<Pick<Config, 'sidebarStatus'>>(CONFIG_ENTRY)
+  return { getSnapshot: () => form.getSnapshot().value?.sidebarStatus !== false, subscribe: listener => form.subscribe(listener) }
 }
 
 /**

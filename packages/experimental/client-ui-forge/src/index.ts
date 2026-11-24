@@ -64,7 +64,7 @@ export class ForgePanelController extends TypertRemoteService {
     'forge', 'forgeSession', 'sessionProjections', 'workingDirectory', 'fs', 'subprocess', 'sandbox', 'sandboxPolicy', 'agents',
   ]
 
-  static Config: z<Config> = z.object({
+  static Config = z.object({
     gitCommand: z.string().default('git'),
     gitTimeoutMs: z.number().default(10_000),
     graceMs: z.number().default(1_000),
@@ -75,6 +75,7 @@ export class ForgePanelController extends TypertRemoteService {
     maxDiffBytes: z.number().default(8_388_608),
     maxUntrackedFiles: z.number().default(100),
     maxCachedDiffBytes: z.number().default(16_777_216),
+    sidebarStatus: z.boolean().default(true).description('Show pull request status on chat rows.').volatile(),
   })
 
   private readonly home: Context

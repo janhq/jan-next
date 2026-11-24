@@ -44,6 +44,7 @@
         "@janhq/jan-client-locale",
         "@janhq/jan-client-ui-conversation",
         "@janhq/jan-client-ui-layout",
+        "@janhq/jan-client-ui-settings",
         "@janhq/jan-client-ui-sidebar-right",
         "@janhq/jan-client-ui-workspace"
       ],
@@ -85,6 +86,7 @@
     "@janhq/jan-client-ui-primitives": "workspace:*",
     "@janhq/jan-client-ui-renderer": "workspace:*",
     "@janhq/jan-client-ui-session": "workspace:*",
+    "@janhq/jan-client-ui-settings": "workspace:*",
     "@janhq/jan-client-ui-sidebar-right": "workspace:*",
     "@janhq/jan-client-ui-slots": "workspace:*",
     "@janhq/jan-client-ui-workspace": "workspace:*",
