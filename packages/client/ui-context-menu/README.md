@@ -9,6 +9,8 @@ kind: "package-reference"
 
 Add actions to right-click menus without importing a React component. Targets retain the clicked Session, Workspace, file, directory, URL, image, or pane even when selection changes. Contributions can discover metadata asynchronously and disappear safely when their plugin unloads.
 
+Failed menu preparation and action execution publish diagnostics with the persistent failure toast, even after the originating menu closes.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

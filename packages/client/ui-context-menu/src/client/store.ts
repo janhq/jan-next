@@ -1,8 +1,9 @@
 /** Single-popup viewing state and feedback retained outside trigger components. */
 import { defineStore, type EngineStoreHandle } from '@janhq/jan-client-store'
+import type { FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type { MenuActionView, MenuPoint, ContextMenuTarget } from './types.ts'
 
-interface Notice { id: number; text: string; success: boolean; action?: { label: string; onClick: () => void } }
+interface Notice { id: number; text: string; success: boolean; failure?: FailureDetails; action?: { label: string; onClick: () => void } }
 interface MenuState {
   occurrence: number
   closing: boolean

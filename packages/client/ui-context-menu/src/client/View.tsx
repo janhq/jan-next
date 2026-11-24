@@ -55,7 +55,7 @@ export function MenuOverlay({ useStore, actions, renderSlot, close, select, retu
       footer={menuEntries(items.filter(item => item.afterContent), catalog, renderSlot)} onClose={close} onSelect={select}>
       {target !== null && renderSlot('contextMenu.content', { target, dismiss: close }, { entryKey: target.kind })}
     </Menu>
-    {notice !== null && <Toast key={notice.id} text={notice.text}
+    {notice !== null && <Toast key={notice.id} text={notice.text} failure={notice.failure}
       {...notice.action === undefined ? {} : { actions: [notice.action] }}
       {...notice.success ? { tone: 'success' as const } : {}} onDone={() => { actions.notify(null) }} />}
   </>
