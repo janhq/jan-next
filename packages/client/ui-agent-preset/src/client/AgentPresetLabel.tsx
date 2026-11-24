@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
 import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
-  IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
+  IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast, captureFailure, type FailureDetails,
 } from '@janhq/jan-client-ui-primitives'
 import type { SessionId } from '@janhq/jan-session/types'
 // Type-only: pulls the ui-conversation SlotMap merge (the composer preset seat).
@@ -74,7 +74,7 @@ export function AgentPresetLabel({
   const developerTools = useDeveloperTools(value => value)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [refusal, setRefusal] = useState<{ seq: number; id: string; reason: string } | null>(null)
+  const [refusal, setRefusal] = useState<{ seq: number; id: string; reason: string; failure: FailureDetails } | null>(null)
   const refusalSeq = useRef(0)
   const control = useRef<HTMLButtonElement | null>(null)
 
@@ -116,10 +116,13 @@ export function AgentPresetLabel({
           void select(sessionId, id).then((reason) => {
             if (reason === undefined) return
             refusalSeq.current += 1
-            setRefusal({ seq: refusalSeq.current, id, reason })
+            setRefusal({ seq: refusalSeq.current, id, reason, failure: captureFailure('agentPreset.select', new Error(reason)) })
           }).catch((error: unknown) => {
             refusalSeq.current += 1
-            setRefusal({ seq: refusalSeq.current, id, reason: error instanceof Error ? error.message : String(error) })
+            setRefusal({
+              seq: refusalSeq.current, id, reason: error instanceof Error ? error.message : String(error),
+              failure: captureFailure('agentPreset.select', error),
+            })
           }).finally(() => { setBusy(false) })
         }}
         align="start"
@@ -151,6 +154,7 @@ export function AgentPresetLabel({
             reason: refusal.reason,
           })}
           icon={<IconWarningOutlineRegular />}
+          failure={refusal.failure}
           holdMs={REFUSAL_HOLD_MS}
           onDone={() => { setRefusal(null) }}
         />

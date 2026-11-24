@@ -15,7 +15,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
 import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
-  IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
+  IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast, captureFailure, type FailureDetails,
 } from '@janhq/jan-client-ui-primitives'
 // Type-only: pulls the ui-conversation SlotMap merge (the hero seat).
 import type { } from '@janhq/jan-client-ui-conversation/client'
@@ -96,12 +96,12 @@ export function AgentPresetSeat({
   // The seq keys the banner, so picking the same broken preset twice replays
   // it rather than leaving the first one silently in place.
   const toastSeq = useRef(0)
-  const [toast, setToast] = useState<{ seq: number; error: Exclude<AgentPresetSeatState['error'], string | null> } | null>(null)
+  const [toast, setToast] = useState<{ seq: number; error: Exclude<AgentPresetSeatState['error'], string | null>; failure: FailureDetails } | null>(null)
 
   useEffect(() => {
     if (state.error !== null && typeof state.error === 'object') {
       toastSeq.current += 1
-      setToast({ seq: toastSeq.current, error: state.error })
+      setToast({ seq: toastSeq.current, error: state.error, failure: captureFailure('agentPreset.select', new Error(state.error.reason)) })
     } else setToast(null)
   }, [state.error])
 
@@ -202,6 +202,7 @@ export function AgentPresetSeat({
           key={toast.seq}
           text={t('switchRefused', { name: presetDisplayText(toast.error.preset, t).name, reason: toast.error.reason })}
           icon={<IconWarningOutlineRegular />}
+          failure={toast.failure}
           holdMs={REFUSAL_HOLD_MS}
           onDone={() => { dismissRefusal(toast.error) }}
         />
