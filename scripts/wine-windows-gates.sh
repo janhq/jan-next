@@ -236,6 +236,12 @@ if [ -d node_modules/vue ] && [ ! -e website/node_modules/vue ]; then
   mkdir -p website/node_modules
   ln -s ../../node_modules/vue website/node_modules/vue
 fi
+# The generative-UI kit imports react-components' dist files by relative path
+# through its own node_modules, which the hoisted layout leaves empty.
+if [ -d node_modules/@openuidev/react-components ] && [ ! -e vendor/dsh-generative-ui/node_modules/@openuidev/react-components ]; then
+  mkdir -p vendor/dsh-generative-ui/node_modules/@openuidev
+  ln -s ../../../../node_modules/@openuidev/react-components vendor/dsh-generative-ui/node_modules/@openuidev/react-components
+fi
 
 wine_node "$scratch/logs/smoke.log" -p "'smoke: ' + process.platform + ' ' + process.arch + ' ' + process.version"
 cat "$scratch/logs/smoke.log"
