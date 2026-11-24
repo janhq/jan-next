@@ -11,6 +11,33 @@
   color: var(--dsw-alias-label-primary);
 }
 
+.setupHeading {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+}
+
+.setupChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.setupChoices > button {
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  min-height: 32px;
+  padding-block: 6px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.setupChoices > button[aria-expanded='true'] {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
 .intro {
   margin: 0;
   font-size: 14px;

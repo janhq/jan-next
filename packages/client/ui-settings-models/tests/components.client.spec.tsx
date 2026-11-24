@@ -2,7 +2,7 @@ import { es, fr, de, ru, pt } from '../src/client/locales.ts'
 // @vitest-environment jsdom
 /** Section, setup-card, and hand-written editor behavior over a scripted wire face. */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import Schema from '@janhq/schemastery'
 import { Context } from '@janhq/cordis'
 import { bindSnapshotSelector, RemoteError } from '@janhq/jan-client-test-runtime'
@@ -147,12 +147,18 @@ function remoteFail(message: string, code: RefusalCode = 'credential/rejected') 
   return { ok: false as const, error: REFUSALS[code](message) }
 }
 
-function scriptedFace(overrides: {
-  update?: ReturnType<typeof vi.fn>
-  mutate?: ReturnType<typeof vi.fn>
-  set?: ReturnType<typeof vi.fn>
-  unset?: ReturnType<typeof vi.fn>
-} = {}) {
+interface ScriptedMutations {
+  update: Mock
+  mutate: Mock
+  set: Mock
+  unset: Mock
+}
+
+interface ScriptedMount extends ScriptedMutations {
+  face: object
+}
+
+function scriptedFace(overrides: Partial<ScriptedMutations> = {}) {
   const providerNamespace = piAiView()
   const update = overrides.update ?? vi.fn(() => Promise.resolve(remoteOk(providerNamespace)))
   const mutate = overrides.mutate ?? vi.fn(() => Promise.resolve(remoteOk(providerNamespace)))
@@ -282,7 +288,7 @@ function cardSeatCalls(
     ])
 }
 
-async function mountFace(scripted: ReturnType<typeof scriptedFace>) {
+async function mountFace<Face extends object>(scripted: ScriptedMount & { face: Face }, setup: Partial<ModelsSectionProps> = {}) {
   const { face, update, mutate, set, unset } = scripted
   const ctx = ctxWith(face)
   const mirror = new SettingsDescribeMirror(ctx)
@@ -296,17 +302,18 @@ async function mountFace(scripted: ReturnType<typeof scriptedFace>) {
     schema: settingsSchema,
     t,
     renderSlot: renderSlot as unknown as ModelsSectionProps['renderSlot'],
+    ...setup,
   }
   const view = render(<ModelsSection {...injected} />)
-  return { view, ctx, face, update, mutate, set, unset, controller, mirror, renderSlot }
+  return { view, ctx, face, update, mutate, set, unset, controller, mirror, renderSlot, injected }
 }
 
-async function mountSection(overrides: Parameters<typeof scriptedFace>[0] = {}) {
+async function mountSection(overrides: Partial<ScriptedMutations> = {}) {
   return mountFace(scriptedFace(overrides))
 }
 
 /** Mount the section and open the Tokamak route's editor through its row's Edit action. */
-async function mountTokamakCard(overrides: Parameters<typeof scriptedFace>[0] = {}) {
+async function mountTokamakCard(overrides: Partial<ScriptedMutations> = {}) {
   const mounted = await mountSection(overrides)
   fireEvent.click(screen.getByRole('button', { name: tokamakCopy(en.editProvider) }))
   return mounted
@@ -604,6 +611,32 @@ describe('ModelsSection', () => {
     expect(renderSlot.mock.calls.filter(call => call[0] === 'settings.models.footer')).toEqual([
       ['settings.models.footer', {}],
     ])
+  })
+
+  it('opens the existing API provider form directly from the setup choices', async () => {
+    await mountSection()
+    fireEvent.click(screen.getByRole('button', { name: en.setupAPI }))
+    expect(screen.getByRole('textbox', { name: en.customRoute })).toBeTruthy()
+    expect(screen.getByRole('textbox', { name: en.baseUrl })).toBeTruthy()
+    expect(screen.getByLabelText(en.keyInput)).toBeTruthy()
+  })
+
+  it('opens the installed setup contributions and reopens subscriptions from navigation', async () => {
+    const available = <T,>(select: (value: boolean) => T): T => select(true)
+    const { view, injected, renderSlot } = await mountFace(scriptedFace(), {
+      useLocalSetup: available, useSubscriptionSetup: available,
+    })
+    expect(renderSlot.mock.calls.some(([name]) => name === 'settings.models.setup-subscription')).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: en.setupLocal }))
+    expect(renderSlot.mock.calls).toContainEqual(['settings.models.setup-local', {}])
+    const subscription = screen.getByRole('button', { name: en.setupSubscription })
+    view.rerender(<ModelsSection {...injected} reveal={{ id: 'subscription', sequence: 1 }} />)
+    expect(subscription.getAttribute('aria-expanded')).toBe('true')
+    expect(renderSlot.mock.calls).toContainEqual(['settings.models.setup-subscription', {}])
+    fireEvent.click(subscription)
+    expect(subscription.getAttribute('aria-expanded')).toBe('false')
+    view.rerender(<ModelsSection {...injected} reveal={{ id: 'subscription', sequence: 2 }} />)
+    expect(subscription.getAttribute('aria-expanded')).toBe('true')
   })
 
   it('dispatches the provider-card seat on the add-provider draft with its dormant row', async () => {

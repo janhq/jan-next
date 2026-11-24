@@ -90,9 +90,15 @@ export function apply(ctx: ClientContext): void {
   // Registration-time text (the nav label thunk) and the inject faces share
   // one bound translate; copy freshness rides the locale revision.
   const t = ctx.locale.bind(NS) as ModelsSectionInjected['t']
+  const setupPresence = (name: 'settings.models.setup-local' | 'settings.models.setup-subscription') => ({
+    getSnapshot: () => ctx.slots.entriesOfSlot(name).length > 0,
+    subscribe: (listener: () => void) => ctx.slots.subscribe(name, listener),
+  })
+  const localSetup = setupPresence('settings.models.setup-local')
+  const subscriptionSetup = setupPresence('settings.models.setup-subscription')
   const injected = (): ModelsSectionInjected => ({
     controller,
-    hooks: { snapshot: controller.store },
+    hooks: { snapshot: controller.store, localSetup, subscriptionSetup },
     operations,
     schema,
     t,
@@ -143,6 +149,8 @@ export function apply(ctx: ClientContext): void {
     children: {
       'settings.models.provider-card': { kind: 'keyed', scope: 'root' },
       'settings.models.footer': { kind: 'list', scope: 'root' },
+      'settings.models.setup-local': { kind: 'single', scope: 'root' },
+      'settings.models.setup-subscription': { kind: 'single', scope: 'root' },
     },
   }, ModelsSection))
   if (!('janDesktop' in globalThis)) ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
