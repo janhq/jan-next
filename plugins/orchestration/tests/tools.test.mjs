@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { chmod, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -181,5 +181,28 @@ if (process.argv[1] === import.meta.filename) {
     const { tasks: [after] } = await host.call('tasks', {})
     assert.equal(after.undelivered, 0)
     assert.equal(host.notifications.filter(item => item.id === host.coordinator.id).length, 0)
+  })
+
+  test('delivers a report and starts dependents once a failed save succeeds', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async t => {
+    const host = await fakeHost(t)
+    await host.start()
+    const { tasks: [a] } = await host.call('start', { tasks: [task('A'), task('B', { depends_on: ['A'] })] })
+    const worker = host.agents.get(a.sessionId)
+    const directory = join(host.home, 'orchestration')
+    t.mock.timers.enable({ apis: ['setTimeout'] })
+    await chmod(directory, 0o500)
+    try {
+      await assert.rejects(host.call('done', { outcome: 'succeeded', summary: 'Wrote A.' }, worker), /Could not save orchestration state/)
+    } finally {
+      await chmod(directory, 0o700)
+    }
+    assert.equal(host.notifications.filter(item => item.id === host.coordinator.id).length, 0)
+    t.mock.timers.tick(5000)
+    t.mock.timers.reset()
+    for (let turn = 0; turn < 100 && host.agents.size < 3; turn++) await new Promise(setImmediate)
+    const { tasks } = await host.call('tasks', {})
+    assert.deepEqual(tasks.map(item => item.status), ['completed', 'dispatched'])
+    assert.match(host.notifications.find(item => item.id === host.coordinator.id).text, /DONE: Wrote A\./)
+    await host.dispose()
   })
 }

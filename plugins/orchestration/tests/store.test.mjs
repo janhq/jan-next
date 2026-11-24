@@ -3,7 +3,7 @@ import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { newId, openStore } from '../store.mjs'
+import { newId, openStore, StateWriteError } from '../store.mjs'
 
 async function scratch(t) {
   const directory = await mkdtemp(join(tmpdir(), 'jan-orch-store-'))
@@ -65,17 +65,22 @@ test('retention reclaims held reports after delivered ones', async t => {
   assert.equal(store.read().messages.length, 2000)
 })
 
-test('a later mutation persists state after a failed write', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async t => {
+test('a failed write keeps its change, retries, and reports recovery once', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async t => {
   const { directory, path } = await scratch(t)
-  const store = await openStore(path, console)
+  let recovered = 0
+  const store = await openStore(path, { warn() {} }, { onRecover: () => { recovered++ } })
+  t.after(() => store.close())
   await chmod(directory, 0o500)
   try {
-    await assert.rejects(store.mutate(state => { state.tasks.a = { id: 'a' } }))
-    await assert.rejects(store.flush())
+    await assert.rejects(store.mutate(state => { state.tasks.a = { id: 'a' } }), StateWriteError)
+    await assert.rejects(store.flush(), StateWriteError)
   } finally {
     await chmod(directory, 0o700)
   }
-  await store.mutate(state => { state.tasks.b = { id: 'b' } })
+  assert.equal(store.read().tasks.a.id, 'a')
   await store.flush()
+  await store.mutate(state => { state.tasks.b = { id: 'b' } })
+  await new Promise(setImmediate)
+  assert.equal(recovered, 1)
   assert.deepEqual(Object.keys((await openStore(path, console)).read().tasks), ['a', 'b'])
 })

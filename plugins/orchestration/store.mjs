@@ -33,12 +33,22 @@ function trim(messages) {
 
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 
+/** A mutation applied in memory whose save failed; a later write saves it. */
+export class StateWriteError extends Error {
+  constructor(cause) {
+    super(`Could not save orchestration state: ${cause.message}`, { cause })
+    this.name = 'StateWriteError'
+  }
+}
+
 /** Open one state file, quarantining an unreadable state format before resetting it.
  * @param {string} path - state.json filename.
- * @param {{warn(message: string): void}} logger - receives the quarantine diagnostic.
- * @returns {Promise<object>} live read view, serialized synchronous mutation API, and write barrier.
+ * @param {{warn(message: string): void}} logger - receives the quarantine and failed-write diagnostics.
+ * @param {{onRecover?: () => void, retryMs?: number}} [options] - `onRecover` runs after the
+ *   first successful write that follows a failed one; `retryMs` paces write retries.
+ * @returns {Promise<object>} live read view, serialized synchronous mutation API, write barrier and close.
  */
-export async function openStore(path, logger) {
+export async function openStore(path, logger, { onRecover = () => {}, retryMs = 5000 } = {}) {
   let state
   let contents
   try {
@@ -70,31 +80,44 @@ export async function openStore(path, logger) {
   }
   state.peerAcks ??= {}
   let tail = Promise.resolve()
-  // The latest write's failure, if it failed. Every mutation rewrites the whole
-  // state, so the next successful write also persists what a failed one missed.
-  let writeError
+  // A failed write rejects its mutation and keeps the change in memory, so a
+  // caller never acknowledges unsaved state. Every write saves the whole state:
+  // a timer retries until one succeeds, and onRecover lets the owner redo the
+  // follow-up work (deliveries, dispatches) that the rejected callers skipped.
+  let writeError, retry, closed = false
+  function mutate(fn) {
+    const result = tail.then(async () => {
+      const value = fn(state)
+      trim(state.messages)
+      try {
+        await write()
+      } catch (cause) {
+        if (!writeError) logger.warn(`Could not save orchestration state; retrying: ${cause.message}`)
+        writeError = new StateWriteError(cause)
+        if (!closed) retry ??= setTimeout(() => { retry = undefined; mutate(() => {}).catch(() => {}) }, retryMs).unref()
+        throw writeError
+      }
+      if (writeError) {
+        writeError = undefined
+        queueMicrotask(onRecover)
+      }
+      return value
+    })
+    // The caller owns callback failures; flush reports only a failed write.
+    tail = result.then(() => undefined, () => undefined)
+    return result
+  }
   return {
     read: () => state,
-    mutate(fn) {
-      const result = tail.then(async () => {
-        const value = fn(state)
-        trim(state.messages)
-        try {
-          await write()
-          writeError = undefined
-        } catch (error) {
-          writeError = error
-          throw error
-        }
-        return value
-      })
-      // The caller owns callback failures; flush reports only a failed write.
-      tail = result.then(() => undefined, () => undefined)
-      return result
-    },
+    mutate,
+    /** Wait for queued writes; after a failed write, try once more and throw if it fails again. */
     async flush() {
       await tail
-      if (writeError) throw writeError
+      if (writeError) await mutate(() => {})
+    },
+    close() {
+      closed = true
+      clearTimeout(retry)
     },
   }
 }

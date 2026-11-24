@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { AgentDelivery } from '@janhq/dsh-superagent/queue'
 import { registerApi } from '@janhq/jan-plugin-api'
 import { activeDispatch, createPeers, readLimit } from './peers.mjs'
-import { newId, openStore } from './store.mjs'
+import { newId, openStore, StateWriteError } from './store.mjs'
 import { orchestrationTools } from './tools.mjs'
 import { createWorkers } from './worker.mjs'
 
@@ -129,7 +129,11 @@ function addTasks(state, sessionId, requests, known) {
  * @returns {Promise<void>} after mounting and attempting pending coordinator deliveries.
  */
 export async function apply(ctx) {
-  const store = await openStore(join(ctx.janHomePath(), 'orchestration', 'state.json'), ctx.logger)
+  const store = await openStore(join(ctx.janHomePath(), 'orchestration', 'state.json'), ctx.logger, { onRecover: () => {
+    resume().catch(error => {
+      if (!signal.aborted) ctx.logger.warn(`Could not resume orchestration after saving state: ${error.message}`)
+    })
+  } })
   const delivery = new AgentDelivery(ctx)
   const lifetime = new AbortController()
   const { signal } = lifetime
@@ -137,6 +141,29 @@ export async function apply(ctx) {
   const peers = createPeers(ctx, store, workers, acceptPeer, signal)
   const launches = new Map()
   const stopping = new Map()
+
+  // Finish what state alone records: coordinator reports not yet delivered,
+  // dispatches still starting, peers still to poll and tasks ready to run. This
+  // runs at startup and again once a save succeeds after a failed one, because
+  // a caller whose save failed skipped this follow-up work.
+  async function resume() {
+    if (signal.aborted) return
+    for (const { ref } of store.read().outbox) peers.notify(ref)
+    for (const message of store.read().messages.slice()) {
+      if (message.to === 'coordinator' && !message.delivered) await deliverToCoordinator(message, signal)
+    }
+    const state = store.read()
+    for (const task of Object.values(state.tasks)) {
+      const dispatch = current(state, task)
+      if (task.status === 'dispatched' && dispatch?.status === 'starting' && !launches.has(dispatch.id)) {
+        void startDispatch(task, dispatch).catch(error => {
+          if (!signal.aborted) ctx.logger.warn(`Could not recover orchestration dispatch ${dispatch.id}: ${error.message}`)
+        })
+      }
+    }
+    peers.restore()
+    if (Object.values(state.tasks).some(task => task.status === 'pending')) await dispatchReady()
+  }
 
   // A report for a deleted coordinator can never be delivered, so it is retired
   // like a delivered one. An archived coordinator may be restored: its reports
@@ -224,8 +251,8 @@ export async function apply(ctx) {
     if (!activeDispatch(dispatch) || signal.aborted) return
     const { host, ...placement } = task.placement
     const payload = { dispatchId: dispatch.id, taskId: task.id, title: task.title, spec: task.spec, ...placement }
+    let started, qualifiedSessionId
     try {
-      let started, qualifiedSessionId
       if (host === 'local') {
         const agent = ctx.agents.get(task.coordinator)
         const coordinatorName = agent && ctx.get('sessionTitle')?.get?.(agent.session)?.title
@@ -237,16 +264,19 @@ export async function apply(ctx) {
         started = await peers.call(host, 'peerStart', { ...payload, ref, coordinatorName: hostname() }, signal)
         if (peer?.kind === 'ssh') qualifiedSessionId = `${host}~${started.sessionId}`
       }
-      await store.mutate(() => {
-        Object.assign(dispatch, started, { qualifiedSessionId })
-        if (dispatch.status === 'starting') dispatch.status = 'running'
-      })
-      if (host !== 'local') peers.watch(host)
     } catch (error) {
-      if (signal.aborted || !activeDispatch(dispatch)) return
+      // A failed save keeps the start in memory, and resume() relaunches a dispatch still starting once a save succeeds.
+      if (signal.aborted || !activeDispatch(dispatch) || error instanceof StateWriteError) return
       const result = await store.mutate(state => saveUpdate(state, task, dispatch, { type: 'error', body: error.message || String(error) }))
       await publish(result, signal)
+      return
     }
+    // The worker runs; a failed save here must not mark its task failed.
+    await store.mutate(() => {
+      Object.assign(dispatch, started, { qualifiedSessionId })
+      if (dispatch.status === 'starting') dispatch.status = 'running'
+    })
+    if (host !== 'local') peers.watch(host)
   }
 
   async function dispatchReady() {
@@ -447,20 +477,8 @@ export async function apply(ctx) {
   ctx.effect(() => async () => {
     lifetime.abort(new Error('Orchestration plugin disposed.'))
     await Promise.allSettled([...launches.values(), ...stopping.values(), peers.drain(), workers.drain()])
+    store.close()
     await store.flush()
   })
-  for (const message of store.read().messages.slice()) {
-    if (message.to === 'coordinator' && !message.delivered) await deliverToCoordinator(message, signal)
-  }
-  const state = store.read()
-  for (const task of Object.values(state.tasks)) {
-    const dispatch = current(state, task)
-    if (task.status === 'dispatched' && dispatch?.status === 'starting') {
-      void startDispatch(task, dispatch).catch(error => {
-        if (!signal.aborted) ctx.logger.warn(`Could not recover orchestration dispatch ${dispatch.id}: ${error.message}`)
-      })
-    }
-  }
-  peers.restore()
-  if (Object.values(state.tasks).some(task => task.status === 'pending')) await dispatchReady()
+  await resume()
 }

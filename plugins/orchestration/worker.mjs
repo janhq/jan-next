@@ -123,6 +123,8 @@ export function createWorkers(ctx, store, delivery, emit) {
     let agent, cwd, sessionId
     if (worker) {
       ({ sessionId } = worker)
+      // A relaunch after a failed save may find a worker its first launch never indexed.
+      bySession.set(sessionId, worker)
       if (worker.doneSent || store.read().dispatches[dispatchId].status !== 'starting') return { sessionId, isolation }
       agent = await resolveAgent(sessionId)
       if (isolation.kind === 'shared') cwd = await ctx.workingDirectory.ensure(agent, signal)

@@ -203,6 +203,8 @@ export function createPeers(ctx, store, workers, accept, signal) {
       try {
         const after = forPeer(id)
         if (owesAck(id)) {
+          // Acknowledge only a cursor that is saved, so the peer never drops an update this Host could lose.
+          await store.flush()
           await request(id, 'peerAck', { ref, upTo: after }, control)
           await store.mutate(state => {
             if (!forgotten.has(id)) state.peerAcks[id] = after
