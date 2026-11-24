@@ -2,13 +2,16 @@ import { createHash } from 'node:crypto'
 import { dirname, basename, join } from 'node:path'
 import { canonicalizeWatchPath } from '@janhq/jan-home-paths'
 
+/** Native keychain operations on the entries of one service. */
 export interface KeychainBackend {
   read(entry: string): Promise<string | undefined>
   write(entry: string, value: string): Promise<void>
   remove(entry: string): Promise<void>
 }
 
+/** Shape of a keychain entry id: a version-4 UUID, so a document cannot name an arbitrary entry. */
 export const KEYCHAIN_ENTRY_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/
+/** Message reported when the OS keychain refuses to remove an entry. */
 export const KEYCHAIN_REMOVE_FAILURE = 'Jan could not remove a credential entry from the OS keychain.'
 
 // Credential Manager's limit for each binary credential blob, not UTF-16 characters.
@@ -17,7 +20,11 @@ const WINDOWS_MAX_PARTS = 65535
 const INLINE = 0
 const MANIFEST = 1
 
-/** Scope entries to one document, including isolated Jan homes. */
+/**
+ * Scope entries to one document, including isolated Jan homes.
+ * @param filename - the credential document's path.
+ * @returns the keychain service name for that document.
+ */
 export async function keychainService(filename: string): Promise<string> {
   // The atomic writer replaces the final file (including symlinks) rather than
   // writing through it. Only canonicalize the directory portion of its target.
@@ -26,7 +33,11 @@ export async function keychainService(filename: string): Promise<string> {
   return `ai.jan.credentials.${createHash('sha256').update(identity).digest('hex')}`
 }
 
-/** Open a native adapter without probing or touching an entry. */
+/**
+ * Open a native adapter without probing or touching an entry.
+ * @param service - the document's keychain service name from {@link keychainService}.
+ * @returns the backend that reads, writes and removes entries of that service.
+ */
 export async function loadKeychain(service: string): Promise<KeychainBackend> {
   // Loading this platform-specific addon may fail; file-only profiles never need it.
   const { AsyncEntry } = await import('@napi-rs/keyring')

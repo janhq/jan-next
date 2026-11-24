@@ -3,6 +3,7 @@ import { stat } from 'node:fs/promises'
 import { delimiter, isAbsolute, join } from 'node:path'
 import type { LaunchEnvironmentSnapshot } from '@janhq/jan-launch-environment'
 
+/** Run one `op` or `bw` command with the given arguments and return its standard output. */
 export type VaultCliRunner = (command: 'op' | 'bw', args: readonly string[]) => Promise<string>
 
 type Manager = 'op' | 'bw'
@@ -69,7 +70,11 @@ function classifyFailure(command: Manager, error: ExecFileException, stderr: str
   return 'cli-failed'
 }
 
-/** Runs a single resolution, sharing one timeout between a lookup and any TOTP request. */
+/**
+ * Runs a single resolution, sharing one timeout between a lookup and any TOTP request.
+ * @param snapshot - the launch environment whose PATH and session variables the CLI receives.
+ * @returns a runner for `op` or `bw` commands within that one deadline.
+ */
 export function vaultCli(snapshot: LaunchEnvironmentSnapshot): VaultCliRunner {
   const deadline = performance.now() + TIMEOUT_MS
   return async (command, args) => {
@@ -133,7 +138,12 @@ function decodeSegment(segment: string): string {
   return decoded
 }
 
-/** Interpret a saved pointer once, never its returned value or any ambient fallback. */
+/**
+ * Interpret a saved pointer once, never its returned value or any ambient fallback.
+ * @param value - the saved `op://` or `bw://` reference.
+ * @param run - the CLI runner for this resolution, from {@link vaultCli}.
+ * @returns the secret the password manager returns.
+ */
 export async function resolvePasswordManagerValue(value: string, run: VaultCliRunner): Promise<string> {
   if (value.startsWith('op://')) {
     const parts = value.slice(5).split('/')
