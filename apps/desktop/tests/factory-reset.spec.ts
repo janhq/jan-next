@@ -75,3 +75,16 @@ it('rejects an empty or unknown selection before anything is removed', () => {
   expect(() => parseFactoryResetRequest('chats')).toThrow()
   expect(parseFactoryResetRequest(['logs', 'chats', 'logs'])).toEqual(['chats', 'logs'])
 })
+
+it('removes the scoped settings document only when Settings is reset', async () => {
+  const { roots } = installation()
+  const scoped = join(roots.janHome, 'settings', 'scoped.json')
+  mkdirSync(dirname(scoped), { recursive: true })
+  writeFileSync(scoped, JSON.stringify({ version: 1, global: { toolsDisabled: ['bash'] }, projects: {}, sessions: {} }))
+  await performFactoryReset(['chats'], roots, async () => {}, async () => {})
+  expect(existsSync(scoped)).toBe(true)
+
+  const result = await performFactoryReset(['settings'], roots, async () => {}, async () => {})
+  expect(result.completed).toEqual(['settings'])
+  expect(existsSync(scoped)).toBe(false)
+})

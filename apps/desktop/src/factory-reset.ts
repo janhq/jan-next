@@ -35,6 +35,7 @@ export function factoryResetTargets(category: FactoryResetCategory, roots: Facto
     case 'settings': return [
       join(profile, 'cordis.patch.yml'), join(janHome, 'storages', 'workspace.json'),
       join(janHome, 'storages', 'llm_pi_ai_model_listings.json'),
+      join(janHome, 'settings', 'scoped.json'),
       join(userData, 'desktop'), join(userData, 'keybindings.json'),
     ]
     // The profile manifest is rewritten with only the shipped bundles at the next launch.
