@@ -1,24 +1,34 @@
-- banner:
-  - navigation "Session hierarchy": Use the ask_user_question tool to
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Use the ask_user_question tool to Close chat tab" [selected]:
+    - text: Use the ask_user_question tool to
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Use the ask_user_question tool to ask me exactly one question with id "checkpoint", question "Ready to continue?", header "Checkpoint", and options labeled "Yes" and "No". After I answer, reply with one short sentence acknowledging my answer and stop. {{clock}}
 - button "Copy"
 - button "Inject context runtime-context"
 - button "Inject context time-context"
 - button "Think The user wants me to ask them a checkpoint question first, then continue with whatever they interject. Let me do exactly that."
-- status: Deep diving
-- text: "Deep diving for {{duration}} ··· Interjection: include the word BANANA in your final reply."
+- text: Running
+- button "Ask question"
+- text: Ask question waiting
+- button "Answer"
+- status: Waiting for your action
+- text: "Waiting for your action - {{duration}} Interjection: include the word BANANA in your final reply."
 - button "Copy"
 - text: "Interjection: include the word ORANGE in your final reply."
 - button "Copy"
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Stop generating"
+- button "Choose project" [disabled]: workspace
+- 'button "Finish the current reply before switching: Standard mode" [disabled]': Standard mode
+- button "20 tok · Cache hit 0%": 20 tokCache hit 0%
+- button "0% of context used": 0%

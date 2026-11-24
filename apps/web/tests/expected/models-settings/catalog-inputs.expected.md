@@ -11,9 +11,10 @@
   - paragraph: Enter your API keys to use models from the following providers.
   - list:
     - listitem:
-      - text: amazon-bedrock
-      - button "Edit amazon-bedrock": Edit
-      - button "Delete amazon-bedrock": Delete
+      - text: minimax-cn
+      - img "API key configured"
+      - button "Edit minimax-cn": Edit
+      - button "Delete minimax-cn": Delete
     - listitem:
       - text: openai
       - button "Edit openai": Edit
@@ -66,9 +67,9 @@
       - img "API key missing"
       - button "Edit Local (llama.cpp) (local)": Edit
     - listitem:
-      - text: Acme Gateway Custom
-      - button "Edit Acme Gateway (acme-gateway)": Edit
-      - button "Delete Acme Gateway (acme-gateway)": Delete
+      - text: Acme 网关 Custom
+      - button "Edit Acme 网关 (acme-gateway)": Edit
+      - button "Delete Acme 网关 (acme-gateway)": Delete
   - button "Add model provider"
   - region "Local model":
     - heading "Local model" [level=3]

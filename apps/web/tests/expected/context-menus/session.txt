@@ -1,5 +1,7 @@
 Pin session
 Rename
 Fork session
+Open in new tab
+Open beside
 Copy Session ID
 Archive session

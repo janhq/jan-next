@@ -44,7 +44,7 @@ import {
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { ModelDetailsOwner, ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
-import { compareModelNames } from './model-order.ts'
+import { displayNames, pickerOrder } from './model-order.ts'
 import css from './ModelSelect.module.css'
 
 /** Where focus lands after the menu opens. */
@@ -63,18 +63,6 @@ interface EffortChoice {
 /** Short token count for the details card: 32768 -> 33K, 1048576 -> 1M. */
 function formatTokens(tokens: number): string {
   return tokens >= 1_000_000 ? `${Number((tokens / 1_000_000).toFixed(1))}M` : `${Math.round(tokens / 1000)}K`
-}
-
-/**
- * Display names for one provider's models: a router name such as
- * `anthropic/claude-opus-5-5` drops its vendor prefix unless that would make
- * two rows read the same.
- */
-function displayNames(models: readonly ModelCatalogModel[]): Map<string, string> {
-  const short = (name: string): string => name.slice(name.lastIndexOf('/') + 1) || name
-  const counts = new Map<string, number>()
-  for (const model of models) counts.set(short(model.name), (counts.get(short(model.name)) ?? 0) + 1)
-  return new Map(models.map(model => [model.id, counts.get(short(model.name)) === 1 ? short(model.name) : model.name]))
 }
 
 /**
@@ -169,7 +157,7 @@ export function ModelSelect(
       ...group,
       provider: { id: group.id, name: group.name },
       label,
-      models: [...group.models].sort((a, b) => compareModelNames(label(a), label(b))),
+      models: pickerOrder(group.models),
     }
   }), [state.groups])
   const choices = useMemo(() => groups.flatMap(group =>

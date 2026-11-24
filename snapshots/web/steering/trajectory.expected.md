@@ -1,12 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": Use the ask_user_question tool to
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Use the ask_user_question tool to Close chat tab" [selected]:
+    - text: Use the ask_user_question tool to
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat"
-    - tab "Trajectory" [selected]
-  - button "More conversation views"
+- tablist:
+  - tab "Chat"
+  - tab "Trajectory" [selected]
+- button "More conversation views"
 - toolbar "Trajectory toolbar":
   - button "Use actual duration": Duration
   - button "Collapse turns": Turns
@@ -19,12 +21,12 @@
     - row "SYSTEM, Initial System Prompt":
       - cell "SYSTEM"
       - cell "Initial System Prompt"
+    - 'row "CONTEXT, Current runtime context. This snapshot supersedes earlier runtime-context snapshots. Current working directory: \"{{cwd}}/workspace\". Current Jan file policy: danger-full-access. The Jan file sandbox does not restrict file modifications by available operations. Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not…"':
+      - cell "Turn 1 CONTEXT": CONTEXT
+      - 'cell "Current runtime context. This snapshot supersedes earlier runtime-context snapshots. Current working directory: \"{{cwd}}/workspace\". Current Jan file policy: danger-full-access. The Jan file sandbox does not restrict file modifications by available operations. Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not…"'
     - row "USER, Use the ask_user_question tool to ask me exactly one question with id \"checkpoint\", question \"Ready to continue?\", header \"Checkpoint\", and options labeled \"Yes\" and \"No\". After I answer, reply with one short sentence acknowledging my answer and stop.":
-      - cell "Turn 1 USER": USER
+      - cell "USER"
       - cell "Use the ask_user_question tool to ask me exactly one question with id \"checkpoint\", question \"Ready to continue?\", header \"Checkpoint\", and options labeled \"Yes\" and \"No\". After I answer, reply with one short sentence acknowledging my answer and stop."
-    - 'row "CONTEXT, Current runtime context. This snapshot supersedes earlier runtime-context snapshots. Current working directory: \"{{cwd}}/workspace\". Current Jan file policy: workspace-write. Any available operation enforced by the Jan file sandbox may modify files under the session workspace: \"{{cwd}}/workspace\". Some pl…"':
-      - cell "CONTEXT"
-      - 'cell "Current runtime context. This snapshot supersedes earlier runtime-context snapshots. Current working directory: \"{{cwd}}/workspace\". Current Jan file policy: workspace-write. Any available operation enforced by the Jan file sandbox may modify files under the session workspace: \"{{cwd}}/workspace\". Some pl…"'
     - 'row "CONTEXT, Time sampled while preparing turn 1, step 1: 2026-01-15T{{clock}}+{{clock}}[Asia/Shanghai] Browser time zone for this request: Asia/Shanghai. Interpret otherwise-unqualified dates and times in this zone. Elapsed since the preceding model-visible message: unavailable."':
       - cell "CONTEXT"
       - 'cell "Time sampled while preparing turn 1, step 1: 2026-01-15T{{clock}}+{{clock}}[Asia/Shanghai] Browser time zone for this request: Asia/Shanghai. Interpret otherwise-unqualified dates and times in this zone. Elapsed since the preceding model-visible message: unavailable."'
@@ -46,9 +48,11 @@
       - cell "Great, let's move forward. BANANA!"
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]: workspace
+- 'button "Switch the agent preset for this task: Standard mode"': Standard mode
 - button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
 - button "30 tok · Cache hit 0%": 30 tokCache hit 0%
 - button "0% of context used": 0%

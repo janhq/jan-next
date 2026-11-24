@@ -14,7 +14,6 @@
 - button "Continuing goal {{clock}}":
   - text: Continuing goal
   - time: {{clock}}
-- button "Injected context"
 - button "Inject context runtime-context"
 - button "Inject context time-context"
 - paragraph: partial

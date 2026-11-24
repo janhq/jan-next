@@ -1,5 +1,13 @@
-- menu "Model and reasoning effort":
-  - menuitemradio "Default" [checked]
-  - menuitemradio "Off"
-  - menuitemradio "High"
-  - menuitemradio "Max"
+- group "Acme Think details":
+  - text: Acme Think Acme Gateway
+  - switch "Favorite"
+  - list "Inputs and abilities":
+    - listitem "Text"
+    - listitem "Thinks before it answers"
+    - listitem "1M context"
+  - text: Effort
+  - radiogroup "Effort":
+    - radio "Default" [checked]
+    - radio "Off"
+    - radio "High"
+    - radio "Max"

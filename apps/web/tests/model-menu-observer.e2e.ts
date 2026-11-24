@@ -29,7 +29,12 @@ const PROVIDERS = [
 }))
 const EXPECTED_GROUPS = [
   { label: 'Tokamak', rows: ['Tokamak 1 Preview', 'Tokamak 1 Vision Experimental'] },
-  ...PROVIDERS.map(provider => ({ label: provider.name, rows: provider.models.map(model => model.name) })),
+  // Inside a family the newest version lists first; the long name is a family of its own.
+  ...PROVIDERS.map(provider => ({ label: provider.name, rows: [
+    ...provider.models.filter(model => model.id === 'origin-large'),
+    ...provider.models.slice(0, 6).filter(model => model.id !== 'origin-large').reverse(),
+    provider.models[6]!,
+  ].map(model => model.name) })),
 ]
 
 // Native IO/RO callbacks need rendering opportunities, not elapsed-time sleeps.
@@ -42,7 +47,11 @@ async function frames(page: Page): Promise<void> {
 function readGroups(viewport: Locator) {
   return viewport.locator('[data-menu-group]').evaluateAll(groups => groups.map(group => ({
     label: group.querySelector('[data-menu-group-heading]')!.textContent,
-    rows: [...group.querySelectorAll('[role="option"], [role="menuitemradio"]')].map(row => row.textContent),
+    rows: [...group.querySelectorAll('[role="option"], [role="menuitemradio"]')].map((row) => {
+      const copy = row.cloneNode(true) as Element
+      for (const hidden of copy.querySelectorAll('[aria-hidden="true"]')) hidden.remove()
+      return copy.textContent
+    }),
   })))
 }
 
@@ -161,9 +170,9 @@ describe.skipIf(webSnapshotMode() === 'record').each([
       const open = async (): Promise<void> => {
         if (entry === 'button') {
           await page.getByRole('button', { name: /^Select model/ }).click()
-          await page.getByRole('menuitem', { name: /^Model/ }).click()
         } else {
           await page.getByRole('button', { name: 'Add files or run commands', exact: true }).click()
+          await page.getByRole('menuitem', { name: 'Browse commands', exact: true }).click()
           await page.getByRole('option', { name: /^Model/ }).click()
         }
         await expect.poll(() => readGroups(viewport)).toEqual(EXPECTED_GROUPS)
@@ -176,7 +185,6 @@ describe.skipIf(webSnapshotMode() === 'record').each([
       const close = async (): Promise<void> => {
         if (crashed || page.isClosed() || await surface.count() === 0) return
         await search.press('Escape')
-        if (entry === 'button') await page.keyboard.press('Escape')
         await surface.waitFor({ state: 'detached' })
         await composer.fill('')
       }
@@ -295,7 +303,6 @@ describe.skipIf(webSnapshotMode() === 'record').each([
     try {
       await page.setViewportSize({ width: 402, height: 874 })
       await page.getByRole('button', { name: /^Select model/ }).click()
-      await page.getByRole('menuitem', { name: /^Model/ }).click()
       const panel = page.getByRole('group', { name: 'Model and reasoning effort', exact: true })
       for (const height of [874, 500]) {
         await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 })
@@ -342,7 +349,6 @@ describe.skipIf(webSnapshotMode() === 'record').each([
       await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 })
       await cdp.detach()
       await page.keyboard.press('Escape')
-      await page.keyboard.press('Escape')
       await page.setViewportSize({ width: 1680, height: 1000 })
     }
   })
@@ -354,7 +360,7 @@ describe.skipIf(webSnapshotMode() === 'record').each([
       await page.setViewportSize({ width: 1440, height: 1000 })
       const trigger = page.getByRole('button', { name: /^Select model/ })
       await trigger.click()
-      const menu = page.getByRole('menu', { name: 'Model and reasoning effort', exact: true })
+      const menu = page.getByRole('group', { name: 'Model and reasoning effort', exact: true })
       await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1.5 })
       await expect.poll(() => page.evaluate(() => window.visualViewport!.scale)).toBe(1.5)
       await frames(page)
@@ -369,19 +375,19 @@ describe.skipIf(webSnapshotMode() === 'record').each([
         const bottom = Math.min(window.innerHeight - viewport.height, anchor.top - 8 - rect.height - 12)
         const dx = (left + right) / 2 - viewport.offsetLeft
         const dy = (top + bottom) / 2 - viewport.offsetTop
-        return { left, right, top, bottom, dx, dy,
-          x: viewport.width / 2, y: viewport.height / 2 }
+        return { left, right, top, bottom, dx, dy }
       })
       expect(target.right).toBeGreaterThan(target.left)
       expect(target.bottom).toBeGreaterThan(target.top)
       // Use native wheel scrolling; Linux headless synthetic touch can deliver events without scrolling.
+      // Wheel from the page margin so the conversation scroller cannot take the input instead.
       await cdp.send('Input.synthesizeScrollGesture', {
-        x: target.x, y: target.y, xDistance: -target.dx, yDistance: 0, gestureSourceType: 'mouse', speed: 800,
+        x: 1, y: 1, xDistance: -target.dx, yDistance: 0, gestureSourceType: 'mouse', speed: 800,
       })
       await expect.poll(() => page.evaluate(() => window.visualViewport!.offsetLeft)).toBeGreaterThan(0)
       await frames(page)
       await cdp.send('Input.synthesizeScrollGesture', {
-        x: target.x, y: target.y, yDistance: -target.dy, gestureSourceType: 'mouse', speed: 800,
+        x: 1, y: 1, yDistance: -target.dy, gestureSourceType: 'mouse', speed: 800,
       })
       await expect.poll(() => page.evaluate(() => Math.min(window.visualViewport!.offsetLeft,
         window.visualViewport!.offsetTop))).toBeGreaterThan(0)
@@ -398,33 +404,33 @@ describe.skipIf(webSnapshotMode() === 'record').each([
     }
   })
 
-  it.runIf(engine === chromium)('keeps reasoning efforts selectable after zooming with and without list overflow', async () => {
+  it.runIf(engine === chromium)('keeps reasoning efforts selectable after zooming with and without details card overflow', async () => {
     const cdp = await page.context().newCDPSession(page)
     try {
-      for (const { height, scrolls } of [{ height: 500, scrolls: false }, { height: 350, scrolls: true }]) {
+      for (const { height, scrolls } of [{ height: 500, scrolls: false }, { height: 300, scrolls: true }]) {
         await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 })
         await page.setViewportSize({ width: 402, height })
-        await page.getByRole('button', { name: /^Select model/ }).click()
-        await page.getByRole('menuitem', { name: /^Effort/ }).click()
-        const menu = page.getByRole('menu', { name: 'Model and reasoning effort', exact: true })
-        await menu.getByRole('menuitemradio').first().click()
+        const trigger = page.getByRole('button', { name: /^Select model/ })
+        const card = page.getByRole('group', { name: 'Origin Large details', exact: true })
+        await trigger.click()
+        await card.getByRole('radio').first().click()
         await expect.poll(() => scaffold.ctx.agentDefaultModel.currentSelection().reasoningEffort).toBeUndefined()
-        await page.getByRole('button', { name: /^Select model/ }).click()
-        await page.getByRole('menuitem', { name: /^Effort/ }).click()
-        const last = menu.getByRole('menuitemradio').last()
+        await card.waitFor({ state: 'detached' })
+        await trigger.click()
+        const last = card.getByRole('radio').last()
         await expect.poll(() => last.getAttribute('aria-checked')).toBe('false')
         await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 2.5 })
         await expect.poll(() => page.evaluate(() => window.visualViewport!.scale)).toBe(2.5)
-        expect(await menu.getByRole('menuitemradio').count()).toBeGreaterThanOrEqual(7)
+        expect(await card.getByRole('radio').count()).toBeGreaterThanOrEqual(7)
         await expect.poll(() => last.evaluate((row) => {
-          const scroller = row.parentElement!
+          const scroller = row.closest('[role="group"]')!
           scroller.scrollTop = scroller.scrollHeight
           return { overflow: getComputedStyle(scroller).overflowY,
             overflows: scroller.scrollHeight > scroller.clientHeight, moved: scroller.scrollTop > 0 }
         })).toEqual({ overflow: 'auto', overflows: scrolls, moved: scrolls })
         await expect.poll(() => last.evaluate((row) => {
           const rect = row.getBoundingClientRect()
-          const viewport = row.parentElement!.getBoundingClientRect()
+          const viewport = row.closest('[role="group"]')!.getBoundingClientRect()
           return rect.top >= viewport.top - 1 && rect.bottom <= viewport.bottom + 1
         })).toBe(true)
         const target = await last.evaluate((row) => {
@@ -436,7 +442,7 @@ describe.skipIf(webSnapshotMode() === 'record').each([
             offsetLeft: viewport.offsetLeft, offsetTop: viewport.offsetTop,
           }
         })
-        // Pan from the page margin so wheel input cannot scroll the list instead.
+        // Pan from the page margin so wheel input cannot scroll the card instead.
         await cdp.send('Input.synthesizeScrollGesture', {
           x: 1, y: 1, xDistance: target.offsetLeft - target.left, yDistance: target.offsetTop - target.top,
           gestureSourceType: 'mouse', speed: 800,
@@ -458,7 +464,7 @@ describe.skipIf(webSnapshotMode() === 'record').each([
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] })
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
         await expect.poll(() => scaffold.ctx.agentDefaultModel.currentSelection()).toMatchObject({ reasoningEffort: 'max' })
-        await menu.waitFor({ state: 'detached' })
+        await card.waitFor({ state: 'detached' })
       }
     } finally {
       await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 })

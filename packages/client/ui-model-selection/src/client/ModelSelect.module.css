@@ -539,14 +539,17 @@
 /* The highlighted model's details open beside the menu, top-aligned with the
    highlighted row so the card follows the cursor down the list. Near the
    bottom of the window it bottom-aligns with the row instead, and it flips to
-   the other side when the window has no room on the right.
+   the other side when the window has no room on the right. A window too narrow
+   for either side overlaps the menu at its right edge, below the row or else at
+   the top of the window. Chromium never reaches a sixth option.
    A fixed width keeps the card from jumping while the pointer runs down the list. */
 .flyout {
   box-sizing: border-box;
   position: fixed;
   left: calc(anchor(var(--jan-model-menu-anchor) right) + 8px);
   top: calc(anchor(var(--jan-model-row-anchor) top) - 12px);
-  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline,
+    --jan-model-details-below-row, --jan-model-details-window;
   margin: 0;
   z-index: 1100;
   display: flex;
@@ -562,6 +565,18 @@
   color: var(--dsw-alias-label-primary);
   --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+@position-try --jan-model-details-below-row {
+  left: auto;
+  right: 12px;
+  top: calc(anchor(var(--jan-model-row-anchor) bottom) + 4px);
+}
+
+@position-try --jan-model-details-window {
+  left: auto;
+  right: 12px;
+  top: 12px;
 }
 
 .detailsHead {

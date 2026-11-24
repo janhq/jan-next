@@ -323,10 +323,9 @@ describe('web e2e: long Chat interaction contract', () => {
     expect(child.session.snapshotEvents().some(event => carries(event, FIXTURE.markers.user(BRANCH_TURN + 1)))).toBe(false)
     expect(child.session.snapshotEvents().some(event => carries(event, FIXTURE.markers.user(FIXTURE.turns)))).toBe(false)
 
-    // The current crumb renders as plain text, not a button.
-    const currentCrumb = page.getByRole('navigation', { name: 'Session hierarchy' })
+    const currentTab = page.getByRole('tablist', { name: 'Chat tabs' }).getByRole('tab', { selected: true })
       .getByText(`${FIXTURE.title} (1)`, { exact: true })
-    await expect.poll(() => currentCrumb.count(), { timeout: 15_000 }).toBe(1)
+    await expect.poll(() => currentTab.count(), { timeout: 15_000 }).toBe(1)
     await page.getByText(branchAssistantMarker, { exact: false }).last().waitFor({ timeout: 15_000 })
     const settled = scaffold.whenTurnSettled(60_000)
     const composer = page.locator('[data-composer-input][contenteditable="true"]').last()

@@ -1,101 +1,128 @@
-- dialog "设置":
-  - text: 设置
+- dialog "Settings":
+  - text: Settings
   - navigation:
-    - button "通用设置"
-    - button "模型"
-    - button "智能体循环"
-    - button "内置插件"
-    - button "Agent 预设"
-  - button "打开配置文件"
-  - button "关闭"
-  - heading "模型" [level=2]
-  - paragraph: 填入各提供商的 API 密钥即可使用其模型。
+    - button "General"
+    - button "Models"
+    - button "Agent loop"
+    - button "Built-in plugins"
+    - button "Agent presets"
+  - button "Open configuration file"
+  - button "Close"
+  - paragraph: Enter your API keys to use models from the following providers.
   - list:
     - listitem:
       - text: minimax-cn
-      - img "API 密钥已配置"
-      - button "编辑 minimax-cn": 编辑
-      - button "删除 minimax-cn": 删除
+      - img "API key configured"
+      - button "Edit minimax-cn": Edit
+      - button "Delete minimax-cn": Delete
     - listitem:
-      - text: Acme 网关 自定义
-      - button "编辑 Acme 网关 (acme-gateway)": 编辑
-      - button "删除 Acme 网关 (acme-gateway)": 删除
-      - text: Acme 网关 acme-gateway API 密钥
-      - textbox "API 密钥":
-        - /placeholder: 输入 API 密钥
+      - text: Tokamak Custom
+      - img "API key missing"
+      - button "Edit Tokamak (tokamak)": Edit
+    - listitem:
+      - text: Local (llama.cpp) Custom
+      - img "API key missing"
+      - button "Edit Local (llama.cpp) (local)": Edit
+    - listitem:
+      - text: Acme 网关 Custom
+      - button "Edit Acme 网关 (acme-gateway)": Edit
+      - button "Delete Acme 网关 (acme-gateway)": Delete
+      - text: Acme 网关 acme-gateway API key
+      - textbox "API key":
+        - /placeholder: Enter your API key
       - group:
-        - text: 自定义设置 显示名称
-        - textbox "显示名称":
+        - text: Customized settings Display name
+        - textbox "Display name":
           - /placeholder: acme-gateway
           - text: Acme 网关
-        - text: API 地址
-        - textbox "API 地址":
+        - text: Base URL
+        - textbox "Base URL":
           - /placeholder: https://gateway.acme.example/v1
           - text: https://gateway.acme.example/v1
-        - text: API 协议
-        - combobox "API 协议":
-          - option "OpenAI Chat Completions"
-          - option "OpenAI Responses"
-          - option "Anthropic Messages" [selected]
-        - region "模型目录":
-          - text: 模型目录 已自定义模型目录
-          - button "恢复默认模型"
-          - button "获取可用模型"
-          - button "调整模型顺序 1"
-          - textbox "模型 ID 1":
-            - /placeholder: 模型 ID
+        - text: API protocol
+        - button "API protocol": Anthropic Messages
+        - region "Models":
+          - text: Models Customized model catalog
+          - button "Restore defaults"
+          - button "Fetch available models"
+          - button "Reorder model 1"
+          - textbox "Model ID 1":
+            - /placeholder: Model ID
             - text: acme-large
-          - button "模型选项 1" [expanded]
-          - button "删除模型 1"
-          - textbox "显示名称 1":
-            - /placeholder: 显示名称
-          - text: 上下文窗口
-          - textbox "上下文窗口 1":
+          - button "Model options 1" [expanded]
+          - button "Delete model 1"
+          - textbox "Display name 1":
+            - /placeholder: Display name
+          - text: Context window
+          - textbox "Context window 1":
             - /placeholder: 1M
-          - text: 最大输出 token 数
-          - textbox "最大输出 token 数 1":
+          - text: Max output tokens
+          - textbox "Max output tokens 1":
             - /placeholder: 128K
-          - group "输入类型 1":
-            - text: 输入类型
-            - checkbox "文本"
-            - text: 文本
-            - checkbox "图片" [checked] [disabled]
-            - text: 图片
-          - group "推理等级 1":
-            - text: 推理等级
-            - button "推理等级说明": "?"
-            - switch "推理等级 1" [checked]
-            - combobox "档位 1":
-              - option "off" [selected]
-              - option "minimal"
-              - option "medium"
-              - option "xhigh"
-              - option "max"
-            - textbox "off API 参数值" [disabled]:
-              - /placeholder: 关闭思考
-            - button "删除档位 off"
-            - combobox "档位 2":
-              - option "minimal"
-              - option "low" [selected]
-              - option "medium"
-              - option "xhigh"
-              - option "max"
-            - textbox "low API 参数值":
+          - group "Input types 1":
+            - text: Input types
+            - checkbox "Text"
+            - text: Text
+            - checkbox "Image" [checked] [disabled]
+            - text: Image
+          - group "Reasoning levels 1":
+            - text: Reasoning levels
+            - button "About reasoning levels": "?"
+            - switch "Reasoning levels 1" [checked]
+            - button "Level 1": "off"
+            - textbox "off API value" [disabled]:
+              - /placeholder: Turns reasoning off
+            - button "Delete level off"
+            - button "Level 2": low
+            - textbox "low API value":
               - /placeholder: low
               - text: low
-            - button "删除档位 low"
-            - combobox "档位 3":
-              - option "minimal"
-              - option "medium"
-              - option "high" [selected]
-              - option "xhigh"
-              - option "max"
-            - textbox "high API 参数值":
+            - button "Delete level low"
+            - button "Level 3": high
+            - textbox "high API value":
               - /placeholder: high
               - text: deep
-            - button "删除档位 high"
-            - button "添加档位"
-          - button "添加模型"
-      - button "取消"
-      - button "保存"
-  - button "添加模型提供商"
+            - button "Delete level high"
+            - button "Add level"
+          - button "Add model"
+      - button "Cancel"
+      - button "Apply"
+  - button "Add model provider"
+  - region "Local model":
+    - heading "Local model" [level=3]
+    - paragraph: Runs on this computer with llama.cpp. Works offline; nothing leaves your machine.
+    - text: Something went wrong
+    - alert:
+      - paragraph: "No local model worker is configured; set workerPath on the llama-cpp plugin (the desktop app and `pnpm run dev:web` set it from JAN_LLAMA_WORKER)"
+    - button "Try again"
+    - button "Remove all"
+    - region "Add a model":
+      - heading "Add a model" [level=4]
+      - textbox "Search the recommended models, or paste a Hugging Face repository":
+        - /placeholder: Search, or paste e.g. unsloth/Qwen3-8B-GGUF
+      - list:
+        - listitem:
+          - text: Jan v3.5 4B Recommended 2.7 GB · janhq/Jan-v3.5-4B-gguf
+          - button "Download"
+        - listitem:
+          - text: Qwen3 4B Instruct 2507 2.5 GB · unsloth/Qwen3-4B-Instruct-2507-GGUF
+          - button "Download"
+        - listitem:
+          - text: Llama 3.2 3B Instruct 2.0 GB · bartowski/Llama-3.2-3B-Instruct-GGUF
+          - button "Download"
+        - listitem:
+          - text: Qwen3 8B 5.0 GB · unsloth/Qwen3-8B-GGUF
+          - button "Download"
+        - listitem:
+          - text: Qwen3 0.6B 429 MB · ggml-org/Qwen3-0.6B-GGUF
+          - button "Download"
+        - listitem:
+          - text: Qwen3 VL 2B Instruct Vision 1.9 GB · unsloth/Qwen3-VL-2B-Instruct-GGUF
+          - button "Download"
+    - region "Import a .gguf file":
+      - heading "Import a .gguf file" [level=4]
+      - textbox "Full path of a .gguf file on this computer":
+        - /placeholder: /home/you/models/model.gguf
+      - 'textbox "Vision projector (optional): full path of the model''s mmproj .gguf file"':
+        - /placeholder: Vision projector (optional), e.g. /home/you/models/mmproj.gguf
+      - button "Import" [disabled]

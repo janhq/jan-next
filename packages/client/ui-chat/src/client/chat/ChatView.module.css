@@ -161,15 +161,15 @@
   display: none;
 }
 
-/* A live process header above is the Turn's one running indicator: it shows the
+/* A shown live process header above is the Turn's one running indicator: it shows the
    phase, the hand mark and the clock, in the status's colour. The status keeps its
    announcement and any feature detail (the running-detail slot's wrapper is always
    present, so detail means a non-empty wrapper); without detail it leaves the layout. */
-[data-process-live] + .running :is(.runningDivider, .runningIcon, .runningText) {
+[data-process-live]:has(> [data-process-header]:not([hidden])) + .running :is(.runningDivider, .runningIcon, .runningText) {
   display: none;
 }
 
-[data-process-live] + .running:not(:has(> .runningContent > :not(.runningIcon, .runningText, :empty))) {
+[data-process-live]:has(> [data-process-header]:not([hidden])) + .running:not(:has(> .runningContent > :not(.runningIcon, .runningText, :empty))) {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -177,7 +177,7 @@
   clip-path: inset(50%);
 }
 
-[data-process-live] + .running:not(:has(> .runningContent > :not(.runningIcon, .runningText, :empty))) + [data-pending-steering] {
+[data-process-live]:has(> [data-process-header]:not([hidden])) + .running:not(:has(> .runningContent > :not(.runningIcon, .runningText, :empty))) + [data-pending-steering] {
   --jan-chat-flow-gap: 16px;
 }
 

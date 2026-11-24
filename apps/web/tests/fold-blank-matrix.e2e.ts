@@ -526,7 +526,11 @@ function sessionKey(scenario: Case): string {
 
 async function createChild(scaffold: WebScaffold, parentId: SessionId, scenario: Case): Promise<SessionId> {
   const childId = SessionId(`${sessionKey(scenario)}-child`)
-  const createdAt = Date.now() - 30_000
+  const parent = scaffold.ctx.agents.get(parentId)
+  if (parent === undefined) throw new Error('parent Agent is not live')
+  // A finished child is listed on the header of the parent Turn that spawned it.
+  const createdAt = parent.session.snapshotEvents().findLast(event => event.type === 'turn/end')?.time
+  if (createdAt === undefined) throw new Error('parent fixture has no closed Turn')
   const header: SessionHeader = {
     version: SESSION_FORMAT_VERSION, id: childId, createdAt, isSeeded: false, cwd: scaffold.workspaceCwd,
     parentSession: parentId, origin: 'subagent', delegationDepth: 1,
@@ -550,8 +554,6 @@ async function createChild(scaffold: WebScaffold, parentId: SessionId, scenario:
     if (Date.now() >= deadline) throw new Error('child projection cache row did not land')
     await new Promise<void>(resolve => setTimeout(resolve, 10))
   }
-  const parent = scaffold.ctx.agents.get(parentId)
-  if (parent === undefined) throw new Error('parent Agent is not live')
   parent.session.append('subagent/catalog', { version: 0, childId, childCreatedAt: createdAt, mode: 'continuable', label: CHILD_LABEL })
   return childId
 }
@@ -620,11 +622,10 @@ async function prepareWorld(browser: Browser, scenario: Case, scaffold: WebScaff
   await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
   await openSessionBySearch(page, parentFixture.markers.user(1))
   await choosePreferences(page, scenario)
-  const trigger = page.getByRole('button', { name: '1 subagent', exact: true })
+  const trigger = page.locator('[data-turn-subagents="1"]')
   await trigger.waitFor({ timeout: 15_000 })
-  await trigger.hover()
-  const openAside = page.getByRole('treeitem', { name: new RegExp(CHILD_LABEL) })
-    .getByRole('button', { name: /^Open .+ in sidebar$/u })
+  await trigger.click()
+  const openAside = page.getByRole('button', { name: `Open ${CHILD_LABEL} in sidebar`, exact: true })
   await expect.poll(() => openAside.count()).toBe(1)
   await openAside.click()
   await page.locator(SIDE_ROOT).getByText('FOLDMX_BODY', { exact: false }).last().waitFor({ timeout: 30_000 })

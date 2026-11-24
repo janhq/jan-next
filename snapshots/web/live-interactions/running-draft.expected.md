@@ -1,22 +1,27 @@
-- banner:
-  - navigation "Session hierarchy": Reply with a one-sentence description
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Reply with a one-sentence description Close chat tab" [selected]:
+    - text: Reply with a one-sentence description
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Reply with a one-sentence description of event sourcing, then stop. {{clock}}
 - button "Copy"
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - paragraph: partial
-- status: Deep diving
-- text: Deep diving for {{duration}} ···
+- status: Writing
+- text: Writing - {{duration}}
 - textbox "Message or run a task, / commands, @ files or sessions":
   - paragraph: Queue this follow-up while the current turn is running.
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Queue message"
+- button "Choose project" [disabled]: workspace
+- 'button "Finish the current reply before switching: Standard mode" [disabled]': Standard mode
+- button "9% of context used": 9%

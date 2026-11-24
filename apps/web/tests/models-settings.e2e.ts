@@ -19,7 +19,7 @@ import { assertModelInputLayout } from './model-input-layout.ts'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
-import type { Browser, Page, Request, Route } from 'playwright'
+import type { Browser, Locator, Page, Request, Route } from 'playwright'
 import { chromium, webkit } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed, vi } from 'vitest'
 import {
@@ -38,6 +38,20 @@ const MODEL_PICKER_EXPECTED = join(SNAPSHOT_DIR, 'model-picker.expected.md')
 const NATIVE_DELETE_EXPECTED = join(SNAPSHOT_DIR, 'native-delete.expected.md')
 const DELETE_EXPECTED = join(SNAPSHOT_DIR, 'delete.expected.md')
 const MODE = webSnapshotMode()
+
+/**
+ * Choose one option of a Settings select menu.
+ * @param page - page hosting the portaled menu.
+ * @param trigger - the select menu's button.
+ * @param label - visible label of the option to choose.
+ * @returns after the menu closes on the chosen value.
+ */
+async function chooseMenuOption(page: Page, trigger: Locator, label: string): Promise<void> {
+  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click()
+  await page.getByRole('menu').getByRole('menuitem', { name: label, exact: true }).click()
+  await expect.poll(async () => trigger.textContent(), { timeout: 10_000 }).toBe(label)
+  await page.getByRole('menu').waitFor({ state: 'detached', timeout: 10_000 })
+}
 
 describe('web e2e: Models settings page configures a dormant provider', () => {
   let scaffold: WebScaffold
@@ -117,19 +131,21 @@ describe('web e2e: Models settings page configures a dormant provider', () => {
     const modes = dialog.getByRole('tablist', { name: 'How to add' })
     await modes.waitFor({ timeout: 10_000 })
     expect(await modes.getByRole('tab', { name: 'Third-party model provider' }).getAttribute('aria-selected')).toBe('true')
-    const pick = dialog.getByLabel('Provider', { exact: true })
+    const pick = dialog.getByRole('button', { name: 'Provider', exact: true })
     await pick.waitFor({ timeout: 10_000 })
-    await expect.poll(async () => pick.locator('option').count(), { timeout: 10_000 }).toBeGreaterThan(30)
-    const options = await pick.locator('option').allTextContents()
-    expect(options).toContain('anthropic')
-    expect(options).toContain('minimax-cn')
-    await pick.selectOption('openai-codex')
+    await pick.click()
+    const options = page.getByRole('menu').getByRole('menuitem')
+    await expect.poll(async () => options.count(), { timeout: 10_000 }).toBeGreaterThan(30)
+    const labels = await options.allTextContents()
+    expect(labels).toContain('anthropic')
+    expect(labels).toContain('minimax-cn')
+    await chooseMenuOption(page, pick, 'openai-codex')
     await expect.poll(async () => dialog.getByRole('textbox', { name: 'API key', exact: true }).count(), { timeout: 10_000 }).toBe(0)
     expect(await dialog.getByRole('button', { name: 'Authentication details', exact: true }).count()).toBe(0)
     expect(await dialog.textContent()).not.toMatch(/oauth/i)
     const nativeSnapshot = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(NATIVE_KEYLESS_EXPECTED, nativeSnapshot, MODE)
-    await pick.selectOption('minimax-cn')
+    await chooseMenuOption(page, pick, 'minimax-cn')
     await dialog.getByRole('textbox', { name: 'API key', exact: true }).waitFor({ timeout: 10_000 })
     const snapshot = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(EMPTY_EXPECTED, snapshot, MODE)
@@ -350,23 +366,23 @@ describe('web e2e: Models settings page configures a dormant provider', () => {
     // The create card asked this route for a name and a protocol because
     // nothing can default them; the editor reaches the same two fields rather
     // than sending the user to cordis.patch.yml for what only this route names.
-    const protocol = dialog.getByLabel('API protocol')
+    const protocol = dialog.getByRole('button', { name: 'API protocol', exact: true })
     await protocol.waitFor({ timeout: 10_000 })
-    expect(await protocol.inputValue()).toBe('openai-completions')
+    expect(await protocol.textContent()).toBe('OpenAI Chat Completions')
     const name = dialog.getByLabel('Display name', { exact: true })
     expect(await name.inputValue()).toBe('Acme Gateway')
     await dialog.getByRole('button', { name: 'Model options 1' }).click()
     expect(await dialog.getByRole('group', { name: 'Input types 1' }).getByRole('checkbox', { name: 'Image' }).isChecked()).toBe(true)
     // The stored levels come back as rows beside the values they send.
     const reasoning = dialog.getByRole('group', { name: 'Reasoning levels 1' })
-    expect(await reasoning.getByRole('combobox').evaluateAll(selects => selects.map(select => (select as HTMLSelectElement).value)))
+    expect(await reasoning.getByRole('button', { name: /^Level \d+$/ }).allTextContents())
       .toEqual(['off', 'low', 'high'])
     expect(await reasoning.getByLabel('high API value').inputValue()).toBe('high')
     await assertModelInputLayout(page, dialog)
     const snapshot = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(DECLARED_EDIT_EXPECTED, snapshot, MODE)
 
-    await protocol.selectOption('anthropic-messages')
+    await chooseMenuOption(page, protocol, 'Anthropic Messages')
     await name.fill('Acme 网关')
     await dialog.getByRole('group', { name: 'Input types 1' }).getByRole('checkbox', { name: 'Image' }).uncheck()
     // A gateway with its own spelling for the top level.

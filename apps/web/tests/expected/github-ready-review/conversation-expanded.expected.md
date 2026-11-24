@@ -1,5 +1,5 @@
 - tree "Sessions":
-  - treeitem "{{workspace}} test-ubuntu-1x3090" [expanded]
+  - treeitem "{{workspace}} This computer" [expanded]
   - treeitem "Review janhq/jan-next#314 Session actions for Review janhq/jan-next#314 Archive session Pin session" [selected]:
     - text: Review janhq/jan-next#314
     - button "Session actions for Review janhq/jan-next#314"
@@ -25,6 +25,7 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Injected context" [expanded]
+- button "Show full trace"
 - button "Inject context runtime-context"
 - button "Inject context time-context"
 - paragraph: "Review complete: no actionable findings."

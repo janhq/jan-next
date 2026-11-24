@@ -1,28 +1,32 @@
-- banner:
-  - navigation "Session hierarchy": Begin your reply with the
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Begin your reply with the Close chat tab" [selected]:
+    - text: Begin your reply with the
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Begin your reply with the plain sentence "Reading the workspace now." as text, and in that same message call the bash tool with the command "echo alpha". After the tool result, reply with the single word DONE and stop. {{clock}}
 - button "Copy"
 - tooltip "Copy"
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - button "Think The user wants me to begin with \"Reading the workspace now.\" and call bash with \"echo alpha\" in the same message. Then after the tool result, reply with the single word DONE and stop."
 - paragraph: Reading the workspace now.
 - button "Bash Print alpha to stdout"
 - paragraph: partial
-- status: Deep diving
-- text: Deep diving for {{duration}} ···
+- status: Writing
+- text: Writing - {{duration}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Stop generating"
-- button "1 turns 1 steps · {{throughput}} tok/s": 1 turns 1 steps{{throughput}} tok/s
+- button "Choose project" [disabled]: workspace
+- 'button "Finish the current reply before switching: Standard mode" [disabled]': Standard mode
+- button "1 turns 1 steps"
 - button "7.9K tok · Cache hit 0%": 7.9K tokCache hit 0%
 - button "6% of context used": 6%

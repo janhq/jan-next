@@ -3,6 +3,7 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Ran commands, wrote files, read files, etc." [expanded]
+- button "Show full trace"
 - button "Inject context runtime-context"
 - button "Inject context time-context"
 - button "Think The user wants four things done directly. But I need to read intro.md before editing (fs-observation-policy requires reading existing file first). The user says don't look at the directory first, but reading intro.md is needed for the edit tool. Let me just do it."
@@ -70,6 +71,16 @@
   - code:
     - button "Open {{cwd}}/workspace/notes.txt in sidebar": notes.txt
   - text: 的追加则完全走 bash。
+- button "Review this turn’s changes in the sidebar": Edited 4 files +6 -1
+- list:
+  - listitem:
+    - button "View changes to app.local": app.local +1 -0
+  - listitem:
+    - button "View changes to intro.md": intro.md +1 -1
+  - listitem:
+    - button "View changes to notes.txt": notes.txt +1 -0
+  - listitem:
+    - button "View changes to src/util.ts": src/util.ts +3 -0
 - text: This Host has no desktop available to open files or folders in external apps. Files can still be previewed in the sidebar.
 - button "Preview {{cwd}}/workspace/intro.md in sidebar"
 - text: intro.md 标题已改为「项目说明」

@@ -1,5 +1,4 @@
 - button "New session"
-- status "Connected to test-ubuntu-1x3090": test-ubuntu-1x3090
 - button "Collapse sidebar"
 - button "Back" [disabled]
 - button "Forward" [disabled]
@@ -17,8 +16,8 @@
 - button "View options"
 - button "Add project"
 - tree "Sessions":
-  - treeitem "Default project test-ubuntu-1x3090"
-  - treeitem "workspace test-ubuntu-1x3090" [expanded]
+  - treeitem "Default project This computer"
+  - treeitem "workspace This computer" [expanded]
   - treeitem "New Session" [selected]
 - button "Log in"
 - button "Account menu"
@@ -29,7 +28,8 @@
   - button "New tab"
   - button "Open right sidebar"
 - text: Into the Unknown Preview
-- textbox "Describe what you want to build, / commands, @ files or sessions"
+- textbox "Describe what you want to build, / commands, @ files or sessions":
+  - paragraph
 - button "Add files or run commands"
 - 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview

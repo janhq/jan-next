@@ -42,14 +42,13 @@ describe('web e2e: startup auto-selection', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-first-workspace-stable-tree'))
     await page.locator(`${ROOT_PHASE}[data-phase="hero"]`).waitFor({ timeout: 15_000 })
     const headline = page.getByText('Into the Unknown', { exact: true })
-    // The headline text sits in its own span inside the title group; the fish
+    // The headline text sits in its own span inside the title group; the mark
     // hitbox precedes the group, not the text span.
-    const fishHitbox = headline.locator('xpath=../preceding-sibling::span[1]')
-    const fish = fishHitbox.locator('svg')
-    expect(await fish.evaluate(node => getComputedStyle(node).color))
-      .toBe(await headline.evaluate(node => getComputedStyle(node).color))
-    await fishHitbox.hover()
-    expect(await fish.evaluate(node => getComputedStyle(node).animationName)).not.toBe('none')
+    const markHitbox = headline.locator('xpath=../preceding-sibling::span[1]')
+    const mark = markHitbox.locator('img[data-brand-mark="jan"]')
+    await expect.poll(() => mark.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true)
+    await markHitbox.hover()
+    expect(await mark.evaluate(node => getComputedStyle(node).animationName)).not.toBe('none')
     await page.evaluate(() => {
       const refs = {
         root: document.querySelector('div[data-phase="hero"]'),
@@ -86,7 +85,7 @@ describe('web e2e: startup auto-selection', () => {
     // A registered Workspace is the precondition for the reload case below;
     // this first connection is also the no-Workspace → Workspace path.
     await connectFreshWorkspace(page, scaffold.workspaceCwd, 'startup-auto-selection')
-    await page.locator('[data-slot="conversation.session.header"]').waitFor({ timeout: 15_000 })
+    await page.locator('[data-slot="conversation.session.header"]').waitFor({ state: 'attached', timeout: 15_000 })
     // Binding the Workspace keeps the input card at the same height in the Hero.
     // This holds for the default plugin set: `conversation.hero.options` entries
     // render only with a Session and can change the Hero's height.

@@ -1,5 +1,5 @@
 - tree "Sessions":
-  - treeitem "{{workspace}} test-ubuntu-1x3090" [expanded]
+  - treeitem "{{workspace}} This computer" [expanded]
   - treeitem "New Session" [selected]
   - treeitem "Untitled 1min"
   - treeitem "Untitled 1min"

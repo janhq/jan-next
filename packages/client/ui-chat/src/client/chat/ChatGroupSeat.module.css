@@ -9,6 +9,10 @@
   gap: 6px;
 }
 
+.header[hidden] {
+  display: none;
+}
+
 .heightToggle {
   flex-shrink: 0;
   max-width: 50%;

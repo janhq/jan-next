@@ -74,7 +74,7 @@ describe.each(['MacIntel', 'Win32', 'Linux x86_64'])('web context menus on %s', 
     const menu = page.getByRole('menu')
     await menu.getByRole('menuitem', { name: /Copy.*[Ii][Dd]/ }).waitFor()
     const names = await menuLabels(menu)
-    expect(names.slice(0, 4)).toEqual(['Pin session', 'Rename', 'Fork session', 'Copy Session ID'])
+    expect(names.slice(0, 6)).toEqual(['Pin session', 'Rename', 'Fork session', 'Open in new tab', 'Open beside', 'Copy Session ID'])
     expect(names).not.toContain('Open in')
     expect(names.at(-1)).toBe('Archive session')
     expect(await menu.getByRole('menuitem').evaluateAll(rows => rows.every(row => row.querySelector('svg[data-icon]')))).toBe(true)
@@ -178,8 +178,8 @@ describe.each(['MacIntel', 'Win32', 'Linux x86_64'])('web context menus on %s', 
     const menu = page.getByRole('menu')
     await menu.getByRole('menuitem', { name: 'Rename', exact: true }).waitFor()
     const names = await menuLabels(menu)
-    expect(names).toEqual(['Rename', 'Show in folder', 'Remove project'])
-    expect(await menu.locator('svg[data-icon]').count()).toBe(3)
+    expect(names).toEqual(['Edit project...', 'Rename', 'Show in folder', 'Remove project'])
+    expect(await menu.locator('svg[data-icon]').count()).toBe(4)
     expect(await workspace.getAttribute('aria-expanded')).toBe(expanded)
     await page.keyboard.press('Escape')
     await workspace.getByRole('button', { name: /actions/i }).click()
@@ -220,22 +220,22 @@ describe.each(['MacIntel', 'Win32', 'Linux x86_64'])('web context menus on %s', 
     await page.keyboard.press('Enter')
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(join(scaffold.workspaceCwd, 'first.txt'))
     expect(await file.evaluate(element => element === document.activeElement)).toBe(true)
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty('--jan-frame-overlay-top', '100px')
+    const target = page.locator('[data-row-key="session:context-menu-first"]')
+    const box = (await target.boundingBox())!
+    const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    const inset = Math.ceil(point.y) + 100
+    await page.evaluate((inset) => {
+      document.documentElement.style.setProperty('--jan-frame-overlay-top', `${inset}px`)
       const frames: number[] = []
       const observer = new MutationObserver(() => {
         for (const menu of document.querySelectorAll('[role="menu"]')) frames.push(menu.querySelectorAll('[role="menuitem"]').length)
       })
       observer.observe(document.body, { subtree: true, childList: true })
       Object.assign(window, { menuObservation: { frames, observer } })
-    })
-    const header = page.locator('[data-session-title]').first()
-    const target = await header.count() > 0 ? header : page.getByText('Menu foreground', { exact: true }).last()
-    const box = (await target.boundingBox())!
-    const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    }, inset)
     await page.mouse.click(point.x, point.y, { button: 'right' })
     await page.getByRole('menuitem', { name: /Copy.*[Ii][Dd]/ }).waitFor()
-    expect((await page.getByRole('menu').boundingBox())!.y).toBeLessThan(100)
+    expect((await page.getByRole('menu').boundingBox())!.y).toBeLessThan(inset)
     await page.mouse.click(point.x + 1, point.y, { button: 'right' })
     expect(await page.getByRole('menu').count()).toBe(0)
     await file.click({ button: 'right' })

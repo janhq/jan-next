@@ -1,3 +1,4 @@
+Edit project...
 Rename
 Show in folder
 Remove project

@@ -1,7 +1,5 @@
 - group "Model and reasoning effort":
   - searchbox "Search models…"
-  - text: Sign in to Tokamak or add an API key to load its models
-  - button "Retry"
   - menu "Model":
     - group "Tokamak":
       - text: Tokamak
@@ -9,6 +7,12 @@
       - menuitemradio "Tokamak 1 Vision Experimental"
     - group "Acme Gateway":
       - text: Acme Gateway
-      - menuitemradio "Acme Think"
-      - menuitemradio "Acme Swift" [checked]
       - menuitemradio "Acme Lite"
+      - menuitemradio "Acme Swift" [checked]
+      - menuitemradio "Acme Think"
+  - menu "Model options":
+    - text: Enable agent teamwork
+    - button "About agent teamwork"
+    - switch "Enable agent teamwork"
+    - menuitem "Sign in for free usage"
+    - menuitem "Manage models…"

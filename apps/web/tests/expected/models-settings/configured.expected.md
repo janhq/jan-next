@@ -8,7 +8,6 @@
     - button "Agent presets"
   - button "Open configuration file"
   - button "Close"
-  - heading "Models" [level=2]
   - paragraph: Enter your API keys to use models from the following providers.
   - status: Saved minimax-cn.
   - list:

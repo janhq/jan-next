@@ -1,20 +1,24 @@
-- banner:
-  - navigation "Session hierarchy": Use the ask_user_question tool to
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Use the ask_user_question tool to Close chat tab" [selected]:
+    - text: Use the ask_user_question tool to
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Use the ask_user_question tool to ask me exactly one question with id "checkpoint", question "Ready to continue?", header "Checkpoint", and options labeled "Yes" and "No". After I answer, reply with one short sentence acknowledging my answer and stop. {{clock}}
 - button "Copy"
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - text: Running
-- button "Ask question waiting"
-- status: Deep diving
-- text: "Deep diving for {{duration}} ··· Interjection: include the word BANANA in your final reply."
+- button "Ask question"
+- text: Ask question waiting
+- button "Answer"
+- status: Waiting for your action
+- text: "Waiting for your action - {{duration}} Interjection: include the word BANANA in your final reply."
 - button "Copy"
 - region "Ready to continue?":
   - text: Checkpoint

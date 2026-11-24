@@ -31,7 +31,7 @@ import { pathToFileURL } from 'node:url'
 import type { Page } from 'playwright'
 import { expect } from 'vitest'
 import { Context } from '@janhq/cordis'
-import { JAN_LAUNCH_ENVIRONMENT_KEY, type LaunchEnvironmentSnapshot } from '@janhq/jan-launch-environment'
+import { createLaunchEnvironmentSnapshot, JAN_LAUNCH_ENVIRONMENT_KEY, type LaunchEnvironmentSnapshot } from '@janhq/jan-launch-environment'
 import Loader from '@janhq/cordis-plugin-loader'
 import { entryListSchema, type PatchOptions } from '@janhq/cordis-plugin-include'
 import yaml from 'js-yaml'
@@ -302,6 +302,16 @@ export interface WebScaffold {
    * is validated call-free at boot).
    */
   close(): Promise<void>
+}
+
+/**
+ * The test process environment without SSH markers, so a run started over SSH presents the Host
+ * as this computer, as Linux CI does.
+ * @returns a single process-layer snapshot.
+ */
+function localLaunchEnvironment(): LaunchEnvironmentSnapshot {
+  const { SSH_CONNECTION: _connection, SSH_TTY: _tty, ...values } = process.env
+  return createLaunchEnvironmentSnapshot([{ source: 'process', values: values as Record<string, string> }])
 }
 
 /** Options for {@link launchWebScaffold}. */
@@ -691,7 +701,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   // the temp workspace so tool cwd, session cwd, and fixtures agree.
   const originalCwd = process.cwd()
   const ctx = new Context()
-  if (options.openInAppEnvironment !== undefined) ctx.provide(JAN_LAUNCH_ENVIRONMENT_KEY, options.openInAppEnvironment)
+  ctx.provide(JAN_LAUNCH_ENVIRONMENT_KEY, options.openInAppEnvironment ?? localLaunchEnvironment())
   const observedSessions = new Map<SessionId, Session>()
   const stopObservingSessions = ctx.on('session/created', (session) => {
     observedSessions.set(session.id, session)

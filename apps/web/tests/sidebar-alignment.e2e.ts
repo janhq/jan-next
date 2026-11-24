@@ -25,7 +25,7 @@ const ACTION_TRAILING_INSET = 7
 const SEARCH_HEIGHT = 32
 const SEARCH_TRANSITION_MS = 180
 const HEADER_LABEL_OFFSET = 7
-const HEADER_ACTION_RIGHT_OFFSETS = { search: -61, view: -29, add: 3 }
+const HEADER_ACTION_RIGHT_OFFSETS = { search: -57, view: -25, add: 7 }
 
 /**
  * Measure painted glyphs and pointer targets independently of the row's layout cells.
@@ -94,6 +94,19 @@ async function measureRowActions(row: Locator) {
       }),
     }
   })
+}
+
+/**
+ * Wait until the Workspace region renders its rail layout; the signed-out account gear is collapsed in both layouts.
+ * @param page - page whose sidebar was asked to collapse.
+ */
+async function waitForRail(page: Page): Promise<void> {
+  await expect.poll(() => page.getByRole('button', { name: 'Add project', exact: true }).evaluate((button) => {
+    for (let node = button.parentElement; node !== null; node = node.parentElement) {
+      if ([...node.classList].some(name => name.endsWith('_rail'))) return true
+    }
+    return false
+  })).toBe(true)
 }
 
 describe('web e2e: sidebar search alignment and row action targets', () => {
@@ -301,12 +314,14 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
       else await input.press('Escape')
     }
     await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click()
-    await expect.poll(() => page.getByRole('button', { name: 'Account menu', exact: true }).getAttribute('data-collapsed')).toBe('true')
+    await waitForRail(page)
     const add = page.getByRole('button', { name: 'Add project', exact: true })
     const samples = await add.evaluate(async (button, entry) => {
       const header = button.closest<HTMLElement>('[class*="sectionHeader"]')
-      const root = header?.parentElement
-      if (header === null || root === null || root === undefined) throw new Error('Workspace header is missing')
+      // A display-contents Slot wrapper separates the header from the region root that carries the rail class.
+      let root = header?.parentElement ?? null
+      while (root !== null && ![...root.classList].some(name => name.endsWith('_rail'))) root = root.parentElement
+      if (header === null || root === null) throw new Error('Workspace header is missing')
       const railClass = root.className
       const measure = () => {
         const origin = root.getBoundingClientRect()
@@ -545,12 +560,30 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
         }
       })
       const wide = await measure()
-      expect(wide.height).toBe(signedIn ? 44 : 32)
-      expect(wide.leftOffset).toBe(signedIn ? -2 : -4)
-      expect(wide.rightOffset).toBe(signedIn ? 2 : 4)
-      expect(wide.paintedLeftOffset).toBe(signedIn ? -2 : -1)
-      expect(wide.paintedRightOffset).toBe(signedIn ? 2 : 1)
+      if (signedIn) {
+        expect(wide.height).toBe(44)
+        expect(wide.leftOffset).toBe(-2)
+        expect(wide.rightOffset).toBe(2)
+        expect(wide.paintedLeftOffset).toBe(-2)
+        expect(wide.paintedRightOffset).toBe(2)
+      } else {
+        // Signed out, the wide footer is a 32px Log in row followed by the 36px settings gear that opens this menu.
+        const login = await page.locator('[data-account-login]').evaluate((element) => {
+          const row = element.getBoundingClientRect()
+          const style = getComputedStyle(element)
+          const reference = document.querySelector('button[class*="newSession"]')!.getBoundingClientRect()
+          const gear = document.querySelector('button[aria-label="Account menu"]')!.getBoundingClientRect()
+          return {
+            height: row.height, leftOffset: row.left - reference.left,
+            paintedLeftOffset: row.left + Number.parseFloat(style.borderLeftWidth) - reference.left,
+            gearGap: gear.left - row.right, gearCenterOffset: (gear.top + gear.bottom - row.top - row.bottom) / 2,
+          }
+        })
+        expect(login).toEqual({ height: 32, leftOffset: -4, paintedLeftOffset: -1, gearGap: 4, gearCenterOffset: 0 })
+        expect(wide).toMatchObject({ height: 36, width: 36, rightOffset: 4, paintedRightOffset: 4 })
+      }
       await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click()
+      await waitForRail(page)
       await expect.poll(() => accountButton.getAttribute('data-collapsed')).toBe('true')
       await expect.poll(async () => {
         const rect = await accountButton.boundingBox()
@@ -577,6 +610,8 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
     const row = kind === 'session'
       ? page.locator('[data-row-key="session:sidebar-action-geometry"]')
       : page.locator('[data-row-key^="workspace:"]').filter({ hasText: workspaceTitle })
+    // Rows animate in after load; the resting box is the settled layout.
+    await row.evaluate(element => Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished)))
     const restingBox = await row.boundingBox()
     await row.hover()
     const labels = kind === 'session'

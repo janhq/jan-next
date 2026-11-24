@@ -11,9 +11,10 @@
   - paragraph: Enter your API keys to use models from the following providers.
   - list:
     - listitem:
-      - text: amazon-bedrock
-      - button "Edit amazon-bedrock": Edit
-      - button "Delete amazon-bedrock": Delete
+      - text: minimax-cn
+      - img "API key configured"
+      - button "Edit minimax-cn": Edit
+      - button "Delete minimax-cn": Delete
     - listitem:
       - text: Tokamak Custom
       - img "API key missing"

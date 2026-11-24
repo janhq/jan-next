@@ -43,7 +43,7 @@ it.each(['turn-tail-actions', 'goal-multi-turn-actions', 'present'] as const)(
         expect(await process.evaluate(element => element.getBoundingClientRect().top))
           .toBe(await trigger.evaluate(element => element.getBoundingClientRect().bottom) + 16)
         expect(await group.evaluate(element => element.getBoundingClientRect().top))
-          .toBe(await process.evaluate(element => element.getBoundingClientRect().bottom) + 16)
+          .toBe(await process.evaluate(element => element.parentElement!.getBoundingClientRect().bottom) + 16)
       }
     } else {
       const answer = page.getByText(scenario === 'present' ? 'PRESENT_DONE' : 'DONE', { exact: true })
@@ -54,7 +54,7 @@ it.each(['turn-tail-actions', 'goal-multi-turn-actions', 'present'] as const)(
         const { top, bottom } = seat.getBoundingClientRect()
         return { top, bottom }
       })
-      const processBottom = await process.evaluate(element => element.getBoundingClientRect().bottom)
+      const processBottom = await process.evaluate(element => element.parentElement!.getBoundingClientRect().bottom)
       // Hidden process rows separate the folded control from the first visible reply, so it keeps the 12px reply gap.
       const lead = scenario === 'present' ? answer : page.getByText('Reading the workspace now.', { exact: true })
       const leadTop = await lead.evaluate((element) => {

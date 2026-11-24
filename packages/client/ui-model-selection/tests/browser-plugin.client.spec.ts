@@ -286,6 +286,22 @@ describe('ui-model-selection dual entry', () => {
     }
   })
 
+  it('lists popup models in the composer menu order', async () => {
+    const b = await bench()
+    try {
+      b.setGroups([{ id: 'router', name: 'Router', models: [
+        { id: 'a', name: 'vendor/model-2', description: '' }, { id: 'b', name: 'model-10', description: '' },
+        { id: 'c', name: 'model-3', description: '' },
+      ] }])
+      b.remote.emit('llm/adapters-updated', [])
+      b.mint('s1')
+      const options = await b.popup().options(projection('s1'), new AbortController().signal)
+      expect(options.map(option => option.label)).toEqual(['model-10', 'model-3', 'vendor/model-2'])
+    } finally {
+      await b.ctx.fiber.dispose()
+    }
+  })
+
   it('a seat selection is the current the popup marks active next — one shared state', async () => {
     const b = await bench()
     b.mint('s1')
