@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Interface par défaut de l'agent",
-    "description": "Sélectionnez les valeurs par défaut de l'agent pour les sessions actuelles et les nouvelles, et modifiez les plugins utilisés par les valeurs par défaut."
+    "title": "Sélecteur de modes",
+    "description": "Choisissez le mode des sessions en cours et des nouvelles sessions, et modifiez les plugins utilisés par chaque mode."
   }
 }

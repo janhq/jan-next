@@ -1,6 +1,6 @@
 {
   "name": "@janhq/jan-client-ui-agent-preset",
-  "description": "Agent-preset surfaces: the default for later sessions, this session's seat, and the composition editor",
+  "description": "Mode selection for current and new sessions, and mode configuration in Settings",
   "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"

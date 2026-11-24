@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Interfaz predeterminada del agente",
-    "description": "Seleccione los valores predeterminados del agente para las sesiones actuales y nuevas, y edite los complementos utilizados por los valores predeterminados."
+    "title": "Selector de modos",
+    "description": "Elija el modo para las sesiones actuales y nuevas y edite los complementos que utiliza cada modo."
   }
 }

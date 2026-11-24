@@ -41,10 +41,10 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   builtInGroup: 'Built-in', customGroup: 'Custom',
   sectionIntro: 'Choose the agent’s tools and how it works. Use Code mode for everyday tasks, or Creator mode to add capabilities to Jan.',
 
-  seatHint: 'Choose the agent preset for your new task',
-  headerHint: 'Switch the agent preset for this task',
+  seatHint: 'Choose the mode for your new task',
+  headerHint: 'Switch the mode for this task',
   switchBusy: 'Finish the current reply before switching',
-  nav: 'Agent presets',
+  nav: 'Modes',
 
   setDefault: 'Set as new task default',
   view: 'View configuration',
@@ -72,7 +72,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
 
   close: 'Close',
 
-  creatorDraft: 'Let the agent help me create a preset',
+  creatorDraft: 'Let the agent help me create a mode',
   createPlugin: 'Let the agent create a plugin',
   createPluginDescription: 'Enter Creator mode and make your own Jan plugin',
   createPluginChecking: 'Checking whether Creator mode is available',
@@ -87,10 +87,10 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   builtInGroup: '内置', customGroup: '自定义',
   sectionIntro: '选择 Agent 的工具和工作方式。日常任务用「代码模式」，扩展 Jan 的能力用「创造模式」。',
 
-  seatHint: '选择新任务使用的 Agent 预设',
-  headerHint: '切换本任务使用的 Agent 预设',
+  seatHint: '选择新任务使用的模式',
+  headerHint: '切换本任务使用的模式',
   switchBusy: '请等当前回复结束后再切换',
-  nav: 'Agent 预设',
+  nav: '模式',
 
   setDefault: '设为新任务默认',
   view: '查看配置',
@@ -114,7 +114,7 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
 
   close: '关闭',
 
-  creatorDraft: '让 Agent 帮我创建预设模式',
+  creatorDraft: '让 Agent 帮我创建模式',
   createPlugin: '让 Agent 创建插件',
   createPluginDescription: '进入创造模式，制作属于你的 Jan 插件',
   createPluginChecking: '正在确认创造模式是否可用',
@@ -135,10 +135,10 @@ export const ja = {
   'builtInGroup': '組み込み',
   'customGroup': 'カスタム',
   'sectionIntro': 'エージェントのツールと動作を選択します。日々のタスクにはコードモードを、Jan に機能を追加するにはクリエイターモードを使用してください。',
-  'seatHint': '新しいタスクで使用するエージェントプリセットを選択',
-  'headerHint': 'このタスクで使用するエージェントプリセットを切り替え',
+  'seatHint': '新しいタスクで使用するモードを選択',
+  'headerHint': 'このタスクで使用するモードを切り替え',
   'switchBusy': '現在の応答が終わってから切り替えてください',
-  'nav': 'エージェントプリセット',
+  'nav': 'モード',
   'setDefault': '新しいタスクの既定に設定',
   'view': '設定を表示',
   'presetStandardName': 'コードモード',
@@ -155,7 +155,7 @@ export const ja = {
   'switchRefused': '{name} に切り替えられませんでした: {reason}',
   'standardUnavailable': 'コードモードは利用できません。復元するか、利用可能な別のモードを選択してください。',
   'close': '閉じる',
-  'creatorDraft': 'エージェントにプリセット作成を手伝ってもらう',
+  'creatorDraft': 'エージェントにモード作成を手伝ってもらう',
   'createPlugin': 'エージェントにプラグインを作成してもらう',
   'createPluginDescription': 'クリエイターモードに入り、独自の Jan プラグインを作成',
   'createPluginChecking': 'クリエイターモードが利用可能か確認中',
@@ -169,10 +169,10 @@ export const es = {
   builtInGroup: 'Incorporado', customGroup: 'personalizado',
   sectionIntro: 'Elija las herramientas del agente y cómo funciona. Utilice el modo de código para las tareas diarias o el modo Creador para agregar capacidades a Jan.',
 
-  seatHint: 'Elige el agente preestablecido para tu nueva tarea',
-  headerHint: 'Cambia el agente preestablecido de esta tarea',
+  seatHint: 'Elige el modo para tu nueva tarea',
+  headerHint: 'Cambia el modo de esta tarea',
   switchBusy: 'Espera a que termine la respuesta actual para cambiar',
-  nav: 'Ajustes preestablecidos del agente',
+  nav: 'Modos',
 
   setDefault: 'Establecer como nueva tarea predeterminada',
   view: 'Ver configuración',
@@ -200,7 +200,7 @@ export const es = {
 
   close: 'Cerrar',
 
-  creatorDraft: 'Deja que el agente me ayude a crear un preset',
+  creatorDraft: 'Deja que el agente me ayude a crear un modo',
   createPlugin: 'Deje que el agente cree un complemento',
   createPluginDescription: 'Ingrese al modo Creador y cree su propio complemento Jan',
   createPluginChecking: 'Comprobando si el modo Creador está disponible',
@@ -215,10 +215,10 @@ export const fr = {
   builtInGroup: 'Intégré', customGroup: 'Personnalisé',
   sectionIntro: 'Choisissez les outils de l’agent et son fonctionnement. Utilisez le mode code pour les tâches quotidiennes ou le mode Créateur pour ajouter des fonctionnalités à Jan.',
 
-  seatHint: 'Choisissez le préréglage d’agent pour votre nouvelle tâche',
-  headerHint: 'Changer le préréglage d’agent de cette tâche',
+  seatHint: 'Choisissez le mode pour votre nouvelle tâche',
+  headerHint: 'Changer le mode de cette tâche',
   switchBusy: 'Attendez la fin de la réponse en cours pour changer',
-  nav: "Préréglages d'agent",
+  nav: 'Modes',
 
   setDefault: 'Définir comme nouvelle tâche par défaut',
   view: 'Afficher la configuration',
@@ -246,7 +246,7 @@ export const fr = {
 
   close: 'Fermer',
 
-  creatorDraft: "Laissez l'agent m'aider à créer un préréglage",
+  creatorDraft: "Laissez l'agent m'aider à créer un mode",
   createPlugin: "Laissez l'agent créer un plugin",
   createPluginDescription: 'Entrez en mode Créateur et créez votre propre plugin Jan',
   createPluginChecking: 'Vérifier si le mode Créateur est disponible',
@@ -261,10 +261,10 @@ export const de = {
   builtInGroup: 'Eingebaut', customGroup: 'Benutzerdefiniert',
   sectionIntro: 'Wählen Sie die Tools des Agenten und deren Funktionsweise aus. Verwenden Sie den Code-Modus für alltägliche Aufgaben oder den Creator-Modus, um Jan Funktionen hinzuzufügen.',
 
-  seatHint: 'Wählen Sie die Agentenvoreinstellung für Ihre neue Aufgabe',
-  headerHint: 'Agentenvoreinstellung dieser Aufgabe wechseln',
+  seatHint: 'Wählen Sie den Modus für Ihre neue Aufgabe aus',
+  headerHint: 'Modus für diese Aufgabe wechseln',
   switchBusy: 'Warten Sie, bis die laufende Antwort beendet ist',
-  nav: 'Agentenvoreinstellungen',
+  nav: 'Modi',
 
   setDefault: 'Als Standard für neue Aufgabe festlegen',
   view: 'Konfiguration anzeigen',
@@ -292,7 +292,7 @@ export const de = {
 
   close: 'Schließen',
 
-  creatorDraft: 'Lassen Sie sich vom Agenten beim Erstellen einer Voreinstellung helfen',
+  creatorDraft: 'Lassen Sie sich vom Agenten beim Erstellen eines Modus helfen',
   createPlugin: 'Lassen Sie den Agenten ein Plugin erstellen',
   createPluginDescription: 'Wechseln Sie in den Erstellermodus und erstellen Sie Ihr eigenes Jan-Plugin',
   createPluginChecking: 'Prüfen, ob der Creator-Modus verfügbar ist',
@@ -307,10 +307,10 @@ export const ru = {
   builtInGroup: 'Встроенный', customGroup: 'Пользовательский',
   sectionIntro: 'Выбирайте инструменты агента и то, как они работают. Используйте режим кода для повседневных задач или режим Creator, чтобы расширить возможности Jan.',
 
-  seatHint: 'Выберите предустановку агента для вашей новой задачи',
-  headerHint: 'Сменить предустановку агента для этой задачи',
+  seatHint: 'Выберите режим для новой задачи',
+  headerHint: 'Сменить режим для этой задачи',
   switchBusy: 'Дождитесь окончания текущего ответа, чтобы сменить настройку',
-  nav: 'Настройки агента',
+  nav: 'Режимы',
 
   setDefault: 'Установить в качестве новой задачи по умолчанию',
   view: 'Посмотреть конфигурацию',
@@ -338,7 +338,7 @@ export const ru = {
 
   close: 'Закрыть',
 
-  creatorDraft: 'Позвольте агенту помочь мне создать пресет',
+  creatorDraft: 'Позвольте агенту помочь мне создать режим',
   createPlugin: 'Позвольте агенту создать плагин',
   createPluginDescription: 'Войдите в режим Creator и создайте свой собственный плагин Jan.',
   createPluginChecking: 'Проверка доступности режима Creator',
@@ -353,10 +353,10 @@ export const pt = {
   builtInGroup: 'Integrado', customGroup: 'Personalizado',
   sectionIntro: 'Escolha as ferramentas do agente e como funciona. Use o modo de código para tarefas diárias ou o modo Criador para adicionar recursos ao Jan.',
 
-  seatHint: 'Escolha a predefinição de agente para sua nova tarefa',
-  headerHint: 'Trocar a predefinição de agente desta tarefa',
+  seatHint: 'Escolha o modo para sua nova tarefa',
+  headerHint: 'Trocar o modo desta tarefa',
   switchBusy: 'Aguarde a resposta atual terminar para trocar',
-  nav: 'Predefinições de agente',
+  nav: 'Modos',
 
   setDefault: 'Definir como nova tarefa padrão',
   view: 'Ver configuração',
@@ -384,7 +384,7 @@ export const pt = {
 
   close: 'Fechar',
 
-  creatorDraft: 'Deixe o agente me ajudar a criar uma predefinição',
+  creatorDraft: 'Deixe o agente me ajudar a criar um modo',
   createPlugin: 'Deixe o agente criar um plugin',
   createPluginDescription: 'Entre no modo Criador e crie seu próprio plug-in Jan',
   createPluginChecking: 'Verificando se o modo Criador está disponível',

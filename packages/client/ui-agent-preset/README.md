@@ -1,5 +1,5 @@
 ---
-description: "Choose Agent presets and the new-task default in Web, read what each mode does and what it declares. Authoring is guided to Creator mode."
+description: "Choose modes and the new-task default in Web, and read what each mode does and what it declares. Authoring is guided to Creator mode."
 kind: "package-reference"
 ---
 
@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-Choose Agent presets and the new-task default in Web, read what each mode does and what it declares. Authoring is guided to Creator mode.
+Choose modes and the new-task default in Web, and read what each mode does and what it declares. Authoring is guided to Creator mode.
 
 ## Table of Contents
 
