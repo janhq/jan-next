@@ -47,6 +47,7 @@ export function apply(ctx: ClientContext): void {
     children: {
       'tool.call.toolview': { kind: 'keyed', scope: 'session' },
       'tool.call.images': { kind: 'single', scope: 'session' },
+      'tool.call.status': { kind: 'single', scope: 'session' },
     },
     inject: toolInject,
   }, ToolCallTree))

@@ -22,6 +22,11 @@
   white-space: nowrap;
 }
 
+/* A status entry that shows the work's own clock (TOOL_STATUS_CLOCK_ATTRIBUTE) replaces the call duration. */
+.cardLine:has([data-tool-status-clock]) > .duration {
+  display: none;
+}
+
 .subCalls {
   display: flex;
   flex-direction: column;

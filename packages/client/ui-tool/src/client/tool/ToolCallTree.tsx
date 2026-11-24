@@ -85,6 +85,11 @@ const ToolCall = memo(function ToolCall({
               fallback: renderFallback(owner),
             })}
         </div>
+        {renderSlot('tool.call.status', {
+          callId,
+          toolName,
+          settledAt: call.phase === 'result' ? call.block.time : undefined,
+        })}
         {call.phase === 'start' && <ToolDuration start={call.block.time} />}
         {call.phase === 'result' && call.block.callTime !== null && (
           <ToolDuration start={call.block.callTime} end={call.block.time} />

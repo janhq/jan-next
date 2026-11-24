@@ -33,7 +33,8 @@ function props(
 ): ToolTreeProps {
   const snapshot = {} as SessionSnapshot
   const useSession = ((selector: (value: SessionSnapshot) => unknown) => selector(snapshot)) as ToolTreeProps['useSession']
-  const renderSlot = ((_key: string, owner: ToolCallOwnerProps, options?: { fallback?: React.ReactNode }) => {
+  const renderSlot = ((key: string, owner: ToolCallOwnerProps, options?: { fallback?: React.ReactNode }) => {
+    if (key !== 'tool.call.toolview') return null
     owners?.push(owner)
     return options?.fallback ?? null
   }) as unknown as ToolTreeProps['renderSlot']
@@ -219,10 +220,10 @@ describe('ToolCallTree', () => {
         reason: 'not authorized',
       },
     }
-    const renderSlot = vi.fn(() => <div data-testid="keyed-skill" />)
+    const renderSlot = vi.fn((key: string) => key === 'tool.call.toolview' ? <div data-testid="keyed-skill" /> : null)
     const view = render(<ToolCallTree {...props(block)} renderSlot={renderSlot as ToolTreeProps['renderSlot']} />)
 
-    expect(renderSlot).not.toHaveBeenCalled()
+    expect(renderSlot.mock.calls.map(([key]) => key)).not.toContain('tool.call.toolview')
     expect(view.queryByTestId('keyed-skill')).toBeNull()
     expect(view.getByText('Auto review 已拒绝')).toBeTruthy()
   })
