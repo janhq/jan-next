@@ -214,6 +214,37 @@ test('stops a start still retrying and sends the stop to the Host', async t => {
   assert.equal((await a.call('tasks', {})).tasks[0].status, 'stopped')
 })
 
+test('refuses a start that arrives after its stop', async t => {
+  const { a, b, auth, state } = await pair(t)
+  const ref = (await state(a)).hostId
+  const dispatchId = 'dsp_aaaaaaaaaa'
+  assert.deepEqual(await b.request('peerStop', { ref, dispatchId }, { authorization: auth }), { stopped: true })
+  await assert.rejects(b.request('peerStart', { ref, coordinatorName: 'A', dispatchId, taskId: 'task_aaaaaaaaaa', title: 'Draft',
+    spec: 'Write the notes.', worktree: 'current' }, { authorization: auth }), /stopped before it started/)
+  assert.deepEqual((await state(b)).workers, {})
+  assert.equal((await state(b)).dispatches[dispatchId].status, 'stopped')
+})
+
+test('retries a remote start that failed after its worker was saved', async t => {
+  const { a, b, state } = await pair(t)
+  const create = b.ctx.sessionController.create
+  b.ctx.sessionController.create = async params => {
+    const created = await create(params)
+    const worker = b.agents.get(created.sessionId)
+    const followup = worker.followup
+    worker.followup = () => {
+      worker.followup = followup
+      throw new Error('Delivery failed.')
+    }
+    return created
+  }
+  const { tasks: [task] } = await a.call('start', { tasks: [{ title: 'Draft', spec: 'Write the notes.', host: 'host b', worktree: 'current' }] })
+  assert.ok(task.sessionId)
+  assert.equal(Object.keys((await state(b)).workers).length, 1)
+  assert.equal((await state(a)).dispatches[task.dispatchId].status, 'running')
+  assert.equal(b.notifications.filter(item => item.id === task.sessionId).length, 1)
+})
+
 test('retries a remote stop whose save failed there, after cancelling the worker', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async t => {
   const { a, b, start, state } = await pair(t)
   const { task, worker } = await start()

@@ -198,10 +198,8 @@ export function createWorkers(ctx, store, delivery, emit) {
     }
   }
 
-  /** Wait for a start of this dispatch still in flight, whatever its outcome. */
-  async function settled(dispatchId) {
-    await starting.get(dispatchId)?.catch(() => {})
-  }
+  /** The start of this dispatch in flight, if any. */
+  const startFor = dispatchId => starting.get(dispatchId)
 
   async function readWorker(dispatchId, limit) {
     const { sessionId } = workerForDispatch(dispatchId)
@@ -240,6 +238,6 @@ export function createWorkers(ctx, store, delivery, emit) {
     if (worker) idleTurns.delete(worker.dispatchId)
   }
 
-  return { resolveAgent, startLocalWorker, deliverToWorker, stopLocalWorker, settled, readWorker, onIdle, onDisposed,
+  return { resolveAgent, startLocalWorker, deliverToWorker, stopLocalWorker, startFor, readWorker, onIdle, onDisposed,
     forSession: sessionId => bySession.get(sessionId), drain: () => Promise.allSettled(starting.values()) }
 }

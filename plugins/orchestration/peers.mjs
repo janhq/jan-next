@@ -58,6 +58,8 @@ export function createPeers(ctx, store, workers, accept, signal) {
   const loops = new Map()
   const wakers = new Map()
   const forgotten = new Set()
+  // Dispatch ids whose stop arrived before their start; the stop's tombstone in state survives a restart.
+  const overtaken = new Set()
   const local = () => ({ hostName: hostname(), projects: ctx.workspaceRegistry.list().map(({ title, path }) => ({ title, path })) })
   const known = () => ctx.get('janHosts')?.peers() ?? []
   const forPeer = id => Object.hasOwn(store.read().peerCursors, id) ? store.read().peerCursors[id] : 0
@@ -169,11 +171,16 @@ export function createPeers(ctx, store, workers, accept, signal) {
           throw new Error('Dispatch is already assigned to a different task or coordinator.')
         }
         if (dispatches[dispatchId].status !== 'starting') return { sessionId: existing.sessionId, isolation: dispatches[dispatchId].isolation }
-      } else if (dispatches[dispatchId]) {
-        throw new Error('Dispatch is already assigned to a different task or coordinator.')
+      } else if (dispatches[dispatchId] || overtaken.has(dispatchId)) {
+        throw new Error('Dispatch is already assigned to a different task or coordinator, or was stopped before it started.')
       }
       return workers.startLocalWorker({ dispatchId, taskId, title, spec, project, worktree, mode, agent,
-        coordinator: { kind: 'remote', ref, name: coordinatorName } }, signal)
+        coordinator: { kind: 'remote', ref, name: coordinatorName } }, signal).catch(error => {
+        // Once the worker is saved, a retried peerStart resumes it, so the
+        // coordinator must treat this failure as temporary and not a refusal.
+        if (store.read().workers[dispatchId]) throw Object.assign(new Error(error.message, { cause: error }), { status: 503 })
+        throw error
+      })
     },
     async peerSend({ ref, dispatchId, message }) {
       requireRemoteWorker(dispatchId, ref)
@@ -185,8 +192,25 @@ export function createPeers(ctx, store, workers, accept, signal) {
       return { delivered: true }
     },
     async peerStop({ ref, dispatchId }) {
+      if (typeof ref !== 'string' || !uuid.test(ref) || typeof dispatchId !== 'string' || !dispatchIdPattern.test(dispatchId)) {
+        throw new Error('Unknown remote worker dispatch.')
+      }
       // A coordinator that lost a peerStart reply stops the dispatch; let that start finish first.
-      if (typeof dispatchId === 'string' && dispatchIdPattern.test(dispatchId)) await workers.settled(dispatchId)
+      for (let start; (start = workers.startFor(dispatchId)) !== undefined;) await start.catch(() => {})
+      const { workers: records, dispatches } = store.read()
+      if (!records[dispatchId]) {
+        // A stop that overtook its start: remember it, synchronously and in
+        // state, so that start is refused when it arrives.
+        const tombstone = dispatches[dispatchId]
+        if (tombstone && tombstone.stoppedBy !== ref) throw new Error('Unknown remote worker dispatch.')
+        if (!tombstone) {
+          overtaken.add(dispatchId)
+          await store.mutate(state => {
+            state.dispatches[dispatchId] ??= { id: dispatchId, host: 'local', status: 'stopped', stoppedBy: ref, createdAt: Date.now() }
+          })
+        }
+        return { stopped: true }
+      }
       requireRemoteWorker(dispatchId, ref)
       await workers.stopLocalWorker(dispatchId)
       return { stopped: true }
