@@ -117,6 +117,17 @@ export class ToolsService extends Service {
     })
   }
 
+  /** Plugin that registered each definition, for settings surfaces that group tools by where they come from. */
+  private readonly owners = new WeakMap<ToolDefinition, string>()
+
+  /**
+   * Name the installed package (or, outside the loader, the plugin) that registered a definition.
+   * @param definition - a definition read from {@link ToolsService.definitions}.
+   * @returns the registering package name, or undefined for a definition this registry did not record.
+   */
+  ownerOf(definition: ToolDefinition): string | undefined {
+    return this.owners.get(definition)
+  }
 
   /**
    * Register globally or in the calling agent scope. Scoped tools shadow
@@ -145,6 +156,9 @@ export class ToolsService extends Service {
     if (name === RUN_CODE_NAME) {
       throw new Error(`tool name "${RUN_CODE_NAME}" is reserved for the PTC mode presentation transport and cannot be registered or shadowed`)
     }
+    // The loader entry names the installed package; a fiber outside any entry falls back to its plugin name.
+    const entry = (this.ctx.fiber as { entry?: { options: { name?: string } } }).entry
+    this.owners.set(definition, entry?.options.name ?? this.ctx.fiber.name)
     return this.layers.effect(
       this.ctx,
       layer => layer.tools.insert(name, { definition, when: options.when }),
