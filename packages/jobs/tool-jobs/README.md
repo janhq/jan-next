@@ -52,7 +52,7 @@ Loading the plugin with no config is the common path; a `waitTimeoutMs` above `m
 | Field | Default | Meaning |
 |---|---|---|
 | `waitTimeoutMs` | `30,000` | Wait used when `wait: true` omits `timeout_ms` |
-| `maxWaitTimeoutMs` | `600,000` | Cap for model-supplied waits; larger values clamp down to it |
+| `maxWaitTimeoutMs` | `270,000` | Cap for model-supplied waits; larger values clamp down to it. 4.5 minutes keeps each check inside the five-minute provider prompt-cache window, so waiting again does not re-read the whole conversation |
 | `completionDelivery` | `wakeup` | `wakeup` opens a turn for background notices on an idle owner; `quiet` leaves them pending |
 | `maxConsecutiveWakes` | unset | Turns one owner may open by wake before notices degrade to injection; unset means no cap |
 | `inlineOutputBytes` | `2048` | Largest complete notice that carries the job's output and final result inline; `0` never inlines |

@@ -722,6 +722,21 @@ describe('job_output', () => {
     expect(text(result)).toBe('(no new output)\n[status: running]')
   })
 
+  it('caps a default-configured wait inside the five-minute prompt-cache window', async () => {
+    const { ctx } = await setup()
+    ctx.jobs.start(producer().spec)
+    vi.useFakeTimers()
+    try {
+      let returned = false
+      const pending = call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1'), wait: true, timeout_ms: 600_000 })
+      void pending.then(() => { returned = true })
+      await vi.advanceTimersByTimeAsync(269_999)
+      expect(returned).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(text(await pending)).toBe('(no new output)\n[status: running]')
+    } finally { vi.useRealTimers() }
+  })
+
   it('rejects an empty or unknown job id as an errored result', async () => {
     const { ctx } = await setup()
     expect((await call(ctx, 'job_output', { job_id: '' })).isError).toBe(true)

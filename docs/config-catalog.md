@@ -4220,14 +4220,17 @@ export interface Config {
 ## `@janhq/jan-tool-jobs`
 
 - `inject`: `tools` · `jobs` · `systemPrompt`
-- `source`: [`packages/jobs/tool-jobs/src/index.ts:52`](../packages/jobs/tool-jobs/src/index.ts)
+- `source`: [`packages/jobs/tool-jobs/src/index.ts:59`](../packages/jobs/tool-jobs/src/index.ts)
 
 ```ts config-catalog
 /** Configures bounded `job_output` waits and background-notice delivery. */
 export interface Config {
   /** Wait duration applied when `job_output` sets `wait` without `timeout_ms` (default 30s). */
   waitTimeoutMs?: number
-  /** Hard cap on any single wait; a larger model-supplied `timeout_ms` is clamped down to it (default 10min). */
+  /**
+   * Hard cap on any single wait; a larger model-supplied `timeout_ms` is clamped down to it
+   * (default 270s, inside the five-minute prompt-cache window).
+   */
   maxWaitTimeoutMs?: number
   /** Whether a background notice opens a turn on an idle owner (default `wakeup`). */
   completionDelivery?: CompletionDelivery

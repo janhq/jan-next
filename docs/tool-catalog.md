@@ -2305,7 +2305,7 @@ Read a background job: output since the previous read for stream jobs, or the re
     },
     "timeout_ms": {
       "type": "number",
-      "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration."
+      "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration (270000 unless configured, inside the provider prompt-cache window); wait again to keep waiting."
     }
   },
   "required": [
@@ -2359,7 +2359,7 @@ Schedule a one-time reminder to resume work later without polling or blocking. R
   "properties": {
     "seconds": {
       "type": "number",
-      "description": "Delay in seconds, from 1 to 86400."
+      "description": "Delay in seconds, from 1 to 86400. Prefer 270 or less: the provider prompt cache expires after about five minutes idle, so a longer delay makes the next request re-read the whole conversation."
     },
     "note": {
       "type": "string",
