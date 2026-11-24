@@ -100,3 +100,15 @@ it('writes Claude-compatible keys that read back to the same profile', () => {
     tools: ['read', 'grep', 'glob', 'mcp:github'], disallowedTools: ['edit', 'apply_patch', 'bash'],
   })
 })
+
+it.each(['edit', 'apply_patch'])('writes only %s when selected independently of the other edit tool', (tool) => {
+  const text = renderProfile({ id: 'reviewer', description: '', use: 'all', instructions: '', tools: [tool], disallowedTools: [tool] })
+  expect(text).toContain(`tools: ${tool}\n`)
+  expect(profile(file('jan', 'reviewer.md', text))).toMatchObject({ tools: [tool], disallowedTools: [tool] })
+})
+
+it('preserves the order of individually selected edit and patch tools', () => {
+  const tools = ['apply_patch', 'read', 'edit']
+  const text = renderProfile({ id: 'reviewer', description: '', use: 'all', instructions: '', tools })
+  expect(profile(file('jan', 'reviewer.md', text)).tools).toEqual(tools)
+})

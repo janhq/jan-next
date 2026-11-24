@@ -66,6 +66,7 @@ Field mapping. Keys and values Jan cannot use are kept as `warnings` on the prof
 - `mode` (Jan, `.agents`, opencode): `primary`, `subagent` or `all` (default).
 - `model`: `inherit` or absent means none; `provider/model#effort` is an exact route; a bare id or a Claude alias (`sonnet`, `opus`, `haiku`, `fable`) is resolved against the model catalog when the profile is selected. `effort` (Claude, Jan) and Codex `model_reasoning_effort` set the effort.
 - `tools` (allowlist) and `disallowedTools` accept a comma list or a YAML list. Claude names map to Jan names: `Read` -> `read`, `Write` -> `write`, `Edit`/`MultiEdit` -> `edit` and `apply_patch`, `Bash` -> `bash`, `Grep`, `Glob`, `WebFetch` -> `web_fetch`, `WebSearch` -> `web_search`, `TodoWrite` -> `todo_write`, `Agent`/`Task` -> `subagent`, `mcp__<server>` -> `mcp:<server>`. Jan names and `mcp:<server>` pass through. Patterns such as `Bash(git *)` and single MCP tools are dropped. An allowlist that maps to nothing is dropped, so every tool stays available.
+- Jan files use Claude tool spellings where they preserve the selected set. In a Jan file, `Edit` covers both edit tools, while lowercase `edit` and `apply_patch` name them individually.
 - opencode `tools` switches set to `false`, `permission` entries set to `deny`, and `permissions` rules whose last whole-resource (`*`) effect for an action is `deny` become `disallowedTools`.
 - Codex `[features] shell_tool = false` denies `bash`.
 

@@ -43,7 +43,7 @@ const OPENCODE_TOOLS: Readonly<Record<string, readonly string[]>> = {
 
 /** Jan name -> Claude name for the writer; names without one are written as Jan names. */
 const CLAUDE_NAMES: Readonly<Record<string, string>> = {
-  read: 'Read', write: 'Write', edit: 'Edit', bash: 'Bash', grep: 'Grep', glob: 'Glob', web_fetch: 'WebFetch',
+  read: 'Read', write: 'Write', bash: 'Bash', grep: 'Grep', glob: 'Glob', web_fetch: 'WebFetch',
   web_search: 'WebSearch', todo_write: 'TodoWrite', subagent: 'Agent',
 }
 
@@ -97,7 +97,7 @@ export function parseProfile(file: ProfileFile): ParsedProfile {
   const instructions = (file.source === 'codex' ? text(fields.developer_instructions, 'developer_instructions', warnings) ?? '' : body).trim()
   const use = profileUse(file.source, fields.mode, warnings)
   const model = profileModel(file.source, fields, warnings)
-  const allow = file.source === 'codex' || file.source === 'opencode' ? undefined : allowList(fields.tools, warnings)
+  const allow = file.source === 'codex' || file.source === 'opencode' ? undefined : allowList(file.source, fields.tools, warnings)
   const deny = denyList(file.source, fields, warnings)
   const sandbox = profileSandbox(file.source, fields, warnings)
   return {
@@ -155,15 +155,17 @@ function validProfileId(id: string): boolean {
 }
 
 function writtenTools(names: readonly string[]): string {
-  const set = new Set(names)
-  const written: string[] = []
-  for (const name of names) {
-    if (name === 'apply_patch' && set.has('edit')) continue
-    const claude = name.startsWith('mcp:') ? `mcp__${name.slice(4)}` : CLAUDE_NAMES[name]
-    const entry = claude ?? name
-    if (!written.includes(entry)) written.push(entry)
+  const ordered = [...new Set(names)]
+  const written = new Set<string>()
+  for (const [index, name] of ordered.entries()) {
+    if (name === 'edit' && ordered[index + 1] === 'apply_patch') {
+      written.add('Edit')
+    } else if (name !== 'apply_patch' || ordered[index - 1] !== 'edit') {
+      const claude = name.startsWith('mcp:') ? `mcp__${name.slice(4)}` : CLAUDE_NAMES[name]
+      written.add(claude ?? name)
+    }
   }
-  return written.join(', ')
+  return [...written].join(', ')
 }
 
 function profileSandbox(source: AgentProfileSource, fields: Record<string, unknown>, warnings: string[]): AgentProfileSandbox | undefined {
@@ -239,10 +241,10 @@ function toolList(value: unknown, key: string, warnings: string[]): string[] | u
   return undefined
 }
 
-function janToolNames(names: readonly string[], key: string, warnings: string[]): string[] {
+function janToolNames(source: AgentProfileSource, names: readonly string[], key: string, warnings: string[]): string[] {
   const mapped = new Set<string>()
   for (const name of names) {
-    const claude = CLAUDE_TOOLS[name.toLowerCase()]
+    const claude = source === 'jan' && name === 'edit' ? undefined : CLAUDE_TOOLS[name.toLowerCase()]
     const mcp = /^mcp__([^_](?:(?!__).)*)$/.exec(name)
     if (claude !== undefined) for (const tool of claude) mapped.add(tool)
     else if (mcp !== null) mapped.add(`mcp:${mcp[1] ?? ''}`)
@@ -252,10 +254,10 @@ function janToolNames(names: readonly string[], key: string, warnings: string[])
   return [...mapped]
 }
 
-function allowList(value: unknown, warnings: string[]): string[] | undefined {
+function allowList(source: AgentProfileSource, value: unknown, warnings: string[]): string[] | undefined {
   const names = toolList(value, 'tools', warnings)
   if (names === undefined) return undefined
-  const mapped = janToolNames(names, 'tools', warnings)
+  const mapped = janToolNames(source, names, 'tools', warnings)
   if (mapped.length > 0) return mapped
   warnings.push('tools names no supported tool, so every tool stays available')
   return undefined
@@ -282,7 +284,7 @@ function denyList(source: AgentProfileSource, fields: Record<string, unknown>, w
     return [...deny]
   }
   const names = toolList(fields.disallowedTools, 'disallowedTools', warnings)
-  for (const name of names === undefined ? [] : janToolNames(names, 'disallowedTools', warnings)) deny.add(name)
+  for (const name of names === undefined ? [] : janToolNames(source, names, 'disallowedTools', warnings)) deny.add(name)
   return [...deny]
 }
 
