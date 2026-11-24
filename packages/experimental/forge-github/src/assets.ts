@@ -24,6 +24,12 @@ const artifacts = z.object({
 })
 const comments = z.array(z.object({ body: z.string().nullable(), user: z.object({ login: z.string(), type: z.string() }).nullable() }))
 const PREVIEW_BOTS = new Set(['vercel[bot]', 'netlify[bot]', 'cloudflare-pages[bot]'])
+// Issue comments have no commit_id. Match explicit commit fields, including Netlify's table row.
+const COMMENT_COMMIT = new RegExp(
+  /^(?:[ \t]*(?:latest )?commit:[ \t]*|\|[ \t]*(?:<span aria-hidden="true">[^<\r\n]*<\/span>[ \t]*)?latest commit[ \t]*\|[ \t]*)/.source
+    + /`?([a-f0-9]{7,64})`?[ \t]*(?:\||$)/.source,
+  'gim',
+)
 const DEPLOYMENT_LIMIT = 10
 const RUN_PAGE = 20
 const RUN_LIMIT = 10
@@ -65,7 +71,7 @@ export async function readInBatches<T, R>(values: readonly T[], read: (value: T)
  * @param web - repository browser URL on the same host.
  * @param number - pull request number.
  * @param headSha - exact commit whose assets to read.
- * @returns available previews and artifacts, plus any source failures and cap status.
+ * @returns previews and artifacts for the exact commit, plus any source failures and cap status.
  */
 export async function readAssets(
   read: ReadGitHubEndpoint, repository: string, web: string, number: number, headSha: string,
@@ -102,8 +108,16 @@ export async function readAssets(
   if ('code' in commentList) failures.push(commentList)
   else {
     truncated ||= commentList.length >= COMMENT_PAGE
+    const commit = headSha.toLowerCase()
     for (const { body, user } of commentList.slice(0, COMMENT_PAGE)) {
       if (body === null || user?.type !== 'Bot' || !PREVIEW_BOTS.has(user.login)) continue
+      // Every commit the comment names must be the head; bots such as Cloudflare Pages print a short SHA.
+      let matchesHead = false
+      for (const [, sha = ''] of body.matchAll(COMMENT_COMMIT)) {
+        matchesHead = commit.startsWith(sha.toLowerCase())
+        if (!matchesHead) break
+      }
+      if (!matchesHead) continue
       // Recognize explicitly labeled links only from known deployment bots, not arbitrary links in discussion.
       for (const match of body.matchAll(/\[([^\]\r\n]{1,60})\]\((https?:\/\/[^\s)<>]+)\)/gi)) {
         const [, label = '', address = ''] = match

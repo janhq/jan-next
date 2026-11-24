@@ -55,8 +55,9 @@ describe('GitHub provider addressing', () => {
   })
 })
 
-it('reads deployment previews and workflow artifacts only for the requested head', async () => {
+it('lists only previews and artifacts for the requested head, even after a force-push', async () => {
   const sha = 'a'.repeat(40)
+  const oldSha = 'b'.repeat(40)
   const fake = fakeGh((args) => {
     const endpoint = args.at(-1)
     if (endpoint === `repos/octo/demo/deployments?sha=${sha}&per_page=10`) return output([
@@ -65,8 +66,13 @@ it('reads deployment previews and workflow artifacts only for the requested head
     if (endpoint === 'repos/octo/demo/deployments/1/statuses?per_page=1') return output([{ state: 'success', environment_url: 'https://docs.example.test/pr-7' }])
     if (endpoint === 'repos/octo/demo/deployments/2/statuses?per_page=1') return output([{ state: 'inactive', environment_url: 'https://old.example.test' }])
     if (endpoint === 'repos/octo/demo/issues/7/comments?direction=desc&sort=created&per_page=30') return output([
-      { user: { type: 'Bot', login: 'vercel[bot]' }, body: '[Preview](https://vercel.example.test/pr-7) [Build](https://logs.example.test)' },
-      { user: { type: 'User', login: 'octo' }, body: '[Preview](https://unrelated.example.test)' },
+      { user: { type: 'Bot', login: 'vercel[bot]' }, body: `Commit: \`${sha}\`\n[Preview](https://vercel.example.test/pr-7) [Build](https://logs.example.test)` },
+      { user: { type: 'Bot', login: 'netlify[bot]' }, body: `|<span aria-hidden="true">🔨</span> Latest commit | ${sha} |\n[Deploy Preview](https://netlify.example.test/pr-7)` },
+      { user: { type: 'Bot', login: 'netlify[bot]' }, body: `|<span aria-hidden="true">🔨</span> Latest commit | ${oldSha} |\n[Deploy Preview](https://stale.example.test/pr-7)\nSuperseded by ${sha}.` },
+      { user: { type: 'Bot', login: 'cloudflare-pages[bot]' }, body: `Latest commit: \`${sha.slice(0, 7)}\`\n[Preview](https://abbreviated.example.test/pr-7)` },
+      { user: { type: 'Bot', login: 'netlify[bot]' }, body: `Latest commit: ${sha}\nLatest commit: ${oldSha.slice(0, 7)}\n[Preview](https://ambiguous.example.test/pr-7)` },
+      { user: { type: 'Bot', login: 'vercel[bot]' }, body: '[Preview](https://unknown-commit.example.test/pr-7)' },
+      { user: { type: 'User', login: 'octo' }, body: `Commit: ${sha}\n[Preview](https://unrelated.example.test)` },
     ])
     if (endpoint === `repos/octo/demo/actions/runs?head_sha=${sha}&per_page=20`) return output({ workflow_runs: [
       { id: 9, head_sha: sha, event: 'pull_request', pull_requests: [{ number: 7 }], artifacts_url: 'ignored' },
@@ -80,6 +86,8 @@ it('reads deployment previews and workflow artifacts only for the requested head
   const result = await provider(fake.run).fetchAssets(pull(7), sha, signal)
   expect(result.previews).toEqual([
     { url: 'https://docs.example.test/pr-7', label: 'Docs' }, { url: 'https://vercel.example.test/pr-7', label: 'Preview' },
+    { url: 'https://netlify.example.test/pr-7', label: 'Deploy Preview' },
+    { url: 'https://abbreviated.example.test/pr-7', label: 'Preview' },
   ])
   expect(result.artifacts).toEqual([{
     url: 'https://github.com/octo/demo/actions/runs/9/artifacts/81', name: 'docs.zip', sizeBytes: 2048,
