@@ -145,6 +145,30 @@ export default class AgentProfiles extends TypertRemoteService {
   }
 
   /**
+   * Follow catalog changes: a file change in any folder, a write, or a chat's selection change.
+   * @param signal - stream lifetime.
+   * @returns one tick per coalesced batch of changes since the previous read.
+   */
+  @Remote({ mode: 'stream' })
+  async *watchChanges(signal: AbortSignal): AsyncIterable<number> {
+    let revision = 0
+    let seen = 0
+    let wake: (() => void) | undefined
+    const stop = this.ctx.on('agent-profiles/changed', () => { revision++; wake?.() })
+    const abort = (): void => { wake?.() }
+    signal.addEventListener('abort', abort, { once: true })
+    try {
+      while (!signal.aborted) {
+        if (revision > seen) { seen = revision; yield revision; continue }
+        await new Promise<void>((resolve) => { wake = resolve })
+      }
+    } finally {
+      stop()
+      signal.removeEventListener('abort', abort)
+    }
+  }
+
+  /**
    * Read one profile with its instructions.
    * @param request - the id, the project it is resolved in, and optionally the exact listed file.
    * @returns the precedence winner, or the named file.

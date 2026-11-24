@@ -55,7 +55,13 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
 function registerUi(ctx: Context): void {
   const profileRevision = createSnapshotStore(0)
   const invalidate = () => { profileRevision.set(profileRevision.getSnapshot() + 1) }
-  ctx.effect(() => ctx.remote.$on('agent-profiles/changed', invalidate), 'agent-profiles: catalog changes')
+  // Follow streams carry collection changes; a forwarded Host event would make the Remote package import this one.
+  const changes = ctx.remote.$stream<number>({
+    name: 'agent profile changes', open: signal => ctx.remote.agentProfiles.watchChanges(signal),
+    ended: () => new Error('agent profile change stream ended'),
+  })
+  ctx.effect(() => () => changes.dispose(), 'agent-profiles: catalog changes')
+  void (async () => { for await (const frame of changes) { invalidate(); frame.accept() } })().catch(() => {})
   ctx.on('connection/reset', invalidate)
   ctx.effect(() => ctx.locale.register(NS, { de, en, es, fr, ja, pt, ru, zh }), 'agent-profiles: dictionaries')
   const t = ctx.locale.bind(NS)

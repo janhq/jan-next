@@ -1994,9 +1994,6 @@ importers:
       '@janhq/jan-agent-preset-registry':
         specifier: workspace:*
         version: link:../../preset/agent-preset-registry
-      '@janhq/jan-agent-profiles':
-        specifier: workspace:*
-        version: link:../../preset/agent-profiles
       '@janhq/jan-agent-team':
         specifier: workspace:*
         version: link:../../team/agent-team

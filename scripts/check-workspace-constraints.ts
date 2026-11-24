@@ -234,6 +234,8 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   '@janhq/jan-experimental-inspector': ['lib/client.*.js', 'lib/worker.js', 'lib/devtools/**'],
   // Creator's composition guidance travels with the declaration package.
   '@janhq/jan-agent-preset': ['skills'],
+  // Built-in agent profiles are Markdown files read from the package at runtime.
+  '@janhq/jan-agent-profiles': ['agents'],
   // Personalized pages ship the location guidance used by their Creator.
   '@janhq/jan-creation-recommendations': ['references/*.md', 'skills/*.md'],
   // Official-plugin recommendations ship the skill text their provider loads.
