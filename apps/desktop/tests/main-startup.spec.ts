@@ -622,6 +622,13 @@ describe('desktop main startup', () => {
     const primary = harness.windows[0]!
     const secondary = harness.windows[1]!
     await secondary.shown.promise
+    // A restored window boots the same page; refusing its locale read failed the whole boot behind a fatal dialog.
+    const bootstrap = harness.handlers.get(DESKTOP_IPC.localeBootstrap)!
+    const secondaryFrame = { sender: secondary.webContents, senderFrame: secondary.webContents.mainFrame }
+    const outcome = await Promise.resolve().then(() => bootstrap(secondaryFrame)).then(() => 'read', (error: Error) => error.message)
+    expect(outcome).not.toMatch(/unowned frame/)
+    await expect(Promise.resolve().then(() => bootstrap({ sender: {}, senderFrame: secondary.webContents.mainFrame })))
+      .rejects.toThrow('unowned frame')
     secondary.minimized = true
     const show = harness.handlers.get(DESKTOP_IPC.notificationShow)!
     for (const { webContents: sender } of [primary, secondary]) {
