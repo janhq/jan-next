@@ -1,27 +1,50 @@
 ---
 name: editing-cordis-compositions
-description: Use when creating, changing, or validating an agent preset or other Cordis composition for this harness, including deciding host versus preset placement and checking that an authored preset mounts.
+description: Use when creating, changing, or validating a Jan mode (agent preset), a named agent profile for chats, delegation or Bots, or another Jan Cordis composition, including Host versus preset placement.
 ---
 
-# Editing Cordis compositions
+# Create Jan modes and named agents
 
-Agent presets are ordinary `@janhq/jan-agent-preset` declarations carried by bundle patches. Nothing edits a declaration in place: a preset is created or changed by installing a bundle whose patch declares or overrides it. This file states the declaration format; when it leaves a question open, read the `@janhq/jan-agent-preset` README and `lib/types` declarations under the `packageDir` that `cordis_inspect_query` `Config.listConfigs` returns when queried with a `preset-<id>` row's `entry` id, or `packages/preset/agent-preset/src` in a source checkout.
+A **mode** selects a composition of plugins, tools, and prompts. An **agent profile** is a named set of instructions and optional model and tool limits, independent of mode. Use a profile when the user wants a specialist to select in a chat, delegate to, or reuse in a bot; use a mode when they want a different capability composition. For a bot's chat, memory, sources, and routines, use Jan's Bots page and choose a primary-capable profile there.
+
+## Create a named agent
+
+Write Markdown with YAML frontmatter to `<project>/.jan/agents/<id>.md` or `$JAN_HOME/agents/<id>.md`. Use the registered Jan project folder. Project and global files outrank Jan's eight built-ins (`reviewer`, `researcher`, `explorer`, `planner`, `worker`, `debugger`, `tester`, `writer`). Use **Copy to Jan** in Settings > Agents to customize a built-in or an agent from another tool without changing its source. Avoid accidental id collisions.
+
+```markdown
+---
+name: test-report-reader
+description: Summarizes failures in test reports without editing files.
+mode: all
+sandbox: read-only
+tools: Read, Grep, Glob
+---
+Read the relevant test report. List distinct failures and point to their evidence.
+```
+
+`mode` means `primary`, `subagent`, or `all` (default), not a Jan mode. Omit `model` to inherit or set `provider/model#effort`. `tools` is an optional allowlist; `disallowedTools` is a denylist. Both take Jan tool names or supported Claude names as comma lists or YAML lists. Check names so an unmapped allowlist does not silently disappear. `sandbox` (`read-only`, `workspace-write`, `danger-full-access`) caps delegation at the narrower of the cap and the starting chat's permission. It neither grants access nor changes main-chat permission. See `packages/preset/agent-profiles/README.md` for full mapping and precedence.
+
+Verify the saved profile in Settings > Agents: inspect its scope and warnings, select it in the chat's agent picker (or `/agent`) if it permits primary use, and try a harmless task to confirm the instructions and intended tools. For delegated use, ask Jan to delegate by the profile id. Reopen the chat or select the profile again to test edited instructions; an open chat does not rewrite its prompt or tools on a file save.
+
+## Author a mode
+
+Jan modes are `@janhq/jan-agent-preset` declarations carried by bundle patches. Query `Config.listConfigs` for a `preset-<id>` row's `entry` to locate the declaring plugin's README, or use Jan's read-only **View configuration** to inspect a mode's plugin list.
 
 ## Where declarations live
 
-The shipped Web presets are `presets/<id>.patch.yml` files of the `@janhq/jan-web-app` bundle, ids `standard`, `ptc`, `minimal` and `cordis`. Installed, the bundle resolves from the jan installation, not the profile; querying `Config.listConfigs` with the `entry` id of any `preset-<id>` row it declares returns that `packageDir`. In a source checkout of Jan it is `packages/bundle/web-app/`. Read one file with the file-read tool when you need a template; `minimal.patch.yml` is the shortest. In Desktop the bundle sits inside `app.asar`, which shell commands cannot open. Load `cordis-composition-reference` for the patch dialect and the list of plugin packages a preset can mount.
+The Web bundle defines Code (`standard`), PTC (`ptc`), Minimal (`minimal`), and Creator (`cordis`) in `packages/bundle/web-app/presets/`. The source Desktop bundle (`plugins/desktop-app/cordis.patch.yml`) also declares Chat and adjusts the visible roster. Query the installed composition rather than assuming the roster. Use the file-read tool for an installed patch inside `app.asar`; `minimal.patch.yml` is a short example. Load `cordis-composition-reference` for Loader YAML and the generated package catalog.
 
 A declaration row has these `config` fields: `id` (required, lowercase letters, digits and hyphens), `plugins` (required Cordis entry list), and optional `name`, `description` and `order` (roster position). The Loader row `id` is `preset-<id>` by convention.
 
 ## Create a preset
 
-Write a bundle directory in the workspace with exactly two files, then install it.
+Create a workspace bundle. This minimal example shows the declaration; use `create-plugin` for the bundle's display metadata and artwork.
 
-`review-preset/package.json`:
+`writing-mode/package.json`:
 
 ```json
 {
-  "name": "@local/jan-review-preset",
+  "name": "@local/jan-writing-mode",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -29,28 +52,29 @@ Write a bundle directory in the workspace with exactly two files, then install i
 }
 ```
 
-`review-preset/cordis.patch.yml`:
+`writing-mode/cordis.patch.yml`:
 
 ```yaml
 - insert:
-    - id: preset-review
+    - id: preset-writing
       name: '@janhq/jan-agent-preset'
       config:
-        id: review
-        name: Review
-        description: Reviews changes with the shell only.
-        icon: 🔍
+        id: writing
+        name: Writing
+        description: Write and edit text files without a shell tool.
+        icon: skill-outline
         order: 10
+        toolAllowlist: [read, write, edit]
         plugins:
           - id: persona
             name: '@janhq/jan-persona'
             config:
-              prefix: You review software changes.
-          - id: tool-bash
-            name: '@janhq/jan-tool-bash'
+              prefix: You help the user write and edit text.
+          - id: tool-fs
+            name: '@janhq/jan-tool-fs'
 ```
 
-`icon` is optional: one emoji the user picked, or a Jan glyph name (`chat-outline`, `code-outline`, `api-outline`, `layers-outline`, `plugin-pinwheel-outline`, `inspect-outline`, `skill-outline`, `goal-outline`). Ask the user which they want when they care; otherwise pick one that fits the preset's job.
+For icons, use a Jan glyph name or one emoji. `toolAllowlist` restricts the mode to the named tools, including tools inherited from the Host; omitting a shell row alone does not ensure no shell tool is available.
 
 Install with `plugin_manager`, `action: install_bundle`, `target` set to the absolute bundle directory. It runs package installation and bundle selection itself; do not reproduce those steps with shell commands.
 
@@ -74,7 +98,7 @@ Before declaration rows, a user preset was a directory `$JAN_HOME/.agent-presets
 
 ## Verify
 
-`plugin_manager` `list_bundles` lists the installed bundle; `list_plugins` shows the `preset-<id>` row with its activation state. A declaration whose activation fails stays on the roster with its diagnostic and cannot compose a session until the bundle is fixed and reinstalled. Existing sessions and their children keep the plugin revision they started with; validate changed behavior in a new session. Installing a bundle executes plugin code in the Host process, so it requires Full access or approval.
+Check the `plugin_manager` installation result, then inspect the `preset-<id>` row with `cordis_inspect_query` or open the mode configuration in Jan. A failed declaration can remain on the roster with a diagnostic. Select the new mode in a new chat and exercise its tools and prompt; existing chats and children keep their original preset revision. Keep prompt and tool definitions static within a running chat; use the skill bodies and runtime context for details that change.
 
 ## Choose plugin placement
 
@@ -84,4 +108,4 @@ A preset plugin that supplies a service must isolate the provider and all its co
 
 ## Extend the Host
 
-For new plugin code or profile-wide capabilities, load `create-plugin` (or `create-connector` for an MCP server), author a workspace bundle, and install it with `plugin_manager`. Inspect available APIs through `cordis_inspect_list` and `cordis_inspect_query`, including a mounted plugin's Config schema through the Host `Config` provider; those tools do not invoke Remote methods. Verify the installed capability before reporting completion.
+For profile-wide plugin code, use `create-plugin`; for an MCP server use `create-connector`. `cordis_inspect_list` and `cordis_inspect_query` inspect live APIs and Host Config schemas without calling Remote methods.

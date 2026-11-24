@@ -1,7 +1,9 @@
 ---
 name: agent-experience
-description: Use when writing or changing a model-facing tool definition (name, description, parameter schema, or its system-prompt section), and when designing skills, context loading, or multi-step workflows, to make information discoverable and use context efficiently.
+description: Use when writing or reviewing Jan tool names, descriptions, parameter schemas, prompt sections, skill or named-agent descriptions, and context loading for multi-step workflows.
 ---
+
+# Design Jan's agent experience
 
 - **Start with minimal context:** expose purpose, available actions, and constraints first; load detailed instructions when needed.
 - **Make discovery explicit:** every deferred resource needs a clear description and a reliable way to retrieve it.
@@ -9,6 +11,8 @@ description: Use when writing or changing a model-facing tool definition (name, 
 - **Prefer bounded outputs:** return concise results with identifiers or paths for retrieving details; avoid dumping entire logs or documents.
 - **Use locality:** include a bounded amount of likely needed adjacent context with an operation’s result. For example, deliver a thread reply with a few preceding messages. Mark omissions and truncation explicitly, and provide a way to retrieve more.
 - **Evaluate total work:** saving context is useful only if it does not cause more searches, repeated reads, or mistakes.
+- **Keep Jan's request prefix stable:** a running chat keeps its system prompt and tool schemas stable unless the user changes the selection. Never put changing files, paths, ports, timestamps, counts, or versions in the prefix. Put detail in on-demand skills and their references; put changing facts in appended runtime context.
+- **Write for the picker as well as the model:** a named agent's description tells users when to choose or delegate to it. Put detailed behavior in its Markdown instructions and use declared tool limits and sandbox caps for restrictions, not prose alone.
 
 ## Tool definitions
 

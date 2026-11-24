@@ -1,15 +1,15 @@
 ---
 name: cordis-composition-reference
-description: Use when writing or reading a Cordis bundle patch or agent preset for this harness and you need the Loader YAML dialect (insert, override by id, group, disabled, isolate, !!js) or the list of installable Harness plugin packages and what each provides.
+description: Use when reading or writing a Jan bundle patch or mode and looking up Cordis Loader YAML (insert, override by id, group, disabled, isolate, !!js), the live composition, or packages a Jan plugin can mount.
 ---
 
-# Cordis composition reference
+# Jan Cordis composition reference
 
-Reference material for bundle patches and preset plugin lists. Procedures live in `create-plugin`, `create-connector`, and `editing-cordis-compositions`.
+Use this reference for Jan bundle patches and mode plugin lists. For authoring procedures, use `create-plugin`, `create-connector`, or `editing-cordis-compositions`.
 
 ## Loader patch dialect
 
-A profile composes an ordered list of patch layers over the bundle entry lists. Each patch is a mapping:
+Jan applies the selected bundles in order, then the active profile's `cordis.patch.yml`, the home patch, and invocation `--patch` overlays. A mode is a scoped plugin list within this composition; an agent profile is a separate Markdown file, not a patch. Each Loader patch is a mapping:
 
 - `insert: [rows]` appends rows; with an `id` naming an existing `group: true` row, the rows are appended inside that group's `config` list.
 - A patch with an `id` and no `insert` targets the existing row with that id. Supplied fields replace the row's fields; `config` is replaced wholesale, never deep-merged, so restate every field the row needs. A truthy `name` asserts the existing plugin name rather than renaming it.
@@ -26,4 +26,4 @@ A row has `id`, `name` (the plugin package specifier; inserted relative paths ar
 
 ## Installable plugin packages
 
-`references/packages.md` lists every workspace package that exports a Cordis plugin, grouped by package group, with whether its row takes `config`. Search it with `grep -n <keyword>` rather than reading it whole. Plugins outside this list come from installed bundles; `plugin_manager` `list_bundles` names them.
+`references/packages.md` is the generated inventory of loadable workspace packages. Read only the relevant group with the file-read tool (use line ranges for the long file); don't run a shell search on installed skill resources in Desktop's `app.asar`. Check the active installation with `cordis_inspect_query`, including `Config` for plugin fields, `Slots` for Client extension points, and `Theme` for tokens. In source, see the generated `docs/config-catalog.md`, `docs/tool-catalog.md`, and the Client inspect catalog linked from `docs/subsystems/slots.md`. `plugin_manager` `list_bundles` names installed external bundles.

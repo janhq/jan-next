@@ -1,11 +1,11 @@
 ---
 name: create-connector
-description: Use when the user wants Jan to connect to an outside app or service, add an MCP server (a URL or a command), or build a new agent tool, and when a connector fails to start or its tools are missing.
+description: Use when adding an MCP connector to Jan from a remote URL or local command, connecting an external service, or debugging a connector that fails to start or exposes no tools. For an app-native agent tool, use create-plugin.
 ---
 
-# Connectors: MCP servers and agent tools
+# Create a Jan connector
 
-A connector gives every chat in this profile new `mcp__<server>__<tool>` tools. Jan connects an MCP server through a configuration-only bundle that mounts the shipped `@janhq/jan-mcp-client`, installed with `plugin_manager` `action: install_bundle`. The installed connector survives restart and appears in Customize > Plugins, where the user can turn it off. Servers a person adds by hand in Customize > Connectors are stored separately; do not edit that list.
+For an existing server that the user just wants to connect, point them to Customize > Connectors on Desktop (MCP Servers in Settings), where Jan manages named servers, enablement, and tools. For a connector packaged for reuse, author a configuration-only bundle that mounts `@janhq/jan-mcp-client`. Install it into the active profile with `plugin_manager`; it persists across restart and can be turned off in Customize > Plugins. Do not rewrite the separate server list behind Customize > Connectors.
 
 ## Choose the shape
 
@@ -31,4 +31,4 @@ The template lives in this skill's base directory, which the `skill` tool report
 
 ## Verify and report
 
-Call one newly available `mcp__<serverName>__<tool>` tool with a harmless request, such as a list or a ping, and show the user the result. On failure, read the install warnings, fix the same bundle and reinstall it; never create a second bundle for the same server. Finish with the bundle path, the server name, the tools it added, and where to turn it off.
+Check `application` before claiming the connector is active. Verify the bundle in Jan's Plugins page, then make a harmless call to one of its `mcp__<serverName>__<tool>` tools, such as a list or ping. On failure, read the install diagnostics, fix the same bundle, and apply it again; follow `restart-required` if returned. Finish with the bundle path, the server name, the verified tools, and where to turn the bundle off.

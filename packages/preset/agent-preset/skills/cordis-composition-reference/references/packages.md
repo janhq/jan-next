@@ -68,7 +68,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-product-analytics` | yes | Desktop product event collection and authenticated Host reporting |
 | `@janhq/jan-client-resources` | no | Unified client resource model: protocol-registered providers turn URL addresses into live values, consumed through the useResource global standard hook |
 | `@janhq/jan-client-shortcuts` | yes | Application keyboard command registry and physical-key routing |
-| `@janhq/jan-client-ui-agent-preset` | no | Agent-preset surfaces: the default for later sessions, this session's seat, and the composition editor |
+| `@janhq/jan-client-ui-agent-preset` | no | Mode selection for current and new sessions, and mode configuration in Settings |
 | `@janhq/jan-client-ui-agent-team` | no | Web shared task board for a subagent tree |
 | `@janhq/jan-client-ui-approval` | no | Composer dock for tool approval over the scoped Remote Event waterfall |
 | `@janhq/jan-client-ui-attachment` | no | Dynamic attachment presentation plugin for conversation input, message-image, and trajectory image slots |
