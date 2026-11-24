@@ -199,7 +199,8 @@ export function ConversationContent(props: ConversationContentProps) {
 
   const composerBar = (
     <div ref={composerStack} className={clsx(css.composerStack, hero && css.composerHero)}>
-      {hero && <HeroShell t={t} renderSlot={renderSlot} />}
+      {/* An embedded home sits under its host's own heading, so it skips the greeting. */}
+      {hero && props.variant !== 'embedded' && <HeroShell t={t} renderSlot={renderSlot} />}
       {zone !== undefined && renderSlot('conversation.input.dock', zone)}
       {inputBar}
       {hero && renderSlot('conversation.hero.suggestions', {
