@@ -187,7 +187,7 @@ export default class AgentProfiles extends TypertRemoteService {
    * @param request - the scope, its project, and the id.
    */
   @Remote
-  async remove(request: AgentProfileRemoveRequest): Promise<void> {
+  async deleteProfile(request: AgentProfileRemoveRequest): Promise<void> {
     const state = this.janRoot(request.scope, request.workspaceId)
     await this.reread([state])
     const existing = state.scan.profiles.find(profile => profile.id === request.id

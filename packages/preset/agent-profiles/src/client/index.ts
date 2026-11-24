@@ -83,7 +83,7 @@ function registerUi(ctx: Context): void {
       if (!result.ok) throw result.error
     },
     remove: async (request) => {
-      const result = await ctx.remote.agentProfiles.remove(request)
+      const result = await ctx.remote.agentProfiles.deleteProfile(request)
       if (!result.ok) throw result.error
     },
     models: async () => {

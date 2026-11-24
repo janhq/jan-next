@@ -111,8 +111,8 @@ it('round-trips a saved Jan profile and refuses to delete a foreign one', async 
   expect((await h.profiles.get({ id: 'reviewer' })).instructions).toBe('Look.')
 
   write(join(h.home.userHome, '.codex', 'agents', 'fixer.toml'), 'name = "fixer"\ndeveloper_instructions = "Fix."\n')
-  await expect(h.profiles.remove({ scope: 'global', id: 'fixer' })).rejects.toMatchObject({ code: 'agent-profiles/read-only' })
-  await h.profiles.remove({ scope: 'global', id: 'reviewer' })
+  await expect(h.profiles.deleteProfile({ scope: 'global', id: 'fixer' })).rejects.toMatchObject({ code: 'agent-profiles/read-only' })
+  await h.profiles.deleteProfile({ scope: 'global', id: 'reviewer' })
   await expect(h.profiles.get({ id: 'reviewer' })).rejects.toMatchObject({ code: 'agent-profiles/not-found' })
 })
 

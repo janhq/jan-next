@@ -759,7 +759,7 @@ Reads, watches and writes agent profile files, records which profile each chat s
  * Delete a Jan profile file.
  * @param request - the scope, its project, and the id.
  */
-@Remote async remove(request: AgentProfileRemoveRequest): Promise<void>
+@Remote async deleteProfile(request: AgentProfileRemoveRequest): Promise<void>
 
 /**
  * Select a profile for a chat at a turn boundary and switch the chat to the profile's model.

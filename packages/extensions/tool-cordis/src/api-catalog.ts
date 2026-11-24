@@ -319,7 +319,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the profile as listed after the write.',
       },
       {
-        signature: '@Remote async remove(request: AgentProfileRemoveRequest): Promise<void>',
+        signature: '@Remote async deleteProfile(request: AgentProfileRemoveRequest): Promise<void>',
         description: 'Delete a Jan profile file.',
         parameters: [{ name: 'request', description: 'the scope, its project, and the id.' }],
       },

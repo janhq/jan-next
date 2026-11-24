@@ -56,7 +56,7 @@ Remote methods (`ctx.remote.agentProfiles`):
 - `list({ workspaceId? })` returns `{ profiles, problems }`: project profiles first, then global ones. Without a project, only global profiles.
 - `get({ id, workspaceId?, path? })` returns one profile with its instructions: the precedence winner, or the listed file at `path`. Throws `agent-profiles/not-found`.
 - `save({ scope, workspaceId?, profile, path? })` writes `<id>.md` into the scope's Jan folder (mode `0644`, meant to be committed), replacing a Jan file with that id. With `path`, only the Jan file at that exact path holding the same id is replaced, so a duplicate id in one folder edits the row the user picked. Throws `agent-profiles/invalid` (including when the file would exceed `maxFileBytes`, checked before anything is written) and `agent-profiles/not-found` for a `path` with no matching file.
-- `remove({ scope, workspaceId?, id, path? })` deletes a Jan file; `path` picks the exact file as for `save`. A profile that only exists in another tool's folder throws `agent-profiles/read-only`.
+- `deleteProfile({ scope, workspaceId?, id, path? })` deletes a Jan file; `path` picks the exact file as for `save`. A profile that only exists in another tool's folder throws `agent-profiles/read-only`. (`remove` is reserved by the client remote namespace.)
 - `select({ sessionId, id, keepModel? })` records the chat's profile, or `null` for plain Jan, at a turn boundary (`agent-profiles/locked` during a turn), then switches the chat to the profile's model unless `keepModel`. A model that does not resolve leaves the chat's model and adds `model "<x>" is not available` to the profile's warnings. A `subagent`-only profile throws `agent-profiles/invalid`.
 
 Host callers also use `snapshot(workspaceId?)` (the last read, synchronously), `profileForSession(session)`, `projectOf(agent)`, `selectedProfile(agent)`, `toolLimitsFor(agent)`, `toolRestrictionOf(profile)` and `resolveModel(model)`. `agent-profiles/changed` is emitted after a file change in any folder, a write, and a chat's selection change.
@@ -85,7 +85,7 @@ Instructions.
 
 The [parser](src/parse.ts) is pure: it turns one file's text into a profile or a problem, and renders a Jan file. [Roots](src/roots.ts) lists the ten folders, reads one folder, and watches it with chokidar. A missing folder is watched through its nearest existing parent, one level deep, and the watch moves down as folders appear; each watch triggers one re-read when it becomes ready, so changes made while it starts are not lost.
 
-The [service](src/index.ts) keeps the last read of every folder in memory for synchronous readers (the prompt section, tool limits, the subagent list). `list`, `get`, `save` and `remove` read their folders again first. Project folders are tracked for every registered project and refreshed after file events and agent creation. Selections are serialized per chat and logged as `agent-profile/selected`; the [projection](src/session.ts) `agentProfile` restores them on replay, resume and fork.
+The [service](src/index.ts) keeps the last read of every folder in memory for synchronous readers (the prompt section, tool limits, the subagent list). `list`, `get`, `save` and `deleteProfile` read their folders again first. Project folders are tracked for every registered project and refreshed after file events and agent creation. Selections are serialized per chat and logged as `agent-profile/selected`; the [projection](src/session.ts) `agentProfile` restores them on replay, resume and fork.
 
 </details>
 
