@@ -20,6 +20,7 @@ import { $getRoot, $onUpdate, UNDO_COMMAND, type LexicalEditor } from 'lexical'
 import {
   focusWithoutRing, IconCloseFillRegular, IconCodeOutlineRegular, IconPaperclipOutlineRegular, IconPlusOutlineMedium,
   IconTriangleRightFillRegular, IconWarningOutlineRegular, isMobileDevice, Menu, MenuItemButton, Toast, Tooltip,
+  captureFailure, type FailureDetails,
 } from '@janhq/jan-client-ui-primitives'
 // Type-only: the `plan` projection key merge (the TodoDock posture — the
 // composer reads a host-computed value; the domain owns the key).
@@ -126,11 +127,11 @@ export const InputBar = memo(function InputBar({
   // Transient error banner (machine notices, image-intake rejections, and
   // prompt failures): the seq keys the Toast so an identical repeated message
   // restarts the hold-then-fade cycle instead of reusing the faded one.
-  const [toast, setToast] = useState<{ seq: number; text: string } | null>(null)
+  const [toast, setToast] = useState<{ seq: number; text: string; failure?: FailureDetails } | null>(null)
   const toastSeq = useRef(0)
-  const showToast = useCallback((text: string) => {
+  const showToast = useCallback((text: string, failure?: FailureDetails) => {
     toastSeq.current += 1
-    setToast({ seq: toastSeq.current, text })
+    setToast({ seq: toastSeq.current, text, ...failure === undefined ? {} : { failure } })
   }, [])
   const dismissToast = useCallback(() => { setToast(null) }, [])
   // The deployment's image-intake limits (absent while no attachment service
@@ -152,13 +153,14 @@ export const InputBar = memo(function InputBar({
   useEffect(() => {
     if (promptError === null) return
     const { error } = promptError
+    const failure = captureFailure('conversation.prompt', error)
     if (error.code === 'session/writer-held') {
-      showToast(t('error.sessionInUse'))
+      showToast(t('error.sessionInUse'), failure)
       return
     }
     showToast(error.code === 'session/attachment-invalid' || error.code === 'subagent/attachment-invalid'
       ? attachmentErrorText(t, error.details.reason, imageLimits)
-      : `${error.message} (${error.code})`)
+      : `${error.message} (${error.code})`, failure)
   }, [promptError, showToast, t, imageLimits])
   useEffect(() => {
     if (notice?.level === 'error') showToast(notice.text)
@@ -517,6 +519,7 @@ export const InputBar = memo(function InputBar({
         <Toast
           key={toast.seq}
           text={toast.text}
+          failure={toast.failure}
           icon={<IconWarningOutlineRegular />}
           onDone={dismissToast}
         />

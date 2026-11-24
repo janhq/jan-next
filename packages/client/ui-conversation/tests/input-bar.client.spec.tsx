@@ -2095,7 +2095,7 @@ describe('strips and variants', () => {
       // queries go through the view's document-bound helpers.
       expect(send.view.getByRole('alert').textContent).toContain('boom (session/agent-busy)')
       expect(send.view.queryByRole('button', { name: 'Retry' })).toBeNull()
-      act(() => { vi.advanceTimersByTime(4000) })
+      act(() => { vi.advanceTimersByTime(9000) })
       expect(send.view.queryByRole('alert')).toBeNull()
     } finally {
       vi.useRealTimers()
