@@ -50,8 +50,9 @@ interface ShellExecRequest {
    * map, so an entry here can never displace one. Set by in-process plugins
    * (the hooks bridges set `CLAUDE_PROJECT_DIR`, `CLAUDE_PLUGIN_ROOT`, …); the
    * model-facing bash tool does not expose it as a parameter.
+   * An explicit `undefined` removes an ordinary inherited variable.
    */
-  env?: Record<string, string> | undefined
+  env?: Record<string, string | undefined> | undefined
   /**
    * Harness-owned `JAN_*` variables for this execution (typed to managed
    * keys). Executors discard ambient `JAN_*` entries before merging this
@@ -92,7 +93,7 @@ interface ShellExecSpec {
    * OPTIONAL on the spec for the same reason as `stdin`: absent means no
    * ordinary extra environment.
    */
-  env?: Record<string, string> | undefined
+  env?: Record<string, string | undefined> | undefined
   /** Managed `JAN_*` snapshot (typed to managed keys); merges after {@link env}. */
   janEnv?: JanEnvironment | undefined
   /** Resolved sandbox policy; ignored by executors that do not confine. */
