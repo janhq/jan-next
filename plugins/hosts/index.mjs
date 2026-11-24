@@ -135,11 +135,12 @@ export function apply(ctx, config) {
     try {
       body = await link.post(`jan-api/${feature}`, { method, params }, signal)
     } catch (error) {
+      // The peer answered and its operation failed: a refusal, not an unreachable computer.
       const message = error?.cause?.body?.error
-      if (typeof message === 'string') throw new Error(message, { cause: error })
+      if (typeof message === 'string') throw new HostsError('rejected', message, { cause: error })
       throw error
     }
-    if (typeof body.error === 'string') throw new Error(body.error)
+    if (typeof body.error === 'string') throw new HostsError('rejected', body.error)
     return body.result
   }
 

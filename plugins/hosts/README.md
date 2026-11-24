@@ -51,7 +51,7 @@ This Host signs in to each other computer with `forward=local`, so that Jan answ
 
 A chat running on another computer reads only chats on that computer with `read_chat`; a chat on this computer reads every connected computer's.
 
-Other plugins can use `ctx.get('janHosts')` to list saved peers with `peers()` and call a peer's authenticated plugin route with `callPlugin(id, feature, method, params, signal)`.
+Other plugins can use `ctx.get('janHosts')` to list saved peers with `peers()` and call a peer's authenticated plugin route with `callPlugin(id, feature, method, params, signal)`. A failure carries a `code`: `not-connected` when the computer has no working connection, and `rejected` when the other computer answered and its operation failed, with that operation's message. Other failures, such as a dropped network, are passed through as they are.
 
 The `jan-hosts/removed` event carries the saved Host id after the entry and its credentials are removed. Disconnecting does not emit it.
 

@@ -146,7 +146,7 @@ test('janHosts surfaces the remote plugin operation error', async (t) => {
   await new Promise(resolve => peer.listen(0, '127.0.0.1', resolve))
   t.after(() => new Promise(resolve => peer.close(resolve)))
   const { id } = await call('save', { name: 'Office', kind: 'url', url: `http://127.0.0.1:${peer.address().port}/?token=test` })
-  await assert.rejects(janHosts.callPlugin(id, 'orchestration', 'peerStop', {}), { message: 'Worker is already stopped.' })
+  await assert.rejects(janHosts.callPlugin(id, 'orchestration', 'peerStop', {}), { code: 'rejected', message: 'Worker is already stopped.' })
 })
 
 test('forgetting a Host notifies plugins after its saved entry and login are removed', async (t) => {

@@ -25,9 +25,10 @@ export class HostsError extends Error {
   /**
    * @param {string} code - stable reason, such as `name-taken`.
    * @param {string} message - English sentence for the page.
+   * @param {ErrorOptions} [options] - the underlying failure as `cause`.
    */
-  constructor(code, message) {
-    super(message)
+  constructor(code, message, options) {
+    super(message, options)
     this.code = code
   }
 }
