@@ -107,13 +107,13 @@ function registerUi(ctx: Context): void {
   }
   const settled = (result: RemoteResult<unknown>, failure: ForgePanelKey, codes: Partial<Record<string, ForgePanelKey>> = {}): boolean => {
     if (result.ok) return true
-    notices.report(codes[result.error.code] ?? failure)
+    notices.report(codes[result.error.code] ?? failure, { error: { operation: `forge.${failure}`, cause: result.error } })
     return false
   }
   const copy = (text: string, copied: ForgePanelKey): void => {
     void navigator.clipboard.writeText(text).then(
       () => { notices.report(copied, { tone: 'success' }) },
-      () => { notices.report('toast.copyFailed') },
+      (error: unknown) => { notices.report('toast.copyFailed', { error: { operation: 'forge.copy', cause: error } }) },
     )
   }
   const copyText = (text: string): void => { copy(text, 'toast.copied') }
@@ -128,7 +128,7 @@ function registerUi(ctx: Context): void {
     }
     void conversation.send(text).then(
       () => { notices.report('toast.prompted', { tone: 'success', params: { text } }) },
-      () => { notices.report('toast.promptFailed') },
+      (error: unknown) => { notices.report('toast.promptFailed', { error: { operation: 'forge.prompt', cause: error } }) },
     )
   }
   const addReviewToInput = (sessionId: SessionId, selection: ReviewSelection): boolean => {

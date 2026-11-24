@@ -25,7 +25,7 @@ export function ActionToast({ useNotice, dismiss, t }: ActionToastProps): ReactN
     <Toast
       key={`forge-panel-${String(notice.seq)}`}
       text={t(notice.key, notice.params)}
-      {...notice.tone === 'success' ? { tone: 'success' as const } : { icon: <IconWarningOutlineRegular /> }}
+      {...notice.tone === 'success' ? { tone: 'success' as const } : { icon: <IconWarningOutlineRegular />, failure: notice.failure }}
       {...undo === undefined
         ? {}
         : {

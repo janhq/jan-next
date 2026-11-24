@@ -4,6 +4,7 @@
  */
 
 import type { HostObservable } from '@janhq/jan-client-ui-slots'
+import { captureFailure, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type { ForgeChangeRequestListState, ForgeChangeRequestStatesFrame, ForgePanelState } from '../types.ts'
 import type { ForgePanelKey } from './locales.ts'
 
@@ -213,6 +214,8 @@ export interface ActionNotice {
   readonly undo: (() => void) | undefined
   /** Increasing report number. */
   readonly seq: number
+  /** Diagnostic details of the failure behind the notice, when one was caught. */
+  readonly failure?: FailureDetails
 }
 
 /** Optional parts of a reported notice. */
@@ -223,6 +226,8 @@ export interface NoticeOptions {
   readonly tone?: ActionNotice['tone']
   /** Reverts the reported action. */
   readonly undo?: () => void
+  /** The caught error, captured as copyable details for a failure notice. */
+  readonly error?: { readonly operation: string; readonly cause: unknown }
 }
 
 /** Store that action wiring reports into and one `shell.overlay` entry reads. */
@@ -262,7 +267,10 @@ export function createNoticeSource(): NoticeSource {
       },
     },
     report: (key, options = {}) => {
-      publish({ key, params: options.params ?? {}, tone: options.tone ?? 'failure', undo: options.undo, seq: ++seq })
+      publish({
+        key, params: options.params ?? {}, tone: options.tone ?? 'failure', undo: options.undo, seq: ++seq,
+        ...options.error === undefined ? {} : { failure: captureFailure(options.error.operation, options.error.cause) },
+      })
     },
     dismiss: () => { publish(null) },
   }
