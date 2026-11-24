@@ -16,7 +16,7 @@ import type {} from '@janhq/jan-system-prompt'
 import type { ToolRestriction } from '@janhq/jan-tools'
 import type { WorkspaceId } from '@janhq/jan-workspace'
 import { draftProblem, renderProfile } from './parse.ts'
-import { globalRoots, projectRoots, scanRoot, watchRoot, type AgentRoot, type RootScan, type RootWatch } from './roots.ts'
+import { builtinRoot, globalRoots, projectRoots, scanRoot, watchRoot, type AgentRoot, type RootScan, type RootWatch } from './roots.ts'
 import { agentProfileChosenProjectionDefinition, agentProfileProjectionDefinition } from './session.ts'
 import type {
   AgentProfile, AgentProfileGetRequest, AgentProfileList, AgentProfileListRequest, AgentProfileModel, AgentProfileProblem,
@@ -89,6 +89,8 @@ export default class AgentProfiles extends TypertRemoteService {
   private readonly global: RootState[] = []
   private readonly projects = new Map<WorkspaceId, { readonly path: string; readonly roots: RootState[] }>()
   private readonly selections = new Map<string, Promise<unknown>>()
+  /** Selected profile per live chat, as first read; see {@link AgentProfiles.selectedProfile}. */
+  private readonly pinned = new Map<string, AgentProfile>()
   /** Model warnings found at selection, by profile file. */
   private readonly modelWarnings = new Map<string, string>()
   private timer: ReturnType<typeof setTimeout> | undefined
@@ -106,7 +108,7 @@ export default class AgentProfiles extends TypertRemoteService {
       agentsHome: resolveAgentsHome(this.config.agentsHome),
       userHome: this.config.userHome ?? homedir(),
     }
-    for (const root of globalRoots(homes)) this.global.push(this.track(root))
+    for (const root of [...globalRoots(homes), builtinRoot()]) this.global.push(this.track(root))
     this.ctx.effect(() => () => {
       this.closing = true
       clearTimeout(this.timer)
@@ -122,7 +124,10 @@ export default class AgentProfiles extends TypertRemoteService {
       if (project !== undefined) this.projectStates(project)
       return undefined
     }, { global: true })
-    this.ctx.on('agent/disposed', ({ agent }) => { this.selections.delete(agent.id) }, { global: true })
+    this.ctx.on('agent/disposed', ({ agent }) => {
+      this.selections.delete(agent.id)
+      this.pinned.delete(agent.id)
+    }, { global: true })
     this.syncProjects()
     await Promise.all(this.global.map(state => state.scanned))
   }
@@ -274,16 +279,21 @@ export default class AgentProfiles extends TypertRemoteService {
   }
 
   /**
-   * Profile a live chat selected, as currently on disk.
+   * Profile a live chat selected, pinned as first read for the chat's lifetime. Later edits to the file reach the
+   * chat only when the profile is picked again or the chat is reopened, so a hot edit never rewrites a running
+   * chat's system prompt or tool set and its cached prompt prefix stays reusable.
    * @param agent - the chat.
    * @returns the profile, or undefined for plain Jan or a selection no visible profile matches.
    */
   selectedProfile(agent: Agent): AgentProfile | undefined {
     const id = this.profileForSession(agent.session)
     if (id === null) return undefined
+    const pinned = this.pinned.get(agent.id)
+    if (pinned?.id === id) return pinned
     const found = this.compose(this.statesFor(this.projectOf(agent)), true).profiles
-      .find(profile => profile.id === id && profile.shadowedBy === undefined)
-    return found as AgentProfile | undefined
+      .find(profile => profile.id === id && profile.shadowedBy === undefined) as AgentProfile | undefined
+    if (found !== undefined) this.pinned.set(agent.id, found)
+    return found
   }
 
   /**
@@ -343,6 +353,8 @@ export default class AgentProfiles extends TypertRemoteService {
     if (this.ctx.agents.turnBoundaryOf(agent.session).openTurnStartSeq !== null) {
       throw new RemoteError('agent-profiles/locked', 'Wait for the running turn to finish before changing the agent.', { sessionId: agent.id })
     }
+    // An explicit pick, even of the same profile, takes the file as it is now.
+    this.pinned.delete(agent.id)
     let profile: AgentProfileSummary | undefined
     if (id !== null) {
       const workspaceId = this.projectOf(agent)
@@ -448,6 +460,8 @@ export default class AgentProfiles extends TypertRemoteService {
   private track(root: AgentRoot): RootState {
     const state: RootState = { root, scan: { profiles: [], problems: [] }, scanned: Promise.resolve(), dirty: false }
     state.scanned = this.read(state)
+    // Shipped profiles change only with an update, which restarts the Host.
+    if (root.source === 'builtin') return state
     state.watch = watchRoot(root.path, () => {
       state.dirty = true
       this.schedule()

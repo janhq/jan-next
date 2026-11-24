@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { ModelProviderGroup } from '@janhq/jan-api-session-controller/types'
 import type { PropsLocale } from '@janhq/jan-client-ui-slots'
 import { Button, Checkbox, IconLoadingOutlineRegular, Input, Modal, SelectMenu } from '@janhq/jan-client-ui-primitives'
-import type { AgentProfile, AgentProfileDraft, AgentProfileGetRequest, AgentProfileModel, AgentProfileSaveRequest,
+import type { AgentProfile, AgentProfileDraft, AgentProfileGetRequest, AgentProfileModel, AgentProfileSandbox, AgentProfileSaveRequest,
   AgentProfileScope, AgentProfileSummary, AgentProfileUse } from '../types.ts'
 import css from './AgentProfiles.module.css'
 
@@ -32,6 +32,7 @@ type ModelChoice = {
 }
 const NEW_AGENT: AgentProfileDraft = { id: '', description: '', use: 'all', instructions: '' }
 const USES: readonly AgentProfileUse[] = ['all', 'primary', 'subagent']
+const SANDBOXES: readonly AgentProfileSandbox[] = ['read-only', 'workspace-write', 'danger-full-access']
 const ID = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/
 
 type EditorData = {
@@ -128,6 +129,7 @@ function AgentForm({ initial, formId, scope, saving, save, janIds, existing, cop
   const [model, setModel] = useState(initial.draft.model)
   const [allow, setAllow] = useState(() => new Set(initial.draft.tools))
   const [deny, setDeny] = useState(() => new Set(initial.draft.disallowedTools))
+  const [sandbox, setSandbox] = useState<AgentProfileSandbox | ''>(initial.draft.sandbox ?? '')
   const [error, setError] = useState<'idError' | 'idTaken' | 'saveError'>()
   const choices = [...new Set([...(initial.tools ?? []), ...allow, ...deny])].sort()
   return <form id={formId} className={css.form} onSubmit={(event) => {
@@ -138,6 +140,7 @@ function AgentForm({ initial, formId, scope, saving, save, janIds, existing, cop
     setError(undefined)
     void save({ id: name, description, instructions, use, ...model === undefined ? {} : { model },
       ...allow.size === 0 ? {} : { tools: [...allow].sort() }, disallowedTools: [...deny].sort(),
+      ...sandbox === '' ? {} : { sandbox },
     }).catch(() => { setError('saveError') })
   }}>
     <p className={css.hint}>{t(`scope.${scope}`)}</p>
@@ -156,6 +159,13 @@ function AgentForm({ initial, formId, scope, saving, save, janIds, existing, cop
         options={USES.map(value => ({ id: value, label: t(`use.${value}`) }))}
         onChange={setUse} />
     </div>
+    {use !== 'primary' && <div className={css.field}>
+      <span>{t('sandbox')}</span>
+      <SelectMenu align="start" label={t('sandbox')} value={sandbox} disabled={saving}
+        options={[{ id: '', label: t('sandbox.inherit') }, ...SANDBOXES.map(value => ({ id: value, label: t(`sandbox.${value}`) }))]}
+        onChange={setSandbox} />
+      <p className={css.hint}>{t('sandboxHint')}</p>
+    </div>}
     <ModelFields groups={initial.models} model={model} setModel={setModel} saving={saving} t={t} />
     {initial.tools === null && <p className={css.hint} role="status">{t('toolsError')}</p>}
     <ToolChoices title={t('allow')} hint={t('allowHint')} names={choices} selected={allow} setSelected={setAllow} saving={saving} t={t} />

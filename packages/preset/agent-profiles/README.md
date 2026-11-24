@@ -39,8 +39,26 @@ Profiles are read from these folders, highest precedence first. When two files s
 | Claude Code | `<project>/.claude/agents` | `~/.claude/agents` | Markdown | no |
 | opencode | `<project>/.opencode/agents` | `~/.config/opencode/agents` | Markdown | no |
 | Codex | `<project>/.codex/agents` | `~/.codex/agents` | TOML | no |
+| Built-in | - | this package's `agents/` | Markdown | no |
 
-Every project folder outranks every global folder. Folders are read recursively; files larger than `maxFileBytes`, files that do not parse, and files without a usable id are listed under `problems`. A Claude or Codex file is named by its `name`; an opencode file by its path below the folder without the extension (`team/reviewer`); a Jan or `.agents` file by `name`, else its file name. Ids match `^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$`.
+Every project folder outranks every global folder, and built-in profiles rank last, so any user file with the same id replaces one; deleting that file brings the built-in back. Folders are read recursively; files larger than `maxFileBytes`, files that do not parse, and files without a usable id are listed under `problems`. A Claude or Codex file is named by its `name`; an opencode file by its path below the folder without the extension (`team/reviewer`); a Jan, `.agents` or built-in file by `name`, else its file name. Ids match `^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$`.
+
+Jan ships eight built-in profiles. They inherit the chat's model, so they work with any provider. Settings offers **Copy to Jan** to customize one.
+
+`sandbox` (Jan, `.agents` and built-in files; Codex `sandbox_mode`) caps the permission of a delegated task running the profile: `read-only`, `workspace-write` or `danger-full-access`. It is a cap, never a grant: the task keeps the narrower of the cap and the starting chat's permission. Claude and opencode files have no equivalent and inherit.
+
+| Id | Available for | Permission as a subagent | Does |
+|---|---|---|---|
+| `reviewer` | chats and subagents | read-only, no file-edit tools | Reviews a diff for bugs, security and contract breaks; reports verified findings by severity with `path:line` and a fix. |
+| `researcher` | chats and subagents | read-only, no file-edit tools | Answers from primary, dated sources with inline citations, cross-checks key claims, and separates fact from inference. |
+| `explorer` | subagents | read-only, no file-edit tools | Maps unfamiliar code quickly and returns a compact briefing: key files with line ranges, the call flow, and conventions. |
+| `planner` | chats and subagents | read-only, no file-edit tools | Turns a goal into ordered, code-grounded steps with the chosen approach, risks and verification. |
+| `worker` | chats and subagents | workspace write | Implements a scoped change end to end, migrates every caller, runs the checks, and reports files and verification. |
+| `debugger` | chats and subagents | workspace write | Reproduces, tests one hypothesis at a time, fixes the root cause, and proves the fix with a regression test. |
+| `tester` | chats and subagents | workspace write | Writes deterministic behaviour tests in the project's own framework, runs them, and reports bugs rather than bending code. |
+| `writer` | chats and subagents | workspace write | Drafts and edits prose for a named reader: main point first, plain words, no invented facts. |
+
+A chat keeps the profile text it first read: editing the file reaches a running chat only when the profile is picked again or the chat is reopened, so a hot edit never rewrites that chat's system prompt or tools and its cached prompt prefix stays reusable.
 
 Field mapping. Keys and values Jan cannot use are kept as `warnings` on the profile; the profile still loads.
 

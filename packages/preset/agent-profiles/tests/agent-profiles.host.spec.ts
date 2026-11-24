@@ -90,15 +90,18 @@ it('resolves project over global and Jan over Claude, listing the losers as shad
 
   const listed = await h.profiles.list({ workspaceId: PROJECT })
   const janPath = join(h.project, '.jan', 'agents', 'reviewer.md')
-  expect(listed.profiles.map(p => [p.id, p.description, p.shadowedBy])).toEqual([
+  const user = listed.profiles.filter(p => p.source !== 'builtin')
+  expect(user.map(p => [p.id, p.description, p.shadowedBy])).toEqual([
     ['reviewer', 'project jan', undefined],
     ['reviewer', 'project claude', janPath],
     ['other', 'x', undefined],
     ['reviewer', 'global claude', janPath],
   ])
+  expect(listed.profiles.find(p => p.source === 'builtin' && p.id === 'reviewer')?.shadowedBy).toBe(janPath)
   expect(listed.problems).toEqual([{ scope: 'project', path: join(h.project, '.claude', 'agents', 'broken.md'), reason: 'missing name' }])
   expect((await h.profiles.get({ id: 'reviewer', workspaceId: PROJECT })).instructions).toBe('J')
-  expect((await h.profiles.list({})).profiles.map(p => [p.id, p.shadowedBy])).toEqual([['other', undefined], ['reviewer', undefined]])
+  expect((await h.profiles.list({})).profiles.filter(p => p.source !== 'builtin').map(p => [p.id, p.shadowedBy]))
+    .toEqual([['other', undefined], ['reviewer', undefined]])
 })
 
 it('round-trips a saved Jan profile and refuses to delete a foreign one', async () => {
@@ -113,7 +116,32 @@ it('round-trips a saved Jan profile and refuses to delete a foreign one', async 
   write(join(h.home.userHome, '.codex', 'agents', 'fixer.toml'), 'name = "fixer"\ndeveloper_instructions = "Fix."\n')
   await expect(h.profiles.deleteProfile({ scope: 'global', id: 'fixer' })).rejects.toMatchObject({ code: 'agent-profiles/read-only' })
   await h.profiles.deleteProfile({ scope: 'global', id: 'reviewer' })
-  await expect(h.profiles.get({ id: 'reviewer' })).rejects.toMatchObject({ code: 'agent-profiles/not-found' })
+  // Deleting the Jan copy brings back the shipped profile it replaced.
+  expect(await h.profiles.get({ id: 'reviewer' })).toMatchObject({ source: 'builtin', writable: false })
+})
+
+it('ships read-only built-in profiles that parse cleanly and give way to any user file with the same id', async () => {
+  const h = await setup()
+  const builtins = (await h.profiles.list({})).profiles.filter(p => p.source === 'builtin')
+  expect(builtins.map(p => p.id).sort()).toEqual(['debugger', 'explorer', 'planner', 'researcher', 'reviewer', 'tester', 'worker', 'writer'])
+  for (const profile of builtins) {
+    expect(profile).toMatchObject({ scope: 'global', writable: false, warnings: [] })
+    expect(profile.description.length).toBeGreaterThan(40)
+    expect((await h.profiles.get({ id: profile.id })).instructions.length).toBeGreaterThan(400)
+  }
+  expect([...builtins.find(p => p.id === 'reviewer')?.disallowedTools ?? []].sort()).toEqual(['apply_patch', 'edit', 'str_replace_editor', 'write'])
+  expect(builtins.find(p => p.id === 'explorer')?.use).toBe('subagent')
+  // Read-and-report agents cannot write even under a Full access chat; builders stay inside the project.
+  expect(Object.fromEntries(builtins.map(p => [p.id, p.sandbox]))).toEqual({
+    reviewer: 'read-only', researcher: 'read-only', explorer: 'read-only', planner: 'read-only',
+    debugger: 'workspace-write', tester: 'workspace-write', worker: 'workspace-write', writer: 'workspace-write',
+  })
+  await expect(h.profiles.deleteProfile({ scope: 'global', id: 'researcher' })).rejects.toMatchObject({ code: 'agent-profiles/read-only' })
+
+  write(join(h.home.userHome, '.claude', 'agents', 'researcher.md'), '---\nname: researcher\ndescription: mine\n---\nMine')
+  await h.profiles.list({})
+  await new Promise(resolve => setTimeout(resolve, 400))
+  expect((await h.profiles.get({ id: 'researcher' })).instructions).toBe('Mine')
 })
 
 it('emits a change within a second when a file is renamed on disk or a folder appears', async () => {
@@ -121,7 +149,7 @@ it('emits a change within a second when a file is renamed on disk or a folder ap
   const file = join(h.project, '.claude', 'agents', 'pirate.md')
   write(file, '---\nname: pirate\ndescription: Talks like a pirate\n---\nArr.')
   await vi.waitFor(async () => {
-    expect((await h.profiles.list({ workspaceId: PROJECT })).profiles.map(p => p.id)).toEqual(['pirate'])
+    expect((await h.profiles.list({ workspaceId: PROJECT })).profiles.filter(p => p.source !== 'builtin').map(p => p.id)).toEqual(['pirate'])
   }, { timeout: 2_000 })
   const changed = new Promise<void>((resolve) => { h.ctx.on('agent-profiles/changed', () => { resolve() }) })
   renameSync(file, join(h.project, '.claude', 'agents', 'parrot.md'))
@@ -149,4 +177,26 @@ it('selects a profile at a turn boundary, logs it, switches the model and adds t
   await h.profiles.select({ sessionId: agent.id, id: null })
   expect(h.profiles.profileForSession(agent.session as never)).toBeNull()
   expect(await h.prompt(agent)).not.toContain('Agent: pirate')
+})
+
+it('keeps a running chat on the profile it first read, so a hot edit never rewrites its prompt or tools', async () => {
+  const h = await setup()
+  const file = join(h.project, '.jan', 'agents', 'pirate.md')
+  write(file, '---\nname: pirate\ndescription: Talks like a pirate\ntools: Read\n---\nArr.')
+  const agent = h.addAgent('chat-a')
+  await h.profiles.list({ workspaceId: PROJECT })
+  await h.profiles.select({ sessionId: agent.id, id: 'pirate' })
+  const before = await h.prompt(agent)
+
+  write(file, '---\nname: pirate\ndescription: Talks like a parrot\ntools: Read, Grep\n---\nSquawk.')
+  await vi.waitFor(async () => {
+    expect((await h.profiles.get({ id: 'pirate', workspaceId: PROJECT })).instructions).toBe('Squawk.')
+  }, { timeout: 2_000 })
+  expect(await h.prompt(agent)).toBe(before)
+  expect(h.profiles.toolLimitsFor(agent)).toEqual({ allow: ['read'], deny: [] })
+
+  // Picking the profile again is the explicit way to take the edit.
+  await h.profiles.select({ sessionId: agent.id, id: 'pirate' })
+  expect(await h.prompt(agent)).toContain('Squawk.')
+  expect(h.profiles.toolLimitsFor(agent)).toEqual({ allow: ['read', 'grep'], deny: [] })
 })

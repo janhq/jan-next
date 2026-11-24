@@ -114,7 +114,7 @@ export function AgentProfilesSection({
           <div className={css.actions}>
             <Button size="sm" variant="outline" onClick={() => { startEdit(profile) }}>{t(profile.writable ? 'edit' : 'copyToJan')}</Button>
             {profile.writable && <Button size="sm" onClick={() => { setDeleteTarget({ workspace, profile }) }}>{t('delete')}</Button>}
-            {manager !== undefined && <Button size="sm" onClick={() => { showInFolder(profile.path) }}>{t(`reveal.${manager}`)}</Button>}
+            {manager !== undefined && profile.source !== 'builtin' && <Button size="sm" onClick={() => { showInFolder(profile.path) }}>{t(`reveal.${manager}`)}</Button>}
           </div>
         </div>)}
         {problems.map(problem => <div key={problem.path} className={css.row}>

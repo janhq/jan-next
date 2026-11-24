@@ -5,7 +5,9 @@
  */
 import { parse as parseToml } from 'smol-toml'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
-import type { AgentProfile, AgentProfileDraft, AgentProfileModel, AgentProfileScope, AgentProfileSource, AgentProfileUse } from './types.ts'
+import type {
+  AgentProfile, AgentProfileDraft, AgentProfileModel, AgentProfileSandbox, AgentProfileScope, AgentProfileSource, AgentProfileUse,
+} from './types.ts'
 
 /** Pattern every profile id matches; `/` allows opencode subfolders. */
 export const PROFILE_ID = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/
@@ -46,18 +48,22 @@ const IGNORED: Readonly<Record<AgentProfileSource, readonly string[]>> = {
   jan: ['skills', 'hooks', 'mcpServers', 'permissionMode', 'memory', 'isolation', 'maxTurns'],
   agents: ['skills', 'hooks', 'mcpServers', 'permissionMode', 'memory', 'isolation', 'maxTurns'],
   claude: ['skills', 'hooks', 'mcpServers', 'permissionMode', 'memory', 'isolation', 'maxTurns'],
+  builtin: [],
   opencode: ['steps', 'hidden'],
-  codex: ['skills', 'sandbox_mode'],
+  codex: ['skills'],
 }
 
 /** Keys Jan reads, per source; `color` is presentation-only in Claude and opencode and is skipped silently. */
 const KNOWN: Readonly<Record<AgentProfileSource, readonly string[]>> = {
-  jan: ['name', 'description', 'mode', 'model', 'effort', 'tools', 'disallowedTools', 'color'],
-  agents: ['name', 'description', 'mode', 'model', 'effort', 'tools', 'disallowedTools', 'color'],
+  jan: ['name', 'description', 'mode', 'model', 'effort', 'tools', 'disallowedTools', 'sandbox', 'color'],
+  agents: ['name', 'description', 'mode', 'model', 'effort', 'tools', 'disallowedTools', 'sandbox', 'color'],
+  builtin: ['name', 'description', 'mode', 'model', 'effort', 'tools', 'disallowedTools', 'sandbox', 'color'],
   claude: ['name', 'description', 'model', 'effort', 'tools', 'disallowedTools', 'color'],
   opencode: ['description', 'mode', 'model', 'tools', 'permission', 'permissions', 'color'],
-  codex: ['name', 'description', 'developer_instructions', 'model', 'model_reasoning_effort', 'features'],
+  codex: ['name', 'description', 'developer_instructions', 'model', 'model_reasoning_effort', 'features', 'sandbox_mode'],
 }
+
+const SANDBOXES: readonly AgentProfileSandbox[] = ['read-only', 'workspace-write', 'danger-full-access']
 
 const USES: readonly AgentProfileUse[] = ['primary', 'subagent', 'all']
 
@@ -90,12 +96,14 @@ export function parseProfile(file: ProfileFile): ParsedProfile {
   const model = profileModel(file.source, fields, warnings)
   const allow = file.source === 'codex' || file.source === 'opencode' ? undefined : allowList(fields.tools, warnings)
   const deny = denyList(file.source, fields, warnings)
+  const sandbox = profileSandbox(file.source, fields, warnings)
   return {
     profile: {
       id, description, use, scope: file.scope, source: file.source, path: file.path, writable: file.writable,
       ...model === undefined ? {} : { model },
       ...allow === undefined ? {} : { tools: allow },
       disallowedTools: deny, warnings, instructions,
+      ...sandbox === undefined ? {} : { sandbox },
     },
   }
 }
@@ -117,6 +125,7 @@ export function renderProfile(draft: AgentProfileDraft): string {
   }
   if (draft.tools !== undefined && draft.tools.length > 0) header.tools = writtenTools(draft.tools)
   if (draft.disallowedTools !== undefined && draft.disallowedTools.length > 0) header.disallowedTools = writtenTools(draft.disallowedTools)
+  if (draft.sandbox !== undefined) header.sandbox = draft.sandbox
   const instructions = draft.instructions.trim()
   return `---\n${stringifyYaml(header, { lineWidth: 0 })}---\n${instructions === '' ? '' : `${instructions}\n`}`
 }
@@ -132,6 +141,7 @@ export function draftProblem(draft: AgentProfileDraft): string | undefined {
   }
   if (!USES.includes(draft.use)) return `Use must be one of ${USES.join(', ')}.`
   if (draft.model !== undefined && draft.model.model.trim() === '') return 'The model needs an id.'
+  if (draft.sandbox !== undefined && !SANDBOXES.includes(draft.sandbox)) return `Sandbox must be one of ${SANDBOXES.join(', ')}.`
   return undefined
 }
 
@@ -145,6 +155,16 @@ function writtenTools(names: readonly string[]): string {
     if (!written.includes(entry)) written.push(entry)
   }
   return written.join(', ')
+}
+
+function profileSandbox(source: AgentProfileSource, fields: Record<string, unknown>, warnings: string[]): AgentProfileSandbox | undefined {
+  if (source === 'claude' || source === 'opencode') return undefined
+  const key = source === 'codex' ? 'sandbox_mode' : 'sandbox'
+  const value = fields[key]
+  if (value === undefined || value === null) return undefined
+  if (typeof value === 'string' && (SANDBOXES as readonly string[]).includes(value)) return value as AgentProfileSandbox
+  warnings.push(`${key} ${JSON.stringify(value)} is not ${SANDBOXES.join(', ')}`)
+  return undefined
 }
 
 function splitFrontmatter(source: string): { fields: Record<string, unknown>; body: string } {
@@ -163,7 +183,7 @@ function profileId(file: ProfileFile, fields: Record<string, unknown>): string |
   if (file.source === 'opencode') return stripped
   const name = typeof fields.name === 'string' && fields.name.trim() !== '' ? fields.name.trim() : undefined
   if (name !== undefined) return name
-  return file.source === 'jan' || file.source === 'agents' ? stripped.split('/').pop() : undefined
+  return file.source === 'jan' || file.source === 'agents' || file.source === 'builtin' ? stripped.split('/').pop() : undefined
 }
 
 function text(value: unknown, key: string, warnings: string[]): string | undefined {

@@ -4,6 +4,7 @@
  */
 import { lstat, readdir, readFile, stat } from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import chokidar from 'chokidar'
 import { parseProfile } from './parse.ts'
 import type { AgentProfile, AgentProfileProblem, AgentProfileScope, AgentProfileSource } from './types.ts'
@@ -62,6 +63,15 @@ export function globalRoots(homes: AgentHomes): AgentRoot[] {
     { source: 'opencode', scope: 'global', path: join(homes.userHome, '.config', 'opencode', 'agents'), format: 'md', writable: false, rank: 230 },
     { source: 'codex', scope: 'global', path: join(homes.userHome, '.codex', 'agents'), format: 'toml', writable: false, rank: 240 },
   ]
+}
+
+/**
+ * Profiles Jan ships, read from this package's `agents` folder. They rank below every user folder, so a Jan,
+ * Claude, opencode or Codex file with the same id replaces one, and they are never written.
+ * @returns the built-in root.
+ */
+export function builtinRoot(): AgentRoot {
+  return { source: 'builtin', scope: 'global', path: fileURLToPath(new URL('../agents/', import.meta.url)), format: 'md', writable: false, rank: 300 }
 }
 
 /**

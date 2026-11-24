@@ -45,11 +45,17 @@ declare module '@janhq/jan-session-projection/types' {
 /** Where a profile applies: one project, or every project. */
 export type AgentProfileScope = 'project' | 'global'
 
-/** Tool whose folder layout a profile file follows; only `jan` folders are writable. */
-export type AgentProfileSource = 'jan' | 'agents' | 'claude' | 'opencode' | 'codex'
+/** Tool whose folder layout a profile file follows; only `jan` folders are writable. `builtin` profiles ship with Jan. */
+export type AgentProfileSource = 'jan' | 'agents' | 'claude' | 'opencode' | 'codex' | 'builtin'
 
 /** Whether a profile can run a chat (`primary`), a delegated task (`subagent`), or both. */
 export type AgentProfileUse = 'primary' | 'subagent' | 'all'
+
+/**
+ * Widest sandbox a delegated task running the profile may use, in `@janhq/jan-sandbox` mode names. A cap, never a
+ * grant: the task keeps the narrower of this and its parent chat's permission.
+ */
+export type AgentProfileSandbox = 'read-only' | 'workspace-write' | 'danger-full-access'
 
 /**
  * Model a profile asks for. Without `provider` the id is resolved against the model catalog at selection;
@@ -78,6 +84,8 @@ export interface AgentProfileSummary {
   readonly tools?: readonly string[]
   /** Jan tool names and `mcp:<server>` entries removed from visibility. */
   readonly disallowedTools: readonly string[]
+  /** Widest sandbox for a delegated task; absent inherits the parent chat's permission. */
+  readonly sandbox?: AgentProfileSandbox
   /** Keys and values the file declares that Jan could not map. */
   readonly warnings: readonly string[]
   /** Path of the higher-precedence file with the same id; a shadowed profile is never selected. */
@@ -110,6 +118,7 @@ export interface AgentProfileDraft {
   readonly model?: AgentProfileModel
   readonly tools?: readonly string[]
   readonly disallowedTools?: readonly string[]
+  readonly sandbox?: AgentProfileSandbox
   readonly instructions: string
 }
 

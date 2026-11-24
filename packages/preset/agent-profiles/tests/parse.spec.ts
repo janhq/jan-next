@@ -57,8 +57,16 @@ it('reads a Codex TOML agent with developer instructions and a disabled shell', 
   ].join('\n')))
   expect(read).toMatchObject({
     id: 'fixer', instructions: 'Fix the build.', disallowedTools: ['bash'], model: { model: 'gpt-6', reasoningEffort: 'medium' },
+    sandbox: 'read-only', warnings: [],
   })
-  expect(read.warnings).toEqual(['sandbox_mode is ignored'])
+})
+
+it('reads and writes a Jan sandbox cap, and warns on an unknown one', () => {
+  const draft = { id: 'worker', description: 'Builds', use: 'all' as const, sandbox: 'workspace-write' as const, instructions: 'Build.' }
+  expect(profile(file('jan', 'worker.md', renderProfile(draft)))).toMatchObject({ sandbox: 'workspace-write', warnings: [] })
+  const odd = profile(file('jan', 'x.md', ['---', 'sandbox: yolo', '---', 'X'].join('\n')))
+  expect(odd.sandbox).toBeUndefined()
+  expect(odd.warnings).toEqual(['sandbox "yolo" is not read-only, workspace-write, danger-full-access'])
 })
 
 it('records an unknown key as a warning instead of rejecting the file', () => {
