@@ -22,6 +22,7 @@ function jan({ providers = {}, user = {}, defaultModel, keys = {} } = {}) {
     },
     credentials: {
       describe: async ref => ({ configured: Object.hasOwn(state.keys, ref) }),
+      resolve: async ref => Object.hasOwn(state.keys, ref) ? { value: state.keys[ref], source: 'file' } : undefined,
       async set(ref, value) { state.keys[ref] = value },
     },
   }
