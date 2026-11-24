@@ -387,6 +387,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@janhq/jan-btw` | no | Ephemeral side questions in Jan chats |
 | `@janhq/jan-message-quotes` | no | Selected-text quotation and Markdown blockquote presentation |
 | `@janhq/jan-session-checkpoint-policy` | no | Semantic session durability checkpoints before model requests and tool side effects |
 | `@janhq/jan-session-persistence-jsonl` | yes | JSONL durable session persistence backend for Jan |

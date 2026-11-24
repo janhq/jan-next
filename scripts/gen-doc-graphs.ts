@@ -131,6 +131,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Serves reasoning translations, reuses saved results, and joins ordinary Session activation for uncached inactive Sessions.',
   },
   {
+    key: 'btwRuntime',
+    pkg: 'btw',
+    title: 'Chat side-question Remote',
+    mode: 'service',
+    note: 'Streams ephemeral answers using the chat model and conversation context without executing tools, entering the main turn, or appending Session events.',
+  },
+  {
     key: 'translator',
     pkg: 'experimental-translator',
     title: 'Anonymous text translation',
