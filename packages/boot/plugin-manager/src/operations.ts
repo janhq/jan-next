@@ -84,6 +84,8 @@ interface SavedFile {
 interface OperationStart {
   /** Direct dependency specs recorded in the profile manifest. */
   dependencies: Readonly<Record<string, string>>
+  /** Production dependencies eligible for automatic bundle selection. */
+  productionDependencies: ProfileManifest['dependencies']
   /** Each direct dependency's installed manifest, keyed by name. */
   installedBefore: ReadonlyMap<string, string | undefined>
   /** `package.json` and `pnpm-lock.yaml` as they were, for restoring on a rejection. */
@@ -156,16 +158,15 @@ export async function saveManifest(dir: string, manifest: ProfileManifest): Prom
 
 /** Reconcile bundle selection, returning platform denials without saving any selection changes. */
 async function reconcile(
-  before: Readonly<Record<string, string>>, dir: string, anchor: string, options: PackageOperationOptions,
+  before: ProfileManifest['dependencies'], after: ProfileManifest, dir: string, anchor: string, options: PackageOperationOptions,
 ): Promise<string[]> {
-  const after = readProfileManifest('jan', dir)
-  const dependencies = Object.keys(after.dependencies ?? {})
-  const beforeDeps = new Set(Object.keys(before))
+  const dependencies = new Set(Object.keys(after.dependencies ?? {}))
+  const beforeDeps = new Set(Object.keys(before ?? {}))
   const previous = after.jan?.profile?.bundles ?? []
   const unsupported: string[] = []
   const bundles = previous.filter((name) => {
-    if (!beforeDeps.has(name) && !dependencies.includes(name)) return true
-    return dependencies.includes(name) && bundleManifest(name, dir, anchor) !== undefined
+    if (!beforeDeps.has(name) && !dependencies.has(name)) return true
+    return dependencies.has(name) && bundleManifest(name, dir, anchor) !== undefined
   })
   for (const name of dependencies) {
     if (beforeDeps.has(name)) continue
@@ -420,6 +421,7 @@ function operationStart(dir: string, manifest: ProfileManifest): OperationStart 
   const dependencies = directDependencies(manifest)
   return {
     dependencies,
+    productionDependencies: manifest.dependencies,
     installedBefore: new Map(Object.keys(dependencies)
       .map(name => [name, optionalFile(join(dir, 'node_modules', name, 'package.json'))])),
     savedFiles: ['package.json', 'pnpm-lock.yaml'].map(name => ({ path: join(dir, name), text: optionalFile(join(dir, name)) })),
@@ -684,7 +686,7 @@ async function runPnpmOnce(
         options.onOutput?.(diagnostic, 'stderr')
         append(Buffer.from(diagnostic))
       } else if (options.activateNewBundles !== false) {
-        const unsupported = await reconcile(start.dependencies, dir, context.installAnchor, options)
+        const unsupported = await reconcile(start.productionDependencies, after, dir, context.installAnchor, options)
         if (unsupported.length > 0) {
           exitCode = 1
           const diagnostic = `\njan: bundle activation rejected: ${unsupported.join('\n')}\njan: installed dependencies remain; bundle selection is unchanged. Use a supported Host or remove the unwanted dependencies with 'jan plugin remove <package>'.\n`

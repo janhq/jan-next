@@ -634,6 +634,17 @@ it('activates newly installed bundles and leaves retained disabled dependencies 
   expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['new-bundle'])
 })
 
+it('activates a bundle promoted from dev to production dependencies', async () => {
+  const { dir, context, pnpm } = fixture()
+  install(dir, 'plugin')
+  const { dependencies, ...manifest } = readProfileManifest('test', dir)
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ ...manifest, devDependencies: dependencies }))
+  pnpm.mutate = (target) => { install(target, 'plugin') }
+  const outcome = await runPluginCommand(context, ['add', 'plugin'], { execution: 'cli', outputBytes: 100 })
+  expect(outcome.exitCode).toBe(0)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['plugin'])
+})
+
 it('can install without activation and bounds output while retaining the complete log', async () => {
   const { dir, context, pnpm } = fixture()
   pnpm.mutate = (target) => { install(target, 'extra') }
