@@ -50,6 +50,20 @@ pnpm run typecheck
 
 Setup is complete when `pnpm run typecheck` exits successfully.
 
+### Worktrees
+
+Orca runs `pnpm install --prefer-offline` when you create a worktree with setup enabled. For a plain Git worktree, run the same setup from the new checkout:
+
+```sh
+git worktree add ../jan-topic -b topic
+cd ../jan-topic
+pnpm install --prefer-offline
+```
+
+Each worktree has its own tracked files and build outputs. Git shares objects with the main checkout, and pnpm reuses packages from its store. For development worktrees that do not run or package Desktop, opt into the global virtual store with `pnpm config set enable-global-virtual-store true --global`. Leave it disabled for Desktop builds, which expect a worktree-local dependency layout. If you use both layouts on one machine, override the global setting for the Desktop checkout with `pnpm install --config.enable-global-virtual-store=false`.
+
+Desktop packaging can still reuse downloads and its package store across worktrees. Set `JAN_DESKTOP_PACKAGE_CACHE_DIR` as described in the [Desktop packaging guide](../apps/desktop/packaging/README.md#desktop-runtime-preparation).
+
 ## Contributor reference
 
 ### TypeScript project layout
