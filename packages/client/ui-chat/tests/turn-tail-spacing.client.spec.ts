@@ -53,7 +53,7 @@ describe('Running status entrance after admitted steering', () => {
   it('enters its new slot from one slot higher, outside reduced motion', () => {
     const view = read('ChatView.module.css')
     expect(view).toMatch(new RegExp(String.raw`@media \(prefers-reduced-motion: no-preference\) \{\s*:where\(\.column > [^{]*\[data-chat-flow-kind="steering"\]\) \+ \.running \{\s*`
-      + String.raw`animation: running-enters-slot 140ms cubic-bezier\(0\.2, 0\.8, 0\.2, 1\);`))
+      + String.raw`animation: running-enters-slot var\(--ds-transition-duration\) var\(--ds-ease-out\);`))
     expect(view).toMatch(new RegExp(String.raw`@keyframes running-enters-slot \{\s*from \{\s*opacity: 0;\s*`
       + String.raw`translate: 0 calc\(-44px - var\(--jan-content-font-delta, 0px\)\);\s*\}\s*40% \{\s*opacity: 1;`))
   })
