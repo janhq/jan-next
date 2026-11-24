@@ -89,8 +89,9 @@ export function AgentPresetSeat({
   const developerTools = useDeveloperTools(value => value)
   const state = useAgentPresetSeat(snapshot => snapshot)
   const modeActions = useModeActions(value => value)
+  // The main view and the project page each host the one composer that starts a chat; panes and sidebars do not.
   const main = useSessionRetainInfo(info => sessionId === undefined
-    || (info?.retainedBy.mainView ?? 0) > 0)
+    || (info?.retainedBy.mainView ?? 0) > 0 || (info?.retainedBy.projectHome ?? 0) > 0)
   const [open, setOpen] = useState(false)
   // The seq keys the banner, so picking the same broken preset twice replays
   // it rather than leaving the first one silently in place.
