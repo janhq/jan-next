@@ -1,5 +1,5 @@
 ---
-description: "The session-header background-job list: expandable streaming output panels, running/finished sections, and static rows for settled jobs without retained output."
+description: "Background jobs in the composer dock, with running and finished sections and expandable streaming output."
 kind: "package-reference"
 ---
 
@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-`jan-client-ui-jobs` shows the session's background jobs in one header control, with lifecycle, elapsed time, progress, and terminal detail. Live jobs and settled jobs with retained output offer expandable output panels; collapsing stops the stream. Live rows lead with a ticking duration, followed by kind and status. Settled rows fold under a section heading; those without retained output, including subagents whose answers went to the model, stay static.
+Check a chat's background jobs from the composer dock. The list shows each job's state, elapsed time, progress, and final status. Open a live job or a finished job with retained output to read its output; closing the panel stops the stream. Finished jobs without retained output stay static.
 
 ## Table of Contents
 
@@ -25,9 +25,9 @@ kind: "package-reference"
 
 Load the plugin through the web-app manifest; it renders nothing until the session can see at least one job, so an ordinary conversation never grows a control for a capability it is not using.
 
-The header shows the live job count when any jobs are running or stopping, otherwise the visible job count, without repeating the spinner's running state in visible text. The trigger's accessible description identifies live work in both wide and compact layouts. In wide layout, a 14px icon slot shows the spinner for live jobs or the 14px layers icon for idle jobs; the root trigger has no disclosure arrow. At container widths up to 460px, the count hides and the trigger always shows the layers icon, including while jobs are live; running indicators remain inside the menu. The trigger matches More and sidebar controls: a 28×28px icon button with no padding, a 15px glyph in a 15px slot, secondary ink, and ghost hover and active backgrounds. Header actions use an 8px gap in compact layout and 10px in wide layout. Its count tooltip appears after 500ms of hover or immediately on keyboard focus, and stays hidden while the list is open.
+The pill appears after the activity and usage pills in the composer dock. It shows a spinner and the running count while jobs are running or stopping. When only finished jobs remain, it shows the layers icon and the number of visible jobs.
 
-Non-touch hover on the text-visible trigger opens the list after 150ms; leaving both the trigger and its portaled list closes it after 120ms. Clicking the wide trigger opens or pins the list; clicking an already pinned trigger closes it. The compact trigger toggles on click and never opens on hover, including when the count hides during a pending hover. ArrowDown opens and pins the list and focuses its first control. Pointer interaction or keyboard focus inside also pins it. Outside click or Escape dismisses it, and Tab connects the trigger to the portaled controls. Hover timers and pins reset when the session changes, no visible jobs remain, or the component unmounts.
+Click the pill to open or pin the list above it. Hover with a non-touch pointer for a preview that closes when the pointer leaves both the pill and the list. Click a pinned pill again, click outside, or press Escape to dismiss. Press ArrowDown to open the list and focus its first control, or Tab from the open pill into the list. Interacting with the list pins it.
 
 ### One row per job
 
@@ -47,7 +47,7 @@ Expanding an observable row opens that job's output observation stream from `ctx
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-One slot entry in the header actions band (after the preset label) renders the trigger; its popover uses a body-mounted `MenuSurface` with fixed positioning so dock panels and clipping ancestors cannot cover it. CSS anchors keep the popover attached to its trigger within layout-viewport size limits. Browser zoom and panning move it with the page, so it may extend beyond the visual viewport. Its internal scrolling and dismissal remain available. All data arrives through `ctx.jobs` — the component holds no transport state. The roster follows the mount: one `useEffect` keeps the session's `job.list` stream open while the control lives. Observation follows visibility: another `useEffect` opens the stream for the expanded row's job and closes it on collapse, unmount, or popover close.
+The `conversation.composer.dock` entry opens a body-mounted `MenuSurface`, so the composer and sidebar cannot clip it. CSS anchors place it above the pill when space allows, with scrolling and fallbacks within the layout viewport. Pinch zoom can put part of the list outside the visual viewport. The session's roster stream stays open for the entry's lifetime; output observation runs only while its row is expanded and the list is visible.
 
 | File | Role |
 |---|---|

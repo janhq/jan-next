@@ -1,7 +1,6 @@
 /**
- * ui-jobs plugin halves: the browser entry's dictionary and header-slot
- * registrations against the real SlotRegistry (with fiber teardown proving
- * removal — HMR safety), and the inert node entry.
+ * ui-jobs plugin halves: dictionaries and slot registrations against the
+ * real SlotRegistry, including fiber teardown, and the inert node entry.
  */
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import { Context } from '@janhq/cordis'
@@ -16,13 +15,6 @@ import type { JobListInjected } from '../src/client/JobListAction.tsx'
 import { apply as applyNode } from '../src/index.ts'
 import { en, NS, zh } from '../src/client/locales.ts'
 
-/** Slot ledger reader: entry ids currently registered in the header list. */
-function headerEntryIds(ctx: Context): (string | undefined)[] {
-  return ctx.slots
-    .entries('conversation.session.header.actions')
-    .map(entry => entry.options.id)
-}
-
 /** Observation requests handed to the stubbed jobs service. */
 const observed: [string | undefined, string][] = []
 /** Roster watches handed to the stubbed jobs service. */
@@ -32,14 +24,16 @@ const watched: string[] = []
 const kills: [string, string][] = []
 let killResult: { ok: boolean } = { ok: true }
 
-/** Boot the browser half over a real slot tree that declares the header list. */
+/** Boot the browser half with both conversation lists and the tool status slot. */
 async function bench(): Promise<{ ctx: Context; fiber: ReturnType<Context['plugin']> }> {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
   ctx.slots.register({
     name: 'root',
     children: {
+      'conversation.composer.dock': { kind: 'list', scope: 'session' },
       'conversation.session.header.actions': { kind: 'list', scope: 'session' },
+      'tool.call.status': { kind: 'single', scope: 'session' },
     },
   } as never, () => null)
   ctx.provide('jobs', {
@@ -80,7 +74,7 @@ describe('ui-jobs browser half', () => {
   it('exposes the jobs source and the roster, observation, and kill controls through the inject face', async () => {
     const { ctx } = await bench()
     const entry = ctx.slots
-      .entries('conversation.session.header.actions')
+      .entries('conversation.composer.dock')
       .find(candidate => candidate.options.id === 'job-list')
     const inject = entry?.inject as (() => JobListInjected) | undefined
     if (inject === undefined) throw new Error('job-list entry registered no inject face')
@@ -102,11 +96,16 @@ describe('ui-jobs browser half', () => {
     expect(kills).toEqual([['sess-live', 'bash-3'], ['sess-live', 'bash-4']])
   })
 
-  it('registers the header action, and fiber teardown removes it (HMR safety)', async () => {
+  it('adds the job list after the composer statistics, not in the header, and removes it on teardown', async () => {
     const { ctx, fiber } = await bench()
-    expect(headerEntryIds(ctx)).toContain('job-list')
+    ctx.slots.register({ name: 'conversation.composer.dock', id: 'activity', order: 0 }, () => null)
+    ctx.slots.register({ name: 'conversation.composer.dock', id: 'usage', order: 1 }, () => null)
+    expect(ctx.slots.entries('conversation.composer.dock').map(entry => entry.options.id)).toEqual(['activity', 'usage', 'job-list'])
+    expect(ctx.slots.entries('conversation.session.header.actions')).toEqual([])
+    expect(ctx.slots.entries('tool.call.status')).toHaveLength(1)
     await fiber.dispose()
-    expect(headerEntryIds(ctx)).not.toContain('job-list')
+    expect(ctx.slots.entries('conversation.composer.dock').map(entry => entry.options.id)).toEqual(['activity', 'usage'])
+    expect(ctx.slots.entries('tool.call.status')).toEqual([])
   })
 
   it('registers both dictionaries under its own namespace and releases them with the fiber', async () => {

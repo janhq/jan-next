@@ -66,32 +66,32 @@ function props(
   function useJobs<T>(select: (value: JobsSnapshot) => T): T {
     return select(jobsState)
   }
-  return { sessionId: SESSION, useJobs, watchRows, observe, killJob, t } as JobListActionProps
+  return { sessionId: SESSION, locked: false, useJobs, watchRows, observe, killJob, t } as JobListActionProps
 }
 
 function openList(): void {
   fireEvent.click(screen.getAllByRole('button')[0]!)
 }
 
-describe('JobListAction count copy', () => {
+describe('JobListAction pill copy', () => {
   it.each([
-    [zh, '1 个后台任务', '2 个后台任务'],
-    [en, '1 background job', '2 background jobs'],
-    [ja, 'バックグラウンドジョブ 1 件', 'バックグラウンドジョブ 2 件'],
-    [es, 'Tareas en segundo plano: 1', 'Tareas en segundo plano: 2'],
-    [fr, 'Tâches en arrière-plan : 1', 'Tâches en arrière-plan : 2'],
-    [de, 'Hintergrundaufgaben: 1', 'Hintergrundaufgaben: 2'],
-    [ru, 'Фоновые задачи: 1', 'Фоновые задачи: 2'],
-    [pt, 'Tarefas em segundo plano: 1', 'Tarefas em segundo plano: 2'],
-  ] as const)('uses neutral count copy for live and settled jobs in locale %#', (dictionary, one, two) => {
+    [zh, '运行中 1', '2 个后台任务'],
+    [en, '1 running', '2 background jobs'],
+    [ja, '実行中 1 件', 'バックグラウンドジョブ 2 件'],
+    [es, '1 en curso', 'Tareas en segundo plano: 2'],
+    [fr, '1 en cours', 'Tâches en arrière-plan : 2'],
+    [de, '1 läuft', 'Hintergrundaufgaben: 2'],
+    [ru, 'В работе: 1', 'Фоновые задачи: 2'],
+    [pt, '1 em execução', 'Tarefas em segundo plano: 2'],
+  ] as const)('labels the live and settled pill in locale %#', (dictionary, running, settledName) => {
     const translate: JobListActionProps['t'] = makeTranslate(dictionary)
     const settled = job({ id: 'settled' as JobView['id'], status: 'completed', finishedAt: 1_700_000_003_000 })
     const { rerender } = render(<JobListAction {...props([job(), settled])} t={translate} />)
-    expect(screen.getByRole('button', { name: one, description: dictionary['section.live'] })).toBeDefined()
+    expect(screen.getByRole('button', { name: running, description: dictionary['list.aria'] }).textContent).toBe(running)
     rerender(<JobListAction {...props([job({ status: 'stopping' }), settled])} t={translate} />)
-    expect(screen.getByRole('button', { name: one, description: dictionary['section.live'] })).toBeDefined()
+    expect(screen.getByRole('button', { name: running }).textContent).toBe(running)
     rerender(<JobListAction {...props([job({ status: 'completed' }), settled])} t={translate} />)
-    expect(screen.getByRole('button', { name: two, description: '' })).toBeDefined()
+    expect(screen.getByRole('button', { name: settledName }).textContent).toBe('2')
   })
 })
 
@@ -116,15 +116,14 @@ describe('JobListAction visibility', () => {
       outputJob(),
       job({ id: 'subagent-1' as JobView['id'], kind: 'subagent', label: 'explore' }),
     ])} />)
-    expect(screen.getByRole('button', { name: '2 个后台任务' })).toBeDefined()
+    expect(screen.getByRole('button', { name: '运行中 2' }).textContent).toBe('运行中 2')
   })
 
-  it('retains the compact Layers icon through running, stopping, and idle states without a root chevron', () => {
+  it('keeps the spinner until the job settles, then replaces it with the Layers icon', () => {
     const { rerender } = render(<JobListAction {...props([job()])} />)
     const trigger = screen.getByRole('button')
-    expect(trigger.querySelector('[data-icon="dsw-icon-layers-outline-regular"]')).not.toBeNull()
+    expect(trigger.querySelector('[data-icon="dsw-icon-layers-outline-regular"]')).toBeNull()
     expect(trigger.querySelector('[data-state="ongoing"]')).not.toBeNull()
-    expect(trigger.querySelector('[data-icon="dsw-icon-chevron-down-outline-regular"]')).toBeNull()
     rerender(<JobListAction {...props([job({ status: 'stopping' })])} />)
     expect(screen.getByRole('button')).toBe(trigger)
     expect(trigger.querySelector('[data-state="ongoing"]')).not.toBeNull()
@@ -132,8 +131,7 @@ describe('JobListAction visibility', () => {
     expect(screen.getByRole('button')).toBe(trigger)
     expect(trigger.querySelector('[data-state="ongoing"]')).toBeNull()
     const icon = trigger.querySelector('[data-icon="dsw-icon-layers-outline-regular"]')
-    expect(icon?.getAttribute('width')).toBe('14')
-    expect(trigger.querySelectorAll('svg')).toHaveLength(1)
+    expect(icon).not.toBeNull()
   })
 
   it('falls back to the total when nothing is live', () => {
@@ -157,7 +155,7 @@ describe('JobListAction hover', () => {
   }
 
   function hoverOpen(): HTMLElement {
-    const trigger = screen.getByRole('button', { name: '1 个后台任务' })
+    const trigger = screen.getByRole('button', { name: '运行中 1' })
     pointer(trigger, 'pointerover')
     advance(149)
     expect(screen.queryByRole('list')).toBeNull()
@@ -166,56 +164,13 @@ describe('JobListAction hover', () => {
     return trigger
   }
 
-  it('keeps the compact trigger click-only and shows its count tooltip after 500ms', () => {
+  it('opens and pins with ArrowDown, then restores trigger focus on Escape', async () => {
     vi.useFakeTimers()
     render(<JobListAction {...props([job()])} />)
     const trigger = screen.getByRole('button')
-    const count = trigger.querySelector<HTMLElement>('[data-job-count]')!
-    count.style.display = 'none'
-    pointer(trigger, 'pointerover')
-    advance(499)
-    expect(screen.queryByRole('list')).toBeNull()
-    expect(screen.queryByRole('tooltip')).toBeNull()
-    advance(1)
-    expect(screen.getByRole('tooltip').textContent).toBe('1 个后台任务')
-    fireEvent.click(trigger)
-    expect(screen.queryByRole('tooltip')).toBeNull()
-    pointer(trigger, 'pointerout')
-    advance(500)
-    expect(screen.getByRole('list')).toBeDefined()
-    fireEvent.click(trigger)
-    expect(screen.queryByRole('list')).toBeNull()
-  })
-
-  it('cancels pending wide hover when CSS hides the count and compact clicks close hover-opened lists', () => {
-    vi.useFakeTimers()
-    render(<JobListAction {...props([job()])} />)
-    const trigger = screen.getByRole('button')
-    const count = trigger.querySelector<HTMLElement>('[data-job-count]')!
-    pointer(trigger, 'pointerover')
-    advance(100)
-    count.style.display = 'none'
-    advance(50)
-    expect(screen.queryByRole('list')).toBeNull()
-    pointer(trigger, 'pointerout')
-    count.style.display = ''
-    hoverOpen()
-    count.style.display = 'none'
-    fireEvent.click(trigger)
-    expect(screen.queryByRole('list')).toBeNull()
-  })
-
-  it('shows count on keyboard focus immediately and opens and pins with ArrowDown', async () => {
-    vi.useFakeTimers()
-    render(<JobListAction {...props([job()])} />)
-    const trigger = screen.getByRole('button')
-    trigger.querySelector<HTMLElement>('[data-job-count]')!.style.display = 'none'
-    fireEvent.keyDown(document.body, { key: 'Tab' })
     act(() => { trigger.focus() })
-    expect(screen.getByRole('tooltip').textContent).toBe('1 个后台任务')
     fireEvent.keyDown(trigger, { key: 'ArrowDown' })
     await act(async () => { vi.runAllTicks() })
-    expect(screen.queryByRole('tooltip')).toBeNull()
     const row = screen.getByRole('button', { name: zh['row.expandAria'].replace('{label}', 'pnpm run build') })
     expect(document.activeElement).toBe(row)
     pointer(trigger, 'pointerout')
@@ -224,6 +179,17 @@ describe('JobListAction hover', () => {
     fireEvent.keyDown(row, { key: 'Escape' })
     expect(screen.queryByRole('list')).toBeNull()
     expect(document.activeElement).toBe(trigger)
+  })
+
+  it('shows the full label for a clipped pill on keyboard focus', () => {
+    render(<JobListAction {...props([job()])} />)
+    const trigger = screen.getByRole('button', { name: '运行中 1' })
+    Object.defineProperty(trigger, 'scrollWidth', { value: 100 })
+    fireEvent.keyDown(document.body, { key: 'Tab' })
+    act(() => { trigger.focus() })
+    expect(screen.getByRole('tooltip').textContent).toBe('运行中 1')
+    fireEvent.click(trigger)
+    expect(screen.queryByRole('tooltip')).toBeNull()
   })
 
   it('waits for hover, bridges the portal gap, and closes after leaving both surfaces', () => {
@@ -412,7 +378,7 @@ describe('JobListAction hover', () => {
     expect(vi.getTimerCount()).toBe(0)
     rerender(<JobListAction {...first} />)
     hoverOpen()
-    fireEvent.click(screen.getByRole('button', { name: '1 个后台任务' }))
+    fireEvent.click(screen.getByRole('button', { name: '运行中 1' }))
     rerender(<JobListAction {...props([])} />)
     rerender(<JobListAction {...first} />)
     expect(screen.queryByRole('list')).toBeNull()
@@ -619,7 +585,7 @@ describe('JobListAction observation', () => {
 
   it('anchors the portaled list with CSS without reading geometry on resize or ancestor scroll', () => {
     const { container } = render(<JobListAction {...props([outputJob()])} />)
-    const trigger = screen.getByRole('button', { name: '1 个后台任务' })
+    const trigger = screen.getByRole('button', { name: '运行中 1' })
     const anchor = trigger.closest('div')!
     const measure = vi.spyOn(anchor, 'getBoundingClientRect')
     fireEvent.click(trigger)
@@ -639,7 +605,7 @@ describe('JobListAction observation', () => {
 
   it('gives independent job controls separate CSS anchors', () => {
     render(<><JobListAction {...props([outputJob()])} /><JobListAction {...props([outputJob()])} /></>)
-    const triggers = screen.getAllByRole('button', { name: '1 个后台任务' })
+    const triggers = screen.getAllByRole('button', { name: '运行中 1' })
     const first = triggers[0]!.closest('div')!
     const second = triggers[1]!.closest('div')!
     expect(first.style.anchorName).not.toBe('')
@@ -652,7 +618,7 @@ describe('JobListAction observation', () => {
     vi.stubGlobal('visualViewport', viewport)
     const listen = vi.spyOn(viewport, 'addEventListener')
     render(<JobListAction {...props([outputJob()])} />)
-    const trigger = screen.getByRole('button', { name: '1 个后台任务' })
+    const trigger = screen.getByRole('button', { name: '运行中 1' })
     fireEvent.click(trigger)
     const menu = screen.getByRole('list', { name: zh['list.aria'] }).closest<HTMLElement>('[data-menu-material]')!
     const placement = menu.style.positionAnchor
@@ -677,7 +643,7 @@ describe('JobListAction observation', () => {
     const stop = vi.fn()
     const observe = vi.fn(() => stop)
     const { container, unmount } = render(<JobListAction {...props([outputJob()], observe)} />)
-    const trigger = screen.getByRole('button', { name: '1 个后台任务' })
+    const trigger = screen.getByRole('button', { name: '运行中 1' })
     trigger.focus()
     fireEvent.click(trigger)
     const list = screen.getByRole('list', { name: zh['list.aria'] })
@@ -944,7 +910,7 @@ it.each([1, 2, 5, 21])('renders count-independent Russian labels for %i jobs', (
   const jobs = Array.from({ length: count }, (_, i) => job({ id: `job-${i}` as JobView['id'] }))
   const translate: JobListActionProps['t'] = makeTranslate(ru)
   const view = render(<JobListAction {...props(jobs)} t={translate} />)
-  expect(screen.getByRole('button', { name: `Фоновые задачи: ${count}` })).toBeDefined()
+  expect(screen.getByRole('button', { name: `В работе: ${count}`, description: ru['list.aria'] })).toBeDefined()
   view.rerender(<JobListAction {...props(jobs.map(item => ({ ...item, status: 'completed', finishedAt: 1_700_000_003_000 })))} t={translate} />)
   expect(screen.getByRole('button', { name: `Фоновые задачи: ${count}` })).toBeDefined()
 })

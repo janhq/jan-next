@@ -1,5 +1,5 @@
 import { executeToolFixture } from '@janhq/jan-tool-testkit'
-// Session-header job list driven by a real background bash run: the job row
+// Composer dock job list driven by a real background bash run: the job row
 // arrives over the job roster stream, expanding it opens the output
 // observation stream, and the panel shows the process's real output while it
 // is still running. No model call is involved.
@@ -85,7 +85,8 @@ describe.skipIf(MODE === 'record')('web e2e: live job stream', () => {
   it('streams a running job\'s real output into the expanded panel, then settles it in place on kill', async () => {
     let phase = 'streaming'
     onTestFailed(() => saveFailureShot(page, `web-e2e-live-job-${phase}`))
-    const trigger = page.getByRole('button', { name: '1 background job', exact: true })
+    const dock = page.locator('[data-composer-dock]')
+    const trigger = dock.getByRole('button', { name: '1 running', exact: true })
     expect(await trigger.count()).toBe(0)
 
     const started = await executeToolFixture(scaffold.ctx, {
@@ -108,7 +109,6 @@ describe.skipIf(MODE === 'record')('web e2e: live job stream', () => {
     const readyOutput = scaffold.ctx.jobs.readAt(jobId, 0, agent.id).chunks.map(chunk => chunk.text).join('')
     expect(readyJob.status, `${readyJob.detail ?? ''}\n${readyOutput}`).toBe('running')
 
-    // The job row reaches the header over the job roster stream.
     await trigger.waitFor({ timeout: 15_000 })
     await trigger.click()
 
@@ -119,7 +119,7 @@ describe.skipIf(MODE === 'record')('web e2e: live job stream', () => {
     await expand.click()
     await page.getByText('streamed-marker-line').waitFor({ timeout: 15_000 })
 
-    const streaming = await captureStableAria(page, '[class*="menu"]', scaffold.workspaceCwd, { runningJobs: 'keep' })
+    const streaming = await captureStableAria(page, '[data-menu-material]:has(ul[aria-label="Background jobs"])', scaffold.workspaceCwd, { runningJobs: 'keep' })
     await compareOrRefreshGolden(STREAMING_EXPECTED, streaming, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
@@ -137,14 +137,13 @@ describe.skipIf(MODE === 'record')('web e2e: live job stream', () => {
     phase = 'settled'
     expect(scaffold.ctx.jobs.kill(jobId, agent.id, 'web e2e cancellation')).toBe('requested')
 
-    // The unchanged count label is not a settlement signal; the output row owns that state.
     await page.getByRole('button', { name: 'Finished 1', exact: true }).waitFor({ timeout: 20_000 })
     await expect.poll(() => page.getByRole('list', { name: 'Background jobs' }).textContent()).toContain('web e2e cancellation')
-    expect(await trigger.getAttribute('aria-label')).toBe('1 background job')
+    await dock.getByRole('button', { name: '1 background job', exact: true }).waitFor()
     expect(scaffold.ctx.jobs.get(jobId, agent.id).status).toBe('killed')
     await page.getByText('streamed-marker-line').waitFor({ timeout: 10_000 })
 
-    const settled = await captureStableAria(page, '[class*="menu"]', scaffold.workspaceCwd)
+    const settled = await captureStableAria(page, '[data-menu-material]:has(ul[aria-label="Background jobs"])', scaffold.workspaceCwd)
     await compareOrRefreshGolden(SETTLED_EXPECTED, settled, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])

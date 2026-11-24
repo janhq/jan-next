@@ -1,3 +1,4 @@
+- button "1 running" [expanded]
 - list "Background jobs":
   - listitem:
     - button "Show live output of for _ in $(seq 1 3000); do [ -e .background-job-list.release ] && break; sleep 0.2; done": for _ in $(seq 1 3000); do [ -e .background-job-list.release ] && break; sleep 0.2; done bash {{duration}}

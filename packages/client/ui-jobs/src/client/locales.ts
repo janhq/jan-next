@@ -5,6 +5,7 @@ export const NS = 'job'
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
+  'count.live': '运行中 {count}',
   'count.idle.one': '{count} 个后台任务',
   'count.idle.other': '{count} 个后台任务',
   'list.aria': '后台任务',
@@ -49,6 +50,7 @@ export const zh = {
 
 /** English dictionary, key-identical to the Chinese source of truth. */
 export const en: Record<JobKey, string> = {
+  'count.live': '{count} running',
   'count.idle.one': '{count} background job',
   'count.idle.other': '{count} background jobs',
   'list.aria': 'Background jobs',
@@ -96,6 +98,7 @@ export type JobKey = keyof typeof zh
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  'count.live': '実行中 {count} 件',
   'count.idle.one': 'バックグラウンドジョブ {count} 件',
   'count.idle.other': 'バックグラウンドジョブ {count} 件',
   'list.aria': 'バックグラウンドジョブ',
@@ -140,6 +143,7 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  'count.live': '{count} en curso',
   'count.idle.one': 'Tareas en segundo plano: {count}',
   'count.idle.other': 'Tareas en segundo plano: {count}',
   'list.aria': 'Trabajos en segundo plano',
@@ -184,6 +188,7 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  'count.live': '{count} en cours',
   'count.idle.one': 'Tâches en arrière-plan : {count}',
   'count.idle.other': 'Tâches en arrière-plan : {count}',
   'list.aria': 'Travaux en arrière-plan',
@@ -228,6 +233,7 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  'count.live': '{count} läuft',
   'count.idle.one': 'Hintergrundaufgaben: {count}',
   'count.idle.other': 'Hintergrundaufgaben: {count}',
   'list.aria': 'Hintergrundjobs',
@@ -272,6 +278,7 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  'count.live': 'В работе: {count}',
   'count.idle.one': 'Фоновые задачи: {count}',
   'count.idle.other': 'Фоновые задачи: {count}',
   'list.aria': 'Фоновые задания',
@@ -316,6 +323,7 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  'count.live': '{count} em execução',
   'count.idle.one': 'Tarefas em segundo plano: {count}',
   'count.idle.other': 'Tarefas em segundo plano: {count}',
   'list.aria': 'Trabalhos em segundo plano',

@@ -1,6 +1,6 @@
 {
   "name": "@janhq/jan-client-ui-jobs",
-  "description": "Session-header background-job list with on-demand streaming record panels",
+  "description": "Composer dock background-job list with on-demand streaming output",
   "version": "0.2.2-rc.1",
   "type": "module",
   "main": "lib/index.js",

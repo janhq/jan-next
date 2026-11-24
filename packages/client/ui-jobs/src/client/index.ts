@@ -1,9 +1,6 @@
 /**
- * Background-job plugin, browser half: contributes one session-header action
- * that renders this session's jobs, and the live status beside each tool call
- * that started a job. Job rows, per-row observation streams, and the human
- * kill all go through the `jobs` client service; this plugin holds no
- * transport state of its own.
+ * Browser contributions for background jobs: the composer dock list and
+ * live status beside the tool call that started a job.
  */
 import type { Context as ClientContext } from '@janhq/cordis'
 import type { JobId } from '@janhq/jan-jobs/brand'
@@ -31,18 +28,17 @@ export type { JobCallStatusInjected, JobCallStatusProps } from './JobCallStatus.
 export const inject = ['jobs', 'slots', 'locale']
 
 /**
- * Client plugin body: register the dictionaries and the header action.
+ * Register the job dictionaries and slot contributions.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-jobs: dictionaries')
   ctx.slots.inject(
-    'conversation.session.header.actions',
+    'conversation.composer.dock',
     () => ctx.slots.register({
-      name: 'conversation.session.header.actions',
+      name: 'conversation.composer.dock',
       id: 'job-list',
-      // Background work follows the preset label in the header actions band.
-      order: 20,
+      order: 2,
       locale: NS,
       inject: (): JobListInjected => ({
         hooks: { jobs: ctx.jobs.state },
