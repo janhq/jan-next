@@ -9,5 +9,5 @@
 - button "Start recording"
 - button "Send message"
 - button "Choose project": Default project
-- button "Standard mode"
+- button "Code mode"
 - button "8% of context used": 8%

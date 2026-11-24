@@ -136,6 +136,22 @@
   color: var(--dsw-alias-label-primary);
 }
 
+@supports (background-clip: text) and (color: color-mix(in srgb, currentColor, transparent)) {
+  @media (forced-colors: none) {
+    .creatorName {
+      align-self: flex-start;
+      background-image: linear-gradient(to right,
+        color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, var(--dsw-alias-label-primary)),
+        color-mix(in srgb, var(--dsw-alias-state-warn-label) 45%, var(--dsw-alias-label-primary)),
+        color-mix(in srgb, var(--dsw-alias-state-success-primary) 45%, var(--dsw-alias-label-primary)),
+        color-mix(in srgb, var(--dsw-alias-link) 45%, var(--dsw-alias-label-primary)),
+        color-mix(in srgb, var(--dsw-alias-state-done-primary) 45%, var(--dsw-alias-label-primary)));
+      background-clip: text;
+      color: transparent;
+    }
+  }
+}
+
 .itemDesc {
   font-size: 12px;
   line-height: 16px;

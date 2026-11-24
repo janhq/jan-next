@@ -21,9 +21,8 @@ import {
 import type { } from '@janhq/jan-client-ui-conversation/client'
 import type { AgentPresetSeatState } from './seat-store.ts'
 import { presetDisplayText } from './locales.ts'
-import { requiresCodingTools } from './settings-store.ts'
 import css from './AgentPresetSeat.module.css'
-import { modeActionItems, runModeAction } from './mode-actions.tsx'
+import { modeMenuItems, modePickerOptions, runModeAction } from './mode-actions.tsx'
 import type { AgentPresetModeAction } from './index.ts'
 import { PresetIcon } from './PresetIcon.tsx'
 
@@ -108,7 +107,7 @@ export function AgentPresetSeat({
   }, [load])
 
   const options = useMemo(
-    () => state.options.filter(option => developerTools || !requiresCodingTools(option)),
+    () => modePickerOptions(state.options, developerTools),
     [state.options, developerTools],
   )
   const hasItems = options.length > 0 || modeActions.length > 0
@@ -170,21 +169,7 @@ export function AgentPresetSeat({
       {ready && <Menu
         open={open && hasItems}
         onClose={() => { setOpen(false) }}
-        items={[...options.map((option) => {
-          const text = presetDisplayText(option, t)
-          return {
-            id: option.id,
-            icon: <PresetIcon icon={option.icon} size={14} />,
-            // Name and description together: the id alone never says what a
-            // preset does, which is why the roster carries display copy.
-            label: (
-              <span className={css.item}>
-                <span className={css.itemName}>{text.name}</span>
-                <span className={css.itemDesc}>{text.description ?? t('noDescription')}</span>
-              </span>
-            ),
-          }
-        }), ...modeActionItems(modeActions)]}
+        items={modeMenuItems(options, modeActions, t)}
         selectedId={state.current}
         onSelect={(id) => {
           setOpen(false)

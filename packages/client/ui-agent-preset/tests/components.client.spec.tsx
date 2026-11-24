@@ -127,8 +127,26 @@ it('opens a contributed mode from both preset menus without selecting a capabili
   expect(select).not.toHaveBeenCalled()
 })
 
+it.each(['new session', 'started session'])('shows only user-facing modes in menu order for a %s', (surface) => {
+  const options = [
+    { id: 'chat', name: 'Chat mode', order: 0 },
+    { id: 'standard', order: 1 },
+    { id: 'cordis', order: 5 },
+    ...['reviewer', 'scout', 'worker'].map(id => ({ id, showInModePicker: false })),
+  ]
+  const modeActions = createSnapshotStore<readonly AgentPresetModeAction[]>([{
+    id: 'bots', order: 4, name: () => 'Bots mode', description: () => 'Create a bot', run: vi.fn(),
+  }])
+  if (surface === 'new session') renderSeat({ options }, undefined, undefined, false, modeActions)
+  else renderLabel({ blank: false, projectionValues: { agentPreset: 'standard' } }, { options }, modeActions)
+
+  fireEvent.click(screen.getByRole('button'))
+  const modes = ['Chat mode', 'Code mode', 'Bots mode', 'Creator mode']
+  expect(screen.getAllByRole('menuitem')).toEqual(modes.map(name => screen.getByRole('menuitem', { name: new RegExp(`^${name}`) })))
+})
+
 describe('the new-session chip', () => {
-  it.each([false, true])('offers Standard, Creator and custom presets with Developer tools %s', (enabled) => {
+  it.each([false, true])('offers Code, Creator and custom presets with Developer tools %s', (enabled) => {
     const actions = renderSeat({
       options: [
         { id: 'standard' }, { id: 'ptc' }, { id: 'minimal' }, { id: 'cordis' }, { id: 'mine' },
@@ -137,7 +155,7 @@ describe('the new-session chip', () => {
 
     fireEvent.click(screen.getByRole('button'))
     expect(screen.getAllByRole('menuitem')).toHaveLength(enabled ? 5 : 3)
-    expect(screen.getByRole('menuitem', { name: /^Standard mode/ })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /^Code mode/ })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: /^mine/ })).toBeTruthy()
     expect(screen.queryByRole('menuitem', { name: /^Code Mode/ }) !== null).toBe(enabled)
     expect(screen.queryByRole('menuitem', { name: /^Minimal mode/ }) !== null).toBe(enabled)

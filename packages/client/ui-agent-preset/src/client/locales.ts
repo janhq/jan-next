@@ -39,7 +39,7 @@ export type AgentPresetSettingsKey =
 export const en: Record<AgentPresetSettingsKey, string> = {
   ...guideEn,
   builtInGroup: 'Built-in', customGroup: 'Custom',
-  sectionIntro: 'Choose the agent’s tools and how it works. Use Standard mode for everyday tasks, or Creator mode to add capabilities to Jan.',
+  sectionIntro: 'Choose the agent’s tools and how it works. Use Code mode for everyday tasks, or Creator mode to add capabilities to Jan.',
 
   seatHint: 'Choose the agent preset for your new task',
   headerHint: 'Switch the agent preset for this task',
@@ -49,12 +49,12 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   setDefault: 'Set as new task default',
   view: 'View configuration',
 
-  presetStandardName: 'Standard mode',
+  presetStandardName: 'Code mode',
   presetStandardDescription:
     'Work with code, files, and information. Suitable for most tasks, with search, editing, terminal commands, and other tools available as needed.',
   presetPtcName: 'Code Mode',
   presetPtcDescription:
-    'Includes all Standard mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results.',
+    'Includes all Code mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results.',
   presetMinimalName: 'Minimal mode',
   presetMinimalDescription:
     'The agent uses a terminal and image reading, with context compaction. Useful for testing and comparing its basic performance.',
@@ -68,7 +68,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   brokenBadge: 'Failed to load',
 
   switchRefused: 'Could not switch to {name}: {reason}',
-  standardUnavailable: 'Standard mode is unavailable. Restore it or choose another available mode.',
+  standardUnavailable: 'Code mode is unavailable. Restore it or choose another available mode.',
 
   close: 'Close',
 
@@ -85,7 +85,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
 export const zh: Record<AgentPresetSettingsKey, string> = {
   ...guideZh,
   builtInGroup: '内置', customGroup: '自定义',
-  sectionIntro: '选择 Agent 的工具和工作方式。日常任务用「标准模式」，扩展 Jan 的能力用「创造模式」。',
+  sectionIntro: '选择 Agent 的工具和工作方式。日常任务用「代码模式」，扩展 Jan 的能力用「创造模式」。',
 
   seatHint: '选择新任务使用的 Agent 预设',
   headerHint: '切换本任务使用的 Agent 预设',
@@ -95,7 +95,7 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   setDefault: '设为新任务默认',
   view: '查看配置',
 
-  presetStandardName: '标准模式',
+  presetStandardName: '代码模式',
   presetStandardDescription: '处理代码、文件和资料，适合大多数任务。Agent 会按需使用检索、编辑和终端等工具。',
   presetPtcName: 'Code Mode',
   presetPtcDescription: '包含标准模式的所有能力，更适合批量调用工具，并对结果进行筛选、整理、去重、统计或汇总的任务。',
@@ -110,7 +110,7 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   brokenBadge: '加载失败',
 
   switchRefused: '无法切换到「{name}」：{reason}',
-  standardUnavailable: '标准模式不可用，请恢复该模式或选择其他可用模式。',
+  standardUnavailable: '代码模式不可用，请恢复该模式或选择其他可用模式。',
 
   close: '关闭',
 
@@ -134,14 +134,14 @@ export const ja = {
   ...guideJa,
   'builtInGroup': '組み込み',
   'customGroup': 'カスタム',
-  'sectionIntro': 'エージェントのツールと動作を選択します。日々のタスクには標準モードを、Jan に機能を追加するにはクリエイターモードを使用してください。',
+  'sectionIntro': 'エージェントのツールと動作を選択します。日々のタスクにはコードモードを、Jan に機能を追加するにはクリエイターモードを使用してください。',
   'seatHint': '新しいタスクで使用するエージェントプリセットを選択',
   'headerHint': 'このタスクで使用するエージェントプリセットを切り替え',
   'switchBusy': '現在の応答が終わってから切り替えてください',
   'nav': 'エージェントプリセット',
   'setDefault': '新しいタスクの既定に設定',
   'view': '設定を表示',
-  'presetStandardName': '標準モード',
+  'presetStandardName': 'コードモード',
   'presetStandardDescription': 'コード、ファイル、情報を扱います。検索、編集、ターミナルコマンドなどのツールを必要に応じて利用でき、ほとんどのタスクに適しています。',
   'presetPtcName': 'Code Mode',
   'presetPtcDescription': '標準モードのすべての機能を含みます。ツールを一括で呼び出し、その結果を絞り込み、整理、重複排除、集計、要約するタスクに適しています。',
@@ -153,7 +153,7 @@ export const ja = {
   'noDescription': '説明はありません。',
   'brokenBadge': '読み込みに失敗',
   'switchRefused': '{name} に切り替えられませんでした: {reason}',
-  'standardUnavailable': '標準モードは利用できません。復元するか、利用可能な別のモードを選択してください。',
+  'standardUnavailable': 'コードモードは利用できません。復元するか、利用可能な別のモードを選択してください。',
   'close': '閉じる',
   'creatorDraft': 'エージェントにプリセット作成を手伝ってもらう',
   'createPlugin': 'エージェントにプラグインを作成してもらう',
@@ -167,7 +167,7 @@ export const ja = {
 export const es = {
   ...guideEs,
   builtInGroup: 'Incorporado', customGroup: 'personalizado',
-  sectionIntro: 'Elija las herramientas del agente y cómo funciona. Utilice el modo Estándar para las tareas diarias o el modo Creador para agregar capacidades a Jan.',
+  sectionIntro: 'Elija las herramientas del agente y cómo funciona. Utilice el modo de código para las tareas diarias o el modo Creador para agregar capacidades a Jan.',
 
   seatHint: 'Elige el agente preestablecido para tu nueva tarea',
   headerHint: 'Cambia el agente preestablecido de esta tarea',
@@ -177,12 +177,12 @@ export const es = {
   setDefault: 'Establecer como nueva tarea predeterminada',
   view: 'Ver configuración',
 
-  presetStandardName: 'Modo estándar',
+  presetStandardName: 'Modo de código',
   presetStandardDescription:
     'Trabaje con código, archivos e información. Adecuado para la mayoría de las tareas, con búsqueda, edición, comandos de terminal y otras herramientas disponibles según sea necesario.',
   presetPtcName: 'Code Mode',
   presetPtcDescription:
-    'Incluye todas las capacidades del modo Estándar. Más adecuado para tareas que llaman a herramientas en lotes y luego filtran, organizan, deduplican, cuentan o resumen los resultados.',
+    'Incluye todas las capacidades del modo de código. Más adecuado para tareas que llaman a herramientas en lotes y luego filtran, organizan, deduplican, cuentan o resumen los resultados.',
   presetMinimalName: 'modo mínimo',
   presetMinimalDescription:
     'El agente utiliza un terminal y lectura de imágenes, con compactación de contexto. Útil para probar y comparar su rendimiento básico.',
@@ -196,7 +196,7 @@ export const es = {
   brokenBadge: 'No se pudo cargar',
 
   switchRefused: 'No se pudo cambiar a {name}: {reason}',
-  standardUnavailable: 'El modo estándar no está disponible. Restáuralo o elige otro modo disponible.',
+  standardUnavailable: 'El modo de código no está disponible. Restáuralo o elige otro modo disponible.',
 
   close: 'Cerrar',
 
@@ -213,7 +213,7 @@ export const es = {
 export const fr = {
   ...guideFr,
   builtInGroup: 'Intégré', customGroup: 'Personnalisé',
-  sectionIntro: 'Choisissez les outils de l’agent et son fonctionnement. Utilisez le mode Standard pour les tâches quotidiennes ou le mode Créateur pour ajouter des fonctionnalités à Jan.',
+  sectionIntro: 'Choisissez les outils de l’agent et son fonctionnement. Utilisez le mode code pour les tâches quotidiennes ou le mode Créateur pour ajouter des fonctionnalités à Jan.',
 
   seatHint: 'Choisissez le préréglage d’agent pour votre nouvelle tâche',
   headerHint: 'Changer le préréglage d’agent de cette tâche',
@@ -223,12 +223,12 @@ export const fr = {
   setDefault: 'Définir comme nouvelle tâche par défaut',
   view: 'Afficher la configuration',
 
-  presetStandardName: 'Mode standard',
+  presetStandardName: 'Mode code',
   presetStandardDescription:
     'Travaillez avec du code, des fichiers et des informations. Convient à la plupart des tâches, avec recherche, édition, commandes de terminal et autres outils disponibles selon les besoins.',
   presetPtcName: 'Code Mode',
   presetPtcDescription:
-    'Inclut toutes les fonctionnalités du mode Standard. Mieux adapté aux tâches qui appellent des outils par lots, puis filtrent, organisent, dédupliquent, comptent ou résument les résultats.',
+    'Inclut toutes les fonctionnalités du mode code. Mieux adapté aux tâches qui appellent des outils par lots, puis filtrent, organisent, dédupliquent, comptent ou résument les résultats.',
   presetMinimalName: 'Mode minimal',
   presetMinimalDescription:
     "L'agent utilise un terminal et une lecture d'image, avec compactage du contexte. Utile pour tester et comparer ses performances de base.",
@@ -242,7 +242,7 @@ export const fr = {
   brokenBadge: 'Échec du chargement',
 
   switchRefused: 'Impossible de passer à {name} : {reason}',
-  standardUnavailable: "Le mode standard n'est pas disponible. Restaurez-le ou choisissez un autre mode disponible.",
+  standardUnavailable: "Le mode code n'est pas disponible. Restaurez-le ou choisissez un autre mode disponible.",
 
   close: 'Fermer',
 
@@ -259,7 +259,7 @@ export const fr = {
 export const de = {
   ...guideDe,
   builtInGroup: 'Eingebaut', customGroup: 'Benutzerdefiniert',
-  sectionIntro: 'Wählen Sie die Tools des Agenten und deren Funktionsweise aus. Verwenden Sie den Standardmodus für alltägliche Aufgaben oder den Creator-Modus, um Jan Funktionen hinzuzufügen.',
+  sectionIntro: 'Wählen Sie die Tools des Agenten und deren Funktionsweise aus. Verwenden Sie den Code-Modus für alltägliche Aufgaben oder den Creator-Modus, um Jan Funktionen hinzuzufügen.',
 
   seatHint: 'Wählen Sie die Agentenvoreinstellung für Ihre neue Aufgabe',
   headerHint: 'Agentenvoreinstellung dieser Aufgabe wechseln',
@@ -269,12 +269,12 @@ export const de = {
   setDefault: 'Als Standard für neue Aufgabe festlegen',
   view: 'Konfiguration anzeigen',
 
-  presetStandardName: 'Standardmodus',
+  presetStandardName: 'Code-Modus',
   presetStandardDescription:
     'Arbeiten Sie mit Code, Dateien und Informationen. Geeignet für die meisten Aufgaben, da bei Bedarf Suche, Bearbeitung, Terminalbefehle und andere Tools verfügbar sind.',
   presetPtcName: 'Code Mode',
   presetPtcDescription:
-    'Beinhaltet alle Funktionen des Standardmodus. Besser geeignet für Aufgaben, bei denen Tools stapelweise aufgerufen und die Ergebnisse dann gefiltert, organisiert, dedupliziert, gezählt oder zusammengefasst werden.',
+    'Beinhaltet alle Funktionen des Code-Modus. Besser geeignet für Aufgaben, bei denen Tools stapelweise aufgerufen und die Ergebnisse dann gefiltert, organisiert, dedupliziert, gezählt oder zusammengefasst werden.',
   presetMinimalName: 'Minimalmodus',
   presetMinimalDescription:
     'Der Agent verwendet ein Terminal und das Lesen von Bildern mit Kontextkomprimierung. Nützlich zum Testen und Vergleichen der Grundleistung.',
@@ -288,7 +288,7 @@ export const de = {
   brokenBadge: 'Laden fehlgeschlagen',
 
   switchRefused: 'Konnte nicht zu {name} wechseln: {reason}',
-  standardUnavailable: 'Der Standardmodus ist nicht verfügbar. Stellen Sie es wieder her oder wählen Sie einen anderen verfügbaren Modus.',
+  standardUnavailable: 'Der Code-Modus ist nicht verfügbar. Stellen Sie ihn wieder her oder wählen Sie einen anderen verfügbaren Modus.',
 
   close: 'Schließen',
 
@@ -305,7 +305,7 @@ export const de = {
 export const ru = {
   ...guideRu,
   builtInGroup: 'Встроенный', customGroup: 'Пользовательский',
-  sectionIntro: 'Выбирайте инструменты агента и то, как они работают. Используйте стандартный режим для повседневных задач или режим Creator, чтобы расширить возможности Jan.',
+  sectionIntro: 'Выбирайте инструменты агента и то, как они работают. Используйте режим кода для повседневных задач или режим Creator, чтобы расширить возможности Jan.',
 
   seatHint: 'Выберите предустановку агента для вашей новой задачи',
   headerHint: 'Сменить предустановку агента для этой задачи',
@@ -315,12 +315,12 @@ export const ru = {
   setDefault: 'Установить в качестве новой задачи по умолчанию',
   view: 'Посмотреть конфигурацию',
 
-  presetStandardName: 'Стандартный режим',
+  presetStandardName: 'Режим кода',
   presetStandardDescription:
     'Работайте с кодом, файлами и информацией. Подходит для большинства задач, с поиском, редактированием, командами терминала и другими инструментами, доступными по мере необходимости.',
   presetPtcName: 'Code Mode',
   presetPtcDescription:
-    'Включает все возможности стандартного режима. Лучше подходит для задач, которые вызывают инструменты в пакетном режиме, а затем фильтруют, организуют, дедуплицируют, подсчитывают или суммируют результаты.',
+    'Включает все возможности режима кода. Лучше подходит для задач, которые вызывают инструменты в пакетном режиме, а затем фильтруют, организуют, дедуплицируют, подсчитывают или суммируют результаты.',
   presetMinimalName: 'Минимальный режим',
   presetMinimalDescription:
     'Агент использует терминал и чтение изображений со сжатием контекста. Полезно для тестирования и сравнения его базовой производительности.',
@@ -334,7 +334,7 @@ export const ru = {
   brokenBadge: 'Не удалось загрузить',
 
   switchRefused: 'Не удалось переключиться на {name}: {reason}',
-  standardUnavailable: 'Стандартный режим недоступен. Восстановите его или выберите другой доступный режим.',
+  standardUnavailable: 'Режим кода недоступен. Восстановите его или выберите другой доступный режим.',
 
   close: 'Закрыть',
 
@@ -351,7 +351,7 @@ export const ru = {
 export const pt = {
   ...guidePt,
   builtInGroup: 'Integrado', customGroup: 'Personalizado',
-  sectionIntro: 'Escolha as ferramentas do agente e como funciona. Use o modo Padrão para tarefas diárias ou o modo Criador para adicionar recursos ao Jan.',
+  sectionIntro: 'Escolha as ferramentas do agente e como funciona. Use o modo de código para tarefas diárias ou o modo Criador para adicionar recursos ao Jan.',
 
   seatHint: 'Escolha a predefinição de agente para sua nova tarefa',
   headerHint: 'Trocar a predefinição de agente desta tarefa',
@@ -361,12 +361,12 @@ export const pt = {
   setDefault: 'Definir como nova tarefa padrão',
   view: 'Ver configuração',
 
-  presetStandardName: 'Modo padrão',
+  presetStandardName: 'Modo de código',
   presetStandardDescription:
     'Trabalhe com código, arquivos e informações. Adequado para a maioria das tarefas, com pesquisa, edição, comandos de terminal e outras ferramentas disponíveis conforme necessário.',
   presetPtcName: 'Code Mode',
   presetPtcDescription:
-    'Inclui todos os recursos do modo Padrão. Mais adequado para tarefas que chamam ferramentas em lotes e depois filtram, organizam, desduplicam, contam ou resumem os resultados.',
+    'Inclui todos os recursos do modo de código. Mais adequado para tarefas que chamam ferramentas em lotes e depois filtram, organizam, desduplicam, contam ou resumem os resultados.',
   presetMinimalName: 'Modo mínimo',
   presetMinimalDescription:
     'O agente utiliza terminal e leitura de imagens, com compactação de contexto. Útil para testar e comparar seu desempenho básico.',
@@ -380,7 +380,7 @@ export const pt = {
   brokenBadge: 'Falha ao carregar',
 
   switchRefused: 'Não foi possível mudar para {name}: {reason}',
-  standardUnavailable: 'O modo padrão não está disponível. Restaure-o ou escolha outro modo disponível.',
+  standardUnavailable: 'O modo de código não está disponível. Restaure-o ou escolha outro modo disponível.',
 
   close: 'Fechar',
 

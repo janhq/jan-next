@@ -20,9 +20,8 @@ import type { } from '@janhq/jan-client-ui-conversation/client'
 import type { } from '@janhq/jan-agent-preset-registry/types'
 import type { AgentPresetSettingsState } from './settings-store.ts'
 import { presetDisplayText } from './locales.ts'
-import { requiresCodingTools } from './settings-store.ts'
 import css from './AgentPresetSeat.module.css'
-import { modeActionItems, runModeAction } from './mode-actions.tsx'
+import { modeMenuItems, modePickerOptions, runModeAction } from './mode-actions.tsx'
 import type { AgentPresetModeAction } from './index.ts'
 import { PresetIcon } from './PresetIcon.tsx'
 
@@ -85,7 +84,7 @@ export function AgentPresetLabel({
   }, [preset, load])
 
   const choices = useMemo(
-    () => options.filter(option => developerTools || !requiresCodingTools(option)),
+    () => modePickerOptions(options, developerTools),
     [options, developerTools],
   )
 
@@ -107,19 +106,7 @@ export function AgentPresetLabel({
       <Menu
         open={open && !running}
         onClose={() => { setOpen(false) }}
-        items={[...choices.map((entry) => {
-          const display = presetDisplayText(entry, t)
-          return {
-            id: entry.id,
-            icon: <PresetIcon icon={entry.icon} size={14} />,
-            label: (
-              <span className={css.item}>
-                <span className={css.itemName}>{display.name}</span>
-                <span className={css.itemDesc}>{display.description ?? t('noDescription')}</span>
-              </span>
-            ),
-          }
-        }), ...modeActionItems(modeActions)]}
+        items={modeMenuItems(choices, modeActions, t)}
         selectedId={preset}
         onSelect={(id) => {
           setOpen(false)

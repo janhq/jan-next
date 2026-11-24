@@ -1,6 +1,6 @@
 - banner:
   - navigation "Session hierarchy": Use the bash tool to
-  - text: Standard mode
+  - text: Code mode
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

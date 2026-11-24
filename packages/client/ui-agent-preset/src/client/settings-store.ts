@@ -36,7 +36,7 @@ export async function writeDefaultPreset(
   return response.ok ? undefined : response.error.message
 }
 
-/** One selectable preset. */
+/** One healthy preset's display metadata. */
 export interface AgentPresetOption {
   /** Preset id, written to Settings and the label's fallback. */
   id: string
@@ -46,6 +46,10 @@ export interface AgentPresetOption {
   description?: string
   /** Declared menu icon: a product glyph name or one emoji. */
   icon?: string
+  /** Sort position; unranked presets follow ranked ones. */
+  order?: number
+  /** False hides this preset from the mode picker, but not an existing mode label. */
+  showInModePicker?: boolean
 }
 
 /** Whether a shipped preset requires the Coding Tools preference.
@@ -119,13 +123,15 @@ export async function beginRosterRead<S extends { status: string; error: string 
  * @returns one option per selectable preset, in roster order.
  */
 export function presetOptions(
-  presets: readonly { id: string; name?: string; description?: string; icon?: string; broken?: string }[],
+  presets: readonly (AgentPresetOption & { broken?: string })[],
 ): AgentPresetOption[] {
   return presets.filter(preset => preset.broken === undefined).map(preset => ({
     id: preset.id,
     ...preset.name === undefined ? {} : { name: preset.name },
     ...preset.description === undefined ? {} : { description: preset.description },
     ...preset.icon === undefined ? {} : { icon: preset.icon },
+    ...preset.order === undefined ? {} : { order: preset.order },
+    ...preset.showInModePicker === undefined ? {} : { showInModePicker: preset.showInModePicker },
   }))
 }
 

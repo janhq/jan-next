@@ -34,7 +34,7 @@ describe('web e2e: preset roster guidance', () => {
     const snapshot = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(join(EXPECTED, 'section.expected.md'), snapshot, mode)
     expect(snapshot).toContain('Let the agent help me create a preset')
-    expect(snapshot).toContain('View configuration: Standard mode')
+    expect(snapshot).toContain('View configuration: Code mode')
     expect(snapshot).not.toContain('Duplicate preset')
     expect(snapshot).not.toContain('Edit plugins')
     expect(snapshot).not.toContain('Open folder')
@@ -53,7 +53,7 @@ describe('web e2e: preset roster guidance', () => {
     await guide.getByRole('tab', { name: 'How to use', exact: true }).press('Escape')
     await guide.waitFor({ state: 'detached' })
     expect(await trigger.evaluate(element => document.activeElement === element)).toBe(true)
-    expect(await settings.getByRole('button', { name: 'New task default: Standard mode', exact: true }).getAttribute('aria-pressed')).toBe('true')
+    expect(await settings.getByRole('button', { name: 'New task default: Code mode', exact: true }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('views a shipped composition read-only', async () => {
@@ -74,7 +74,7 @@ describe('web e2e: preset roster guidance', () => {
     // The header X and the footer button share the Close name; the footer one is last.
     await viewer.getByRole('button', { name: 'Close', exact: true }).last().click()
     await viewer.waitFor({ state: 'detached', timeout: 10_000 })
-    expect(await settings.getByRole('button', { name: 'New task default: Standard mode', exact: true }).getAttribute('aria-pressed')).toBe('true')
+    expect(await settings.getByRole('button', { name: 'New task default: Code mode', exact: true }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('starts a Creator-mode task from the section entry', async () => {

@@ -1,6 +1,6 @@
 - banner:
   - navigation "Session hierarchy": Reply with the single word
-  - text: Standard mode
+  - text: Code mode
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

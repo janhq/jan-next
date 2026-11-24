@@ -1,6 +1,6 @@
 - banner:
   - navigation "Session hierarchy": Reply with the single word
-  - 'button "Switch the agent preset for this task: Standard mode"': Standard mode
+  - 'button "Switch the agent preset for this task: Code mode"': Code mode
   - button "More actions"
   - button "Open right sidebar"
 - text: Reply with the single word LIGHTHOUSE and stop. {{clock}}

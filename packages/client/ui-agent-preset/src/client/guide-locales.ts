@@ -7,7 +7,7 @@ export const guideEn = {
   guideCopy: 'Copy',
   guideCopied: 'Copied',
   guideFootnotes: 'Footnotes',
-  guideStandardIntro: 'Choose Standard mode when starting a new task. Describe what you want to accomplish, point to the relevant files, and explain how to check the result.',
+  guideStandardIntro: 'Choose Code mode when starting a new task. Describe what you want to accomplish, point to the relevant files, and explain how to check the result.',
   guideStandardExplanation: [
     '### How it works',
     'The agent calls tools directly to read and edit files, search, and run terminal commands. It includes Skills, planning, goals, subagents, workflows, plugin management, and context compaction.',
@@ -68,7 +68,7 @@ export const guideEn = {
     '> Create a plugin with a tool that reads this project’s test report and summarizes the failed tests. Register it and verify it with a sample report.',
     'Expected output: a plugin with a callable tool and a verified sample call.',
     '### Create my own mode',
-    '> Create a “Code review” mode based on Standard mode. Have it prioritize potential bugs and test gaps, cite file paths and lines, and ask before modifying files. Save it as a selectable preset.',
+    '> Create a “Code review” mode based on Code mode. Have it prioritize potential bugs and test gaps, cite file paths and lines, and ask before modifying files. Save it as a selectable preset.',
     'Expected output: a custom preset for new tasks. These review instructions guide the agent; permission settings determine which actions it can execute.',
   ].join('\n\n'),
 }
@@ -85,7 +85,7 @@ export const guideZh: Record<PresetGuideKey, string> = {
   guideCopy: '复制',
   guideCopied: '已复制',
   guideFootnotes: '脚注',
-  guideStandardIntro: '新建任务时选择「标准模式」，说明要完成什么、相关文件在哪里，以及怎样判断任务完成。',
+  guideStandardIntro: '新建任务时选择「代码模式」，说明要完成什么、相关文件在哪里，以及怎样判断任务完成。',
   guideStandardExplanation: [
     '### 工作方式',
     'Agent 直接调用工具来读写文件、检索资料和执行终端命令。包含 Skills、计划、目标、子 Agent、工作流、插件管理和上下文压缩等能力。',
@@ -127,7 +127,7 @@ export const guideZh: Record<PresetGuideKey, string> = {
   guideMinimalUsage: [
     '### 对比基础修复表现',
     '> 运行这个项目的测试，找出失败原因，做最小修复，再运行相关测试并报告结果。',
-    '分别用标准模式和极简模式，从相同的工作区状态执行这条任务，对比完成情况、工具调用和最终修改。极简模式会通过终端命令完成这些操作。',
+    '分别用代码模式和极简模式，从相同的工作区状态执行这条任务，对比完成情况、工具调用和最终修改。极简模式会通过终端命令完成这些操作。',
   ].join('\n\n'),
   guideCordisIntro: '新建任务时选择「创造模式」，说明希望增加什么能力、从哪里使用，以及怎样验证效果。',
   guideCordisExplanation: [
@@ -146,7 +146,7 @@ export const guideZh: Record<PresetGuideKey, string> = {
     '> 写一个插件，提供读取项目测试报告、汇总失败用例的工具。注册工具，并用一份示例报告验证调用结果。',
     '预期产出：可调用的新工具，以及一次示例调用的验证结果。',
     '### 创建自己的模式',
-    '> 基于标准模式创建「代码审查」模式，优先检查潜在错误和测试缺口，指出文件与行号，修改文件前先询问我。保存成可选择的预设。',
+    '> 基于代码模式创建「代码审查」模式，优先检查潜在错误和测试缺口，指出文件与行号，修改文件前先询问我。保存成可选择的预设。',
     '预期产出：可在新任务中选择的自定义模式。审查要求用于指导 Agent，实际可执行的操作仍由权限设置决定。',
   ].join('\n\n'),
 }
@@ -168,10 +168,10 @@ export const guideJa = {
   'guidePtcUsage': '### 設定ファイルのセットを検証する\n\n> configs/ 内のすべての JSON ファイルを検査してください。schema.json に基づき、必須フィールドの欠落と無効な値を一覧にしてください。問題ごとに 1 行の CSV を保存してください。読み取れないファイルもレポートに含め、残りの検査は続けてください。元のファイルは変更しないでください。\n\n期待される出力: 問題の要約と CSV レポート。プログラムは同じ検査を繰り返し、個々の失敗に対処し、結果を集約できます。\n\n### エラーログを要約する\n\n> logs/ 内のログファイルを分析してください。エラーをサービスとエラー種別でグループ化し、頻度上位 10 グループと各 1 件の例を示してください。完全な件数を CSV に保存してください。\n\n期待される出力: 上位のエラーグループと完全な件数表。中間データは要約がモデルに届く前にプログラム内で集約できます。',
   'guideMinimalIntro': '新しいタスクには最小モードを選びます。比較を行う場合は、モデル、権限、入力、開始時のワークスペース状態を実行間で一定に保ってください。',
   'guideMinimalExplanation': '### 含まれるもの\n\n永続的なシェルツール 1 つ、read_image、固定のシステムプロンプト。画像の読み取りには画像対応モデルが必要です。古い履歴はコンテキストの負荷に応じて自動的に圧縮されます。エージェントがアイドル状態のときに /compact を使えば手動で圧縮できます。この組み込みプリセットはスキル、計画、標準のランタイムコンテキストを読み込みません。\n\n### 選ぶべき場面\n\n実験や比較のベースラインとして使用します。シェルコマンド経由でファイルの読み取りやスクリプトの実行はできますが、長いタスクを管理するための組み込み手段は少なくなります。ツールが少ないからといって、初心者にとって必ずしも簡単になるわけではありません。',
-  'guideMinimalUsage': '### 小さなバグ修正で性能を比較する\n\n> このプロジェクトのテストを実行し、失敗の原因を見つけて最小限の修正をしてください。関連するテストを再度実行し、結果を報告してください。\n\n同じ開始状態から、標準モードと最小モードで同じタスクを別々に実行します。タスクの完了状況、ツール呼び出し、生じた変更を比較してください。最小モードはターミナルコマンドを通じて作業を行います。',
+  'guideMinimalUsage': '### 小さなバグ修正で性能を比較する\n\n> このプロジェクトのテストを実行し、失敗の原因を見つけて最小限の修正をしてください。関連するテストを再度実行し、結果を報告してください。\n\n同じ開始状態から、コードモードと最小モードで同じタスクを別々に実行します。タスクの完了状況、ツール呼び出し、生じた変更を比較してください。最小モードはターミナルコマンドを通じて作業を行います。',
   'guideCordisIntro': '新しいタスクにはクリエイターモードを選びます。実現したい機能、表示される場所、確認方法を説明してください。',
   'guideCordisExplanation': '### 作成できるもの\n\nクリエイターモードには標準的なタスクツールに加え、ランタイムの検査、Cordis プラグインやエージェントプリセットの作成ガイドが含まれます。機能や UI を追加するプラグインを作成することも、特定の作業向けにツールとプロンプトを組み合わせたプリセットを作成することもできます。\n\n### プラグインとモード\n\nプラグインはツール、サービス接続、UI エントリなど、Jan に機能を追加します。モードはエージェントプリセットであり、ツールを選択し、タスク内でのエージェントの動作を定義します。プラグインはカスタムプリセットに含めることができます。\n\n### 結果を反映させる方法\n\nソースコードを生成するだけでなく、エージェントにインストールと確認を依頼してください。プラグインは変更内容によっては即座に読み込まれるか、再起動が必要になる場合があります。新しく作成したプリセットは、新しいタスクを始めるときに選択されます。',
-  'guideCordisUsage': '### UI を追加する\n\n> サイドバーにプロジェクトメモのエントリを追加する Jan プラグインを作成してください。このワークスペース内の Markdown ファイルを閲覧でき、選択したメモをプレビューできるようにしてください。インストールしてページが開くことを確認してください。\n\n期待される出力: 動作するエントリとプレビューページを備えた、インストール済みのプラグイン。残っている有効化手順があればそれも含みます。\n\n### ツールを追加する\n\n> このプロジェクトのテストレポートを読み、失敗したテストを要約するツールを備えたプラグインを作成してください。登録し、サンプルのレポートで確認してください。\n\n期待される出力: 呼び出し可能なツールを備えたプラグインと、確認済みのサンプル呼び出し。\n\n### 独自のモードを作成する\n\n> 標準モードをベースに「コードレビュー」モードを作成してください。潜在的なバグとテストの不足を優先し、ファイルパスと行番号を示し、ファイルを変更する前に確認を求めるようにしてください。選択可能なプリセットとして保存してください。\n\n期待される出力: 新しいタスク用のカスタムプリセット。これらのレビュー指示はエージェントを導くものであり、実行できる操作は権限設定によって決まります。',
+  'guideCordisUsage': '### UI を追加する\n\n> サイドバーにプロジェクトメモのエントリを追加する Jan プラグインを作成してください。このワークスペース内の Markdown ファイルを閲覧でき、選択したメモをプレビューできるようにしてください。インストールしてページが開くことを確認してください。\n\n期待される出力: 動作するエントリとプレビューページを備えた、インストール済みのプラグイン。残っている有効化手順があればそれも含みます。\n\n### ツールを追加する\n\n> このプロジェクトのテストレポートを読み、失敗したテストを要約するツールを備えたプラグインを作成してください。登録し、サンプルのレポートで確認してください。\n\n期待される出力: 呼び出し可能なツールを備えたプラグインと、確認済みのサンプル呼び出し。\n\n### 独自のモードを作成する\n\n> コードモードをベースに「コードレビュー」モードを作成してください。潜在的なバグとテストの不足を優先し、ファイルパスと行番号を示し、ファイルを変更する前に確認を求めるようにしてください。選択可能なプリセットとして保存してください。\n\n期待される出力: 新しいタスク用のカスタムプリセット。これらのレビュー指示はエージェントを導くものであり、実行できる操作は権限設定によって決まります。',
 } satisfies Record<keyof typeof guideEn, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -183,7 +183,7 @@ export const guideEs = {
   guideCopy: 'Copiar',
   guideCopied: 'Copiado',
   guideFootnotes: 'Notas a pie de página',
-  guideStandardIntro: 'Elija el modo Estándar al iniciar una nueva tarea. Describe lo que quieres lograr, señala los archivos relevantes y explica cómo verificar el resultado.',
+  guideStandardIntro: 'Elija el modo de código al iniciar una nueva tarea. Describe lo que quieres lograr, señala los archivos relevantes y explica cómo verificar el resultado.',
   guideStandardExplanation: [
     '### Cómo funciona',
     'El agente llama a herramientas directamente para leer y editar archivos, buscar y ejecutar comandos de terminal. Incluye habilidades, planificación, objetivos, subagentes, flujos de trabajo, gestión de complementos y compactación de contexto.',
@@ -244,7 +244,7 @@ export const guideEs = {
     '> Cree un complemento con una herramienta que lea el informe de prueba de este proyecto y resuma las pruebas fallidas. Regístrelo y verifíquelo con un informe de muestra.',
     'Resultado esperado: un complemento con una herramienta invocable y una llamada de muestra verificada.',
     '### Crear mi propio modo',
-    '> Cree un modo de “Revisión de código” basado en el modo Estándar. Haga que priorice posibles errores y pruebe las lagunas, cite rutas y líneas de archivos y pregunte antes de modificar archivos. Guárdelo como un ajuste preestablecido seleccionable.',
+    '> Cree un modo de “Revisión de código” basado en el modo de código. Haga que priorice posibles errores y pruebe las lagunas, cite rutas y líneas de archivos y pregunte antes de modificar archivos. Guárdelo como un ajuste preestablecido seleccionable.',
     'Resultado esperado: un ajuste preestablecido personalizado para nuevas tareas. Estas instrucciones de revisión guían al agente; La configuración de permisos determina qué acciones puede ejecutar.',
   ].join('\n\n\n\n'),
 } satisfies typeof guideEn
@@ -258,7 +258,7 @@ export const guideFr = {
   guideCopy: 'Copier',
   guideCopied: 'Copié',
   guideFootnotes: 'Notes de bas de page',
-  guideStandardIntro: 'Choisissez le mode Standard lorsque vous démarrez une nouvelle tâche. Décrivez ce que vous souhaitez accomplir, pointez vers les fichiers pertinents et expliquez comment vérifier le résultat.',
+  guideStandardIntro: 'Choisissez le mode code lorsque vous démarrez une nouvelle tâche. Décrivez ce que vous souhaitez accomplir, pointez vers les fichiers pertinents et expliquez comment vérifier le résultat.',
   guideStandardExplanation: [
     '### Comment ça marche',
     "L'agent appelle directement des outils pour lire et modifier des fichiers, rechercher et exécuter des commandes de terminal. Il comprend les compétences, la planification, les objectifs, les sous-agents, les flux de travail, la gestion des plugins et le compactage du contexte.",
@@ -319,7 +319,7 @@ export const guideFr = {
     '> Créez un plugin avec un outil qui lit le rapport de test de ce projet et résume les tests échoués. Enregistrez-le et vérifiez-le avec un exemple de rapport.',
     "Résultat attendu : un plugin avec un outil appelable et un exemple d'appel vérifié.",
     '### Créer mon propre mode',
-    '> Créer un mode « Revue de code » basé sur le mode Standard. Demandez-lui de prioriser les bogues potentiels et de tester les lacunes, de citer les chemins et les lignes des fichiers et de demander avant de modifier les fichiers. Enregistrez-le en tant que préréglage sélectionnable.',
+    '> Créer un mode « Revue de code » basé sur le mode code. Demandez-lui de prioriser les bogues potentiels et de tester les lacunes, de citer les chemins et les lignes des fichiers et de demander avant de modifier les fichiers. Enregistrez-le en tant que préréglage sélectionnable.',
     "Résultat attendu : un préréglage personnalisé pour les nouvelles tâches. Ces instructions de révision guident l'agent ; les paramètres d'autorisation déterminent les actions qu'il peut exécuter.",
   ].join('\n\n\n\n'),
 } satisfies typeof guideEn
@@ -333,7 +333,7 @@ export const guideDe = {
   guideCopy: 'Kopieren',
   guideCopied: 'Kopiert',
   guideFootnotes: 'Fußnoten',
-  guideStandardIntro: 'Wählen Sie den Standardmodus, wenn Sie eine neue Aufgabe starten. Beschreiben Sie, was Sie erreichen möchten, zeigen Sie auf die relevanten Dateien und erklären Sie, wie Sie das Ergebnis überprüfen können.',
+  guideStandardIntro: 'Wählen Sie den Code-Modus, wenn Sie eine neue Aufgabe starten. Beschreiben Sie, was Sie erreichen möchten, zeigen Sie auf die relevanten Dateien und erklären Sie, wie Sie das Ergebnis überprüfen können.',
   guideStandardExplanation: [
     '### Wie es funktioniert',
     'Der Agent ruft Tools direkt auf, um Dateien zu lesen und zu bearbeiten, zu suchen und Terminalbefehle auszuführen. Es umfasst Fähigkeiten, Planung, Ziele, Subagenten, Arbeitsabläufe, Plugin-Verwaltung und Kontextkomprimierung.',
@@ -394,7 +394,7 @@ export const guideDe = {
     '> Erstellen Sie ein Plugin mit einem Tool, das den Testbericht dieses Projekts liest und die fehlgeschlagenen Tests zusammenfasst. Registrieren Sie es und überprüfen Sie es anhand eines Beispielberichts.',
     'Erwartete Ausgabe: ein Plugin mit einem aufrufbaren Tool und einem verifizierten Beispielaufruf.',
     '### Erstelle meinen eigenen Modus',
-    '> Erstellen Sie einen „Code Review“-Modus basierend auf dem Standardmodus. Lassen Sie potenzielle Fehler priorisieren und Lücken testen, geben Sie Dateipfade und -zeilen an und fragen Sie nach, bevor Sie Dateien ändern. Speichern Sie es als auswählbare Voreinstellung.',
+    '> Erstellen Sie einen „Code Review“-Modus basierend auf dem Code-Modus. Lassen Sie potenzielle Fehler priorisieren und Lücken testen, geben Sie Dateipfade und -zeilen an und fragen Sie nach, bevor Sie Dateien ändern. Speichern Sie es als auswählbare Voreinstellung.',
     'Erwartete Ausgabe: eine benutzerdefinierte Voreinstellung für neue Aufgaben. Diese Überprüfungsanweisungen leiten den Agenten; Berechtigungseinstellungen bestimmen, welche Aktionen ausgeführt werden können.',
   ].join('\n\n\n\n'),
 } satisfies typeof guideEn
@@ -408,7 +408,7 @@ export const guideRu = {
   guideCopy: 'Копировать',
   guideCopied: 'Скопировано',
   guideFootnotes: 'Сноски',
-  guideStandardIntro: 'Выбирайте стандартный режим при запуске новой задачи. Опишите, чего вы хотите добиться, укажите соответствующие файлы и объясните, как проверить результат.',
+  guideStandardIntro: 'Выбирайте режим кода при запуске новой задачи. Опишите, чего вы хотите добиться, укажите соответствующие файлы и объясните, как проверить результат.',
   guideStandardExplanation: [
     '### Как это работает',
     'Агент напрямую вызывает инструменты для чтения и редактирования файлов, поиска и выполнения команд терминала. Он включает в себя навыки, планирование, цели, субагенты, рабочие процессы, управление плагинами и сжатие контекста.',
@@ -469,7 +469,7 @@ export const guideRu = {
     '> Создайте плагин с инструментом, который читает отчет об испытаниях этого проекта и суммирует неудачные тесты. Зарегистрируйте его и проверьте с помощью образца отчета.',
     'Ожидаемый результат: плагин с вызываемым инструментом и проверенным примером вызова.',
     '### Создать свой режим',
-    '> Создайте режим «Проверка кода» на основе стандартного режима. Попросите его определить приоритетность потенциальных ошибок и проверить пробелы, указать пути и строки к файлам и спросить, прежде чем изменять файлы. Сохраните его как выбираемую предустановку.',
+    '> Создайте режим «Проверка кода» на основе режима кода. Попросите его определить приоритетность потенциальных ошибок и проверить пробелы, указать пути и строки к файлам и спросить, прежде чем изменять файлы. Сохраните его как выбираемую предустановку.',
     'Ожидаемый результат: индивидуальная настройка для новых задач. Эти инструкции по проверке помогут агенту; настройки разрешений определяют, какие действия он может выполнять.',
   ].join('\n\n\n\n'),
 } satisfies typeof guideEn
@@ -483,7 +483,7 @@ export const guidePt = {
   guideCopy: 'Copiar',
   guideCopied: 'Copiado',
   guideFootnotes: 'Notas de rodapé',
-  guideStandardIntro: 'Escolha o modo Padrão ao iniciar uma nova tarefa. Descreva o que você deseja realizar, indique os arquivos relevantes e explique como verificar o resultado.',
+  guideStandardIntro: 'Escolha o modo de código ao iniciar uma nova tarefa. Descreva o que você deseja realizar, indique os arquivos relevantes e explique como verificar o resultado.',
   guideStandardExplanation: [
     '### Como funciona',
     'O agente chama ferramentas diretamente para ler e editar arquivos, pesquisar e executar comandos de terminal. Inclui habilidades, planejamento, metas, subagentes, fluxos de trabalho, gerenciamento de plugins e compactação de contexto.',
@@ -544,7 +544,7 @@ export const guidePt = {
     '> Crie um plugin com uma ferramenta que leia o relatório de teste deste projeto e resuma os testes que falharam. Registre-o e verifique-o com um relatório de amostra.',
     'Resultado esperado: um plugin com uma ferramenta que pode ser chamada e uma chamada de amostra verificada.',
     '### Crie meu próprio modo',
-    '> Crie um modo “Revisão de código” baseado no modo Padrão. Faça com que ele priorize possíveis bugs e teste lacunas, cite caminhos e linhas de arquivos e pergunte antes de modificar arquivos. Salve-o como uma predefinição selecionável.',
+    '> Crie um modo “Revisão de código” baseado no modo de código. Faça com que ele priorize possíveis bugs e teste lacunas, cite caminhos e linhas de arquivos e pergunte antes de modificar arquivos. Salve-o como uma predefinição selecionável.',
     'Resultado esperado: uma predefinição personalizada para novas tarefas. Estas instruções de revisão orientam o agente; as configurações de permissão determinam quais ações ele pode executar.',
   ].join('\n\n\n\n'),
 } satisfies typeof guideEn

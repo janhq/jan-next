@@ -9,17 +9,17 @@
   - button "Open configuration file"
   - button "Close"
   - heading "Agent presets" [level=2]
-  - paragraph: Choose the agent’s tools and how it works. Use Standard mode for everyday tasks, or Creator mode to add capabilities to Jan.
+  - paragraph: Choose the agent’s tools and how it works. Use Code mode for everyday tasks, or Creator mode to add capabilities to Jan.
   - heading "Built-in" [level=3]
   - list:
     - listitem:
-      - 'button "New task default: Standard mode" [disabled] [pressed]':
-        - text: Standard mode New task default
+      - 'button "New task default: Code mode" [disabled] [pressed]':
+        - text: Code mode New task default
         - code: standard
         - text: Work with code, files, and information. Suitable for most tasks, with search, editing, terminal commands, and other tools available as needed.
-      - 'button "Mode details: Standard mode"': Mode details
-      - 'button "How to use: Standard mode"': How to use
-      - 'button "View configuration: Standard mode"': View configuration
+      - 'button "Mode details: Code mode"': Mode details
+      - 'button "How to use: Code mode"': How to use
+      - 'button "View configuration: Code mode"': View configuration
     - listitem:
       - 'button "Set as new task default: Code Mode"':
         - text: Code Mode Built-in
