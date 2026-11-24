@@ -16,7 +16,8 @@ const Model: z<ScopedModel> = z.object({
 })
 const LISTS = { toolsDisabled: Names, skillsDisabled: Names, skillFoldersDisabled: Names }
 const ListValues = z.object(LISTS)
-const ProjectValues = z.object({ model: Model, mode: z.string().min(1), ...LISTS })
+// A project may store a mode or tools without a model; an absent object must not be validated as `{}`.
+const ProjectValues = z.object({ model: z.union([Model, z.const(undefined)]), mode: z.string().min(1), ...LISTS })
 const Document: z<ScopedSettingsDocument> = z.object({
   version: z.const(1).required(),
   global: ListValues,

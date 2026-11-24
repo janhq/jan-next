@@ -102,6 +102,18 @@ it('stores each scope separately, persists privately, and reads back after a res
   expect(again.resolveModel(SessionId('new-chat'), PROJECT)).toEqual({ provider: 'tokamak', model: 'haiku' })
 })
 
+it('reads back a project that stores a mode or tools without a model after a restart', async () => {
+  const h = await setup()
+  const settings = await h.start()
+  await settings.write({ scope: 'project', id: PROJECT, values: { mode: 'chat' } })
+  await settings.write({ scope: 'project', id: OTHER, values: { toolsDisabled: ['bash'] } })
+
+  const again = await (await setup({ file: h.file })).start()
+  expect(again.read({ scope: 'project', id: PROJECT })).toEqual({ mode: 'chat' })
+  expect(again.read({ scope: 'project', id: OTHER })).toEqual({ toolsDisabled: ['bash'] })
+  expect(readdirSync(h.dir).filter(name => name.includes('.invalid-'))).toEqual([])
+})
+
 it('removes a key on null or an empty list, and drops a scope with nothing left', async () => {
   const h = await setup()
   const settings = await h.start()

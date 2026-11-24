@@ -24,7 +24,7 @@ export interface ScopedModel {
 /** Values one scope stores; an absent key inherits from the next wider scope. */
 export interface ScopedValues {
   /** Model new chats start on. Project scope only. */
-  readonly model?: ScopedModel
+  readonly model?: ScopedModel | undefined
   /** Agent preset (mode) new chats start in. Project scope only. */
   readonly mode?: string
   /** Tool names, or `mcp:<server>` for every tool of one MCP server, switched off. */
