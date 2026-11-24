@@ -7,6 +7,7 @@
  */
 
 import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
+import { captureFailure, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type { MessageId } from '@janhq/jan-api-remotes/client'
 import type { FeedbackCategory, FeedbackRecord } from '@janhq/jan-command-feedback/types'
 import type { MessageFeedbackRating } from '@janhq/jan-message-feedback/types'
@@ -25,8 +26,8 @@ export interface FeedbackDialogState {
   readonly text: string
   /** A submission is in flight; the form ignores edits and submits until it settles. */
   readonly submitting: boolean
-  /** Failure code of the last submission from this open; null when none. */
-  readonly failure: string | null
+  /** Latest submission failure, or null when no failure toast is visible. */
+  readonly failure: { code: string; details: FailureDetails } | null
   /** Sequence of the acknowledgement toast on screen; 0 while none. */
   readonly toast: number
 }
@@ -104,7 +105,8 @@ export class FeedbackDialogController {
       return
     }
     if (generation !== this.generation) return
-    this.state.set({ ...this.state.getSnapshot(), submitting: false, failure: result.error.code, toast: 0 })
+    this.state.set({ ...this.state.getSnapshot(), submitting: false, toast: 0,
+      failure: { code: result.error.code, details: captureFailure('feedback.submit', result.error) } })
   }
 
   /** Clear the current failure toast without closing its draft. */

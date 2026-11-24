@@ -50,8 +50,8 @@ export function FeedbackDialog({
   // A toast retires with the entry that showed it: the Toast's own timer dies
   // on unmount, and the Session's controller must not replay it on return.
   useEffect(() => () => { dismissToast(toast) }, [dismissToast, toast])
-  const failureCode = state.failure
-  const failure = failureCode === null ? null : t(FAILURE_COPY[failureCode] ?? 'error.generic')
+  const failureCode = state.failure?.code
+  const failure = failureCode === undefined ? null : t(FAILURE_COPY[failureCode] ?? 'error.generic')
   const onFailureDone = useCallback(() => { dismissFailure() }, [dismissFailure])
 
   return (
@@ -68,6 +68,7 @@ export function FeedbackDialog({
         <Toast
           key={`failure-${failureCode}`}
           text={failure}
+          failure={state.failure?.details}
           icon={<IconWarningOutlineRegular />}
           holdMs={6000}
           onDone={onFailureDone}

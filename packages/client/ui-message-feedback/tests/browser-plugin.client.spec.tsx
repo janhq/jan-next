@@ -214,7 +214,7 @@ describe('ui-message-feedback browser plugin', () => {
 
     await dialog.submit()
 
-    expect(dialog.hooks.dialog.getSnapshot()).toMatchObject({ target: { kind: 'session' }, failure: 'gateway/internal', toast: 0 })
+    expect(dialog.hooks.dialog.getSnapshot()).toMatchObject({ target: { kind: 'session' }, failure: { code: 'gateway/internal' }, toast: 0 })
     dialog.dismissFailure()
     expect(dialog.hooks.dialog.getSnapshot()).toMatchObject({ target: { kind: 'session' }, failure: null })
   })
@@ -231,7 +231,7 @@ describe('ui-message-feedback browser plugin', () => {
 
     await dialog.submit()
 
-    expect(dialog.hooks.dialog.getSnapshot()).toMatchObject({ target: { kind: 'session' }, failure: 'session-not-found' })
+    expect(dialog.hooks.dialog.getSnapshot()).toMatchObject({ target: { kind: 'session' }, failure: { code: 'session-not-found' } })
     dialog.dismiss()
     expect(dialog.hooks.dialog.getSnapshot().target).toBeNull()
   })

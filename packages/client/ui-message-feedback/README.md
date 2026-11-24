@@ -9,6 +9,8 @@ kind: "package-reference"
 
 This package is the Web GUI's feedback surface: the Like/Dislike pair in the finalized assistant message's action strip, the feedback dialog with its acknowledgement and failure toasts in the composer overlay, and a decoration that opens the dialog from a bare `/feedback`. Like and Dislike both open the dialog, which collects a category and an optional description before recording the selected rating. One surface per Session backs every entry, so a single list read seeds the whole transcript and one dialog serves the Session and its messages. Ratings, categories, and notes are log-only Session events that never enter model context.
 
+Submission failures keep the draft open and offer **Copy details** and **Show log** without including the unpublished feedback draft in the report.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)
