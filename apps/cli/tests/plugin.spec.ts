@@ -314,7 +314,7 @@ it('writes one JSON failure when pnpm operation logging cannot start', async () 
   const actual = await vi.importActual<typeof operations>('@janhq/jan-plugin-manager/operations')
   vi.mocked(runPluginCommand).mockImplementation(actual.runPluginCommand)
   expect(await runPlugin('test', ['list', '--json'])).toBe(1)
-  expect(report(stdout)).toMatchObject({ command: 'list', ok: false, exitCode: 1, packages: [], error: expect.stringContaining('logs') })
+  expect(report(stdout)).toMatchObject({ command: 'list', ok: false, exitCode: 1, packages: [], error: expect.stringContaining('logs') as string })
 })
 
 it.each(['test', 'desktop'])('compares the %s profile before and after under its writer lock', async (profile) => {

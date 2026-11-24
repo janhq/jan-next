@@ -175,10 +175,10 @@ export async function prepareRuntime(ctx: Context, config: Config, signal: Abort
         report({ ...state, step })
       }
       for (const [index, url] of urls.entries()) {
-        let fetched = false
+        const attempt = { fetched: false }
         try {
           await downloadAsset({ ...asset, url }, root, signal, reportAsset, () => {
-            fetched = true
+            attempt.fetched = true
             transfer ??= store?.start({
               id: `voice:${config.providerId}:${asset.name}`, kind: 'voice', name: asset.name, totalBytes: asset.bytes,
               ...cancel === undefined ? {} : { actions: { cancel } },
@@ -186,7 +186,7 @@ export async function prepareRuntime(ctx: Context, config: Config, signal: Abort
             transfer?.update({ state: 'downloading', receivedBytes: 0 })
           })
           // Another writer may have filled the cache before the next mirror attempt.
-          transfer?.finish(fetched ? 'done' : 'cancelled')
+          transfer?.finish(attempt.fetched ? 'done' : 'cancelled')
           return
         } catch (error) {
           if (signal.aborted || !(error instanceof SpeechDownloadError) || error.download.reason === 'storage'

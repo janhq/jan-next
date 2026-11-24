@@ -838,9 +838,9 @@ async function main(): Promise<void> {
       return {
         progress: (received, total) => { transfer.update({ state: 'downloading', ...nativeDownloadBytes(received, total) }) },
         finish: (outcome, failure) => {
-          if (outcome === 'done') transfer.finish('done', undefined, { open: () => open('done') })
+          if (outcome === 'done') transfer.finish('done', undefined, { open: () => { open('done') } })
           else if (outcome === 'failed' && failure !== undefined) {
-            transfer.finish('failed', desktopUpdateErrorSummary(failure, locale.messages), { retry: () => open('failed') })
+            transfer.finish('failed', desktopUpdateErrorSummary(failure, locale.messages), { retry: () => { open('failed') } })
           } else transfer.finish(outcome)
         },
       }

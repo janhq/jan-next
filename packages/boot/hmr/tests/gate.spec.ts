@@ -105,7 +105,7 @@ it('rechecks the gate when an automatic apply reaches the transaction', async ()
   await f.edit()
 
   const release = Promise.withResolvers<undefined>()
-  onTestFinished(() => release.resolve(undefined))
+  onTestFinished(() => { release.resolve(undefined) })
   const transaction = f.ctx.hmr.runExclusive(() => release.promise)
   busy = undefined
   const apply = f.ctx.hmr.applyHeld({ respectGate: true })

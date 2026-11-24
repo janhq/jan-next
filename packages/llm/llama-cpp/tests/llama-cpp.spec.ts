@@ -527,7 +527,7 @@ it('resumes a paused inbox download under the same id without letting old action
   const first = start.mock.lastCall![0]
   expect(first).toMatchObject({ kind: 'model', totalBytes: MODEL.length })
   expect(update).toHaveBeenCalledWith({ state: 'downloading' })
-  expect(update).toHaveBeenCalledWith({ receivedBytes: expect.any(Number) })
+  expect(update).toHaveBeenCalledWith({ receivedBytes: expect.any(Number) as number })
 
   await first.actions!.pause!()
   await f.until(s => s.phase === 'missing')

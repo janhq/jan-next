@@ -845,7 +845,7 @@ describe('read_chat', () => {
     expect(first).toContain('#1 assistant:\nold assistant')
     const next = first.match(/call read_chat with (\{[^\n]+\})\.$/u)?.[1]
     expect(next).toBeDefined()
-    const second = (await read(JSON.parse(next!))).text
+    const second = (await read(JSON.parse(next!) as Record<string, unknown>)).text
     expect(second).toContain('Chat "Archive" (recorded history):')
     expect(second).toContain('#0 user:\nold user')
     expect(second).not.toContain('different chat')

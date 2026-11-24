@@ -1253,7 +1253,7 @@ it('reports an archive install by its filename and replaces the failed row on re
   })
   const failure = { exitCode: 1, output: 'ERR_PNPM_FETCH_TIMEOUT', truncated: false, logPath: 'pnpm.log', timedOut: true }
   const pnpm = vi.spyOn(operations, 'runProfilePnpm').mockImplementation(async () => {
-    expect(rows.get(id ?? '')).toMatchObject({ state: 'downloading', actions: { cancel: expect.any(Function) } })
+    expect(rows.get(id ?? '')).toMatchObject({ state: 'downloading', actions: { cancel: expect.any(Function) as () => void } })
     return failure
   })
   onTestFinished(() => { pnpm.mockRestore() })
@@ -1262,7 +1262,7 @@ it('reports an archive install by its filename and replaces the failed row on re
   expect(rows.get(id ?? '')).toMatchObject({ name: 'addon.tgz', state: 'queued' })
   await run
   const row = rows.get(id ?? '')
-  expect(row).toMatchObject({ state: 'failed', error: failure.output, actions: { retry: expect.any(Function) } })
+  expect(row).toMatchObject({ state: 'failed', error: failure.output, actions: { retry: expect.any(Function) as () => void } })
   expect(row?.actions.cancel).toBeUndefined()
   expect(row).not.toHaveProperty('percent')
   expect(row).not.toHaveProperty('receivedBytes')

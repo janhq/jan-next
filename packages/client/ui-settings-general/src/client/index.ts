@@ -129,7 +129,7 @@ export function apply(ctx: ClientContext): void {
   ctx.provide('settingsNavigation', {
     availability,
     targets,
-    registerTarget: targets.register,
+    registerTarget: target => targets.register(target),
     open: (section) => {
       if (shellActions === undefined) return false
       const snapshot = targets.getSnapshot()

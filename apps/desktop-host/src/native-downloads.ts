@@ -16,12 +16,15 @@ function byteCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 }
 
+const NATIVE_ACTIONS: readonly DownloadAction[] = ['cancel', 'retry', 'open', 'reveal']
+
 function parseActions(value: unknown): readonly DownloadAction[] | undefined {
   if (!Array.isArray(value)) return undefined
   const actions: DownloadAction[] = []
-  for (const entry of value) {
-    if (entry !== 'cancel' && entry !== 'retry' && entry !== 'open' && entry !== 'reveal') return undefined
-    actions.push(entry)
+  for (const entry of value as unknown[]) {
+    const action = NATIVE_ACTIONS.find(candidate => candidate === entry)
+    if (action === undefined) return undefined
+    actions.push(action)
   }
   return actions
 }

@@ -156,7 +156,7 @@ it.each([false, true])('reports only successful include refreshes (mixed batch: 
   const applied = vi.fn()
   const held = Promise.withResolvers<undefined>()
   ctx.on('hmr/applied', applied)
-  ctx.on('hmr/held', () => held.resolve(undefined))
+  ctx.on('hmr/held', () => { held.resolve(undefined) })
   onTestFinished(hmr.setGate({ hold: () => 'busy' }))
   moduleWatcher.emit('change', includes[0]!.file)
   if (mixed) moduleWatcher.emit('change', includes[1]!.file)

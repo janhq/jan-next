@@ -8,7 +8,7 @@ import * as primitives from '@janhq/jan-client-ui-primitives'
 import type * as ReactAPI from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 
-const React: typeof ReactAPI = createRequire(import.meta.resolve('@testing-library/react'))('react')
+const React = createRequire(import.meta.resolve('@testing-library/react'))('react') as typeof ReactAPI
 const source = readFileSync(join(import.meta.dirname, '../client.js'), 'utf8')
 
 afterEach(() => {
@@ -22,18 +22,18 @@ it('opens an empty inbox, shows downloads from each producer, and returns focus 
   let props: { hooks?: Record<string, { subscribe: (fn: () => void) => () => void; getSnapshot: () => unknown }>; request?: unknown } = {}
   let copy: Record<string, string>
   const t = (key: string, values: Record<string, unknown> = {}) =>
-    (copy[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(values[name]))
+    (copy[key] ?? key).replace(/\{(\w+)\}/g, (_, name: string) => String(values[name]))
   let stream!: ReadableStreamDefaultController<Uint8Array>
-  const send = (snapshot: object) => stream.enqueue(new TextEncoder().encode(`${JSON.stringify(snapshot)}\n`))
+  const send = (snapshot: object) => { stream.enqueue(new TextEncoder().encode(`${JSON.stringify(snapshot)}\n`)) }
   const body = new ReadableStream<Uint8Array>({ start(controller) { stream = controller } })
   const request = vi.fn(async (_: URL, options?: RequestInit) => options?.method === 'POST'
     ? new Response(null, { status: 204 }) : new Response(body))
   const scope = {
     locale: { register: (_: string, translations: { en: Record<string, string> }) => { copy = translations.en }, bind: () => t },
-    effect: (run: () => void) => run(),
+    effect: (run: () => void) => { run() },
     inject: () => {},
     slots: {
-      inject: (_: string, run: () => void) => run(),
+      inject: (_: string, run: () => void) => { run() },
       register: (options: { name: string; inject?: () => typeof props }, component: typeof header) => {
         if (options.name !== 'sidebar.toggle.actions') return
         header = component
@@ -56,15 +56,15 @@ it('opens an empty inbox, shows downloads from each producer, and returns focus 
     useInbox: () => inbox ? React.useSyncExternalStore(inbox.subscribe, inbox.getSnapshot) : null,
   }))
   const downloads = screen.getByRole('button', { name: 'Downloads' })
-  await act(async () => send({ items: [], active: { count: 0, percent: null }, unseen: null }))
+  await act(async () => { send({ items: [], active: { count: 0, percent: null }, unseen: null }) })
   fireEvent.click(downloads)
   expect(screen.getByRole('dialog')).toBeTruthy()
   expect(screen.getByText('Your download progress will appear here')).toBeTruthy()
-  await act(async () => send({ items: [
+  await act(async () => { send({ items: [
     { id: 'model', kind: 'model', name: 'Qwen', state: 'downloading', percent: 25, receivedBytes: 250_000_000,
       totalBytes: 1_000_000_000, bytesPerSecond: 12_500_000, actions: ['pause'] },
     { id: 'plugin', kind: 'plugin', name: 'Calendar', state: 'failed', error: 'Network unavailable', actions: ['retry'] },
-  ], active: { count: 1, percent: 25 }, unseen: { sequence: 1, failed: true } }))
+  ], active: { count: 1, percent: 25 }, unseen: { sequence: 1, failed: true } }) })
   expect(screen.getByText('Qwen')).toBeTruthy()
   expect(screen.getByText('Calendar')).toBeTruthy()
   expect(screen.getByText('Network unavailable')).toBeTruthy()

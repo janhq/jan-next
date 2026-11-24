@@ -52,7 +52,7 @@ it('warns with the model name and size, leaves it on cancel, and refreshes after
   const fetchInbox = async (_: string, { signal }: { signal: AbortSignal }) => {
     signal.throwIfAborted()
     const stop = Promise.withResolvers<never>()
-    signal.addEventListener('abort', () => stop.reject(signal.reason), { once: true })
+    signal.addEventListener('abort', () => { stop.reject(signal.reason) }, { once: true })
     return stop.promise
   }
   runInNewContext(client, { document, AbortController, URL, setTimeout, clearTimeout, fetch: fetchInbox, window: { __ModuleLoader__: {
