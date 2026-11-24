@@ -2,10 +2,11 @@
 import { useId, useRef, useState } from 'react'
 import type { ModelProviderGroup } from '@janhq/jan-api-session-controller/types'
 import type { AgentPresetRow } from '@janhq/jan-agent-preset-registry/types'
-import { Button, Checkbox, IconLoadingOutlineRegular, Modal, SelectMenu } from '@janhq/jan-client-ui-primitives'
+import { Button, Checkbox, IconChevronDownOutlineRegular, IconLoadingOutlineRegular, Modal, SelectMenu } from '@janhq/jan-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, SnapshotSelectorHook } from '@janhq/jan-client-ui-slots'
 import {
-  MCP_SERVER_PREFIX, type ScopeAddress, type ScopedModel, type ScopedToolCatalog, type ScopedValues, type ScopedWriteRequest,
+  MCP_SERVER_PREFIX, type InheritedOff, type ScopeAddress, type ScopedModel, type ScopedSkillCatalog, type ScopedSkillFolder,
+  type ScopedToolCatalog, type ScopedValues, type ScopedWriteRequest,
 } from '../types.ts'
 import css from './ScopedSettings.module.css'
 
@@ -15,6 +16,7 @@ type Ready = {
   readonly status: 'ready'
   readonly values: ScopedValues
   readonly catalog: ScopedToolCatalog
+  readonly skillCatalog: ScopedSkillCatalog
   readonly models: readonly ModelProviderGroup[]
   readonly modes: readonly AgentPresetRow[]
 }
@@ -32,6 +34,7 @@ export interface ScopedSettingsDialogProps extends DialogAddress, Locale {
   readonly write: (request: ScopedWriteRequest) => Promise<void>
   readonly close: () => void
   readonly retry: () => void
+  readonly presetName: (preset: AgentPresetRow) => string
 }
 
 type ScopedSettingsOverlayProps = PropsRuntime<'shell.overlay'> & Locale & {
@@ -39,6 +42,7 @@ type ScopedSettingsOverlayProps = PropsRuntime<'shell.overlay'> & Locale & {
   readonly write: ScopedSettingsDialogProps['write']
   readonly close: (address: DialogAddress) => void
   readonly retry: (address: DialogAddress) => void
+  readonly presetName: ScopedSettingsDialogProps['presetName']
 }
 
 /**
@@ -46,12 +50,12 @@ type ScopedSettingsOverlayProps = PropsRuntime<'shell.overlay'> & Locale & {
  * @param props - snapshot hook, mutations and locale.
  * @returns the dialog or nothing when closed.
  */
-export function ScopedSettingsOverlay({ useRequest, write, close, retry, t }: ScopedSettingsOverlayProps) {
+export function ScopedSettingsOverlay({ useRequest, write, close, retry, presetName, t }: ScopedSettingsOverlayProps) {
   const request = useRequest(value => value)
   if (request === null) return null
   const { address, state } = request
   return <ScopedSettingsDialog key={JSON.stringify([address.scope, address.id])} {...address} state={state} write={write}
-    close={() => { close(address) }} retry={() => { retry(address) }} t={t} />
+    close={() => { close(address) }} retry={() => { retry(address) }} presetName={presetName} t={t} />
 }
 
 /**
@@ -59,7 +63,7 @@ export function ScopedSettingsOverlay({ useRequest, write, close, retry, t }: Sc
  * @param props - captured scope, load state and save action.
  * @returns the scoped editor with recovery for failed reads and writes.
  */
-export function ScopedSettingsDialog({ scope, id, title, state, write, close, retry, t }: ScopedSettingsDialogProps) {
+export function ScopedSettingsDialog({ scope, id, title, state, write, close, retry, presetName, t }: ScopedSettingsDialogProps) {
   const formId = useId()
   const submitting = useRef(false)
   const [saving, setSaving] = useState(false)
@@ -90,7 +94,8 @@ export function ScopedSettingsDialog({ scope, id, title, state, write, close, re
       <p className={css.notice} role="alert">{t('load.error')}</p>
       <Button variant="outline" onClick={retry}>{t('retry')}</Button>
     </div>}
-    {state.status === 'ready' && <SettingsForm initial={state} scope={scope} formId={formId} saving={saving} save={save} t={t} />}
+    {state.status === 'ready' && <SettingsForm initial={state} scope={scope} formId={formId} saving={saving} save={save}
+      presetName={presetName} t={t} />}
   </Modal>
 }
 
@@ -98,51 +103,53 @@ function modelKey(model: ScopedModel): string {
   return JSON.stringify([model.provider, model.model])
 }
 
-function SettingsForm({ initial, scope, formId, saving, save, t }: Locale & {
+function updateSwitch(previous: ReadonlySet<string>, name: string, enabled: boolean): Set<string> {
+  const next = new Set(previous)
+  if (enabled) next.delete(name)
+  else next.add(name)
+  return next
+}
+
+function changedSwitches(stored: readonly string[] | undefined, draft: ReadonlySet<string>): string[] | null | undefined {
+  const original = new Set(stored)
+  if (original.size === draft.size && [...original].every(value => draft.has(value))) return undefined
+  return draft.size === 0 ? null : [...draft].sort()
+}
+
+function SettingsForm({ initial, scope, formId, saving, save, presetName, t }: Locale & {
   initial: Ready
   scope: ScopeAddress['scope']
   formId: string
   saving: boolean
   save: (values: ScopedWriteRequest['values']) => Promise<void>
+  presetName: ScopedSettingsDialogProps['presetName']
 }) {
   const [model, setModel] = useState(initial.values.model)
   const [mode, setMode] = useState(initial.values.mode ?? '')
   const [tools, setTools] = useState(() => new Set(initial.values.toolsDisabled))
+  const [skills, setSkills] = useState(() => new Set(initial.values.skillsDisabled))
+  const [folders, setFolders] = useState(() => new Set(initial.values.skillFoldersDisabled))
   const [failed, setFailed] = useState(false)
   const names = initial.catalog.tools
   const servers = initial.catalog.mcpServers
   const toolChoice = (name: string, label: string) => <Checkbox key={name} label={label} checked={!tools.has(name)} disabled={saving}
-    onChange={(checked) => {
-      setTools((previous) => {
-        const next = new Set(previous)
-        if (checked) next.delete(name)
-        else next.add(name)
-        return next
-      })
-    }} />
+    onChange={(checked) => { setTools(previous => updateSwitch(previous, name, checked)) }} />
   return <form id={formId} className={css.form} onSubmit={(event) => {
     event.preventDefault()
     setFailed(false)
+    const skillsDisabled = changedSwitches(initial.values.skillsDisabled, skills)
+    const skillFoldersDisabled = changedSwitches(initial.values.skillFoldersDisabled, folders)
     void save({ ...scope === 'project' ? { model: model ?? null, mode: mode || null } : {},
       toolsDisabled: tools.size === 0 ? null : [...tools].sort(),
+      ...skillsDisabled === undefined ? {} : { skillsDisabled },
+      ...skillFoldersDisabled === undefined ? {} : { skillFoldersDisabled },
     }).catch(() => { setFailed(true) })
   }}>
     {scope === 'project' && <>
       <ModelFields groups={initial.models} model={model} setModel={setModel} saving={saving} t={t} />
-      <div className={css.field}>
-        <span>{t('mode.label')}</span>
-        <SelectMenu align="start" label={t('mode.label')} value={mode} disabled={saving} onChange={setMode} options={[
-          { id: '', label: t('inherit.global') },
-          ...initial.modes.map(row => ({
-            id: row.id, label: row.broken === undefined ? row.name ?? row.id : t('choice.unavailable', { name: row.name ?? row.id }),
-            disabled: row.broken !== undefined,
-          })),
-          ...mode !== '' && !initial.modes.some(row => row.id === mode)
-            ? [{ id: mode, label: t('choice.unavailable', { name: mode }), disabled: true }] : [],
-        ]} />
-      </div>
+      <ModeField modes={initial.modes} mode={mode} setMode={setMode} saving={saving} presetName={presetName} t={t} />
     </>}
-    <fieldset className={css.tools}>
+    <fieldset className={css.switches}>
       <legend>{t('tools.label')}</legend>
       {scope !== 'global' && <p className={css.hint}>{t('tools.inherited')}</p>}
       {names.length + servers.length === 0 ? <p className={css.hint}>{t('tools.empty')}</p>
@@ -151,8 +158,90 @@ function SettingsForm({ initial, scope, formId, saving, save, t }: Locale & {
           {servers.map(name => toolChoice(`${MCP_SERVER_PREFIX}${name}`, t('tools.mcp', { name })))}
         </div>}
     </fieldset>
+    <fieldset className={css.switches}>
+      <legend>{t('skills.label')}</legend>
+      {initial.skillCatalog.folders.length === 0 ? <p className={css.hint}>{t('skills.empty')}</p>
+        : <div className={css.choices}>
+          {initial.skillCatalog.folders.map(folder => <SkillFolder key={folder.path} folder={folder} disabledSkills={skills}
+            folderOff={folder.path !== null && folders.has(folder.path)} saving={saving} t={t}
+            onSkillChange={(name, checked) => { setSkills(previous => updateSwitch(previous, name, checked)) }}
+            onFolderChange={(path, checked) => { setFolders(previous => updateSwitch(previous, path, checked)) }} />)}
+        </div>}
+    </fieldset>
     {failed && <p className={css.notice} role="alert">{t('save.error')}</p>}
   </form>
+}
+
+function SkillFolder({ folder, disabledSkills, folderOff, saving, onSkillChange, onFolderChange, t }: Locale & {
+  folder: ScopedSkillFolder
+  disabledSkills: ReadonlySet<string>
+  folderOff: boolean
+  saving: boolean
+  onSkillChange: (name: string, checked: boolean) => void
+  onFolderChange: (path: string, checked: boolean) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const id = useId()
+  const { path, offAt } = folder
+  const label = folder.label ?? t('skills.builtIn')
+  const off = folderOff || offAt !== undefined
+  const active = off ? 0 : folder.skills.filter(skill => skill.offAt === undefined && !disabledSkills.has(skill.name)).length
+  const reason = (at: InheritedOff | undefined) => at === undefined ? undefined : t(`skills.off.${at}`)
+  return <div>
+    <div className={css.folderRow}>
+      <div className={css.switchLabel}>
+        {path === null ? <span>{label}</span> : <Checkbox label={label} title={reason(offAt)} checked={!off}
+          disabled={saving || offAt !== undefined} onChange={(checked) => { onFolderChange(path, checked) }} />}
+        {offAt !== undefined && <span className={css.choiceDetail}>{reason(offAt)}</span>}
+      </div>
+      <Button size="sm" className={css.folderExpand} aria-label={t('skills.folder', { name: label })}
+        aria-describedby={`${id}-count`} aria-controls={id} aria-expanded={open}
+        onClick={(event) => { event.currentTarget.focus(); setOpen(value => !value) }}>
+        <span id={`${id}-count`}>{t('skills.count', { active, total: folder.skills.length })}</span>
+        <IconChevronDownOutlineRegular className={css.folderChevron} size={12} aria-hidden="true" />
+      </Button>
+    </div>
+    <div id={id} className={css.folderBody} data-open={open || undefined} {...{ inert: open ? undefined : '' }} aria-hidden={!open}>
+      <div className={css.folderClip}>
+        <div className={css.skillChoices}>
+          {folder.skills.map((skill) => {
+            const inherited = skill.offAt ?? offAt
+            return <div className={css.switchLabel} key={skill.name}>
+              <Checkbox label={skill.name} title={reason(inherited)}
+                checked={!off && inherited === undefined && !disabledSkills.has(skill.name)}
+                disabled={saving || off || inherited !== undefined} onChange={(checked) => { onSkillChange(skill.name, checked) }} />
+              {inherited !== undefined && <span className={css.choiceDetail}>{reason(inherited)}</span>}
+              {skill.description !== '' && <span className={css.choiceDetail}>{skill.description}</span>}
+            </div>
+          })}
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+function ModeField({ modes, mode, setMode, saving, presetName, t }: Locale & {
+  modes: readonly AgentPresetRow[]
+  mode: string
+  setMode: (mode: string) => void
+  saving: boolean
+  presetName: ScopedSettingsDialogProps['presetName']
+}) {
+  const current = modes.find(row => row.id === mode)
+  const unavailable = mode !== '' && (current === undefined || current.showInModePicker === false)
+  return <div className={css.field}>
+    <span>{t('mode.label')}</span>
+    <SelectMenu align="start" label={t('mode.label')} value={mode} disabled={saving} onChange={setMode}
+      placeholder={unavailable ? t('choice.unavailable', { name: current === undefined ? mode : presetName(current) }) : undefined}
+      options={[
+        { id: '', label: t('inherit.global') },
+        ...modes.filter(row => row.showInModePicker !== false).map((row) => {
+          const name = presetName(row)
+          return { id: row.id, label: row.broken === undefined ? name : t('choice.unavailable', { name }),
+            disabled: row.broken !== undefined }
+        }),
+      ]} />
+  </div>
 }
 
 function ModelFields({ groups, model, setModel, saving, t }: Locale & {

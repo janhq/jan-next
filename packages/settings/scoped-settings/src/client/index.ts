@@ -1,7 +1,9 @@
-/** Browser entry for project defaults and tool switches at each scope. */
+/** Browser entry for project defaults and scoped tool and skill switches. */
+import { presetDisplayText, type PresetDisplaySource } from '@janhq/jan-agent-preset-registry/display'
 import type { Context } from '@janhq/cordis'
 import type {} from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-agent-preset/client'
 import type {} from '@janhq/jan-client-ui-commands/client'
 import type {} from '@janhq/jan-client-ui-context-menu/client'
 import type {} from '@janhq/jan-client-ui-layout/client'
@@ -18,7 +20,7 @@ import { de, en, es, fr, ja, pt, ru, zh, type ScopedSettingsKey } from './locale
 
 declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
-    /** Project defaults, tool switches and entry point labels. */
+    /** Project defaults, tool and skill switches, and entry point labels. */
     scopedSettings: ScopedSettingsKey
   }
 }
@@ -60,18 +62,21 @@ function registerUi(ctx: Context): void {
       const { scope, id } = address
       const session = scope === 'project' ? ctx.get('remote.session') as Context['remote']['session'] | undefined : undefined
       const presets = scope === 'project' ? ctx.get('remote.agentPresets') as Context['remote']['agentPresets'] | undefined : undefined
-      const [stored, tools, models, modes] = await Promise.all([
-        ctx.remote.scopedSettings.read({ scope, ...id === undefined ? {} : { id } }),
+      const target = { scope, ...id === undefined ? {} : { id } }
+      const [stored, tools, skills, models, modes] = await Promise.all([
+        ctx.remote.scopedSettings.read(target),
         ctx.remote.scopedSettings.toolCatalog(),
+        ctx.remote.scopedSettings.skillCatalog(target),
         session?.modelCatalog(),
         presets?.list(),
       ])
       if (request.getSnapshot() !== loading) return
       if (!stored.ok) throw stored.error
       if (!tools.ok) throw tools.error
+      if (!skills.ok) throw skills.error
       if (models?.ok === false) throw models.error
       if (modes?.ok === false && modes.error.code !== 'gateway/invocation-unavailable') throw modes.error
-      request.set({ address, state: { status: 'ready', values: stored.value, catalog: tools.value,
+      request.set({ address, state: { status: 'ready', values: stored.value, catalog: tools.value, skillCatalog: skills.value,
         models: models?.value.groups ?? [], modes: modes?.ok ? modes.value.presets : [],
       } })
     } catch (error) {
@@ -88,10 +93,12 @@ function registerUi(ctx: Context): void {
     if (!result.ok) throw result.error
   }
   const t = ctx.locale.bind(NS)
+  const agentPresetCopy = ctx.locale.bind('settings.agentPreset')
+  const presetName = (preset: PresetDisplaySource) => presetDisplayText(preset, agentPresetCopy).name
 
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay', id: 'scoped-settings.dialog', locale: NS,
-    inject: () => ({ hooks: { request }, write, close, retry: open }),
+    inject: () => ({ hooks: { request }, write, close, retry: open, presetName }),
   }, ScopedSettingsOverlay))
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item', id: 'scoped-settings.tools', order: 18, locale: NS,

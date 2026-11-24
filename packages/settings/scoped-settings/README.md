@@ -32,7 +32,7 @@ The web-app bundle mounts it after the workspace controller:
 
 It needs `agents`, `workspaceRegistry` and `tools`; `agentPresets` is optional and only checks that a project mode still exists, and `skills` is optional and receives the skill filter.
 
-Open **Project settings** from a project's context menu to choose its default model, reasoning effort and mode, or to switch off tools in that project. Use `/tools` in a chat or **Settings > General > Tools for every chat** to edit the other two scopes. A checked tool is not switched off at the scope you are editing; a wider scope can still switch it off.
+Open **Project settings** from a project's context menu to choose its default model, reasoning effort and mode, or to switch off tools and skills in that project. Use `/tools` in a chat (**Tools and skills for this chat**) or **Settings > General > Tools and skills for every chat** to edit the other two scopes. A checked tool or skill is not switched off at the scope you are editing; a wider scope can still switch it off.
 
 | Setting | Chat | Project | Global | Resolution |
 |---|---|---|---|---|

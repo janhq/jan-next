@@ -26,20 +26,20 @@
 }
 
 .field > span,
-.tools legend {
+.switches legend {
   font-size: 14px;
   font-weight: 500;
   line-height: 20px;
 }
 
-.tools {
+.switches {
   border: 0;
   margin: 0;
   min-width: 0;
   padding: 0;
 }
 
-.tools legend {
+.switches legend {
   padding: 0;
   margin-bottom: 4px;
 }
@@ -48,6 +48,78 @@
   display: grid;
   gap: 8px;
   overflow-wrap: anywhere;
+}
+
+.folderRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.folderRow > .switchLabel {
+  padding-block: 4px;
+}
+
+.switchLabel {
+  display: grid;
+  justify-items: start;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.choiceDetail {
+  padding-inline-start: 22px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.folderExpand {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.folderChevron {
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.folderExpand[aria-expanded='true'] .folderChevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .folderChevron { transition: none; }
+}
+
+.folderBody {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--ds-transition-duration-fast) var(--ds-ease-in),
+    opacity var(--ds-transition-duration-fast) var(--ds-ease-in);
+}
+
+.folderBody[data-open] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows var(--ds-transition-duration) var(--ds-ease-out),
+    opacity var(--ds-transition-duration) var(--ds-ease-out);
+}
+
+.folderClip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.skillChoices {
+  display: grid;
+  gap: 8px;
+  padding: 4px 4px 4px 16px;
 }
 
 .hint {

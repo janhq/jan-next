@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-libra
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
 import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
 import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
+import { en as presetEn, zh as presetZh } from '@janhq/jan-client-ui-agent-preset/src/client/locales.ts'
 import { SlotTestRuntime } from '@janhq/jan-client-test-runtime'
 import type { CommandContribution } from '@janhq/jan-client-ui-commands/client'
 import type { MenuContribution } from '@janhq/jan-client-ui-context-menu/client'
@@ -21,6 +22,7 @@ it('opens the correct scope from each entry point and excludes federated chats a
   try {
     const locale = new LocaleRuntime(runtime.ctx)
     locale.register('common', { en: commonEn, zh: commonZh })
+    locale.register('settings.agentPreset', { en: presetEn, zh: presetZh })
     runtime.ctx.provide('locale', locale)
     runtime.slots.installLocale(locale)
     const unregisterProject = vi.fn(), unregisterChat = vi.fn(), unmountRemote = vi.fn(async () => {})
@@ -31,10 +33,18 @@ it('opens the correct scope from each entry point and excludes federated chats a
     const read = vi.fn(async (_address: ScopeAddress) => ({ ok: true as const, value: {} }))
     const write = vi.fn(async (_request: ScopedWriteRequest) => ({ ok: true as const, value: {} }))
     const toolCatalog = async () => ({ ok: true as const, value: { tools: ['bash'], mcpServers: [] } })
+    const skillCatalog = vi.fn(async (_address: ScopeAddress) => ({ ok: true as const, value: { folders: [
+      { path: null, label: null, off: false, skills: [{ name: 'outline', description: 'Outline a document.', off: false }] },
+    ] } }))
     const modelCatalog = vi.fn(async () => ({ ok: true as const, value: { groups: [] } }))
-    const list = vi.fn(async () => ({ ok: true as const, value: { presets: [] } }))
+    const list = vi.fn(async () => ({ ok: true as const, value: { presets: [
+      { id: 'standard', isDefault: true },
+      { id: 'ptc', isDefault: false },
+      { id: 'scout', isDefault: false, showInModePicker: false },
+    ] } }))
     const mountRemote = vi.spyOn(runtime.remote, '$mount').mockImplementation(async () => {
-      runtime.remote.provideNamespaces({ scopedSettings: { read, write, toolCatalog }, session: { modelCatalog }, agentPresets: { list } })
+      runtime.remote.provideNamespaces({ scopedSettings: { read, write, toolCatalog, skillCatalog },
+        session: { modelCatalog }, agentPresets: { list } })
       return unmountRemote
     })
     await runtime.declare({
@@ -57,9 +67,18 @@ it('opens the correct scope from each entry point and excludes federated chats a
     const project = await screen.findByRole('dialog', { name: 'Settings for Project C' })
     expect(within(project).getByRole('button', { name: en['model.label'] })).toBeTruthy()
     expect(read).toHaveBeenLastCalledWith({ scope: 'project', id: 'project-c' })
+    expect(skillCatalog).toHaveBeenLastCalledWith({ scope: 'project', id: 'project-c' })
     expect(modelCatalog).toHaveBeenCalledOnce()
     expect(list).toHaveBeenCalledOnce()
-    fireEvent.click(within(project).getByRole('button', { name: 'Close' }))
+    fireEvent.click(within(project).getByRole('button', { name: en['mode.label'] }))
+    expect(screen.getByRole('menuitem', { name: presetEn.presetStandardName })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: 'scout' })).toBeNull()
+    fireEvent.click(screen.getByRole('menuitem', { name: presetEn.presetPtcName }))
+    fireEvent.click(within(project).getByRole('button', { name: commonEn.save }))
+    await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull() })
+    expect(write).toHaveBeenNthCalledWith(1, { scope: 'project', id: 'project-c', values: {
+      model: null, mode: 'ptc', toolsDisabled: null,
+    } })
 
     const command = chatCommand.mock.calls[0]![0]
     const chat = { sessionId: SessionId('chat-a') }
@@ -71,15 +90,31 @@ it('opens the correct scope from each entry point and excludes federated chats a
     act(() => { ui.run(chat) })
     const session = await screen.findByRole('dialog', { name: en['session.title'] })
     expect(read).toHaveBeenLastCalledWith({ scope: 'session', id: 'chat-a' })
+    expect(skillCatalog).toHaveBeenLastCalledWith({ scope: 'session', id: 'chat-a' })
+    const skills = within(await within(session).findByRole('group', { name: en['skills.label'] }))
+    fireEvent.click(skills.getByRole('button', { name: 'Skills in Built in' }))
+    expect(skills.getByRole('checkbox', { name: 'outline', checked: true })).toBeTruthy()
     fireEvent.click(within(session).getByRole('button', { name: 'Close' }))
 
+    const pending = Promise.withResolvers<undefined>()
+    skillCatalog.mockImplementationOnce(async () => {
+      await pending.promise
+      throw new Error('Skill catalog unavailable')
+    })
     fireEvent.click(general.getByRole('button', { name: en['global.action'] }))
     const global = await screen.findByRole('dialog', { name: en['global.title'] })
+    expect(within(global).getByRole('status', { name: commonEn.loading })).toBeTruthy()
+    expect(within(global).getByRole('button', { name: commonEn.save })).toHaveProperty('disabled', true)
+    await act(async () => { pending.resolve(undefined) })
+    expect((await within(global).findByRole('alert')).textContent).toBe(en['load.error'])
+    fireEvent.click(within(global).getByRole('button', { name: commonEn.retry }))
     fireEvent.click(await within(global).findByRole('checkbox', { name: 'bash' }))
     fireEvent.click(within(global).getByRole('button', { name: 'Save' }))
     await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull() })
     expect(read).toHaveBeenLastCalledWith({ scope: 'global' })
-    expect(write).toHaveBeenCalledExactlyOnceWith({ scope: 'global', values: { toolsDisabled: ['bash'] } })
+    expect(skillCatalog).toHaveBeenLastCalledWith({ scope: 'global' })
+    expect(write).toHaveBeenNthCalledWith(2, { scope: 'global', values: { toolsDisabled: ['bash'] } })
+    expect(write).toHaveBeenCalledTimes(2)
     expect(modelCatalog).toHaveBeenCalledOnce()
     expect(list).toHaveBeenCalledOnce()
 

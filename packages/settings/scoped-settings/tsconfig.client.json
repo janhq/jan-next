@@ -12,6 +12,7 @@
     { "path": "../../api/session-controller/tsconfig.client.json" },
     { "path": "../../client/locale/tsconfig.client.json" },
     { "path": "../../client/store" },
+    { "path": "../../client/ui-agent-preset" },
     { "path": "../../client/ui-commands" },
     { "path": "../../client/ui-context-menu" },
     { "path": "../../client/ui-layout" },
@@ -20,6 +21,7 @@
     { "path": "../../client/ui-settings/tsconfig.client.json" },
     { "path": "../../client/ui-slots" },
     { "path": "../../client/ui-workspace" },
+    { "path": "../../preset/agent-preset-registry" },
     { "path": "../../typert/protocol" }
   ]
 }

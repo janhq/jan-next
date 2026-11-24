@@ -6,8 +6,19 @@ import { makeTranslate } from '@janhq/jan-client-test-runtime'
 import { afterEach, expect, it, vi } from 'vitest'
 import { ScopedSettingsDialog, type ScopedSettingsDialogProps } from '../src/client/ScopedSettingsDialog.tsx'
 import { en } from '../src/client/locales.ts'
+import type { ScopedSkillCatalog } from '../src/types.ts'
 
 const catalog = { tools: ['bash', 'read_file'], mcpServers: ['notion'] }
+const skillCatalog: ScopedSkillCatalog = { folders: [
+  { path: '/repo/skills', label: '/repo/skills', off: false, skills: [
+    { name: 'summarize', description: 'Summarize a document.', off: false },
+    { name: 'extract', description: 'Extract details from a document.', off: false },
+  ] },
+  { path: '/repo/shared', label: '/repo/shared', off: false, skills: [
+    { name: 'format', description: 'Format a document.', off: false },
+  ] },
+  { path: null, label: null, off: false, skills: [{ name: 'outline', description: 'Outline a document.', off: false }] },
+] }
 const models = [{ id: 'anthropic', name: 'Anthropic', models: [{
   id: 'haiku', name: 'Haiku', reasoning: { efforts: [{ id: 'high', name: 'High' }] },
 }] }]
@@ -16,11 +27,13 @@ const t = makeTranslate(en, common)
 
 afterEach(cleanup)
 
-function open(overrides: Partial<ScopedSettingsDialogProps> = {}) {
+function open({ scope = 'project', id = scope === 'project' ? 'project-c' : undefined, ...overrides }: Partial<ScopedSettingsDialogProps> = {}) {
   const write = vi.fn<ScopedSettingsDialogProps['write']>().mockResolvedValue(undefined)
   const close = vi.fn()
-  render(<ScopedSettingsDialog scope="project" id="project-c" title="Project C" t={t} write={write} close={close} retry={vi.fn()}
-    state={{ status: 'ready', values: {}, catalog, models, modes }} {...overrides} />)
+  render(<ScopedSettingsDialog scope={scope} {...id === undefined ? {} : { id }} title="Project C" t={t} write={write} close={close}
+    retry={vi.fn()}
+    presetName={preset => preset.name ?? preset.id}
+    state={{ status: 'ready', values: {}, catalog, skillCatalog, models, modes }} {...overrides} />)
   return { write, close, dialog: screen.getByRole('dialog') }
 }
 
@@ -47,7 +60,7 @@ it('saves the project model, reasoning effort, mode and disabled tools together'
 })
 
 it('writes null for both inherited project defaults and a cleared tool list', async () => {
-  const { dialog, write, close } = open({ state: { status: 'ready', catalog, models, modes, values: {
+  const { dialog, write, close } = open({ state: { status: 'ready', catalog, skillCatalog, models, modes, values: {
     model: { provider: 'anthropic', model: 'haiku', reasoningEffort: 'high' }, mode: 'chat', toolsDisabled: ['bash'],
   } } })
   choose(dialog, en['model.label'], en['inherit.global'])
@@ -60,15 +73,86 @@ it('writes null for both inherited project defaults and a cleared tool list', as
   } })
 })
 
-it('shows only Tools for a chat and saves only the chat tool switches', async () => {
+it('shows Tools and Skills for a chat and leaves untouched skill switches out of the write', async () => {
   const { dialog, write, close } = open({ scope: 'session', id: 'session-a' })
   expect(within(dialog).queryByRole('button', { name: en['model.label'] })).toBeNull()
   expect(within(dialog).queryByRole('button', { name: en['mode.label'] })).toBeNull()
   expect(within(dialog).getByRole('group', { name: en['tools.label'] })).toBeTruthy()
+  expect(within(dialog).getByRole('group', { name: 'Skills' })).toBeTruthy()
   fireEvent.click(within(dialog).getByRole('checkbox', { name: 'read_file', checked: true }))
   fireEvent.click(within(dialog).getByRole('button', { name: common.save }))
   await waitFor(() => { expect(close).toHaveBeenCalledOnce() })
   expect(write).toHaveBeenCalledExactlyOnceWith({ scope: 'session', id: 'session-a', values: { toolsDisabled: ['read_file'] } })
+})
+
+it('stages skill and folder switches and saves sorted lists in the same write', async () => {
+  const { dialog, write, close } = open()
+  const skills = within(within(dialog).getByRole('group', { name: 'Skills' }))
+  expect(skills.queryByRole('checkbox', { name: 'summarize' })).toBeNull()
+  expect(skills.queryByRole('checkbox', { name: 'Built in' })).toBeNull()
+  const expand = skills.getByRole('button', { name: 'Skills in /repo/skills', expanded: false })
+  expect(expand.textContent).toContain('2 of 2')
+  fireEvent.click(expand)
+  expect(skills.getByText('Summarize a document.')).toBeTruthy()
+  fireEvent.click(skills.getByRole('checkbox', { name: 'summarize', checked: true }))
+  expect(expand.textContent).toContain('1 of 2')
+  fireEvent.click(skills.getByRole('checkbox', { name: 'extract', checked: true }))
+  fireEvent.click(skills.getByRole('checkbox', { name: '/repo/skills', checked: true }))
+  expect(skills.getByRole('checkbox', { name: 'extract', checked: false })).toHaveProperty('disabled', true)
+  fireEvent.click(skills.getByRole('checkbox', { name: '/repo/shared', checked: true }))
+  fireEvent.click(expand)
+  expect(skills.queryByRole('checkbox', { name: 'extract' })).toBeNull()
+  expect(write).not.toHaveBeenCalled()
+
+  fireEvent.click(within(dialog).getByRole('button', { name: common.save }))
+  await waitFor(() => { expect(close).toHaveBeenCalledOnce() })
+  expect(write).toHaveBeenCalledExactlyOnceWith({ scope: 'project', id: 'project-c', values: {
+    model: null, mode: null, toolsDisabled: null, skillsDisabled: ['extract', 'summarize'],
+    skillFoldersDisabled: ['/repo/shared', '/repo/skills'],
+  } })
+})
+
+it('shows why inherited folders and skills cannot be turned on for this chat', () => {
+  const inherited: ScopedSkillCatalog = { folders: [
+    { path: '/repo/shared', label: '/repo/shared', off: false, offAt: 'global', skills: [
+      { name: 'format', description: 'Format a document.', off: false },
+    ] },
+    { path: null, label: null, off: false, skills: [
+      { name: 'outline', description: 'Outline a document.', off: false, offAt: 'project' },
+    ] },
+  ] }
+  const { dialog } = open({ scope: 'session', id: 'session-a',
+    state: { status: 'ready', values: {}, catalog, models, modes, skillCatalog: inherited } })
+  const skills = within(within(dialog).getByRole('group', { name: 'Skills' }))
+  const folder = skills.getByRole('checkbox', { name: '/repo/shared', checked: false })
+  expect(folder).toHaveProperty('disabled', true)
+  expect(folder.closest('label')?.title).toBe('Off for every chat')
+  fireEvent.click(skills.getByRole('button', { name: 'Skills in /repo/shared' }))
+  expect(skills.getByRole('checkbox', { name: 'format', checked: false })).toHaveProperty('disabled', true)
+  fireEvent.click(skills.getByRole('button', { name: 'Skills in Built in' }))
+  const skill = skills.getByRole('checkbox', { name: 'outline', checked: false })
+  expect(skill).toHaveProperty('disabled', true)
+  expect(skill.closest('label')?.title).toBe('Off for this project')
+})
+
+it('removes stored skill switches when their last entries are turned back on', async () => {
+  const disabled: ScopedSkillCatalog = { folders: [
+    { path: '/repo/skills', label: '/repo/skills', off: true, skills: [
+      { name: 'summarize', description: 'Summarize a document.', off: true },
+    ] },
+  ] }
+  const { dialog, write, close } = open({ scope: 'global',
+    state: { status: 'ready', catalog, models, modes, skillCatalog: disabled,
+      values: { skillsDisabled: ['summarize'], skillFoldersDisabled: ['/repo/skills'] } } })
+  const skills = within(within(dialog).getByRole('group', { name: 'Skills' }))
+  fireEvent.click(skills.getByRole('checkbox', { name: '/repo/skills', checked: false }))
+  fireEvent.click(skills.getByRole('button', { name: 'Skills in /repo/skills' }))
+  fireEvent.click(skills.getByRole('checkbox', { name: 'summarize', checked: false }))
+  fireEvent.click(within(dialog).getByRole('button', { name: common.save }))
+  await waitFor(() => { expect(close).toHaveBeenCalledOnce() })
+  expect(write).toHaveBeenCalledExactlyOnceWith({ scope: 'global', values: {
+    toolsDisabled: null, skillsDisabled: null, skillFoldersDisabled: null,
+  } })
 })
 
 it('keeps staged changes visible after a failed save', async () => {
