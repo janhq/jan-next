@@ -136,6 +136,10 @@ export function apply(ctx: Context): void {
   // view order through the same instance the renderer hands the browser.
   const viewHandle = createWorkspaceViewStore()
   const viewInstance = viewHandle.create()
+  // Showing archived rows is a lookup, not a preference: every launch starts
+  // with them hidden, so one "show archived" never keeps archived Sessions in
+  // the list after a restart.
+  viewInstance.actions.setArchivedFilter('default')
   const viewStore: typeof viewHandle = { ...viewHandle, create: () => viewInstance }
   const rowToast = createSnapshotStore<RowToastState | null>(null)
   let toastSeq = 0

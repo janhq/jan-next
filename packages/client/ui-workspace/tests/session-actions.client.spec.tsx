@@ -500,7 +500,7 @@ describe('RowActionToast', () => {
       act(() => { locale.setLocale('en'); view.set({ ...view.getSnapshot(), archivedFilter: 'show' }) })
       expect(screen.getByRole('alert')).toBe(alert)
       expect(alert.textContent).toContain('Session archived')
-      expect(screen.queryByRole('button', { name: 'filter archived sessions' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'show archived sessions' })).toBeNull()
       act(() => { vi.advanceTimersByTime(3999) })
       expect(dismissToast).not.toHaveBeenCalled()
       act(() => { vi.advanceTimersByTime(1) })
@@ -588,13 +588,13 @@ describe('RowActionToast', () => {
   it('the stopped-and-archived notice offers the same undo and filter actions under its own wording', async () => {
     const { dismissToast, undoArchive, showArchived, notify } = await toastSurface()
     notify({ kind: 'stoppedAndArchived', sessionId: sid('one') })
-    expect(screen.getByRole('alert').textContent).toBe('已停止并归档，可撤销或筛选已归档会话')
+    expect(screen.getByRole('alert').textContent).toBe('已停止并归档，可撤销或显示已归档会话')
     fireEvent.click(screen.getByRole('button', { name: '撤销' }))
     expect(undoArchive).toHaveBeenCalledWith(sid('one'))
     expect(callOrder(dismissToast)).toBeLessThan(callOrder(undoArchive))
 
     notify({ kind: 'stoppedAndArchived', sessionId: sid('two') })
-    fireEvent.click(screen.getByRole('button', { name: '筛选已归档会话' }))
+    fireEvent.click(screen.getByRole('button', { name: '显示已归档会话' }))
     expect(dismissToast).toHaveBeenCalledTimes(2)
     expect(showArchived).toHaveBeenCalledOnce()
     expect(callOrder(dismissToast, 1)).toBeLessThan(callOrder(showArchived))
@@ -605,7 +605,7 @@ describe('RowActionToast', () => {
   it('the archived notice takes itself down, then undoes the archive or shows the archived rows', async () => {
     const { dismissToast, undoArchive, showArchived, notify } = await toastSurface()
     notify({ kind: 'archived', sessionId: sid('one') })
-    expect(screen.getByRole('alert').textContent).toBe('会话已归档，可撤销或筛选已归档会话')
+    expect(screen.getByRole('alert').textContent).toBe('会话已归档，可撤销或显示已归档会话')
     fireEvent.click(screen.getByRole('button', { name: '撤销' }))
     expect(dismissToast).toHaveBeenCalledOnce()
     expect(undoArchive).toHaveBeenCalledWith(sid('one'))
@@ -614,7 +614,7 @@ describe('RowActionToast', () => {
     expect(screen.queryByRole('alert')).toBeNull()
 
     notify({ kind: 'archived', sessionId: sid('two') })
-    fireEvent.click(screen.getByRole('button', { name: '筛选已归档会话' }))
+    fireEvent.click(screen.getByRole('button', { name: '显示已归档会话' }))
     expect(dismissToast).toHaveBeenCalledTimes(2)
     expect(showArchived).toHaveBeenCalledOnce()
     expect(callOrder(dismissToast, 1)).toBeLessThan(callOrder(showArchived))
@@ -625,14 +625,14 @@ describe('RowActionToast', () => {
   it('treats a view without a persisted filter as the hidden default and keeps the filter action', async () => {
     const { notify } = await toastSurface({})
     notify({ kind: 'archived', sessionId: sid('one') })
-    expect(screen.getByRole('alert').textContent).toBe('会话已归档，可撤销或筛选已归档会话')
+    expect(screen.getByRole('alert').textContent).toBe('会话已归档，可撤销或显示已归档会话')
   })
 
   it.each(['show', 'only'] as const)('omits the filter action while the %s filter already shows archived rows', async (archivedFilter) => {
     const { notify } = await toastSurface({ archivedFilter })
     notify({ kind: 'archived', sessionId: sid('one') })
     expect(screen.getByRole('alert').textContent).toBe('会话已归档，可撤销')
-    expect(screen.queryByRole('button', { name: '筛选已归档会话' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '显示已归档会话' })).toBeNull()
     expect(screen.getByRole('button', { name: '撤销' })).toBeTruthy()
   })
 

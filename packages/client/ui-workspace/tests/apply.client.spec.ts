@@ -640,6 +640,28 @@ describe('ui-workspace apply', () => {
     }
   })
 
+  it('starts every launch with archived rows hidden while keeping the other saved view choices', async () => {
+    // A run that showed archived rows (the notice action or View options) saved the choice.
+    const saved = new Map([['jan.workspace.view.v5', JSON.stringify({
+      groupBy: 'flat', orderBy: 'manual', groupExpansion: {}, sessionOrderByAccount: {}, archivedFilter: 'show',
+    })]])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => saved.get(key) ?? null,
+      setItem: (key: string, value: string) => { saved.set(key, value) },
+    })
+    try {
+      const b = await bench()
+      declare(b.slots, 'sidebar.workspaces')
+      await b.ctx.plugin({ inject: [...inject], apply }).await()
+      const view = viewInstance(b.slots).getSnapshot()
+      expect(view.archivedFilter).toBe('default')
+      expect([view.groupBy, view.orderBy]).toEqual(['flat', 'manual'])
+      expect(JSON.parse(saved.get('jan.workspace.view.v5')!)).toMatchObject({ groupBy: 'flat', archivedFilter: 'default' })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('routes fork and rename through their shares, the rename dialog, and the browser face', async () => {
     const b = await bench()
     declare(b.slots, 'sidebar.workspaces', 'shell.overlay')
