@@ -61,6 +61,8 @@
       "@janhq/jan-client-ui-settings-local-model/client": ["./packages/client/ui-settings-local-model/src/client/index.ts"],
       "@janhq/jan-client-ui-settings-model-policy": ["./packages/client/ui-settings-model-policy/src/index.ts"],
       "@janhq/jan-client-ui-settings-model-policy/client": ["./packages/client/ui-settings-model-policy/src/client/index.ts"],
+      "@janhq/jan-scoped-settings/client": ["./packages/settings/scoped-settings/src/client/index.ts"],
+      "@janhq/jan-scoped-settings/types": ["./packages/settings/scoped-settings/src/types.ts"],
       "@janhq/jan-experimental-speech-to-text": ["./packages/experimental/speech-to-text/src/index.ts"],
       "@janhq/jan-experimental-translator": ["./packages/experimental/translator/src/index.ts"],
       "@janhq/jan-experimental-translator/types": ["./packages/experimental/translator/src/types.ts"],

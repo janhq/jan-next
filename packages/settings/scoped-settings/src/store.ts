@@ -31,7 +31,10 @@ const SCOPE_KEYS: Readonly<Record<SettingScope, readonly string[]>> = {
   session: SCOPE_LIST_KEYS,
 }
 
-/** Document a missing file reads as. */
+/**
+ * The document a missing file reads as.
+ * @returns a fresh empty version-1 document.
+ */
 export function emptyDocument(): ScopedSettingsDocument {
   return { version: 1, global: {}, projects: {}, sessions: {} }
 }

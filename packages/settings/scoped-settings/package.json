@@ -71,16 +71,13 @@
   "license": "MIT",
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
-    "@janhq/jan-agent": "workspace:*",
-    "@janhq/jan-mcp-client": "workspace:*",
-    "@janhq/jan-session": "workspace:*",
-    "@janhq/jan-tools": "workspace:*",
-    "@janhq/jan-workspace": "workspace:*"
+    "@janhq/jan-mcp-client": "workspace:*"
   },
   "dependencies": {
     "@janhq/jan-atomic-write": "workspace:*",
     "@janhq/jan-typert-protocol": "workspace:*",
-    "@janhq/schemastery": "workspace:~"
+    "@janhq/schemastery": "workspace:~",
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@janhq/cordis": "workspace:~",

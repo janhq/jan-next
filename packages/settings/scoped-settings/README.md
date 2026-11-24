@@ -78,11 +78,33 @@ Skills use one `skills.registerFilter` entry. For a lookup whose scope is a chat
 <a id="model-experience"></a>
 ## Model Experience
 
-A switched-off tool leaves the chat's tool list for the next request, and a switched-off skill leaves the skill catalog from the next step. A project model or mode applies only to chats created after the change.
+### Switched-off tools
+
+#### What the model sees
+
+A tool named in any scope's `toolsDisabled`, or covered by an `mcp:<server>` entry, is absent from the chat's tool list from the next request; the model is not told it was removed. A project's default `model` and `mode` apply only to chats created after the change.
+
+#### Token effect
+
+Each switched-off tool removes its name, description and parameter schema from every request of the affected chats; switching it back on adds them again.
 
 #### KV Cache effect
 
-Switching a tool off or on changes the tool list, so the next request of each affected chat starts a new cache prefix. A skill switch appends a replacement skill catalog to the conversation instead of rewriting the prefix.
+Switching a tool off or on changes the tool list, so the next request of each affected chat starts a new cache prefix.
+
+### Switched-off skills
+
+#### What the model sees
+
+A skill named in any scope's `skillsDisabled`, or held by a folder in `skillFoldersDisabled`, leaves the skill catalog from the next step, and the agent cannot load it.
+
+#### Token effect
+
+The replacement skill catalog adds one message listing the remaining skills; the earlier catalog stays in the conversation.
+
+#### KV Cache effect
+
+A skill switch appends a replacement skill catalog to the conversation instead of rewriting the prefix, so the cached prefix stays valid.
 
 ## Known Limitations and Deferred Work
 
