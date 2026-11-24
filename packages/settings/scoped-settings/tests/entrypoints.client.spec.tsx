@@ -40,6 +40,7 @@ it('opens the correct scope from each entry point and excludes federated chats a
     const list = vi.fn(async () => ({ ok: true as const, value: { presets: [
       { id: 'standard', isDefault: true },
       { id: 'ptc', isDefault: false },
+      { id: 'cordis', isDefault: false },
       { id: 'scout', isDefault: false, showInModePicker: false },
     ] } }))
     const mountRemote = vi.spyOn(runtime.remote, '$mount').mockImplementation(async () => {
@@ -73,11 +74,13 @@ it('opens the correct scope from each entry point and excludes federated chats a
     fireEvent.click(within(project).getByRole('button', { name: en['mode.label'] }))
     expect(screen.getByRole('menuitem', { name: presetEn.presetStandardName })).toBeTruthy()
     expect(screen.queryByRole('menuitem', { name: 'scout' })).toBeNull()
-    fireEvent.click(screen.getByRole('menuitem', { name: presetEn.presetPtcName }))
+    // Without the Coding Tools preference the dialog hides PTC, as the composer's mode picker does.
+    expect(screen.queryByRole('menuitem', { name: presetEn.presetPtcName })).toBeNull()
+    fireEvent.click(screen.getByRole('menuitem', { name: presetEn.presetCordisName }))
     fireEvent.click(within(project).getByRole('button', { name: commonEn.save }))
     await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull() })
     expect(write).toHaveBeenNthCalledWith(1, { scope: 'project', id: 'project-c', values: {
-      model: null, mode: 'ptc', toolsDisabled: null,
+      model: null, mode: 'cordis', toolsDisabled: null,
     } })
 
     const command = chatCommand.mock.calls[0]![0]

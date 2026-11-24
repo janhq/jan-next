@@ -78,6 +78,7 @@ function registerUi(ctx: Context): void {
       if (modes?.ok === false && modes.error.code !== 'gateway/invocation-unavailable') throw modes.error
       request.set({ address, state: { status: 'ready', values: stored.value, catalog: tools.value, skillCatalog: skills.value,
         models: models?.value.groups ?? [], modes: modes?.ok ? modes.value.presets : [],
+        codingTools: ctx.get('configForms')?.developerTools.enabled.getSnapshot() ?? false,
       } })
     } catch (error) {
       if (request.getSnapshot() !== loading) return

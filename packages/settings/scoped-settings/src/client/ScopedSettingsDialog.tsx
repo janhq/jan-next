@@ -1,6 +1,7 @@
 /** Edit stored settings at one scope without changing the values inherited from wider scopes. */
 import { useId, useRef, useState } from 'react'
 import type { ModelProviderGroup } from '@janhq/jan-api-session-controller/types'
+import { requiresCodingTools } from '@janhq/jan-agent-preset-registry/display'
 import type { AgentPresetRow } from '@janhq/jan-agent-preset-registry/types'
 import { Button, Checkbox, IconChevronDownOutlineRegular, IconLoadingOutlineRegular, Modal, SelectMenu } from '@janhq/jan-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, SnapshotSelectorHook } from '@janhq/jan-client-ui-slots'
@@ -19,6 +20,8 @@ type Ready = {
   readonly skillCatalog: ScopedSkillCatalog
   readonly models: readonly ModelProviderGroup[]
   readonly modes: readonly AgentPresetRow[]
+  /** Whether the Coding Tools preference offers the presets that require it, as in the composer's mode picker. */
+  readonly codingTools: boolean
 }
 type DialogState = Ready | { readonly status: 'loading' | 'failed' }
 
@@ -147,7 +150,8 @@ function SettingsForm({ initial, scope, formId, saving, save, presetName, t }: L
   }}>
     {scope === 'project' && <>
       <ModelFields groups={initial.models} model={model} setModel={setModel} saving={saving} t={t} />
-      <ModeField modes={initial.modes} mode={mode} setMode={setMode} saving={saving} presetName={presetName} t={t} />
+      <ModeField modes={initial.modes} codingTools={initial.codingTools} mode={mode} setMode={setMode} saving={saving}
+        presetName={presetName} t={t} />
     </>}
     <fieldset className={css.switches}>
       <legend>{t('tools.label')}</legend>
@@ -220,22 +224,24 @@ function SkillFolder({ folder, disabledSkills, folderOff, saving, onSkillChange,
   </div>
 }
 
-function ModeField({ modes, mode, setMode, saving, presetName, t }: Locale & {
+function ModeField({ modes, codingTools, mode, setMode, saving, presetName, t }: Locale & {
   modes: readonly AgentPresetRow[]
+  codingTools: boolean
   mode: string
   setMode: (mode: string) => void
   saving: boolean
   presetName: ScopedSettingsDialogProps['presetName']
 }) {
+  const offered = (row: AgentPresetRow) => row.showInModePicker !== false && (codingTools || !requiresCodingTools(row))
   const current = modes.find(row => row.id === mode)
-  const unavailable = mode !== '' && (current === undefined || current.showInModePicker === false)
+  const unavailable = mode !== '' && (current === undefined || !offered(current))
   return <div className={css.field}>
     <span>{t('mode.label')}</span>
     <SelectMenu align="start" label={t('mode.label')} value={mode} disabled={saving} onChange={setMode}
       placeholder={unavailable ? t('choice.unavailable', { name: current === undefined ? mode : presetName(current) }) : undefined}
       options={[
         { id: '', label: t('inherit.global') },
-        ...modes.filter(row => row.showInModePicker !== false).map((row) => {
+        ...modes.filter(offered).map((row) => {
           const name = presetName(row)
           return { id: row.id, label: row.broken === undefined ? name : t('choice.unavailable', { name }),
             disabled: row.broken !== undefined }
