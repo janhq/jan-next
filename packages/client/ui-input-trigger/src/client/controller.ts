@@ -219,15 +219,24 @@ export class InputTriggerController {
    * @param completeOnly - Tab fills the option without executing its command.
    */
   pick(source: string, index: number, action: PickAction = 'pick', completeOnly?: true): void {
+    const target = this.menuTarget(source, index)
+    if (target?.candidate === undefined || target.src === undefined) return
+    this.settle(target.src, target.candidate, target.hit, action, completeOnly)
+  }
+
+  /**
+   * Resolve one open-menu row and the source that owns it.
+   * @param source - source (group) name.
+   * @param index - candidate index within the group.
+   * @returns the current hit with the row and source when the menu is open; either may be missing.
+   */
+  private menuTarget(source: string, index: number) {
     const state = this.menu.getSnapshot()
     const hit = this.hit
-    if (this.disposed || !state.open || hit === null) return
+    if (this.disposed || !state.open || hit === null) return undefined
     const group = state.groups.find(g => g.source === source)
     const candidate = group !== undefined && group.status === 'ready' ? group.items[index] : undefined
-    if (candidate === undefined) return
-    const src = this.sourcesFor(hit).find(s => s.name === source)
-    if (src === undefined) return
-    this.settle(src, candidate, hit, action, completeOnly)
+    return { hit, candidate, src: this.sourcesFor(hit).find(s => s.name === source) }
   }
 
   /**
@@ -267,12 +276,9 @@ export class InputTriggerController {
    * @param index - candidate index within the group.
    */
   star(source: string, index: number): void {
-    const state = this.menu.getSnapshot()
-    const hit = this.hit
-    if (this.disposed || !state.open || hit === null) return
-    const group = state.groups.find(g => g.source === source)
-    const candidate = group !== undefined && group.status === 'ready' ? group.items[index] : undefined
-    const src = this.sourcesFor(hit).find(s => s.name === source)
+    const target = this.menuTarget(source, index)
+    const candidate = target?.candidate
+    const src = target?.src
     if (candidate?.star === undefined || src?.onStar === undefined) return
     this.follow = { source, name: candidate.name }
     void Promise.resolve(src.onStar(this.project(), candidate)).then(
