@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { beforeAll, expect, it, vi } from 'vitest'
+import type { Mock } from 'vitest'
 
 type Status = { running: boolean | undefined; pendingInteraction: { key: string; kind?: string } | undefined }
 type Event = { kind: 'finished' | 'failed' | 'waiting' | 'input'; sessionId: string }
@@ -10,16 +11,24 @@ type Factory = (options: {
   emit: (event: Event) => void
   readOutcome: (sessionId: string) => Promise<End | undefined>
 }) => Watcher
+type ClientRequire = ((id: string) => object) & { async(id: string): Promise<object> }
+type ClientFactory = (require: ClientRequire) => { apply(ctx: object): void }
+type SavedPreferences = { waiting?: boolean; input?: boolean }
 
 let createStatusWatcher: Factory
+let createNotifications: ClientFactory
 beforeAll(async () => {
-  // The shipped chunk registers through the client module loader, not a native ESM export.
+  // The browser modules register through the client module loader, so install it before importing them.
   const previous = Object.getOwnPropertyDescriptor(window, '__ModuleLoader__')
   Object.defineProperty(window, '__ModuleLoader__', { configurable: true, value: {
     load({ factory }: { factory: () => { createStatusWatcher: Factory } }) { createStatusWatcher = factory().createStatusWatcher },
   } })
   try {
     await import('../client.watch.js')
+    Object.defineProperty(window, '__ModuleLoader__', { configurable: true, value: {
+      load({ factory }: { factory: ClientFactory }) { createNotifications = factory },
+    } })
+    await import('../client.js')
   } finally {
     if (previous === undefined) Reflect.deleteProperty(window, '__ModuleLoader__')
     else Object.defineProperty(window, '__ModuleLoader__', previous)
@@ -144,22 +153,27 @@ it('forgets a removed Session so a later Session with the same id starts clean',
   expect(f.events).toEqual([])
 })
 
-it('notifies while a global panel hides the retained chat, but not while that chat is open and focused', async () => {
+async function withNotifications(test: (options: {
+  bridge: { show: Mock<() => Promise<void>> }
+  setPanel(panelId: string | null): void
+  observeInteraction(interaction: NonNullable<Status['pendingInteraction']>): void
+}) => void | Promise<void>, user: SavedPreferences = {}) {
   const bridge = { show: vi.fn(async () => {}), windowActive: async () => true, subscribe: () => () => {} }
   vi.stubGlobal('janDesktop', { notifications: bridge })
   const disposers: (() => void)[] = []
-  type ClientRequire = ((id: string) => object) & { async(id: string): Promise<object> }
-  type ClientFactory = (require: ClientRequire) => { apply(ctx: object): void }
   const require = Object.assign(() => ({}), {
     async: async (id: string) => id === './client.watch.js' ? { createStatusWatcher } : { dictionaries: {} },
   })
   const ready = Promise.withResolvers<() => void>()
   let pendingInteraction: Status['pendingInteraction']
   let activePanelId: string | null = 'model-hub'
+  const defaults = { enabled: true, finished: true, failed: true, waiting: true, input: true }
   const ctx = {
     effect: (start: () => (() => void) | undefined) => { const dispose = start(); if (dispose) disposers.push(dispose) },
     logger: () => ({ error: ready.reject }),
-    configForms: { get: () => ({ getSnapshot: () => ({ value: {} }) }) },
+    configForms: { get: () => ({ getSnapshot: () => ({
+      status: 'ready', value: { ...defaults, ...user }, base: defaults, user, revision: 0, writable: true,
+    }) }) },
     locale: { register: () => {}, bind: () => (key: string) => key },
     slots: { inject: () => {} },
     sessions: { list: { getSnapshot: () => ({ byId: { chat: { title: 'My chat', retainedBy: { mainView: 1 } } } }) } },
@@ -170,22 +184,44 @@ it('notifies while a global panel hides the retained chat, but not while that ch
     } },
     remote: { $on: () => () => {} },
   }
-  vi.stubGlobal('__ModuleLoader__', { load: ({ factory }: { factory: ClientFactory }) => factory(require).apply(ctx) })
   try {
-    // The browser entry registers itself, so install its module loader before importing it.
-    await import('../client.js')
+    createNotifications(require).apply(ctx)
     const observe = await ready.promise
-    pendingInteraction = { key: 'first-question' }
-    observe()
-    expect(bridge.show).toHaveBeenCalledWith({ id: 'waiting:1', title: 'waiting.title', body: 'waiting.body' })
-
-    activePanelId = null
-    pendingInteraction = { key: 'second-question' }
-    observe()
-    await Promise.resolve()
-    expect(bridge.show).toHaveBeenCalledTimes(1)
+    await test({
+      bridge,
+      setPanel: panelId => { activePanelId = panelId },
+      observeInteraction: interaction => { pendingInteraction = interaction; observe() },
+    })
   } finally {
     for (const dispose of disposers.reverse()) dispose()
     vi.unstubAllGlobals()
   }
+}
+
+it('notifies while a global panel hides the retained chat, but not while that chat is open and focused', async () => {
+  await withNotifications(async ({ bridge, setPanel, observeInteraction }) => {
+    observeInteraction({ key: 'first-approval' })
+    expect(bridge.show).toHaveBeenCalledWith({ id: 'waiting:1', title: 'waiting.title', body: 'waiting.body' })
+
+    setPanel(null)
+    observeInteraction({ key: 'second-approval' })
+    await Promise.resolve()
+    expect(bridge.show).toHaveBeenCalledTimes(1)
+  })
+})
+
+it.each([
+  { name: 'keeps questions disabled after upgrading with approvals disabled', preferences: { waiting: false }, notifies: false },
+  { name: 'honors an explicit question opt-in', preferences: { waiting: false, input: true }, notifies: true },
+  { name: 'honors an explicit question opt-out', preferences: { waiting: true, input: false }, notifies: false },
+  { name: 'enables question notifications by default', preferences: {}, notifies: true },
+])('$name', async ({ preferences, notifies }) => {
+  await withNotifications(({ bridge, observeInteraction }) => {
+    observeInteraction({ key: 'question', kind: 'question' })
+    if (notifies) {
+      expect(bridge.show).toHaveBeenCalledExactlyOnceWith({ id: 'input:1', title: 'input.title', body: 'input.body' })
+    } else {
+      expect(bridge.show).not.toHaveBeenCalled()
+    }
+  }, preferences)
 })

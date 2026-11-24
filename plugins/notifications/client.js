@@ -7,6 +7,12 @@ window.__ModuleLoader__.load({
     const NS = 'jan-notifications'
     const KINDS = ['finished', 'failed', 'waiting', 'input']
     const DEFAULTS = { enabled: true, finished: true, failed: true, waiting: true, input: true }
+    function resolvePreferences({ value, user }) {
+      const preferences = { ...DEFAULTS, ...value }
+      // The Host fills in schema defaults; only the saved layer can identify a legacy opt-out.
+      if (user?.input === undefined && user?.waiting !== undefined) preferences.input = preferences.waiting
+      return preferences
+    }
     /** Notification ids awaiting a click; older ids are dropped once the platform has likely dismissed them. */
     const MAX_TARGETS = 64
     const CSS = `
@@ -23,7 +29,6 @@ window.__ModuleLoader__.load({
       apply(ctx) {
         const logger = ctx.logger(NS)
         const form = ctx.configForms.get(NS)
-        const preferences = () => ({ ...DEFAULTS, ...form.getSnapshot().value })
         const bridge = globalThis.janDesktop?.notifications
         /** @type {Map<string, string>} notification id → Session id */
         const targets = new Map()
@@ -72,7 +77,7 @@ window.__ModuleLoader__.load({
               if (kind === 'failed' && visible() && !isChatVisible(sessionId)) {
                 showToast?.({ key: ++serial, sessionId, text: t('toast.failed', { name }) })
               }
-              const wanted = preferences()
+              const wanted = resolvePreferences(form.getSnapshot())
               if (bridge === undefined || !wanted.enabled || !wanted[kind]) return
               const show = () => {
                 const id = `${kind}:${++serial}`
@@ -123,7 +128,7 @@ window.__ModuleLoader__.load({
           const usePreferences = () => useSyncExternalStore(listener => form.subscribe(listener), () => form.getSnapshot())
           function PreferenceRow({ field, title, description, nested }) {
             const snapshot = usePreferences()
-            const value = { ...DEFAULTS, ...snapshot.value }
+            const value = resolvePreferences(snapshot)
             const [busy, setBusy] = useState(false)
             const [failed, setFailed] = useState(false)
             if (nested && !value.enabled) return null

@@ -7,6 +7,8 @@ A stopped turn does not send a task-finished notification.
 
 Turn notifications on or off under **Settings › General › Desktop notifications**, with one switch each for **Task finished**, **Task failed**, **Needs your action** (approvals and plan reviews) and **Needs your input** (questions). All are on by default. The settings are the `jan-notifications` profile entry's `enabled`, `finished`, `failed`, `waiting` and `input` fields.
 
+If your saved preferences have no **Needs your input** setting, question notifications follow your saved **Needs your action** choice until you set them separately.
+
 On macOS the system must allow notifications for Jan (System Settings › Notifications); when it does not, the notification is dropped by the system.
 
 ## Model experience
