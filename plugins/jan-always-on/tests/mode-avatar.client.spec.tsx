@@ -13,7 +13,7 @@ const h = React.createElement
 
 type Bot = { id: string; name: string; createdAt: number; latest?: { at: number }; avatar?: { shape: number; color: string } }
 type Appearance = { shape: number; color: string }
-type AvatarOptions = { definition: { id: string }; color: string; reducedMotion: boolean; followPointer: boolean; mood: string; label: string }
+type AvatarOptions = { definition: { id: string }; color: string; mood: string; label: string }
 
 function loadAvatars() {
   const chunks = new Map<string, object>()
@@ -72,16 +72,16 @@ it.each([[null], [[]]] as const)('shows the four fallback silhouettes before or 
   expect(container.querySelector('[aria-hidden="true"]')).not.toBeNull()
 })
 
-it('stops pointer tracking for reduced motion and disposes its renderer on menu close', () => {
-  const preference = mockMotion(true)
+it('sets the avatar mood on pointer entry and disposes its renderers on menu close', () => {
+  mockMotion()
   const { ModeSquad } = loadAvatars()
-  const { container, unmount } = render(h('button', { role: 'menuitem', type: 'button' }, h(ModeSquad, { rows: [], mountBotAvatar })))
-  const squad = container.querySelector('.jao-mode-squad')
-  expect(squad?.classList.contains('jao-mode-squad-reduced-motion')).toBe(true)
-  expect(mounted().every(({ reducedMotion, followPointer, label }) => reducedMotion && !followPointer && label === '')).toBe(true)
-  act(() => { preference.matches = false; preference.dispatchEvent(new Event('change')) })
-  expect(squad?.classList.contains('jao-mode-squad-reduced-motion')).toBe(false)
-  expect(update.mock.lastCall?.[0]).toMatchObject({ reducedMotion: false, followPointer: true })
+  const { getByRole, unmount } = render(h('button', { role: 'menuitem', type: 'button' }, h(ModeSquad, { rows: [], mountBotAvatar })))
+  const row = getByRole('menuitem')
+  expect(mounted().every(({ mood, label }) => mood === 'neutral' && label === '')).toBe(true)
+  act(() => row.dispatchEvent(Object.assign(new Event('pointerenter'), { pointerType: 'mouse' })))
+  expect(update.mock.lastCall?.[0]).toEqual({ mood: 'happy' })
+  act(() => row.dispatchEvent(new Event('pointerleave')))
+  expect(update.mock.lastCall?.[0]).toEqual({ mood: 'neutral' })
   unmount()
   expect(destroy).toHaveBeenCalledTimes(4)
 })

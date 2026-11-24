@@ -45,7 +45,6 @@ window.__ModuleLoader__.load({
       @container (width < 60px) { .jao-mode-avatar:nth-child(n + 3) { display: none; } }
       @container (width < 44px) { .jao-mode-avatar:nth-child(n + 2) { display: none; } }
       @keyframes jao-mode-bob { 50% { transform: translateY(-1px); } }
-      .jao-mode-squad-reduced-motion .jao-mode-avatar { animation: none; }
       @media (prefers-reduced-motion: reduce) { .jao-mode-avatar { animation: none; } }
     `
 
@@ -71,20 +70,15 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         const squad = host.current
         const row = squad.closest('button[role="menuitem"]')
-        const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
         const hover = window.matchMedia('(hover: hover)')
         let hovered = hover.matches && row.matches(':hover')
         let focused = row.matches(':focus-visible')
-        const pose = () => ({ reducedMotion: motion.matches, followPointer: hover.matches && !motion.matches,
-          mood: hovered || focused ? 'happy' : 'neutral' })
-        squad.classList.toggle('jao-mode-squad-reduced-motion', motion.matches)
+        const pose = () => ({ mood: hovered || focused ? 'happy' : 'neutral' })
         const mounted = avatars.map(({ shape, color }, i) => mountBotAvatar(lineup.current.children[i], {
           definition: definitions[shape], color, eyeColor: modeEyeColor(color), state: 'idle', label: '',
-          // The scene renderer resolves theme colors directly in CSS.
-          renderer: 'scene', depth: 1.5, ...pose(),
+          depth: 1.5, ...pose(),
         }))
         const update = () => {
-          squad.classList.toggle('jao-mode-squad-reduced-motion', motion.matches)
           const next = pose()
           for (const avatar of mounted) avatar.update(next)
         }
@@ -97,14 +91,12 @@ window.__ModuleLoader__.load({
         row.addEventListener('pointerleave', leave)
         row.addEventListener('focus', focus)
         row.addEventListener('blur', blur)
-        motion.addEventListener('change', update)
         hover.addEventListener('change', changeHover)
         return () => {
           row.removeEventListener('pointerenter', enter)
           row.removeEventListener('pointerleave', leave)
           row.removeEventListener('focus', focus)
           row.removeEventListener('blur', blur)
-          motion.removeEventListener('change', update)
           hover.removeEventListener('change', changeHover)
           for (const avatar of mounted) avatar.destroy()
         }
@@ -116,13 +108,107 @@ window.__ModuleLoader__.load({
           h('span', { key: id, className: 'jao-mode-avatar', style: { '--jao-squad-index': i } }))))
     }
 
-    /** Load the private renderer and return (element, options) => { update, destroy }. */
+    // The scene keeps both eyes in the DOM, including while ambient animation is stopped.
+    const gazeStyles = `
+      @media (prefers-reduced-motion: no-preference) {
+        [data-jao-gaze] [data-avatar-scene] [data-eye] {
+          translate: var(--jao-eye-x, 0px) var(--jao-eye-y, 0px);
+        }
+      }
+    `
+    const centeredGaze = { x: 0, y: 0 }
+    let gaze
+
+    function createGazeTracker() {
+      const avatars = new Set()
+      const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+      const style = document.createElement('style')
+      style.textContent = gazeStyles
+      document.head.append(style)
+      let frame = 0, cursorX, cursorY
+
+      const paint = () => {
+        frame = 0
+        // Measure every host before writing any transforms.
+        for (const avatar of avatars) {
+          const { left, top, width, height } = avatar.element.getBoundingClientRect()
+          const dx = cursorX - (left + width / 2), dy = cursorY - (top + height / 2)
+          const scale = width && height ? Math.min(3, Math.max(1, width * .065)) / Math.max(48, Math.hypot(dx, dy)) : 0
+          avatar.nextX = Math.round(dx * scale * 20) / 20
+          avatar.nextY = Math.round(dy * scale * 20) / 20
+        }
+        for (const avatar of avatars) setOffset(avatar, avatar.nextX, avatar.nextY)
+      }
+      const schedule = () => { if (!frame) frame = requestAnimationFrame(paint) }
+      const pointerMove = event => {
+        if (motion.matches || event.pointerType === 'touch') return
+        cursorX = event.clientX
+        cursorY = event.clientY
+        schedule()
+      }
+      const changeMotion = () => {
+        if (motion.matches) {
+          cancelAnimationFrame(frame)
+          frame = 0
+          cursorX = cursorY = undefined
+        }
+        for (const avatar of avatars) {
+          if (motion.matches) setOffset(avatar, 0, 0)
+          avatar.refreshMotion()
+        }
+      }
+      document.addEventListener('pointermove', pointerMove, { passive: true })
+      motion.addEventListener('change', changeMotion)
+      return {
+        avatars, motion,
+        add(avatar) {
+          avatars.add(avatar)
+          avatar.element.setAttribute('data-jao-gaze', '')
+          if (cursorX !== undefined) schedule()
+        },
+        destroy() {
+          cancelAnimationFrame(frame)
+          document.removeEventListener('pointermove', pointerMove)
+          motion.removeEventListener('change', changeMotion)
+          style.remove()
+        },
+      }
+    }
+
+    function setOffset(avatar, x, y) {
+      if (avatar.x !== x) avatar.element.style.setProperty('--jao-eye-x', `${avatar.x = x}px`)
+      if (avatar.y !== y) avatar.element.style.setProperty('--jao-eye-y', `${avatar.y = y}px`)
+    }
+
+    /** Load the renderer. Mounted avatars share the cursor and respect system reduced motion. */
     async function loadAvatarRenderer() {
       const { mountAvatar } = await require.async('./client.open-bot-avatar.js')
-      return mountBotAvatar
-
-      function mountBotAvatar(element, options) {
-        return mountAvatar(element, { reducedMotion: 'system', ...options })
+      return (element, { still, ...options }) => {
+        const tracker = gaze ??= createGazeTracker()
+        const motionOptions = () => {
+          const reducedMotion = tracker.motion.matches || !!still
+          return { reducedMotion, lookAt: reducedMotion ? centeredGaze : null }
+        }
+        const renderer = mountAvatar(element, { ...options, ...motionOptions(), renderer: 'scene' })
+        const avatar = { element, x: 0, y: 0, refreshMotion: () => renderer.update(motionOptions()) }
+        tracker.add(avatar)
+        return {
+          update({ still: nextStill = still, ...partial }) {
+            still = nextStill
+            renderer.update({ ...partial, ...motionOptions() })
+          },
+          destroy() {
+            if (!tracker.avatars.delete(avatar)) return
+            element.removeAttribute('data-jao-gaze')
+            element.style.removeProperty('--jao-eye-x')
+            element.style.removeProperty('--jao-eye-y')
+            if (!tracker.avatars.size) {
+              tracker.destroy()
+              gaze = undefined
+            }
+            renderer.destroy()
+          },
+        }
       }
     }
 

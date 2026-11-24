@@ -25,7 +25,11 @@ window.__ModuleLoader__.load({
     let chunks, avatars
     function loadAvatars() {
       avatars ??= require.async('./client.avatar.js')
-        .then(async avatar => ({ ...avatar, mountBotAvatar: await avatar.loadAvatarRenderer() }))
+        .then(async avatar => {
+          // Every avatar seat mounts through the same renderer and cursor tracker.
+          const mountBotAvatar = await avatar.loadAvatarRenderer()
+          return { ...avatar, mountBotAvatar }
+        })
         .catch(error => { avatars = undefined; throw error })
       return avatars
     }

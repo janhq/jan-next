@@ -31,7 +31,7 @@ The **Bots mode** picker row shows up to four avatars from the Bots roster, orde
 
 | Bots activity | Avatar |
 | --- | --- |
-| Off or paused | Idle, dimmed and still |
+| Off or paused | Idle, dimmed and without ambient animation |
 | Awaiting **Allow once** or **Reject** | Blocked, neutral |
 | Running a background tool | Working, neutral |
 | Active outside tool calls, including model streaming | Thinking, neutral |
@@ -42,7 +42,9 @@ The **Bots mode** picker row shows up to four avatars from the Bots roster, orde
 
 Tool activity, the last run outcome and the latest delivery time are live values for the current app session. The Activity panel still shows stored history after restart.
 
-Browser code in this plugin can `require.async('./client.avatar.js')`. `loadAvatarRenderer()` resolves to `mountBotAvatar(element, options)`, which returns `{ update(partial), destroy() }` and follows system reduced motion. `avatarAppearance(snapshot)` maps a bot's live state to an avatar pose and localized status.
+Avatars look toward the cursor by default, including in the sidebar and on paused bots. With system reduced motion enabled, their eyes stay centered.
+
+Browser code in this plugin can `require.async('./client.avatar.js')`. `loadAvatarRenderer()` resolves to `mountBotAvatar(element, options)`, which returns `{ update(partial), destroy() }`. `avatarAppearance(snapshot)` maps a bot's live state to an avatar pose and localized status.
 
 ## Model experience
 
