@@ -481,6 +481,17 @@ describe('package payload constraints', () => {
   })
 
   it.each([
+    'packages/llm/context-usage',
+    'packages/preset/agent-profiles',
+    'packages/settings/scoped-settings',
+  ])('publishes the shared runtime types entry without publishing unbundled Client code in %s', (dir) => {
+    const manifest = JSON.parse(readFileSync(new URL(`../${dir}/package.json`, import.meta.url), 'utf8')) as WorkspaceManifest['manifest']
+    expect(manifest.files).toContain('lib/types/types.js')
+    expect(manifest.files).not.toContain('lib/types/**/*.js')
+    expect(checkWorkspaceManifest({ dir, manifest })).toEqual([])
+  })
+
+  it.each([
     { './assets/*': './lib/assets/*' },
     { './assets/*': { default: './lib/assets/*' } },
   ])('publishes built package assets after the browser Client entries: %j', (assets) => {

@@ -373,7 +373,9 @@ export function expectedJanPackageFiles(manifest: PackageManifest, detailFiles: 
     // browser-safe source channels rehomed off src so plain Node can import
     // them without type stripping) publish the emitted JS alongside the
     // declarations.
-    ...usesEmittedTreeDefaults(manifest) ? ['lib/types/**/*.js'] : [],
+    ...usesEmittedTreeDefaults(manifest)
+      ? [standaloneTypesPackages[manifest.name ?? ''] ? 'lib/types/types.js' : 'lib/types/**/*.js']
+      : [],
     'lib/types/**/*.d.ts',
     ...hasExportPair(manifest, './typert', './lib/typert.host.d.ts', './lib/typert.host.js')
       ? ['lib/typert.host.js', 'lib/typert.host.d.ts']
@@ -419,6 +421,14 @@ function exportDefault(manifest: PackageManifest, subpath: string): string | und
 function exportCondition(manifest: PackageManifest, subpath: string, condition: string): string | undefined {
   const target = exportFields(manifest.exports?.[subpath])?.[condition]
   return typeof target === 'string' ? target : undefined
+}
+
+// These dual-face packages bundle both implementations and only expose the
+// self-contained, shared types module from the emitted JavaScript tree.
+const standaloneTypesPackages: Readonly<Record<string, true | undefined>> = {
+  '@janhq/jan-agent-profiles': true,
+  '@janhq/jan-context-usage': true,
+  '@janhq/jan-scoped-settings': true,
 }
 
 /** Whether any export's runtime default points into the tsc-emitted lib/types tree. */
