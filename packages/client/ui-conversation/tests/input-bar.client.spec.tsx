@@ -1120,6 +1120,19 @@ describe('Enter semantics', () => {
       vi.useRealTimers()
     }
   })
+
+  it('sends the Enter an IME forwards after committing its word (Apple Vietnamese)', () => {
+    const { textarea, sink } = bench({ draft: 'where is the bird' })
+    fireEvent.compositionStart(textarea)
+    // The committing Enter belongs to the composition...
+    fireEvent.keyDown(textarea, { key: 'Enter', keyCode: 229, isComposing: true })
+    fireEvent.compositionEnd(textarea, { data: 'bird' })
+    expect(sink).not.toHaveBeenCalled()
+    // ...then the input source passes the same Enter through with its real key code.
+    const forwarded = fireEvent.keyDown(textarea, { key: 'Enter', keyCode: 13 })
+    expect(forwarded).toBe(false)
+    expect(sink).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('running and lock semantics', () => {

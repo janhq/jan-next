@@ -7,10 +7,13 @@
  * spaces, text paste the bar routes itself).
  *
  * IME guard: a composition-closing Enter/Space must not submit or adjudicate.
- * KeyboardEvent.isComposing covers most engines; Safari delivers the closing
- * keydown AFTER compositionend, so a root-element composition watch holds the
- * guard for 10ms more (the old textarea's proven window); keyCode
- * 229 is the legacy signal engines emit without isComposing.
+ * KeyboardEvent.isComposing covers most engines; keyCode 229 is the legacy
+ * signal engines emit without isComposing (including Safari's closing keydown,
+ * delivered AFTER compositionend). A root-element composition watch also holds
+ * the guard for 10ms after compositionend for code-less keydowns. A keydown
+ * that carries a real key code after compositionend is a key the IME passed
+ * through, not part of the composition: Apple's Vietnamese input sources
+ * commit the word on Enter, then forward that Enter, which must send.
  * The root's composition attribute suppresses placeholders until both the
  * native composition and the editor's final text reconciliation finish.
  */
@@ -47,11 +50,12 @@ export interface ComposerKeymapHandlers {
   pasteText(text: string): void
 }
 
-/** Composition state a keydown can trust (see the module doc's Safari note). */
-function isComposingEvent(event: KeyboardEvent, recentlyComposing: () => boolean): boolean {
+/** Composition state a keydown can trust (see the module doc's IME note). */
+function isComposingEvent(event: KeyboardEvent, composing: () => boolean, justComposed: () => boolean): boolean {
   // keyCode 229 is the legacy IME-composition signal engines emit without isComposing.
   // oxlint-disable-next-line typescript/no-deprecated
-  return event.isComposing || event.keyCode === 229 || recentlyComposing()
+  const keyCode = event.keyCode
+  return event.isComposing || keyCode === 229 || composing() || (keyCode === 0 && justComposed())
 }
 
 function isApplePlatform(): boolean {
@@ -193,11 +197,12 @@ export function registerComposerKeymap(editor: LexicalEditor, handlers: Composer
     // cancellation. The callback also runs when no document text changed.
     editor.update(() => {}, { onUpdate: syncComposition })
   }
-  const recentlyComposing = (): boolean => composing || Date.now() < composingUntil
+  const inComposition = (event: KeyboardEvent): boolean =>
+    isComposingEvent(event, () => composing, () => Date.now() < composingUntil)
 
   const arrow = (key: ArbitrateKey) => (event: KeyboardEvent | null): boolean => {
-    const inComposition = event !== null && isComposingEvent(event, recentlyComposing)
-    if (handlers.arbitrate(key, inComposition) !== 'pass') {
+    const isComposing = event !== null && inComposition(event)
+    if (handlers.arbitrate(key, isComposing) !== 'pass') {
       event?.preventDefault()
       return true
     }
@@ -239,14 +244,14 @@ export function registerComposerKeymap(editor: LexicalEditor, handlers: Composer
       // Escape layering: an open overlay closes; claimed without an overlay
       // does NOT release (deleting the command chip is the only exit gesture).
       handlers.dismissPopup()
-      if (handlers.arbitrate('escape', isComposingEvent(event, recentlyComposing)) === 'consumed') {
+      if (handlers.arbitrate('escape', inComposition(event)) === 'consumed') {
         event.preventDefault()
         return true
       }
       return false
     }, COMMAND_PRIORITY_CRITICAL),
     editor.registerCommand(KEY_SPACE_COMMAND, (event) => {
-      if (isComposingEvent(event, recentlyComposing)) return false
+      if (inComposition(event)) return false
       const consumed = handlers.space()
       if (consumed) {
         event.preventDefault() // the command chip insertion already carries its separator
@@ -261,7 +266,7 @@ export function registerComposerKeymap(editor: LexicalEditor, handlers: Composer
         || (event.ctrlKey && event.metaKey) || (event.shiftKey && (event.ctrlKey || event.metaKey)))) return true
       // Plain Shift+Enter keeps its native line break, including during composition.
       if (event?.shiftKey === true) return false
-      if (event !== null && isComposingEvent(event, recentlyComposing)) {
+      if (event !== null && inComposition(event)) {
         // The IME consumes this Enter (candidate pick); neither submit nor
         // break the line. No preventDefault: the browser owns the gesture.
         return true
