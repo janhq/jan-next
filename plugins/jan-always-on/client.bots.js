@@ -330,7 +330,7 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'jao-overlays' }, edit && h(EditDialog, { ...props, ...edit,
         key: `${edit.mode}:${edit.sourceSessionId ?? edit.bot?.id ?? ''}:${edit.template === undefined ? '' : edit.template?.id ?? 'blank'}`, close: () => dialog(null) }),
         notice && h(Toast, { key: notice.id, text: notice.copy ? t(notice.copy) : notice.kind === 'approval' ? t('review') : notice.text ?? t('error'),
-          holdMs: 7000, actions: bot ? [{ label: t('openChat'), onClick: () => { open(bot); dismissNotice() } }] : [], onDone: dismissNotice }))
+          failure: notice.failure, holdMs: 7000, actions: bot ? [{ label: t('openChat'), onClick: () => { open(bot); dismissNotice() } }] : [], onDone: dismissNotice }))
     }
     function Approvals({ sessionId, useRoster, t, request, change, renderFactorySlot }) {
       const bot = useRoster(state => botFor(state.rows, sessionId))

@@ -2,7 +2,7 @@ window.__ModuleLoader__.load({
   id: '@janhq/jan-always-on',
   factory(require) {
     const { createElement: h, useEffect, useState } = require('react')
-    const { Button, IconLoadingOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const { Button, IconLoadingOutlineRegular, captureFailure } = require('@janhq/jan-client-ui-primitives')
     const { createSnapshotStore } = require('@janhq/jan-client-store')
     // The sidebar draws panel glyphs at 16px on labelled rows and 18px on the rail;
     // labelled rows take the Medium (1.3px) line like Jan's other row icons.
@@ -196,7 +196,7 @@ window.__ModuleLoader__.load({
       }, ModeDecoration))
       function compact(bot) {
         void change('compact', { id: bot.id }).then(result => notices.set({ id: ++uniqueNotice, copy: result ? 'compacted' : 'noCompact' }),
-          () => notices.set({ id: ++uniqueNotice, copy: 'compactFailed', error: true }))
+          error => notices.set({ id: ++uniqueNotice, copy: 'compactFailed', error: true, failure: captureFailure('bots.compact', error) }))
       }
       const inject = () => ({ hooks, request, change, refresh, open, openDetail, compact,
         dialog: value => dialogs.set(value), dismissNotice: () => notices.set(null),
