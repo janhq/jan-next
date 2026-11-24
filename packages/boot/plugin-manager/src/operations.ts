@@ -1,9 +1,10 @@
 /** Shared profile package operations used by jan plugin and the running manager. */
 import { once } from 'node:events'
 import { existsSync, readFileSync } from 'node:fs'
-import { mkdir, mkdtemp, open, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, open, readFile, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { execa } from 'execa'
+import { isMap, isScalar, isSeq, parseDocument } from 'yaml'
 import type { EntryOptions } from '@janhq/cordis-plugin-loader'
 import { withFileLock, writeFileAtomic } from '@janhq/jan-atomic-write'
 import {
@@ -57,10 +58,9 @@ export interface PackageOperationOptions {
   /** Bound on the pre-install registry lookup, in milliseconds; without one a fixed bound applies. */
   lookupTimeoutMs?: number
   /**
-   * Capture a CLI run's output and hand it to `onOutput` instead of inheriting
-   * the caller's descriptors. A caller that must read what pnpm printed — to
-   * recognize a blocked build script, or to keep stdout for one JSON answer —
-   * sets this; the run then costs a pipe, and `output` holds the captured tail.
+   * Capture CLI output and hand it to `onOutput` instead of inheriting the caller's descriptors.
+   * A caller that reserves stdout for one JSON answer sets this. Installs and updates are always
+   * captured while checking for skipped builds. `output` holds the captured tail.
    */
   captureOutput?: boolean
   /**
@@ -92,14 +92,14 @@ interface OperationStart {
   savedFiles: readonly SavedFile[]
 }
 
-/** What one attempt inside an approval-retried operation must know about its siblings. */
-interface BuildApprovalAttempt {
+/** Pending keys and the original state shared by all attempts in one package operation. */
+interface OperationAttempts {
   /**
    * `allowBuilds` keys that were already awaiting a decision before the operation started. pnpm reports
    * every pending key in the tree, so a key outside this list means this attempt's own package never built
    * and must not be activated.
    */
-  earlierPendingBuilds: readonly string[]
+  earlierPendingBuilds: ReadonlySet<string>
   /**
    * The profile as the whole operation found it. A sibling attempt has already saved its dependency and
    * installed it, so this snapshot is what keeps a retried attempt's validation, restoration and
@@ -221,6 +221,9 @@ async function drainWithin(collectors: readonly Promise<void>[], ms: number): Pr
 
 /** Install commands that take the packages to install as positionals. */
 const INSTALL_COMMANDS = new Set(['add', 'install', 'i'])
+
+/** Commands whose package changes can bring in new dependency build scripts. */
+const BUILD_COMMANDS = new Set([...INSTALL_COMMANDS, 'update', 'up', 'upgrade'])
 
 /** Bound on a pre-install registry lookup when the caller names none. */
 const LOOKUP_TIMEOUT_MS = 20_000
@@ -373,33 +376,34 @@ function bundleComponentManifests(manifest: ProfileManifest, dir: string, anchor
  * @param args Pnpm arguments, before relative path anchoring.
  * @param options Output, activation and cancellation policy.
  * @returns Exit status, whether the silence bound stopped the run, and the diagnostic path.
- * A compatibility denial returns exit code 1. Service output is bounded; CLI output uses inherited descriptors.
+ * A compatibility denial returns exit code 1. CLI uses inherited descriptors unless captured for build checks or reporting.
  * Unsupported Host activation returns exit code 1 with named diagnostics; installed dependencies remain,
  * and no bundle selection changes are saved. Other reconciliation or filesystem errors reject.
+ * Newly blocked builds leave modules on disk for pnpm approval but restore the manifest and lockfile before an explicit retry.
  * The diagnostic file is closed on return or rejection, including preparation and spawn failures.
  * With `approveReportedBuilds`, the keys this run reports as blocked are approved and the run repeats once.
  */
 export async function runProfilePnpm(
   context: PackageOperationContext, args: readonly string[], options: PackageOperationOptions,
 ): Promise<PackageResult> {
-  if (options.approveReportedBuilds !== true) return runPnpmOnce(context, args, options)
+  const command = args.find(argument => !argument.startsWith('-'))
+  const checkBuilds = command !== undefined && BUILD_COMMANDS.has(command)
   const dir = context.dir ?? resolveProfileDir(context.profile, context.home)
-  // Keys already awaiting a decision belong to earlier work: pnpm reports every pending key in the
-  // tree, so comparing against this snapshot is what keeps this run from approving them. A policy
-  // that cannot be read makes the whole approval a no-op rather than an unguarded one.
-  const earlier = await readPendingBuilds(dir).catch(() => undefined)
-  // pnpm warns and exits 0 when it skips an undecided script, and refuses a git-hosted prepare with a failure:
-  // both name the exact keys, so the report decides, not the exit status. Neither pass activates a package
-  // whose build reports an undecided script: the guard runs on both, so nothing loads half-built. The first
-  // attempt records the profile it found, which is also what the retry judges the whole operation from.
-  const attempt: BuildApprovalAttempt = { earlierPendingBuilds: earlier ?? [] }
-  const refused = await runPnpmOnce(context, args, { ...options, captureOutput: true }, attempt)
-  const reported = earlier === undefined ? [] : blockedBuildNames(refused.output).filter(name => !earlier.includes(name))
+  // Keys already awaiting a decision belong to earlier work. Without a readable policy, a reported
+  // key still blocks activation but is never automatically approved.
+  const earlier = checkBuilds || options.approveReportedBuilds === true
+    ? await readPendingBuilds(dir).catch(() => undefined) : []
+  const attempt: OperationAttempts = { earlierPendingBuilds: new Set(earlier) }
+  const runOptions = checkBuilds || options.approveReportedBuilds === true ? { ...options, captureOutput: true } : options
+  const refused = await runPnpmOnce(context, args, runOptions, attempt, checkBuilds)
+  if (options.approveReportedBuilds !== true || earlier === undefined) return refused
+  const buildOutput = refused.truncated ? await readFile(refused.logPath, 'utf8') : refused.output
+  const reported = blockedBuildNames(buildOutput).filter(name => !attempt.earlierPendingBuilds.has(name))
   if (reported.length === 0) return refused
   let approved: string[]
   try {
     // Record only what this run reported, then approve just the keys it introduced.
-    const pending = await recordPendingBuilds(dir, refused.output)
+    const pending = await recordPendingBuilds(dir, buildOutput)
     approved = pending.filter(name => reported.includes(name))
     if (approved.length === 0) return refused
     await approveBuilds(dir, approved)
@@ -409,7 +413,63 @@ export async function runProfilePnpm(
     return refused
   }
   options.onBuildsApproved?.(approved)
-  return await runPnpmOnce(context, args, { ...options, approveReportedBuilds: false }, attempt)
+  return await runPnpmOnce(context, args, runOptions, attempt, checkBuilds)
+}
+
+/** Read the profile files that an unsuccessful package operation can restore. */
+function savedProfileFiles(dir: string): SavedFile[] {
+  return ['package.json', 'pnpm-lock.yaml'].map((name) => {
+    const path = join(dir, name)
+    return { path, text: optionalFile(path) }
+  })
+}
+
+/** Read the dependency version pnpm stores under a lockfile dependency alias. */
+function dependencyReference(alias: string, value: string): string | undefined {
+  if (value.startsWith('link:')) return undefined
+  const at = value.indexOf('@')
+  const colon = value.indexOf(':')
+  const suffix = value.indexOf('(')
+  return at >= 0 && (colon < 0 || at < colon) && (suffix < 0 || at < suffix) ? value : `${alias}@${value}`
+}
+
+/** Report skipped builds reachable from production packages newly eligible for bundle activation. */
+function skippedBuildsFor(dir: string, added: readonly string[], lockfile: string | undefined): string[] {
+  if (added.length === 0 || lockfile === undefined) return []
+  const metadata = optionalFile(join(dir, 'node_modules', '.modules.yaml'))
+  if (metadata === undefined) return []
+  const ignoredBuilds = parseDocument(metadata).get('ignoredBuilds')
+  if (!isSeq(ignoredBuilds)) return []
+  const ignored = new Set(ignoredBuilds.items.flatMap(item => isScalar(item) && typeof item.value === 'string' ? [item.value] : []))
+  if (ignored.size === 0) return []
+  const lock = parseDocument(lockfile)
+  const snapshots = lock.get('snapshots')
+  const remaining: string[] = []
+  for (const name of added) {
+    const ref = lock.getIn(['importers', '.', 'dependencies', name, 'version'])
+    if (typeof ref !== 'string') continue
+    const key = dependencyReference(name, ref)
+    if (key !== undefined) remaining.push(key)
+  }
+  const seen = new Set<string>()
+  const skipped: string[] = []
+  for (const key of remaining) {
+    if (seen.has(key)) continue
+    seen.add(key)
+    if (ignored.has(key)) skipped.push(key)
+    const snapshot = isMap(snapshots) ? snapshots.get(key) : undefined
+    if (!isMap(snapshot)) continue
+    for (const field of ['dependencies', 'optionalDependencies']) {
+      const refs = snapshot.get(field)
+      if (!isMap(refs)) continue
+      for (const { key: alias, value } of refs.items) {
+        if (!isScalar(alias) || typeof alias.value !== 'string' || !isScalar(value) || typeof value.value !== 'string') continue
+        const ref = dependencyReference(alias.value, value.value)
+        if (ref !== undefined) remaining.push(ref)
+      }
+    }
+  }
+  return skipped
 }
 
 /** Read the profile state before an operation changed anything.
@@ -424,16 +484,17 @@ function operationStart(dir: string, manifest: ProfileManifest): OperationStart 
     productionDependencies: manifest.dependencies,
     installedBefore: new Map(Object.keys(dependencies)
       .map(name => [name, optionalFile(join(dir, 'node_modules', name, 'package.json'))])),
-    savedFiles: ['package.json', 'pnpm-lock.yaml'].map(name => ({ path: join(dir, name), text: optionalFile(join(dir, name)) })),
+    savedFiles: savedProfileFiles(dir),
   }
 }
 
 /** One pnpm run, under the caller's profile lock.
- * @param attempt The sibling state a retried approval operation passes down; omitted for every other caller.
+ * @param attempt The operation's pending keys and initial state, shared across any retry.
  */
 async function runPnpmOnce(
   context: PackageOperationContext, args: readonly string[], options: PackageOperationOptions,
-  attempt?: BuildApprovalAttempt,
+  attempt: OperationAttempts,
+  checkBuilds: boolean,
 ): Promise<PackageResult> {
   const dir = context.dir ?? resolveProfileDir(context.profile, context.home)
   // Before any profile file is read: a recorded run that is still active may be rewriting them.
@@ -453,7 +514,7 @@ async function runPnpmOnce(
   const before = readProfileManifest('jan', dir)
   // A retried attempt inherits the state the whole operation found: its sibling already saved and installed
   // the dependency, so judging only this run would call an attempted install an untouched dependency.
-  const start = attempt === undefined ? operationStart(dir, before) : attempt.start ??= operationStart(dir, before)
+  const start = attempt.start ??= operationStart(dir, before)
   const savedFiles = start.savedFiles
   const beforeDependencies = start.dependencies
   const installedBefore = start.installedBefore
@@ -603,6 +664,8 @@ async function runPnpmOnce(
     if (completion.status === 'rejected') throw completion.reason
     const result = completion.value
     exitCode = result.exitCode ?? (result.code === 'ENOENT' ? 127 : 1)
+    const activation = options.activateNewBundles !== false
+    const written = checkBuilds && activation && !control.stalled ? savedProfileFiles(dir) : undefined
     if (control.stalled) {
       const notice = `jan: pnpm printed nothing for ${String(options.idleTimeoutMs)}ms and was terminated\n`
       await log.write(notice)
@@ -617,16 +680,31 @@ async function runPnpmOnce(
       truncated = Buffer.byteLength(diagnostic) > options.outputBytes
       output = Buffer.from(diagnostic).subarray(0, options.outputBytes)
     }
-    // A successful run that still reports an undecided script for a package it installed did not
-    // finish: its build never ran, so the package it added must not become a profile layer. Keys that
-    // were already pending when the operation started are earlier work and say nothing about this run.
-    const stillPending = blockedBuildNames(output.toString('utf8')).filter(name => !attempt?.earlierPendingBuilds.includes(name))
-    if (exitCode === 0 && !control.stalled && stillPending.length > 0) {
-      exitCode = 1
-      const diagnostic = `\njan: build scripts of ${stillPending.join(', ')} are still undecided; bundle selection is unchanged.\n`
-      await log.write(diagnostic)
-      options.onOutput?.(diagnostic, 'stderr')
-      append(Buffer.from(diagnostic))
+    if (!control.stalled && (checkBuilds || options.approveReportedBuilds === true)) {
+      const buildOutput = truncated ? await readFile(logPath, 'utf8') : output.toString('utf8')
+      const stillPending = new Set(blockedBuildNames(buildOutput).filter(name => !attempt.earlierPendingBuilds.has(name)))
+      const installed = written === undefined ? [] : Object.keys(readProfileManifest('jan', dir).dependencies ?? {})
+        .filter(name => !Object.hasOwn(start.productionDependencies ?? {}, name))
+      // A repeated add can reinstall a bundle the preceding blocked operation rolled back. An older
+      // pending key from its new dependency tree still blocks it; pending keys elsewhere do not.
+      for (const key of skippedBuildsFor(dir, installed, written?.[1]?.text)) stillPending.add(key)
+      if (stillPending.size > 0 && (exitCode === 0 || activation)) {
+        exitCode = 1
+        let diagnostic = `\njan: build scripts of ${[...stillPending].join(', ')} are still undecided; bundle selection is unchanged.\n`
+        if (written !== undefined) {
+          const retry = installed.length === 0 ? 'retry the package command' : `add ${installed.join(', ')} again`
+          // The shared lock excludes Jan writers. Do not overwrite a change from a writer outside Jan.
+          if (written.every(file => optionalFile(file.path) === file.text)) {
+            await restore()
+            diagnostic += `jan: restored package.json and pnpm-lock.yaml; downloaded modules remain. Approve the build scripts, then ${retry}.\n`
+          } else {
+            diagnostic += 'jan: package.json or pnpm-lock.yaml changed after pnpm ran and was not restored. Check the profile before retrying.\n'
+          }
+        }
+        await log.write(diagnostic)
+        options.onOutput?.(diagnostic, 'stderr')
+        append(Buffer.from(diagnostic))
+      }
     }
     // A terminated run's exit status says nothing about what it wrote, so it never reconciles the selection.
     if (exitCode === 0 && !control.stalled) {

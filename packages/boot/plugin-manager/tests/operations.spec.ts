@@ -31,6 +31,8 @@ interface FakeChild {
 
 /** What each kind of pnpm invocation changes in the profile and what it answers. */
 interface FakePnpm {
+  /** Model the descriptors passed to pnpm rather than exposing inherited output to Jan. */
+  honorDescriptors?: boolean
   /** What the run changes in the profile. */
   mutate: (dir: string) => void
   /** The run's exit code and captured output. */
@@ -77,7 +79,7 @@ function fixture() {
   }
   command.run.mockImplementation((...call: unknown[]) => {
     const argv = call[1] as readonly string[]
-    const runDir = (call[2] as { cwd: string }).cwd
+    const { cwd: runDir, stdout } = call[2] as { cwd: string; stdout: string }
     const lookup = argv.indexOf('view')
     if (lookup !== -1) {
       const spec = argv[lookup + 1] as string
@@ -86,7 +88,11 @@ function fixture() {
       return result(answer.exitCode, answer.stdout)
     }
     if (argv.includes('--frozen-lockfile') || argv.includes('--config.lockfile=false')) return result(pnpm.repairExit, '')
-    return result(pnpm.exitCode, pnpm.output, () => { pnpm.mutate(runDir) })
+    const run = result(pnpm.exitCode, pnpm.output, () => { pnpm.mutate(runDir) })
+    if (pnpm.honorDescriptors && stdout === 'inherit') {
+      return Object.assign(run, { stdout: null, stderr: null })
+    }
+    return run
   })
   onTestFinished(() => { command.run.mockReset(); treeWait.skip = false; rmSync(home, { recursive: true, force: true }) })
   return { home, dir, context: { home, profile: 'test', installAnchor, cwd: home }, pnpm }
@@ -1066,6 +1072,99 @@ it('uses application-owned executable arguments and environment for package oper
 /** A pnpm run that reports blocked build scripts, as the non-interactive failure it is. */
 const blockedBuilds = (names: readonly string[], mutate: () => void) =>
   result(1, `[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: ${names.join(', ')}\n`, mutate)
+
+it('ignores unrelated earlier pending builds without automatic approval', async () => {
+  const { context, dir, pnpm } = fixture()
+  const pending = 'allowBuilds:\n  earlier@1.0.0: set this to true or false\n'
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), pending)
+  pnpm.output = '[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: earlier@1.0.0\n'
+  pnpm.mutate = (target) => { install(target, 'unrelated') }
+  const outcome = await runPluginCommand(context, ['add', 'unrelated'], { execution: 'service', outputBytes: 8192 })
+  expect(outcome.exitCode).toBe(0)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['unrelated'])
+  expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe(pending)
+})
+
+it('leaves a bundle inactive when plain CLI add skips its build', async () => {
+  const { context, dir, pnpm } = fixture()
+  pnpm.honorDescriptors = true
+  pnpm.output = 'Ignored build scripts: native-run.\nRun "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.\n'
+  const manifest = readFileSync(join(dir, 'package.json'), 'utf8')
+  const lockfile = join(dir, 'pnpm-lock.yaml')
+  writeFileSync(lockfile, 'original lockfile\n')
+  pnpm.mutate = (target) => {
+    install(target, 'native-run')
+    writeFileSync(lockfile, 'changed lockfile\n')
+  }
+  const output: string[] = []
+  const outcome = await runPluginCommand(context, ['add', 'native-run'], {
+    execution: 'cli', outputBytes: 8192, onOutput: (text) => { output.push(text) },
+  })
+  expect(outcome.exitCode).toBe(1)
+  expect(output.join('')).toContain(pnpm.output)
+  expect(outcome.output).toContain('Approve the build scripts, then add native-run again.')
+  expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(manifest)
+  expect(readFileSync(lockfile, 'utf8')).toBe('original lockfile\n')
+  expect(existsSync(join(dir, 'node_modules', 'native-run', 'package.json'))).toBe(true)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual([])
+})
+
+it('activates a previously skipped bundle after separate approval and an explicit retry', async () => {
+  const { context, dir, pnpm } = fixture()
+  const options = { execution: 'service', outputBytes: 8192 } as const
+  const workspace = join(dir, 'pnpm-workspace.yaml')
+  install(dir, 'disabled')
+  const add = () => runPluginCommand(context, ['add', 'plugin'], options)
+  const lockfile = join(dir, 'pnpm-lock.yaml')
+  const modules = join(dir, 'node_modules', '.modules.yaml')
+  const installPlugin = (target: string) => {
+    install(target, 'plugin')
+    writeFileSync(lockfile, `
+lockfileVersion: '9.0'
+importers:
+  '.':
+    dependencies:
+      plugin:
+        specifier: '1'
+        version: 1.0.0
+snapshots:
+  plugin@1.0.0:
+    dependencies:
+      native-transitive: 1.2.3
+  native-transitive@1.2.3: {}
+`)
+  }
+  pnpm.output = '[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: native-transitive\n'
+  pnpm.mutate = (target) => {
+    installPlugin(target)
+    writeFileSync(modules, 'ignoredBuilds:\n  - native-transitive@1.2.3\n')
+    writeFileSync(workspace, 'allowBuilds:\n  native-transitive: set this to true or false\n')
+  }
+  expect((await add()).exitCode).toBe(1)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual([])
+  // The policy entry is now earlier work, but the new bundle still needs that exact skipped dependency.
+  pnpm.output = ''
+  const retry = await add()
+  expect(retry.exitCode).toBe(1)
+  expect(retry.output).toContain('native-transitive@1.2.3')
+  expect(existsSync(lockfile)).toBe(false)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual([])
+
+  pnpm.output = ''
+  pnpm.mutate = () => {
+    writeFileSync(workspace, 'allowBuilds:\n  native-transitive: true\n')
+    writeFileSync(modules, '{}\n')
+  }
+  expect((await runPluginCommand(context, ['approve-builds', 'native-transitive'], options)).exitCode).toBe(0)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual([])
+
+  pnpm.mutate = installPlugin
+  expect((await add()).exitCode).toBe(0)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['plugin'])
+  pnpm.mutate = () => { }
+  expect((await runPluginCommand(context, ['add', 'disabled'], options)).exitCode).toBe(0)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['plugin'])
+})
 
 it('approves only the keys this run reported and activates only after the retry', async () => {
   const { dir, context } = fixture()

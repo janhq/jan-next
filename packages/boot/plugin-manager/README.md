@@ -73,6 +73,8 @@ When pnpm 11 blocks dependency scripts, the failed installation reports every pe
 
 The headless command `jan plugin --profile <name> add <package> --yes-builds` approves exact undecided keys reported by that install and retries once under the same profile lock. Unrelated pending approvals and existing denials are left alone. Use this flag only for packages and dependencies whose build scripts you trust.
 
+If `jan plugin add` finds skipped dependency builds, it leaves the bundle inactive and restores `package.json` and `pnpm-lock.yaml` unless either file changed after pnpm finished. The downloaded modules remain so pnpm can find the skipped scripts. For a trusted plugin, approve the scripts with `jan plugin approve-builds` in the same profile, then add the package again. Re-adding a deliberately disabled bundle does not enable it.
+
 <a id="version-compatibility-and-exemptions"></a>
 ### Version compatibility and exemptions
 
