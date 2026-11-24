@@ -456,7 +456,7 @@ describe('PluginInventorySettingsTab', () => {
     // Rows the presets took over sit inline, marked instead of plainly disabled.
     expect(screen.getAllByText(en.presetEnabledTag)).toHaveLength(2)
 
-    fireEvent.click(screen.getByRole('button', { name: 'tool-bash, bash-host, Via presets' }))
+    fireEvent.click(screen.getByRole('button', { name: 'tool-bash, bash-host, Via modes' }))
     expect(screen.getByText(en.presetProvidedDetail)).toBeTruthy()
     expect(screen.getByText(en.enabledIn)).toBeTruthy()
     expect(screen.getByText('标准模式 · ptc')).toBeTruthy()
@@ -540,11 +540,11 @@ describe('PluginInventorySettingsTab', () => {
     expect(screen.getByText(en.fromPreset).nextElementSibling?.textContent).toBe('Localized standard')
 
     fireEvent.click(globalToggle())
-    fireEvent.click(screen.getByRole('button', { name: 'tool-bash, bash-host, Via presets' }))
+    fireEvent.click(screen.getByRole('button', { name: 'tool-bash, bash-host, Via modes' }))
     expect(screen.getByText('Localized standard · Localized ptc')).toBeTruthy()
   })
 
-  it('searches across scopes and points at matches in other presets', async () => {
+  it('searches across scopes and points at matches in other modes', async () => {
     const view = await renderReady()
     const search = screen.getByRole('searchbox', { name: en.search })
 
