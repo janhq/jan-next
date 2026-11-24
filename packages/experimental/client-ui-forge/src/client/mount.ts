@@ -359,19 +359,19 @@ function registerUi(ctx: Context): void {
   })
 }
 
-/** Rows show their icons until the Host form says otherwise, including while it loads. */
-const SHOWN: HostObservable<boolean> = { getSnapshot: () => true, subscribe: () => () => {} }
-
 /**
- * Read the General switch from the forge panel's Host Config entry.
+ * Read the General switch from the forge panel's Host Config entry. Rows show their icons until
+ * the Host form says otherwise, including while it loads or when no `configForms` is mounted.
+ * The service may arrive after this plugin, so every read and subscription looks it up again.
  * @param ctx - a client context that may carry `configForms`.
  * @returns whether rows show their forge icons.
  */
 function sidebarStatusOf(ctx: Context): HostObservable<boolean> {
-  const forms = ctx.get('configForms')
-  if (forms === undefined) return SHOWN
-  const form = forms.get<Pick<Config, 'sidebarStatus'>>(CONFIG_ENTRY)
-  return { getSnapshot: () => form.getSnapshot().value?.sidebarStatus !== false, subscribe: listener => form.subscribe(listener) }
+  const form = () => ctx.get('configForms')?.get<Pick<Config, 'sidebarStatus'>>(CONFIG_ENTRY)
+  return {
+    getSnapshot: () => form()?.getSnapshot().value?.sidebarStatus !== false,
+    subscribe: listener => form()?.subscribe(listener) ?? (() => {}),
+  }
 }
 
 /**

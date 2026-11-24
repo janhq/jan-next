@@ -990,8 +990,7 @@ export interface CotTranslationPreferences {
 ## `@janhq/jan-experimental-client-ui-forge`
 
 - `inject`: `forge` · `forgeSession` · `sessionProjections` · `workingDirectory` · `fs` · `subprocess` · `sandbox` · `sandboxPolicy` · `agents`
-- `refs`: `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/experimental/client-ui-forge/src/types.ts:346`](../packages/experimental/client-ui-forge/src/types.ts)
+- `source`: [`packages/experimental/client-ui-forge/src/types.ts:345`](../packages/experimental/client-ui-forge/src/types.ts)
 
 ```ts config-catalog
 /** Host settings of the forge panel Remote. */
@@ -1019,8 +1018,8 @@ export interface Config {
   maxUntrackedFiles?: number
   /** Most UTF-8 bytes of change request diffs kept in memory for later reads at the same head commit and base branch. */
   maxCachedDiffBytes?: number
-  /** Whether chat rows in the sidebar show their change request status; changes apply without a restart. */
-  sidebarStatus?: Volatile<boolean>
+  /** Whether chat rows in the sidebar show their change request status; volatile, so a change applies without a restart. */
+  sidebarStatus?: boolean
 }
 ```
 
