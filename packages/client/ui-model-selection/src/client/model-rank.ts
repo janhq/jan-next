@@ -11,7 +11,12 @@ import type { ModelCatalogModel } from '@janhq/jan-api-session-controller/types'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import { compareModelNames, compareNewest } from './model-order.ts'
 
-/** `provider/model` identity shared by favorites and recents. */
+/**
+ * `provider/model` identity shared by favorites and recents.
+ * @param provider - provider id.
+ * @param model - model id within the provider.
+ * @returns the joined key.
+ */
 export const modelKey = (provider: string, model: string): string => `${provider}/${model}`
 
 /**
@@ -21,7 +26,10 @@ export const modelKey = (provider: string, model: string): string => `${provider
  */
 export const favoriteStore = createSnapshotStore<readonly string[]>([], { persist: { name: 'jan.models.favorites' } })
 
-/** Star or unstar one model. */
+/**
+ * Star or unstar one model.
+ * @param key - `provider/model` key.
+ */
 export function toggleFavorite(key: string): void {
   const keys = favoriteStore.getSnapshot()
   favoriteStore.set(keys.includes(key) ? keys.filter(item => item !== key) : [...keys, key])
@@ -36,7 +44,10 @@ export const recentStore = createSnapshotStore<readonly string[]>([], { persist:
 /** Recently used models listed above the providers while the search is empty. */
 export const RECENT_ROWS = 3
 
-/** Move one model to the front of the recents. */
+/**
+ * Move one model to the front of the recents.
+ * @param key - `provider/model` key.
+ */
 export function recordRecent(key: string): void {
   const keys = recentStore.getSnapshot()
   if (keys[0] === key) return
@@ -67,8 +78,9 @@ export function normalizeSearch(text: string): string {
 }
 
 /**
+ * Split a query into normalized words.
  * @param query - raw query.
- * @returns the normalized words of a query; none for a blank one.
+ * @returns the normalized words; none for a blank query.
  */
 export function searchWords(query: string): string[] {
   const normalized = normalizeSearch(query)
