@@ -1001,6 +1001,12 @@ async function main(): Promise<void> {
     assertProductSender(event)
     return readDeviceInfo()
   })
+  ipcMain.handle(DESKTOP_IPC.restartApplication, (event) => {
+    assertProductSender(event)
+    if (quitting) return
+    app.relaunch()
+    quitWithoutConfirmation()
+  })
   ipcMain.handle(DESKTOP_IPC.factoryReset, async (event, value: unknown) => {
     assertProductSender(event)
     const categories = parseFactoryResetRequest(value)

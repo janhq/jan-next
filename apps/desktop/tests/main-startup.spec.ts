@@ -592,6 +592,17 @@ describe('desktop main startup', () => {
     expect(harness.app.relaunch).toHaveBeenCalledOnce()
   })
 
+  it('relaunches without a quit confirmation when the application asks to restart', async () => {
+    await readyForUpdate()
+    await harness.windows[0]!.shown.promise
+    expect(() => invoke(DESKTOP_IPC.restartApplication, 'shell')).toThrow()
+    expect(harness.app.relaunch).not.toHaveBeenCalled()
+    await invoke(DESKTOP_IPC.restartApplication, 'app')
+    expect(harness.app.relaunch).toHaveBeenCalledOnce()
+    expect(harness.app.quit).toHaveBeenCalledOnce()
+    expect(harness.dialog.showMessageBox).not.toHaveBeenCalled()
+  })
+
   it('restores and dispatches a notification click to its secondary conversation window', async () => {
     writeFileSync(join(harness.app.getPath('userData'), 'conversation-windows.json'), JSON.stringify({ windows: ['secondary'] }))
     await readyForUpdate()
