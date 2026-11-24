@@ -1,5 +1,6 @@
 /** Shared native-open status for delivery cards, the changed-files card, and closing-message file mentions. */
 import { createSnapshotStore } from '@janhq/jan-client-store'
+import { captureFailure, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type { SessionId } from '@janhq/jan-session/types'
 import { changedFileUrl } from '../changes.ts'
 import { presentedFileUrl, PRESENT_HOST_ROUTE, isPresentedHost, type PresentedAction, type PresentedHost } from '../presented.ts'
@@ -17,7 +18,7 @@ export type PresentedOpenFailure = 'openError' | 'revealError'
 export type PresentedOpenOutcome =
   | { readonly kind: 'opened' }
   | { readonly kind: 'revealed' }
-  | { readonly kind: 'failed'; readonly failure: PresentedOpenFailure }
+  | { readonly kind: 'failed'; readonly failure: PresentedOpenFailure; readonly details?: FailureDetails }
   | { readonly kind: 'skipped' }
 
 /** State published on the owning file card. */
@@ -131,14 +132,18 @@ export class PresentedOpenController {
   private async request(url: string, action: PresentedAction, application?: string): Promise<PresentedOpenOutcome> {
     const failure = action === 'open' ? 'error' : 'revealError'
     let phase: PresentedOpenPhase | undefined
+    let details: FailureDetails | undefined
     try {
       const target = action === 'reveal' ? `${url}&action=reveal`
         : application === undefined ? url : `${url}&application=${encodeURIComponent(application)}`
       const response = await fetch(target, { method: 'POST', signal: this.lifetime.signal })
-      if (!response.ok) phase = response.status === 422 ? 'nativeUnavailable' : failure
-    } catch {
-      // Transport failures share the retryable card state with Host open failures.
+      if (!response.ok) {
+        phase = response.status === 422 ? 'nativeUnavailable' : failure
+        details = captureFailure(`deliverables.${action}`, { code: `HTTP ${String(response.status)}` })
+      }
+    } catch (error) {
       phase = failure
+      details = captureFailure(`deliverables.${action}`, error)
     }
     if (!this.lifetime.signal.aborted) {
       this.state.update((state) => {
@@ -148,6 +153,6 @@ export class PresentedOpenController {
     }
     if (this.lifetime.signal.aborted) return { kind: 'skipped' }
     if (phase === undefined) return { kind: action === 'open' ? 'opened' : 'revealed' }
-    return { kind: 'failed', failure: action === 'reveal' ? 'revealError' : 'openError' }
+    return { kind: 'failed', failure: action === 'reveal' ? 'revealError' : 'openError', ...details === undefined ? {} : { details } }
   }
 }
