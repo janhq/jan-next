@@ -3,7 +3,8 @@ import type { Context } from '@janhq/cordis'
 import type {} from '@janhq/jan-api-remotes/client'
 import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
 import type { AgentPresetRow } from '@janhq/jan-agent-preset-registry/types'
-import { AGENT_PRESET_SETTINGS_NS, requiresCodingTools, writeDefaultPreset } from './settings-store.ts'
+import { requiresCodingTools } from './locales.ts'
+import { AGENT_PRESET_SETTINGS_NS, writeDefaultPreset } from './settings-store.ts'
 
 /** The read-only composition viewer over one preset. */
 export interface PresetView {

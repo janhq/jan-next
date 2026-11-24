@@ -7,8 +7,7 @@ import {
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
 import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { AgentPresetSectionState } from './section-store.ts'
-import { isBuiltInPreset, presetDisplayText } from './locales.ts'
-import { requiresCodingTools } from './settings-store.ts'
+import { isBuiltInPreset, presetDisplayText, requiresCodingTools } from './locales.ts'
 import { PresetGuideDialog, presetGuide, trapPresetReaderTab, type PresetGuidePage } from './PresetGuideDialog.tsx'
 import { PresetIcon } from './PresetIcon.tsx'
 // Type-only: pulls this package's SlotMap merge for the custom-editor seat.

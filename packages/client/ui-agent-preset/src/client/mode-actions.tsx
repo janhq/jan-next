@@ -1,7 +1,7 @@
 import type { SessionId } from '@janhq/jan-session/types'
 import type { AgentPresetModeAction } from './index.ts'
-import { presetDisplayText, type AgentPresetSettingsKey } from './locales.ts'
-import { requiresCodingTools, type AgentPresetOption } from './settings-store.ts'
+import { presetDisplayText, requiresCodingTools, type AgentPresetSettingsKey } from './locales.ts'
+import type { AgentPresetOption } from './settings-store.ts'
 import css from './AgentPresetSeat.module.css'
 import { PresetIcon } from './PresetIcon.tsx'
 

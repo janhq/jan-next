@@ -126,7 +126,7 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
 // The resolution itself is the shared fold in `jan-agent-preset-registry/display`,
 // re-exported here so every surface in this plugin reads one path; the
 // Settings plugin list inlines the same fold over this plugin's dictionaries.
-export { isBuiltInPreset, presetDisplayText } from '@janhq/jan-agent-preset-registry/display'
+export { isBuiltInPreset, presetDisplayText, requiresCodingTools } from '@janhq/jan-agent-preset-registry/display'
 export type { PresetDisplaySource, PresetDisplayText } from '@janhq/jan-agent-preset-registry/display'
 
 /** Japanese copy, checked against the English keys. */
