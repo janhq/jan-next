@@ -1981,15 +1981,17 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
                     onClick: () => { setOpen(current => { const next = new Set(current); if (expanded) next.delete(key); else next.add(key); return next }) },
                   }, h(IconFolderCloseRegular, { size: 16, 'aria-hidden': true }),
                     h('span', { className: 'jt-project-skill-name' }, label),
-                    h('span', { className: 'jt-project-skill-meta' }, folder.enabled ? t('project.skills.folderCount', { active: on, total: folder.skills.length }) : t('project.skills.off'))),
+                    h('span', { className: 'jt-project-skill-meta' }, folder.offAt !== undefined ? t('project.skills.offGlobally')
+                      : folder.enabled ? t('project.skills.folderCount', { active: on, total: folder.skills.length }) : t('project.skills.off'))),
                   folder.path !== null && h(Switch, {
-                    label: t('project.skills.folderToggle', { name: label }), checked: folder.enabled, disabled: busy,
+                    label: t('project.skills.folderToggle', { name: label }), checked: folder.enabled, disabled: busy || folder.offAt !== undefined,
                     onChange: enabled => { toggle('setSkillFolder', { path: folder.path, enabled }) },
                   })),
                 expanded && h('ul', { className: 'jt-project-skill-list' }, folder.skills.map(skill => h('li', { key: skill.name, className: 'jt-project-skill-row', 'data-off': !folder.enabled || undefined },
                   h('span', { className: 'jt-project-skill-name', title: skill.description }, skill.name),
+                  skill.offAt !== undefined && h('span', { className: 'jt-project-skill-meta' }, t('project.skills.offGlobally')),
                   h(Switch, {
-                    label: t('project.skills.skillToggle', { name: skill.name }), checked: skill.enabled, disabled: busy || !folder.enabled,
+                    label: t('project.skills.skillToggle', { name: skill.name }), checked: skill.enabled, disabled: busy || !folder.enabled || skill.offAt !== undefined,
                     onChange: enabled => { toggle('setSkill', { name: skill.name, enabled }) },
                   })))))
             })),
@@ -2695,6 +2697,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.skills.count': "{active} of {total} on",
               'project.skills.folderCount': "{active} of {total}",
               'project.skills.off': "Off",
+              'project.skills.offGlobally': "Off in global settings",
               'project.skills.empty': "No skills are installed.",
               'project.skills.builtIn': "Built in",
               'project.skills.folderToggle': "Use skills from {name} in this project",
