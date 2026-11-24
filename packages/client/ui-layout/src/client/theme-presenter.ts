@@ -4,7 +4,8 @@
  * controls), `body[data-ds-dark-theme]` for the token palette, the active
  * theme's alias-token overrides as inline CSS variables on body, the content
  * font-size axis (`--jan-content-font-size`), the code and terminal sizes
- * (`--jan-code-font-size`, `--jan-terminal-font-size`), the user font lists
+ * (`--jan-code-font-size`, `--jan-terminal-font-size`), the syntax theme
+ * (`data-ds-code-theme`), the user font lists
  * (`--jan-font-family-<role>`), `html[data-ds-theme-source]`
  * for native-chrome mirroring, and one presenter-owned
  * `meta[name="theme-color"]` for surrounding browser UI. Pure DOM writes, no
@@ -26,6 +27,9 @@ export const DARK_ATTRIBUTE = 'data-ds-dark-theme'
  * scheme.
  */
 export const THEME_SOURCE_ATTRIBUTE = 'data-ds-theme-source'
+
+/** Body attribute selecting the syntax theme palette in the token stylesheets. */
+export const CODE_THEME_ATTRIBUTE = 'data-ds-code-theme'
 
 /** Body variable carrying the user's content font size in px. */
 export const CONTENT_FONT_SIZE_VARIABLE = '--jan-content-font-size'
@@ -74,6 +78,7 @@ export class ThemePresenter {
     const body = document.body
     if (scheme === 'dark') body.setAttribute(DARK_ATTRIBUTE, '')
     else body.removeAttribute(DARK_ATTRIBUTE)
+    body.setAttribute(CODE_THEME_ATTRIBUTE, snapshot.codeTheme)
     for (const [role, name] of Object.entries(FONT_SIZE_VARIABLES)) {
       body.style.setProperty(name, `${snapshot.fontSizes[role as FontRole]}px`)
     }
@@ -101,6 +106,7 @@ export class ThemePresenter {
     document.documentElement.removeAttribute(THEME_SOURCE_ATTRIBUTE)
     const body = document.body
     body.removeAttribute(DARK_ATTRIBUTE)
+    body.removeAttribute(CODE_THEME_ATTRIBUTE)
     for (const name of Object.values(FONT_SIZE_VARIABLES)) body.style.removeProperty(name)
     for (const name of Object.values(FONT_FAMILY_VARIABLES)) body.style.removeProperty(name)
     for (const name of this.appliedTokens) body.style.removeProperty(name)

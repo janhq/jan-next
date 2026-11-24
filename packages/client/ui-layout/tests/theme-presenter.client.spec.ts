@@ -83,6 +83,16 @@ describe('ThemePresenter', () => {
     expect(document.body.style.getPropertyValue('--dsw-alias-fg')).toBe('')
   })
 
+  it('publishes the syntax theme attribute, follows changes, and retracts it on dispose', () => {
+    const presenter = new ThemePresenter()
+    presenter.apply(snapshot('light'))
+    expect(document.body.getAttribute('data-ds-code-theme')).toBe('github')
+    presenter.apply(snapshot('light', {}, 14, 'light', { text: '', code: '', terminal: '' }, 'solarized'))
+    expect(document.body.getAttribute('data-ds-code-theme')).toBe('solarized')
+    presenter.dispose()
+    expect(document.body.hasAttribute('data-ds-code-theme')).toBe(false)
+  })
+
   it('publishes the content font size and follows changes', () => {
     const presenter = new ThemePresenter()
     presenter.apply(snapshot('light'))
