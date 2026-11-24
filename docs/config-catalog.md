@@ -3094,6 +3094,21 @@ export interface Config {
 }
 ```
 
+<a id="janhqjan-scoped-settings"></a>
+
+## `@janhq/jan-scoped-settings`
+
+- `inject`: `agents` · `workspaceRegistry` · `tools`
+- `source`: [`packages/settings/scoped-settings/src/index.ts:22`](../packages/settings/scoped-settings/src/index.ts)
+
+```ts config-catalog
+/** Where the document lives. */
+export interface Config {
+  /** Absolute path of the scoped-settings document. */
+  file: string
+}
+```
+
 <a id="janhqjan-sdk-app"></a>
 
 ## `@janhq/jan-sdk-app`

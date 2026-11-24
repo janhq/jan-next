@@ -213,6 +213,12 @@
     - id: workspace-controller
       name: '@janhq/jan-api-workspace-controller'
 
+    # Project defaults for new chats and tool switches per chat, project and globally.
+    - id: scoped-settings
+      name: '@janhq/jan-scoped-settings'
+      config:
+        file: !!js janHomePath('settings', 'scoped.json')
+
     - id: cordis-host-runner
       name: '@janhq/jan-cordis-host-runner'
 

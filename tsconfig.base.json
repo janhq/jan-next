@@ -532,6 +532,7 @@
       "@janhq/jan-sandbox-windows-acl": ["./packages/sandbox/sandbox-windows-acl/src"],
       "@janhq/jan-schedule": ["./packages/schedule/schedule/src"],
       "@janhq/jan-scope": ["./packages/core/scope/src"],
+      "@janhq/jan-scoped-settings": ["./packages/settings/scoped-settings/src"],
       "@janhq/jan-sdk-app": ["./packages/bundle/sdk-app/src"],
       "@janhq/jan-sdk-minimal": ["./packages/bundle/sdk-minimal/src"],
       "@janhq/jan-session": ["./packages/core/session/src"],

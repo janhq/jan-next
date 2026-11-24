@@ -161,6 +161,7 @@
     "@janhq/jan-plugin-manager": "workspace:*",
     "@janhq/jan-plugin-market": "workspace:*",
     "@janhq/jan-schedule": "workspace:*",
+    "@janhq/jan-scoped-settings": "workspace:*",
     "@janhq/jan-session-log-export": "workspace:*",
     "@janhq/jan-session-reference": "workspace:*",
     "@janhq/jan-session-stats": "workspace:*",

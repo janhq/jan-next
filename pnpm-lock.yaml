@@ -3789,6 +3789,9 @@ importers:
       '@janhq/jan-schedule':
         specifier: workspace:*
         version: link:../../schedule/schedule
+      '@janhq/jan-scoped-settings':
+        specifier: workspace:*
+        version: link:../../settings/scoped-settings
       '@janhq/jan-session-log-export':
         specifier: workspace:*
         version: link:../../session-query/session-log-export
@@ -15731,6 +15734,49 @@ importers:
       '@janhq/jan-user-approval':
         specifier: workspace:*
         version: link:../../interaction/user-approval
+
+  packages/settings/scoped-settings:
+    dependencies:
+      '@janhq/jan-atomic-write':
+        specifier: workspace:*
+        version: link:../../util/atomic-write
+      '@janhq/jan-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
+      '@janhq/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@janhq/jan-agent-preset-registry':
+        specifier: workspace:*
+        version: link:../../preset/agent-preset-registry
+      '@janhq/jan-mcp-client':
+        specifier: workspace:*
+        version: link:../../mcp/mcp-client
+      '@janhq/jan-scope':
+        specifier: workspace:*
+        version: link:../../core/scope
+      '@janhq/jan-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@janhq/jan-settings':
+        specifier: workspace:*
+        version: link:../settings
+      '@janhq/jan-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+      '@janhq/jan-workspace':
+        specifier: workspace:*
+        version: link:../../workspace/workspace
 
   packages/settings/settings:
     dependencies:

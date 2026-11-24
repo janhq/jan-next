@@ -20,6 +20,69 @@ A form namespace is the local id of a uniquely addressed entry in the active pro
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxscopedsettings--scopedsettings"></a>
+
+### `ctx.scopedSettings` — `ScopedSettings`
+
+Stores per-scope values in one document and applies the tool switches to every live agent. Chat model and mode already live in each chat's own log; this service adds the project layer for new chats and the tool switches for every scope.
+
+```ts cordis-catalog
+/**
+ * Find the project a chat belongs to.
+ * @param sessionId - the chat.
+ * @param cwd - the chat's folder, for a chat the project list has not indexed yet.
+ * @returns the project id, or undefined outside any project.
+ */
+projectOf(sessionId: SessionId, cwd?: string): WorkspaceId | undefined
+
+/**
+ * Model a chat starts on from its project. A model the chat picked itself is recorded in its log and wins.
+ * @param sessionId - the chat.
+ * @param workspaceHint - the project a chat being created joins.
+ * @returns the project's model, or undefined to use the global default.
+ */
+resolveModel(sessionId: SessionId, workspaceHint?: WorkspaceId): ScopedModel | undefined
+
+/**
+ * Mode (agent preset) a new chat in a project starts in.
+ * @param workspaceId - the project, or undefined outside any project.
+ * @returns the project's mode while that preset exists, else undefined.
+ */
+async resolveMode(workspaceId: WorkspaceId | undefined): Promise<string | undefined>
+
+/**
+ * Tool switches in effect for a chat: any scope that switches a tool off switches it off for every narrower one.
+ * @param sessionId - the chat.
+ * @param cwd - the chat's folder, for a chat the project list has not indexed yet.
+ * @returns sorted tool names and `mcp:<server>` entries.
+ */
+resolveToolsDisabled(sessionId: SessionId, cwd?: string): string[]
+
+/**
+ * Read the values one scope stores, without inherited ones.
+ * @param address - the scope and, for a project or chat, its id.
+ * @returns the stored values; an empty object when the scope stores nothing.
+ */
+@Remote read(address: ScopeAddress): ScopedValues
+
+/**
+ * Replace or remove values of one scope.
+ * @param request - the scope, its id, and the keys to set; `null` or an empty list returns a key to the wider scope.
+ * @returns the values the scope stores after the write.
+ */
+@Remote async write(request: ScopedWriteRequest): Promise<ScopedValues>
+
+/**
+ * List what a scope can switch off.
+ * @returns global tool names outside MCP and the MCP servers that registered tools.
+ */
+@Remote toolCatalog(): ScopedToolCatalog
+```
+
+Types: [SessionId](core.md) · [WorkspaceId](workspace.md)
+
+Source: [`packages/settings/scoped-settings/src/index.ts`](../../packages/settings/scoped-settings/src/index.ts)
+
 <a id="ctxsettings--settingsforms"></a>
 
 ### `ctx.settings` — `SettingsForms`
@@ -127,6 +190,27 @@ Host service backing the generated `ctx.remote.settings` namespace. Every remote
 ```
 
 Source: [`packages/api/settings-controller/src/index.ts`](../../packages/api/settings-controller/src/index.ts)
+
+<a id="scoped-settings-events"></a>
+
+### `scoped-settings/*` events
+
+<a id="scoped-settingschanged--emit"></a>
+
+#### `scoped-settings/changed` — emit
+
+One scope's stored values changed.
+
+```ts cordis-catalog
+/**
+ * One scope's stored values changed.
+ * @param address - the scope that was written.
+ * @mode emit
+ */
+'scoped-settings/changed'(address: ScopeAddress): void
+```
+
+Source: [`packages/settings/scoped-settings/src/index.ts`](../../packages/settings/scoped-settings/src/index.ts)
 
 <a id="settings-events"></a>
 

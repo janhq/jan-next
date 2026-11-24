@@ -3081,6 +3081,55 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'scopedSettings',
+    summary: 'Stores per-scope values in one document and applies the tool switches to every live agent.',
+    description: 'Stores per-scope values in one document and applies the tool switches to every live agent. Chat model and mode already live in each chat\'s own log; this service adds the project layer for new chats and the tool switches for every scope.',
+    methods: [
+      {
+        signature: 'projectOf(sessionId: SessionId, cwd?: string): WorkspaceId | undefined',
+        description: 'Find the project a chat belongs to.',
+        parameters: [{ name: 'sessionId', description: 'the chat.' }, { name: 'cwd', description: 'the chat\'s folder, for a chat the project list has not indexed yet.' }],
+        returns: 'the project id, or undefined outside any project.',
+      },
+      {
+        signature: 'resolveModel(sessionId: SessionId, workspaceHint?: WorkspaceId): ScopedModel | undefined',
+        description: 'Model a chat starts on from its project. A model the chat picked itself is recorded in its log and wins.',
+        parameters: [{ name: 'sessionId', description: 'the chat.' }, { name: 'workspaceHint', description: 'the project a chat being created joins.' }],
+        returns: 'the project\'s model, or undefined to use the global default.',
+      },
+      {
+        signature: 'async resolveMode(workspaceId: WorkspaceId | undefined): Promise<string | undefined>',
+        description: 'Mode (agent preset) a new chat in a project starts in.',
+        parameters: [{ name: 'workspaceId', description: 'the project, or undefined outside any project.' }],
+        returns: 'the project\'s mode while that preset exists, else undefined.',
+      },
+      {
+        signature: 'resolveToolsDisabled(sessionId: SessionId, cwd?: string): string[]',
+        description: 'Tool switches in effect for a chat: any scope that switches a tool off switches it off for every narrower one.',
+        parameters: [{ name: 'sessionId', description: 'the chat.' }, { name: 'cwd', description: 'the chat\'s folder, for a chat the project list has not indexed yet.' }],
+        returns: 'sorted tool names and `mcp:<server>` entries.',
+      },
+      {
+        signature: '@Remote read(address: ScopeAddress): ScopedValues',
+        description: 'Read the values one scope stores, without inherited ones.',
+        parameters: [{ name: 'address', description: 'the scope and, for a project or chat, its id.' }],
+        returns: 'the stored values; an empty object when the scope stores nothing.',
+      },
+      {
+        signature: '@Remote async write(request: ScopedWriteRequest): Promise<ScopedValues>',
+        description: 'Replace or remove values of one scope.',
+        parameters: [{ name: 'request', description: 'the scope, its id, and the keys to set; `null` or an empty list returns a key to the wider scope.' }],
+        returns: 'the values the scope stores after the write.',
+      },
+      {
+        signature: '@Remote toolCatalog(): ScopedToolCatalog',
+        description: 'List what a scope can switch off.',
+        parameters: [],
+        returns: 'global tool names outside MCP and the MCP servers that registered tools.',
+      },
+    ],
+  },
+  {
     key: 'sessionController',
     summary: 'Host service backing the generated `ctx.remote.session` namespace.',
     description: 'Host service backing the generated `ctx.remote.session` namespace.',
@@ -5747,6 +5796,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'Restore a reminder\'s Session through its embedding\'s owning controller.',
     description: 'Restore a reminder\'s Session through its embedding\'s owning controller. Call next() to use the Web Session controller.',
     parameters: [{ name: 'sessionId', description: 'Original Session receiving the reminder.' }],
+  },
+  {
+    name: 'scoped-settings/changed',
+    mode: 'emit',
+    signature: '\'scoped-settings/changed\'(address: ScopeAddress): void',
+    summary: 'One scope\'s stored values changed.',
+    description: 'One scope\'s stored values changed.',
+    parameters: [{ name: 'address', description: 'the scope that was written.' }],
   },
   {
     name: 'session-telemetry/record',
@@ -8977,8 +9034,32 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ScheduleWakeSource {\n    next(): number | undefined;\n    deliver(now: number): void | Promise<void>;\n}',
   },
   {
+    name: 'ScopeAddress',
+    declaration: 'export interface ScopeAddress {\n    readonly scope: SettingScope;\n    readonly id?: string;\n}',
+  },
+  {
     name: 'Scoped',
     declaration: 'export type Scoped<T extends object> = object & {\n    readonly [ScopedBrand]: T;\n};',
+  },
+  {
+    name: 'ScopedModel',
+    declaration: 'export interface ScopedModel {\n    readonly provider: string;\n    readonly model: string;\n    readonly reasoningEffort?: string;\n}',
+  },
+  {
+    name: 'ScopedToolCatalog',
+    declaration: 'export interface ScopedToolCatalog {\n    readonly tools: readonly string[];\n    readonly mcpServers: readonly string[];\n}',
+  },
+  {
+    name: 'ScopedValues',
+    declaration: 'export interface ScopedValues {\n    readonly model?: ScopedModel;\n    readonly mode?: string;\n    readonly toolsDisabled?: string[];\n}',
+  },
+  {
+    name: 'ScopedValuesPatch',
+    declaration: 'export interface ScopedValuesPatch {\n    readonly model?: ScopedModel | null;\n    readonly mode?: string | null;\n    readonly toolsDisabled?: string[] | null;\n}',
+  },
+  {
+    name: 'ScopedWriteRequest',
+    declaration: 'export interface ScopedWriteRequest extends ScopeAddress {\n    readonly values: ScopedValuesPatch;\n}',
   },
   {
     name: 'ScopeKey',
@@ -9671,6 +9752,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SetShareCapabilitiesRequest',
     declaration: 'export interface SetShareCapabilitiesRequest {\n    readonly shareId: string;\n    readonly viewerPluginAccess?: ViewerPluginAccess;\n    readonly viewerPlugins?: readonly ViewerPluginPolicy[];\n}',
+  },
+  {
+    name: 'SettingScope',
+    declaration: 'export type SettingScope = \'global\' | \'project\' | \'session\';',
   },
   {
     name: 'SettingsDescribeOptions',
