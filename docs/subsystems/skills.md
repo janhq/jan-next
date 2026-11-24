@@ -209,7 +209,7 @@ interface SkillLookupOptions {
 interface SkillViewOptions extends SkillLookupOptions {
   /** Viewing scope (the calling agent); omitted reads the global layer alone. */
   readonly scope?: ScopeKey | undefined
-  /** Skip registered {@link SkillFilter}s, for settings surfaces that list hidden skills to re-enable them. */
+  /** Skip filters. Listings also include shadowed candidates so settings can show every skill folder. */
   readonly unfiltered?: boolean | undefined
 }
 ```
@@ -309,7 +309,7 @@ registerFilter(filter: SkillFilter): () => void
  * options and provider candidates are readonly same-process values borrowed
  * throughout discovery.
  * @param options - view options; `scope` selects the viewing agent's layers, `cwd` selects project roots, and `signal` cancels discovery.
- * @returns all sorted winning summaries.
+ * @returns sorted winning summaries, or all candidates for an unfiltered listing.
  */
 async list(options: SkillViewOptions = {}): Promise<SkillSummary[]>
 

@@ -160,17 +160,17 @@ Registration is a trusted same-process contract. The registry borrows the typed 
 
 ## `ToolRestriction` — one scope's live filter over what it inherits
 
-`ToolRestriction` applies to the tools a scope inherits: the deployment-global layer plus every ancestor scope on its chain. The registry compiles readonly names into private sets, intersects multiple restrictions, then overlays the scope's OWN registrations, which stay exempt so a delegated child keeps the tools it answers through. A deny-only filter admits later unlisted inherited tools, while an allow-list excludes them.
+`ToolRestriction` applies to the tools a scope inherits: the deployment-global layer plus every ancestor scope on its chain. The registry compiles readonly names into private sets, intersects multiple restrictions, then overlays the scope's OWN registrations, which stay exempt so a delegated child keeps the tools it answers through. A mask registered with `restrict(filter, { includeScopeLocal: true })` also covers those own registrations; `ctx.tools.registeredDefinitions()` lists the shadow-resolved definitions, including masked ones, for computing such a mask. A deny-only filter admits later unlisted inherited tools, while an allow-list excludes them.
 
 ```ts type-equiv
 /**
- * Per-scope filter over global tools. Restrictions intersect and do not affect
- * scoped registrations or the reserved PTC mode transport.
+ * Per-scope tool filter. Restrictions intersect and never affect the reserved
+ * PTC mode transport. Scope-local tools are exempt unless a mask opts in.
  */
 interface ToolRestriction {
-  /** Global tool names that stay visible; everything else is removed. */
+  /** Tool names that stay visible; everything else covered by the mask is removed. */
   readonly allow?: readonly string[]
-  /** Global tool names removed from visibility. */
+  /** Tool names removed from visibility. */
   readonly deny?: readonly string[]
 }
 ```
@@ -684,14 +684,14 @@ ownerOf(definition: ToolDefinition): string | undefined
 register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () => void
 
 /**
- * Restrict global tools for the calling agent scope. Empty filters, unknown
- * names, scope-local names, and reserved transport names fail. Restrictions
- * intersect; scoped registrations remain visible.
- * @param filter - global-tool mask: `allow` (keep only) and/or `deny` (remove).
- * @param options - permit names whose optional providers have not registered yet.
+ * Restrict tools for the calling scope. Masks intersect; the viewing scope's own
+ * registrations are exempt unless a mask opts in to include them.
+ * @param filter - `allow` keeps only named tools, `deny` removes named tools.
+ * @param options - `allowUnregistered` permits names that have not registered yet;
+ * `includeScopeLocal` also masks the viewing scope's own registrations.
  * @returns the exact disposer that lifts this restriction.
  */
-restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean } = {}): () => void
+restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean; includeScopeLocal?: boolean } = {}): () => void
 
 /**
  * Look up a tool as one scope sees it (scoped
@@ -731,6 +731,13 @@ async resolve(context: ToolActivationContext): Promise<ResolvedToolSet>
  * @returns definitions after scoped shadowing and restrictions, limited to the step's admission when given.
  */
 definitions(scope?: ScopeKey, toolSet?: ResolvedToolSet): readonly ToolDefinition[]
+
+/**
+ * Inspect registered tools before restrictions and step admission, for computing masks.
+ * @param scope - viewing Agent or preset; omitted selects global registrations.
+ * @returns definitions after scoped shadowing, including currently masked definitions.
+ */
+registeredDefinitions(scope?: ScopeKey): readonly ToolDefinition[]
 
 /**
  * Project visible definitions onto the allowlisted model-facing schema fields,

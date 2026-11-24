@@ -73,7 +73,7 @@ resolveModel(sessionId: SessionId, workspaceHint?: WorkspaceId): ScopedModel | u
 /**
  * Mode (agent preset) a new chat in a project starts in.
  * @param workspaceId - the project, or undefined outside any project.
- * @returns the project's mode while that preset exists, else undefined.
+ * @returns the project mode if the preset exists, works, and meets the Coding Tools preference; otherwise undefined.
  */
 async resolveMode(workspaceId: WorkspaceId | undefined): Promise<string | undefined>
 
@@ -93,12 +93,20 @@ resolveAgent(workspaceId: WorkspaceId | undefined): string | undefined
 resolveToolsDisabled(sessionId: SessionId, cwd?: string): string[]
 
 /**
- * List every skill a chat in one scope could load, grouped by folder, with that scope's switches and the
- * wider scopes' ones. A global listing reads the skill folders outside any project.
+ * List skill candidates grouped by folder, with the selected scope's switches and inherited switches.
+ * A global listing reads skill folders outside any project.
  * @param address - the scope and, for a project or chat, its id.
  * @returns folders with their skills.
  */
 @Remote async skillCatalog(address: ScopeAddress): Promise<ScopedSkillCatalog>
+
+/**
+ * List skill folders visible to a chat's preset with the project's switches, not the chat's own switches.
+ * @param workspaceId - the project whose switches the chat is editing.
+ * @param agent - the calling chat, which supplies the registry scope and working directory.
+ * @returns folders with their project and wider switch state.
+ */
+async skillCatalogForProject(workspaceId: WorkspaceId, agent: Agent): Promise<ScopedSkillCatalog>
 
 /**
  * Read the values one scope stores, without inherited ones.
@@ -133,7 +141,7 @@ resolveToolsDisabled(sessionId: SessionId, cwd?: string): string[]
 @Remote async toolCatalog(): Promise<ScopedToolCatalog>
 ```
 
-Types: [SessionId](core.md) · [WorkspaceId](workspace.md)
+Types: [Agent](core.md) · [SessionId](core.md) · [WorkspaceId](workspace.md)
 
 Source: [`packages/settings/scoped-settings/src/index.ts`](../../packages/settings/scoped-settings/src/index.ts)
 

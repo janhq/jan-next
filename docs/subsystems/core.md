@@ -820,7 +820,7 @@ selectedProfile(agent: Agent): AgentProfile | undefined
 toolLimitsFor(agent: Agent): AgentToolLimits
 
 /**
- * Tool restriction for a delegated agent running one profile, with `mcp:<server>` expanded to tool names.
+ * Tool restriction for a delegated agent running one profile. The child resolves `mcp:<server>` against its composed tools.
  * @param profile - the profile.
  * @returns the restriction, or undefined when the profile limits no tool.
  */

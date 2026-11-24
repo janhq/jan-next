@@ -164,7 +164,7 @@ export interface Config {
 ## `@janhq/jan-agent-profiles`
 
 - `inject`: `workspaceRegistry` · `sessionProjections` · `agents` · `systemPrompt`
-- `source`: [`packages/preset/agent-profiles/src/index.ts:37`](../packages/preset/agent-profiles/src/index.ts)
+- `source`: [`packages/preset/agent-profiles/src/index.ts:36`](../packages/preset/agent-profiles/src/index.ts)
 
 ```ts config-catalog
 /** Where the agent folders are and how they are read. */
@@ -856,7 +856,7 @@ export interface Config {
 
 ## `@janhq/jan-credentials-local`
 
-- `source`: [`packages/credentials/credentials-local/src/index.ts:66`](../packages/credentials/credentials-local/src/index.ts)
+- `source`: [`packages/credentials/credentials-local/src/index.ts:67`](../packages/credentials/credentials-local/src/index.ts)
 
 ```ts config-catalog
 /** Plugin config: file location and hot-reload behavior. */
@@ -2804,7 +2804,7 @@ export interface PlanModeConfig {
 
 - `inject`: `loader` · `profileContext`
 - `refs`: [`NpmFileSource`](subsystems/boot.md)
-- `source`: [`packages/boot/plugin-manager/src/index.ts:55`](../packages/boot/plugin-manager/src/index.ts)
+- `source`: [`packages/boot/plugin-manager/src/index.ts:56`](../packages/boot/plugin-manager/src/index.ts)
 
 ```ts config-catalog
 /** The pnpm executable, registries, and limits for diagnostics, lookups and connection checks. */
@@ -3122,7 +3122,7 @@ export interface Config {
 ## `@janhq/jan-scoped-settings`
 
 - `inject`: `agents` · `workspaceRegistry` · `tools`
-- `source`: [`packages/settings/scoped-settings/src/index.ts:25`](../packages/settings/scoped-settings/src/index.ts)
+- `source`: [`packages/settings/scoped-settings/src/index.ts:26`](../packages/settings/scoped-settings/src/index.ts)
 
 ```ts config-catalog
 /** Where the document lives. */
@@ -3484,7 +3484,7 @@ export interface ScopedSkillDir {
 ## `@janhq/jan-skill-office`
 
 - `inject`: `skills`
-- `source`: [`packages/skill/skill-office/src/index.ts:16`](../packages/skill/skill-office/src/index.ts)
+- `source`: [`packages/skill/skill-office/src/index.ts:19`](../packages/skill/skill-office/src/index.ts)
 
 ```ts config-catalog
 /** Office skill resource location. */
@@ -3495,7 +3495,12 @@ export interface Config {
   node?: string
   /** Absolute LibreOffice Kit CLI entry; false explicitly disables CLI access. */
   cli?: string | false
+  /** Skills to register, in any order; defaults to all seven. */
+  skills?: OfficeSkillName[]
 }
+
+/** One bundled Office skill. */
+export type OfficeSkillName = typeof SKILL_NAMES[number]
 ```
 
 <a id="janhqjan-spill-local"></a>
