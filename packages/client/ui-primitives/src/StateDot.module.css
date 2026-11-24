@@ -33,7 +33,7 @@
 
 /* Ongoing is the sole non-dot state: a quiet full ring sits behind a centered
  * breathing arc while the complete glyph rotates continuously. Both animations
- * share one 1.5s period so pinning their start times aligns them together. */
+ * share the ambient period so pinning their start times aligns them together. */
 .spinner {
   flex: none;
   color: var(--dsw-alias-label-tertiary);
@@ -41,7 +41,7 @@
 
 .spinnerMotion {
   transform-origin: center;
-  animation: jan-state-dot-spin 1.5s linear infinite;
+  animation: jan-state-dot-spin var(--ds-transition-duration-ambient) linear infinite;
 }
 
 .spinnerTrack,
@@ -58,7 +58,7 @@
 
 .spinnerArc {
   stroke-dasharray: 12 150;
-  animation: jan-state-dot-dash 1.5s ease-in-out infinite;
+  animation: jan-state-dot-dash var(--ds-transition-duration-ambient) var(--ds-ease-pulse) infinite;
 }
 
 @keyframes jan-state-dot-spin {

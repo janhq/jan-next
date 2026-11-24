@@ -46,7 +46,11 @@
 
 .spinner {
   flex: none;
-  animation: spin 1s linear infinite;
+  animation: spin var(--ds-transition-duration-loop) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
 }
 
 @keyframes spin {

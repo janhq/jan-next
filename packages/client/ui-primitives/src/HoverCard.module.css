@@ -60,7 +60,7 @@
   color: var(--dsw-alias-label-primary);
   box-shadow: var(--dsw-elevation-panel);
   opacity: 1;
-  transition: opacity var(--jan-hover-preview-fade) linear;
+  transition: opacity var(--jan-hover-preview-fade) var(--ds-ease-in);
 }
 
 @starting-style {

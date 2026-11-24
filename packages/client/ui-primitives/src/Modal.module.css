@@ -26,7 +26,7 @@
   position: absolute;
   inset: 0;
   background: var(--dsw-alias-bg-mask-1);
-  animation: modalFade var(--ds-transition-duration) var(--ds-ease-out);
+  animation: modalFade var(--ds-transition-duration-slow) var(--ds-ease-out);
 }
 
 /* Dialogs use the prominent elevation on the secondary layer. */
@@ -44,7 +44,7 @@
   border-radius: var(--dsw-radius-panel);
   background: var(--dsw-alias-bg-layer-2);
   box-shadow: var(--dsw-elevation-prominent);
-  animation: modalEnter var(--ds-transition-duration) var(--ds-ease-out);
+  animation: modalEnter var(--ds-transition-duration-slow) var(--ds-ease-out);
 }
 
 /* Modals stay centered; a small scale gives the card a place to come from. */

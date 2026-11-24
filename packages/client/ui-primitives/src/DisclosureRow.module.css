@@ -36,7 +36,7 @@
   height: calc(24px + var(--jan-content-font-delta, 0px));
   min-width: 0;
   color: var(--dsw-alias-label-tertiary);
-  transition: color 100ms ease;
+  transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .row[data-expandable] {
@@ -80,13 +80,13 @@ button.leading {
 .iconIdle {
   display: inline-flex;
   opacity: 1;
-  transition: opacity 100ms ease;
+  transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 /* A running tool's glyph breathes between 0.6 and 0.2 (OpenUI's running-tool cadence). */
 .runningGlyph {
   display: inline-flex;
-  animation: disclosure-running-glyph 1.5s ease-in-out infinite alternate;
+  animation: disclosure-running-glyph var(--ds-transition-duration-ambient) var(--ds-ease-pulse) infinite alternate;
 }
 
 @keyframes disclosure-running-glyph {
@@ -106,7 +106,7 @@ button.leading {
   inset: 0;
   margin: auto;
   opacity: 0;
-  transition: opacity 100ms ease;
+  transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 @media (hover: hover) {

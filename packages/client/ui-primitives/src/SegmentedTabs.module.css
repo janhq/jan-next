@@ -15,7 +15,7 @@
   border: 0.5px solid var(--dsw-alias-border-l3);
   border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-layer-3);
-  transition: transform 180ms ease;
+  transition: transform var(--ds-transition-duration) var(--ds-ease-in-out);
   pointer-events: none;
 }
 
@@ -29,7 +29,7 @@
   line-height: 20px;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
-  transition: color 180ms ease;
+  transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .tab[aria-selected='true'] {
