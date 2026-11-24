@@ -33,7 +33,8 @@ async function main(): Promise<void> {
     environment: loadLayeredEnv('jan'),
     profile: 'desktop',
     resolvedProfile: { profile, installAnchor },
-    patchFiles: [],
+    // `dev:desktop --watch` names its HMR and dev-reload overlay here.
+    patchFiles: process.env.JAN_DESKTOP_DEV_PATCH ? [process.env.JAN_DESKTOP_DEV_PATCH] : [],
     args: ['--no-open', '--host', '127.0.0.1', '--port', '0'],
     ...(process.argv[5] === undefined ? {} : {
       packageManager: {
