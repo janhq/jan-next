@@ -61,6 +61,8 @@ While any top-level Session runs a turn or a subagent, a **Working** label and i
 
 Settings > General > **Show running chats at the top** turns it off. The switch writes the volatile `workingSection` field of this package's Host Config (entry `ui-workspace`, on by default) through `configForms`, so every window follows it without a restart. The Host half exists only to declare that Config and to keep the automatic settings page off.
 
+Working rows do not support dragging. To reorder a chat, use its row in the regular list.
+
 ### Search
 
 The search shortcut expands a closed sidebar, including a drawer that retains its wide content, before focusing the search field.

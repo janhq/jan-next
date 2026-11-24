@@ -12,6 +12,26 @@ A form namespace is the local id of a uniquely addressed entry in the active pro
 
 `settings/document-updated` invalidates form descriptors after Loader configuration changes. It is a UI notification; consumers use `loader/volatile-update` only when they need to refresh registration facts.
 
+## Scoped settings
+
+`ctx.scopedSettings` adds project defaults and per-chat tool restrictions to the Web app composition. These preferences are independent of profile Config forms.
+
+| Setting | Chat | Project | Global | Resolution |
+|---|---|---|---|---|
+| Model and reasoning effort | Model selection in the Session log | Project model selection | Jan's default model selection | Use the first selection from chat, project, then global. Reasoning effort belongs to that selection. |
+| Mode | Agent preset selected for the chat | Default preset for new chats | Default preset for the effective model provider | A new chat uses the requested mode, else an available project preset, else the provider default. Jan records the project preset as an explicit choice, not a mode that follows model changes. |
+| Tools and MCP servers | Chat disable list | Project disable list | Global disable list | Union of all three lists. A narrower scope cannot re-enable a tool disabled by a wider one. |
+
+The Web app stores project defaults and all three tool disable lists in `$JAN_HOME/settings/scoped.json`, not in the repository. The Host serializes writes and atomically replaces the document with file mode `0600`. A missing file starts empty; an invalid document is renamed to `scoped.json.invalid-<timestamp>` and the Host starts empty with a warning. Chat model and mode stay in the Session log, and global model and mode defaults stay with their existing services.
+
+The Typert Remote client exposes `ctx.remote.scopedSettings`:
+
+- `read({ scope, id? })` returns only the values stored at one scope, without inheritance.
+- `write({ scope, id?, values })` patches one scope and returns its stored values. Use `null` to remove a key or `[]` to clear `toolsDisabled`. A project or chat needs its ID; the global scope takes none. Only projects can store `model` or `mode` here.
+- `toolCatalog()` returns `{ tools, mcpServers }`. Store an individual tool by name or a whole server as `mcp:<server>`; the restriction also covers tools the server registers later.
+
+Plugins that register tools already participate through the per-agent tool restriction. A plugin that wants to scope another preference must define how its own per-chat consumer reads and resolves it; there is no generic scoped-key registration API. Host-wide plugin activation stays global. See the [decision record](../../.agents/notes/implemented/architecture/2026-11-24-scoped-settings.md) for the rationale.
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>

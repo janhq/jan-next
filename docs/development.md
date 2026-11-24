@@ -208,11 +208,20 @@ pnpm run start:web       # serve built Web artifacts through the source launcher
 pnpm run dev:web         # build, serve, and rebuild Web client bundles on source edits
 pnpm run start:desktop   # launch built Desktop artifacts
 pnpm run dev:desktop     # build, then launch Desktop
+pnpm run dev:desktop:watch  # build, launch Desktop, and watch Client and Host packages
 ```
 
 Arguments after a Web command reach `jan web`, for example `pnpm run dev:web --no-open --port 3081`; `dev:web` also accepts `--skip-build` to reuse the existing artifact tree and `--no-serve` to run only the rebuild watchers beside a server started elsewhere. Both Web commands use the normal Harness home, while the Desktop commands use the isolated development home described in the [Desktop README](../apps/desktop/README.md). The root `Makefile` names the same commands as `make web`, `make dev-web`, `make desktop`, `make dev-desktop`, and `make build`; `ARGS='--no-open'` forwards options. `make dev-web` and `make dev-desktop` first run `make llama-worker`, which builds and stages the local model worker (`build:llama-worker`, then `stage:llama-worker`) with the cargo features in `LLAMA_WORKER_FEATURES`: `engine-metal` on macOS, `engine-vulkan` when `glslc` is on `PATH`, otherwise `engine`. The first build compiles llama.cpp and takes minutes; later runs only restage.
 
 `make package` builds an unsigned installer for the current machine: it runs `make llama-worker`, then `pnpm run package:desktop:unsigned`, which selects the macOS DMG, Windows installer, or Linux AppImage and Debian package from the host. `make package-check` validates tools first; `make package-dir` stops at the unpacked application. [Desktop packaging](../apps/desktop/packaging/README.md#choose-a-build) lists the per-OS commands and outputs, plus signed release builds.
+
+### Developing Jan from inside Jan
+
+Run `pnpm run dev:desktop:watch` from the repository root and open the Jan checkout as a project in that window. Browser plugin edits, including plain JavaScript clients and rebuilt `lib/client.js` bundles, reload in place without stopping chats. Changes to reloadable Host plugins, including plugins that contribute tools or context, apply immediately when idle. While an agent is running, Jan holds those changes and applies them automatically once the agents are idle.
+
+Choose **Reload now and continue** to apply held changes without waiting. Reloading can interrupt the current step; Jan queues a message asking each affected chat to check what finished and continue. A **Restart** notice appears when a Host module cannot reload in place or a watched Desktop build output changes. Choose **Restart** to relaunch Jan and automatically queue that message for the chats that were running. The rebuild watchers stay running across the restart.
+
+The watchers do not rebuild Electron's main or application preload code. After editing either, run `pnpm --filter @janhq/jan-desktop run build`, then choose **Restart** in Jan. See the [reload decision](../.agents/notes/implemented/architecture/2026-11-24-self-development-reload.md) for how the watchers and restart work together.
 
 ### TODO markers
 

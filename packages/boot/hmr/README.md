@@ -113,7 +113,7 @@ Reloading a contributing plugin can change later request prefixes; HMR does not 
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- Module replacement requires Node loader internals. Framework dependency changes call the host-provided `loader.exit()` hook; HMR itself does not restart the process.
+- Module replacement requires Node loader internals. Without a reload gate, framework dependency changes call the Host's `loader.exit()` hook. With a gate, HMR reports these changes through `hmr/restart-required`. HMR itself does not restart the process.
 - A change confined to `package.json` is not detected. Watcher notifications for manifests below `node_modules` are still ignored. The browser Client module graph retains its separate browser-side loading mechanism.
 - Replacement follows static imports. A dynamic `import()` of a stale module evaluates the new file on its next call while its importer keeps running; existing Workers and the TSX loader thread keep their module caches.
 - Every symbolic link below the profile's `node_modules` widens the comparison scope. Linking a package that the process entry point, located through the real path of a bin link, imports statically, such as `jan-app-boot`, Cordis or the Loader from a jan checkout, brings host modules into scope; their changes stay pending, and Plugin Manager reports `restart-required` for later operations until the process restarts. Linked jan packages that Loader entries import are replaced like other plugins.
