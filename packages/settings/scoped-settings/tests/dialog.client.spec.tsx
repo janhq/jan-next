@@ -104,6 +104,31 @@ it('shows Tools and Skills for a chat and leaves untouched skill switches out of
   expect(write).toHaveBeenCalledExactlyOnceWith({ scope: 'session', id: 'session-a', values: { toolsDisabled: ['read_file'] } })
 })
 
+it('saves only the skill switch without resubmitting other stored project settings', async () => {
+  const { dialog, write, close } = open({ state: { status: 'ready', catalog, skillCatalog, models, modes, agents: ['reviewer'], codingTools: false, values: {
+    model: { provider: 'anthropic', model: 'haiku', reasoningEffort: 'high' }, mode: 'chat', agent: 'reviewer', toolsDisabled: ['bash'],
+  } } })
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Skills in /repo/skills' }))
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: 'summarize', checked: true }))
+  fireEvent.click(within(dialog).getByRole('button', { name: common.save }))
+  await waitFor(() => { expect(close).toHaveBeenCalledOnce() })
+  expect(write).toHaveBeenCalledExactlyOnceWith({ scope: 'project', id: 'project-c', values: { skillsDisabled: ['summarize'] } })
+})
+
+it('closes without a write when edits are undone before saving', async () => {
+  const { dialog, write, close } = open({ state: { status: 'ready', catalog, skillCatalog, models, modes, agents: [], codingTools: false, values: {
+    model: { provider: 'anthropic', model: 'haiku', reasoningEffort: 'high' }, mode: 'chat', toolsDisabled: ['bash'],
+  } } })
+  choose(dialog, en['model.label'], en['inherit.global'])
+  choose(dialog, en['model.label'], 'Haiku (Anthropic)')
+  choose(dialog, en['model.effort'], 'High')
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: 'bash', checked: false }))
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: 'bash', checked: true }))
+  fireEvent.click(within(dialog).getByRole('button', { name: common.save }))
+  await waitFor(() => { expect(close).toHaveBeenCalledOnce() })
+  expect(write).not.toHaveBeenCalled()
+})
+
 it('stages skill and folder switches and saves sorted lists in the same write', async () => {
   const { dialog, write, close } = open()
   const skills = within(within(dialog).getByRole('group', { name: 'Skills' }))
@@ -126,7 +151,7 @@ it('stages skill and folder switches and saves sorted lists in the same write', 
   fireEvent.click(within(dialog).getByRole('button', { name: common.save }))
   await waitFor(() => { expect(close).toHaveBeenCalledOnce() })
   expect(write).toHaveBeenCalledExactlyOnceWith({ scope: 'project', id: 'project-c', values: {
-    model: null, mode: null, toolsDisabled: null, skillsDisabled: ['extract', 'summarize'],
+    skillsDisabled: ['extract', 'summarize'],
     skillFoldersDisabled: ['/repo/shared', '/repo/skills'],
   } })
 })
@@ -170,7 +195,7 @@ it('removes stored skill switches when their last entries are turned back on', a
   fireEvent.click(within(dialog).getByRole('button', { name: common.save }))
   await waitFor(() => { expect(close).toHaveBeenCalledOnce() })
   expect(write).toHaveBeenCalledExactlyOnceWith({ scope: 'global', values: {
-    toolsDisabled: null, skillsDisabled: null, skillFoldersDisabled: null,
+    skillsDisabled: null, skillFoldersDisabled: null,
   } })
 })
 

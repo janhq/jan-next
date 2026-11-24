@@ -51,7 +51,7 @@ The project page's **Skills** card and the agent's `project_skills_read` / `proj
 Remote methods (`ctx.remote.scopedSettings`):
 
 - `read({ scope, id? })` returns the values one scope stores, without inherited ones.
-- `write({ scope, id?, values })` sets keys; `null` or an empty list removes one. Global and chat scopes store only the switch lists; a project id must exist.
+- `write({ scope, id?, values })` sets only the supplied keys; `null` or an empty list removes one. The dialog submits only changed fields. Global and chat scopes store only the switch lists; a project id must exist.
 - `setSwitch({ scope, id? }, key, entry, off)` adds or removes one entry of one switch list inside the write queue, so concurrent switches never drop each other.
 - `toolCatalog()` lists tool names outside MCP and MCP servers from the global registry and the default preset.
 - `skillCatalog({ scope, id? })` lists every skill a chat in that scope could load, grouped by folder, with the scope's own switches and `offAt` naming the wider scope that already switched one off.

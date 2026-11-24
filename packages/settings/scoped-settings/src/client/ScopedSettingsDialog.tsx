@@ -74,6 +74,7 @@ export function ScopedSettingsDialog({ scope, id, title, state, write, close, re
   const dismiss = () => { if (!submitting.current) close() }
   const save = async (values: ScopedWriteRequest['values']) => {
     if (submitting.current) return
+    if (Object.keys(values).length === 0) { close(); return }
     submitting.current = true
     setSaving(true)
     try {
@@ -107,6 +108,10 @@ function modelKey(model: ScopedModel): string {
   return JSON.stringify([model.provider, model.model])
 }
 
+function sameModel(left: ScopedModel | undefined, right: ScopedModel | undefined): boolean {
+  return left?.provider === right?.provider && left?.model === right?.model && left?.reasoningEffort === right?.reasoningEffort
+}
+
 function updateSwitch(previous: ReadonlySet<string>, name: string, enabled: boolean): Set<string> {
   const next = new Set(previous)
   if (enabled) next.delete(name)
@@ -128,12 +133,13 @@ function SettingsForm({ initial, scope, formId, saving, save, presetName, t }: L
   save: (values: ScopedWriteRequest['values']) => Promise<void>
   presetName: ScopedSettingsDialogProps['presetName']
 }) {
-  const [model, setModel] = useState(initial.values.model)
-  const [mode, setMode] = useState(initial.values.mode ?? '')
-  const [agent, setAgent] = useState(initial.values.agent ?? '')
-  const [tools, setTools] = useState(() => new Set(initial.values.toolsDisabled))
-  const [skills, setSkills] = useState(() => new Set(initial.values.skillsDisabled))
-  const [folders, setFolders] = useState(() => new Set(initial.values.skillFoldersDisabled))
+  const [original] = useState(() => initial.values)
+  const [model, setModel] = useState(original.model)
+  const [mode, setMode] = useState(original.mode ?? '')
+  const [agent, setAgent] = useState(original.agent ?? '')
+  const [tools, setTools] = useState(() => new Set(original.toolsDisabled))
+  const [skills, setSkills] = useState(() => new Set(original.skillsDisabled))
+  const [folders, setFolders] = useState(() => new Set(original.skillFoldersDisabled))
   const [failed, setFailed] = useState(false)
   const names = initial.catalog.tools
   const servers = initial.catalog.mcpServers
@@ -142,11 +148,14 @@ function SettingsForm({ initial, scope, formId, saving, save, presetName, t }: L
   return <form id={formId} className={css.form} onSubmit={(event) => {
     event.preventDefault()
     setFailed(false)
-    const skillsDisabled = changedSwitches(initial.values.skillsDisabled, skills)
-    const skillFoldersDisabled = changedSwitches(initial.values.skillFoldersDisabled, folders)
-    void save({ ...scope === 'project' ? { model: model ?? null, mode: mode || null } : {},
-      ...scope === 'project' && agent !== (initial.values.agent ?? '') ? { agent: agent || null } : {},
-      toolsDisabled: tools.size === 0 ? null : [...tools].sort(),
+    const toolsDisabled = changedSwitches(original.toolsDisabled, tools)
+    const skillsDisabled = changedSwitches(original.skillsDisabled, skills)
+    const skillFoldersDisabled = changedSwitches(original.skillFoldersDisabled, folders)
+    void save({
+      ...scope === 'project' && !sameModel(model, original.model) ? { model: model ?? null } : {},
+      ...scope === 'project' && mode !== (original.mode ?? '') ? { mode: mode || null } : {},
+      ...scope === 'project' && agent !== (original.agent ?? '') ? { agent: agent || null } : {},
+      ...toolsDisabled === undefined ? {} : { toolsDisabled },
       ...skillsDisabled === undefined ? {} : { skillsDisabled },
       ...skillFoldersDisabled === undefined ? {} : { skillFoldersDisabled },
     }).catch(() => { setFailed(true) })

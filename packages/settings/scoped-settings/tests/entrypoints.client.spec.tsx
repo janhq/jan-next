@@ -90,7 +90,7 @@ it('opens the correct scope from each entry point and excludes federated chats a
     fireEvent.click(within(project).getByRole('button', { name: commonEn.save }))
     await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull() })
     expect(write).toHaveBeenNthCalledWith(1, { scope: 'project', id: 'project-c', values: {
-      model: null, mode: 'cordis', agent: 'reviewer', toolsDisabled: null,
+      mode: 'cordis', agent: 'reviewer',
     } })
 
     const command = chatCommand.mock.calls[0]![0]
