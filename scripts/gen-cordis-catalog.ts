@@ -121,6 +121,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   forgePanel: 'forge.md',
   forgeSession: 'forge.md',
   sessionController: 'session.md',
+  btwRuntime: 'session.md',
   sessionSkillCatalog: 'skills.md',
   sessions: 'session.md',
   settings: 'settings.md',

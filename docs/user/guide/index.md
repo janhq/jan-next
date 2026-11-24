@@ -20,6 +20,10 @@ Start a session and send:
 
 The agent can read and edit workspace files, run commands, delegate work, and maintain a plan. The Web UI asks before operations that require approval under the active permission policy.
 
+### Ask a side question
+
+In an open chat, type `/btw <question>` and press Enter. The answer streams above the composer, even while the main agent is working. The question and answer stay out of the chat history. Copy the answer, press Escape to dismiss it, or ask another side question to replace it.
+
 ## Continue
 
 - [Configure models](./providers.md)

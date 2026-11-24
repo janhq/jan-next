@@ -686,6 +686,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'btwRuntime',
+    summary: 'A tool-free side exchange sharing the main request\'s conversation prefix.',
+    description: 'A tool-free side exchange sharing the main request\'s conversation prefix.',
+    methods: [
+      {
+        signature: '@Remote({ mode: \'stream\' }) async *ask(agent: Agent, question: string, signal: AbortSignal): AsyncIterable<string>',
+        description: 'Stream a side answer without starting or joining the main agent\'s turn.',
+        parameters: [{ name: 'agent', description: 'Chat whose model and conversation prefix the answer uses.' }, { name: 'question', description: 'Temporary user question appended to the snapshot only.' }, { name: 'signal', description: 'Cancellation for this side request only.' }],
+        returns: 'Answer text deltas, in provider order.',
+      },
+    ],
+  },
+  {
     key: 'claudeCodeMods',
     summary: 'The bridge service: loaded mods, their hooks, and the harness listeners that raise their events.',
     description: 'The bridge service: loaded mods, their hooks, and the harness listeners that raise their events. Mods join through ClaudeCodeMods.add, which defineMod calls when a mod plugin mounts. The Remote methods let a Client draw each session\'s band above the prompt and press its buttons.',
@@ -7494,7 +7507,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'GenerateOptions',
-    declaration: 'export interface GenerateOptions<Purpose extends string = LlmRequestPurpose> {\n    provider: string;\n    model: string;\n    reasoningEffort?: ReasoningEffortId;\n    messages: RequestMessage[];\n    system?: string;\n    tools?: ToolSchema[];\n    toolHistory?: ToolHistory;\n    temperature?: number;\n    maxTokens?: number;\n    stop?: string[];\n    signal?: AbortSignal;\n    sessionId?: Branded<\'SessionId\'>;\n    purpose?: Purpose;\n}',
+    declaration: 'export interface GenerateOptions<Purpose extends string = LlmRequestPurpose> {\n    provider: string;\n    model: string;\n    reasoningEffort?: ReasoningEffortId;\n    messages: RequestMessage[];\n    system?: string;\n    tools?: ToolSchema[];\n    toolChoice?: \'none\';\n    toolHistory?: ToolHistory;\n    temperature?: number;\n    maxTokens?: number;\n    stop?: string[];\n    signal?: AbortSignal;\n    sessionId?: Branded<\'SessionId\'>;\n    purpose?: Purpose;\n    ephemeral?: true;\n}',
   },
   {
     name: 'GenericCallView',
