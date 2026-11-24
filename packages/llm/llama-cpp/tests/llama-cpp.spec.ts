@@ -8,6 +8,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { Context, Service } from '@janhq/cordis'
 import LocalSubprocess from '@janhq/jan-subprocess-local'
 import { LocalCredentialProvider } from '@janhq/jan-credentials-local'
+import type { DownloadHandle, DownloadStore } from '@janhq/jan-downloads/types'
 import {
   describeExit, download, DownloadError, hostPlatformOf, LlamaCpp, lookupRepo, modelFacts, parseHandshake, parseModelList, parseRepo,
   RateMeter, WorkerProtocolError, type LlamaCppState,
@@ -516,6 +517,31 @@ it('pauses a download keeping its partial file, then resumes it from that byte o
   await expect(stat(join(g.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf.partial`))).rejects.toThrow()
 }, 30_000)
 
+it('resumes a paused inbox download under the same id without letting old actions stop it', async () => {
+  const update = vi.fn<DownloadHandle['update']>()
+  const finish = vi.fn<DownloadHandle['finish']>()
+  const start = vi.fn<DownloadStore['start']>(() => ({ update, finish }))
+  const f = await fixture({ throttle: true, before: async (ctx) => { ctx.provide('downloads', { start }) } })
+  f.llama.install()
+  await f.until(s => (s.progress?.receivedBytes ?? 0) > 20_000)
+  const first = start.mock.lastCall![0]
+  expect(first).toMatchObject({ kind: 'model', totalBytes: MODEL.length })
+  expect(update).toHaveBeenCalledWith({ state: 'downloading' })
+  expect(update).toHaveBeenCalledWith({ receivedBytes: expect.any(Number) })
+
+  await first.actions!.pause!()
+  await f.until(s => s.phase === 'missing')
+  const paused = update.mock.lastCall![0]
+  expect(paused.state).toBe('paused')
+  await paused.actions!.resume!()
+  expect(start.mock.calls.map(([item]) => item.id)).toEqual([first.id, first.id])
+  await first.actions!.cancel!()
+  await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  expect(f.llama.snapshot().phase).toBe('running')
+  expect(f.server.requests.at(-1)?.range).toMatch(/^bytes=\d+-$/)
+  expect(finish.mock.calls).toEqual([['done']])
+}, 30_000)
+
 it('keeps a download interrupted by shutting down and resumes it on the next launch', async () => {
   const f = await fixture({ throttle: true })
   f.llama.install()
@@ -879,6 +905,24 @@ it('fails the first download visibly, and dismisses the failed entry on cancel',
   expect(failed.downloads[0]?.error).toMatch(/HTTP 404/)
   await f.llama.cancel('jan-v3.5-4b')
   expect(f.llama.snapshot().downloads).toEqual([])
+})
+
+it('retries a failed inbox download even after dismissing the failure in model settings', async () => {
+  const finish = vi.fn<DownloadHandle['finish']>()
+  const start = vi.fn<DownloadStore['start']>(() => ({ update: () => {}, finish }))
+  const f = await fixture({ before: async (ctx) => { ctx.provide('downloads', { start }) }, config: origin => ({
+    firstModelOverride: { url: `${origin}/absent.gguf`, sha256: sha(MODEL), bytes: MODEL.length },
+  }) })
+  f.llama.install()
+  await f.until(s => s.phase === 'failed')
+  const retry = finish.mock.lastCall?.[2]?.retry
+  expect(retry).toBeTypeOf('function')
+  await f.llama.cancel('jan-v3.5-4b')
+  await retry?.()
+  await f.until(s => s.phase === 'failed')
+  expect(f.server.requests.filter(({ path }) => path === '/absent.gguf')).toHaveLength(2)
+  expect(start).toHaveBeenCalledTimes(2)
+  expect(start.mock.calls[1]?.[0].id).toBe(start.mock.calls[0]?.[0].id)
 })
 
 it('removes the engine directories earlier builds downloaded', async () => {

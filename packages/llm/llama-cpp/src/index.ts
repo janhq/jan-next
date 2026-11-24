@@ -20,6 +20,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { Context, Service } from '@janhq/cordis'
 import type {} from '@janhq/jan-credentials'
 import { credentialRef, type CredentialRef } from '@janhq/jan-credentials'
+import type { DownloadHandle } from '@janhq/jan-downloads/types'
 import type {} from '@janhq/jan-subprocess'
 import type { SubprocessHandle, SubprocessOutcome } from '@janhq/jan-subprocess'
 import type {} from '@janhq/jan-agent-default-model'
@@ -135,6 +136,11 @@ interface ModelSpec extends Artifact {
 interface Job {
   spec: ModelSpec
   abort: AbortController
+  inbox: DownloadHandle | undefined
+  /** The install record is being written and can no longer be cancelled with an abort. */
+  committing?: true
+  /** Explicit Cancel discards files; Pause and plugin shutdown keep them. */
+  discard?: true
   progress?: LlamaCppProgress
   error?: string
   /** Stopped by {@link LlamaCpp.pause}; its files are kept for {@link LlamaCpp.retry}. */
@@ -334,6 +340,7 @@ export class LlamaCpp extends Service {
         this.launching?.abort()
         // Joining both queues guarantees no launch spawns a worker and no download writes after this point.
         await this.downloadQueue
+        for (const job of this.jobs.values()) if (job.paused) job.inbox?.finish('cancelled')
         await this.queue
         await this.probing
         await this.terminate()
@@ -917,11 +924,12 @@ export class LlamaCpp extends Service {
    */
   pause(id: string): void {
     const job = this.jobs.get(id)
-    if (job === undefined || job.error !== undefined || job.paused !== undefined || job.abort.signal.aborted) {
+    if (job === undefined || job.error !== undefined || job.paused !== undefined || job.abort.signal.aborted || job.committing) {
       throw new Error(`no running download "${id}"`)
     }
     job.paused = true
     job.abort.abort(new Error('paused'))
+    this.reportPaused(job)
     this.emit()
   }
 
@@ -931,19 +939,24 @@ export class LlamaCpp extends Service {
    * @param id - model id, or undefined for every download.
    */
   async cancel(id?: string): Promise<void> {
-    const discarded: Array<Promise<void>> = []
     for (const [key, job] of this.jobs) {
-      if (id !== undefined && key !== id) continue
+      if ((id !== undefined && key !== id) || job.committing) continue
       if (job.paused !== undefined) {
         this.jobs.delete(key)
-        discarded.push(this.discardFiles(job.spec))
+        const discard = async (): Promise<void> => {
+          await this.discardFiles(job.spec)
+          job.inbox?.finish('cancelled')
+        }
+        this.downloadQueue = this.downloadQueue.then(discard, discard)
       } else if (job.error !== undefined) this.jobs.delete(key)
-      else job.abort.abort(new Error('cancelled'))
+      else {
+        if (!this.lifetime.signal.aborted) job.discard = true
+        job.abort.abort(new Error('cancelled'))
+      }
     }
     // A paused first download was the only job; the first-run offer comes back.
     if (this.activeModel() === undefined && this.server.phase === 'downloading' && this.jobs.size === 0) this.setServer({ phase: 'missing' })
     this.emit()
-    await Promise.all(discarded)
     await this.downloadQueue
   }
 
@@ -966,20 +979,42 @@ export class LlamaCpp extends Service {
     return `${base}-${String(n)}`
   }
 
+  private ownsJob(job: Job): boolean {
+    return !this.lifetime.signal.aborted && this.jobs.get(job.spec.id) === job
+  }
+
+  private cancelFromInbox(job: Job): void | Promise<void> {
+    if (this.ownsJob(job) && (job.paused || !job.abort.signal.aborted)) return this.cancel(job.spec.id)
+  }
+
+  private reportPaused(job: Job): void {
+    job.inbox?.update({ state: 'paused', actions: {
+      cancel: () => this.cancelFromInbox(job),
+      resume: () => { if (this.ownsJob(job) && job.paused) this.retry(job.spec.id) },
+    } })
+  }
+
   private enqueue(spec: ModelSpec): void {
     if (this.lifetime.signal.aborted || this.record.models.some(model => model.id === spec.id)) return
     if (this.deletingDownload === spec.id) throw new Error('This download is being deleted. Try again once it finishes.')
     const current = this.jobs.get(spec.id)
     // A cancelled job still unwinding is replaced, so asking again right after Cancel starts it again.
     if (current !== undefined && current.error === undefined && !current.abort.signal.aborted) return
-    const job: Job = { spec, abort: new AbortController() }
+    const job: Job = { spec, abort: new AbortController(), inbox: undefined }
     this.jobs.set(spec.id, job)
+    const run = (): Promise<void> => this.runJob(job)
+    this.downloadQueue = this.downloadQueue.then(run, run)
+    job.inbox = this.ctx.get('downloads')?.start({
+      id: `model:${this.config.provider}:${spec.id}`, kind: 'model', name: spec.name,
+      totalBytes: spec.bytes + (spec.mmproj?.bytes ?? 0), actions: {
+        cancel: () => this.cancelFromInbox(job),
+        pause: () => { if (this.ownsJob(job) && !job.committing && !job.abort.signal.aborted) this.pause(spec.id) },
+      },
+    })
     if (this.activeModel() === undefined && (this.server.phase === 'missing' || this.server.phase === 'failed')) {
       this.server = { phase: 'downloading' }
     }
     this.emit()
-    const run = (): Promise<void> => this.runJob(job)
-    this.downloadQueue = this.downloadQueue.then(run, run)
   }
 
   /**
@@ -987,17 +1022,18 @@ export class LlamaCpp extends Service {
    * @param job - the queued job.
    */
   private async runJob(job: Job): Promise<void> {
-    if (this.jobs.get(job.spec.id) !== job) return
     const signal = AbortSignal.any([job.abort.signal, this.lifetime.signal])
     const projector = job.spec.mmproj
     const projectorPath = projector === undefined ? undefined : this.projectorFile(job.spec.id, projector)
     try {
       signal.throwIfAborted()
+      job.inbox?.update({ state: 'downloading' })
       const meter = new RateMeter()
       const totalBytes = job.spec.bytes + (projector?.bytes ?? 0)
       const reportFrom = (offset: number) => (stepReceived: number, stepBytes: number): void => {
         const receivedBytes = offset + stepReceived
         job.progress = { receivedBytes, totalBytes, bytesPerSecond: meter.sample(receivedBytes, performance.now()) }
+        if (!signal.aborted) job.inbox?.update({ receivedBytes })
         this.emit(true, stepReceived === stepBytes)
       }
       reportFrom(0)(0, totalBytes)
@@ -1028,6 +1064,8 @@ export class LlamaCpp extends Service {
       await this.task(async () => {
         // Cancel or uninstall may have landed while this commit waited behind another task.
         signal.throwIfAborted()
+        job.committing = true
+        job.inbox?.update({ actions: {} })
         const previous = this.record
         const first = previous.active === undefined
         this.record = {
@@ -1042,6 +1080,7 @@ export class LlamaCpp extends Service {
         catch (error) { this.record = previous; throw error }
         if (!first) await this.modelsChanged()
         this.jobs.delete(job.spec.id)
+        job.inbox?.finish('done')
         this.emit()
         if (!first) return
         // The first model installed starts serving right away, as the first-run offer promises.
@@ -1053,15 +1092,27 @@ export class LlamaCpp extends Service {
         await this.launch()
       })
     } catch (error) {
-      if (this.jobs.get(job.spec.id) !== job) return
+      delete job.committing
       // Pause keeps the job listed and its files on disk, so retry resumes from the partial file.
       const paused = job.paused !== undefined && !this.lifetime.signal.aborted
       const cancelled = !paused && (job.abort.signal.aborted || this.lifetime.signal.aborted)
       // A user's Cancel discards the job's files, including a model verified before its projector
       // finished, which no record references; shutting down keeps them so the next launch resumes.
-      if (cancelled && !this.lifetime.signal.aborted) await this.discardFiles(job.spec)
-      if (cancelled) this.jobs.delete(job.spec.id)
-      else if (!paused) job.error = messageOf(error)
+      if (job.discard) await this.discardFiles(job.spec)
+      // A replacement is queued behind this attempt, including its cleanup. Leave its job intact.
+      if (this.jobs.get(job.spec.id) !== job) return
+      if (cancelled) {
+        this.jobs.delete(job.spec.id)
+        job.inbox?.finish('cancelled')
+      } else if (!paused) {
+        job.error = messageOf(error)
+        job.inbox?.finish('failed', job.error, {
+          retry: () => {
+            const current = this.jobs.get(job.spec.id)
+            if (current === undefined || current === job) this.enqueue(job.spec)
+          },
+        })
+      }
       if (this.lifetime.signal.aborted) return
       const running = [...this.jobs.values()].some(other => other.error === undefined && other.paused === undefined)
       if (this.activeModel() === undefined && this.server.phase === 'downloading' && !running) {
