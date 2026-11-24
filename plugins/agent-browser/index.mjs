@@ -55,7 +55,11 @@ export function apply(ctx) {
       states.delete(agent)
       controller.abort()
       await state.queue.catch(() => {})
-      if (state.started) await close(state).catch(() => {})
+      if (state.started) {
+        // The normal tool signals are already aborted; the CLI still enforces its own deadline.
+        try { await close(state, new AbortController().signal) }
+        catch (error) { ctx.logger.warn('Could not close the browser for session %s: %s', state.session, error) }
+      }
       await rm(await root, { recursive: true, force: true }).catch(() => {})
     }, 'agent-browser.session')
     state.dispose = async () => { await dispose() }
@@ -72,10 +76,14 @@ export function apply(ctx) {
       { root, config: join(root, 'config.json'), session: state.session, stateName: SHARED_STATE, visible: state.visible }, signal)
   }
 
-  /** @param {BrowserState} state */
-  async function close(state) {
+  /** @param {BrowserState} state @param {AbortSignal} signal */
+  async function close(state, signal) {
     // Closing saves the session's sign-ins under the shared name for the next browser.
-    await run(state, 'close', ['close'], lifetime.signal)
+    const envelope = await run(state, 'close', ['close'], signal)
+    if (!envelope.ok) {
+      const { formatResult } = await import('./cli.mjs')
+      throw new HarnessError(formatResult('close', envelope).text, 'WEB_COMMAND_FAILED')
+    }
     state.started = false
   }
 
@@ -106,6 +114,8 @@ export function apply(ctx) {
           const errors = validateJsonSchemaValue(schema, args, 'arguments')
           if (errors.length) throw new HarnessError(errors.join('; '), 'WEB_INVALID_ARGS')
           const cli = await import('./cli.mjs')
+          lifetime.signal.throwIfAborted()
+          exec.signal.throwIfAborted()
           const values = /** @type {Record<string, unknown>} */ (args)
           const command = cli.buildCommand(operation, values)
           const state = stateFor(agent)
@@ -114,13 +124,13 @@ export function apply(ctx) {
           const pending = state.queue.catch(() => {}).then(async () => {
             signal.throwIfAborted()
             if (operation === 'close') {
-              if (state.started) await close(state)
+              if (state.started) await close(state, signal)
               return { summary: 'The browser is closed. Sign-ins are kept.' }
             }
             if (operation === 'open') {
               const visible = values.visible === true
               // The window mode is fixed when the browser starts, so switching it restarts the browser.
-              if (state.started && state.visible !== visible) await close(state)
+              if (state.started && state.visible !== visible) await close(state, signal)
               state.visible = visible
             }
             if (operation === 'screenshot') return screenshot(agent, state, command, signal)

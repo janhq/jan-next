@@ -25,7 +25,7 @@ Opening a page, acting on it and capturing it ask for approval unless the chat h
 | `web_wait` | Waits for an element, or a fixed time up to 20 seconds. |
 | `web_tabs` | Lists tabs or switches to one. |
 | `web_screenshot` | Captures the page as a PNG attachment. It requires an image-capable model and refuses images over 4 MiB. |
-| `web_close` | Closes the browser and keeps sign-ins. |
+| `web_close` | Closes the browser and keeps sign-ins. A rejected close reports a tool error and Jan retries when the browser's Session is disposed. |
 
 Refs come from the latest snapshot and go stale when the page changes; a stale ref returns an error that asks for a fresh snapshot. An action whose result is unknown is never retried automatically. Each command reaches agent-browser as one JSON batch entry on stdin, so model-supplied text is never read as a command-line switch.
 
