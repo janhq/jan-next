@@ -193,7 +193,8 @@ export function parseJanArgs(argv: readonly string[], version: string, manageDes
       .passThroughOptions()
       .requiredOption('--profile <name>', 'the profile whose plugins to manage (initialized on first use)', selectProfile)
       .allowUnknownOption()
-      .argument('[args...]', 'pnpm arguments, forwarded verbatim (add <pkg>, remove <pkg>, why <pkg>, ...)')
+      .argument('[args...]', 'add <package>, remove <package>, list, or other pnpm commands')
+      .addHelpText('after', '\nUse --json with add, remove, or list for machine-readable output.\nUse --yes-builds with add to allow build scripts reported by that install.\n')
       .action((args: string[], options: { profile: string }) => {
         if (options.profile === '') program.error('error: --profile needs a name')
         if (!manageDesktopProfile) rejectElectronProfile(plugin, options.profile)

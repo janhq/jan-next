@@ -70,13 +70,17 @@ manage a profile's plugins by forwarding the remaining arguments to pnpm in the
 profile directory
 
 Arguments:
-  args              pnpm arguments, forwarded verbatim (add <pkg>, remove <pkg>,
-                    why <pkg>, ...)
+  args              add <package>, remove <package>, list, or other pnpm
+                    commands
 
 Options:
   --profile <name>  the profile whose plugins to manage (initialized on first
                     use)
   -h, --help        show this help
+
+Use --json with add, remove, or list for machine-readable output.
+Use --yes-builds with add to allow build scripts reported by that install.
+
 ```
 
 <a id="jan-acp"></a>

@@ -13,11 +13,14 @@ import {
 } from '@janhq/jan-app-boot'
 import { PROFILE_TEMPLATES, DEFAULT_PROFILE_BUNDLES } from '@janhq/jan-official-bundles'
 import { scrubbedParentEnv } from '@janhq/jan-subprocess'
+import { approveBuilds, blockedBuildNames, recordPendingBuilds } from './build-approval.ts'
 import { parseInstallSpec } from './install-spec.ts'
 import { awaitTreeGone, leadsOwnGroup, treeAlive, type RunTree } from './run-tree.ts'
 import { incompatiblePlugin } from './failure.ts'
 import type { IncompatiblePlugin, PackageResult, Registry } from './types.ts'
 export { setProfileVersionExemption, readProfileVersionExemptions } from '@janhq/jan-app-boot'
+/** The exact `allowBuilds` keys a pnpm run reported as blocked, for a caller that offers approval. */
+export { blockedBuildNames } from './build-approval.ts'
 
 /** Profile and invocation locations supplied by the launcher. */
 export interface PackageOperationContext {
@@ -53,6 +56,22 @@ export interface PackageOperationOptions {
   idleTimeoutMs?: number
   /** Bound on the pre-install registry lookup, in milliseconds; without one a fixed bound applies. */
   lookupTimeoutMs?: number
+  /**
+   * Capture a CLI run's output and hand it to `onOutput` instead of inheriting
+   * the caller's descriptors. A caller that must read what pnpm printed — to
+   * recognize a blocked build script, or to keep stdout for one JSON answer —
+   * sets this; the run then costs a pipe, and `output` holds the captured tail.
+   */
+  captureOutput?: boolean
+  /**
+   * Explicitly allow the dependency build scripts this very run reports as blocked, then retry once.
+   * Only the reported keys are approved: a key an earlier attempt left undecided stays pending, and the
+   * caller holds the profile lock, so the approval and the retry see the same profile. The attempt that
+   * records the report needs captured output, so a CLI caller echoes it through `onOutput`.
+   */
+  approveReportedBuilds?: boolean
+  /** Called with the exact keys just approved, so a caller can report what running scripts it allowed. */
+  onBuildsApproved?: (names: readonly string[]) => void
 }
 
 /** Resolve relative package specs against the caller's directory.
@@ -64,6 +83,23 @@ export function anchorPathSpec(argument: string, cwd: string): string {
   const match = /^(?<prefix>(?:file|link):)?(?<path>\.{1,2}(?:[/\\].*)?)$/.exec(argument)
   if (match?.groups?.path === undefined) return argument
   return `${match.groups.prefix ?? ''}${resolve(cwd, match.groups.path)}`
+}
+
+/** A bare spec: one token with no prefix a registry, git host, or path form claims. */
+const BARE_SPEC = /^[^\s@:\\/]+$/
+
+/** Resolve a named install spec that names something already on disk in the caller's directory.
+ * A bare `plugin.tgz` or `plugin` is a package name to pnpm, so a file or directory the caller
+ * can see wins over a registry lookup, the same way `./plugin.tgz` already does.
+ * @param argument One positional argument after an install command.
+ * @param cwd Invocation directory, never the profile directory.
+ * @returns The anchored spec, or the argument unchanged when it is not a path the caller can see.
+ */
+export function anchorInstallSpec(argument: string, cwd: string): string {
+  const anchored = anchorPathSpec(argument, cwd)
+  if (anchored !== argument || !BARE_SPEC.test(argument) || argument.startsWith('-')) return anchored
+  const path = resolve(cwd, argument)
+  return existsSync(path) ? path : argument
 }
 
 /** Read bundle metadata without loading its JavaScript.
@@ -160,6 +196,20 @@ function namedSpecs(args: readonly string[]): string[] {
   const command = index < 0 ? undefined : args[index]
   if (command === undefined || !INSTALL_COMMANDS.has(command)) return []
   return args.slice(index + 1).filter(argument => !argument.startsWith('-'))
+}
+
+/** The arguments pnpm receives, with an install command's positionals anchored to the caller's directory.
+ * A positional an install command names may be a local file or directory the caller sees, even without
+ * a `./` prefix; every other argument keeps the path form `anchorPathSpec` already gave it.
+ * @param args Pnpm arguments, before anchoring.
+ * @param cwd Invocation directory, never the profile directory.
+ * @returns Anchored arguments.
+ */
+function anchoredArguments(args: readonly string[], cwd: string): string[] {
+  const index = args.findIndex(argument => !argument.startsWith('-'))
+  const install = index >= 0 && INSTALL_COMMANDS.has(args[index] as string)
+  return args.map((argument, position) => install && position > index
+    ? anchorInstallSpec(argument, cwd) : anchorPathSpec(argument, cwd))
 }
 
 /** The manifest a named spec would install, read without installing it.
@@ -292,8 +342,36 @@ function bundleComponentManifests(manifest: ProfileManifest, dir: string, anchor
  * Unsupported Host activation returns exit code 1 with named diagnostics; installed dependencies remain,
  * and no bundle selection changes are saved. Other reconciliation or filesystem errors reject.
  * The diagnostic file is closed on return or rejection, including preparation and spawn failures.
+ * With `approveReportedBuilds`, the keys this run reports as blocked are approved and the run repeats once.
  */
 export async function runProfilePnpm(
+  context: PackageOperationContext, args: readonly string[], options: PackageOperationOptions,
+): Promise<PackageResult> {
+  if (options.approveReportedBuilds !== true) return runPnpmOnce(context, args, options)
+  const dir = context.dir ?? resolveProfileDir(context.profile, context.home)
+  // pnpm warns and exits 0 when it skips an undecided script, and refuses a git-hosted prepare with a failure:
+  // both name the exact keys, so the report decides, not the exit status.
+  const refused = await runPnpmOnce(context, args, { ...options, captureOutput: true, approveReportedBuilds: false })
+  const reported = blockedBuildNames(refused.output)
+  if (reported.length === 0) return refused
+  let approved: string[]
+  try {
+    // Record what this run reported, then approve only those keys: a key an earlier attempt left undecided stays pending.
+    const pending = await recordPendingBuilds(dir, refused.output)
+    approved = pending.filter(name => reported.includes(name))
+    if (approved.length === 0) return refused
+    await approveBuilds(dir, approved)
+  } catch (error) {
+    // The first run is already the answer, and the profile settings could not take the approval.
+    void error
+    return refused
+  }
+  options.onBuildsApproved?.(approved)
+  return await runPnpmOnce(context, args, { ...options, approveReportedBuilds: false })
+}
+
+/** One pnpm run, under the caller's profile lock. */
+async function runPnpmOnce(
   context: PackageOperationContext, args: readonly string[], options: PackageOperationOptions,
 ): Promise<PackageResult> {
   const dir = context.dir ?? resolveProfileDir(context.profile, context.home)
@@ -351,7 +429,7 @@ export async function runProfilePnpm(
     // A spec whose manifest cannot be read or validated is left to the run itself and to the check
     // after installation, which reports what it could not validate.
     try {
-      const manifest = await namedSpecManifest(dir, anchorPathSpec(raw, context.cwd), options, environment, registryFlags)
+      const manifest = await namedSpecManifest(dir, anchorInstallSpec(raw, context.cwd), options, environment, registryFlags)
       if (manifest === undefined) continue
       const issue = evaluatePluginCompatibility(manifest, exemptions)
       if (issue !== undefined && !issue.exempted) {
@@ -366,10 +444,10 @@ export async function runProfilePnpm(
   // run is killed: a lifecycle script outlives the pnpm process that started it.
   // The CLI keeps the caller's process group, so an interrupt still reaches it.
   const grouped = leadsOwnGroup(options.execution)
-  const child = execa(options.command ?? 'pnpm', [...options.args ?? [], ...args.map(arg => anchorPathSpec(arg, context.cwd))], {
+  const child = execa(options.command ?? 'pnpm', [...options.args ?? [], ...anchoredArguments(args, context.cwd)], {
     cwd: dir, env: environment, extendEnv: false, reject: false,
-    stdout: options.execution === 'cli' ? 'inherit' : 'pipe',
-    stderr: options.execution === 'cli' ? 'inherit' : 'pipe',
+    stdout: options.execution === 'cli' && options.captureOutput !== true ? 'inherit' : 'pipe',
+    stderr: options.execution === 'cli' && options.captureOutput !== true ? 'inherit' : 'pipe',
     killDescendants: options.execution === 'service',
     buffer: false, stdin: options.execution === 'cli' ? 'inherit' : 'ignore', cancelSignal: options.signal === undefined
       ? cancellation.signal : AbortSignal.any([cancellation.signal, options.signal]),
