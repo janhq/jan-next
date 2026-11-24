@@ -60,7 +60,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
     'The agent uses a terminal and image reading, with context compaction. Useful for testing and comparing its basic performance.',
   presetCordisName: 'Creator mode',
   presetCordisDescription:
-    'Customize Jan through conversation. Let the agent write plugins that add features or UI, or combine tools and prompts to create your own mode.',
+    'Customize the Jan app you use. Add plugins or connectors, create your own modes and agents, or save reusable skills.',
 
   inUse: 'New task default',
 
@@ -102,7 +102,7 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   presetMinimalName: '极简模式',
   presetMinimalDescription: 'Agent 使用终端和图片读取工具，并支持上下文压缩，适合测试和对比其基础表现。',
   presetCordisName: '创造模式',
-  presetCordisDescription: '用对话定制 Jan：让 Agent 编写插件，添加新功能或界面；也能组合工具和提示词，创建自己的模式。',
+  presetCordisDescription: '定制你正在使用的 Jan：添加插件或连接器，创建自己的模式和智能体，或保存可复用的技能。',
 
   inUse: '新任务默认',
 
@@ -148,7 +148,7 @@ export const ja = {
   'presetMinimalName': '最小モード',
   'presetMinimalDescription': 'エージェントはターミナルと画像読み取りを使用し、コンテキスト圧縮にも対応します。基本的な性能のテストや比較に役立ちます。',
   'presetCordisName': 'クリエイターモード',
-  'presetCordisDescription': '会話を通じて Jan をカスタマイズします。機能や UI を追加するプラグインをエージェントに書かせたり、ツールとプロンプトを組み合わせて独自のモードを作成したりできます。',
+  'presetCordisDescription': 'お使いの Jan をカスタマイズします。プラグインやコネクターを追加したり、独自のモードやエージェントを作成したり、再利用できるスキルを保存したりできます。',
   'inUse': '新しいタスクの既定',
   'noDescription': '説明はありません。',
   'brokenBadge': '読み込みに失敗',
@@ -188,7 +188,7 @@ export const es = {
     'El agente utiliza un terminal y lectura de imágenes, con compactación de contexto. Útil para probar y comparar su rendimiento básico.',
   presetCordisName: 'Modo creador',
   presetCordisDescription:
-    'Personaliza Jan a través de la conversación. Deje que el agente escriba complementos que agreguen funciones o interfaz de usuario, o combine herramientas e indicaciones para crear su propio modo.',
+    'Personaliza el Jan que usas. Añade complementos o conectores, crea tus propios modos y agentes, o guarda habilidades reutilizables.',
 
   inUse: 'Nueva tarea predeterminada',
 
@@ -234,7 +234,7 @@ export const fr = {
     "L'agent utilise un terminal et une lecture d'image, avec compactage du contexte. Utile pour tester et comparer ses performances de base.",
   presetCordisName: 'Mode Créateur',
   presetCordisDescription:
-    "Personnalisez Jan via la conversation. Laissez l'agent écrire des plugins qui ajoutent des fonctionnalités ou une interface utilisateur, ou combinez des outils et des invites pour créer votre propre mode.",
+    'Personnalisez votre application Jan. Ajoutez des plugins ou des connecteurs, créez vos propres modes et agents, ou enregistrez des compétences réutilisables.',
 
   inUse: 'Nouvelle tâche par défaut',
 
@@ -280,7 +280,7 @@ export const de = {
     'Der Agent verwendet ein Terminal und das Lesen von Bildern mit Kontextkomprimierung. Nützlich zum Testen und Vergleichen der Grundleistung.',
   presetCordisName: 'Erstellermodus',
   presetCordisDescription:
-    'Passen Sie Jan durch Gespräche an. Lassen Sie den Agenten Plugins schreiben, die Funktionen oder Benutzeroberflächen hinzufügen, oder kombinieren Sie Tools und Eingabeaufforderungen, um Ihren eigenen Modus zu erstellen.',
+    'Passen Sie Ihre Jan-App an. Fügen Sie Plugins oder Konnektoren hinzu, erstellen Sie eigene Modi und Agenten oder speichern Sie wiederverwendbare Skills.',
 
   inUse: 'Neuer Aufgabenstandard',
 
@@ -326,7 +326,7 @@ export const ru = {
     'Агент использует терминал и чтение изображений со сжатием контекста. Полезно для тестирования и сравнения его базовой производительности.',
   presetCordisName: 'Режим автора',
   presetCordisDescription:
-    'Настройте Jan через разговор. Позвольте агенту писать плагины, которые добавляют функции или пользовательский интерфейс, или комбинируйте инструменты и подсказки для создания собственного режима.',
+    'Настройте своё приложение Jan. Добавляйте плагины и коннекторы, создавайте свои режимы и агентов или сохраняйте навыки для повторного использования.',
 
   inUse: 'Новая задача по умолчанию',
 
@@ -372,7 +372,7 @@ export const pt = {
     'O agente utiliza terminal e leitura de imagens, com compactação de contexto. Útil para testar e comparar seu desempenho básico.',
   presetCordisName: 'Modo criador',
   presetCordisDescription:
-    'Personalize Jan por meio de conversa. Deixe o agente escrever plug-ins que adicionem recursos ou UI, ou combine ferramentas e prompts para criar seu próprio modo.',
+    'Personalize o Jan que você usa. Adicione plugins ou conectores, crie seus próprios modos e agentes ou salve habilidades reutilizáveis.',
 
   inUse: 'Novo padrão de tarefa',
 
