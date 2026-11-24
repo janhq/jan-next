@@ -439,7 +439,8 @@ describe('runtime model listing', () => {
   })
 
   it('stops the background refresh when settings remove the last listing route', async () => {
-    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    // A frozen Date keeps the launch listing fresh however long the worker stalls.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
     const server = await router()
     vi.stubEnv('TOKAMAK_LISTING_KEY', '')
     const dir = await mkdtemp(join(tmpdir(), 'jan-pi-listing-'))
@@ -453,8 +454,8 @@ describe('runtime model listing', () => {
     const scheduled = vi.getTimerCount()
     // vi.waitFor advances fake timers while polling, which would fire extra refresh ticks.
     const listed = async (count: number) => {
-      for (const start = Date.now(); server.listings.length < count;) {
-        if (Date.now() - start > 5000) throw new Error(`expected ${count} listing requests, saw ${server.listings.length}`)
+      for (let attempt = 0; server.listings.length < count; attempt++) {
+        if (attempt === 1000) throw new Error(`expected ${count} listing requests, saw ${server.listings.length}`)
         await new Promise(resolve => setTimeout(resolve, 5))
       }
       expect(server.listings).toHaveLength(count)
