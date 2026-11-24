@@ -181,7 +181,10 @@ describe.skipIf(MODE === 'record')('web e2e: jobs menu layering', () => {
 
     await trigger.click()
     await list.waitFor()
-    await address.click()
+    // The anchored list covers the address's center at this width; click its uncovered end.
+    const addressBox = await address.boundingBox()
+    if (addressBox === null) throw new Error('Browser address is not rendered')
+    await address.click({ position: { x: addressBox.width - 8, y: addressBox.height / 2 } })
     await list.waitFor({ state: 'detached' })
     const outsideDismisses = await trigger.getAttribute('aria-expanded') === 'false'
     expect(outsideDismisses).toBe(true)

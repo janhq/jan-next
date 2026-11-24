@@ -66,6 +66,13 @@ async function expectSummary(card: Locator, text: string): Promise<void> {
   await expect.poll(() => header.textContent(), { timeout: 10_000 }).toBe(`Create subagent${text}`)
 }
 
+/** Wait for a completed Turn to fold, then reopen it so later captures cannot race the fold. */
+async function reopenFoldedTurn(page: Page, turn: number): Promise<void> {
+  const control = page.locator(`[data-turn-process="${turn}"]`)
+  await control.and(page.locator('[aria-expanded="false"]')).click()
+  await control.and(page.locator('[aria-expanded="true"]')).waitFor()
+}
+
 async function expandTask(card: Locator, prompt: string): Promise<void> {
   await expandOwningTurnProcess(card.page(), card)
   const toggle = card.locator('[data-expandable]').first()
@@ -155,6 +162,7 @@ describe.skipIf(MODE === 'record')('web e2e: subagent task summary', () => {
     finishCall(agent, call, 'Delegation accepted.', false, { kind: 'activation', subagentId: 'child-foo' })
     await scaffold.ctx.sessions.flush(agent.session)
     await expect.poll(() => card.getAttribute('data-state')).toBe('ok')
+    await reopenFoldedTurn(page, 1)
     await expectSummary(card, DESCRIPTION)
     await capture('Created')
     await expandTask(card, PROMPT)
@@ -202,6 +210,7 @@ describe.skipIf(MODE === 'record')('web e2e: subagent task summary', () => {
       finishCall(agent, call, fixture.result, fixture.error)
       await scaffold.ctx.sessions.flush(agent.session)
       await expect.poll(() => card.getAttribute('data-state')).toBe(fixture.error === true ? 'error' : 'ok')
+      await reopenFoldedTurn(page, turn)
       await expectSummary(card, fixture.summary)
       if (fixture.args.prompt !== undefined && fixture.error !== true) {
         await expandTask(card, fixture.args.prompt)
@@ -247,6 +256,7 @@ describe.skipIf(MODE === 'record')('web e2e: subagent task summary', () => {
     finishCall(agent, call, 'started subagent fork-worker')
     await scaffold.ctx.sessions.flush(agent.session)
     await expect.poll(() => card.getAttribute('data-state')).toBe('ok')
+    await reopenFoldedTurn(page, 6)
     await expandTask(card, prompt)
     await expectForkSummary()
     expect(await card.locator('dt').allTextContents()).toEqual(['Agent task description', 'ID'])

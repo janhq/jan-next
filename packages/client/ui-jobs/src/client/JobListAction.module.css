@@ -58,10 +58,11 @@
     color: var(--dsw-alias-label-secondary);
   }
 
+  /* Matches the adjacent right-sidebar expand button's glyph. */
   .trigger .activitySlot,
   .trigger .activitySlot > svg {
-    width: 15px;
-    height: 15px;
+    width: 16px;
+    height: 16px;
   }
 
   .trigger:focus-visible {

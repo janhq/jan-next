@@ -11,7 +11,7 @@ import { globSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
 import { bootInjections, orderByModuleGraph } from '@janhq/jan-client-modules'
 import type { ClientModuleLoaderTarget, WebBootEntry, WebBootGraph } from '@janhq/jan-client-modules/client'
@@ -348,6 +348,23 @@ export async function createAssembledSessionComposer(remote: AssembledRemote): P
     if (composer === undefined || composer === null) throw new Error(`composer for Session ${sessionId} has not mounted`)
     return composer
   }, { timeout: 10_000 })
+}
+
+/**
+ * Expand the collapsed fixture Workspace group in the Sessions tree and open its history Session.
+ * @returns resolves after the Session row is clicked.
+ */
+export async function openAssembledFixtureSession(): Promise<void> {
+  const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
+  const group = tree.querySelector<HTMLElement>('[data-row-key="workspace:fx-ws-fixture"]')
+  if (group === null) throw new Error('fixture Workspace group missing')
+  if (group.getAttribute('aria-expanded') === 'false') {
+    fireEvent.click(within(group).getByText('fixture'))
+    await waitFor(() => {
+      if (group.getAttribute('aria-expanded') !== 'true') throw new Error('fixture Workspace group has not expanded')
+    })
+  }
+  fireEvent.click(await within(tree).findByText('Fixture 历史会话'))
 }
 
 /**
