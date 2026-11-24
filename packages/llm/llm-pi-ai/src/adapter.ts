@@ -575,7 +575,7 @@ export class PiAiAdapter extends LlmAdapter {
             maxBytes: profile.requestImageMaxBytes,
           },
         }, onReplayDegrade, updates.systemPromptUpdate === 'in-history')
-      const onPromptProgress = profile.promptProgress === true ? this.config.onPromptProgress : undefined
+      const onPromptProgress = profile.promptProgress === true && options.ephemeral !== true ? this.config.onPromptProgress : undefined
       // The conversation names its Session as the thread, in slot 0 as Jan pins chat. An auxiliary
       // request (title, compaction) names no thread, so it parks nothing over the Session's saved
       // state, and runs in slot 1 beside the conversation instead of queueing it behind slot 0;
@@ -596,6 +596,7 @@ export class PiAiAdapter extends LlmAdapter {
         ...profileOptions(profile, reasoning, apiKey),
         ...options.temperature === undefined ? {} : { temperature: options.temperature },
         ...options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens },
+        ...options.toolChoice === undefined ? {} : { toolChoice: options.toolChoice },
         ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
         signal: watchdog.signal,
         headers: requestHeaders(profile.headers, options, model.baseUrl, this.config.prepareHeaders),
