@@ -2,7 +2,8 @@
 /** The configured project, chat and General Settings actions open the shared editor. */
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
-import { en as common } from '@janhq/jan-client-locale/src/locales/en.ts'
+import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import { SlotTestRuntime } from '@janhq/jan-client-test-runtime'
 import type { CommandContribution } from '@janhq/jan-client-ui-commands/client'
 import type { MenuContribution } from '@janhq/jan-client-ui-context-menu/client'
@@ -18,8 +19,8 @@ afterEach(cleanup)
 it('opens the correct scope from each entry point and excludes federated chats and projects', async () => {
   const runtime = await SlotTestRuntime.create()
   try {
-    const locale = new LocaleRuntime(runtime.ctx, undefined, { languages: ['en'] })
-    locale.register('common', { en: common })
+    const locale = new LocaleRuntime(runtime.ctx)
+    locale.register('common', { en: commonEn, zh: commonZh })
     runtime.ctx.provide('locale', locale)
     runtime.slots.installLocale(locale)
     const unregisterProject = vi.fn(), unregisterChat = vi.fn(), unmountRemote = vi.fn(async () => {})
