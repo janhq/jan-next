@@ -326,6 +326,7 @@ const STOP_GRACE_MS = 6_000
  * @param command - executable, resolved from the workspace bins when `local` is set.
  * @param args - command arguments.
  * @param local - whether to resolve `command` from the workspace's installed bins.
+ * @param heapMb - V8 old-space limit for a Node stage whose program outgrows the default heap.
  */
 function spawnStage(
   supervisor: StageSupervisor,
@@ -333,12 +334,16 @@ function spawnStage(
   command: string,
   args: readonly string[],
   local: boolean,
+  heapMb?: number,
 ): void {
+  const nodeOptions = [process.env.NODE_OPTIONS, heapMb === undefined ? undefined : `--max-old-space-size=${String(heapMb)}`]
+    .filter(Boolean).join(' ')
   const child = execa(command, [...args], {
     cwd: repoRoot,
     stdio: 'inherit',
     preferLocal: local,
     reject: false,
+    ...nodeOptions === '' ? {} : { env: { NODE_OPTIONS: nodeOptions } },
   })
   supervisor.add({
     name,
@@ -429,13 +434,14 @@ if (isMain) {
   // natively watching on a network mount where inotify never fires: it stops
   // re-emitting lib/types, and the two later stages then rebuild forever from
   // stale input without printing anything.
+  // The client and Host programs together exceed Node's default 4 GB heap, like `build:lib:host`.
   const typePrograms = options.host ? [CLIENT_TYPE_PROGRAM, HOST_TYPE_PROGRAM] : [CLIENT_TYPE_PROGRAM]
   spawnStage(supervisor, `tsc -b ${typePrograms.join(' ')} --watch`, 'tsc', [
     '-b', ...typePrograms, '--watch', '--preserveWatchOutput',
     ...options.pollInterval !== undefined
       ? ['--watchFile', 'fixedPollingInterval', '--watchDirectory', 'fixedPollingInterval']
       : [],
-  ], true)
+  ], true, options.host ? 8192 : undefined)
 
   // tsdown's initial builds are awaited before the dist watcher starts so vite's
   // first build reads current lib bundles rather than whatever the last full
