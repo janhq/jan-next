@@ -117,7 +117,7 @@ describe('OpenInAppAction launching', () => {
     render(<OpenInAppAction {...b.props} />)
     fireEvent.click(screen.getByRole('button', { name: zh['path.more'] }))
     await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Cursor' })) })
-    expect(b.report).toHaveBeenCalledWith({ kind: 'failed', failure: 'openError' })
+    expect(b.report.mock.lastCall?.[0]).toMatchObject({ kind: 'failed', failure: 'openError', details: { operation: 'openInApp.launch' } })
     expect(b.choose).not.toHaveBeenCalled()
     expect(screen.queryByRole('alert')).toBeNull()
   })

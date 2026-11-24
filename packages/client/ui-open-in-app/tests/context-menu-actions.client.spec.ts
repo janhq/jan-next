@@ -138,7 +138,9 @@ it('keeps copy-path available on failed metadata and reports native action failu
   expect((await h.resolve(file)).source.getSnapshot().find(item => item.id.endsWith('/sidebar'))?.disabled).toBe(true)
   h.remote.session.openWorkspacePath.mockResolvedValueOnce({ ok: false } as never)
   await h.choose(file, 'open-in-app.file/reveal')
-  await vi.waitFor(() => { expect(h.report).toHaveBeenLastCalledWith({ kind: 'failed', failure: 'revealError' }) })
+  await vi.waitFor(() => {
+    expect(h.report.mock.lastCall?.[0]).toMatchObject({ kind: 'failed', failure: 'revealError', details: { operation: 'session.revealWorkspacePath' } })
+  })
   h.remote.session.workspacePathApplications.mockResolvedValueOnce({ ok: false } as never)
   expect((await h.resolve(file)).source.getSnapshot().find(item => item.id.endsWith('/open'))?.disabled).toBe(true)
   h.paths.desktop.set(false)
@@ -177,7 +179,7 @@ it('distinguishes completed, requested and cancelled saves and surfaces rejected
   }
   h.fileActions.save.mockRejectedValueOnce(new Error('disk full'))
   await h.choose(image, 'file-actions.image/saveAs')
-  await vi.waitFor(() => { expect(h.failure).toHaveBeenCalledWith('menu.saveFailed') })
+  await vi.waitFor(() => { expect(h.failure).toHaveBeenCalledWith('contextMenu.runAction', 'menu.saveFailed', expect.objectContaining({ message: 'disk full' })) })
 })
 
 it('uses original image reads and keeps menu reveal on the original after saving elsewhere', async () => {
@@ -264,7 +266,9 @@ it('opens the captured Workspace through the directory app catalog and reports l
   await vi.waitFor(() => { expect(h.report).toHaveBeenLastCalledWith({ kind: 'opened' }) })
   h.directoryFetch.mockResolvedValueOnce(new Response('', { status: 500 }))
   await h.choose(target, 'open-in-app.workspace/reveal')
-  await vi.waitFor(() => { expect(h.report).toHaveBeenLastCalledWith({ kind: 'failed', failure: 'revealError' }) })
+  await vi.waitFor(() => {
+    expect(h.report.mock.lastCall?.[0]).toMatchObject({ kind: 'failed', failure: 'revealError', details: { operation: 'openInApp.launch' } })
+  })
   h.directories.apps.set([])
   expect((await h.resolve(target)).source.getSnapshot()[0]?.disabled).toBe(true)
 })

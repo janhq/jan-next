@@ -1,7 +1,7 @@
 /** Native-open feedback that survives the initiating panel: mobile success and all failures. */
 import type { ReactNode } from 'react'
 import { createSnapshotStore } from '@janhq/jan-client-store'
-import { IconWarningOutlineRegular, isMobileDevice, Toast } from '@janhq/jan-client-ui-primitives'
+import { captureFailure, IconWarningOutlineRegular, isMobileDevice, Toast } from '@janhq/jan-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type {} from '@janhq/jan-client-ui-layout/client'
 import { NS } from './locales.ts'
@@ -58,8 +58,9 @@ export function OpenInAppToast({ useToast, dismiss, t }: OpenInAppToastProps): R
   if (toast === null) return null
   const key = `open-in-app-${String(toast.seq)}`
   if (toast.kind === 'failed') {
+    const details = toast.details ?? captureFailure('openInApp', { code: toast.failure })
     return <Toast key={key} text={t(toast.failure === 'revealError' ? 'path.revealError' : 'path.openError')}
-      icon={<IconWarningOutlineRegular />} onDone={dismiss} />
+      failure={details} icon={<IconWarningOutlineRegular />} onDone={dismiss} />
   }
   return <Toast key={key} text={t(toast.kind === 'opened' ? 'path.opened' : 'path.revealed')} tone="success" onDone={dismiss} />
 }

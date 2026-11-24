@@ -1,6 +1,7 @@
 /** Shared directory application catalog, preference, and launch carrier for controls and menus. */
 
 import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
+import { captureFailure } from '@janhq/jan-client-ui-primitives'
 import {
   OPEN_IN_APP_APPS_ROUTE, OPEN_IN_APP_OPEN_ROUTE,
   type OpenInAppAppsPayload, type OpenInAppOpenPayload,
@@ -90,10 +91,9 @@ export class OpenInAppController {
       if (!response.ok) throw new Error(`open failed: HTTP ${String(response.status)}`)
       this.operation.set({ phase: 'idle', path })
       return { kind: 'opened' }
-    } catch (_error) {
-      // Refusal and transport failure share the same user-visible outcome.
+    } catch (error) {
       this.operation.set({ phase: 'error', path })
-      return { kind: 'failed', failure: 'openError' }
+      return { kind: 'failed', failure: 'openError', details: captureFailure('openInApp.launch', error) }
     }
   }
 

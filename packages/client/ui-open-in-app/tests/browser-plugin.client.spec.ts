@@ -150,9 +150,9 @@ describe('open-in-app browser half', () => {
       menu.dispose()
       const face: Partial<OpenInAppActionInjected> = ctx.slots.entries('sidebar.right.tab.files.actions')[0]!.inject!()
       await vi.waitFor(() => { expect(face.hooks?.openInAppLaunch.getSnapshot().phase).toBe(success ? 'idle' : 'error') })
-      expect(toast.hooks.toast.getSnapshot()).toEqual(success
-        ? mobile ? { kind: 'opened', seq: 1 } : null
-        : { kind: 'failed', failure: 'openError', seq: 1 })
+      const notice = toast.hooks.toast.getSnapshot()
+      if (success) expect(notice).toEqual(mobile ? { kind: 'opened', seq: 1 } : null)
+      else expect(notice).toMatchObject({ kind: 'failed', failure: 'openError', seq: 1, details: { operation: 'openInApp.launch' } })
       expect(notify).not.toHaveBeenCalled()
       expect(fetcher).toHaveBeenCalledWith('open-in-app/open', expect.objectContaining({
         body: JSON.stringify({ app: 'finder', path: '/captured' }),
@@ -185,7 +185,7 @@ describe('open-in-app browser half', () => {
       result.run()
       // The keyboard path has no control of its own: its failure reaches the same overlay store.
       await vi.waitFor(() => {
-        expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'failed', failure: 'openError', seq: 1 })
+        expect(toast.hooks.toast.getSnapshot()).toMatchObject({ kind: 'failed', failure: 'openError', seq: 1, details: { operation: 'openInApp.launch' } })
       })
     } finally { await fiber.dispose() }
   })
@@ -411,7 +411,7 @@ describe('open-in-app browser half', () => {
     await vi.waitFor(() => {
       expect(hooks.openInAppApps.getSnapshot()).toEqual([])
     })
-    await expect(injected.launch('finder', '/w/dir')).resolves.toEqual({ kind: 'failed', failure: 'openError' })
+    await expect(injected.launch('finder', '/w/dir')).resolves.toMatchObject({ kind: 'failed', failure: 'openError', details: { operation: 'openInApp.launch' } })
     await fiber.dispose()
   })
 
