@@ -307,6 +307,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'profiles in precedence order, shadowed ones marked, and files that could not be read.',
       },
       {
+        signature: '@Remote({ mode: \'stream\' }) async *watchChanges(signal: AbortSignal): AsyncIterable<number>',
+        description: 'Follow catalog changes: a file change in any folder, a write, or a chat\'s selection change.',
+        parameters: [{ name: 'signal', description: 'stream lifetime.' }],
+        returns: 'one tick per coalesced batch of changes since the previous read.',
+      },
+      {
         signature: '@Remote async get(request: AgentProfileGetRequest): Promise<AgentProfile>',
         description: 'Read one profile with its instructions.',
         parameters: [{ name: 'request', description: 'the id, the project it is resolved in, and optionally the exact listed file.' }],
@@ -341,6 +347,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the id, or null when the chat runs as plain Jan.',
       },
       {
+        signature: 'hasSelection(session: Session): boolean',
+        description: 'Whether a chat ever recorded a profile choice, plain Jan included.',
+        parameters: [{ name: 'session', description: 'the chat\'s session.' }],
+        returns: 'true once any selection was logged, so a project default must leave the chat alone.',
+      },
+      {
         signature: 'projectOf(agent: Agent): WorkspaceId | undefined',
         description: 'Project a chat belongs to.',
         parameters: [{ name: 'agent', description: 'the chat.' }],
@@ -348,7 +360,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'selectedProfile(agent: Agent): AgentProfile | undefined',
-        description: 'Profile a live chat selected, as currently on disk.',
+        description: 'Profile a live chat selected, pinned as first read for the chat\'s lifetime. Later edits to the file reach the chat only when the profile is picked again or the chat is reopened, so a hot edit never rewrites a running chat\'s system prompt or tool set and its cached prompt prefix stays reusable.',
         parameters: [{ name: 'agent', description: 'the chat.' }],
         returns: 'the profile, or undefined for plain Jan or a selection no visible profile matches.',
       },
@@ -3260,10 +3272,10 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the values the scope stores after the write.',
       },
       {
-        signature: '@Remote toolCatalog(): ScopedToolCatalog',
-        description: 'List what a scope can switch off.',
+        signature: '@Remote async toolCatalog(): Promise<ScopedToolCatalog>',
+        description: 'List what a scope can switch off: the global tools plus those the default preset registers inside a new chat\'s Agent scope, which is where shell, file and web tools live.',
         parameters: [],
-        returns: 'global tool names outside MCP and the MCP servers that registered tools.',
+        returns: 'tool names outside MCP and the MCP servers that registered tools.',
       },
     ],
   },
@@ -4767,6 +4779,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     summary: 'Concrete tool registry and scoped executor dispatcher.',
     description: 'Concrete tool registry and scoped executor dispatcher.',
     methods: [
+      {
+        signature: 'ownerOf(definition: ToolDefinition): string | undefined',
+        description: 'Name the installed package (or, outside the loader, the plugin) that registered a definition.',
+        parameters: [{ name: 'definition', description: 'a definition read from {@link ToolsService.definitions}.' }],
+        returns: 'the registering package name, or undefined for a definition this registry did not record.',
+      },
       {
         signature: 'register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () => void',
         description: 'Register globally or in the calling agent scope. Scoped tools shadow globals; duplicates within one layer and the reserved `run_code` name fail.',
@@ -6367,7 +6385,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AgentProfileDraft',
-    declaration: 'export interface AgentProfileDraft {\n    readonly id: string;\n    readonly description: string;\n    readonly use: AgentProfileUse;\n    readonly model?: AgentProfileModel;\n    readonly tools?: readonly string[];\n    readonly disallowedTools?: readonly string[];\n    readonly instructions: string;\n}',
+    declaration: 'export interface AgentProfileDraft {\n    readonly id: string;\n    readonly description: string;\n    readonly use: AgentProfileUse;\n    readonly model?: AgentProfileModel;\n    readonly tools?: readonly string[];\n    readonly disallowedTools?: readonly string[];\n    readonly sandbox?: AgentProfileSandbox;\n    readonly instructions: string;\n}',
   },
   {
     name: 'AgentProfileGetRequest',
@@ -6394,6 +6412,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface AgentProfileRemoveRequest {\n    readonly scope: AgentProfileScope;\n    readonly workspaceId?: WorkspaceId;\n    readonly id: string;\n    readonly path?: string;\n}',
   },
   {
+    name: 'AgentProfileSandbox',
+    declaration: 'export type AgentProfileSandbox = \'read-only\' | \'workspace-write\' | \'danger-full-access\';',
+  },
+  {
     name: 'AgentProfileSaveRequest',
     declaration: 'export interface AgentProfileSaveRequest {\n    readonly scope: AgentProfileScope;\n    readonly workspaceId?: WorkspaceId;\n    readonly profile: AgentProfileDraft;\n    readonly path?: string;\n}',
   },
@@ -6407,11 +6429,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AgentProfileSource',
-    declaration: 'export type AgentProfileSource = \'jan\' | \'agents\' | \'claude\' | \'opencode\' | \'codex\';',
+    declaration: 'export type AgentProfileSource = \'jan\' | \'agents\' | \'claude\' | \'opencode\' | \'codex\' | \'builtin\';',
   },
   {
     name: 'AgentProfileSummary',
-    declaration: 'export interface AgentProfileSummary {\n    readonly id: string;\n    readonly description: string;\n    readonly use: AgentProfileUse;\n    readonly scope: AgentProfileScope;\n    readonly source: AgentProfileSource;\n    readonly path: string;\n    readonly writable: boolean;\n    readonly model?: AgentProfileModel;\n    readonly tools?: readonly string[];\n    readonly disallowedTools: readonly string[];\n    readonly warnings: readonly string[];\n    readonly shadowedBy?: string;\n}',
+    declaration: 'export interface AgentProfileSummary {\n    readonly id: string;\n    readonly description: string;\n    readonly use: AgentProfileUse;\n    readonly scope: AgentProfileScope;\n    readonly source: AgentProfileSource;\n    readonly path: string;\n    readonly writable: boolean;\n    readonly model?: AgentProfileModel;\n    readonly tools?: readonly string[];\n    readonly disallowedTools: readonly string[];\n    readonly sandbox?: AgentProfileSandbox;\n    readonly warnings: readonly string[];\n    readonly shadowedBy?: string;\n}',
   },
   {
     name: 'AgentProfileUse',
@@ -7815,7 +7837,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'JobView',
-    declaration: 'export interface JobView {\n    readonly id: JobId;\n    readonly kind: string;\n    readonly label: string;\n    readonly owner?: SessionId;\n    readonly outputLimitBytes?: number;\n    readonly status: JobStatus;\n    readonly progress?: string;\n    readonly detail?: string;\n    readonly startedAt: number;\n    readonly finishedAt?: number;\n    readonly output: {\n        readonly total: number;\n        readonly earliest: number;\n        readonly spillPaths?: readonly string[];\n    };\n}',
+    declaration: 'export interface JobView {\n    readonly id: JobId;\n    readonly kind: string;\n    readonly label: string;\n    readonly owner?: SessionId;\n    readonly outputLimitBytes?: number;\n    readonly status: JobStatus;\n    readonly progress?: string;\n    readonly detail?: string;\n    readonly startedAt: number;\n    readonly finishedAt?: number;\n    readonly output: {\n        readonly total: number;\n        readonly earliest: number;\n        readonly spillPaths?: readonly string[];\n    };\n    readonly toolCall?: JobToolCall;\n}',
   },
   {
     name: 'JsonSchemaNode',
@@ -7835,7 +7857,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'KnownSubagentCatalogFields',
-    declaration: 'export type KnownSubagentCatalogFields = {\n    readonly mode: \'one-shot\';\n    readonly label?: string;\n} | {\n    readonly mode: \'external\';\n    readonly label?: string;\n    readonly name?: string;\n} | {\n    readonly mode: \'continuable\';\n    readonly label: string;\n    readonly name?: string;\n};',
+    declaration: 'export type KnownSubagentCatalogFields = {\n    readonly mode: \'one-shot\';\n    readonly label?: string;\n} | {\n    readonly mode: \'external\';\n    readonly label?: string;\n    readonly name?: string;\n} | {\n    readonly mode: \'continuable\';\n    readonly label: string;\n    readonly name?: string;\n    readonly sandboxMode?: \'read-only\' | \'workspace-write\' | \'danger-full-access\';\n};',
   },
   {
     name: 'KvFacet',
@@ -10419,7 +10441,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SubagentStartRequest',
-    declaration: 'export interface SubagentStartRequest {\n    readonly cwd?: string;\n    readonly agentPreset?: string;\n    readonly persona?: string;\n    readonly toolFilter?: ToolRestriction;\n    readonly label?: string;\n    readonly prompt: ContentBlock[];\n    readonly parent: Agent;\n    readonly signal: AbortSignal;\n    readonly agentOptions?: AgentOptions;\n    readonly outputSchema?: ObjectJsonSchema;\n    readonly maxDepth?: number;\n}',
+    declaration: 'export interface SubagentStartRequest {\n    readonly cwd?: string;\n    readonly agentPreset?: string;\n    readonly agent?: string;\n    readonly persona?: string;\n    readonly toolFilter?: ToolRestriction;\n    readonly sandboxMode?: SandboxMode;\n    readonly label?: string;\n    readonly prompt: ContentBlock[];\n    readonly parent: Agent;\n    readonly signal: AbortSignal;\n    readonly agentOptions?: AgentOptions;\n    readonly outputSchema?: ObjectJsonSchema;\n    readonly maxDepth?: number;\n}',
   },
   {
     name: 'SubagentStopReason',
@@ -10847,7 +10869,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ToolsService',
-    declaration: 'export class ToolsService extends Service {\n    static inject;\n    static Config;\n    constructor(ctx: Context);\n    register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () => void;\n    restrict(filter: ToolRestriction, options: {\n        allowUnregistered?: boolean;\n    } = {}): () => void;\n    get(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    executable(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    async resolve(context: ToolActivationContext): Promise<ResolvedToolSet>;\n    definitions(scope?: ScopeKey, toolSet?: ResolvedToolSet): readonly ToolDefinition[];\n    schemas(scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolSchema[];\n    setExecutor(executor: ToolExecutor): () => void;\n    async execute(input: ToolBatchInput): Promise<ToolBatchResult>;\n    guard(guard: ToolGuard): () => void;\n    checkGuards(exec: ToolExecution): string | undefined;\n}',
+    declaration: 'export class ToolsService extends Service {\n    static inject;\n    static Config;\n    constructor(ctx: Context);\n    ownerOf(definition: ToolDefinition): string | undefined;\n    register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () => void;\n    restrict(filter: ToolRestriction, options: {\n        allowUnregistered?: boolean;\n    } = {}): () => void;\n    get(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    executable(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    async resolve(context: ToolActivationContext): Promise<ResolvedToolSet>;\n    definitions(scope?: ScopeKey, toolSet?: ResolvedToolSet): readonly ToolDefinition[];\n    schemas(scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolSchema[];\n    setExecutor(executor: ToolExecutor): () => void;\n    async execute(input: ToolBatchInput): Promise<ToolBatchResult>;\n    guard(guard: ToolGuard): () => void;\n    checkGuards(exec: ToolExecution): string | undefined;\n}',
   },
   {
     name: 'ToolUpdate',

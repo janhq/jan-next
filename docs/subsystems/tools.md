@@ -668,6 +668,13 @@ Concrete tool registry and scoped executor dispatcher.
 
 ```ts cordis-catalog
 /**
+ * Name the installed package (or, outside the loader, the plugin) that registered a definition.
+ * @param definition - a definition read from {@link ToolsService.definitions}.
+ * @returns the registering package name, or undefined for a definition this registry did not record.
+ */
+ownerOf(definition: ToolDefinition): string | undefined
+
+/**
  * Register globally or in the calling agent scope. Scoped tools shadow
  * globals; duplicates within one layer and the reserved `run_code` name fail.
  * @param definition - tool schema, execution, and optional finalization/presentation callbacks.
