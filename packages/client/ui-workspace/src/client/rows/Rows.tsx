@@ -13,7 +13,7 @@ import { memo, useEffect, useRef } from 'react'
 import clsx from 'clsx'
 import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import {
-  HoverCard, IconArchiveOutlineRegular,
+  HoverCard, IconArchiveOutlineRegular, IconBranchOutlineRegular,
   IconNewChatOutlineRegular, IconPinFillRegular,
   IconChevronRightOutlineRegular, IconFollowsystemOutlineRegular, IconLinkOutlineRegular, IconUnarchiveOutlineRegular,
   relativeTime, StateDot, Tooltip, useRowDragPreview, useTitleMarquee,
@@ -24,7 +24,7 @@ import { abbreviateHomePath } from '@janhq/jan-util-workspace-path'
 import type { WorkspaceId } from '@janhq/jan-api-workspace-controller/client'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import { ProjectAvatar } from '../ProjectAvatar.tsx'
-import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
+import { workspaceLabel, type GroupNode, type SearchResultNode, type SessionNode } from '../tree.ts'
 import css from './Rows.module.css'
 
 /** Sidebar-owned layout values needed by row copies mounted outside the sidebar. */
@@ -131,6 +131,7 @@ function rowHalf(e: { clientY: number; currentTarget: HTMLElement }): 'before' |
  */
 type ProjectRowItemProps = {
   group: GroupNode
+  branchLabel?: string | undefined
   newShortcut?: ShortcutCatalogEntry | undefined
   containsCurrentDescendant?: boolean
   onToggle: () => void
@@ -210,14 +211,14 @@ function WorkspaceProjectRow({ workspaceId, ...props }: ProjectRowItemProps & { 
 }
 
 function ProjectRow({
-  group, containsCurrentDescendant = false, onToggle, onOpenProject, onCreate, drag: offeredDrag, home, machine, newShortcut, t, access,
-  renderFactorySlot, useContextMenuTarget, useContextMenu,
+  group, branchLabel, containsCurrentDescendant = false, onToggle, onOpenProject, onCreate, drag: offeredDrag,
+  home, machine, newShortcut, t, access, renderFactorySlot, useContextMenuTarget, useContextMenu,
 }: ProjectRowItemProps & { access: ProjectRowAccess }) {
   const { getTriggerProps } = useContextMenu()
   const drag = access.reorder ? offeredDrag : undefined
   const row = group
   // The ungrouped bucket has no workspace title: its label is dictionary copy.
-  const label = row.workspaceId === undefined ? t('group.ungrouped') : row.label
+  const label = row.workspaceId === undefined ? t('group.ungrouped') : branchLabel ?? row.label
   const active = containsCurrentDescendant || (group.expanded && group.containsCurrent)
   const menuOpen = useContextMenuTarget(target => target?.kind === 'workspace' && target.value.workspaceId === row.workspaceId)
   const dragPreview = useRowDragPreview(css.dragPreview as string, DRAG_PREVIEW_PROPERTIES)
@@ -245,7 +246,9 @@ function ProjectRow({
       onDragEnd={() => { if (dragPreview.clear()) drag?.end() }}
     >
       <span className={clsx(css.slot, css.folder, active && css.folderActive)}>
-        <ProjectAvatar avatar={row.avatar} githubOwner={row.githubOwner} color={row.color} expanded={row.expanded} />
+        {branchLabel === undefined
+          ? <ProjectAvatar avatar={row.avatar} githubOwner={row.githubOwner} color={row.color} expanded={row.expanded} />
+          : <IconBranchOutlineRegular size={16} />}
       </span>
       <span className={css.projectText}>
         <span className={css.title}>{label}</span>
@@ -306,7 +309,7 @@ function ProjectRow({
     <HoverCard
       anchor={ownRow}
       content={<WorkspaceHoverContent
-        label={row.label}
+        label={branchLabel === undefined ? row.label : workspaceLabel(row.cwd)}
         cwd={row.cwd === undefined ? undefined : abbreviateHomePath(row.cwd, home)}
         createdAt={row.createdAt}
         t={t}

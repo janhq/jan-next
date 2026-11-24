@@ -2298,6 +2298,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'configured entries in document order, then registered entries, then retained records for removed entries.',
       },
       {
+        signature: 'ownsConnection(name: string, connection: Fiber): boolean',
+        description: 'Check the exact registration, since scoped clients may reuse a managed server\'s name.',
+        parameters: [{ name: 'name', description: 'configured or registered server name.' }, { name: 'connection', description: 'MCP client fiber that registered the tool.' }],
+        returns: 'whether that connection is owned by this manager.',
+      },
+      {
         signature: 'register(name: string, entry: McpServerRegistration): () => void',
         description: 'Contribute one server for the calling plugin\'s lifetime. A registered entry is enabled while registered; its removal awaits the instance\'s unmount, so plugin disposal withdraws the server\'s tools before settling.',
         parameters: [{ name: 'name', description: 'server key and tool namespace, unique across configured and registered servers.' }, { name: 'entry', description: 'transport, endpoint, and budgets, validated like a configured entry.' }],
@@ -3787,6 +3793,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Register one environment contributor. Names and keys are unique; built-in keys are reserved. Registration is disposed with the calling plugin fiber.',
         parameters: [{ name: 'contributor', description: 'declared key ownership and per-execution resolver.' }],
         returns: 'the disposer that unregisters the contribution.',
+      },
+      {
+        signature: 'registerOverrides(resolve: (execution: ToolExecution) => Readonly<Record<string, string | undefined>> | undefined): () => void',
+        description: 'Register trusted subprocess environment overrides for matching shell calls. `JAN_*` keys are ignored: the managed snapshot from collect owns that namespace.',
+        parameters: [{ name: 'resolve', description: 'returns ordinary environment entries, or `undefined` values that remove inherited ones, for a call; returns undefined to leave it unchanged.' }],
+        returns: 'the disposer, also invoked automatically with the registering plugin.',
+      },
+      {
+        signature: 'collectOverrides(execution: ToolExecution): Record<string, string | undefined> | undefined',
+        description: 'Collect ordinary environment overrides without changing the managed `JAN_*` snapshot.',
+        parameters: [{ name: 'execution', description: 'the current tool execution.' }],
+        returns: 'a caller-owned overlay without `JAN_*` keys, or undefined if no resolver supplied one.',
       },
       {
         signature: 'collect(execution: ToolExecution): JanEnvironment',
@@ -9680,11 +9698,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ShellExecRequest',
-    declaration: 'export interface ShellExecRequest {\n    command: string;\n    workdir?: string | undefined;\n    timeoutMs?: number | undefined;\n    onExpiry?: ShellExpiryPolicy | undefined;\n    stdoutMaxBytes?: number | undefined;\n    signal?: AbortSignal | undefined;\n    stdin?: string | undefined;\n    env?: Record<string, string> | undefined;\n    janEnv?: JanEnvironment | undefined;\n    sandboxPolicy?: SandboxExecutionPolicy | undefined;\n}',
+    declaration: 'export interface ShellExecRequest {\n    command: string;\n    workdir?: string | undefined;\n    timeoutMs?: number | undefined;\n    onExpiry?: ShellExpiryPolicy | undefined;\n    stdoutMaxBytes?: number | undefined;\n    signal?: AbortSignal | undefined;\n    stdin?: string | undefined;\n    env?: Record<string, string | undefined> | undefined;\n    janEnv?: JanEnvironment | undefined;\n    sandboxPolicy?: SandboxExecutionPolicy | undefined;\n}',
   },
   {
     name: 'ShellExecSpec',
-    declaration: 'export interface ShellExecSpec {\n    command: string;\n    workdir: string;\n    timeoutMs: number;\n    onExpiry: ShellExpiryPolicy;\n    stdoutMaxBytes: number;\n    signal?: AbortSignal | undefined;\n    stdin?: string | undefined;\n    env?: Record<string, string> | undefined;\n    janEnv?: JanEnvironment | undefined;\n    sandboxPolicy: SandboxExecutionPolicy | undefined;\n}',
+    declaration: 'export interface ShellExecSpec {\n    command: string;\n    workdir: string;\n    timeoutMs: number;\n    onExpiry: ShellExpiryPolicy;\n    stdoutMaxBytes: number;\n    signal?: AbortSignal | undefined;\n    stdin?: string | undefined;\n    env?: Record<string, string | undefined> | undefined;\n    janEnv?: JanEnvironment | undefined;\n    sandboxPolicy: SandboxExecutionPolicy | undefined;\n}',
   },
   {
     name: 'ShellExecution',
@@ -11036,7 +11054,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WorkspaceView',
-    declaration: 'export interface WorkspaceView {\n    readonly workspaceId: WorkspaceId;\n    readonly isDefault?: true;\n    readonly path: string;\n    readonly title: string;\n    readonly color?: WorkspaceColor;\n    readonly avatar?: WorkspaceAvatar;\n    readonly githubOwner?: string;\n    readonly sessionIds: readonly SessionId[];\n    readonly createdAt: string;\n    readonly updatedAt: string;\n    readonly hostId?: string;\n    readonly hostName?: string;\n    readonly hostState?: \'live\' | \'lost\';\n}',
+    declaration: 'export interface WorkspaceView {\n    readonly workspaceId: WorkspaceId;\n    readonly isDefault?: true;\n    readonly path: string;\n    readonly title: string;\n    readonly color?: WorkspaceColor;\n    readonly avatar?: WorkspaceAvatar;\n    readonly githubOwner?: string;\n    readonly repository?: string;\n    readonly branch?: string;\n    readonly sessionIds: readonly SessionId[];\n    readonly createdAt: string;\n    readonly updatedAt: string;\n    readonly hostId?: string;\n    readonly hostName?: string;\n    readonly hostState?: \'live\' | \'lost\';\n}',
   },
 ]
 

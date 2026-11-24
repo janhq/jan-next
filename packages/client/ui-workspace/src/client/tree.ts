@@ -631,6 +631,60 @@ export function deriveSearchResults(
   }
 }
 
+/**
+ * Derive the sidebar hierarchy, preserving repository edges ahead of folder edges.
+ * @param workspaces - registered Workspaces in display order.
+ * @param nestFolders - whether to also nest by folder ancestry.
+ * @returns parent ids and the labels for repository children.
+ */
+export function workspaceHierarchy(workspaces: readonly WorkspaceView[], nestFolders: boolean): {
+  parents: Map<string, WorkspaceId>
+  branchLabels: Map<string, string>
+} {
+  const byHost = new Map<string | undefined, WorkspaceView[]>()
+  const parents = new Map<string, WorkspaceId>()
+  const branchLabels = new Map<string, string>()
+  const mainCheckout = (workspace: WorkspaceView) => workspace.repository !== undefined
+    && `${folderPath(workspace.path)}/.git` === folderPath(workspace.repository)
+  for (const workspace of workspaces) {
+    const host = byHost.get(workspace.hostId)
+    if (host === undefined) byHost.set(workspace.hostId, [workspace])
+    else host.push(workspace)
+  }
+  for (const host of byHost.values()) {
+    const heads = new Map<string, WorkspaceView>()
+    for (const workspace of host) {
+      if (workspace.repository === undefined) continue
+      const head = heads.get(workspace.repository)
+      if (head === undefined || (!mainCheckout(head) && (mainCheckout(workspace)
+        || workspace.createdAt < head.createdAt
+        || (workspace.createdAt === head.createdAt && workspace.workspaceId < head.workspaceId)))) {
+        heads.set(workspace.repository, workspace)
+      }
+    }
+    for (const workspace of host) {
+      const head = workspace.repository === undefined ? undefined : heads.get(workspace.repository)
+      if (head === undefined || head === workspace) continue
+      parents.set(workspace.workspaceId, head.workspaceId)
+      branchLabels.set(workspace.workspaceId, workspace.branch ?? workspaceLabel(workspace.path))
+    }
+    if (!nestFolders) continue
+    const byPath = new Map(host.map(workspace => [workspace.path, workspace.workspaceId]))
+    const paths = [...byPath.keys()]
+    for (const workspace of host) {
+      if (parents.has(workspace.workspaceId)) continue
+      const path = owningParentFolder(workspace.path, paths)
+      const parent = path === undefined ? undefined : byPath.get(path)
+      if (parent === undefined) continue
+      // An external checkout can contain the folder that owns its repository group.
+      let ancestor: WorkspaceId | undefined = parent
+      while (ancestor !== undefined && ancestor !== workspace.workspaceId) ancestor = parents.get(ancestor)
+      if (ancestor === undefined) parents.set(workspace.workspaceId, parent)
+    }
+  }
+  return { parents, branchLabels }
+}
+
 /** Normalize separators for comparison without interpreting POSIX backslashes as separators. */
 function folderPath(path: string): string {
   const windows = /^[A-Za-z]:[/\\]/.test(path) || path.startsWith('\\\\')

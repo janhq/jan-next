@@ -175,7 +175,7 @@ window.__ModuleLoader__.load({
         getSnapshot: () => snapshot,
         subscribe: (listener) => {
           listeners.add(listener)
-          if (snapshot.data === null && !snapshot.error && !loading) refresh().catch(() => {})
+          if (snapshot.data === null && !snapshot.error && !loading) refresh().catch(() => { })
           return () => { listeners.delete(listener) }
         },
         refresh,
@@ -415,7 +415,7 @@ window.__ModuleLoader__.load({
       const refresh = agentList.refresh
       React.useEffect(() => { if (data && directories === null) setDirectories(data.directories.join('\n')) }, [data])
       // Opening a tab rereads the list; the shared copy shows meanwhile.
-      React.useEffect(() => { refresh().catch(() => {}) }, [])
+      React.useEffect(() => { refresh().catch(() => { }) }, [])
       // `message` is the notice to show afterwards, or a function from the action's result to it.
       async function run(action, message) {
         setBusy(true); setError(''); setNotice('')
@@ -459,7 +459,7 @@ window.__ModuleLoader__.load({
       const following = data?.servers.some(row => row.state === 'connecting' || row.state === 'signing-in')
       React.useEffect(() => {
         if (!following) return
-        const timer = setInterval(() => { refresh().catch(() => {}) }, 1000)
+        const timer = setInterval(() => { refresh().catch(() => { }) }, 1000)
         return () => clearInterval(timer)
       }, [following])
       const allSkills = data?.skills.skills ?? []
@@ -1363,6 +1363,31 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
       try { localStorage.setItem(PINS_KEY, JSON.stringify(sidebarPins)) } catch { /* the choice still holds for this window */ }
       notifySidebar()
     }
+    const SEEN_KEY = 'jan-theme.sidebar.seen'
+    const sidebarSeen = new Set()
+    try {
+      const stored = JSON.parse(localStorage.getItem(SEEN_KEY) ?? 'null')
+      if (Array.isArray(stored)) for (const id of stored) if (typeof id === 'string') sidebarSeen.add(id)
+    } catch { /* storage can be unavailable */ }
+    const observeSidebarPanels = (entries) => {
+      let changed = false
+      let pinned = false
+      for (const { owner, options: { id } } of entries) {
+        if (id === undefined || sidebarSeen.has(id)) continue
+        sidebarSeen.add(id)
+        changed = true
+        if (owner && !owner.startsWith('@janhq/') && !sidebarPins.includes(id)) {
+          sidebarPins = [...sidebarPins, id]
+          pinned = true
+        }
+      }
+      if (!changed) return
+      try {
+        if (pinned) localStorage.setItem(PINS_KEY, JSON.stringify(sidebarPins))
+        localStorage.setItem(SEEN_KEY, JSON.stringify([...sidebarSeen]))
+      } catch { /* keep both choices for this window */ }
+      if (pinned) notifySidebar()
+    }
     // Sidebar order: every page Edit sidebar lists, by id; ids it has never seen
     // keep their built-in order after the stored ones.
     const ORDER_KEY = 'jan-theme.sidebar.order'
@@ -1681,9 +1706,9 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
                 h('span', { className: 'jt-project-tile-path' }, h('bdi', null, row.path)),
                 h('span', { className: 'jt-project-tile-meta' },
                   t(row.sessionIds.length === 1 ? 'projects.chat' : 'projects.chats', { count: row.sessionIds.length }), ' · ', t('projects.updated', { ago: relative(row.updatedAt) }))))),
-            h('li', { key: 'add' }, h('button', { type: 'button', className: 'jt-agent-add jt-project-add', disabled: busy, onClick: (event) => { void add(event.currentTarget) } },
-              h(IconProjectAddOutlineRegular, { size: 20, 'aria-hidden': true }), h('span', null, t('projects.addTile')),
-              h('small', null, t('projects.addTileHint'))))))
+              h('li', { key: 'add' }, h('button', { type: 'button', className: 'jt-agent-add jt-project-add', disabled: busy, onClick: (event) => { void add(event.currentTarget) } },
+                h(IconProjectAddOutlineRegular, { size: 20, 'aria-hidden': true }), h('span', null, t('projects.addTile')),
+                h('small', null, t('projects.addTileHint'))))))
     }
 
     // Project home: one Workspace's page. Which project it shows is a plain
@@ -1910,7 +1935,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           title: t('project.git.open', { name: repository.name, host: repository.host }),
           'aria-label': t('project.git.open', { name: repository.name, host: repository.host }),
         }, repository.github ? h(GitHubMark) : h(IconLinkOutlineRegular, { size: 14, 'aria-hidden': true }),
-        h('span', null, repository.name), h(IconRightUpOutlineRegular, { size: 12, 'aria-hidden': true })),
+          h('span', null, repository.name), h(IconRightUpOutlineRegular, { size: 12, 'aria-hidden': true })),
         branch !== null && h('span', { className: 'jt-project-git-chip', title: t('project.git.branch') },
           h(IconBranchOutlineRegular, { size: 14, 'aria-hidden': true }), h('span', null, branch)))
     }
@@ -3238,6 +3263,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
             getSnapshot: () => scope.slots.entriesOfSlot('main').some((entry) => entry.options.key === key),
             subscribe: (listener) => scope.slots.subscribe('main', listener),
           })
+          scope.effect(() => {
+            const update = () => observeSidebarPanels(scope.slots.entriesOfSlot('sidebar.panellist'))
+            const stop = scope.slots.subscribe('sidebar.panellist', update)
+            update()
+            return stop
+          }, 'jan-theme: discover sidebar panels')
           // Other plugins' sidebar pages; Edit sidebar can pin them as rows too.
           let otherPanels = []
           const otherPanelsSnapshot = {

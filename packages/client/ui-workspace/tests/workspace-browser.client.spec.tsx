@@ -111,7 +111,7 @@ const renderDirectoryFlowOnly = ((name: string, owner: object, options?: { fallb
     : options?.fallback ?? null) as WorkspaceBrowserProps['renderSlot']
 
 // Mounted outside a sidebar, the browser binds its list area to nothing.
-const SECTION_SCROLLER = { bindScrollerRef: () => {} }
+const SECTION_SCROLLER = { bindScrollerRef: () => { } }
 
 function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
   const controls = createWorkspaceShortcutControls()
@@ -2717,6 +2717,30 @@ describe('WorkspaceBrowser', () => {
   })
 })
 
+
+it.each(['workspace', 'workspace-tree'] as const)('groups linked checkouts by repository in %s mode', (mode) => {
+  createWorkspaceViewStore().create().actions.setGroupBy(mode)
+  const repository = '/projects/main/.git'
+  const head = { ...workspace('main', [], 'Project'), repository, createdAt: '2026-02-01T00:00:00.000Z' }
+  const first = { ...workspace('scratch-one', ['branch-chat']), repository, branch: 'topic/one' }
+  const second = { ...workspace('scratch-two', []), repository, branch: 'topic/two' }
+  const other = { ...workspace('other', [], 'Other'), repository: '/projects/other/.git' }
+  const remote = { ...workspace('remote', [], 'Remote project'), repository, hostId: 'remote' }
+  mount({
+    useWorkspaces: hook(workspaceState([first, second, other, remote, head])),
+    useSessions: hook(sessionState([summary('branch-chat', 1)], { main: sid('branch-chat') })),
+  })
+  const project = screen.getByText('Project').closest<HTMLElement>('[class*="groupSection"]')!
+  expect(within(project).getByText('topic/one')).toBeTruthy()
+  expect(within(project).getByText('topic/two')).toBeTruthy()
+  expect(within(project).getByText('branch-chat')).toBeTruthy()
+  expect(within(project).queryByText('Other')).toBeNull()
+  expect(within(project).queryByText('Remote project')).toBeNull()
+  expect(screen.getByText('Other')).toBeTruthy()
+  expect(screen.getByText('Remote project')).toBeTruthy()
+  fireEvent.click(screen.getByText('Project'))
+  expect(screen.queryByText('topic/one')).toBeNull()
+})
 
 describe('Workspace tree grouping', () => {
   beforeEach(() => {

@@ -29,6 +29,10 @@ export interface WorkspaceView {
   readonly avatar?: WorkspaceAvatar
   /** GitHub login behind the folder's `origin` remote; the Client shows its picture while no avatar is saved. */
   readonly githubOwner?: string
+  /** Canonical common Git directory, shared by all linked checkouts on this Host. */
+  readonly repository?: string
+  /** The checkout's current local branch, or an abbreviated detached commit. */
+  readonly branch?: string
   /** Sessions accounted to this Workspace in manual order. */
   readonly sessionIds: readonly SessionId[]
   /** ISO-8601 creation instant. */

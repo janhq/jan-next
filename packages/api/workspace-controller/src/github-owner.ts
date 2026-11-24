@@ -1,30 +1,50 @@
-/** The GitHub account behind a Workspace folder's `origin`, read from Git's own files without running Git. */
+/** Reads Workspace Git metadata without running Git. */
 import { constants } from 'node:fs'
-import { open, stat } from 'node:fs/promises'
+import { open, realpath, stat } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
+import type { WorkspaceView } from './types.ts'
 
+type GitMetadata = Pick<WorkspaceView, 'githubOwner' | 'repository' | 'branch'>
+type GitCheckout = { readonly head: string; readonly metadata: GitMetadata }
 const MAX_METADATA_BYTES = 1024 * 1024
-const owners = new Map<string, Promise<string | undefined>>()
+const checkouts = new Map<string, Promise<GitCheckout | undefined>>()
 
 /**
- * The owner login of the folder's `origin` remote when it points at github.com.
- * Read once per path for the life of the process; a remote added later shows after a restart.
- * @param directory - canonical Workspace directory, the repository root or any folder inside it.
- * @returns the owner, e.g. `janhq`, or undefined outside a GitHub checkout.
+ * Cache repository identity and the GitHub origin by path; read HEAD on every projection.
+ * @param directory - canonical Workspace directory, inside or at the root of a checkout.
+ * @returns available Git metadata, or undefined outside a Git checkout.
  */
-export function githubOwnerOf(directory: string): Promise<string | undefined> {
-  let owner = owners.get(directory)
-  if (owner === undefined) {
-    owner = readGithubOwner(directory)
-    owners.set(directory, owner)
+export async function gitMetadataOf(directory: string): Promise<GitMetadata | undefined> {
+  let checkout = checkouts.get(directory)
+  if (checkout === undefined) {
+    checkout = readCheckout(directory)
+    checkouts.set(directory, checkout)
   }
-  return owner
+  const git = await checkout
+  if (git === undefined) return undefined
+  const head = (await readText(git.head))?.trim()
+  const branch = head === undefined ? undefined : /^ref: refs\/heads\/(\S+)$/.exec(head)?.[1]
+    ?? (/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(head) ? head.slice(0, 7) : undefined)
+  return branch === undefined ? git.metadata : { ...git.metadata, branch }
 }
 
-async function readGithubOwner(directory: string): Promise<string | undefined> {
-  const gitDir = await findGitDir(directory)
-  if (gitDir === undefined) return undefined
-  const config = await readText(join(gitDir, 'config'))
+async function readCheckout(directory: string): Promise<GitCheckout | undefined> {
+  const dirs = await findGitDirs(directory)
+  if (dirs === undefined) return undefined
+  let repository: string
+  try {
+    repository = await realpath(dirs.common)
+  } catch {
+    return undefined
+  }
+  const githubOwner = githubOriginOwner(await readText(join(repository, 'config')))
+  return {
+    head: join(dirs.checkout, 'HEAD'),
+    metadata: githubOwner === undefined ? { repository } : { repository, githubOwner },
+  }
+}
+
+function githubOriginOwner(config: string | undefined): string | undefined {
   if (config === undefined) return undefined
   const section = /^[ \t]*\[remote[ \t]+"origin"\][ \t\r]*$([\s\S]*?)(?=^[ \t]*\[|(?![\s\S]))/m.exec(config)?.[1]
   const url = section === undefined ? undefined : /^[ \t]*url[ \t]*=[ \t]*(\S+)[ \t\r]*$/m.exec(section)?.[1]
@@ -34,17 +54,17 @@ async function readGithubOwner(directory: string): Promise<string | undefined> {
 }
 
 /** The nearest `.git` directory at or above `directory`; a worktree's `.git` file leads to its shared common directory. */
-async function findGitDir(directory: string): Promise<string | undefined> {
+async function findGitDirs(directory: string): Promise<{ checkout: string; common: string } | undefined> {
   for (let current = directory; ; current = dirname(current)) {
     const candidate = join(current, '.git')
     const kind = await entryKind(candidate)
-    if (kind === 'directory') return candidate
+    if (kind === 'directory') return { checkout: candidate, common: candidate }
     if (kind === 'file') {
       const pointer = /^gitdir:([^\r\n]*)/m.exec(await readText(candidate) ?? '')?.[1]?.trim()
       if (pointer === undefined || pointer === '') return undefined
-      const worktreeDir = resolve(current, pointer)
-      const common = (await readText(join(worktreeDir, 'commondir')))?.trim()
-      return common === undefined || common === '' ? worktreeDir : resolve(worktreeDir, common)
+      const checkout = resolve(current, pointer)
+      const common = (await readText(join(checkout, 'commondir')))?.trim()
+      return { checkout, common: common ? resolve(checkout, common) : checkout }
     }
     if (dirname(current) === current) return undefined
   }
