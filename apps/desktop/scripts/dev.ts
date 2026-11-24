@@ -230,6 +230,8 @@ async function main(): Promise<void> {
     dependencyDir: join(REPOSITORY_ROOT, 'node_modules', '.pnpm', 'node_modules'),
     release,
     target,
+    // The `--watch` overlay names this plugin; apps/desktop links it as a devDependency.
+    pluginDirs: [join(APP_ROOT, 'node_modules', '@janhq', 'jan-dev-reload')],
   })
   await preparePrimaryRuntime(target)
   if (!values.watch) {

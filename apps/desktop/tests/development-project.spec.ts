@@ -1,3 +1,4 @@
+import { createRuntimeResolution } from '@janhq/jan-app-boot'
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -51,6 +52,26 @@ describe('desktop development project', () => {
     const descriptor = JSON.parse(readFileSync(join(project, 'desktop-runtime.json'), 'utf8')) as { platform: string; arch: string; sharedPackages: unknown[] }
     expect(descriptor).toMatchObject({ platform: 'darwin', arch: 'arm64' })
     expect(descriptor.sharedPackages).toContainEqual({ name: 'unhoisted', version: '1.2.3', path: 'node_modules/unhoisted' })
+  })
+
+  it('declares development-only plugins so the runtime resolver can import them', async () => {
+    const root = temporaryRoot()
+    const cli = join(root, 'cli')
+    const host = join(root, 'host')
+    const plugin = join(root, 'dev-reload')
+    mkdirSync(join(cli, 'node_modules'), { recursive: true })
+    mkdirSync(join(host, 'lib'), { recursive: true })
+    mkdirSync(join(root, 'hoisted'))
+    mkdirSync(plugin)
+    writeFileSync(join(cli, 'package.json'), JSON.stringify({ name: '@janhq/jan', version: '1.2.3' }))
+    writeFileSync(join(host, 'package.json'), JSON.stringify({ name: '@janhq/jan-desktop-host', version: '1.2.3' }))
+    writeFileSync(join(host, 'lib/index.js'), '')
+    writeFileSync(join(plugin, 'package.json'), JSON.stringify({ name: '@janhq/jan-dev-reload', version: '1.2.3', private: true }))
+    const project = prepareDevelopmentProject({ projectDir: join(root, 'runtime'), cliDir: cli, hostDir: host,
+      dependencyDir: join(root, 'hoisted'), release: release(), target: 'mac-arm64', pluginDirs: [plugin] })
+    const resolution = await createRuntimeResolution({ installAnchor: join(project, 'package.json'), home: join(root, 'home') })
+    const entry = resolution.entries.find(candidate => candidate.name === '@janhq/jan-dev-reload')
+    expect(entry && realpathSync(entry.packageDir)).toBe(realpathSync(plugin))
   })
 
   it('manages development plugins without modifying the linked workspace packages', async () => {
