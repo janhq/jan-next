@@ -1274,6 +1274,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         throws: ['on cancellation, provider disposal, or expiry of this read\'s own `fetchTimeoutMs` deadline.'],
       },
       {
+        signature: 'async fetchAssets(ref: ChangeRequestRef, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets>',
+        description: 'Read assets for the displayed head without affecting polling.',
+        parameters: [{ name: 'ref', description: 'change request served by a registered provider.' }, { name: 'headSha', description: 'commit whose assets are requested.' }, { name: 'signal', description: 'cancellation of the detail view.' }],
+        returns: 'previews, artifacts, and any failures isolated to their sources.',
+      },
+      {
+        signature: 'async fetchFailureContext(ref: ChangeRequestRef, headSha: string, selection: ChangeRequestFailureSelection, signal: AbortSignal): Promise<ChangeRequestFailureContext | ForgeFailure>',
+        description: 'Read diagnostics for an explicit failure action without affecting polling.',
+        parameters: [{ name: 'ref', description: 'change request served by a registered provider.' }, { name: 'headSha', description: 'commit whose diagnostics are requested.' }, { name: 'selection', description: 'which checks or reviews to enrich.' }, { name: 'signal', description: 'cancellation of the action.' }],
+        returns: 'diagnostics, or a failure if the change request cannot be read.',
+      },
+      {
         signature: 'async diff(ref: ChangeRequestRef, signal: AbortSignal): Promise<string | ForgeFailure>',
         description: 'Read the changes of a change request as its host computes them.',
         parameters: [{ name: 'ref', description: 'change request served by a registered provider.' }, { name: 'signal', description: 'cancellation of the read.' }],
@@ -1388,6 +1400,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'session', description: 'Session retaining the visible binding.' }, { name: 'url', description: 'binding URL.' }, { name: 'headSha', description: 'commit displayed by the card; a different head rejects the result.' }, { name: 'signal', description: 'cancellation when the list closes.' }],
         returns: 'the complete snapshot at the displayed head.',
         throws: ['`forgePanel/not-bound` for an invisible binding, `forgePanel/stale-head` for a moved head, or `forgePanel/checks-failed` when the provider cannot complete the read.'],
+      },
+      {
+        signature: '@Remote async changeRequestAssets(session: Session, url: string, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets>',
+        description: 'Read previews and artifacts for a visible change request at the displayed head.',
+        parameters: [{ name: 'session', description: 'Session retaining the visible binding.' }, { name: 'url', description: 'binding URL.' }, { name: 'headSha', description: 'commit displayed by the card.' }, { name: 'signal', description: 'cancellation when the card closes.' }],
+        returns: 'previews, artifacts, and any individual read failures.',
+      },
+      {
+        signature: '@Remote async changeRequestFailureContext(session: Session, url: string, headSha: string, selection: ChangeRequestFailureSelection, signal: AbortSignal): Promise<ChangeRequestFailureContext>',
+        description: 'Read diagnostics for a fix-context action of a visible change request.',
+        parameters: [{ name: 'session', description: 'Session retaining the visible binding.' }, { name: 'url', description: 'binding URL.' }, { name: 'headSha', description: 'commit displayed by the card.' }, { name: 'selection', description: 'which failures to include.' }, { name: 'signal', description: 'cancellation when the card closes.' }],
+        returns: 'head-verified failure context, or throws if status could not be read.',
       },
       {
         signature: '@Remote async changeRequestDiff(session: Session, url: string, signal: AbortSignal): Promise<ForgeChangeRequestDiff>',
@@ -6641,8 +6665,32 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CatalogModelInfo {\n    id: string;\n    name: string;\n    bytes: number;\n    repo: string;\n    recommended: boolean;\n    installed: boolean;\n    vision: boolean;\n    fit?: ModelFit;\n}',
   },
   {
+    name: 'ChangeRequestArtifact',
+    declaration: 'export interface ChangeRequestArtifact {\n    readonly name: string;\n    readonly sizeBytes: number;\n    readonly expiresAt: string;\n    readonly expired: boolean;\n    readonly url: string;\n}',
+  },
+  {
+    name: 'ChangeRequestAssets',
+    declaration: 'export interface ChangeRequestAssets {\n    readonly previews: readonly ChangeRequestPreview[];\n    readonly artifacts: readonly ChangeRequestArtifact[];\n    readonly failures: readonly ForgeFailure[];\n    readonly truncated: boolean;\n}',
+  },
+  {
+    name: 'ChangeRequestBlockingReview',
+    declaration: 'export interface ChangeRequestBlockingReview {\n    readonly author: string | null;\n    readonly body: string;\n    readonly comments: readonly {\n        readonly path: string;\n        readonly line: number | null;\n        readonly body: string;\n    }[];\n}',
+  },
+  {
     name: 'ChangeRequestCheck',
-    declaration: 'export interface ChangeRequestCheck {\n    readonly name: string;\n    readonly state: CheckState;\n    readonly url: string | null;\n    readonly workflow: string | null;\n    readonly startedAt: string | null;\n    readonly completedAt: string | null;\n}',
+    declaration: 'export interface ChangeRequestCheck {\n    readonly name: string;\n    readonly state: CheckState;\n    readonly url: string | null;\n    readonly workflow: string | null;\n    readonly startedAt: string | null;\n    readonly completedAt: string | null;\n    readonly output?: {\n        readonly title: string | null;\n        readonly summary: string | null;\n    };\n}',
+  },
+  {
+    name: 'ChangeRequestFailureContext',
+    declaration: 'export interface ChangeRequestFailureContext {\n    readonly snapshot: ChangeRequestSnapshot;\n    readonly logs: readonly ChangeRequestFailureLog[];\n    readonly reviews: readonly ChangeRequestBlockingReview[];\n    readonly failures: readonly ForgeFailure[];\n    readonly truncated: boolean;\n}',
+  },
+  {
+    name: 'ChangeRequestFailureLog',
+    declaration: 'export interface ChangeRequestFailureLog {\n    readonly url: string;\n    readonly step: string;\n    readonly text: string;\n    readonly truncated: boolean;\n}',
+  },
+  {
+    name: 'ChangeRequestFailureSelection',
+    declaration: 'export type ChangeRequestFailureSelection = {\n    readonly kind: \'all\';\n} | {\n    readonly kind: \'review\';\n} | {\n    readonly kind: \'check\';\n    readonly name: string;\n    readonly workflow: string | null;\n    readonly url: string | null;\n};',
   },
   {
     name: 'ChangeRequestKey',
@@ -6651,6 +6699,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ChangeRequestListener',
     declaration: 'export type ChangeRequestListener = (update: ChangeRequestUpdate) => void;',
+  },
+  {
+    name: 'ChangeRequestPreview',
+    declaration: 'export interface ChangeRequestPreview {\n    readonly label: string;\n    readonly url: string;\n}',
   },
   {
     name: 'ChangeRequestRef',
@@ -7326,7 +7378,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ForgeProvider',
-    declaration: 'export interface ForgeProvider {\n    readonly forge: string;\n    submitReview?(ref: ChangeRequestRef, request: ForgeReviewRequest, signal: AbortSignal): Promise<ForgeReviewResult>;\n    repositoryFromRemote(url: string): ForgeRepository | undefined;\n    changeRequestFromUrl(url: string): ChangeRequestRef | undefined;\n    changeRequestUrl(ref: ChangeRequestRef): string;\n    fetch(refs: readonly ChangeRequestRef[], signal: AbortSignal): Promise<ReadonlyMap<ChangeRequestKey, ChangeRequestSnapshot | ForgeFailure>>;\n    fetchChecks?(ref: ChangeRequestRef, signal: AbortSignal): Promise<ChangeRequestSnapshot | ForgeFailure>;\n    findByHead(repository: ForgeRepository, branch: string, signal: AbortSignal): Promise<readonly ChangeRequestRef[]>;\n    readiness(host: string, signal: AbortSignal): Promise<ForgeReadiness>;\n    markReady(ref: ChangeRequestRef, signal: AbortSignal): Promise<ForgeActionFailure | undefined>;\n    merge(ref: ChangeRequestRef, request: MergeRequest, signal: AbortSignal): Promise<ForgeActionFailure | undefined>;\n    diff(ref: ChangeRequestRef, signal: AbortSignal): Promise<string | ForgeFailure>;\n    fileText(ref: ChangeRequestRef, commit: string, path: string, signal: AbortSignal): Promise<string | ForgeFailure>;\n    fileUrl(ref: ChangeRequestRef, commit: string, path: string): string;\n}',
+    declaration: 'export interface ForgeProvider {\n    readonly forge: string;\n    submitReview?(ref: ChangeRequestRef, request: ForgeReviewRequest, signal: AbortSignal): Promise<ForgeReviewResult>;\n    repositoryFromRemote(url: string): ForgeRepository | undefined;\n    changeRequestFromUrl(url: string): ChangeRequestRef | undefined;\n    changeRequestUrl(ref: ChangeRequestRef): string;\n    fetch(refs: readonly ChangeRequestRef[], signal: AbortSignal): Promise<ReadonlyMap<ChangeRequestKey, ChangeRequestSnapshot | ForgeFailure>>;\n    fetchChecks?(ref: ChangeRequestRef, signal: AbortSignal): Promise<ChangeRequestSnapshot | ForgeFailure>;\n    fetchAssets?(ref: ChangeRequestRef, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets>;\n    fetchFailureContext?(ref: ChangeRequestRef, headSha: string, selection: ChangeRequestFailureSelection, signal: AbortSignal): Promise<ChangeRequestFailureContext | ForgeFailure>;\n    findByHead(repository: ForgeRepository, branch: string, signal: AbortSignal): Promise<readonly ChangeRequestRef[]>;\n    readiness(host: string, signal: AbortSignal): Promise<ForgeReadiness>;\n    markReady(ref: ChangeRequestRef, signal: AbortSignal): Promise<ForgeActionFailure | undefined>;\n    merge(ref: ChangeRequestRef, request: MergeRequest, signal: AbortSignal): Promise<ForgeActionFailure | undefined>;\n    diff(ref: ChangeRequestRef, signal: AbortSignal): Promise<string | ForgeFailure>;\n    fileText(ref: ChangeRequestRef, commit: string, path: string, signal: AbortSigna /* …truncated — full shape in source */',
   },
   {
     name: 'ForgeReadiness',
