@@ -8,8 +8,9 @@
 
 import type { IndexInjection } from '@janhq/jan-host-webserver'
 import {
-  DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, FONT_ROLES, FONT_SIZE_SPECS, fontFamilyVariable, normalizeFontFamily,
-  type FontFamilies, type FontSizes, type ThemePreference,
+  CODE_THEME_ATTRIBUTE, DEFAULT_CODE_THEME, DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, FONT_ROLES, FONT_SIZE_SPECS,
+  fontFamilyVariable, normalizeFontFamily,
+  type CodeTheme, type FontFamilies, type FontSizes, type ThemePreference,
 } from './theme-settings.ts'
 
 const LIGHT_BACKGROUND = '#fff'
@@ -25,7 +26,7 @@ function bootThemeStyle(preference: ThemePreference): string {
 }
 
 /** Build the body script that installs the palette selector and font variables. */
-function bootThemeBodyScript(preference: ThemePreference, fontSizes: FontSizes, fontFamilies: FontFamilies): string {
+function bootThemeBodyScript(preference: ThemePreference, fontSizes: FontSizes, fontFamilies: FontFamilies, codeTheme: CodeTheme): string {
   const sizes = FONT_ROLES.map(role =>
     `\n  document.body.style.setProperty(${JSON.stringify(FONT_SIZE_SPECS[role].variable)}, ${JSON.stringify(`${fontSizes[role]}px`)})`).join('')
   const families = FONT_ROLES.flatMap((kind) => {
@@ -39,7 +40,8 @@ function bootThemeBodyScript(preference: ThemePreference, fontSizes: FontSizes, 
     && matchMedia('(prefers-color-scheme: dark)').matches
   const dark = preference === 'dark' || systemDark
   document.documentElement.dataset.dsThemeSource = preference
-  document.body.toggleAttribute('data-ds-dark-theme', dark)${sizes}${families}
+  document.body.toggleAttribute('data-ds-dark-theme', dark)
+  document.body.setAttribute(${JSON.stringify(CODE_THEME_ATTRIBUTE)}, ${JSON.stringify(codeTheme)})${sizes}${families}
 })()`
 }
 
@@ -50,15 +52,17 @@ function bootThemeBodyScript(preference: ThemePreference, fontSizes: FontSizes, 
  * @param preference - Current Host-backed built-in preference.
  * @param fontSizes - Current Host-backed font sizes in px by role.
  * @param fontFamilies - Current Host-backed font lists; each is normalized before embedding.
+ * @param codeTheme - Current Host-backed syntax theme.
  * @returns head and body script rows in execution order.
  */
 export function bootThemeInjections(
   preference: ThemePreference = DEFAULT_PREFERENCE,
   fontSizes: FontSizes = DEFAULT_FONT_SIZES,
   fontFamilies: FontFamilies = { text: '', code: '', terminal: '' },
+  codeTheme: CodeTheme = DEFAULT_CODE_THEME,
 ): IndexInjection[] {
   return [
     { kind: 'style', text: bootThemeStyle(preference) },
-    { kind: 'script', placement: 'body', text: bootThemeBodyScript(preference, fontSizes, fontFamilies) },
+    { kind: 'script', placement: 'body', text: bootThemeBodyScript(preference, fontSizes, fontFamilies, codeTheme) },
   ]
 }

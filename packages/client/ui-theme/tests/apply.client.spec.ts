@@ -168,6 +168,17 @@ describe('ui-theme apply', () => {
     await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(3) })
   })
 
+  it('projects the syntax theme into the shared font store and routes group writes back', async () => {
+    const b = await bench()
+    declareItems(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const theme = b.ctx.get('theme') as ThemeRuntime
+    const group = fontSettingsFaceOf(b.slots)
+    group.face.setCodeTheme('classic')
+    expect(theme.getTheme().codeTheme).toBe('classic')
+    expect(group.instance.getSnapshot().codeTheme).toBe('classic')
+  })
+
   it('loads Host settings at boot, refreshes its namespace, and persists for a trusted remote page', async () => {
     const b = await bench()
     // The shared mirror read once at bench time; a Host-side change reaches it

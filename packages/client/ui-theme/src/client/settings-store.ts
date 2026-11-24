@@ -4,7 +4,7 @@
  * row components read via props.useStore.
  */
 import { defineStore, type EngineStoreHandle } from '@janhq/jan-client-store'
-import { DEFAULT_FONT_SIZES, type FontFamilies, type FontSizes, type ThemePreference } from '../theme-settings.ts'
+import { DEFAULT_CODE_THEME, DEFAULT_FONT_SIZES, type CodeTheme, type FontFamilies, type FontSizes, type ThemePreference } from '../theme-settings.ts'
 
 /** Store state mirrored from the theme snapshot. */
 export interface AppearanceRowState {
@@ -36,19 +36,24 @@ export function createAppearanceRowStore(): EngineStoreHandle<AppearanceRowState
   })
 }
 
-/** Store state mirrored from the theme snapshot's fonts (shared by the font-size row and the font settings group). */
+/**
+ * Store state mirrored from the theme snapshot's fonts and syntax theme
+ * (shared by the font rows, the syntax theme row, and the font settings group).
+ */
 export interface FontRowState {
   /** Persisted font sizes in px by role. */
   fontSizes: FontSizes
   /** Persisted normalized font lists by role. */
   fontFamilies: FontFamilies
+  /** Persisted syntax theme. */
+  codeTheme: CodeTheme
   /** Service revision; -1 until first sync so revision 0 lands as a change. */
   revision: number
 }
 
 /** Declared action shape giving the exported factory a stable return type. */
 type FontRowActions = {
-  sync: (draft: FontRowState, fontSizes: FontSizes, fontFamilies: FontFamilies, revision: number) => void
+  sync: (draft: FontRowState, fontSizes: FontSizes, fontFamilies: FontFamilies, codeTheme: CodeTheme, revision: number) => void
 }
 
 /**
@@ -57,12 +62,13 @@ type FontRowActions = {
  */
 export function createFontRowStore(): EngineStoreHandle<FontRowState, FontRowActions> {
   return defineStore({
-    init: (): FontRowState => ({ fontSizes: DEFAULT_FONT_SIZES, fontFamilies: { text: '', code: '', terminal: '' }, revision: -1 }),
+    init: (): FontRowState => ({ fontSizes: DEFAULT_FONT_SIZES, fontFamilies: { text: '', code: '', terminal: '' }, codeTheme: DEFAULT_CODE_THEME, revision: -1 }),
     actions: {
-      sync: (d, fontSizes: FontSizes, fontFamilies: FontFamilies, revision: number) => {
+      sync: (d, fontSizes: FontSizes, fontFamilies: FontFamilies, codeTheme: CodeTheme, revision: number) => {
         if (revision <= d.revision) return
         d.fontSizes = fontSizes
         d.fontFamilies = fontFamilies
+        d.codeTheme = codeTheme
         d.revision = revision
       },
     },

@@ -7,6 +7,36 @@
 :root {
   --shiki-foreground: var(--dsw-alias-label-primary);
   --shiki-background: var(--dsw-alias-markdown-code-block);
+  /* GitHub Light palette */
+  --shiki-token-constant: #0550ae;
+  --shiki-token-string: #0a3069;
+  --shiki-token-comment: #6e7781;
+  --shiki-token-keyword: #cf222e;
+  --shiki-token-parameter: #953800;
+  --shiki-token-function: #8250df;
+  --shiki-token-string-expression: #0a3069;
+  --shiki-token-punctuation: #24292f;
+  --shiki-token-link: #0969da;
+}
+
+/* GitHub Dark palette */
+body[data-ds-dark-theme] {
+  --shiki-token-constant: #79c0ff;
+  --shiki-token-string: #a5d6ff;
+  --shiki-token-comment: #8b949e;
+  --shiki-token-keyword: #ff7b72;
+  --shiki-token-parameter: #ffa657;
+  --shiki-token-function: #d2a8ff;
+  --shiki-token-string-expression: #a5d6ff;
+  --shiki-token-punctuation: #c9d1d9;
+  --shiki-token-link: #58a6ff;
+}
+
+/* Selectable syntax themes: `body[data-ds-code-theme]` overrides the default
+   GitHub palette above. Each theme defines both color schemes. */
+
+/* Classic palette (light) */
+body[data-ds-code-theme='classic']:not([data-ds-dark-theme]) {
   --shiki-token-constant: #1c7ed6;
   --shiki-token-string: #2f9e44;
   --shiki-token-comment: #868e96;
@@ -18,7 +48,8 @@
   --shiki-token-link: #1971c2;
 }
 
-body[data-ds-dark-theme] {
+/* Classic palette (dark) */
+body[data-ds-code-theme='classic'][data-ds-dark-theme] {
   --shiki-token-constant: #4dabf7;
   --shiki-token-string: #69db7c;
   --shiki-token-comment: #adb5bd;
@@ -28,4 +59,30 @@ body[data-ds-dark-theme] {
   --shiki-token-string-expression: #8ce99a;
   --shiki-token-punctuation: #ced4da;
   --shiki-token-link: #74c0fc;
+}
+
+/* Solarized palette (light) */
+body[data-ds-code-theme='solarized']:not([data-ds-dark-theme]) {
+  --shiki-token-constant: #268bd2;
+  --shiki-token-string: #2aa198;
+  --shiki-token-comment: #657b83;
+  --shiki-token-keyword: #859900;
+  --shiki-token-parameter: #cb4b16;
+  --shiki-token-function: #b58900;
+  --shiki-token-string-expression: #2aa198;
+  --shiki-token-punctuation: #586e75;
+  --shiki-token-link: #268bd2;
+}
+
+/* Solarized palette (dark) */
+body[data-ds-code-theme='solarized'][data-ds-dark-theme] {
+  --shiki-token-constant: #268bd2;
+  --shiki-token-string: #2aa198;
+  --shiki-token-comment: #93a1a1;
+  --shiki-token-keyword: #859900;
+  --shiki-token-parameter: #cb4b16;
+  --shiki-token-function: #b58900;
+  --shiki-token-string-expression: #2aa198;
+  --shiki-token-punctuation: #93a1a1;
+  --shiki-token-link: #268bd2;
 }

@@ -22,11 +22,24 @@ afterEach(() => {
   vi.unstubAllGlobals()
   delete document.documentElement.dataset.dsThemeSource
   document.body.removeAttribute(DARK_ATTRIBUTE)
+  document.body.removeAttribute('data-ds-code-theme')
   for (const name of ['--jan-content-font-size', '--jan-code-font-size', '--jan-terminal-font-size']) document.body.style.removeProperty(name)
   for (const kind of ['text', 'code', 'terminal']) document.body.style.removeProperty(`--jan-font-family-${kind}`)
 })
 
 describe('theme bootstrap row', () => {
+  it('installs the syntax theme attribute, defaulting to github', () => {
+    mockSystemDark(false)
+    for (const row of bootThemeInjections('light')) {
+      if (row.kind === 'script') runInNewContext(row.text, { document, matchMedia: globalThis.matchMedia })
+    }
+    expect(document.body.getAttribute('data-ds-code-theme')).toBe('github')
+    for (const row of bootThemeInjections('light', undefined, undefined, 'solarized')) {
+      if (row.kind === 'script') runInNewContext(row.text, { document, matchMedia: globalThis.matchMedia })
+    }
+    expect(document.body.getAttribute('data-ds-code-theme')).toBe('solarized')
+  })
+
   it('colors the body with head CSS before applying body state', () => {
     mockSystemDark(false)
     const [head, body] = bootThemeInjections('dark')

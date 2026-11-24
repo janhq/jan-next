@@ -663,13 +663,15 @@ export interface Config {
 ## `@janhq/jan-client-ui-theme`
 
 - `refs`: `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/client/ui-theme/src/index.ts:20`](../packages/client/ui-theme/src/index.ts)
+- `source`: [`packages/client/ui-theme/src/index.ts:21`](../packages/client/ui-theme/src/index.ts)
 
 ```ts config-catalog
 /** Runtime preferences projected to the browser. */
 export interface Config {
   /** Browser palette preference. */
   preference: Volatile<ThemePreference>
+  /** Syntax theme for code blocks and diffs. */
+  codeTheme: Volatile<CodeTheme>
   /** Browser font size in pixels. */
   fontSize: Volatile<number>
   /** Code-block font size in pixels. */
@@ -686,6 +688,9 @@ export interface Config {
 
 /** Theme preference persisted by the product Appearance row. */
 export type ThemePreference = typeof THEME_PREFERENCES[number]
+
+/** Syntax theme for code blocks and diffs. */
+export type CodeTheme = typeof CODE_THEMES[number]
 ```
 
 <a id="janhqjan-client-ui-trajectory"></a>

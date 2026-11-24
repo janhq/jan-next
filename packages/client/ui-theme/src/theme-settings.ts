@@ -17,6 +17,21 @@ export const FONT_SIZE_FIELD = 'fontSize'
 /** Theme preference persisted by the product Appearance row. */
 export type ThemePreference = typeof THEME_PREFERENCES[number]
 
+/** Syntax themes accepted at the registry and settings boundaries; `shiki.css` defines each palette. */
+export const CODE_THEMES = ['github', 'classic', 'solarized'] as const
+
+/** Field carrying the selected syntax theme. */
+export const CODE_THEME_FIELD = 'codeTheme'
+
+/** Body attribute selecting the syntax theme palette in `shiki.css`. */
+export const CODE_THEME_ATTRIBUTE = 'data-ds-code-theme'
+
+/** Syntax theme for code blocks and diffs. */
+export type CodeTheme = typeof CODE_THEMES[number]
+
+/** Syntax theme when the user-settings document has no override. */
+export const DEFAULT_CODE_THEME: CodeTheme = 'github'
+
 /** Default preference when the user-settings document has no override. */
 export const DEFAULT_PREFERENCE: ThemePreference = 'system'
 
@@ -92,6 +107,8 @@ export type FontFamilies = Readonly<Record<FontRole, string>>
 export interface ThemeSettings {
   /** Selected built-in preference. */
   preference: ThemePreference
+  /** Selected syntax theme. */
+  codeTheme: CodeTheme
   /** Conversation content font size in px (integer within {@link FONT_SIZE_MIN}..{@link FONT_SIZE_MAX}). */
   fontSize: number
   /** Code-block font size in px (integer within the {@link FONT_SIZE_SPECS} `code` range). */
@@ -138,6 +155,7 @@ export function isFontSize(role: FontRole, px: number): boolean {
 /** Durable theme schema; also the wire envelope the browser scope validates against. */
 export const ThemeSettingsSchema: z<ThemeSettings> = z.object({
   [THEME_PREFERENCE_FIELD]: z.union([...THEME_PREFERENCES]).default(DEFAULT_PREFERENCE),
+  [CODE_THEME_FIELD]: z.union([...CODE_THEMES]).default(DEFAULT_CODE_THEME),
   [FONT_SIZE_FIELD]: fontSizeSchema(FONT_SIZE_SPECS.text),
   [FONT_SIZE_SPECS.code.field]: fontSizeSchema(FONT_SIZE_SPECS.code),
   [FONT_SIZE_SPECS.terminal.field]: fontSizeSchema(FONT_SIZE_SPECS.terminal),
@@ -175,4 +193,13 @@ export function normalizeFontFamily(value: string): string {
  */
 export function isThemePreference(value: unknown): value is ThemePreference {
   return THEME_PREFERENCES.some(preference => preference === value)
+}
+
+/**
+ * Narrow one wire or registry value to a persistable syntax theme.
+ * @param value - value crossing the settings boundary.
+ * @returns whether the value is a built-in syntax theme.
+ */
+export function isCodeTheme(value: unknown): value is CodeTheme {
+  return CODE_THEMES.some(theme => theme === value)
 }
