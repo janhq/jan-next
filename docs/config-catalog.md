@@ -1102,7 +1102,7 @@ export type SourceSigning = 'ad-hoc' | {
 
 ## `@janhq/jan-experimental-forge`
 
-- `source`: [`packages/experimental/forge/src/types.ts:232`](../packages/experimental/forge/src/types.ts)
+- `source`: [`packages/experimental/forge/src/types.ts:290`](../packages/experimental/forge/src/types.ts)
 
 ```ts config-catalog
 /** Poll cadence and fetch deadline for watched change requests. */
@@ -4919,6 +4919,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@janhq/jan-api-remotes` | `typertGateway` | [`packages/api/remotes/src/index.ts`](../packages/api/remotes/src/index.ts) |
 | `@janhq/jan-authorization` | `credentials` | [`packages/credentials/authorization/src/index.ts`](../packages/credentials/authorization/src/index.ts) |
 | `@janhq/jan-browser-use` | — | [`packages/browser-use/browser-use/src/index.ts`](../packages/browser-use/browser-use/src/index.ts) |
+| `@janhq/jan-btw` | `llm` · `systemPrompt` · `tools` | [`packages/session/btw/src/index.ts`](../packages/session/btw/src/index.ts) |
 | `@janhq/jan-client-file-upload` | `agents` · `attachments` · `commands` · `connection` | [`packages/client/file-upload/src/index.ts`](../packages/client/file-upload/src/index.ts) |
 | `@janhq/jan-client-locale` | — | [`packages/client/locale/src/index.ts`](../packages/client/locale/src/index.ts) |
 | `@janhq/jan-client-modules` | `loader` | [`packages/client/modules/src/index.ts`](../packages/client/modules/src/index.ts) |
