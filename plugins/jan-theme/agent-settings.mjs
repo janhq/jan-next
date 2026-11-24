@@ -315,8 +315,7 @@ export async function mountAgentSettings(ctx, config) {
     await ctx.plugin(filesystem, { providerName: 'jan-theme-custom', includeDefaultRoots: false, customSkillDirs: config.skillDirectories })
   }
   const signInLabel = (row) => row.transport === 'streamable-http' && TOKEN_ROUTES[hostOf(row.url)]
-  const publicRows = async () => Promise.all(servers.map(async row => {
-    const tools = ctx.tools.definitions().filter(tool => tool.name.startsWith(`mcp__${row.name}__`)).map(toolInfo)
+  const describeServer = (row, tools) => {
     const current = status.get(row.name) ?? { phase: 'connecting' }
     const pending = pendingSignIns.get(row.name)
     const signingIn = pending?.endpoint === row.url ? pending : undefined
@@ -324,6 +323,11 @@ export async function mountAgentSettings(ctx, config) {
       : signingIn ? 'signing-in'
         : tools.length ? 'ready'
           : current.phase === 'connected' ? 'empty' : current.phase
+    return { current, signingIn, state }
+  }
+  const publicRows = async () => Promise.all(servers.map(async row => {
+    const tools = ctx.tools.definitions().filter(tool => mcp.mcpToolOrigin(tool)?.serverName === row.name).map(toolInfo)
+    const { current, signingIn, state } = describeServer(row, tools)
     const managed = composio(row)
     const secret = managed ? undefined : (await credentials.readRecord(key(row.name)))?.payload
     const grant = !managed && row.transport === 'streamable-http' ? await readGrant(row) : undefined
@@ -404,6 +408,22 @@ export async function mountAgentSettings(ctx, config) {
   }
   ctx.provide('janMcpSettings', {
     configuredNames,
+    projectTools() {
+      const toolsByServer = new Map()
+      for (const definition of ctx.tools.definitions()) {
+        const origin = mcp.mcpToolOrigin(definition)
+        if (origin === undefined) continue
+        const tools = toolsByServer.get(origin.serverName) ?? []
+        tools.push(definition.name)
+        toolsByServer.set(origin.serverName, tools)
+      }
+      return servers.map(row => {
+        const tools = toolsByServer.get(row.name) ?? []
+        const { current, state } = describeServer(row, tools)
+        const connector = RECOMMENDED_CONNECTORS.find(item => item.serverName === row.name && (item.setup !== 'project-key' || composio(row)))
+        return { name: row.name, title: connector?.title ?? row.name, connector: connector !== undefined, state: current.statusCode === 'composio-invalid-key' ? 'needs-auth' : state, tools }
+      })
+    },
     async importMissing(document) {
       const existing = new Set(configuredNames())
       const entries = Object.entries(document)

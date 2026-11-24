@@ -14,9 +14,10 @@ window.__ModuleLoader__.load({
       IconToolOutlineMedium, IconSkillOutlineMedium, IconDownloadOutlineRegular,
       NavRow, SectionHeading, ColorSwatchGroup, WindowControls,
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
-      IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
+      IconWarningTriangleOutlineRegular, IconCloseOutlineRegular,
       IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular, IconBranchOutlineRegular, StateDot,
       IconEditOutlineRegular, relativeTime,
+      Tooltip, IconChevronRightOutlineRegular, IconRefreshOutlineRegular,
     } = require('@janhq/jan-client-ui-primitives')
     const { workspaceDisplayTitle } = require('@janhq/jan-api-workspace-controller/client')
     // Optional: the matching host publishes the dock model seat. An older
@@ -1116,15 +1117,11 @@ window.__ModuleLoader__.load({
   a.jt-project-git-chip { cursor: pointer; }
   a.jt-project-git-chip:hover { background: var(--dsw-specific-selector); color: var(--dsw-alias-label-primary); }
   a.jt-project-git-chip:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
-  .jt-project-composer { display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 10px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); }
-  .jt-project-composer:focus-within { border-color: var(--dsw-alias-state-business-primary); }
-  .jt-project-composer textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 240px; padding: 4px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; field-sizing: content; }
-  .jt-project-composer textarea::placeholder { color: var(--dsw-alias-label-tertiary); }
-  .jt-project-composer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .jt-project-hint { color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
-  .jt-project-send { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 999px; background: var(--dsw-alias-state-business-primary); color: #fff; cursor: pointer; }
-  .jt-project-send:disabled { opacity: 0.4; cursor: default; }
-  .jt-project-send:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
+  /* The project's blank chat brings its own composer card; this box only reserves its height while it connects. */
+  .jt-project-composer { display: flex; flex-direction: column; gap: 8px; min-height: 120px; }
+  /* The page column already keeps the card off the window edge, so the composer's own side clearance would double it. */
+  .jt-project-conversation { display: flex; flex-direction: column; min-width: 0; }
+  .jt-project-conversation [data-conversation-content] { --jan-composer-side-clearance: 0px; --jan-composer-card-max-width: 100%; overflow: visible; }
   .jt-project-recents { margin-top: 32px; }
   .jt-project-heading { margin: 0 0 8px; color: var(--dsw-alias-label-secondary); font-size: 13px; font-weight: 500; line-height: 20px; }
   .jt-project-sessions { margin: 0; padding: 0; list-style: none; border-top: 0.5px solid var(--dsw-alias-border-l2); }
@@ -1138,6 +1135,10 @@ window.__ModuleLoader__.load({
   .jt-project-session-status { display: inline-flex; flex: none; align-items: center; gap: 6px; align-self: center; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 16px; }
   .jt-project-empty { margin: 0; padding: 20px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
   .jt-project-rail { display: flex; flex-direction: column; gap: 12px; align-self: start; position: sticky; top: 24px; }
+  .jt-project-rail-actions { display: flex; justify-content: flex-end; }
+  .jt-project-refresh-spin { animation: jt-project-refresh-spin var(--ds-transition-duration-loop) linear infinite; }
+  @keyframes jt-project-refresh-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .jt-project-refresh-spin { animation: none; } }
   .jt-project-card { padding: 14px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; }
   .jt-project-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .jt-project-card-head h2 { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; }
@@ -1161,6 +1162,9 @@ window.__ModuleLoader__.load({
   .jt-project-skill-expand { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .jt-project-skill-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .jt-project-skill-meta { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .jt-project-skill-expand[aria-expanded='true'] .jt-project-tool-chevron { transform: rotate(90deg); }
+  .jt-project-tool-chevron { flex: none; transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
+  @media (prefers-reduced-motion: reduce) { .jt-project-tool-chevron { transition: none; } }
   .jt-project-error { margin: 8px 0 0; color: var(--dsw-alias-state-error-primary); font-size: 13px; line-height: 18px; }
   /* Text-style card links align with the card text instead of the button's inner padding. */
   .jt-project-card .jt-project-link { margin: 6px 0 0 -10px; }
@@ -1810,6 +1814,8 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
     // Project home: one Workspace's page. Which project it shows is a plain
     // module store, because the main panel registration is shared by all.
     const PROJECT_PANEL = 'jt-project'
+    /** Session-scoped slot that hosts the project's blank chat inside the project page. */
+    const PROJECT_CONVERSATION = 'jan-theme.project.conversation'
     const currentProject = (() => {
       let workspaceId = null
       const listeners = new Set()
@@ -1941,26 +1947,48 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
         error && h('p', { className: 'jt-project-error', role: 'alert' }, error)))
     }
 
-    // Skill folders and skills a chat in this project loads; a switch hides one from new turns here only.
-    function ProjectSkills({ workspaceId, t }) {
+    function useProjectRailRead(method, workspaceId, refreshToken) {
       const [data, setData] = React.useState(null)
       const [error, setError] = React.useState('')
-      const [open, setOpen] = React.useState(() => new Set())
-      const [busy, setBusy] = React.useState(false)
+      const [pending, setPending] = React.useState(true)
       const [version, reload] = React.useReducer(value => value + 1, 0)
+      const completedRefresh = React.useRef(null)
       React.useEffect(() => {
         const controller = new AbortController()
-        void projectApi('skills', { workspaceId }, controller.signal).then(
-          (next) => { if (!controller.signal.aborted) { setData(next); setError('') } },
-          (failure) => { if (!controller.signal.aborted) setError(failure.message) },
-        )
+        const { signal } = controller
+        const refreshing = refreshToken !== null && completedRefresh.current !== refreshToken
+        setPending(true)
+        void projectApi(method, { workspaceId, ...(method === 'skills' && refreshing ? { rescan: true } : {}) }, signal).then(
+          (next) => { if (!signal.aborted) { setData(next); setError('') } },
+          (failure) => { if (!signal.aborted) setError(failure.message) },
+        ).finally(() => {
+          if (signal.aborted) return
+          setPending(false)
+          completedRefresh.current = refreshToken
+          if (refreshing) refreshToken.complete(method)
+        })
         return () => { controller.abort() }
-      }, [workspaceId, version])
-      const toggle = (method, params) => {
-        setBusy(true)
+      }, [method, workspaceId, version, refreshToken])
+      return { data, error, pending, reload, setError }
+    }
+
+    function useProjectRailSwitches(method, workspaceId, refreshToken) {
+      const { data, error, pending, reload, setError } = useProjectRailRead(method, workspaceId, refreshToken)
+      const [saving, setSaving] = React.useState(false)
+      const toggle = async (operation, params) => {
+        setSaving(true)
         setError('')
-        projectApi(method, { workspaceId, ...params }).then(() => { reload() }, (failure) => { setError(failure.message) }).finally(() => { setBusy(false) })
+        try { await projectApi(operation, { workspaceId, ...params }); reload() }
+        catch (failure) { setError(failure.message) }
+        finally { setSaving(false) }
       }
+      return { data, error, busy: saving || pending, toggle }
+    }
+
+    // Skill folders and skills a chat in this project loads; a switch hides one from new turns here only.
+    function ProjectSkills({ workspaceId, refreshToken, t }) {
+      const { data, error, busy, toggle } = useProjectRailSwitches('skills', workspaceId, refreshToken)
+      const [open, setOpen] = React.useState(() => new Set())
       const folders = data?.folders ?? []
       const total = folders.reduce((sum, folder) => sum + folder.skills.length, 0)
       const active = folders.reduce((sum, folder) => sum + (folder.enabled ? folder.skills.filter(skill => skill.enabled).length : 0), 0)
@@ -1997,6 +2025,43 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
             })),
         h('p', { className: 'jt-project-editor-note' }, t('project.skills.note')),
         error && h('p', { className: 'jt-project-error', role: 'alert' }, error))
+    }
+
+    function ProjectTools({ workspaceId, refreshToken, openConnectors, card, t }) {
+      const { data, error, busy, toggle } = useProjectRailSwitches('tools', workspaceId, refreshToken)
+      const [open, setOpen] = React.useState(() => new Set(['mcp', 'connectors']))
+      const groups = data === null ? [] : Object.entries(data).filter(([, rows]) => rows.length !== 0)
+      let active = 0
+      let total = 0
+      for (const [, rows] of groups) {
+        total += rows.length
+        for (const row of rows) if (row.enabled) active++
+      }
+      return card('project.tools.title', data !== null && h('span', { className: 'jt-project-skill-count' }, t('project.tools.count', { active, total })),
+        h(React.Fragment, null,
+          data === null && !error && h('p', { className: 'jt-project-card-text' }, t('loading')),
+          data !== null && total === 0 && h('p', { className: 'jt-project-card-text', 'data-empty': true }, t('project.tools.empty')),
+          groups.length !== 0 && h('ul', { className: 'jt-project-skill-folders' }, groups.map(([group, rows]) => {
+            const expanded = open.has(group)
+            return h('li', { key: group, className: 'jt-project-skill-folder' },
+              h('div', { className: 'jt-project-skill-row' },
+                h('button', {
+                  type: 'button', className: 'jt-project-skill-expand', 'aria-expanded': expanded,
+                  onClick: () => setOpen(current => { const next = new Set(current); if (next.has(group)) next.delete(group); else next.add(group); return next }),
+                }, h(IconChevronRightOutlineRegular, { size: 16, className: 'jt-project-tool-chevron' }),
+                h('span', { className: 'jt-project-skill-name' }, t(`project.tools.${group}`)),
+                h('span', { className: 'jt-project-skill-meta' }, rows.length))),
+              expanded && h('ul', { className: 'jt-project-skill-list' }, rows.map(row => h('li', {
+                key: row.id, className: 'jt-project-skill-row', 'data-off': row.globallyOff || undefined,
+              }, h('span', { className: 'jt-project-skill-name', title: row.name }, row.name),
+              h('span', { className: 'jt-project-skill-meta' }, t(`project.tools.${row.globallyOff ? 'offGlobally' : row.status}`)),
+              h(Switch, {
+                label: t('project.tools.toggle', { name: row.name }), checked: row.enabled, disabled: busy || row.globallyOff || !row.canToggle,
+                onChange: enabled => { void toggle('setTool', { group, id: row.id, enabled }) },
+              })))))
+          })),
+          h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: openConnectors }, t('project.tools.manage')),
+          error && h('p', { className: 'jt-project-error', role: 'alert' }, error)))
     }
 
     function ProjectHome({ useProject, useWorkspaces, backToProjects, t, ...props }) {
@@ -2113,13 +2178,33 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
       return { state: 'ongoing', label: t(running === 1 ? 'project.status.subagents.one' : 'project.status.subagents.other', { n: running }) }
     }
 
-    function ProjectDetails({ workspace, useArchived, useSessions, useSessionStatus, useScheduleTasks, startSession, openChat, editProject, backToProjects, createSchedule, openScheduled, t }) {
+    // The project's blank chat, rendered with the real chat composer: model, mode, agent,
+    // attachments and slash commands all belong to that Session, exactly as on New Chat.
+    function ProjectConversation({ sessionId, useSession, useConversation, useSessions, renderFactorySlot, onStarted }) {
+      const session = useSession(value => value)
+      const conversation = useConversation(value => value)
+      const summaryBlank = useSessions(state => state.byId[sessionId]?.blank)
+      const started = session.promptAttempted || session.running || conversation.activeTargets.size > 0
+        || (!session.blank && !session.awaitingFirstTurn)
+      React.useEffect(() => { if (started) onStarted(sessionId) }, [started, sessionId])
+      const settling = !started && session.openState === 'loading' && summaryBlank !== true
+      const hero = !started && (session.openState === 'open' || summaryBlank === true)
+      return h('div', { className: 'jt-project-conversation' },
+        renderFactorySlot('conversation.content', { variant: 'embedded', phase: settling ? 'settling' : hero ? 'hero' : 'active', hero }, {
+          slots: { views: ProjectConversationViews },
+        }))
+    }
+    const ProjectConversationViews = props => props.renderSlot('conversation.session', { view: 'chat' })
+
+    function ProjectDetails({ workspace, useArchived, useSessions, useSessionStatus, useScheduleTasks, connectDraft, SessionProvider, renderSlot, openChat, editProject, backToProjects, createSchedule, openScheduled, refreshScheduled, openConnectors, t }) {
       const { workspaceId } = workspace
       const title = workspaceDisplayTitle(workspace, t('workspace.defaultName'))
       const sessions = useSessions(value => value)
       const archivedIds = useArchived(value => value)
-      const [details, setDetails] = React.useState(null)
-      const [error, setError] = React.useState('')
+      const [refreshToken, setRefreshToken] = React.useState(null)
+      const [refreshing, setRefreshing] = React.useState(false)
+      const [refreshError, setRefreshError] = React.useState('')
+      const inFlight = React.useRef(null)
       const [editing, setEditing] = React.useState(null)
       const { records: tasks, status: taskStatus } = useScheduleTasks(value => value)
       const [addingTask, setAddingTask] = React.useState(false)
@@ -2134,18 +2219,56 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
       const copyPath = () => {
         navigator.clipboard.writeText(workspace.path).then(() => { setPathCopied(true) }, failure => { setFileError(failure.message) })
       }
-      const [draft, setDraft] = React.useState('')
-      const fileInput = React.useRef(null)
-      const [detailsVersion, reloadDetails] = React.useReducer(version => version + 1, 0)
+      // Retain the project's blank for as long as the page shows it; sending opens it as a chat.
+      const [draft, setDraft] = React.useState(null)
+      const [draftError, setDraftError] = React.useState('')
       React.useEffect(() => {
         const controller = new AbortController()
-        const { signal } = controller
-        void projectApi('read', { workspaceId }, signal).then(
-          (next) => { if (!signal.aborted) { setDetails(next); setError('') } },
-          (failure) => { if (!signal.aborted) setError(failure.message) },
+        let reference
+        connectDraft(workspaceId).then(
+          (next) => { if (controller.signal.aborted) next.release(); else { reference = next; setDraft(next); setDraftError('') } },
+          (failure) => { if (!controller.signal.aborted) setDraftError(failure.message) },
         )
-        return () => { controller.abort() }
-      }, [workspaceId, detailsVersion])
+        return () => { controller.abort(); reference?.release(); setDraft(null) }
+      }, [workspaceId])
+      const opened = React.useRef(null)
+      const onStarted = React.useCallback((sessionId) => {
+        if (opened.current === sessionId) return
+        opened.current = sessionId
+        openChat(sessionId)
+      }, [openChat])
+      const fileInput = React.useRef(null)
+      const { data: details, error, reload: reloadDetails } = useProjectRailRead('read', workspaceId, refreshToken)
+      const refreshRail = React.useCallback(() => {
+        if (inFlight.current !== null) return
+        setRefreshError('')
+        const remaining = new Set(['read', 'skills', 'tools', 'schedule'])
+        const token = { complete(part) {
+          remaining.delete(part)
+          if (remaining.size === 0 && inFlight.current === token) {
+            inFlight.current = null
+            setRefreshing(false)
+          }
+        } }
+        inFlight.current = token
+        setRefreshing(true)
+        setRefreshToken(token)
+        void refreshScheduled().catch(failure => {
+          if (inFlight.current === token) setRefreshError(failure.message)
+        }).finally(() => token.complete('schedule'))
+      }, [refreshScheduled])
+      React.useEffect(() => () => { inFlight.current = null }, [])
+      React.useEffect(() => {
+        let timer
+        const cancel = () => { clearTimeout(timer) }
+        const request = () => {
+          cancel()
+          if (document.visibilityState === 'visible') timer = setTimeout(refreshRail, 250)
+        }
+        window.addEventListener('focus', request)
+        document.addEventListener('visibilitychange', request)
+        return () => { cancel(); window.removeEventListener('focus', request); document.removeEventListener('visibilitychange', request) }
+      }, [refreshRail])
       const archived = new Set(archivedIds)
       const statuses = useSessionStatus(value => value)
       const recents = workspace.sessionIds
@@ -2163,12 +2286,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
             : task.target.create?.cwd === workspace.path
         })
       }, [tasks, taskStatus, workspaceId, workspace.sessionIds, workspace.path])
-      const send = () => {
-        const text = draft.trim()
-        if (text === '') return
-        setDraft('')
-        startSession(workspaceId, text)
-      }
       const addFiles = async (files) => {
         setFileError('')
         for (const file of files) {
@@ -2216,19 +2333,9 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               type: 'button', className: 'jt-project-path-action', 'aria-label': t('project.openFolder'), title: t('project.openFolder'), onClick: openFolder,
             }, h(IconFolderOpenOutlineRegular, { size: 14, 'aria-hidden': true }))),
           details?.git && h(GitChips, { git: details.git, t }),
-          h('form', { className: 'jt-project-composer', onSubmit: (event) => { event.preventDefault(); send() } },
-            h('textarea', {
-              value: draft, rows: 2, 'aria-label': t('project.newSession', { name: title }),
-              placeholder: t('project.newSession', { name: title }),
-              onChange: (event) => { setDraft(event.target.value) },
-              onKeyDown: (event) => {
-                if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send() }
-              },
-            }),
-            h('div', { className: 'jt-project-composer-row' },
-              h('span', { className: 'jt-project-hint' }, t('project.composerHint')),
-              h('button', { type: 'submit', className: 'jt-project-send', disabled: draft.trim() === '', 'aria-label': t('project.start') },
-                h(IconSendOutlineRegular, { size: 16, 'aria-hidden': true })))),
+          h('div', { className: 'jt-project-composer', 'aria-label': t('project.newSession', { name: title }), 'data-loading': draft === null || undefined },
+            draft !== null && h(SessionProvider, { key: draft.sessionId, session: draft }, renderSlot(PROJECT_CONVERSATION, { onStarted })),
+            draftError && h('p', { className: 'jt-project-error', role: 'alert' }, draftError)),
           h('section', { className: 'jt-project-recents', 'aria-labelledby': 'jt-project-recents' },
             h('h2', { className: 'jt-project-heading', id: 'jt-project-recents' }, t('project.recents')),
             recents.length === 0
@@ -2243,6 +2350,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
                       : h('span', { className: 'jt-project-session-status', 'data-state': status.state }, h(StateDot, { state: status.state }), status.label)))
               })))),
         h('aside', { className: 'jt-project-rail', 'aria-label': t('project.details') },
+          h('div', { className: 'jt-project-rail-actions' },
+            h(Tooltip, { label: t('project.refresh.tooltip'), side: 'bottom', align: 'end', portal: true },
+              h(Button, { size: 'sm', variant: 'ghost', 'aria-label': t('project.refresh'), disabled: refreshing, onClick: refreshRail,
+                icon: h(IconRefreshOutlineRegular, { size: 16, className: refreshing ? 'jt-project-refresh-spin' : undefined, 'aria-hidden': true }),
+              }))),
+          refreshError && h('p', { className: 'jt-project-error', role: 'alert' }, refreshError),
           error && h('p', { className: 'jt-project-error', role: 'alert' }, error),
           card('project.instructions',
             h(Button, { size: 'sm', variant: 'outline', disabled: details === null, onClick: () => { setEditing('instructions') } }, t(details?.instructions.trim() ? 'project.edit' : 'project.add')),
@@ -2263,7 +2376,8 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           card('project.memory',
             h(Button, { size: 'sm', variant: 'outline', disabled: details === null, onClick: () => { setEditing('memory') } }, t(details?.memory.trim() ? 'project.edit' : 'project.add')),
             preview(details?.memory ?? '', 'project.memory.empty')),
-          h(ProjectSkills, { workspaceId, t }),
+          h(ProjectSkills, { workspaceId, refreshToken, t }),
+          h(ProjectTools, { workspaceId, refreshToken, openConnectors, card, t }),
           projectTasks !== null && card('project.scheduled',
             h(Button, { size: 'sm', variant: 'outline', onClick: () => { setAddingTask(true) } }, t('project.add')),
             h(React.Fragment, null,
@@ -2665,8 +2779,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "Back to projects",
               'project.missing': "This project is no longer in Jan.",
               'project.newSession': "New chat in {name}",
-              'project.composerHint': "Enter starts a chat in this project. Shift+Enter adds a line.",
-              'project.start': "Start chat",
               'project.recents': "Recent chats",
               'time.now': "now",
               'time.minutes': "{n}min",
@@ -2679,6 +2791,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "{n} subagent running",
               'project.status.subagents.other': "{n} subagents running",
               'project.details': "Project details",
+              'project.refresh': "Refresh",
+              'project.refresh.tooltip': "Reload from disk",
+              'project.tools.title': "Tools",
+              'project.tools.count': "{active} of {total} on",
+              'project.tools.mcp': "MCP servers",
+              'project.tools.connectors': "Connectors",
+              'project.tools.plugins': "Plugins",
+              'project.tools.empty': "No tools are installed.",
+              'project.tools.manage': "Manage",
+              'project.tools.toggle': "Use {name} in this project",
+              'project.tools.connected': "Connected",
+              'project.tools.auth': "Needs auth",
+              'project.tools.connecting': "Connecting",
+              'project.tools.emptyServer': "No tools",
+              'project.tools.unavailable': "Unavailable",
+              'project.tools.available': "Available",
+              'project.tools.offGlobally': "Off globally",
               'project.instructions': "Instructions",
               'project.instructions.empty': "Tell the agent how to work in this project.",
               'project.instructions.description': "Every new session in this project reads these instructions first.",
@@ -2764,8 +2893,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "返回项目",
               'project.missing': "该项目已不在 Jan 中。",
               'project.newSession': "在{name}中新建对话",
-              'project.composerHint': "按 Enter 在此项目中开始对话，Shift+Enter 换行。",
-              'project.start': "开始对话",
               'project.recents': "最近的对话",
               'time.now': "刚刚",
               'time.minutes': "{n}分钟",
@@ -2778,6 +2905,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "{n} 个子智能体运行中",
               'project.status.subagents.other': "{n} 个子智能体运行中",
               'project.details': "项目详情",
+              'project.refresh': "刷新",
+              'project.refresh.tooltip': "从磁盘重新加载",
+              'project.tools.title': "工具",
+              'project.tools.count': "已启用 {active}/{total} 项",
+              'project.tools.mcp': "MCP 服务器",
+              'project.tools.connectors': "连接器",
+              'project.tools.plugins': "插件",
+              'project.tools.empty': "尚未安装工具。",
+              'project.tools.manage': "管理",
+              'project.tools.toggle': "在此项目中使用 {name}",
+              'project.tools.connected': "已连接",
+              'project.tools.auth': "需要认证",
+              'project.tools.connecting': "连接中",
+              'project.tools.emptyServer': "无工具",
+              'project.tools.unavailable': "不可用",
+              'project.tools.available': "可用",
+              'project.tools.offGlobally': "已在全局关闭",
               'project.instructions': "说明",
               'project.instructions.empty': "告诉智能体在此项目中如何工作。",
               'project.instructions.description': "此项目中的每个新会话都会先读取这些说明。",
@@ -2856,8 +3000,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "プロジェクトに戻る",
               'project.missing': "このプロジェクトは Jan にありません。",
               'project.newSession': "{name} で新しいチャット",
-              'project.composerHint': "Enter でこのプロジェクトのチャットを開始、Shift+Enter で改行。",
-              'project.start': "チャットを開始",
               'project.recents': "最近のチャット",
               'time.now': "今",
               'time.minutes': "{n}分",
@@ -2870,6 +3012,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "サブエージェント {n} 件が実行中",
               'project.status.subagents.other': "サブエージェント {n} 件が実行中",
               'project.details': "プロジェクトの詳細",
+              'project.refresh': "更新",
+              'project.refresh.tooltip': "ディスクから再読み込み",
+              'project.tools.title': "ツール",
+              'project.tools.count': "{total} 件中 {active} 件オン",
+              'project.tools.mcp': "MCP サーバー",
+              'project.tools.connectors': "コネクタ",
+              'project.tools.plugins': "プラグイン",
+              'project.tools.empty': "ツールがインストールされていません。",
+              'project.tools.manage': "管理",
+              'project.tools.toggle': "このプロジェクトで {name} を使う",
+              'project.tools.connected': "接続済み",
+              'project.tools.auth': "認証が必要",
+              'project.tools.connecting': "接続中",
+              'project.tools.emptyServer': "ツールなし",
+              'project.tools.unavailable': "利用不可",
+              'project.tools.available': "利用可能",
+              'project.tools.offGlobally': "全体設定でオフ",
               'project.instructions': "指示",
               'project.instructions.empty': "このプロジェクトでの作業方法をエージェントに伝えます。",
               'project.instructions.description': "このプロジェクトの新しいセッションは、最初にこの指示を読みます。",
@@ -2948,8 +3107,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "Volver a proyectos",
               'project.missing': "Este proyecto ya no está en Jan.",
               'project.newSession': "Nuevo chat en {name}",
-              'project.composerHint': "Enter inicia un chat en este proyecto. Mayús+Enter añade una línea.",
-              'project.start': "Iniciar chat",
               'project.recents': "Chats recientes",
               'time.now': "ahora",
               'time.minutes': "{n}min",
@@ -2962,6 +3119,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "{n} subagente en curso",
               'project.status.subagents.other': "{n} subagentes en curso",
               'project.details': "Detalles del proyecto",
+              'project.refresh': "Actualizar",
+              'project.refresh.tooltip': "Volver a cargar desde el disco",
+              'project.tools.title': "Herramientas",
+              'project.tools.count': "{active} de {total} activadas",
+              'project.tools.mcp': "Servidores MCP",
+              'project.tools.connectors': "Conectores",
+              'project.tools.plugins': "Complementos",
+              'project.tools.empty': "No hay herramientas instaladas.",
+              'project.tools.manage': "Gestionar",
+              'project.tools.toggle': "Usar {name} en este proyecto",
+              'project.tools.connected': "Conectado",
+              'project.tools.auth': "Requiere autenticación",
+              'project.tools.connecting': "Conectando",
+              'project.tools.emptyServer': "Sin herramientas",
+              'project.tools.unavailable': "No disponible",
+              'project.tools.available': "Disponible",
+              'project.tools.offGlobally': "Desactivado globalmente",
               'project.instructions': "Instrucciones",
               'project.instructions.empty': "Indica al agente cómo trabajar en este proyecto.",
               'project.instructions.description': "Cada sesión nueva de este proyecto lee primero estas instrucciones.",
@@ -3040,8 +3214,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "Retour aux projets",
               'project.missing': "Ce projet n'est plus dans Jan.",
               'project.newSession': "Nouvelle discussion dans {name}",
-              'project.composerHint': "Entrée lance une discussion dans ce projet. Maj+Entrée ajoute une ligne.",
-              'project.start': "Lancer la discussion",
               'project.recents': "Discussions récentes",
               'time.now': "maintenant",
               'time.minutes': "{n}min",
@@ -3054,6 +3226,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "{n} sous-agent en cours",
               'project.status.subagents.other': "{n} sous-agents en cours",
               'project.details': "Détails du projet",
+              'project.refresh': "Actualiser",
+              'project.refresh.tooltip': "Recharger depuis le disque",
+              'project.tools.title': "Outils",
+              'project.tools.count': "{active} sur {total} activés",
+              'project.tools.mcp': "Serveurs MCP",
+              'project.tools.connectors': "Connecteurs",
+              'project.tools.plugins': "Extensions",
+              'project.tools.empty': "Aucun outil n’est installé.",
+              'project.tools.manage': "Gérer",
+              'project.tools.toggle': "Utiliser {name} dans ce projet",
+              'project.tools.connected': "Connecté",
+              'project.tools.auth': "Authentification requise",
+              'project.tools.connecting': "Connexion en cours",
+              'project.tools.emptyServer': "Aucun outil",
+              'project.tools.unavailable': "Indisponible",
+              'project.tools.available': "Disponible",
+              'project.tools.offGlobally': "Désactivé globalement",
               'project.instructions': "Instructions",
               'project.instructions.empty': "Expliquez à l'agent comment travailler dans ce projet.",
               'project.instructions.description': "Chaque nouvelle séance de ce projet lit d’abord ces instructions.",
@@ -3132,8 +3321,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "Zurück zu Projekten",
               'project.missing': "Dieses Projekt ist nicht mehr in Jan.",
               'project.newSession': "Neuer Chat in {name}",
-              'project.composerHint': "Eingabe startet einen Chat in diesem Projekt. Umschalt+Eingabe fügt eine Zeile ein.",
-              'project.start': "Chat starten",
               'project.recents': "Letzte Chats",
               'time.now': "jetzt",
               'time.minutes': "{n}min",
@@ -3146,6 +3333,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "{n} Subagent läuft",
               'project.status.subagents.other': "{n} Subagenten laufen",
               'project.details': "Projektdetails",
+              'project.refresh': "Aktualisieren",
+              'project.refresh.tooltip': "Vom Datenträger neu laden",
+              'project.tools.title': "Werkzeuge",
+              'project.tools.count': "{active} von {total} aktiv",
+              'project.tools.mcp': "MCP-Server",
+              'project.tools.connectors': "Konnektoren",
+              'project.tools.plugins': "Plugins",
+              'project.tools.empty': "Keine Werkzeuge installiert.",
+              'project.tools.manage': "Verwalten",
+              'project.tools.toggle': "{name} in diesem Projekt verwenden",
+              'project.tools.connected': "Verbunden",
+              'project.tools.auth': "Anmeldung nötig",
+              'project.tools.connecting': "Verbindung wird aufgebaut",
+              'project.tools.emptyServer': "Keine Werkzeuge",
+              'project.tools.unavailable': "Nicht verfügbar",
+              'project.tools.available': "Verfügbar",
+              'project.tools.offGlobally': "Global deaktiviert",
               'project.instructions': "Anweisungen",
               'project.instructions.empty': "Sag dem Agenten, wie er in diesem Projekt arbeiten soll.",
               'project.instructions.description': "Jede neue Sitzung in diesem Projekt liest zuerst diese Anweisungen.",
@@ -3224,8 +3428,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "К проектам",
               'project.missing': "Этого проекта больше нет в Jan.",
               'project.newSession': "Новый чат в {name}",
-              'project.composerHint': "Enter начинает чат в этом проекте, Shift+Enter добавляет строку.",
-              'project.start': "Начать чат",
               'project.recents': "Недавние чаты",
               'time.now': "сейчас",
               'time.minutes': "{n}мин",
@@ -3238,6 +3440,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "Субагентов в работе: {n}",
               'project.status.subagents.other': "Субагентов в работе: {n}",
               'project.details': "Сведения о проекте",
+              'project.refresh': "Обновить",
+              'project.refresh.tooltip': "Загрузить с диска заново",
+              'project.tools.title': "Инструменты",
+              'project.tools.count': "Включено {active} из {total}",
+              'project.tools.mcp': "MCP-серверы",
+              'project.tools.connectors': "Коннекторы",
+              'project.tools.plugins': "Плагины",
+              'project.tools.empty': "Нет установленных инструментов.",
+              'project.tools.manage': "Управление",
+              'project.tools.toggle': "Использовать {name} в этом проекте",
+              'project.tools.connected': "Подключено",
+              'project.tools.auth': "Требуется вход",
+              'project.tools.connecting': "Подключение",
+              'project.tools.emptyServer': "Нет инструментов",
+              'project.tools.unavailable': "Недоступно",
+              'project.tools.available': "Доступно",
+              'project.tools.offGlobally': "Отключено глобально",
               'project.instructions': "Инструкции",
               'project.instructions.empty': "Объясните агенту, как работать в этом проекте.",
               'project.instructions.description': "Каждая новая сессия в этом проекте сначала читает эти инструкции.",
@@ -3316,8 +3535,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "Voltar aos projetos",
               'project.missing': "Este projeto não está mais no Jan.",
               'project.newSession': "Nova conversa em {name}",
-              'project.composerHint': "Enter inicia uma conversa neste projeto. Shift+Enter adiciona uma linha.",
-              'project.start': "Iniciar conversa",
               'project.recents': "Conversas recentes",
               'time.now': "agora",
               'time.minutes': "{n}min",
@@ -3330,6 +3547,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "{n} subagente em execução",
               'project.status.subagents.other': "{n} subagentes em execução",
               'project.details': "Detalhes do projeto",
+              'project.refresh': "Atualizar",
+              'project.refresh.tooltip': "Recarregar do disco",
+              'project.tools.title': "Ferramentas",
+              'project.tools.count': "{active} de {total} ativadas",
+              'project.tools.mcp': "Servidores MCP",
+              'project.tools.connectors': "Conectores",
+              'project.tools.plugins': "Plugins",
+              'project.tools.empty': "Nenhuma ferramenta instalada.",
+              'project.tools.manage': "Gerenciar",
+              'project.tools.toggle': "Usar {name} neste projeto",
+              'project.tools.connected': "Conectado",
+              'project.tools.auth': "Requer autenticação",
+              'project.tools.connecting': "Conectando",
+              'project.tools.emptyServer': "Sem ferramentas",
+              'project.tools.unavailable': "Indisponível",
+              'project.tools.available': "Disponível",
+              'project.tools.offGlobally': "Desativado globalmente",
               'project.instructions': "Instruções",
               'project.instructions.empty': "Diga ao agente como trabalhar neste projeto.",
               'project.instructions.description': "Cada nova sessão neste projeto lê estas instruções primeiro.",
@@ -3563,11 +3797,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
             name: 'main', key: PROJECT_PANEL, locale: 'jan-theme',
             inject: () => ({
               hooks: { project: currentProject, workspaces: scope.workspaces.list, archived, sessions: scope.sessions.list, scheduleTasks },
-              // The typed text becomes the new Session's draft and is sent from there,
-              // so the Session's own composer owns attachments, commands and send checks.
-              startSession: (workspaceId, text) => {
-                scope.layout.selectPanel(null)
-                scope.uiWorkspace.startSession(workspaceId, { prompt: text, whenDraftExists: 'append' })
+              refreshScheduled: () => scheduleTasks.refresh(),
+              openConnectors: () => { settingsNavigation?.open('jt-mcp') },
+              // The page renders the project's blank chat itself, so its composer is the Session's own.
+              connectDraft: async (workspaceId) => {
+                const sessionId = await scope.uiWorkspace.connectWorkspace(workspaceId)
+                return scope.sessions.retain(sessionId, { source: 'projectHome' })
               },
               openChat: (sessionId) => {
                 scope.layout.selectPanel(null)
@@ -3585,7 +3820,9 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
                 await scheduleTasks.refresh()
               },
             }),
+            children: { [PROJECT_CONVERSATION]: { kind: 'single', scope: 'session' } },
           }, ProjectHome))
+          scope.slots.inject(PROJECT_CONVERSATION, () => scope.slots.register({ name: PROJECT_CONVERSATION, locale: 'jan-theme' }, ProjectConversation))
         })
         // Scheduled tasks join the palette and project pages only while the schedule namespace exists.
         ctx.inject(['remote', 'remote.schedule'], (scope) => {

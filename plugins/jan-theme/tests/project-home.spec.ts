@@ -9,7 +9,7 @@ type Reply = { status: number; body: { error?: string; result?: unknown } }
 type Request = AsyncIterable<Buffer> & { method: 'POST'; headers: { 'content-type': string } }
 type Response = { writeHead(status: number): void; end(body: string): void }
 
-async function projectHome(events = [], inheritedEventCount = 0) {
+async function projectHome(events = [], inheritedEventCount = 0, services: Record<string, unknown> = {}) {
   const root = await mkdtemp(join(tmpdir(), 'jan-project-home-'))
   onTestFinished(() => rm(root, { recursive: true, force: true }))
   const settings = await mkdtemp(join(tmpdir(), 'jan-project-settings-'))
@@ -22,6 +22,7 @@ async function projectHome(events = [], inheritedEventCount = 0) {
       workspaceRegistry: { get: (id: string) => id === 'project' ? workspace : undefined, list: () => [workspace] },
       janHomePath: (...segments: string[]) => join(settings, ...segments),
       sessionQuery: { observeSession: async () => ({ events, inheritedEventCount, cursor: events.length - 1, source: 'live', [Symbol.dispose]() { } }) },
+      ...services,
     })[key],
     // Like Cordis, only call back for services this harness provides.
     inject: (keys: string[], callback) => { if (keys.includes('systemPrompt')) callback({ systemPrompt: { context: section => { prompt = section.text } } }) },
@@ -237,6 +238,32 @@ it('routes the project page skill switches to the project scope of scoped settin
     [join(root, 'styles'), false, ['look-a:true', 'look-b:true']],
     [join(root, 'shared'), true, ['review:false', 'deploy:false:global']],
   ])
+})
+
+it('turns an MCP server off and back on for this project without changing global switches', async () => {
+  const global = { toolsDisabled: ['mcp:global-off'] }
+  const project = { toolsDisabled: ['existing'] }
+  const writes: unknown[] = []
+  const scopedSettings = {
+    read: ({ scope }: { scope: string }) => scope === 'global' ? global : project,
+    toolCatalog: async () => ({ mcpServers: ['global-off', 'notes'], tools: [] }),
+    setSwitch: async (address: unknown, key: string, entry: string, off: boolean) => {
+      writes.push({ address, key, entry, off })
+      const keep = project.toolsDisabled.filter(value => value !== entry)
+      project.toolsDisabled = off ? [...keep, entry] : keep
+      return project
+    },
+  }
+  const { call } = await projectHome([], 0, { scopedSettings })
+  expect((await call('setTool', { group: 'mcp', id: 'notes', enabled: false })).status).toBe(200)
+  expect((await call('tools')).body.result).toMatchObject({ mcp: [
+    { id: 'global-off', enabled: false, globallyOff: true },
+    { id: 'notes', enabled: false, globallyOff: false },
+  ] })
+  expect((await call('setTool', { group: 'mcp', id: 'notes', enabled: true })).status).toBe(200)
+  expect(writes).toEqual([true, false].map(off => ({ address: { scope: 'project', id: 'project' }, key: 'toolsDisabled', entry: 'mcp:notes', off })))
+  expect(project.toolsDisabled).toEqual(['existing'])
+  expect(global.toolsDisabled).toEqual(['mcp:global-off'])
 })
 
 it('lets the agent read and change its own project skill switches, asking once and refusing outside a project', async () => {

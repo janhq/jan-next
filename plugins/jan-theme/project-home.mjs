@@ -6,6 +6,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { JSON_SCHEMA, load as loadYaml } from 'js-yaml'
 import { registerApi } from '@janhq/jan-plugin-api'
+import { mcpToolOrigin } from '@janhq/jan-mcp-client'
 
 const FILES = { instructions: 'AGENTS.md', memory: 'AGENTS.local.md' }
 // The instruction loader's own default budget; a larger file would be truncated for the agent.
@@ -355,6 +356,54 @@ async function gitInfo(root) {
   return { branch: branch ?? null, repository: remote === undefined ? null : repositoryOf(remote) }
 }
 
+const CORE_TOOLS = new Set(['apply_patch', 'bash', 'edit', 'glob', 'grep', 'read', 'read_image', 'str_replace_editor', 'subagent', 'todo_write', 'write'])
+
+function mcpState(state) {
+  switch (state) {
+    case 'ready': case 'connected': return 'connected'
+    case 'needs-auth': case 'signing-in': case 'waiting-credentials': return 'auth'
+    case 'connecting': case 'reconnecting': return 'connecting'
+    case 'empty': return 'emptyServer'
+    default: return 'unavailable'
+  }
+}
+
+async function projectToolRows(ctx, scoped, address) {
+  const { mcpServers, tools } = await scoped.toolCatalog()
+  const globalOff = new Set(scoped.read({ scope: 'global' }).toolsDisabled)
+  const projectOff = new Set(scoped.read(address).toolsDisabled)
+  const groups = { mcp: [], connectors: [], plugins: [] }
+  const available = new Map(mcpServers.map(name => [name, { name, state: 'connected' }]))
+  const toolsByServer = new Map()
+  for (const definition of ctx.get('tools')?.definitions() ?? []) {
+    const origin = mcpToolOrigin(definition)
+    if (origin === undefined) continue
+    const names = toolsByServer.get(origin.serverName) ?? []
+    names.push(definition.name)
+    toolsByServer.set(origin.serverName, names)
+  }
+  for (const { name, configured, status } of ctx.get('mcpManager')?.list() ?? []) {
+    if (configured) available.set(name, { name, state: status.state })
+  }
+  for (const row of ctx.get('janMcpSettings')?.projectTools() ?? []) available.set(row.name, row)
+
+  const add = (group, id, name, status, globallyOff, entries, inheritedOff = false) => {
+    const enabled = !globallyOff && !inheritedOff && entries.some(entry => !globalOff.has(entry) && !projectOff.has(entry))
+    groups[group].push({ id, name, status, globallyOff, enabled, entries, inheritedOff })
+  }
+  for (const { name, title = name, connector, state, tools: names } of available.values()) {
+    const namespace = `mcp:${name}`
+    const registered = names ?? toolsByServer.get(name) ?? []
+    const globallyOff = state === 'disabled' || globalOff.has(namespace) || (registered.length !== 0 && registered.every(tool => globalOff.has(tool)))
+    add(connector ? 'connectors' : 'mcp', name, title, mcpState(state), globallyOff, connector ? registered : [namespace], connector && projectOff.has(namespace))
+  }
+  for (const name of tools) {
+    if (!CORE_TOOLS.has(name) && !name.startsWith('web_')) add('plugins', name, name, 'available', globalOff.has(name), [name])
+  }
+  for (const rows of Object.values(groups)) rows.sort((a, b) => a.name.localeCompare(b.name))
+  return groups
+}
+
 const SKILLS_READ = 'project_skills_read'
 const SKILLS_CHANGE = 'project_skills_change'
 const renderMessage = (_args, value) => [{ type: 'text', text: typeof value?.message === 'string' ? value.message : JSON.stringify(value) }]
@@ -478,7 +527,7 @@ export function mountProjectHome(ctx) {
   // Project skill switches are the project layer of scoped settings, which also filters every skill lookup.
   const scoped = () => {
     const service = ctx.get('scopedSettings')
-    if (service === undefined) throw new Error('Skill switches are not available in this Jan build.')
+    if (service === undefined) throw new Error('Project switches are not available in this Jan build.')
     return service
   }
   const enabled = entry => !entry.off && entry.offAt === undefined
@@ -536,9 +585,30 @@ export function mountProjectHome(ctx) {
     preview: async ({ workspaceId, folderId, parts }) => readPreview(await contextPath(getProject(ctx, workspaceId), settings, folderId, parts)),
     usage: ({ workspaceId }) => readUsage(getProject(ctx, workspaceId)),
     /** Every skill a chat in this project could see, grouped by folder, with this project's switches. */
-    skills: ({ workspaceId }) => projectSkills.list(getProject(ctx, workspaceId)),
+    skills({ workspaceId, rescan }) {
+      const workspace = getProject(ctx, workspaceId)
+      if (rescan === true) ctx.get('skills')?.refresh()
+      return projectSkills.list(workspace)
+    },
     setSkillFolder: ({ workspaceId, path, enabled }) => projectSkills.setFolder(getProject(ctx, workspaceId), path, enabled),
     setSkill: ({ workspaceId, name, enabled }) => projectSkills.setSkill(getProject(ctx, workspaceId), name, enabled),
+    /** The live MCP, connector and plugin tools available to a project. */
+    async tools({ workspaceId }) {
+      const { id } = getProject(ctx, workspaceId)
+      const groups = await projectToolRows(ctx, scoped(), { scope: 'project', id })
+      return Object.fromEntries(Object.entries(groups).map(([group, rows]) => [group,
+        rows.map(({ entries, inheritedOff, ...row }) => ({ ...row, canToggle: entries.length !== 0 && !inheritedOff })),
+      ]))
+    },
+    async setTool({ workspaceId, group, id, enabled }) {
+      const workspace = getProject(ctx, workspaceId)
+      if (!['mcp', 'connectors', 'plugins'].includes(group) || typeof id !== 'string' || typeof enabled !== 'boolean') throw new Error('Choose a tool to turn on or off.')
+      const address = { scope: 'project', id: workspace.id }
+      const service = scoped()
+      const row = (await projectToolRows(ctx, service, address))[group].find(candidate => candidate.id === id)
+      if (!row || row.globallyOff || row.inheritedOff || row.entries.length === 0) throw new Error('This tool cannot be changed here. Refresh or check global settings.')
+      for (const entry of row.entries) await service.setSwitch(address, 'toolsDisabled', entry, !enabled)
+    },
     async linkFolder({ workspaceId, path }) {
       const workspace = getProject(ctx, workspaceId)
       if (typeof path !== 'string' || !isAbsolute(path)) throw new Error('Choose an external folder.')
