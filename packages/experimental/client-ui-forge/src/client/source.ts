@@ -13,6 +13,8 @@ export interface StreamSnapshot<S> {
   readonly state: S
   /** Whether the stream ended while surfaces still read it. */
   readonly disconnected: boolean
+  /** The Host connection is recovering; the last state is retained until a fresh frame arrives. */
+  readonly reconnecting?: true
 }
 
 /** What the panel surfaces of one Session read; `state` is null before the first one arrives. */
@@ -57,6 +59,8 @@ export interface StreamSourceDeps<F> {
    * @returns the unsubscribe function.
    */
   readonly subscribeReset: (listener: () => void) => () => void
+  /** Host readiness, separate from the outcome of this particular stream. */
+  readonly connection?: HostObservable<boolean>
 }
 
 /** Stream opener and connection-reset subscription of one Session's panel source. */
@@ -98,6 +102,7 @@ export function createStreamSource<F, S>(deps: StreamSourceDeps<F>, initial: S, 
   const listeners = new Set<() => void>()
   let running: { readonly controller: AbortController; readonly stream: HostStream<F> } | undefined
   let stopReset: (() => void) | undefined
+  let stopConnection: (() => void) | undefined
   const publish = (next: StreamSnapshot<S>): void => {
     snapshot = next
     for (const listener of [...listeners]) listener()
@@ -108,7 +113,12 @@ export function createStreamSource<F, S>(deps: StreamSourceDeps<F>, initial: S, 
     stopped?.controller.abort()
     stopped?.stream.dispose()
   }
+  const connectionLost = (): void => {
+    stop()
+    if (!snapshot.reconnecting) publish({ state: snapshot.state, disconnected: false, reconnecting: true })
+  }
   const start = (): void => {
+    if (deps.connection?.getSnapshot() === false) { connectionLost(); return }
     const controller = new AbortController()
     const opened = { controller, stream: deps.open(controller.signal) }
     running = opened
@@ -133,6 +143,8 @@ export function createStreamSource<F, S>(deps: StreamSourceDeps<F>, initial: S, 
   }
   const close = (): void => {
     listeners.clear()
+    stopConnection?.()
+    stopConnection = undefined
     stopReset?.()
     stopReset = undefined
     stop()
@@ -143,6 +155,9 @@ export function createStreamSource<F, S>(deps: StreamSourceDeps<F>, initial: S, 
       subscribe(listener) {
         listeners.add(listener)
         if (listeners.size === 1) {
+          stopConnection = deps.connection?.subscribe(() => {
+            if (deps.connection?.getSnapshot() === false) connectionLost()
+          })
           stopReset = deps.subscribeReset(() => {
             stop()
             reconnect()

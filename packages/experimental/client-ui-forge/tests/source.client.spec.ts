@@ -34,6 +34,8 @@ function feed<F = ForgePanelState>() {
 function source() {
   const streams: ReturnType<typeof feed>[] = []
   const resets = new Set<() => void>()
+  const generationListeners = new Set<() => void>()
+  let connected = true
   const panel = createPanelSource({
     open: (signal): PanelStream => {
       const stream = feed()
@@ -45,8 +47,20 @@ function source() {
       resets.add(listener)
       return () => { resets.delete(listener) }
     },
+    connection: {
+      getSnapshot: () => connected,
+      subscribe: (listener) => {
+        generationListeners.add(listener)
+        return () => { generationListeners.delete(listener) }
+      },
+    },
   })
-  return { panel, streams, reset: () => { for (const listener of [...resets]) listener() }, resets }
+  return { panel, streams, reset: () => { for (const listener of [...resets]) listener() }, resets,
+    setConnected: (value: boolean) => {
+      connected = value
+      for (const listener of [...generationListeners]) listener()
+    },
+  }
 }
 
 /** Let the stream readers run every iteration that is ready. */
@@ -142,6 +156,27 @@ describe('createPanelSource', () => {
     expect(streams).toHaveLength(2)
     expect(panel.hooks.panel.getSnapshot()).toEqual({ state: ready(), disconnected: false })
     again()
+  })
+
+  it('keeps the last detached checkout visible and resumes after a Host connection loss', async () => {
+    const { panel, streams, setConnected, reset } = source()
+    const unsubscribe = panel.hooks.panel.subscribe(() => {})
+    const detached = ready({ checkout: { state: 'ready', checkout: { root: '/worktree', branch: null, linked: true, commit: 'abc1234' } } })
+    streams[0]?.push(detached)
+    await vi.waitFor(() => { expect(panel.hooks.panel.getSnapshot().state).toEqual(detached) })
+    setConnected(false)
+    expect(streams[0]?.signal?.aborted).toBe(true)
+    expect(panel.hooks.panel.getSnapshot()).toMatchObject({ state: detached, reconnecting: true })
+    panel.reconnect()
+    expect(streams).toHaveLength(1)
+
+    setConnected(true)
+    reset()
+    expect(streams).toHaveLength(2)
+    expect(panel.hooks.panel.getSnapshot()).toMatchObject({ state: detached, reconnecting: true })
+    streams[1]?.push(detached)
+    await vi.waitFor(() => { expect(panel.hooks.panel.getSnapshot()).toEqual({ state: detached, disconnected: false }) })
+    unsubscribe()
   })
 
   it('replaces the stream after a transport reset and ignores the replaced one', async () => {

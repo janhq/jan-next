@@ -608,7 +608,9 @@ export function ChangesTab({
 
   let body: ReactNode
   if (data === null) {
-    if (state === null && snapshot?.disconnected) {
+    if (snapshot?.reconnecting) {
+      body = <div className={css.centered} role="status"><StateDot state="ongoing" size={14} />{t('stream.reconnecting')}</div>
+    } else if (state === null && snapshot?.disconnected) {
       body = (
         <div className={css.centered}>
           <span>{t('stream.failed')}</span>

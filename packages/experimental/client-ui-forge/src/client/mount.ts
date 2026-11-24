@@ -3,6 +3,7 @@
 import type { Context } from '@janhq/cordis'
 import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-api-session-controller/client'
+import type { ConnectionHandle } from '@janhq/jan-client-connection/client'
 import type {} from '@janhq/jan-client-locale/client'
 import type {} from '@janhq/jan-client-ui-conversation/client'
 import type {} from '@janhq/jan-client-ui-layout/client'
@@ -41,7 +42,7 @@ import { WorktreeProgress, type WorktreeProgressInjected } from './WorktreeProgr
 import { WorktreeToggle, type WorktreeToggleInjected } from './WorktreeToggle.tsx'
 
 /** Services required before the Remote contribution mounts. */
-export const inject = ['remote', 'slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'sessions']
+export const inject = ['remote', 'connection', 'slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'sessions']
 
 /** Registry id of the forge tab type, also its slot key. */
 export const TAB_ID = '@janhq/jan-experimental-client-ui-forge'
@@ -80,6 +81,11 @@ function registerUi(ctx: Context): void {
     for (const store of [...stores.values()]) store.release()
     stores.clear()
   }, 'forge-panel: panel streams')
+  const generation = (ctx.get('connection') as ConnectionHandle).generation
+  const connection: HostObservable<boolean> = {
+    getSnapshot: () => generation.getSnapshot() !== undefined,
+    subscribe: listener => generation.subscribe(listener),
+  }
   const storesOf = (sessionId: SessionId): SessionStores => {
     let store = stores.get(sessionId)
     if (store === undefined) {
@@ -88,6 +94,7 @@ function registerUi(ctx: Context): void {
       const panel = createPanelSource({
         open: signal => ctx.remote.forgePanel.follow(sessionId, signal),
         subscribeReset: listener => ctx.on('connection/reset', listener),
+        connection,
       })
       const dispose = scope.effect(() => () => {
         panel.close()
@@ -181,6 +188,22 @@ function registerUi(ctx: Context): void {
         const result = await ctx.remote.forgePanel.changeRequestChecks(sessionId, url, headSha, signal)
         if (!result.ok) throw new Error(result.error.message)
         return result.value
+      },
+      readAssets: async (url, headSha, signal) => {
+        const result = await ctx.remote.forgePanel.changeRequestAssets(sessionId, url, headSha, signal)
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value
+      },
+      readFailureContext: async (url, headSha, selection, signal) => {
+        const result = await ctx.remote.forgePanel.changeRequestFailureContext(sessionId, url, headSha, selection, signal)
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value
+      },
+      copyFailure: (text) => { copy(text, 'change.failure.copied') },
+      addFailureToChat: (text) => {
+        const conversation = ctx.sessions.scope(sessionId)?.get('conversation')
+        if (conversation?.appendDraft(sessionId, text) === 'added') notices.report('change.failure.added', { tone: 'success' })
+        else notices.report('change.failure.addFailed')
       },
       markReady: async (entry) => {
         const result = await ctx.remote.forgePanel.markReady(sessionId, entry.url)

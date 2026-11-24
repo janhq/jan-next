@@ -43,6 +43,13 @@ export interface ForgeTabInjected {
   readonly merge: (entry: ForgePanelChangeRequest, request: MergeRequest) => Promise<void>
   /** Read the complete checks of an opened change request. */
   readonly readChecks: NonNullable<ChangeRequestActions['readChecks']>
+  /** Read deployment previews and workflow artifacts. */
+  readonly readAssets?: NonNullable<ChangeRequestActions['readAssets']>
+  /** Read the diagnostics for an explicit fix-context action. */
+  readonly readFailureContext?: NonNullable<ChangeRequestActions['readFailureContext']>
+  /** Copy a failure block or add it to this Session's draft. */
+  readonly copyFailure?: NonNullable<ChangeRequestActions['copyFailure']>
+  readonly addFailureToChat?: NonNullable<ChangeRequestActions['addFailureToChat']>
   /** Check the removed worktree of the Session out again, reporting the outcome. */
   readonly restore: () => void
   /** Open a URL outside the app. */
@@ -158,7 +165,7 @@ function SignIn({ state, copyText, t }: {
  */
 export function ForgeTab({
   useTabInfo, sessionId, usePanel, useHost, useLocale, reconnect, refresh, remove, markReady, merge, readChecks, restore,
-  openLink, copyText, copyPath,
+  openLink, copyText, copyPath, readAssets, readFailureContext, copyFailure, addFailureToChat,
   reportVisible, createChangeRequest, t,
 }: ForgeTabProps): ReactNode {
   const snapshot = usePanel(current => current)
@@ -173,7 +180,9 @@ export function ForgeTab({
   }, [reportVisible, visible])
   useEffect(() => () => { reportVisible(false) }, [reportVisible])
   const state = snapshot.state
-  const disconnected = snapshot.disconnected && (
+  const disconnected = snapshot.reconnecting ? (
+    <div className={css.disconnected} role="status"><StateDot state="ongoing" size={14} />{t('stream.reconnecting')}</div>
+  ) : snapshot.disconnected && (
     <div className={css.disconnected} role="status">
       <span>{t('stream.failed')}</span>
       <Button size="sm" variant="outline" onClick={reconnect}>{t('retry')}</Button>
@@ -189,7 +198,8 @@ export function ForgeTab({
     void refresh().finally(() => { setRefreshing(false) })
   }
   const actions: ChangeRequestActions = {
-    openLink, copyLink: copyText, retry: startRefresh, remove, markReady, merge, readChecks,
+    openLink, copyLink: copyText, retry: startRefresh, remove, markReady, merge, readChecks, readAssets, readFailureContext,
+    copyFailure, addFailureToChat,
     viewChanges: (entry) => { viewChanges({ kind: 'change', url: entry.url }) },
   }
   const local = state.local !== null && state.local.files.length > 0 ? state.local : null

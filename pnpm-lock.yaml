@@ -9940,6 +9940,9 @@ importers:
       '@janhq/jan-api-session-controller':
         specifier: workspace:*
         version: link:../../api/session-controller
+      '@janhq/jan-client-connection':
+        specifier: workspace:*
+        version: link:../../client/connection
       '@janhq/jan-client-locale':
         specifier: workspace:*
         version: link:../../client/locale

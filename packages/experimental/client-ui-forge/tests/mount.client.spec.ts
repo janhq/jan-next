@@ -171,6 +171,7 @@ async function base() {
   }
   ctx.provide('remote.forgePanel', forgePanel)
   ctx.provide('locale', new LocaleRuntime(ctx))
+  ctx.provide('connection', { generation: { getSnapshot: () => ({ id: 1 }), subscribe: () => () => {} } })
   const unregisterTab = vi.fn()
   const sidebarRightTabs = { register: vi.fn((_type: SidebarRightTabDefinition) => unregisterTab) }
   ctx.provide('sidebarRightTabs', sidebarRightTabs)
@@ -271,7 +272,7 @@ describe('mountForgePanel registration', () => {
   })
 
   it('declares the browser services it needs', () => {
-    expect(inject).toEqual(['remote', 'slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'sessions'])
+    expect(inject).toEqual(['remote', 'connection', 'slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'sessions'])
   })
 
   it('registers the tab types, their bodies and titles, the header button, the worktree option and card, and the toast', async () => {
