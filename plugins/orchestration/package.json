@@ -1,0 +1,29 @@
+{
+  "name": "@janhq/jan-orchestration",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "description": "Coordinate worker chats on this computer or connected Jan Hosts.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["*.mjs", "client.js", "README.md"],
+  "dependencies": {
+    "@janhq/dsh-superagent": "workspace:~",
+    "@janhq/jan-atomic-write": "workspace:*",
+    "@janhq/jan-plugin-api": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/schemastery": "workspace:~"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-primitives"]
+    }
+  }
+}

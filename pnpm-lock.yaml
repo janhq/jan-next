@@ -19418,6 +19418,24 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core/tools
 
+  plugins/orchestration:
+    dependencies:
+      '@janhq/dsh-superagent':
+        specifier: workspace:~
+        version: link:../../vendor/dsh-superagent
+      '@janhq/jan-atomic-write':
+        specifier: workspace:*
+        version: link:../../packages/util/atomic-write
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../packages/core/tools
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
+
   plugins/plugin-api: {}
 
   plugins/preset-square:
