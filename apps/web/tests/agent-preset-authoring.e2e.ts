@@ -23,17 +23,17 @@ describe('web e2e: preset roster guidance', () => {
     tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await openSettings(page, 'en')
-    await page.getByRole('dialog', { name: 'Settings' }).getByRole('button', { name: 'Agent presets' }).click()
-    await page.getByRole('heading', { name: 'Agent presets' }).waitFor()
+    await page.getByRole('dialog', { name: 'Settings' }).getByRole('button', { name: 'Modes', exact: true }).click()
+    await page.getByRole('button', { name: 'Mode details: Creator mode', exact: true }).waitFor()
   }, 120_000)
   afterAll(async () => { await browser?.close(); await scaffold?.close() })
 
   it('shows the shipped roster with mode help and a read-only view, and no editing actions', async () => {
     onTestFailed(() => saveFailureShot(page, 'preset-roster-section'))
-    await expect.poll(() => page.locator('[data-agent-preset-id]').count()).toBe(4)
+    await expect.poll(() => page.locator('[data-agent-preset-id]').count()).toBe(7)
     const snapshot = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(join(EXPECTED, 'section.expected.md'), snapshot, mode)
-    expect(snapshot).toContain('Let the agent help me create a preset')
+    expect(snapshot).toContain('Let the agent help me create a mode')
     expect(snapshot).toContain('View configuration: Code mode')
     expect(snapshot).not.toContain('Duplicate preset')
     expect(snapshot).not.toContain('Edit plugins')
@@ -83,10 +83,11 @@ describe('web e2e: preset roster guidance', () => {
     // so the flow needs a connected workspace to enter.
     await page.getByRole('dialog', { name: 'Settings' }).getByRole('button', { name: 'Close', exact: true }).last().click()
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
+    await page.getByRole('button', { name: 'Got it', exact: true }).click()
     await openSettings(page, 'en')
     const settings = page.getByRole('dialog', { name: 'Settings' })
-    await settings.getByRole('button', { name: 'Agent presets' }).click()
-    await settings.getByRole('button', { name: 'Let the agent help me create a preset', exact: true }).click()
+    await settings.getByRole('button', { name: 'Modes', exact: true }).click()
+    await settings.getByRole('button', { name: 'Let the agent help me create a mode', exact: true }).click()
     await settings.waitFor({ state: 'detached', timeout: 10_000 })
     await expect.poll(async () => {
       const response = await scaffold.hostFetch('/api/session/list', {

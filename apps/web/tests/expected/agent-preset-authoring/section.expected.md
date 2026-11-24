@@ -1,48 +1,69 @@
 - dialog "Settings":
   - text: Settings
+  - combobox "Search settings"
   - navigation:
     - button "General"
     - button "AI Models"
     - button "Agent loop"
     - button "Built-in plugins"
-    - button "Agent presets"
+    - button "Modes"
+    - button "Agents"
   - button "Open configuration file"
   - button "Close"
-  - heading "Agent presets" [level=2]
-  - paragraph: Choose the agent’s tools and how it works. Use Code mode for everyday tasks, or Creator mode to add capabilities to Jan.
-  - heading "Built-in" [level=3]
-  - list:
-    - listitem:
-      - 'button "New task default: Code mode" [disabled] [pressed]':
-        - text: Code mode New task default
-        - code: standard
-        - text: Work with code, files, and information. Suitable for most tasks, with search, editing, terminal commands, and other tools available as needed.
-      - 'button "Mode details: Code mode"': Mode details
-      - 'button "How to use: Code mode"': How to use
-      - 'button "View configuration: Code mode"': View configuration
-    - listitem:
-      - 'button "Set as new task default: PTC mode"':
-        - text: PTC mode Built-in
-        - code: ptc
-        - text: Includes all Code mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results.
-      - 'button "Mode details: PTC mode"': Mode details
-      - 'button "How to use: PTC mode"': How to use
-      - 'button "View configuration: PTC mode"': View configuration
-    - listitem:
-      - 'button "Set as new task default: Minimal mode"':
-        - text: Minimal mode Built-in
-        - code: minimal
-        - text: The agent uses a terminal and image reading, with context compaction. Useful for testing and comparing its basic performance.
-      - 'button "Mode details: Minimal mode"': Mode details
-      - 'button "How to use: Minimal mode"': How to use
-      - 'button "View configuration: Minimal mode"': View configuration
-    - listitem:
-      - 'button "Set as new task default: Creator mode"':
-        - text: Creator mode Built-in
-        - code: cordis
-        - text: Customize Jan through conversation. Let the agent write plugins that add features or UI, or combine tools and prompts to create your own mode.
-      - 'button "Mode details: Creator mode"': Mode details
-      - 'button "How to use: Creator mode"': How to use
-      - 'button "View configuration: Creator mode"': View configuration
-  - heading "Custom" [level=3]
-  - button "Let the agent help me create a preset"
+  - region "Modes":
+    - paragraph: Choose the agent’s tools and how it works. Use Code mode for everyday tasks, or Creator mode to add capabilities to Jan.
+    - heading "Built-in" [level=3]
+    - list:
+      - listitem:
+        - 'button "New task default: Code mode" [disabled] [pressed]':
+          - text: Code mode New task default
+          - code: standard
+          - text: Work with code, files, and information. Suitable for most tasks, with search, editing, terminal commands, and other tools available as needed.
+        - 'button "Mode details: Code mode"': Mode details
+        - 'button "How to use: Code mode"': How to use
+        - 'button "View configuration: Code mode"': View configuration
+      - listitem:
+        - 'button "Set as new task default: PTC mode"':
+          - text: PTC mode Built-in
+          - code: ptc
+          - text: Includes all Code mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results.
+        - 'button "Mode details: PTC mode"': Mode details
+        - 'button "How to use: PTC mode"': How to use
+        - 'button "View configuration: PTC mode"': View configuration
+      - listitem:
+        - 'button "Set as new task default: Minimal mode"':
+          - text: Minimal mode Built-in
+          - code: minimal
+          - text: The agent uses a terminal and image reading, with context compaction. Useful for testing and comparing its basic performance.
+        - 'button "Mode details: Minimal mode"': Mode details
+        - 'button "How to use: Minimal mode"': How to use
+        - 'button "View configuration: Minimal mode"': View configuration
+      - listitem:
+        - 'button "Set as new task default: Creator mode"':
+          - text: Creator mode Built-in
+          - code: cordis
+          - text: Customize the Jan app you use. Add plugins or connectors, create your own modes and agents, or save reusable skills.
+        - 'button "Mode details: Creator mode"': Mode details
+        - 'button "How to use: Creator mode"': How to use
+        - 'button "View configuration: Creator mode"': View configuration
+    - heading "Custom" [level=3]
+    - list:
+      - listitem:
+        - 'button "Set as new task default: reviewer"':
+          - text: reviewer Custom
+          - code: reviewer
+          - text: Read-only diff review and tests that do not write files.
+        - 'button "View configuration: reviewer"': View configuration
+      - listitem:
+        - 'button "Set as new task default: scout"':
+          - text: scout Custom
+          - code: scout
+          - text: Read-only repository discovery; fast, inexpensive model.
+        - 'button "View configuration: scout"': View configuration
+      - listitem:
+        - 'button "Set as new task default: worker"':
+          - text: worker Custom
+          - code: worker
+          - text: Implement changes with read, shell, and full file editing tools.
+        - 'button "View configuration: worker"': View configuration
+    - button "Let the agent help me create a mode"

@@ -2,4 +2,4 @@
   - menuitem "Code mode Work with code, files, and information. Suitable for most tasks, with search, editing, terminal commands, and other tools available as needed."
   - menuitem "PTC mode Includes all Code mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results."
   - menuitem "Minimal mode The agent uses a terminal and image reading, with context compaction. Useful for testing and comparing its basic performance."
-  - menuitem "Creator mode Customize Jan through conversation. Let the agent write plugins that add features or UI, or combine tools and prompts to create your own mode."
+  - menuitem "Creator mode Customize the Jan app you use. Add plugins or connectors, create your own modes and agents, or save reusable skills."

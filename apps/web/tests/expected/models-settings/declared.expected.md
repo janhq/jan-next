@@ -1,23 +1,36 @@
 - dialog "设置":
   - text: 设置
+  - combobox "搜索设置"
   - navigation:
     - button "通用设置"
-    - button "模型"
+    - button "AI 模型"
     - button "智能体循环"
     - button "内置插件"
     - button "Agent 预设"
+    - button "智能体"
   - button "打开配置文件"
   - button "关闭"
-  - heading "模型" [level=2]
-  - paragraph: 填入各提供商的 API 密钥即可使用其模型。
-  - list:
-    - listitem:
-      - text: minimax-cn
-      - img "API 密钥已配置"
-      - button "编辑 minimax-cn": 编辑
-      - button "删除 minimax-cn": 删除
-    - listitem:
-      - text: Acme Gateway 自定义
-      - button "编辑 Acme Gateway (acme-gateway)": 编辑
-      - button "删除 Acme Gateway (acme-gateway)": 删除
-  - button "添加模型提供商"
+  - region "AI 模型":
+    - heading "选择模型的使用方式" [level=2]
+    - button "本地模型"
+    - button "OpenAI 兼容 API"
+    - paragraph: 填入各提供商的 API 密钥即可使用其模型。
+    - list:
+      - listitem:
+        - text: minimax-cn
+        - img "API 密钥已配置"
+        - button "编辑 minimax-cn": 编辑
+        - button "删除 minimax-cn": 删除
+      - listitem:
+        - text: Tokamak 自定义
+        - img "API 密钥缺失"
+        - button "编辑 Tokamak (tokamak)": 编辑
+      - listitem:
+        - text: Local (llama.cpp) 自定义
+        - img "API 密钥缺失"
+        - button "编辑 Local (llama.cpp) (local)": 编辑
+      - listitem:
+        - text: Acme Gateway 自定义
+        - button "编辑 Acme Gateway (acme-gateway)": 编辑
+        - button "删除 Acme Gateway (acme-gateway)": 删除
+    - button "添加模型提供商"

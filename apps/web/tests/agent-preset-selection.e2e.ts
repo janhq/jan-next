@@ -231,6 +231,7 @@ describe('web e2e: agent-preset selection', () => {
     fixtureRoot = await realpath(await mkdtemp(join(tmpdir(), 'jan-web-e2e-refusing-')))
     await seedRefusingPreset(fixtureRoot)
     scaffold = await launchWebScaffold({
+      developerTools: true,
       agentPresets: { default: 'standard', definitions: [{ id: REFUSING_ID, name: 'Refusing mode', description: 'Refuses to start.', plugins: [{ name: pathToFileURL(join(fixtureRoot, REFUSING_ID, 'refuses.mjs')).href }] }] },
     })
     // A resumed session runs what it was created with; seeding one that
@@ -265,13 +266,14 @@ describe('web e2e: agent-preset selection', () => {
     await expect.poll(() => codingTools.getAttribute('aria-checked')).toBe('false')
     await dialog.getByRole('button', { name: 'Close' }).last().click()
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
+    await page.getByRole('button', { name: 'Got it', exact: true }).click()
     await page.getByRole('button', { name: 'Code mode', exact: true }).waitFor({ timeout: 10_000 })
     await expect.poll(() => livePreset(scaffold)).toBe('standard')
 
     await openSettings(page, 'en')
     await codingTools.click()
     await expect.poll(() => codingTools.getAttribute('aria-checked')).toBe('true')
-    await dialog.getByRole('button', { name: 'Agent presets' }).click()
+    await dialog.getByRole('button', { name: 'Modes', exact: true }).click()
     await dialog.getByRole('button', { name: 'New task default: Code mode' }).waitFor({ timeout: 10_000 })
     expect(await dialog.getByRole('switch').count()).toBe(0)
     await dialog.getByRole('button', { name: 'Set as new task default: Minimal mode' }).waitFor({ timeout: 10_000 })
@@ -363,7 +365,7 @@ describe('web e2e: agent-preset selection', () => {
 
     await openSettings(page, 'en')
     const dialog = page.getByRole('dialog', { name: 'Settings' })
-    await dialog.getByRole('button', { name: 'Agent presets' }).click()
+    await dialog.getByRole('button', { name: 'Modes', exact: true }).click()
     await dialog.getByRole('button', { name: 'Set as new task default: Minimal mode' }).click()
     await dialog.getByRole('button', { name: 'New task default: Minimal mode' }).waitFor({ timeout: 10_000 })
     await expect.poll(() => livePreset(scaffold), { timeout: 15_000 }).toBe('minimal')
@@ -407,7 +409,7 @@ describe('web e2e: agent-preset selection', () => {
     await expect.poll(() => reopenedDeveloperTools.getAttribute('aria-checked')).toBe('false')
     await reopenedDeveloperTools.click()
     await expect.poll(() => reopenedDeveloperTools.getAttribute('aria-checked')).toBe('true')
-    await reopened.getByRole('button', { name: 'Agent presets' }).click()
+    await reopened.getByRole('button', { name: 'Modes', exact: true }).click()
     await reopened.getByRole('button', { name: 'New task default: Code mode' }).waitFor({ timeout: 10_000 })
     await reopened.getByRole('button', { name: 'Set as new task default: Minimal mode' }).waitFor({ timeout: 10_000 })
     await reopened.getByRole('button', { name: 'Close' }).last().click()
