@@ -25,12 +25,14 @@ export interface PaneTreeProps {
   readonly nodeId: NodeId
   readonly callbacks: PaneCallbacks
   readonly preview: SizePreview | undefined
+  readonly leading?: boolean
+  readonly top?: boolean
 }
 
 /** Render a split or pane node and everything under it. */
-export function PaneTree({ state, nodeId, callbacks, preview }: PaneTreeProps): ReactNode {
+export function PaneTree({ state, nodeId, callbacks, preview, leading = true, top = true }: PaneTreeProps): ReactNode {
   const node = getNode(state, nodeId)
-  if (node.kind === 'pane') return <TabPanel state={state} pane={node} callbacks={callbacks} />
+  if (node.kind === 'pane') return <TabPanel state={state} pane={node} callbacks={callbacks} leading={leading} top={top} />
   const sizes = preview !== undefined && preview.splitId === node.id ? preview.sizes : node.sizes
   const horizontal = node.axis === 'row'
   return (
@@ -44,6 +46,7 @@ export function PaneTree({ state, nodeId, callbacks, preview }: PaneTreeProps): 
             <div
               className={css.divider}
               data-dockkit-divider={`${node.id}:${index - 1}`}
+              data-dockkit-resizing={callbacks.activeDivider === `${node.id}:${index - 1}` || undefined}
               role={callbacks.dividerLabel === undefined ? undefined : 'separator'}
               aria-label={callbacks.dividerLabel}
               aria-orientation={horizontal ? 'vertical' : 'horizontal'}
@@ -52,11 +55,14 @@ export function PaneTree({ state, nodeId, callbacks, preview }: PaneTreeProps): 
               onKeyDown={(event) => {
                 const backward = horizontal ? 'ArrowLeft' : 'ArrowUp'
                 const forward = horizontal ? 'ArrowRight' : 'ArrowDown'
-                if (event.key !== backward && event.key !== forward) return
+                if (event.key !== backward && event.key !== forward && event.key !== 'Enter') return
                 event.preventDefault()
-                callbacks.onDividerNudge?.(node.id, index - 1, event.key === backward ? -0.05 : 0.05)
+                const delta = event.key === 'Enter' ? undefined : event.key === backward ? -0.05 : 0.05
+                callbacks.onDividerNudge?.(node.id, index - 1, delta, event.currentTarget)
               }}
               onPointerDown={(event) => { callbacks.onDividerPressed(node.id, index - 1, event) }}
+              onMouseDown={(event) => { if (event.detail > 1) event.preventDefault() }}
+              onDoubleClick={(event) => { callbacks.onDividerNudge?.(node.id, index - 1, undefined, event.currentTarget) }}
             />
           )}
           <div
@@ -64,7 +70,8 @@ export function PaneTree({ state, nodeId, callbacks, preview }: PaneTreeProps): 
             data-dockkit-cell={`${node.id}:${index}`}
             style={{ flexGrow: sizes[index] }}
           >
-            <PaneTree state={state} nodeId={childId} callbacks={callbacks} preview={preview} />
+            <PaneTree state={state} nodeId={childId} callbacks={callbacks} preview={preview}
+              leading={leading && index === 0} top={top && (horizontal || index === 0)} />
           </div>
         </Fragment>
       ))}

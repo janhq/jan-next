@@ -55,7 +55,7 @@ function renderSurface(
   intents: DockIntents,
   canSplit = true,
   renderTabMenuItems?: TabMenuExtras,
-  options: Pick<DockSurfaceProps, 'dropZones' | 'minPaneFraction' | 'canCloseTab' | 'onTabReleasedOutsideViewport'> = {},
+  options: Pick<DockSurfaceProps, 'dropZones' | 'minPaneFraction' | 'minPaneSize' | 'canCloseTab' | 'onTabReleasedOutsideViewport'> = {},
 ) {
   const snapshot = controller.getSnapshot()
   return render(
@@ -121,7 +121,7 @@ function drag(element: Element, from: readonly [number, number], to: readonly [n
 function twoPanes(
   paneWidth = 420,
   canSplit = true,
-  options: Pick<DockSurfaceProps, 'dropZones' | 'minPaneFraction' | 'onTabReleasedOutsideViewport'> = {},
+  options: Pick<DockSurfaceProps, 'dropZones' | 'minPaneFraction' | 'minPaneSize' | 'onTabReleasedOutsideViewport'> = {},
 ): {
   intents: ReturnType<typeof spyIntents>
   first: PaneId
@@ -1269,6 +1269,13 @@ describe('keyboard tabs', () => {
     expect(chip('Start').tabIndex).toBe(-1)
   })
 
+  it('opens the focused tab menu from the keyboard', async () => {
+    const { chip, intents, ids } = threeChips()
+    fireEvent.keyDown(chip('a.txt'), { key: 'F10', shiftKey: true })
+    fireEvent.click(await screen.findByRole('menuitem'))
+    expect(intents.closeTab).toHaveBeenCalledWith(ids['a.txt'])
+  })
+
   it('moves focus with Left and Right, wrapping, and with Home and End, without selecting', () => {
     const { intents, chip } = threeChips()
     chip('b.txt').focus()
@@ -1325,6 +1332,30 @@ describe('keyboard tabs', () => {
 })
 
 describe('divider drags', () => {
+  it('balances adjacent panes on double click and exposes the active resize', () => {
+    const controller = seededController()
+    controller.splitPane()
+    layOut(dockPaneIds(controller.getSnapshot().state), 420)
+    const id = controller.getSnapshot().state.rootId
+    controller.resizeSplit(id as Parameters<DockController['resizeSplit']>[0], [0.65, 0.35])
+    const intents = spyIntents()
+    const { container } = renderSurface(controller, intents)
+    const divider = container.querySelector<HTMLElement>('[data-dockkit-divider]')!
+    fireEvent.doubleClick(divider)
+    expect(intents.resizeSplit).toHaveBeenCalledWith(id, [0.5, 0.5])
+    drag(divider, [546, 300], [504, 300], false)
+    expect(divider.hasAttribute('data-dockkit-resizing')).toBe(true)
+    fireEvent.pointerCancel(window, { pointerId: 7 })
+    expect(divider.hasAttribute('data-dockkit-resizing')).toBe(false)
+  })
+
+  it('leaves room for pane content when a divider reaches its pixel minimum', () => {
+    const { intents } = twoPanes(420, false, { minPaneSize: { width: 210, height: 160 } })
+    const divider = document.querySelector('[data-dockkit-divider]')!
+    drag(divider, [420, 300], [0, 300])
+    expect(intents.resizeSplit.mock.calls[0]?.[1]).toEqual([0.25, 0.75])
+  })
+
   it('can omit tab strips while keeping arrow-key divider resizing', () => {
     const controller = seededController()
     controller.splitPane()

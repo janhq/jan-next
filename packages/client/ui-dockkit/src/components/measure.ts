@@ -5,7 +5,7 @@
  */
 import type { PaneId } from '../contract/types.ts'
 import { halvesFit, SPLIT_MINIMUMS } from '../engine/geometry.ts'
-import type { HalvesFit, Rect, SplitMinimums } from '../engine/geometry.ts'
+import type { HalvesFit, Rect, Size, SplitMinimums } from '../engine/geometry.ts'
 
 const NO_RECT: Rect = { x: 0, y: 0, width: 0, height: 0 }
 
@@ -60,7 +60,10 @@ function dividerSize(root: HTMLElement): number {
   if (divider === null) return SPLIT_MINIMUMS.divider
   const { width, height } = divider.getBoundingClientRect()
   const thickness = Math.min(width, height)
-  return thickness > 0 ? thickness : SPLIT_MINIMUMS.divider
+  // Recursive divider hit boxes overlap their neighbors and consume no space.
+  return divider instanceof HTMLElement && divider.parentElement?.matches('[data-dockkit-split]')
+    && divider.parentElement.querySelector(':scope > [data-dockkit-cell]') !== null ? SPLIT_MINIMUMS.divider
+    : thickness > 0 ? thickness : SPLIT_MINIMUMS.divider
 }
 
 /**
@@ -87,17 +90,24 @@ function splitControlFootprint(pane: HTMLElement): number {
  * the control's visibility (see `PaneMeasure.splitControlWidth`).
  * @returns each pane's fit, keyed by pane id.
  */
-export function measurePaneFits(root: HTMLElement, splitHiddenWhenBlocked = false): ReadonlyMap<PaneId, HalvesFit> {
+export function measurePaneFits(root: HTMLElement, splitHiddenWhenBlocked = false, minPaneSize?: Size): ReadonlyMap<PaneId, HalvesFit> {
   const minimums: SplitMinimums = { divider: dividerSize(root), chip: chipMinimum(root), body: SPLIT_MINIMUMS.body }
   const fits = new Map<PaneId, HalvesFit>()
   for (const [paneId, pane] of paneElements(root)) {
-    fits.set(paneId, halvesFit({
-      pane: rectOf(pane),
+    const rect = rectOf(pane)
+    const split = halvesFit({
+      pane: rect,
       strip: rectOf(pane.querySelector('[data-dockkit-strip]')),
       chipsWidth: rectOf(pane.querySelector('[data-dockkit-strip-tabs]')).width,
       fillWidth: rectOf(pane.querySelector('[data-dockkit-strip-fill]')).width,
       splitControlWidth: splitHiddenWhenBlocked ? splitControlFootprint(pane) : 0,
-    }, minimums))
+    }, minimums)
+    if (minPaneSize !== undefined && rect.width > 0 && rect.height > 0) {
+      fits.set(paneId, {
+        row: split.row && (rect.width - minimums.divider) / 2 >= minPaneSize.width,
+        column: split.column && (rect.height - minimums.divider) / 2 >= minPaneSize.height,
+      })
+    } else fits.set(paneId, split)
   }
   return fits
 }

@@ -12,9 +12,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { ReactNode, HTMLAttributes } from 'react'
 import type { AddTabMenu, DockIntents, DockLabels, TabMenuExtras, TabRenderer } from '../contract/adapter.ts'
 import type { LayoutState, PaneId, SplitId, TabId, TabRecord } from '../contract/types.ts'
-import { clampSizes, FLOAT_DEFAULT_SIZE, MIN_PANE_FRACTION } from '../engine/constraints.ts'
+import { FLOAT_DEFAULT_SIZE, MIN_PANE_FRACTION } from '../engine/constraints.ts'
 import { getSplit, topRightPaneId } from '../engine/tree.ts'
-import type { DropTarget, HalvesFit } from '../engine/geometry.ts'
+import type { DropTarget, HalvesFit, Size } from '../engine/geometry.ts'
 import {
   containsPoint, dividerSizes, floatRectAt, insertionIndex, passedThreshold, zoneInRect,
 } from '../engine/geometry.ts'
@@ -44,6 +44,8 @@ export interface DockSurfaceProps {
   readonly dropZones?: 'edges' | 'horizontal'
   /** Smallest share a divider may leave a pane; defaults to the kit's fraction. */
   readonly minPaneFraction?: number
+  /** Pixel floor during resize and split, capped by the available room. */
+  readonly minPaneSize?: Size
   /**
    * Whether a pane's strip draws the add control. Called per docked pane on
    * every render; omit to draw one in every pane. `false` leaves the strip's
@@ -118,6 +120,7 @@ interface DividerDrag {
 interface Preview {
   readonly draggingTabId: TabId | undefined
   readonly dropTarget: DropTarget | undefined
+  readonly divider?: string
   readonly sizes: SizePreview | undefined
 }
 
@@ -171,11 +174,20 @@ function hitTest(
   return undefined
 }
 
+/** Clamp one divider without moving the other dividers in the same split. */
+function resizedSizes(sizes: readonly number[], index: number, delta: number, minimum: number): readonly number[] {
+  const before = sizes[index]
+  const after = sizes[index + 1]
+  if (before === undefined || after === undefined) return sizes
+  const floor = Math.min(minimum, (before + after) / 2)
+  return dividerSizes(sizes, index, Math.max(floor - before, Math.min(after - floor, delta)))
+}
+
 /** Fractions a divider drag has reached, clamped to the pane minimum. */
 function draggedSizes(drag: DividerDrag, x: number, y: number, minimum: number): readonly number[] {
   const moved = (drag.axis === 'row' ? x : y) - drag.origin
   const delta = drag.extent > 0 ? moved / drag.extent : 0
-  return clampSizes(dividerSizes(drag.sizes, drag.index, delta), minimum)
+  return resizedSizes(drag.sizes, drag.index, delta, minimum)
 }
 
 /** Fractions closer than this are the same split: renormalizing recorded sizes moves them by no more. */
@@ -195,7 +207,7 @@ function Surface({
   renderAddTabMenu, getTabTriggerProps, tabMenuOpen, chrome, onRoom, onTabReleasedOutsideViewport, showSplitControl = true, tabListLabel,
   tabStrips = true, dividerLabel,
   draw,
-  dropZones = 'edges', minPaneFraction = MIN_PANE_FRACTION, hideSplitWhenBlocked = false,
+  dropZones = 'edges', minPaneFraction = MIN_PANE_FRACTION, minPaneSize, hideSplitWhenBlocked = false,
 }: DockSurfaceProps & { readonly draw: (callbacks: PaneCallbacks, preview: SizePreview | undefined) => ReactNode }): ReactNode {
   const surface = useRef<HTMLDivElement | null>(null)
   const [preview, setPreview] = useState<Preview>(NO_PREVIEW)
@@ -216,10 +228,10 @@ function Surface({
   // wider or narrower). A reading that changed nothing renders nothing.
   const remeasure = useCallback((): void => {
     withSurface((root) => {
-      const next = measurePaneFits(root, hideSplitWhenBlocked)
+      const next = measurePaneFits(root, hideSplitWhenBlocked, minPaneSize)
       setFits(current => sameFits(current, next) ? current : next)
     })
-  }, [withSurface, hideSplitWhenBlocked])
+  }, [withSurface, hideSplitWhenBlocked, minPaneSize])
   useLayoutEffect(() => { remeasure() })
   useEffect(() => { onRoom?.(fits) }, [fits, onRoom])
   useEffect(() => {
@@ -234,6 +246,11 @@ function Surface({
   const splitBlock = (paneId: PaneId): SplitBlock | undefined => {
     if (!canSplit) return 'budget'
     return fitOf(fits, paneId).row ? undefined : 'width'
+  }
+
+  function dividerMinimum(axis: 'row' | 'column', extent: number): number {
+    if (minPaneSize === undefined || extent <= 0) return minPaneFraction
+    return Math.max(minPaneFraction, (axis === 'row' ? minPaneSize.width : minPaneSize.height) / extent)
   }
 
   const callbacks: PaneCallbacks = {
@@ -283,6 +300,7 @@ function Surface({
       })
     },
     onDividerPressed: (splitId, index, event) => {
+      if (event.button !== 0) return
       const container = event.currentTarget.parentElement
       /* v8 ignore next -- a divider is rendered as a child of its split's element. */
       if (container === null) return
@@ -296,15 +314,19 @@ function Surface({
         extent: split.axis === 'row' ? box.width : box.height,
         sizes: split.sizes,
       }
+      const minimum = dividerMinimum(split.axis, drag.extent)
+      const divider = `${splitId}:${index}`
+      setPreview({ ...NO_PREVIEW, divider })
       // A release that left the fractions where they were — a click on the
       // divider, a drag returned to its start, or one pushed further into the
       // clamp — is not a resize and reports nothing.
       begin(event.currentTarget, event.pointerId, {
         move: (moved) => {
-          setPreview({ ...NO_PREVIEW, sizes: { splitId, sizes: draggedSizes(drag, moved.clientX, moved.clientY, minPaneFraction) } })
+          setPreview({ ...NO_PREVIEW, divider, sizes: { splitId, sizes: draggedSizes(drag, moved.clientX, moved.clientY, minimum) } })
         },
         up: (released) => {
-          const sizes = draggedSizes(drag, released.clientX, released.clientY, minPaneFraction)
+          if ((drag.axis === 'row' ? released.clientX : released.clientY) === drag.origin) return
+          const sizes = draggedSizes(drag, released.clientX, released.clientY, minimum)
           if (sameSizes(sizes, drag.sizes)) return
           intents.resizeSplit(splitId, sizes)
         },
@@ -312,9 +334,15 @@ function Surface({
     },
     tabStrips,
     dividerLabel,
-    onDividerNudge: (splitId, index, delta) => {
+    activeDivider: preview.divider,
+    onDividerNudge: (splitId, index, delta, element) => {
       const split = getSplit(state, splitId)
-      const sizes = clampSizes(dividerSizes(split.sizes, index, delta), minPaneFraction)
+      const box = element.parentElement?.getBoundingClientRect()
+      const minimum = dividerMinimum(split.axis, (split.axis === 'row' ? box?.width : box?.height) ?? 0)
+      const before = split.sizes[index]
+      const after = split.sizes[index + 1]
+      if (before === undefined || after === undefined) return
+      const sizes = resizedSizes(split.sizes, index, delta ?? (after - before) / 2, minimum)
       if (!sameSizes(sizes, split.sizes)) intents.resizeSplit(splitId, sizes)
     },
     splitBlock,
