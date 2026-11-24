@@ -34,6 +34,7 @@ export function SessionMarkdownCopyToast({
         key={notice.seq}
         text={t(notice.kind === 'preparationFailed' ? 'toast.preparationFailed' : 'toast.clipboardFailed')}
         icon={<IconWarningOutlineRegular />}
+        failure={notice.failure}
         onDone={dismiss}
       />
     )
