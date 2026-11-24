@@ -1,24 +1,43 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { apply } from '../index.mjs'
 
-async function harness(t, { failPause = false, failDelete = false } = {}) {
+async function harness(t, { failPause = false, failDelete = false, seed } = {}) {
   const home = await mkdtemp(join(tmpdir(), 'jan-bot-import-'))
   const services = {}, destinations = new Map(), tasks = [], sessions = new Map(), cleanups = [], attempts = []
+  const profiles = new Map(), selections = [], listeners = new Map()
+  await seed?.(home)
   let handler
   apply({ janHomePath: () => home, logger: { warn: () => {} }, get: () => undefined,
-    provide: (name, service) => { services[name] = service }, on: () => {},
+    provide: (name, service) => { services[name] = service }, on: (event, listener) => { listeners.set(event, listener) },
     effect(fn) { const cleanup = fn(); if (typeof cleanup === 'function') cleanups.push(cleanup) },
     webServer: { register(route) { if (route.path === '/jan-api/always-on') handler = route.handler; return () => {} } },
     connection: { requestRejection: () => undefined },
     credentials: { readRecord: async () => undefined },
-    workspaceController: { initializeDefault: async () => ({ workspace: { workspaceId: 'default' } }) },
+    workspaceController: { initializeDefault: async () => ({ workspace: { workspaceId: 'default' } }), archiveSession: async () => {} },
     workspaceRegistry: { get: () => ({ title: 'Default' }) },
-    agents: { get: () => undefined },
+    agents: { get: () => undefined, turnBoundaryOf: () => ({ openTurnStartSeq: null }) },
     sessionPersistence: { stat: async id => sessions.get(id) },
+    agentProfiles: {
+      snapshot: () => ({ profiles: [...profiles.values()] }),
+      list: async ({ workspaceId }) => ({ profiles: [...profiles.values()].filter(row => row.scope === 'global' || row.workspaceId === workspaceId) }),
+      get: async ({ id }) => {
+        if (profiles.has(id)) return profiles.get(id)
+        throw Object.assign(new Error('No such agent'), { code: 'agent-profiles/not-found' })
+      },
+      save: async ({ scope, workspaceId, profile }) => {
+        const row = { ...profile, scope, workspaceId, writable: true }
+        profiles.set(profile.id, row)
+        return row
+      },
+      select: async request => { selections.push(request) },
+      remove: async ({ id }) => { profiles.delete(id) },
+      profileForSession: session => selections.findLast(row => row.sessionId === session.id)?.id ?? null,
+    },
     sessionController: {
       create: async ({ sessionId, workspaceId }) => { sessions.set(sessionId, { workspaceId }); return { sessionId } },
       resolveAgent: async sessionId => ({ agent: { session: { id: sessionId } } }),
@@ -63,7 +82,7 @@ async function harness(t, { failPause = false, failDelete = false } = {}) {
     handler(req, res).catch(reject)
     return promise
   }
-  return { ...services.janBotImport, tasks, sessions, attempts, rpc }
+  return { ...services.janBotImport, tasks, sessions, attempts, rpc, profiles, selections, listeners, home }
 }
 
 const packet = {
@@ -81,6 +100,10 @@ test('creates a canonical bot, preserves full UTF-8 memory and denies delivery w
   assert.deepEqual(h.validateRoutine({ schedule_cron: '0 9 * * *', timezone: 'Not/AZone' }, 'UTC'), { reason: 'invalid-time-zone' })
   const result = await h.importBot(packet)
   assert.equal(h.sessions.get(result.sessionId).workspaceId, 'default')
+  const agent = h.profiles.get('atlas')
+  assert.equal(agent.description, packet.description)
+  assert.equal(agent.scope, 'global')
+  assert.deepEqual(h.selections, [{ sessionId: result.sessionId, id: 'atlas' }])
   assert.deepEqual(h.tasks.map(({ title, target, timing, status }) => ({ title, target, timing, status })), packet.routines.map(row => ({ title: row.name,
     target: { kind: 'session', sessionId: result.sessionId }, timing: { kind: 'cron', cron: { expression: row.expression, time_zone: row.timeZone } }, status: row.paused ? 'paused' : 'active' })))
   assert.deepEqual(h.attempts, ['task-2'])
@@ -100,6 +123,64 @@ test('creates a canonical bot, preserves full UTF-8 memory and denies delivery w
   assert.equal((await h.rpc('create', { name: 'Another bot' })).paused, false)
 })
 
+test('creates, edits and shares a global agent without deleting it when a bot is removed', async t => {
+  const h = await harness(t)
+  const bot = await h.rpc('create', { name: '  PR Watcher  ', newAgent: { description: 'Pull requests', instructions: 'Watch PRs' } })
+  assert.equal(bot.agentProfile, 'pr-watcher')
+  assert.deepEqual((await h.rpc('listAgents', {})).map(row => row.id), ['pr-watcher'])
+  await h.rpc('edit', { id: bot.id, patch: { agentChanges: { instructions: 'Only check open PRs' } } })
+  assert.equal(h.profiles.get(bot.agentProfile).description, 'Pull requests')
+  assert.equal((await h.rpc('getAgent', { id: bot.agentProfile })).instructions, 'Only check open PRs')
+  assert.equal(h.selections.length, 1, 'an instruction edit does not apply the model again')
+  await h.rpc('edit', { id: bot.id, patch: { agentChanges: { model: { provider: 'fixture', model: 'reviewer' } } } })
+  assert.deepEqual(h.selections.at(-1), { sessionId: bot.sessionId, id: bot.agentProfile })
+  const copy = await h.rpc('duplicate', { id: bot.id, name: 'Another watcher' })
+  assert.equal(copy.agentProfile, bot.agentProfile)
+  await h.rpc('delete', { id: bot.id })
+  assert.equal(h.profiles.get(copy.agentProfile).instructions, 'Only check open PRs')
+})
+
+test('requires an explicit copy before editing a foreign agent and preserves its limits', async t => {
+  const h = await harness(t)
+  h.profiles.set('foreign', { id: 'foreign', scope: 'project', workspaceId: 'default', description: 'Read only',
+    source: 'claude', use: 'primary', writable: false, instructions: 'Read PRs', tools: ['read'], disallowedTools: ['bash'] })
+  h.profiles.set('child', { id: 'child', scope: 'global', use: 'subagent' })
+  assert.deepEqual((await h.rpc('listAgents', {})).map(row => row.id), ['foreign'])
+  const bot = await h.rpc('create', { name: 'Reader', agentProfile: 'foreign' })
+  await assert.rejects(h.rpc('edit', { id: bot.id, patch: { agentChanges: { instructions: 'Replacement' } } }), /agent-read-only/u)
+  assert.equal(h.profiles.get('foreign').instructions, 'Read PRs')
+  const copied = await h.rpc('copyAgent', { id: 'foreign' })
+  assert.equal(copied.scope, 'project')
+  assert.equal(copied.workspaceId, 'default')
+  assert.equal(copied.writable, true)
+  assert.deepEqual(copied.tools, ['read'])
+  assert.deepEqual(copied.disallowedTools, ['bash'])
+})
+
+test('backfills an existing bot chat selection once without changing its saved model', async t => {
+  const id = '6cc09d56-f69d-457e-af42-000000000000', sessionId = 'session-existing'
+  const homeFixture = async home => {
+    const data = join(home, 'bots')
+    const instructions = 'Watch PRs'
+    const personaDigest = createHash('sha256').update(instructions).digest('hex')
+    await mkdir(join(data, id), { recursive: true })
+    await writeFile(join(data, id, `persona-${personaDigest}.md`), instructions)
+    await writeFile(join(data, 'registry.json'), JSON.stringify({ version: 1, migrated: true, bots: [
+      { id, sessionId, workspaceId: 'default', name: 'PR Watcher', role: '', personaDigest },
+    ] }))
+  }
+  const h = await harness(t, { seed: homeFixture })
+  assert.equal((await h.rpc('list'))[0].agentProfile, 'pr-watcher')
+  const notifyCreated = h.listeners.get('agent/created')
+  const agent = { id: sessionId, session: { id: sessionId }, ctx: { inject: () => ({ dispose() {} }) } }
+  await notifyCreated({ agent })
+  // A registry edit queues behind the asynchronous backfill marker write.
+  await h.rpc('edit', { id, patch: { name: 'PR Watcher' } })
+  assert.equal(JSON.parse(await readFile(join(h.home, 'bots', 'registry.json'), 'utf8')).bots[0].agentSelectionPending, undefined)
+  await notifyCreated({ agent })
+  assert.deepEqual(h.selections, [{ sessionId, id: 'pr-watcher', keepModel: true }])
+})
+
 test('deletes a newly created task when pausing it fails', async t => {
   const h = await harness(t, { failPause: true })
   const result = await h.importBot({ ...packet, routines: [packet.routines[1]] })
@@ -114,4 +195,24 @@ test('keeps the bot paused and reports the remaining task when cleanup fails', a
   assert.equal(result.routines[0].reason, 'pause-cleanup-failed')
   assert.equal(result.routines[0].id, h.tasks[0].id)
   assert.equal((await h.rpc('detail', { id: result.botId })).paused, true)
+})
+
+test('creates a template bot with its agent and localized routines in the user time zone', async t => {
+  const h = await harness(t)
+  const { templateFor } = await import('../templates.mjs')
+  const template = templateFor('weekly-status')
+  const bot = await h.rpc('create', { name: 'Status', role: template.copy.de.role, avatar: { ...template.avatar, locked: false },
+    newAgent: { description: template.description, instructions: template.instructions },
+    template: template.id, timeZone: 'Europe/Berlin', locale: 'de' })
+  assert.equal(h.profiles.get(bot.agentProfile).instructions, template.instructions)
+  assert.equal(bot.routinesFailed, undefined)
+  assert.deepEqual(h.tasks.map(({ title, timing, target }) => ({ title, timing, target })), [
+    { title: 'Heute fällig', timing: { kind: 'cron', cron: { expression: '0 9 * * 1-5', time_zone: 'Europe/Berlin' } }, target: { kind: 'session', sessionId: bot.sessionId } },
+    { title: 'Wöchentlicher Statusbericht', timing: { kind: 'cron', cron: { expression: '0 15 * * 5', time_zone: 'Europe/Berlin' } }, target: { kind: 'session', sessionId: bot.sessionId } },
+  ])
+  await h.rpc('create', { name: 'Brief', template: 'chief-of-staff', timeZone: 'Not/AZone' })
+  assert.equal(h.tasks.at(-1).timing.cron.time_zone, 'UTC')
+  assert.equal(h.tasks.at(-1).title, 'Morning brief')
+  await assert.rejects(h.rpc('create', { name: 'Ghost', template: 'no-such-template' }), /template-not-found/)
+  assert.equal(h.sessions.size, 2)
 })

@@ -9,28 +9,38 @@ window.__ModuleLoader__.load({
     const palette = ['#42688f', '#8c553d', '#75558b', '#467568', '#676d3e', '#915571', '#436b83', '#974c4c']
     const shapes = ['bubble', 'round', 'square', 'capsule']
     const STOP = Symbol('aborted')
+    const NEW_AGENT = '$new', KEEP_AGENT = '$keep'
     const sourceKinds = { github: 'GitHub', slack: 'Slack', discord: 'Discord' }
     const sourceOptions = Object.entries(sourceKinds).map(([id, label]) => ({ id, label }))
     const maxSources = 8
     const detailTabs = ['routines', 'sources', 'memory', 'activity']
-    const modelKey = model => model ? JSON.stringify({ provider: model.provider, model: model.model }) : ''
+    const modelKey = model => model ? JSON.stringify({ provider: model.provider, model: model.model, reasoningEffort: model.reasoningEffort }) : ''
+    const modelLabel = model => model.provider ? `${model.provider} / ${model.model}` : model.model
+    const idParams = id => id === null ? undefined : { id }
     const botFor = (rows, sessionId) => rows?.find(bot => bot.sessionId === sessionId)
     const nameHash = name => { let hash = 0; for (const ch of name) hash = (Math.imul(hash, 31) + ch.codePointAt(0)) >>> 0; return hash }
     const appearanceFor = name => { const hash = nameHash(name.trim().toLowerCase()); return { shape: hash % 4, color: palette[(hash >>> 2) % palette.length], locked: false } }
     const formatTime = (locale, value) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
-    const callError = error => ({ 'project-not-found': 'missingProject', 'invalid-sources': 'invalidSources' })[error?.message] ?? 'error'
-    function useRequest(request, method, key, revision) {
-      const [state, setState] = useState({ key, value: null, error: false })
+    const callError = error => ({ 'project-not-found': 'missingProject', 'invalid-sources': 'invalidSources',
+      'agent-missing': 'missingAgent', 'agent-read-only': 'agentReadOnly', 'bot-session-busy': 'botBusy' })[error?.message] ?? 'error'
+    function useRequest(request, method, key, revision, params = idParams) {
+      const [state, setState] = useState({ key, value: null, error: false, loaded: false })
       const [retry, setRetry] = useState(0)
       useEffect(() => {
         if (key === STOP) return
         const controller = new AbortController()
-        void request(method, key === null ? undefined : { id: key }, controller.signal).then(value => {
-          if (!controller.signal.aborted) setState({ key, value, error: false })
-        }, () => { if (!controller.signal.aborted) setState(before => ({ key, value: before.key === key ? before.value : null, error: true })) })
+        void request(method, params(key), controller.signal).then(value => {
+          if (!controller.signal.aborted) setState({ key, value, error: false, loaded: true })
+        }, () => {
+          if (!controller.signal.aborted) setState(before => ({ key, value: before.key === key ? before.value : null, error: true,
+            loaded: before.key === key && before.loaded }))
+        })
         return () => controller.abort()
-      }, [request, method, key, revision, retry])
-      return { ...(state.key === key ? state : { value: null, error: false }), retry: () => setRetry(value => value + 1) }
+      }, [request, method, key, revision, params, retry])
+      return { ...(state.key === key ? state : { value: null, error: false, loaded: false }), retry: (clear = false) => {
+        if (clear === true) setState({ key, value: null, error: false, loaded: false })
+        setRetry(value => value + 1)
+      } }
     }
     function ButtonAction({ children, ...props }) { return h(Button, { size: 'sm', variant: 'toolbar', ...props }, children) }
     function Failure({ text, retry, t }) {
@@ -73,7 +83,7 @@ window.__ModuleLoader__.load({
         return project?.isDefault && project.title === 'default-workspace' ? t('defaultProject') : project?.title ?? bot.project ?? t('missingProject')
       }
       const matched = rows?.toSorted((a, b) => (b.latest?.at ?? b.createdAt) - (a.latest?.at ?? a.createdAt))
-        .filter(bot => rows.length <= 6 || `${bot.name} ${bot.role} ${bot.description} ${projectName(bot)}`.toLocaleLowerCase(language).includes(search.trim().toLocaleLowerCase(language)))
+        .filter(bot => rows.length <= 6 || `${bot.name} ${bot.role} ${bot.agentDescription ?? ''} ${projectName(bot)}`.toLocaleLowerCase(language).includes(search.trim().toLocaleLowerCase(language)))
       return h('main', { className: 'jao-page', 'aria-labelledby': 'jao-roster-title' }, h('div', { className: 'jao-content' },
         h('header', { className: 'jao-roster-head', 'data-window-drag': '' },
           h('h1', { id: 'jao-roster-title' }, t('title')),
@@ -92,7 +102,7 @@ window.__ModuleLoader__.load({
             h('span', { className: 'jao-roster-copy' }, h('span', { className: 'jao-roster-name' }, bot.name,
               bot.unread && h('span', { className: 'jao-unread', title: t('unread') })),
               h('span', { className: 'jao-roster-project' }, projectName(bot), bot.role && ` · ${bot.role}`),
-              h('span', { className: 'jao-preview' }, bot.latest?.text || bot.description || t('noMessages'))),
+              h('span', { className: 'jao-preview' }, bot.latest?.text || bot.agentDescription || t('noMessages'))),
             bot.latest && h('time', { dateTime: new Date(bot.latest.at).toISOString() }, formatTime(language, bot.latest.at))),
           h(IconAction, { label: `${t('edit')}: ${bot.name}`, icon: IconEditOutlineRegular,
             onClick: () => dialog({ mode: 'edit', bot }) }))))))
@@ -123,39 +133,94 @@ window.__ModuleLoader__.load({
             required: true, value: everyMinutes, onChange: event => update(key, { everyMinutes: event.currentTarget.value }) })),
           h(IconAction, { label: t('removeSource'), icon: IconTrashOutlineRegular, onClick: () => remove(key) }))))
     }
-    function EditForm({ t, avatar, mode, bot, existing, sourceSessionId, useWorkspaces, request, change, close, open, dialog }) {
+    const noParams = () => ({})
+    function TemplatePicker({ t, avatar, request, dialog, close, useLanguage }) {
+      const language = useLanguage(value => value)
+      const templates = useRequest(request, 'templates', 'all', undefined, noParams)
+      return h(Modal, { open: true, title: t('create'), description: t('templateIntro'), closeLabel: t('close'), onClose: close, className: 'jao-modal' },
+        templates.error && h(Failure, { t, retry: templates.retry }),
+        !templates.loaded && !templates.error && h(Loading, { t }),
+        templates.loaded && h('ul', { className: 'jao-templates', 'aria-label': t('templates') },
+          h('li', null, h('button', { type: 'button', className: 'jao-template jao-template-blank', 'data-modal-autofocus': true,
+            onClick: () => dialog({ mode: 'create', template: null }) },
+          h('span', { className: 'jao-template-plus', 'aria-hidden': true }, h(IconPlusOutlineRegular, { size: 16 })),
+          h('span', { className: 'jao-template-copy' }, h('strong', null, t('fromScratch')), h('span', null, t('fromScratchDetail'))))),
+          templates.value.map(template => {
+            const display = template.copy[language] ?? template.copy.en
+            return h('li', { key: template.id }, h('button', { type: 'button', className: 'jao-template',
+              onClick: () => dialog({ mode: 'create', template }) },
+            h(Seat, { bot: { name: display.name, avatar: { ...template.avatar, locked: false }, paused: false, lastDeliveryAgeMs: null }, t, avatar }),
+            h('span', { className: 'jao-template-copy' }, h('strong', null, display.name), h('span', null, display.summary))))
+          })))
+    }
+    function EditForm({ t, avatar, mode, bot, existing, template, sourceSessionId, useWorkspaces, useLanguage, request, change, close, open, dialog, notify }) {
       const projects = useWorkspaces(state => state.items)
-      const [name, setName] = useState(existing?.name ?? '')
-      const [custom, setCustom] = useState(existing?.avatar ?? null)
-      const [advanced, setAdvanced] = useState(false)
+      const language = useLanguage(value => value)
+      const [name, setName] = useState(existing?.name ?? template?.display.name ?? '')
+      const [custom, setCustom] = useState(existing?.avatar ?? (template ? { ...template.avatar, locked: false } : null))
       const [busy, setBusy] = useState(false), [error, setError] = useState(null)
-      const options = useRequest(request, 'options', mode === 'create' || advanced ? null : STOP)
+      const options = useRequest(request, 'options', mode !== 'duplicate' ? null : STOP)
       const [project, setProject] = useState('')
       const [preset, setPreset] = useState(existing?.agentPreset ?? '')
+      const [agent, setAgent] = useState(() => mode === 'create' ? (sourceSessionId ? KEEP_AGENT : NEW_AGENT) : existing?.agentProfile ?? '')
       const [model, setModel] = useState(null)
-      const [sources, setSources] = useState(() => (existing?.sources ?? []).map(({ kind, target, everyMinutes }, key) => ({ key, kind, target, everyMinutes })))
+      const [sources, setSources] = useState(() => (existing?.sources ?? template?.sources ?? []).map(({ kind, target = '', everyMinutes }, key) => ({ key, kind, target, everyMinutes })))
       const nextSource = useRef(sources.length)
+      const target = { workspaceId: existing?.workspaceId ?? (project || undefined), sourceSessionId }
+      const catalog = useRequest(request, 'listAgents', mode === 'duplicate' ? STOP : JSON.stringify(target), undefined, JSON.parse)
+      const newAgent = agent === NEW_AGENT
+      const existingAgent = catalog.value?.some(row => row.id === agent)
+      const profile = useRequest(request, 'getAgent', existingAgent ? JSON.stringify({ ...target, id: agent }) : STOP, undefined, JSON.parse)
       const defaultModel = mode === 'create' && !sourceSessionId ? options.value?.defaultModel : null
       const defaultModelKey = modelKey(defaultModel)
-      const selectedModel = model ?? (mode === 'edit' ? modelKey(existing?.model) : defaultModelKey)
+      const initialModel = newAgent ? defaultModel : profile.value?.model
+      const initialModelKey = modelKey(initialModel)
+      const selectedModel = model ?? initialModelKey
+      const agentMissing = catalog.loaded && agent && !newAgent && agent !== KEEP_AGENT && (!existingAgent || profile.loaded && !profile.value)
+      const keepMissing = mode === 'edit' && agent === existing?.agentProfile
+      const formReady = mode === 'duplicate' || (catalog.loaded && (!existingAgent || profile.loaded) && (!newAgent || options.loaded)
+        && (!agentMissing || keepMissing))
+      const foreign = profile.value?.writable === false
+      const readOnly = !newAgent && (foreign || mode !== 'edit')
+      function chooseAgent(id) { setAgent(id); setModel(null) }
+      async function copyAgent() {
+        setBusy(true); setError(null)
+        try { await change('copyAgent', { ...target, id: agent }); profile.retry(true) }
+        catch (reason) { setError(callError(reason)) }
+        finally { setBusy(false) }
+      }
       const appearance = custom ?? appearanceFor(name)
       const title = t(mode === 'edit' ? 'edit' : mode === 'duplicate' ? 'duplicate' : 'create')
       async function save(event) {
         event.preventDefault()
-        if (busy) return
+        if (busy || !formReady) return
         const data = new FormData(event.currentTarget)
         setBusy(true); setError(null)
         try {
           if (mode === 'duplicate') {
             const result = await change('duplicate', { id: bot.id, name }); close(); open(result); return
           }
-          const modelChoice = mode === 'edit' ? selectedModel : model
-          const input = { name, role: data.get('role'), description: data.get('description'), avatar: custom,
-            agentPreset: preset || null, model: modelChoice ? JSON.parse(modelChoice) : null, persona: data.get('persona'),
+          const description = data.get('agentDescription')
+          const instructions = data.get('agentInstructions')
+          const input = { name, role: data.get('role'), avatar: custom, agentPreset: preset || null,
             sources: sources.map(({ kind, target, everyMinutes }) => ({ kind, target: target.trim(), everyMinutes: Number(everyMinutes) })) }
+          if (newAgent) {
+            input.newAgent = { description, instructions, model: selectedModel ? JSON.parse(selectedModel) : null }
+          } else if (agent !== KEEP_AGENT) {
+            input.agentProfile = agent || null
+            if (profile.value && !readOnly) {
+              const changes = {}
+              if (description !== profile.value.description) changes.description = description
+              if (instructions !== profile.value.instructions) changes.instructions = instructions
+              if (selectedModel !== initialModelKey) changes.model = selectedModel ? JSON.parse(selectedModel) : null
+              if (Object.keys(changes).length) input.agentChanges = changes
+            }
+          }
           const result = mode === 'edit' ? await change('edit', { id: bot.id, patch: input })
-            : await change('create', { ...input, sourceSessionId, workspaceId: project || undefined })
+            : await change('create', { ...input, sourceSessionId, workspaceId: project || undefined,
+              ...template ? { template: template.id, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, locale: language } : {} })
           close(); if (mode === 'create') open(result)
+          if (result?.routinesFailed) notify({ copy: 'routinesFailed', error: true, botId: result.id })
         } catch (reason) { setError(callError(reason)) }
         finally { setBusy(false) }
       }
@@ -166,14 +231,17 @@ window.__ModuleLoader__.load({
       const models = (options.value?.models ?? []).flatMap(group => group.models.map(item => ({
         id: modelKey({ provider: group.id, model: item.id }), label: `${group.name} / ${item.name}`, name: item.name,
       })))
-      const modelOptions = defaultModelKey
-        ? [{ id: defaultModelKey, label: `${models.find(item => item.id === defaultModelKey)?.name ?? defaultModel.model} (${t('botDefault')})` }]
-        : [{ id: '', label: t('useDefault') }]
-      const initialModel = existing?.model
-      const initialModelKey = modelKey(initialModel)
-      if (initialModelKey && !models.some(item => item.id === initialModelKey)) {
-        modelOptions.push({ id: initialModelKey, label: `${initialModel.provider} / ${initialModel.model}` })
+      const modelOptions = [{ id: '', label: t('useDefault') }]
+      if (newAgent && defaultModelKey) {
+        modelOptions.push({ id: defaultModelKey, label: `${models.find(item => item.id === defaultModelKey)?.name ?? defaultModel.model} (${t('botDefault')})` })
       }
+      if (initialModelKey && !modelOptions.some(item => item.id === initialModelKey) && !models.some(item => item.id === initialModelKey)) {
+        modelOptions.push({ id: initialModelKey, label: modelLabel(initialModel) })
+      }
+      const agentOptions = [{ id: '', label: t('noAgent') }, { id: NEW_AGENT, label: t('newAgent') },
+        ...(catalog.value ?? []).map(row => ({ id: row.id, label: row.id }))]
+      if (sourceSessionId) agentOptions.unshift({ id: KEEP_AGENT, label: t('keepAgent') })
+      if (agent && agent !== NEW_AGENT && agent !== KEEP_AGENT && !existingAgent) agentOptions.push({ id: agent, label: agent })
       const presets = (options.value?.presets ?? []).map(item => ({ id: item.id, label: item.name ?? item.id }))
       if (preset && !presets.some(item => item.id === preset)) presets.unshift({ id: preset, label: preset })
       return h(Modal, { open: true, title, closeLabel: t('close'), onClose: busy ? () => {} : close,
@@ -181,24 +249,39 @@ window.__ModuleLoader__.load({
           mode === 'edit' && h('div', { className: 'jao-edit-tools' }, h(ButtonAction, { variant: 'ghost', onClick: () => dialog({ mode: 'duplicate', bot }), disabled: busy }, t('duplicate')),
             h(ButtonAction, { variant: 'ghost', onClick: () => dialog({ mode: 'delete', bot }), disabled: busy, className: 'jao-danger' }, t('delete'))),
           h('div', { className: 'jao-footer-right' }, h(Button, { onClick: close, disabled: busy }, t('cancel')),
-            h(Button, { type: 'submit', variant: 'primary', form: 'jao-bot-editor', disabled: busy || !name.trim() }, t(busy ? 'saving' : mode === 'create' ? 'create' : 'save')))) },
+            h(Button, { type: 'submit', variant: 'primary', form: 'jao-bot-editor', disabled: busy || !formReady || !name.trim() }, t(busy ? 'saving' : mode === 'create' ? 'create' : 'save')))) },
       h('form', { id: 'jao-bot-editor', className: 'jao-form', onSubmit: save },
         error && h(Failure, { t, text: error }),
         h('div', { className: 'jao-identity' }, h(Seat, { bot: { name: name || t('title'), avatar: custom, paused: false, lastDeliveryAgeMs: null }, t, avatar }),
           h('label', { className: 'jao-field' }, t('name'), h(Input, { value: name, onChange: event => setName(event.currentTarget.value), maxLength: 80,
             'data-modal-autofocus': true, required: true }))),
         mode !== 'duplicate' && h('div', { className: 'jao-form' },
-          h('label', { className: 'jao-field' }, t('role'), h(Input, { name: 'role', defaultValue: existing?.role, maxLength: 100, placeholder: t('roleHint') })),
-          h('label', { className: 'jao-field' }, t('description'), h('textarea', { name: 'description', rows: 2, defaultValue: existing?.description, maxLength: 500 })),
+          h('label', { className: 'jao-field' }, t('role'), h(Input, { name: 'role', defaultValue: existing?.role ?? template?.display.role, maxLength: 100, placeholder: t('roleHint') })),
+          template?.routines.length > 0 && h('p', { className: 'jao-hint' }, `${t('templateRoutines')} ${template.routines.map(routine => routine.titles[language] ?? routine.titles.en).join(', ')}`),
           mode === 'create' && sourceSessionId && h('p', { className: 'jao-hint' }, t('keepChat')),
-          mode === 'create' && !sourceSessionId && h(Choice, { label: t('project'), value: project, onChange: setProject,
-            options: [{ id: '', label: t('defaultProject') }, ...projects.filter(item => !item.isDefault).map(item => ({ id: item.workspaceId, label: item.title }))] }),
-          mode === 'create' && !sourceSessionId && h(Choice, { label: t('model'), value: selectedModel, onChange: setModel, busy: !options.value && !options.error,
-            options: [...modelOptions, ...models.filter(item => item.id !== defaultModelKey)] }),
-          mode === 'create' && !sourceSessionId && options.error && !advanced && h(Failure, { t, retry: options.retry }),
-          h('details', { className: 'jao-advanced', onToggle: event => { if (event.currentTarget.open) setAdvanced(true) } },
+          mode === 'create' && !sourceSessionId && h(Choice, { label: t('project'), value: project, disabled: busy, onChange: value => {
+            setProject(value); if (agent !== NEW_AGENT && agent !== '') chooseAgent('')
+          }, options: [{ id: '', label: t('defaultProject') }, ...projects.filter(item => !item.isDefault).map(item => ({ id: item.workspaceId, label: item.title }))] }),
+          h(Choice, { label: t('agent'), value: agent, options: agentOptions, onChange: chooseAgent,
+            busy: !catalog.loaded && !catalog.error, disabled: busy }),
+          catalog.error && h(Failure, { t, retry: catalog.retry }),
+          profile.error && h(Failure, { t, retry: profile.retry }),
+          existingAgent && !profile.loaded && !profile.error && h(Loading, { t }),
+          agentMissing && h(Failure, { t, text: 'missingAgent' }),
+          (newAgent || profile.value) && h('div', { key: profile.value?.path ?? agent, className: 'jao-form' },
+            !readOnly && !newAgent && h('p', { className: 'jao-hint' }, t('sharedAgent')),
+            h('label', { className: 'jao-field' }, t('description'), h('textarea', { name: 'agentDescription', rows: 2, readOnly,
+              defaultValue: profile.value?.description ?? template?.description, maxLength: 500 })),
+            h(Choice, { label: t('model'), value: selectedModel, onChange: setModel, disabled: readOnly || busy,
+              busy: !options.loaded && !options.error && !readOnly,
+              options: [...modelOptions, ...models.filter(item => !modelOptions.some(row => row.id === item.id))] }),
+            h('label', { className: 'jao-field' }, t('agentInstructions'), h('textarea', { name: 'agentInstructions', rows: newAgent && template ? 8 : 4, readOnly,
+              maxLength: 32768, defaultValue: profile.value?.instructions ?? template?.instructions })),
+            foreign && h('div', { className: 'jao-inline' }, h('p', { className: 'jao-hint' }, t('agentReadOnly')),
+              h(ButtonAction, { type: 'button', onClick: copyAgent, disabled: busy }, t('copyAgent')))),
+          options.error && h(Failure, { t, retry: options.retry }),
+          h('details', { className: 'jao-advanced' },
             h('summary', null, t('advanced')), h('div', { className: 'jao-form' },
-              h('label', { className: 'jao-field' }, t('persona'), h('textarea', { name: 'persona', rows: 4, maxLength: 32768, defaultValue: existing?.persona })),
               h('div', { className: 'jao-form-pair' },
                 h(Choice, { label: t('shape'), value: String(appearance.shape), disabled: appearance.locked,
                   onChange: value => setCustom({ ...appearance, shape: Number(value) }), options: shapes.map((shape, index) => ({ id: String(index), label: t(shape) })) }),
@@ -206,11 +289,8 @@ window.__ModuleLoader__.load({
                   onChange: event => setCustom({ ...appearance, color: event.currentTarget.value }) }))),
               h('div', { className: 'jao-inline' }, h(ButtonAction, { onClick: randomize, disabled: appearance.locked }, t('randomize')),
                 h(Checkbox, { label: t('lock'), checked: appearance.locked, onChange: locked => setCustom({ ...appearance, locked }) })),
-              options.error && h(Failure, { t, retry: options.retry }),
-              h(Choice, { label: t('preset'), value: preset, onChange: setPreset, busy: advanced && !options.value && !options.error,
-                options: [{ id: '', label: t('useDefault') }, ...presets] }),
-              (mode !== 'create' || sourceSessionId) && h(Choice, { label: t('model'), value: selectedModel, onChange: setModel, busy: advanced && !options.value && !options.error,
-                options: [...modelOptions, ...models.filter(item => item.id !== defaultModelKey)] }))),
+              h(Choice, { label: t('preset'), value: preset, onChange: setPreset, busy: !options.loaded && !options.error,
+                options: [{ id: '', label: t('useDefault') }, ...presets] }))),
           h(WatchFields, { t, sources,
             add: () => {
               const key = nextSource.current++
@@ -234,18 +314,23 @@ window.__ModuleLoader__.load({
           h(Button, { type: 'button', variant: 'primary', onClick: remove, disabled: busy }, t('delete'))) }, failed && h(Failure, { t }))
     }
     function EditDialog(props) {
-      const { mode, bot, request, t, close } = props
+      const { mode, bot, request, t, close, template, sourceSessionId, useLanguage } = props
+      const language = useLanguage(value => value)
       const data = useRequest(request, 'detail', mode === 'edit' ? bot.id : STOP)
       if (mode === 'delete') return h(DeleteDialog, props)
+      if (mode === 'create' && !sourceSessionId && template === undefined) return h(TemplatePicker, props)
       if (mode === 'edit' && !data.value) return h(Modal, { open: true, title: t('edit'), closeLabel: t('close'), onClose: close },
         data.error ? h(Failure, { t, retry: data.retry }) : h(Loading, { t }))
-      return h(EditForm, { ...props, existing: mode === 'duplicate' ? { name: `${bot.name.slice(0, 65)} ${t('copySuffix')}` } : data.value })
+      const shown = template ? { ...template, display: template.copy[language] ?? template.copy.en } : template
+      return h(EditForm, { ...props, template: shown ?? undefined,
+        existing: mode === 'duplicate' ? { name: `${bot.name.slice(0, 65)} ${t('copySuffix')}` } : data.value })
     }
     function Overlays(props) {
       const { useDialogs, useNotices, useRoster, t, dismissNotice, open, dialog } = props
       const edit = useDialogs(value => value), notice = useNotices(value => value)
       const bot = useRoster(state => state.rows?.find(value => value.id === notice?.botId))
-      return h('div', { className: 'jao-overlays' }, edit && h(EditDialog, { ...props, ...edit, key: `${edit.mode}:${edit.sourceSessionId ?? edit.bot?.id ?? ''}`, close: () => dialog(null) }),
+      return h('div', { className: 'jao-overlays' }, edit && h(EditDialog, { ...props, ...edit,
+        key: `${edit.mode}:${edit.sourceSessionId ?? edit.bot?.id ?? ''}:${edit.template === undefined ? '' : edit.template?.id ?? 'blank'}`, close: () => dialog(null) }),
         notice && h(Toast, { key: notice.id, text: notice.copy ? t(notice.copy) : notice.kind === 'approval' ? t('review') : notice.text ?? t('error'),
           holdMs: 7000, actions: bot ? [{ label: t('openChat'), onClick: () => { open(bot); dismissNotice() } }] : [], onDone: dismissNotice }))
     }
@@ -392,7 +477,7 @@ window.__ModuleLoader__.load({
       return h('aside', { className: 'jao-details', 'aria-label': t('details') },
         h('header', { className: 'jao-detail-head' }, h(Seat, { bot, t, avatar }),
           h('div', { className: 'jao-detail-identity' }, h('h2', null, bot.name), bot.role && h('p', { className: 'jao-hint' }, bot.role),
-            bot.description && h('p', { className: 'jao-hint' }, bot.description))),
+            bot.agentDescription && h('p', { className: 'jao-hint' }, bot.agentDescription))),
         h('div', { className: 'jao-toolbar' },
           h(ButtonAction, { variant: 'ghost', disabled: busy, onClick: pause,
             icon: h(bot.paused ? IconPlayOutlineRegular : IconPauseOutlineRegular, { size: 14, 'aria-hidden': true }) }, t(bot.paused ? 'resume' : 'pause')),
@@ -453,6 +538,17 @@ window.__ModuleLoader__.load({
       .jao-loading svg{animation:jao-spin var(--ds-transition-duration-loop) linear infinite}
       @keyframes jao-spin{to{transform:rotate(1turn)}}
       .jao-modal{width:560px;max-width:100%}
+      .jao-templates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0;padding:0;list-style:none}
+      .jao-template{display:flex;align-items:flex-start;gap:12px;width:100%;height:100%;min-width:0;padding:12px;box-sizing:border-box;text-align:start;font:inherit;color:inherit;cursor:pointer;border:0;
+        background:var(--dsw-alias-settings-card-fill);box-shadow:inset 0 0 0 .5px var(--dsw-alias-settings-card-stroke);border-radius:var(--dsw-radius-lg);
+        transition:background-color var(--ds-transition-duration-fast) var(--ds-ease-out)}
+      @media(hover:hover){.jao-template:hover{background:var(--dsw-alias-interactive-bg-hover)}}
+      .jao-template:focus-visible{outline-offset:-2px}
+      .jao-template-copy{display:grid;gap:2px;min-width:0;font-size:13px;line-height:18px}
+      .jao-template-copy strong{font-weight:500;color:var(--dsw-alias-label-primary)}
+      .jao-template-copy span{color:var(--dsw-alias-label-secondary)}
+      .jao-template-plus{display:grid;place-items:center;flex:none;width:32px;height:32px;border-radius:50%;box-shadow:inset 0 0 0 .5px var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary)}
+      @media(max-width:560px){.jao-templates{grid-template-columns:minmax(0,1fr)}}
       .jao-modal-footer{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;width:100%}
       .jao-footer-right{margin-inline-start:auto;justify-content:flex-end}
       .jao-identity,.jao-form-pair{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end}

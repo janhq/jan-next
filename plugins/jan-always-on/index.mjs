@@ -8,8 +8,8 @@ import { seedImportedMemory } from './memory.mjs'
 
 export const name = 'jan-always-on'
 export const inject = ['janHomePath', 'webServer', 'connection', 'schedule', 'agents', 'agentDefaultModel', 'agentPresets',
-  'sessionController', 'workspaceController', 'workspaceRegistry', 'sessionPersistence', 'sessions', 'systemPrompt', 'commands', 'llm',
-  'credentials']
+  'sessionController', 'workspaceController', 'workspaceRegistry', 'sessionPersistence', 'sessions', 'systemPrompt', 'commands',
+  'credentials', 'agentProfiles']
 // Keep the existing preference readable until the previous opt-in has been migrated.
 export const Config = schema.object({ enabled: schema.boolean().default(false).volatile() })
 const EMPTY_MEMORY = ['index.md', 'instructions.md', 'reported.md']
@@ -79,7 +79,7 @@ export function apply(ctx, config) {
   function load() {
     opening ??= (async () => {
       const { openBots } = await import('./bots.mjs')
-      const local = registry ??= await openBots(home, { changed: activityChanged })
+      const local = registry ??= await openBots(home, { changed: activityChanged, agentProfiles: ctx.agentProfiles, report })
       if (!local.migrated && (config.enabled.get() || await exists(join(home, 'always-on')))) {
         const project = await projectId()
         await local.adopt(project, prepareSession)
@@ -96,27 +96,51 @@ export function apply(ctx, config) {
     if (!ctx.workspaceRegistry.get(text(requested, 240))) throw new Error('project-not-found')
     return requested
   }
+  async function botProject(workspaceId, sourceSessionId) {
+    if (sourceSessionId === undefined) return projectId(workspaceId)
+    const project = ctx.workspaceRegistry.list().find(row => row.sessionIds.includes(sourceSessionId))?.id
+    if (!project) throw new Error('bot-session-project-required')
+    return project
+  }
   async function resolveAgent(sessionId) {
     const value = await ctx.sessionController.resolveAgent(sessionId)
     if ('error' in value) throw value.error
     return value.agent
   }
-  async function selectProfile(agent, bot, previous) {
+  async function selectProfile(agent, bot, previous, modelChanged = false) {
+    if (bot.agentProfile !== (previous?.agentProfile ?? null) || modelChanged) {
+      try { await ctx.agentProfiles.select({ sessionId: bot.sessionId, id: bot.agentProfile }) }
+      catch (error) {
+        if (error?.code === 'agent-profiles/locked') throw new Error('bot-session-busy', { cause: error })
+        if (error?.code === 'agent-profiles/not-found' || error?.code === 'agent-profiles/invalid') throw new Error('agent-missing', { cause: error })
+        throw error
+      }
+    }
     if (!previous || bot.agentPreset !== previous.agentPreset) {
-      const preset = bot.agentPreset ?? ctx.agentPresets.defaultFor(bot.model?.provider ?? ctx.agentDefaultModel.currentSelection().provider)
+      const provider = agent.model?.current()?.provider ?? ctx.agentDefaultModel.currentSelection().provider
+      const preset = bot.agentPreset ?? ctx.agentPresets.defaultFor(provider)
       if (preset) await ctx.agentPresets.select(agent, preset)
     }
-    if (bot.model || previous?.model) {
-      const selection = bot.model ?? ctx.agentDefaultModel.currentSelection()
-      await ctx.llm.resolveCallConfig(selection)
-      agent.model.select(selection)
+  }
+  async function restoreBotProfile(agent, bot) {
+    if (!bot.agentSelectionPending) return
+    try {
+      if (ctx.agentProfiles.profileForSession(agent.session) === null) {
+        await ctx.agentProfiles.select({ sessionId: bot.sessionId, id: bot.agentProfile, keepModel: true })
+      }
+      if (!await ctx.sessions.flush(agent.session)) throw new Error('bot-session-unsaved')
+      // Agent creation may be running inside a serialized registry edit.
+      void registry.agentSelectionRestored(bot.id).catch(report)
+    } catch (error) {
+      if (!['agent-profiles/not-found', 'agent-profiles/invalid', 'agent-profiles/locked'].includes(error?.code)) throw error
+      report(error)
     }
   }
-  async function prepareSession(bot, source) {
+  async function prepareSession(bot, source, { keepAgent = false, newAgent } = {}) {
     const previous = await ctx.sessionPersistence.stat(bot.sessionId)
     if (source && !previous && !ctx.agents.get(bot.sessionId)) throw new Error('bot-session-unavailable')
     if (!source && !previous) {
-      const created = await ctx.sessionController.create({ workspaceId: bot.workspaceId, sessionId: bot.sessionId,
+      const created = await ctx.sessionController.create({ workspaceId: bot.workspaceId, sessionId: bot.sessionId, agentProfile: null,
         ...(bot.agentPreset ? { agentPreset: bot.agentPreset } : {}) })
       if (created.sessionId !== bot.sessionId) throw new Error('bot-session-conflict')
     }
@@ -127,8 +151,10 @@ export function apply(ctx, config) {
       }
       if (ctx.agents.turnBoundaryOf(agent.session).openTurnStartSeq !== null) throw new Error('bot-session-busy')
     }
-    // An adopted chat keeps its previous preset and model unless the form requests a change.
-    await selectProfile(agent, bot, source && { agentPreset: null, model: null })
+    const previousProfile = source ? ctx.agentProfiles.profileForSession(agent.session) : null
+    if (newAgent) bot.agentProfile = await createBotAgent(bot, newAgent, !source)
+    if (keepAgent) bot.agentProfile = previousProfile
+    await selectProfile(agent, bot, source && { agentPreset: null, agentProfile: previousProfile })
     if (ctx.get('sessionTitle')) await ctx.sessionController.rename({ sessionId: bot.sessionId, title: bot.name })
     if (!await ctx.sessions.flush(agent.session)) throw new Error('bot-session-unsaved')
     if (source) {
@@ -154,7 +180,6 @@ export function apply(ctx, config) {
     const directory = registry.directory(bot)
     const memory = memoryAt(home, directory)
     const initialMemory = await memory.contextText()
-    const persona = await registry.persona(bot.id)
     if (runtimes.has(bot.id)) return runtimes.get(bot.id)
     lifetime.signal.throwIfAborted()
     const runtime = {
@@ -183,9 +208,9 @@ export function apply(ctx, config) {
     })
     runtime.queue = queue
     runtime.watch = openWatch({ queue, sources: () => registry.get(bot.id)?.sources ?? [], token: sourceToken,
-      triage: createTriage({ request: systemOne, profile: () => registry.get(bot.id) }), changed: activityChanged, report })
+      triage: createTriage({ request: systemOne, profile: () => registry.get(bot.id), agentProfiles: ctx.agentProfiles }), changed: activityChanged, report })
     runtimes.set(bot.id, runtime)
-    prompts.set(bot.sessionId, botPrompt(bot, persona))
+    prompts.set(bot.sessionId, botPrompt(bot))
     try {
       runtime.destination = ctx.schedule.registerSessionDestination(bot.sessionId, name, ({ id, taskId, prompt, payload }) => {
         if (scheduleGate?.staging || scheduleGate?.unconfirmed.has(taskId)) throw new Error('bot-import-in-progress')
@@ -194,7 +219,10 @@ export function apply(ctx, config) {
       })
       runtime.clock = ctx.schedule.registerWakeSource(queue)
       const agent = ctx.agents.get(bot.sessionId)
-      if (agent) await attach(agent, runtime).ready
+      if (agent) {
+        await restoreBotProfile(agent, bot)
+        await attach(agent, runtime).ready
+      }
       if (resume) await queue.setPaused(false)
       runtime.watch.start()
       return runtime
@@ -222,17 +250,37 @@ export function apply(ctx, config) {
     return key ? ctx.schedule.createSessionTask(request, { sessionId: bot.sessionId, key, payload: progressPath }, signal)
       : ctx.schedule.create({ ...request, target: { kind: 'session', sessionId: bot.sessionId } }, undefined, signal)
   }
+  async function createBotAgent(bot, draft, useBotDefault) {
+    const { reserveBotAgentId } = await import('./bots.mjs')
+    const { profiles } = await ctx.agentProfiles.list({ workspaceId: bot.workspaceId })
+    const id = reserveBotAgentId(bot.name, new Set(profiles.map(row => row.id.toLowerCase())))
+    const model = Object.hasOwn(draft, 'model') ? draft.model
+      : useBotDefault ? botDefaultModel(await ctx.sessionController.modelCatalog()) : null
+    await saveBotAgent({ id, scope: 'global', use: 'all' }, bot.workspaceId, { ...draft, model })
+    return id
+  }
+  async function getBotAgent(id, workspaceId) {
+    if (id === null || id === undefined) return null
+    try { return await ctx.agentProfiles.get({ id, workspaceId }) }
+    catch (error) { if (error?.code !== 'agent-profiles/not-found') throw error; return null }
+  }
+  async function saveBotAgent(current, workspaceId, patch) {
+    const { id, scope, use, tools, disallowedTools } = current
+    const model = Object.hasOwn(patch, 'model') ? patch.model : current.model
+    return ctx.agentProfiles.save({ scope, ...(scope === 'project' ? { workspaceId } : {}), profile: {
+      id, use, ...(tools === undefined ? {} : { tools }), ...(disallowedTools === undefined ? {} : { disallowedTools }),
+      description: patch.description ?? current.description ?? '',
+      instructions: patch.instructions ?? current.instructions ?? '', ...(model ? { model } : {}),
+    } })
+  }
   async function createBot(input, memory) {
     const local = await load()
     const source = input.sourceSessionId === undefined ? undefined : text(input.sourceSessionId, 240)
-    const workspaceId = source === undefined ? await projectId(input.workspaceId)
-      : ctx.workspaceRegistry.list().find(project => project.sessionIds.includes(source))?.id
-    if (!workspaceId) throw new Error('bot-session-project-required')
-    // A new bot starts on the small, fast model; an adopted chat keeps its own.
-    const model = input.model ?? (source === undefined ? botDefaultModel(await ctx.sessionController.modelCatalog()) : null)
-    return local.create({ ...input, model, workspaceId }, async candidate => {
+    const workspaceId = await botProject(input.workspaceId, source)
+    const { newAgent } = input
+    return local.create({ ...input, workspaceId }, async candidate => {
       if (memory) await seedImportedMemory(local.directory(candidate), memory, lifetime.signal)
-      return prepareSession(candidate, source)
+      return prepareSession(candidate, source, { keepAgent: Boolean(source && input.agentProfile === undefined && !newAgent), newAgent })
     }, { uniqueName: Boolean(memory) })
   }
   function validateRoutine({ schedule_cron, schedule_text, timezone }, defaultZone = 'UTC') {
@@ -244,7 +292,7 @@ export function apply(ctx, config) {
     return { reason: 'invalid-cron' }
   }
   async function importBot({ name, role, description, memory, routines }) {
-    const bot = await createBot({ name, role, description }, memory)
+    const bot = await createBot({ name, role, newAgent: { description } }, memory)
     const identity = { botId: bot.id, sessionId: bot.sessionId }
     const gate = { staging: true, unconfirmed: new Set() }
     let runtime
@@ -293,7 +341,10 @@ export function apply(ctx, config) {
     const activity = runtimes.get(bot.id)?.queue.activity()
     const current = presence.get(bot.sessionId)
     const project = ctx.workspaceRegistry.get(bot.workspaceId)
-    return { ...bot, project: project?.title, projectMissing: !project, paused: activity?.paused ?? true,
+    const agentDescription = bot.agentProfile && ctx.agentProfiles.snapshot(bot.workspaceId).profiles
+      .find(row => row.id === bot.agentProfile && !row.shadowedBy)?.description
+    const { agentSelectionPending, ...identity } = bot
+    return { ...identity, agentDescription, project: project?.title, projectMissing: !project, paused: activity?.paused ?? true,
       activeRun: current?.phase ?? activity?.activeRun ?? null, lastRun: activity?.lastRun ?? current?.lastRun ?? null,
       lastDeliveryAgeMs: activity?.lastDeliveryAgeMs ?? null, pending: activity?.pending ?? false, blocked: activity?.blocked ?? false }
   }
@@ -304,19 +355,20 @@ export function apply(ctx, config) {
   }
   async function detail(bot) {
     const { memory, queue, watch } = runtimes.get(bot.id)
-    const [tasks, files, persona, tokens] = await Promise.all([ctx.schedule.catalog(), memory.index(), registry.persona(bot.id),
+    const [tasks, files, tokens] = await Promise.all([ctx.schedule.catalog(), memory.index(),
       Promise.all(TOKEN_KINDS.map(async kind => [kind, Boolean(await sourceToken(kind))]))])
-    return { ...roster(bot), ...queue.snapshot(), files, persona, routines: tasks.filter(task => ownsTask(task, bot)),
+    return { ...roster(bot), ...queue.snapshot(), files, routines: tasks.filter(task => ownsTask(task, bot)),
       sources: watch.status(), tokens: Object.fromEntries(tokens) }
   }
 
-  ctx.effect(() => ctx.systemPrompt.section({ name: 'jan-bot-persona', order: 10210, interpolate: false,
-    text: ({ agent }) => agent ? prompts.get(agent.id) ?? '' : '' }), 'Bots persona')
+  ctx.effect(() => ctx.systemPrompt.section({ name: 'jan-bot-frame', order: 10210, interpolate: false,
+    text: ({ agent }) => agent ? prompts.get(agent.id) ?? '' : '' }), 'Bots prompt framing')
   // Bot memory is operational state, not optional runtime facts: keep it when a preset turns runtime context off.
   ctx.effect(() => ctx.systemPrompt.context({ name: 'jan-bot-memory', order: 9000, interpolate: false, required: true,
     text: ({ agent }) => agent ? runtimes.get(registry?.forSession(agent.id)?.id)?.memoryText ?? '' : '' }), 'Bots memory context')
   ctx.on('agent/created', async ({ agent }) => {
     const bot = registry?.forSession(agent.id)
+    if (bot) await restoreBotProfile(agent, bot)
     const runtime = bot && runtimes.get(bot.id)
     if (runtime) await attach(agent, runtime).ready
   }, { global: true })
@@ -343,6 +395,7 @@ export function apply(ctx, config) {
     if (current) activityChanged()
   }, { global: true })
   ctx.on('schedule/changed', activityChanged)
+  ctx.on('agent-profiles/changed', activityChanged, { global: true })
   ctx.effect(() => registerApi(ctx, 'always-on', {
     async list() { return (await load()).list().map(roster) },
     async options() {
@@ -351,11 +404,45 @@ export function apply(ctx, config) {
         presets: presets.filter(item => !item.broken).map(({ id, name }) => ({ id, name })),
         defaultModel: botDefaultModel(models) }
     },
+    async listAgents({ workspaceId, sourceSessionId }) {
+      const project = sourceSessionId === undefined && workspaceId ? workspaceId : await botProject(workspaceId, sourceSessionId)
+      return (await ctx.agentProfiles.list({ workspaceId: project })).profiles.filter(row => !row.shadowedBy && row.use !== 'subagent')
+    },
+    async getAgent({ id, workspaceId, sourceSessionId }) {
+      return getBotAgent(id, sourceSessionId === undefined && workspaceId ? workspaceId : await botProject(workspaceId, sourceSessionId))
+    },
+    async copyAgent({ id, workspaceId, sourceSessionId }) {
+      const project = sourceSessionId === undefined && workspaceId ? workspaceId : await botProject(workspaceId, sourceSessionId)
+      const agent = await getBotAgent(id, project)
+      if (!agent) throw new Error('agent-missing')
+      if (agent.writable) return agent
+      return saveBotAgent(agent, project, {})
+    },
     async detail({ id }) { return detail(await botFor(id)) },
-    async create(input) {
+    async templates() {
+      const { TEMPLATES } = await import('./templates.mjs')
+      return TEMPLATES
+    },
+    async create({ template: templateId, timeZone, locale, ...input }) {
+      const template = templateId === undefined ? undefined : (await import('./templates.mjs')).templateFor(templateId)
       const bot = await createBot(input)
       await startBot(bot, true)
-      return roster(bot)
+      if (!template?.routines.length) return roster(bot)
+      // A template's routines run in the user's time zone; an unknown zone falls back to UTC rather than failing the bot.
+      let zone = 'UTC'
+      try { zone = parseCronInput({ expression: '0 0 * * *', time_zone: typeof timeZone === 'string' ? timeZone : 'UTC' }).timeZone } catch { /* UTC */ }
+      let routinesFailed = 0
+      for (const routine of template.routines) {
+        try {
+          await ctx.schedule.create({ title: routine.titles[locale] ?? routine.titles.en, prompt: routine.prompt,
+            timing: { kind: 'cron', cron: { expression: routine.cron, time_zone: zone } },
+            target: { kind: 'session', sessionId: bot.sessionId } }, undefined, lifetime.signal)
+        } catch (error) {
+          routinesFailed++
+          report(error)
+        }
+      }
+      return { ...roster(bot), ...(routinesFailed ? { routinesFailed } : {}) }
     },
     async duplicate({ id, name: duplicateName }) {
       await botFor(id)
@@ -365,13 +452,24 @@ export function apply(ctx, config) {
     },
     async edit({ id, patch }) {
       await botFor(id)
+      const { newAgent, agentChanges } = patch
       const bot = await registry.edit(id, patch, async (next, previous) => {
         const agent = await resolveAgent(next.sessionId)
-        await selectProfile(agent, next, previous)
+        const modelChanged = Boolean(agentChanges && Object.hasOwn(agentChanges, 'model'))
+        if ((modelChanged || newAgent || next.agentProfile !== previous.agentProfile || next.agentPreset !== previous.agentPreset)
+          && ctx.agents.turnBoundaryOf(agent.session).openTurnStartSeq !== null) throw new Error('bot-session-busy')
+        if (newAgent) next.agentProfile = await createBotAgent(next, newAgent, false)
+        if (agentChanges) {
+          const current = await getBotAgent(next.agentProfile, next.workspaceId)
+          if (!current || current.use === 'subagent') throw new Error('agent-missing')
+          if (!current.writable) throw new Error('agent-read-only')
+          await saveBotAgent(current, next.workspaceId, agentChanges)
+        }
+        await selectProfile(agent, next, previous, modelChanged)
         if (next.name !== previous.name && ctx.get('sessionTitle')) await ctx.sessionController.rename({ sessionId: next.sessionId, title: next.name })
         if (!await ctx.sessions.flush(agent.session)) throw new Error('bot-session-unsaved')
       })
-      prompts.set(bot.sessionId, (await modules()).botPrompt(bot, await registry.persona(id)))
+      prompts.set(bot.sessionId, (await modules()).botPrompt(bot))
       void runtimes.get(bot.id)?.watch.tick().catch(report)
       return roster(bot)
     },

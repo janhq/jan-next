@@ -95,7 +95,11 @@ test('Jev triage drops only items it is confident the bot ignores, so an all-noi
   let rows = [issue(1)]
   const bodies = []
   const answers = { 'Issue 2': 0.96, 'Issue 3': 0.05, 'Issue 4': 0.3 }
-  const triage = createTriage({ profile: () => ({ name: 'QA', role: 'Release QA', description: 'Crashes and regressions' }),
+  const triage = createTriage({ profile: () => ({ name: 'QA', role: 'Release QA', agentProfile: 'qa', workspaceId: 'project-a' }),
+    agentProfiles: { async get(query) {
+      assert.deepEqual(query, { id: 'qa', workspaceId: 'project-a' })
+      return { description: 'Crashes and regressions' }
+    } },
     request: async body => {
       bodies.push(body)
       return { answers: Object.fromEntries(Object.entries(body.state).filter(([key]) => key.startsWith('item_'))
@@ -116,7 +120,7 @@ test('Jev triage drops only items it is confident the bot ignores, so an all-noi
     nextCheckAt: now + 15 * 60_000, lastError: null, lastFound: 2, lastSkipped: 1 })
 })
 
-test('Jev triage keeps every item when it cannot answer or the bot has no role', async () => {
+test('Jev triage keeps every item when it cannot answer or the selected agent is missing and the bot has no role', async () => {
   const items = [{ id: 'a', text: 'x' }, { id: 'b', text: 'y' }]
   const profile = () => ({ role: 'Release QA' })
   for (const request of [
@@ -125,7 +129,8 @@ test('Jev triage keeps every item when it cannot answer or the bot has no role',
     async () => ({}),
   ]) assert.equal((await createTriage({ request, profile })(items)).size, 0)
   let asked = false
-  const unasked = createTriage({ request: async () => { asked = true; return {} }, profile: () => ({ name: 'Bot', role: '', description: '' }) })
+  const unasked = createTriage({ request: async () => { asked = true; return {} }, profile: () => ({ name: 'Bot', role: '', agentProfile: 'missing' }),
+    agentProfiles: { async get() { throw Object.assign(new Error('No such agent'), { code: 'agent-profiles/not-found' }) } } })
   assert.equal((await unasked(items)).size, 0)
   assert.equal(asked, false)
 })

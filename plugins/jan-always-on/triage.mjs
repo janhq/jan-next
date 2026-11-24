@@ -8,18 +8,23 @@ const BATCH = 20
 const TIMEOUT_MS = 3000
 
 /**
- * @param {{ request(body: object, signal: AbortSignal): Promise<unknown>, profile(): { name?: string, role?: string, description?: string } | undefined }} options
- *   `request` posts a System One body and returns its parsed reply; `profile` reads the bot's current profile.
+ * @param {{ request(body: object, signal: AbortSignal): Promise<unknown>, profile(): { name?: string, role?: string, agentProfile?: string | null, workspaceId?: string } | undefined, agentProfiles: { get(request: { id: string, workspaceId?: string }): Promise<{ description: string }> } }} options
+ *   `request` posts a System One body; `profile` and `agentProfiles` read the bot and its selected agent.
  * @returns {(items: Array<{ id: string, text: string }>, signal?: AbortSignal) => Promise<Set<string>>} ids to drop.
  */
-export function createTriage({ request, profile }) {
+export function createTriage({ request, profile, agentProfiles }) {
   return async (items, signal) => {
-    const bot = profile()
-    const criteria = [bot?.role, bot?.description].filter(text => typeof text === 'string' && text.trim()).join('. ')
-    // Without a role or description there is nothing to judge against.
-    if (!items.length || !criteria) return new Set()
-    const deadline = AbortSignal.any([AbortSignal.timeout(TIMEOUT_MS), ...signal ? [signal] : []])
+    if (!items.length) return new Set()
     try {
+      const bot = profile()
+      let description = ''
+      if (bot?.agentProfile) {
+        try { description = (await agentProfiles.get({ id: bot.agentProfile, workspaceId: bot.workspaceId })).description }
+        catch (error) { if (error?.code !== 'agent-profiles/not-found') throw error }
+      }
+      const criteria = [bot?.role, description].filter(text => text?.trim()).join('. ')
+      if (!criteria) return new Set()
+      const deadline = AbortSignal.any([AbortSignal.timeout(TIMEOUT_MS), ...signal ? [signal] : []])
       const batches = []
       for (let start = 0; start < items.length; start += BATCH) batches.push(items.slice(start, start + BATCH))
       const answers = await Promise.all(batches.map(async batch => {

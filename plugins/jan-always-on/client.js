@@ -180,6 +180,7 @@ window.__ModuleLoader__.load({
       }
       const inject = () => ({ hooks, request, change, refresh, open, openDetail, compact,
         dialog: value => dialogs.set(value), dismissNotice: () => notices.set(null),
+        notify: value => notices.set({ id: ++uniqueNotice, ...value }),
         openImport: () => openImport?.(),
         showRoster: () => ctx.layout.selectPanel(PANEL), openScheduled: () => ctx.layout.selectPanel('schedules'),
         openRoutine: (sessionId, id) => ctx.sidebarRight.openTab('scheduleTask', { params: { sessionId, id } }),
