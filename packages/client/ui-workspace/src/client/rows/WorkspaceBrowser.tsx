@@ -14,7 +14,7 @@
  * are slot entries with their own behavior, so this component threads no
  * action callbacks and hosts no action surface.
  */
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Component, createRef, type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { WorkspaceDialogs } from './WorkspaceDialogs.tsx'
 import {
@@ -32,6 +32,7 @@ import type { WorkspaceId, WorkspaceView } from '@janhq/jan-api-workspace-contro
 import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import type { SessionStatusSnapshot } from '@janhq/jan-client-ui-session/client'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { ArchivedFilter, GroupNode, SessionNode, SessionOrderBy, SessionRowState } from '../tree.ts'
 import {
@@ -272,8 +273,8 @@ interface HeaderHandles {
 
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
-  'useSessionStatus' | 'startSession' | 'open' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu'
-  | 'insertWorkspaceBefore' | 't' | 'usePanelInfo' | 'openProject'
+  'startSession' | 'open' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu'
+  | 'insertWorkspaceBefore' | 't' | 'openProject'
   | 'useRemoteAccess' | 'useSessionAccess' | 'useWorkspaceAccess'
 > & PropsRenderSlots<
   | 'sidebar.workspaces.session.row.action'
@@ -285,6 +286,9 @@ type SessionTreeProps = Pick<
   shortcuts: readonly import('@janhq/jan-client-shortcuts/client').ShortcutCatalogEntry[]
   /** Always-mounted Session list snapshot. */
   list: SessionListState
+  currentId: SessionId | undefined
+  statuses: SessionStatusSnapshot
+  workingSessionIds: ReadonlySet<SessionId> | undefined
   /** Host account home for POSIX hover-path abbreviation. */
   home?: string | undefined
   /** Computer a remote window's projects live on; omitted in a local window. */
@@ -335,11 +339,11 @@ function EmptySessions({ rowState, onLeaveArchivedOnly, t }: Pick<SessionTreePro
   )
 }
 
-/** The scrolling session tree; unmounting drops the sessions subscription and the session watermarks. */
+/** The scrolling session tree owns the expanded-session watermarks. */
 function SessionTree({
-  list, useSessionStatus, startSession, open, workspaces, ungroupedSessionIds,
+  list, currentId: current, statuses, workingSessionIds, startSession, open, workspaces, ungroupedSessionIds,
   rowState, onLeaveArchivedOnly,
-  workspaceReady, animationResetKey, usePanelInfo, useRemoteAccess, useSessionAccess, useWorkspaceAccess,
+  workspaceReady, animationResetKey, useRemoteAccess, useSessionAccess, useWorkspaceAccess,
   onSessionRenameRequest,
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
   insertWorkspaceBefore,
@@ -347,11 +351,6 @@ function SessionTree({
   setSessionOrder, home, machine, t,
   revealSessionId, onSessionRevealed, shortcuts, openProject, projectSurface,
 }: SessionTreeProps) {
-  const panelActive = usePanelInfo(info => info.activePanelId !== null)
-  const statuses = useSessionStatus(s => s)
-  const current = panelActive
-    ? undefined
-    : Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
   const revealGroup = revealSessionId === undefined || !workspaceReady
     ? undefined
     : owningGroupKey(workspaces, revealSessionId)
@@ -361,6 +360,7 @@ function SessionTree({
   const [watermarkMotionKey, setWatermarkMotionKey] = useState(0)
   // Transient drag marker state; the selected mode owns the resulting order.
   const [drag, setDrag] = useState<DragState | null>(null)
+  if (drag !== null && workingSessionIds?.has(drag.sessionId)) setDrag(null)
   const sessionDropCommitted = useRef(false)
   const [workspaceDrag, setWorkspaceDrag] = useState<WorkspaceDragState | null>(null)
   const workspaceDropCommitted = useRef(false)
@@ -725,18 +725,18 @@ function SessionTree({
 
 /** The flat "In one list" body: every session is one draggable top-level row. */
 function FlatList({
-  list, sessionIds, rowState, onLeaveArchivedOnly, useSessionStatus, useSessionAccess, open, onSessionRenameRequest,
-  usePanelInfo, setSessionOrder, workspaceReady, animationResetKey,
+  list, sessionIds, rowState, onLeaveArchivedOnly, statuses, workingSessionIds, useSessionAccess, open, onSessionRenameRequest,
+  currentId, setSessionOrder, workspaceReady, animationResetKey,
   revealSessionId, onSessionRevealed, renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu, home, t,
 }: Pick<
   SessionTreeProps,
-  | 'useSessionStatus'
+  | 'statuses' | 'workingSessionIds'
   | 'useSessionAccess'
   | 'open'
   | 'onSessionRenameRequest'
   | 'renderSlot'
   | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu'
-  | 'usePanelInfo'
+  | 'currentId'
   | 'setSessionOrder'
   | 'workspaceReady'
   | 'animationResetKey'
@@ -750,18 +750,14 @@ function FlatList({
   list: SessionListState
   sessionIds: readonly SessionId[]
 }) {
-  const panelActive = usePanelInfo(info => info.activePanelId !== null)
-  const statuses = useSessionStatus(s => s)
   const rows = useMemo(
     () => deriveFlat(list, sessionIds, rowState, statuses),
     [list, sessionIds, rowState, statuses],
   )
   const [drag, setDrag] = useState<DragState | null>(null)
+  if (drag !== null && workingSessionIds?.has(drag.sessionId)) setDrag(null)
   const dropCommitted = useRef(false)
   useNativeDragAcceptance(drag !== null)
-  const currentId = panelActive
-    ? undefined
-    : Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
   const commitDrag = (activeDrag: DragState, over: NonNullable<DragState['over']>): void => {
     if (dropCommitted.current) return
     dropCommitted.current = true
@@ -769,6 +765,7 @@ function FlatList({
     const nextOrder = sessionDragOrder(sessionIds, rows, activeDrag, over)
     if (nextOrder !== undefined) setSessionOrder(FLAT_SESSION_ORDER_KEY, nextOrder)
   }
+  if (rows.length === 0 && workingSessionIds !== undefined) return null
   const now = Date.now()
   return (
     <HoverCardGroup className={clsx(css.treeBody, css.wide)}>
@@ -833,32 +830,21 @@ function FlatList({
   )
 }
 
-/**
- * Running Sessions repeated above the list, newest first; each also keeps its
- * usual row. Its own tree, so the main tree lists every Session once. Renders
- * nothing while no Session runs.
- */
+/** Running chats occupy their own tree while absent from the main list. */
 function WorkingSection({
-  list, rowState, useSessionStatus, useSessionAccess, usePanelInfo, open, onSessionRenameRequest,
+  rows, currentId, useSessionAccess, open, onSessionRenameRequest, revealSessionId, onSessionRevealed,
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu, home, t,
 }: Pick<
   SessionTreeProps,
-  | 'useSessionStatus' | 'useSessionAccess' | 'usePanelInfo' | 'open' | 'onSessionRenameRequest'
-  | 'renderSlot' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu' | 'rowState' | 'home' | 't'
-> & { list: SessionListState }) {
-  const panelActive = usePanelInfo(info => info.activePanelId !== null)
-  const statuses = useSessionStatus(s => s)
-  const rows = useMemo(() => deriveWorking(list, rowState, statuses), [list, rowState, statuses])
-  if (rows.length === 0) return null
-  const currentId = panelActive
-    ? undefined
-    : Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
+  | 'useSessionAccess' | 'open' | 'onSessionRenameRequest' | 'revealSessionId' | 'onSessionRevealed'
+  | 'renderSlot' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu' | 'home' | 't'
+> & { rows: readonly SessionNode[]; currentId: SessionId | undefined }) {
   const now = Date.now()
   return (
     <div className={css.working} data-sidebar-working="">
       <div className={css.workingLabel} id="workspace-working-label">{t('section.working')}</div>
       <HoverCardGroup className={css.wide}>
-        <div className={css.flatList} role="tree" aria-labelledby="workspace-working-label">
+        <div className={css.workingList} role="tree" aria-labelledby="workspace-working-label">
           {rows.map(node => (
             <SessionNodeItem
               key={`working:${node.id}`}
@@ -871,6 +857,7 @@ function WorkingSection({
               renderFactorySlot={renderFactorySlot} useContextMenu={useContextMenu}
               useContextMenuTarget={useContextMenuTarget}
               useSessionAccess={useSessionAccess}
+              onReveal={node.id === revealSessionId ? () => { onSessionRevealed(node.id) } : undefined}
               home={home}
               t={t}
             />
@@ -879,6 +866,53 @@ function WorkingSection({
       </HoverCardGroup>
     </div>
   )
+}
+
+/** Preserve keyboard focus when a focused chat moves between the two trees. */
+class BrowseLists extends Component<{
+  workingKey: string
+  bindScrollerRef: ((element: HTMLDivElement | null) => void) | undefined
+  children: ReactNode
+}> {
+  private readonly list = createRef<HTMLDivElement>()
+
+  override getSnapshotBeforeUpdate(previous: Readonly<typeof this.props>): string | undefined {
+    if (previous.workingKey === this.props.workingKey) return
+    const active = this.list.current?.ownerDocument.activeElement
+    if (!this.list.current?.contains(active ?? null)) return
+    const key = active?.closest('[data-row-key]')?.getAttribute('data-row-key')
+    if (key?.startsWith('session:')) return key
+  }
+
+  override componentDidUpdate(previous: Readonly<typeof this.props>, _state: unknown, key: string | undefined): void {
+    if (previous.bindScrollerRef !== this.props.bindScrollerRef) {
+      previous.bindScrollerRef?.(null)
+      this.props.bindScrollerRef?.(this.list.current)
+    }
+    const list = this.list.current
+    if (key === undefined || list === null || list.ownerDocument.activeElement !== list.ownerDocument.body) return
+    for (const row of list.querySelectorAll<HTMLElement>('[data-row-key]')) {
+      if (row.dataset.rowKey === key) {
+        row.focus()
+        return
+      }
+    }
+    list.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]')?.focus()
+  }
+
+  override componentDidMount(): void {
+    this.props.bindScrollerRef?.(this.list.current)
+  }
+
+  override componentWillUnmount(): void {
+    this.props.bindScrollerRef?.(null)
+  }
+
+  override render(): ReactNode {
+    return <div ref={this.list} className={css.listArea} data-sidebar-list-area="">
+      {this.props.children}
+    </div>
+  }
 }
 
 interface RemoteSearchState {
@@ -1210,6 +1244,17 @@ export function WorkspaceBrowser({
   }
   const [revealSessionId, setRevealSessionId] = useState<SessionId | undefined>(undefined)
   const normalizedQuery = sanitizeSearchQuery(query).trim()
+  const currentId = usePanelInfo(info => info.activePanelId !== null) ? undefined : mainSessionId
+  const statuses = useSessionStatus(s => s)
+  const showWorking = wide && normalizedQuery === '' && workingSection
+  const workingRows = useMemo(() => showWorking ? deriveWorking(list, rowState, statuses) : [], [list, rowState, showWorking, statuses])
+  const workingSessionIds = useMemo(() => workingRows.length === 0 ? undefined : new Set(workingRows.map(row => row.id)), [workingRows])
+  const browseRowState = useMemo<SessionRowState>(() => workingSessionIds === undefined ? rowState : {
+    ...rowState, hiddenSessionIds: new Set([...hiddenSessionIds, ...workingSessionIds]),
+  }, [hiddenSessionIds, rowState, workingSessionIds])
+  // Do not animate an exit copy of a chat that is already visible in the other tree.
+  const workingKey = useMemo(() => workingSessionIds === undefined ? '' : JSON.stringify([...workingSessionIds].sort()), [workingSessionIds])
+  const animationResetKey = `${groupBy}/${orderBy}/${archivedFilter}/${workingKey}`
   const [remoteSearch, setRemoteSearch] = useState<RemoteSearchState>({
     query: '',
     status: 'idle',
@@ -1489,14 +1534,14 @@ export function WorkspaceBrowser({
 
       {/* Always-mounted seat keeps the region's flex slot while the list
           itself is wide-only. */}
-      <div ref={wide ? bindScrollerRef : undefined} className={css.listArea} data-sidebar-list-area="">
-        {wide && normalizedQuery === '' && workingSection && (
+      <BrowseLists bindScrollerRef={wide ? bindScrollerRef : undefined} workingKey={workingKey}>
+        {workingRows.length > 0 && (
           <WorkingSection
-            list={list}
-            rowState={rowState}
-            useSessionStatus={useSessionStatus}
+            rows={workingRows}
+            currentId={currentId}
             useSessionAccess={useSessionAccess}
-            usePanelInfo={usePanelInfo}
+            revealSessionId={revealSessionId}
+            onSessionRevealed={acknowledgeSessionReveal}
             open={guardedOpen}
             onSessionRenameRequest={requestSessionRename}
             renderSlot={renderSlot}
@@ -1529,14 +1574,15 @@ export function WorkspaceBrowser({
             ? (
               <FlatList
                 useSessionAccess={useSessionAccess}
-                usePanelInfo={usePanelInfo}
+                currentId={currentId}
                 list={list}
                 sessionIds={orderedFlatSessionIds}
-                rowState={rowState}
+                rowState={browseRowState}
                 onLeaveArchivedOnly={leaveArchivedOnly}
                 workspaceReady={workspaceReady}
-                animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}`}
-                useSessionStatus={useSessionStatus}
+                animationResetKey={animationResetKey}
+                statuses={statuses}
+                workingSessionIds={workingSessionIds}
                 open={guardedOpen}
                 onSessionRenameRequest={requestSessionRename}
                 renderSlot={renderSlot}
@@ -1554,10 +1600,11 @@ export function WorkspaceBrowser({
                 useRemoteAccess={useRemoteAccess}
                 useSessionAccess={useSessionAccess}
                 useWorkspaceAccess={useWorkspaceAccess}
-                usePanelInfo={usePanelInfo}
+                currentId={currentId}
                 list={list}
                 shortcuts={shortcuts}
-                useSessionStatus={useSessionStatus}
+                statuses={statuses}
+                workingSessionIds={workingSessionIds}
                 onSessionRenameRequest={requestSessionRename}
                 renderSlot={renderSlot}
                 renderFactorySlot={renderFactorySlot} useContextMenu={useContextMenu}
@@ -1566,11 +1613,11 @@ export function WorkspaceBrowser({
                 ungroupedSessionIds={orderedUngroupedSessionIds}
                 workspaceReady={workspaceReady}
                 nestWorkspaces={groupBy === 'workspace-tree'}
-                animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}`}
+                animationResetKey={animationResetKey}
                 groupExpansion={groupExpansion}
                 setGroupExpanded={actions.setGroupExpanded}
                 setSessionOrder={saveSessionOrder}
-                rowState={rowState}
+                rowState={browseRowState}
                 onLeaveArchivedOnly={leaveArchivedOnly}
                 startSession={startSession}
                 open={guardedOpen}
@@ -1584,7 +1631,7 @@ export function WorkspaceBrowser({
                 t={t}
               />
             ))}
-      </div>
+      </BrowseLists>
 
       {workspaceActionRequest?.action === 'update' ? (
         <ProjectIdentityEditor

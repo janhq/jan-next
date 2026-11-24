@@ -2,17 +2,24 @@
 .sessionRow {
   display: flex;
   align-items: center;
-  gap: var(--jan-sidebar-label-gap);
+  gap: var(--workspace-label-gap);
   border-radius: var(--dsw-radius-md);
   border-inline: var(--jan-sidebar-paint-inset) solid transparent;
   background-clip: padding-box;
   box-sizing: border-box;
-  padding: 0 8px;
-  padding-inline-start: calc(var(--jan-sidebar-row-padding) - var(--jan-sidebar-paint-inset) + var(--jan-workspace-indent, 0px));
+  padding-block: 0;
+  padding-inline-start: calc(var(--workspace-leading-inset) - var(--jan-sidebar-paint-inset) + var(--jan-workspace-indent, 0px));
+  padding-inline-end: calc(var(--workspace-trailing-inset) - var(--jan-sidebar-paint-inset));
   cursor: pointer;
   -webkit-user-select: none;
   user-select: none;
   color: var(--dsw-alias-label-primary);
+}
+
+/* Preserve the browser's columns in the themed list, including expanded worktrees. */
+:global(html[data-jan-theme] [data-sidebar-list-area]) .projectRow[data-row-key][role='treeitem'],
+:global(html[data-jan-theme] [data-sidebar-list-area]) .sessionRow[data-row-key][role='treeitem'] {
+  padding-inline-start: calc(var(--workspace-leading-inset) - var(--jan-sidebar-paint-inset) + var(--jan-workspace-indent, 0px));
 }
 
 @media (hover: hover) {
@@ -122,16 +129,22 @@
 /* Session titles share the workspace icon slot and compact label gap. */
 .sessionRow {
   height: 32px;
-  gap: 0;
+  display: grid;
+  grid-template-columns: var(--workspace-leading-cell) minmax(0, 1fr) auto auto;
+  column-gap: 0;
 }
 
 .sessionRow .title {
-  margin: 0 6px 0 var(--jan-sidebar-label-gap);
+  grid-column: 2;
+  padding-inline: var(--workspace-label-gap);
 }
+
+.sessionRow .rowResting { grid-column: 3; }
+.sessionRow .rowActions { grid-column: 4; }
 
 .slot {
   flex: none;
-  width: 16px;
+  width: var(--workspace-leading-cell);
   height: 20px;
   display: inline-flex;
   align-items: center;
@@ -206,9 +219,6 @@
    holds it there, and returns it to the start in one step when the pointer
    leaves. The motion is scripted frame by frame (reduced motion jumps), so no
    scroll-behavior applies here. */
-.sessionRow .title {
-  flex: 1;
-}
 
 /* While the marquee travels, both clipping edges fade in over 12px instead of
    hard-cutting a character: the left once the title has moved off its start
@@ -242,7 +252,6 @@
   font-size: 10px;
   line-height: 16px;
   color: var(--dsw-alias-label-tertiary);
-  margin-inline-end: -1px;
 }
 
 .pinIndicator {

@@ -402,6 +402,7 @@ function sessionNode(
   statuses: SessionStatuses,
   pinned: ReadonlySet<SessionId>,
   archived: ReadonlySet<SessionId>,
+  runningSubagentCount = runningChildCount(list, s.id, statuses),
 ): SessionNode {
   const status = statuses.get(s.id)
   const pendingInteraction = visiblePendingKind(status?.pendingInteraction?.kind)
@@ -410,7 +411,7 @@ function sessionNode(
     title: sessionTitle(s),
     blank: s.blank,
     running: status?.running ?? s.running,
-    runningSubagentCount: runningChildCount(list, s.id, statuses),
+    runningSubagentCount,
     completed: status?.completionUnread === true,
     pinned: !archived.has(s.id) && pinned.has(s.id),
     archived: archived.has(s.id),
@@ -536,8 +537,7 @@ export function deriveFlat(
 /**
  * Running top-level Sessions, newest first, for the Working section. A Session
  * counts while its own turn or one of its subagents runs; waiting on the user
- * is not working. Blank and archived Sessions never count, and the rows also
- * stay in their usual place.
+ * is not working. Blank and archived Sessions never count.
  * @param list - sessions list snapshot.
  * @param rowState - registry-global pin and archive sets plus the archived filter.
  * @param statuses - unified UI status by Session.
@@ -546,14 +546,15 @@ export function deriveFlat(
 export function deriveWorking(list: SessionListState, rowState: SessionRowState, statuses: SessionStatuses): SessionNode[] {
   const archived = new Set(rowState.archivedSessionIds)
   const pinned = new Set(rowState.pinnedSessionIds)
-  const current = mainSessionId(list)
   const nodes: SessionNode[] = []
   for (const id of list.ids) {
     const session = list.byId[id]
     if (session === undefined || session.blank || archived.has(id)) continue
-    if (!sessionVisible(session, current, archived, rowState.archivedFilter, rowState.hiddenSessionIds)) continue
-    const node = sessionNode(session, list, statuses, pinned, archived)
-    if (node.running || node.runningSubagentCount > 0) nodes.push(node)
+    if (!sessionVisible(session, undefined, archived, rowState.archivedFilter, rowState.hiddenSessionIds)) continue
+    const runningSubagentCount = runningChildCount(list, session.id, statuses)
+    if ((statuses.get(id)?.running ?? session.running) || runningSubagentCount > 0) {
+      nodes.push(sessionNode(session, list, statuses, pinned, archived, runningSubagentCount))
+    }
   }
   // The order of orderByRecency: newest first, then Session identity.
   return nodes.sort((a, b) => a.updatedAt !== b.updatedAt ? b.updatedAt - a.updatedAt : a.id < b.id ? -1 : 1)

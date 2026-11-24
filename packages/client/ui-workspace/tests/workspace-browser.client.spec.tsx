@@ -219,20 +219,94 @@ describe('WorkspaceBrowser', () => {
       expect(workingTree()).toBeNull()
     })
 
-    it('repeats a running chat above the list, which still lists it in its project', () => {
-      mount({ useSessions: sessions, useWorkspaces: projects, useSessionStatus: running, useWorkingSection: selector => selector(true) })
-      const working = workingTree()
-      expect(working).not.toBeNull()
-      expect(within(working as HTMLElement).getAllByRole('treeitem').map(row => within(row).getByText(/^(busy|quiet)$/u).textContent))
-        .toEqual(['busy'])
-      fireEvent.click(screen.getByText('alpha'))
-      const list = screen.getAllByRole('tree').find(tree => tree !== working) as HTMLElement
-      expect(within(list).getByText('busy')).toBeTruthy()
+    it.each(['workspace', 'workspace-tree', 'flat'] as const)(
+      'moves running chats out of the %s list and back into the saved order', (mode) => {
+        const account = mode === 'flat' ? FLAT_SESSION_ORDER_KEY : 'alpha'
+        const saved = ['quiet', 'busy', 'another']
+        const preferences = createWorkspaceViewStore().create()
+        preferences.actions.setGroupBy(mode)
+        preferences.actions.setGroupExpanded('alpha', true)
+        preferences.actions.setGroupExpanded('beta', true)
+        preferences.actions.setSessionOrder(account, saved, {})
+        const items = [summary('busy', 20), summary('quiet', 10), summary('another', 30)]
+        const active = { running: true, pendingInteraction: undefined, completionUnread: false }
+        const browser = mount({
+          useSessions: hook(sessionState(items, { main: sid('busy') })),
+          useWorkspaces: hook(workspaceState([workspace('alpha', saved.slice(0, 2)), workspace('beta', ['another'])])),
+          useWorkingSection: hook(true),
+        })
+        const titleOrder = () => screen.getAllByText(/^(busy|quiet|another)$/u).map(title => title.textContent)
+        const selected = screen.getByRole('treeitem', { selected: true })
+        selected.focus()
+        rerender(browser, { useSessionStatus: hook(new Map([[sid('busy'), active], [sid('another'), active]])) })
+        const working = screen.getByRole('tree', { name: t('section.working') })
+        const current = within(working).getByRole('treeitem', { selected: true })
+        expect(titleOrder()).toEqual(['another', 'busy', 'quiet'])
+        expect(current.contains(screen.getByText('busy'))).toBe(true)
+        expect(current.getAttribute('draggable')).toBe('false')
+        expect(document.activeElement).toBe(current)
+        fireEvent.keyDown(current, { key: 'Enter' })
+        expect(browser.props.open).toHaveBeenCalledWith(sid('busy'))
+        if (mode !== 'flat') expect(screen.getByRole('treeitem', { name: 'beta' })).toBeTruthy()
+        expect(browser.store.getSnapshot().sessionOrderByAccount[account]).toEqual(saved)
+
+        rerender(browser, { useSessionStatus: hook(noPendingInteraction) })
+        expect(workingTree()).toBeNull()
+        expect(titleOrder()).toEqual(saved)
+        expect(document.activeElement).toBe(screen.getByRole('treeitem', { selected: true }))
+        expect(browser.store.getSnapshot().sessionOrderByAccount[account]).toEqual(saved)
+      },
+    )
+
+    it('retains a running chat in the complete order when another chat is dragged', () => {
+      const preferences = createWorkspaceViewStore().create()
+      preferences.actions.setGroupExpanded('alpha', true)
+      preferences.actions.setSessionOrder('alpha', ['a', 'busy', 'b', 'c'], {})
+      const browser = mount({
+        useSessions: hook(sessionState([summary('a', 1), summary('busy', 2), summary('b', 3), summary('c', 4)])),
+        useWorkspaces: hook(workspaceState([workspace('alpha', ['a', 'busy', 'b', 'c'])])),
+        useSessionStatus: running,
+        useWorkingSection: hook(true),
+      })
+      const tree = screen.getByRole('tree', { name: t('section.sessions') })
+      expect(within(tree).queryByText('busy')).toBeNull()
+      const source = within(tree).getByText('c').closest<HTMLElement>('[role="treeitem"]')!
+      const target = within(tree).getByText('a').closest<HTMLElement>('[role="treeitem"]')!
+      target.getBoundingClientRect = () => new DOMRect(0, 100, 200, 32)
+      fireEvent.dragStart(source, { dataTransfer: dragData() })
+      fireDrag(target, 'drop', 105)
+      expect(browser.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['c', 'a', 'busy', 'b'])
+      rerender(browser, { useSessionStatus: hook(noPendingInteraction) })
+      expect(within(tree).getAllByText(/^(a|b|c|busy)$/u).map(title => title.textContent)).toEqual(['c', 'a', 'busy', 'b'])
+    })
+
+    it('shows no empty flat-list message when all chats are working', () => {
+      const preferences = createWorkspaceViewStore().create()
+      preferences.actions.setGroupBy('flat')
+      mount({
+        useSessions: hook(sessionState([summary('busy', 20)])),
+        useSessionStatus: running,
+        useWorkingSection: hook(true),
+      })
+      expect(screen.getAllByText('busy')).toHaveLength(1)
+      expect(screen.queryByText(t('empty.none'))).toBeNull()
+    })
+
+    it('reveals a running chat in Working when opened from search', () => {
+      const browser = mount({ useSessions: sessions, useWorkspaces: projects, useSessionStatus: running, useWorkingSection: hook(true) })
+      act(() => { browser.controls.search() })
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'busy' } })
+      expect(workingTree()).toBeNull()
+      fireEvent.click(screen.getByText('busy'))
+      expect(within(screen.getByRole('tree', { name: t('section.working') })).getByText('busy')).toBeTruthy()
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
     })
 
     it('is hidden while the General switch is off', () => {
       mount({ useSessions: sessions, useWorkspaces: projects, useSessionStatus: running, useWorkingSection: selector => selector(false) })
       expect(workingTree()).toBeNull()
+      fireEvent.click(screen.getByText('alpha'))
+      expect(within(screen.getByRole('tree', { name: t('section.sessions') })).getByText('busy')).toBeTruthy()
     })
   })
 

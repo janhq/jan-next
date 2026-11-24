@@ -123,16 +123,16 @@ describe('WorkspaceBrowser.module.css list', () => {
     // The overflow control reads as one more session row: same height, inset and label start.
     expect(declarations('.sessionOverflowButton')?.get('height')).toBe(rowDeclarations('.sessionRow')?.get('height'))
     expect(declarations('.sessionOverflowButton')?.get('padding-inline-start')).toBe(rowDeclarations('.projectRow')?.get('padding-inline-start'))
-    expect(declarations('.sessionOverflowLabel')?.get('margin-inline-start')).toBe('var(--jan-sidebar-label-gap)')
+    expect(declarations('.sessionOverflowLabel')?.get('margin-inline-start')).toBe('var(--workspace-label-gap)')
     expect(declarations('.searchExpanded')?.get('height')).toBe('32px')
     expect(rowDeclarations('.projectRow')?.get('height')).toBe('32px')
     expect(rowDeclarations('.sessionRow')?.get('height')).toBe('32px')
-    // One leading status cell for every session row, grouped or flat: the cell
-    // hosts either the row's status dot or the leading seat, and it reserves its
-    // own box, so the title's one shared margin below needs no per-view override.
-    expect(rowDeclarations('.slot')?.get('width')).toBe('16px')
+    // The shared leading track holds the status dot or leading seat.
+    // The flat list can collapse it without changing the title's column.
+    expect(rowDeclarations('.slot')?.get('width')).toBe('var(--workspace-leading-cell)')
     expect(rowDeclarations('.slot')?.get('height')).toBe('20px')
-    expect(rowDeclarations('.sessionRow .title')?.get('margin')).toBe('0 6px 0 var(--jan-sidebar-label-gap)')
+    expect(rowDeclarations('.sessionRow')?.get('grid-template-columns')).toBe('var(--workspace-leading-cell) minmax(0, 1fr) auto auto')
+    expect(rowDeclarations('.sessionRow .title')?.get('padding-inline')).toBe('var(--workspace-label-gap)')
     expect(rowDeclarations('.searchResultRow')?.get('min-height')).toBe('48px')
     expect(rowDeclarations('.searchResultTitle')?.get('margin')).toBe('0 var(--jan-sidebar-label-gap)')
     expect(rowDeclarations('.sessionRow.selected')?.get('background-color'))
@@ -141,15 +141,16 @@ describe('WorkspaceBrowser.module.css list', () => {
 
   it('shares action spacing and inset backgrounds without moving the title column', () => {
     for (const selector of ['.projectRow', '.sessionRow']) {
-      expect(rowDeclarations(selector)?.get('padding')).toBe('0 8px')
+      expect(rowDeclarations(selector)?.get('padding-inline-end')).toBe('calc(var(--workspace-trailing-inset) - var(--jan-sidebar-paint-inset))')
       expect(rowDeclarations(selector)?.get('background-clip')).toBe('padding-box')
       expect(rowDeclarations(selector)?.get('border-inline')).toBe('var(--jan-sidebar-paint-inset) solid transparent')
     }
     expect(rowDeclarations('.rowActions')?.get('gap')).toBe('13px')
     expect(rowDeclarations('.iconButton')?.get('width')).toBe('24px')
-    expect(rowDeclarations('.time')?.get('margin-inline-end')).toBe('-1px')
-    expect(declarations('.sectionLabel')?.get('left')).toBe('-1px')
-    expect(declarations('.sectionHeader')?.get('padding-left')).toBe('var(--jan-sidebar-row-padding)')
+    expect(rowDeclarations('.time')?.get('margin-inline-end')).toBeUndefined()
+    for (const heading of ['.sectionHeader', '.workingLabel']) {
+      expect(declarations(heading)?.get('padding-inline-start')).toBe('var(--workspace-leading-inset)')
+    }
   })
 
   it('extends native row action targets while retaining the compact layout footprint', () => {
@@ -168,17 +169,16 @@ describe('WorkspaceBrowser.module.css list', () => {
     const [ordinary = '', reduced = ''] = css.split('@media (prefers-reduced-motion: reduce)')
     const motion = 'var(--ds-transition-duration) var(--ds-ease-in-out)'
     expect(declarationsFrom(ordinary, selector)?.get('transition'))
-      .toBe(`margin-right ${motion}, padding-inline ${motion}, gap ${motion}`)
+      .toBe(`padding-inline ${motion}, gap ${motion}`)
     expect(declarationsFrom(reduced, selector)?.get('transition')).toBe('none')
   })
 
   it('aligns the expanded search field without changing list scroll ownership', () => {
     const header = declarations('.root:not(.rail) .sectionHeader:has(.searchExpanded)')
-    expect(header?.get('margin-right')).toBe('0')
     expect(header?.get('padding-inline')).toBe('calc(var(--jan-sidebar-paint-inset) + 1px)')
     expect(header?.get('gap')).toBe('0')
-    expect(declarations('.root:not(.rail) .sectionHeader:not(:has(.searchExpanded))')?.get('padding-right')).toBe('1px')
-    expect(declarations('.root:not(.rail) .sectionHeader:not(:has(.searchExpanded))')?.get('margin-right')).toBe('-4px')
+    expect(declarations('.root:not(.rail) .sectionHeader:not(:has(.searchExpanded))')?.get('padding-inline-end'))
+      .toBe('calc(var(--workspace-trailing-inset) - 6px)')
     expect(declarations('.searchExpanded')?.get('width')).toBe('100%')
     expect(declarations('.searchExpanded')?.get('margin-inline')).toBe('0')
     expect(declarations('.searchExpanded .searchButton')?.get('height')).toBe('32px')
@@ -192,7 +192,7 @@ describe('WorkspaceBrowser.module.css list', () => {
     // declares no scroll-behavior; the stylesheet keeps the hovered cell
     // unclipped and fades whichever edges cut text mid-travel, on the title
     // span itself so the status slot beside it keeps its full color.
-    expect(rowDeclarations('.sessionRow .title')?.get('flex')).toBe('1')
+    expect(rowDeclarations('.sessionRow .title')?.get('grid-column')).toBe('2')
     expect(rowDeclarations('.sessionRow .title')?.get('scroll-behavior')).toBeUndefined()
     expect(rowDeclarations('.sessionRow:hover .title')?.get('text-overflow')).toBe('clip')
     expect(rowDeclarations('.sessionRow .title[data-scrolled]')?.get('mask-image'))

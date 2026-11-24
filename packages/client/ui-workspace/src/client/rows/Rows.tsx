@@ -29,8 +29,10 @@ import css from './Rows.module.css'
 
 /** Sidebar-owned layout values needed by row copies mounted outside the sidebar. */
 const DRAG_PREVIEW_PROPERTIES = [
-  '--jan-sidebar-row-padding',
-  '--jan-sidebar-label-gap',
+  '--workspace-leading-cell',
+  '--workspace-leading-inset',
+  '--workspace-label-gap',
+  '--workspace-trailing-inset',
   '--jan-sidebar-paint-inset',
 ] as const
 
