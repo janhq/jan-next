@@ -14,22 +14,25 @@ export type DetailDocumentState =
   | { readonly status: 'none' }
   | { readonly status: 'error'; readonly message: string }
 
-/** A read as owners track it: in flight, settled with a document or none, or failed with a localized message. */
-export type DetailDocumentRead =
+/** A read as owners track it: in flight, settled with a document or none, or failed with the owner's failure kind. */
+export type DetailDocumentRead<Failure> =
   | undefined
   | { readonly status: 'loading' }
-  | { readonly status: 'ready'; readonly markdown: string | undefined }
-  | { readonly status: 'error'; readonly message: string }
+  | { readonly status: 'ready'; readonly detail: { readonly status: 'found'; readonly markdown: string } | { readonly status: 'none' } }
+  | { readonly status: 'error'; readonly failure: Failure }
 
 /**
  * The state {@link DetailDocument} shows for an owner's read: loading until it settles, then the document, none, or the
  * failure.
  * @param read - the owner's read; undefined before it starts.
+ * @param message - localized message for the owner's failure kind.
  * @returns the state to show.
  */
-export function detailDocumentState(read: DetailDocumentRead): DetailDocumentState {
-  if (read?.status === 'ready') return read.markdown === undefined ? { status: 'none' } : { status: 'found', markdown: read.markdown }
-  return read?.status === 'error' ? read : { status: 'loading' }
+export function detailDocumentState<Failure>(
+  read: DetailDocumentRead<Failure>, message: (failure: Failure) => string,
+): DetailDocumentState {
+  if (read?.status === 'ready') return read.detail.status === 'found' ? { status: 'found', markdown: read.detail.markdown } : { status: 'none' }
+  return read?.status === 'error' ? { status: 'error', message: message(read.failure) } : { status: 'loading' }
 }
 
 /** Translated strings of a detail document's chrome, as an owner's dictionary supplies them. */
