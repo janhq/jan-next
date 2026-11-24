@@ -10,7 +10,8 @@ import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { AgentProfileList, AgentProfileListRequest, AgentProfileSelectRequest, AgentProfileSummary } from '../types.ts'
 import css from './AgentProfiles.module.css'
 
-const JAN = 'jan:no-profile'
+/** Menu and `/agent` value for plain Jan; profile ids cannot contain a colon, so no profile collides. */
+export const JAN = 'jan:no-profile'
 const MANAGE = 'jan:manage-profiles'
 
 type Locale = PropsLocale<'agentProfiles'>
@@ -106,7 +107,6 @@ export function AgentProfilePicker({ sessionId, workspaceId, pending, onPick, us
       onPick?.(id, profiles?.find(profile => profile.id === id)?.scope)
       return
     }
-    if (id === (selected ?? null)) return
     setBusy(true)
     try {
       const reason = await select({ sessionId, id })

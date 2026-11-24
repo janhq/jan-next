@@ -1,18 +1,24 @@
 /** Browser entry for the conversation Agent picker and Settings > Agents. */
 import type { Context } from '@janhq/cordis'
 import type {} from '@janhq/jan-api-remotes/client'
+import type { ISessions } from '@janhq/jan-api-session-controller/client'
+import type {} from '@janhq/jan-api-workspace-controller/client'
 import type {} from '@janhq/jan-client-locale/client'
 import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { CommandArgumentOption } from '@janhq/jan-client-ui-commands/client'
 import type {} from '@janhq/jan-client-ui-renderer/client'
 import type {} from '@janhq/jan-client-ui-settings/client'
 import type {} from '@janhq/jan-client-ui-settings-general/client'
 import type {} from '@janhq/jan-client-ui-session/client'
 import { IconUserOutlineMedium, isDarwinDesktop } from '@janhq/jan-client-ui-primitives'
+import type { SessionId } from '@janhq/jan-session/types'
 import type {} from '@janhq/jan-scoped-settings/remote'
 import remote from '@janhq/jan-agent-profiles/remote'
-import { AgentProfilePicker, type AgentProfilePickerInjected } from './AgentProfilePicker.tsx'
+import { AgentProfilePicker, JAN, type AgentProfilePickerInjected } from './AgentProfilePicker.tsx'
 import { AgentProfilesSection, type AgentProfilesSectionInjected } from './AgentProfilesSection.tsx'
 import { de, en, es, fr, ja, pt, ru, zh, type AgentProfilesKey } from './locales.ts'
+import type { AgentProfileList } from '../types.ts'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
 
 const NS = 'agentProfiles'
 const SECTION = 'agents'
@@ -34,7 +40,7 @@ export const inject = ['remote', 'locale', 'slots']
  */
 export async function apply(ctx: Context): Promise<() => Promise<void>> {
   const unmountRemote = await ctx.remote.$mount(remote)
-  const ui = ctx.inject(['remote.agentProfiles', ...inject], registerUi)
+  const ui = ctx.inject(['remote.agentProfiles', 'remote.session', ...inject], registerUi)
   try {
     await ui
   } catch (error) {
@@ -70,6 +76,63 @@ function registerUi(ctx: Context): void {
       if (ctx.get('settingsNavigation')?.open(SECTION) !== true) throw new Error('Agents settings section unavailable')
     },
   }
+  ctx.inject(['commandUi', 'sessions', 'workspaces'], (scope) => {
+    const sessions = scope.get('sessions') as unknown as Pick<ISessions, 'subagentAddress'>
+    const catalogs = new Map<WorkspaceId | undefined, Promise<AgentProfileList>>()
+    const options = async (sessionId: SessionId): Promise<CommandArgumentOption[]> => {
+      const project = scope.workspaces.list.getSnapshot().items.find(workspace => workspace.sessionIds.includes(sessionId))
+      const workspaceId = project?.workspaceId
+      let load = catalogs.get(workspaceId)
+      if (load === undefined) {
+        const pending = picker.list(workspaceId === undefined ? {} : { workspaceId }).catch((error: unknown) => {
+          if (catalogs.get(workspaceId) === pending) catalogs.delete(workspaceId)
+          scope.logger.warn('agent-profiles: could not load /agent choices', error)
+          throw new Error(t('listError'))
+        })
+        catalogs.set(workspaceId, pending)
+        load = pending
+      }
+      const profiles = (await load).profiles
+        .filter(profile => profile.use !== 'subagent' && profile.shadowedBy === undefined)
+        .map(profile => ({
+          value: profile.id, label: profile.id,
+          ...(profile.description === '' ? {} : { description: profile.description }),
+          group: t(`group.${profile.scope}`),
+        }))
+      return [{ value: JAN, label: t('noAgent') }, ...profiles]
+    }
+    const select = async (sessionId: SessionId, id: string | null): Promise<void> => {
+      let result: 'locked' | undefined
+      try {
+        result = await picker.select({ sessionId, id })
+      } catch (error) {
+        scope.logger.warn('agent-profiles: could not select /agent choice', error)
+        throw new Error(t('selectError'))
+      }
+      if (result === 'locked') throw new Error(t('locked'))
+    }
+    scope.effect(() => profileRevision.subscribe(() => { catalogs.clear() }), 'agent-profiles: invalidate command choices')
+    scope.effect(() => scope.commandUi.register({
+      name: 'agent',
+      label: () => t('command.label'),
+      description: () => t('command.description'),
+      icon: IconUserOutlineMedium,
+      available: ({ sessionId }) => sessions.subagentAddress(sessionId) === undefined,
+      arguments: {
+        complete: (_query, { sessionId }) => options(sessionId),
+        run: (id, { sessionId }) => select(sessionId, id === JAN ? null : id),
+      },
+      ui: {
+        kind: 'popupSelect',
+        options: async ({ sessionId }) => (await options(sessionId)).map(({ value, label, description, group }) => ({
+          id: value, label,
+          ...(description === undefined ? {} : { detail: description }),
+          ...(group === undefined ? {} : { group: { name: group, label: group } }),
+        })),
+        onSelect: ({ id }, { sessionId }) => select(sessionId, id === JAN ? null : id),
+      },
+    }), 'agent-profiles: /agent contribution')
+  })
   const settings: AgentProfilesSectionInjected = {
     list: picker.list,
     hooks: picker.hooks,

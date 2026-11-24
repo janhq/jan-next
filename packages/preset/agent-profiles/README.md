@@ -63,6 +63,8 @@ Host callers also use `snapshot(workspaceId?)` (the last read, synchronously), `
 
 In a chat, use the agent chip beside the mode picker. It lists project agents first, then global agents, and keeps the selected agent with the chat. A choice made before the chat exists is sent when the draft opens; **Jan (no agent)** overrides the project default. **Manage agents…** opens **Settings > Agents**, where you can create, edit, delete, or reveal Jan files and copy files from other tools into the matching Jan folder.
 
+Type `/agent ` in an open chat to see **Jan (no agent)** and the usable profiles from its project and the global folders. Tab fills the choice; Enter selects it for the chat. Enter on bare `/agent` opens the agent picker.
+
 A Jan file uses Claude-compatible keys plus `mode`, so Claude Code reads it too:
 
 ```md

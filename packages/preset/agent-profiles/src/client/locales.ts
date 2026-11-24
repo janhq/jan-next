@@ -1,6 +1,7 @@
 /** Copy for the agent picker, Settings roster and agent-file editor. */
 export const en = {
   jan: 'Jan', noAgent: 'Jan (no agent)', choose: 'Choose agent: {name}', manage: 'Manage agents…',
+  'command.label': 'Agent', 'command.description': 'Select the agent for this conversation',
   'group.project': 'Project agents', 'group.global': 'Global agents',
   'source.agents': '.agents', 'source.claude': 'Claude', 'source.opencode': 'opencode', 'source.codex': 'Codex',
   warnings: 'Profile warnings: {warnings}', locked: 'Wait for the current reply to finish before changing agents.',
@@ -13,7 +14,7 @@ export const en = {
   'reveal.finder': 'Show in Finder', 'reveal.folder': 'Show in folder', revealError: 'Could not show the file. Try again.',
   deleteTitle: 'Delete {id}?', deleteConfirm: 'This deletes the Jan agent file for {id}.',
   deleteError: 'Could not delete the agent. Try again.', readError: 'Could not read the agent file.',
-  id: 'Agent ID', description: 'Description', use: 'Available for',
+  id: 'Name', description: 'Description', use: 'Available for',
   'use.all': 'Chats and subagent tasks', 'use.primary': 'Chats', 'use.subagent': 'Subagent tasks',
   model: 'Model', effort: 'Reasoning effort', inherit: 'Inherit', route: '{model} · {provider}',
   modelsError: 'Could not load available models.', toolsError: 'Could not load the tool list.', toolsEmpty: 'No tools listed.',
@@ -31,6 +32,7 @@ type Dictionary = Record<AgentProfilesKey, string>
 /** German agent profile copy. */
 export const de: Dictionary = {
   jan: 'Jan', noAgent: 'Jan (kein Agent)', choose: 'Agent auswählen: {name}', manage: 'Agenten verwalten…',
+  'command.label': 'Agent', 'command.description': 'Agent für diese Unterhaltung auswählen',
   'group.project': 'Projektagenten', 'group.global': 'Globale Agenten',
   'source.agents': '.agents', 'source.claude': 'Claude', 'source.opencode': 'opencode', 'source.codex': 'Codex',
   warnings: 'Profilwarnungen: {warnings}', locked: 'Warte auf das Ende der aktuellen Antwort, bevor du den Agenten wechselst.',
@@ -43,7 +45,7 @@ export const de: Dictionary = {
   'reveal.finder': 'Im Finder anzeigen', 'reveal.folder': 'Im Ordner anzeigen', revealError: 'Datei konnte nicht angezeigt werden. Versuche es erneut.',
   deleteTitle: '{id} löschen?', deleteConfirm: 'Damit wird die Jan-Agentendatei für {id} gelöscht.',
   deleteError: 'Agent konnte nicht gelöscht werden. Versuche es erneut.', readError: 'Agentendatei konnte nicht gelesen werden.',
-  id: 'Agenten-ID', description: 'Beschreibung', use: 'Verfügbar für',
+  id: 'Name', description: 'Beschreibung', use: 'Verfügbar für',
   'use.all': 'Chats und Subagentenaufgaben', 'use.primary': 'Chats', 'use.subagent': 'Subagentenaufgaben',
   model: 'Modell', effort: 'Denkaufwand', inherit: 'Übernehmen', route: '{model} · {provider}',
   modelsError: 'Verfügbare Modelle konnten nicht geladen werden.', toolsError: 'Werkzeugliste konnte nicht geladen werden.', toolsEmpty: 'Keine Werkzeuge in der Liste.',
@@ -56,6 +58,7 @@ export const de: Dictionary = {
 /** Spanish agent profile copy. */
 export const es: Dictionary = {
   jan: 'Jan', noAgent: 'Jan (sin agente)', choose: 'Elegir agente: {name}', manage: 'Gestionar agentes…',
+  'command.label': 'Agente', 'command.description': 'Selecciona el agente de esta conversación',
   'group.project': 'Agentes del proyecto', 'group.global': 'Agentes globales',
   'source.agents': '.agents', 'source.claude': 'Claude', 'source.opencode': 'opencode', 'source.codex': 'Codex',
   warnings: 'Advertencias del perfil: {warnings}', locked: 'Espera a que termine la respuesta actual antes de cambiar de agente.',
@@ -68,7 +71,7 @@ export const es: Dictionary = {
   'reveal.finder': 'Mostrar en Finder', 'reveal.folder': 'Mostrar en la carpeta', revealError: 'No se pudo mostrar el archivo. Inténtalo de nuevo.',
   deleteTitle: '¿Eliminar {id}?', deleteConfirm: 'Se eliminará el archivo de agente de Jan para {id}.',
   deleteError: 'No se pudo eliminar el agente. Inténtalo de nuevo.', readError: 'No se pudo leer el archivo del agente.',
-  id: 'ID del agente', description: 'Descripción', use: 'Disponible para',
+  id: 'Nombre', description: 'Descripción', use: 'Disponible para',
   'use.all': 'Chats y tareas de subagentes', 'use.primary': 'Chats', 'use.subagent': 'Tareas de subagentes',
   model: 'Modelo', effort: 'Esfuerzo de razonamiento', inherit: 'Heredar', route: '{model} · {provider}',
   modelsError: 'No se pudieron cargar los modelos disponibles.', toolsError: 'No se pudo cargar la lista de herramientas.', toolsEmpty: 'No hay herramientas en la lista.',
@@ -81,6 +84,7 @@ export const es: Dictionary = {
 /** French agent profile copy. */
 export const fr: Dictionary = {
   jan: 'Jan', noAgent: 'Jan (sans agent)', choose: 'Choisir un agent : {name}', manage: 'Gérer les agents…',
+  'command.label': 'Agent', 'command.description': 'Sélectionner l’agent pour cette conversation',
   'group.project': 'Agents du projet', 'group.global': 'Agents globaux',
   'source.agents': '.agents', 'source.claude': 'Claude', 'source.opencode': 'opencode', 'source.codex': 'Codex',
   warnings: 'Avertissements du profil : {warnings}', locked: 'Attendez la fin de la réponse en cours pour changer d’agent.',
@@ -93,7 +97,7 @@ export const fr: Dictionary = {
   'reveal.finder': 'Afficher dans le Finder', 'reveal.folder': 'Afficher dans le dossier', revealError: 'Impossible d’afficher le fichier. Réessayez.',
   deleteTitle: 'Supprimer {id} ?', deleteConfirm: 'Le fichier d’agent Jan de {id} sera supprimé.',
   deleteError: 'Impossible de supprimer l’agent. Réessayez.', readError: 'Impossible de lire le fichier de l’agent.',
-  id: 'Identifiant de l’agent', description: 'Description', use: 'Disponible pour',
+  id: 'Nom', description: 'Description', use: 'Disponible pour',
   'use.all': 'Chats et tâches de sous-agents', 'use.primary': 'Chats', 'use.subagent': 'Tâches de sous-agents',
   model: 'Modèle', effort: 'Effort de raisonnement', inherit: 'Hériter', route: '{model} · {provider}',
   modelsError: 'Impossible de charger les modèles disponibles.', toolsError: 'Impossible de charger la liste des outils.', toolsEmpty: 'Aucun outil dans la liste.',
@@ -106,6 +110,7 @@ export const fr: Dictionary = {
 /** Japanese agent profile copy. */
 export const ja: Dictionary = {
   jan: 'Jan', noAgent: 'Jan（エージェントなし）', choose: 'エージェントを選択: {name}', manage: 'エージェントを管理…',
+  'command.label': 'エージェント', 'command.description': 'この会話で使うエージェントを選択',
   'group.project': 'プロジェクトのエージェント', 'group.global': 'グローバルエージェント',
   'source.agents': '.agents', 'source.claude': 'Claude', 'source.opencode': 'opencode', 'source.codex': 'Codex',
   warnings: 'プロファイルの警告: {warnings}', locked: '現在の応答が完了してからエージェントを変更してください。',
@@ -118,7 +123,7 @@ export const ja: Dictionary = {
   'reveal.finder': 'Finder に表示', 'reveal.folder': 'フォルダーに表示', revealError: 'ファイルを表示できませんでした。もう一度お試しください。',
   deleteTitle: '{id} を削除しますか？', deleteConfirm: '{id} の Jan エージェントファイルを削除します。',
   deleteError: 'エージェントを削除できませんでした。もう一度お試しください。', readError: 'エージェントファイルを読み込めませんでした。',
-  id: 'エージェント ID', description: '説明', use: '利用範囲',
+  id: '名前', description: '説明', use: '利用範囲',
   'use.all': 'チャットとサブエージェントのタスク', 'use.primary': 'チャット', 'use.subagent': 'サブエージェントのタスク',
   model: 'モデル', effort: '推論レベル', inherit: '継承', route: '{model} · {provider}',
   modelsError: '利用可能なモデルを読み込めませんでした。', toolsError: 'ツール一覧を読み込めませんでした。', toolsEmpty: 'ツールがありません。',
@@ -131,6 +136,7 @@ export const ja: Dictionary = {
 /** Portuguese agent profile copy. */
 export const pt: Dictionary = {
   jan: 'Jan', noAgent: 'Jan (sem agente)', choose: 'Escolher agente: {name}', manage: 'Gerenciar agentes…',
+  'command.label': 'Agente', 'command.description': 'Selecione o agente desta conversa',
   'group.project': 'Agentes do projeto', 'group.global': 'Agentes globais',
   'source.agents': '.agents', 'source.claude': 'Claude', 'source.opencode': 'opencode', 'source.codex': 'Codex',
   warnings: 'Avisos do perfil: {warnings}', locked: 'Aguarde o fim da resposta atual antes de trocar de agente.',
@@ -143,7 +149,7 @@ export const pt: Dictionary = {
   'reveal.finder': 'Mostrar no Finder', 'reveal.folder': 'Mostrar na pasta', revealError: 'Não foi possível mostrar o arquivo. Tente novamente.',
   deleteTitle: 'Excluir {id}?', deleteConfirm: 'Isso excluirá o arquivo de agente do Jan para {id}.',
   deleteError: 'Não foi possível excluir o agente. Tente novamente.', readError: 'Não foi possível ler o arquivo do agente.',
-  id: 'ID do agente', description: 'Descrição', use: 'Disponível para',
+  id: 'Nome', description: 'Descrição', use: 'Disponível para',
   'use.all': 'Conversas e tarefas de subagentes', 'use.primary': 'Conversas', 'use.subagent': 'Tarefas de subagentes',
   model: 'Modelo', effort: 'Esforço de raciocínio', inherit: 'Herdar', route: '{model} · {provider}',
   modelsError: 'Não foi possível carregar os modelos disponíveis.', toolsError: 'Não foi possível carregar a lista de ferramentas.', toolsEmpty: 'Nenhuma ferramenta listada.',
@@ -156,6 +162,7 @@ export const pt: Dictionary = {
 /** Russian agent profile copy. */
 export const ru: Dictionary = {
   jan: 'Jan', noAgent: 'Jan (без агента)', choose: 'Выбрать агента: {name}', manage: 'Управление агентами…',
+  'command.label': 'Агент', 'command.description': 'Выбрать агента для этого разговора',
   'group.project': 'Агенты проекта', 'group.global': 'Глобальные агенты',
   'source.agents': '.agents', 'source.claude': 'Claude', 'source.opencode': 'opencode', 'source.codex': 'Codex',
   warnings: 'Предупреждения профиля: {warnings}', locked: 'Дождитесь окончания текущего ответа, чтобы сменить агента.',
@@ -168,7 +175,7 @@ export const ru: Dictionary = {
   'reveal.finder': 'Показать в Finder', 'reveal.folder': 'Показать в папке', revealError: 'Не удалось показать файл. Повторите попытку.',
   deleteTitle: 'Удалить {id}?', deleteConfirm: 'Файл агента Jan для {id} будет удалён.',
   deleteError: 'Не удалось удалить агента. Повторите попытку.', readError: 'Не удалось прочитать файл агента.',
-  id: 'ID агента', description: 'Описание', use: 'Доступен для',
+  id: 'Имя', description: 'Описание', use: 'Доступен для',
   'use.all': 'Чатов и задач субагентов', 'use.primary': 'Чатов', 'use.subagent': 'Задач субагентов',
   model: 'Модель', effort: 'Глубина рассуждений', inherit: 'Наследовать', route: '{model} · {provider}',
   modelsError: 'Не удалось загрузить доступные модели.', toolsError: 'Не удалось загрузить список инструментов.', toolsEmpty: 'В списке нет инструментов.',
@@ -181,6 +188,7 @@ export const ru: Dictionary = {
 /** Simplified Chinese agent profile copy. */
 export const zh: Dictionary = {
   jan: 'Jan', noAgent: 'Jan（不使用智能体）', choose: '选择智能体：{name}', manage: '管理智能体…',
+  'command.label': '智能体', 'command.description': '选择本会话使用的智能体',
   'group.project': '项目智能体', 'group.global': '全局智能体',
   'source.agents': '.agents', 'source.claude': 'Claude', 'source.opencode': 'opencode', 'source.codex': 'Codex',
   warnings: '配置警告：{warnings}', locked: '请等当前回复结束后再切换智能体',
@@ -193,7 +201,7 @@ export const zh: Dictionary = {
   'reveal.finder': '在访达中显示', 'reveal.folder': '在文件夹中显示', revealError: '无法显示文件，请重试',
   deleteTitle: '删除 {id}？', deleteConfirm: '这将删除 {id} 的 Jan 智能体文件',
   deleteError: '无法删除智能体，请重试', readError: '无法读取智能体文件',
-  id: '智能体 ID', description: '描述', use: '可用于',
+  id: '名称', description: '描述', use: '可用于',
   'use.all': '聊天和子智能体任务', 'use.primary': '聊天', 'use.subagent': '子智能体任务',
   model: '模型', effort: '推理强度', inherit: '继承', route: '{model} · {provider}',
   modelsError: '无法加载可用模型', toolsError: '无法加载工具列表', toolsEmpty: '没有列出的工具',
