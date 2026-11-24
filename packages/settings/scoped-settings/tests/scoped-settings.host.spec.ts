@@ -246,6 +246,26 @@ it('applies switches to an agent created later and to MCP tools that register la
   expect(await settings.toolCatalog()).toEqual({ tools: ['bash', 'read'], mcpServers: ['github'] })
 })
 
+it('disables MCP tools from each agent scope and restores only the affected chat when cleared', async () => {
+  const h = await setup()
+  const affected = await h.addAgent('chat-a', '/repo/c')
+  const unaffected = await h.addAgent('chat-b', '/repo/d')
+  await registerMcpTools(affected.ctx, ['local'])
+  await registerMcpTools(unaffected.ctx, ['other'])
+  const settings = await h.start()
+  expect(h.visible(affected)).toContain('mcp__github__local')
+  expect(h.visible(unaffected)).not.toContain('mcp__github__local')
+
+  await settings.write({ scope: 'project', id: PROJECT, values: { toolsDisabled: ['mcp:github'] } })
+  expect(h.visible(affected)).toEqual(['bash', 'read'])
+  expect(h.visible(unaffected)).toContain('mcp__github__other')
+
+  await registerMcpTools(affected.ctx, ['later'])
+  expect(h.visible(affected)).toEqual(['bash', 'read'])
+  await settings.write({ scope: 'project', id: PROJECT, values: { toolsDisabled: null } })
+  expect(h.visible(affected)).toEqual(['bash', 'mcp__github__issue', 'mcp__github__later', 'mcp__github__local', 'mcp__github__search', 'read'])
+})
+
 it('lists the tools a new chat gets from its preset, and releases the preset afterwards', async () => {
   const h = await setup()
   let released = 0
