@@ -10,7 +10,7 @@ const MAX_METADATA_BYTES = 1024 * 1024
 const checkouts = new Map<string, Promise<GitCheckout | undefined>>()
 
 /**
- * Cache repository identity and the GitHub origin by path; read HEAD on every projection.
+ * Cache discovered repository identity and the GitHub origin by path; read HEAD on every projection.
  * @param directory - canonical Workspace directory, inside or at the root of a checkout.
  * @returns available Git metadata, or undefined outside a Git checkout.
  */
@@ -21,7 +21,10 @@ export async function gitMetadataOf(directory: string): Promise<GitMetadata | un
     checkouts.set(directory, checkout)
   }
   const git = await checkout
-  if (git === undefined) return undefined
+  if (git === undefined) {
+    if (checkouts.get(directory) === checkout) checkouts.delete(directory)
+    return undefined
+  }
   const head = (await readText(git.head))?.trim()
   const branch = head === undefined ? undefined : /^ref: refs\/heads\/(\S+)$/.exec(head)?.[1]
     ?? (/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(head) ? head.slice(0, 7) : undefined)

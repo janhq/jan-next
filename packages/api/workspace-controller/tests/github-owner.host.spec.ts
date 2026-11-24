@@ -63,6 +63,19 @@ it('has no owner outside Git or without an origin remote', async () => {
   expect(await gitMetadataOf(local)).toEqual({ repository: join(local, '.git') })
 })
 
+it('discovers a repository initialized after the first Workspace projection', async () => {
+  const root = scratch()
+  const project = join(root, 'project')
+  mkdirSync(project)
+  expect(await gitMetadataOf(project)).toBeUndefined()
+
+  repository(root, 'project', origin('https://github.com/janhq/repo.git'))
+  writeFileSync(join(project, '.git', 'HEAD'), 'ref: refs/heads/main\n')
+  expect(await gitMetadataOf(project)).toMatchObject({
+    githubOwner: 'janhq', repository: join(project, '.git'), branch: 'main',
+  })
+})
+
 it('ignores an oversized Git config even when the origin appears first', async () => {
   const content = origin('https://github.com/janhq/repo.git') + '#'.repeat(1024 * 1024)
   const path = repository(scratch(), 'oversized', content)
