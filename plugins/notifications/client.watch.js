@@ -7,11 +7,11 @@ window.__ModuleLoader__.load({
      * A running-to-idle transition reads the latest durable turn outcome; a
      * cancelled turn is not a completion. Errors without a turn still notify.
      * An error that arrives while the Session is not running (activation failed) fails at once.
-     * Each newly pending interaction key is one "waiting" event. A Session notifies only once an
+     * Each newly pending interaction key is one "input" event for a question, otherwise one "waiting" event. A Session notifies only once an
      * earlier snapshot listed it, so the first snapshot and late catalog rows replay no old state.
      * @param {{
      *   tracked: (sessionId: string) => boolean,
-     *   emit: (event: { kind: 'finished' | 'failed' | 'waiting', sessionId: string }) => void,
+     *   emit: (event: { kind: 'finished' | 'failed' | 'waiting' | 'input', sessionId: string }) => void,
      *   readOutcome: (sessionId: string) => Promise<{seq: number, kind: string} | undefined>,
      * }} options - `tracked` excludes subagent Sessions; `emit` receives each event once.
      */
@@ -25,7 +25,7 @@ window.__ModuleLoader__.load({
       const reportedThrough = new Map()
 
       return {
-        /** @param {ReadonlyMap<string, { running: boolean | undefined, pendingInteraction: { key: string } | undefined }>} snapshot */
+        /** @param {ReadonlyMap<string, { running: boolean | undefined, pendingInteraction: { key: string, kind?: string } | undefined }>} snapshot */
         observe(snapshot) {
           for (const [sessionId, status] of snapshot) {
             const known = running.has(sessionId)
@@ -37,7 +37,10 @@ window.__ModuleLoader__.load({
             if (key === undefined) pending.delete(sessionId)
             else pending.set(sessionId, key)
             if (!known || !tracked(sessionId)) continue
-            if (key !== undefined && key !== previousKey) emit({ kind: 'waiting', sessionId })
+            // A question waits for the user's words; approvals and plan reviews wait for a decision.
+            if (key !== undefined && key !== previousKey) {
+              emit({ kind: status.pendingInteraction?.kind === 'question' ? 'input' : 'waiting', sessionId })
+            }
             if (wasRunning === true && status.running === false) {
               const hadError = failed.delete(sessionId)
               const read = readOutcome(sessionId)

@@ -5,8 +5,8 @@ window.__ModuleLoader__.load({
     const { createElement: h, useEffect, useState, useSyncExternalStore } = require('react')
     const { Switch, Toast, IconWarningTriangleOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const NS = 'jan-notifications'
-    const KINDS = ['finished', 'failed', 'waiting']
-    const DEFAULTS = { enabled: true, finished: true, failed: true, waiting: true }
+    const KINDS = ['finished', 'failed', 'waiting', 'input']
+    const DEFAULTS = { enabled: true, finished: true, failed: true, waiting: true, input: true }
     /** Notification ids awaiting a click; older ids are dropped once the platform has likely dismissed them. */
     const MAX_TARGETS = 64
     const CSS = `
@@ -18,7 +18,8 @@ window.__ModuleLoader__.load({
 
     return {
       name: NS,
-      inject: ['slots', 'locale', 'uiSession', 'sessions', 'remote', 'configForms', 'uiWorkspace', 'layout'],
+      // readOutcome reads the turn end from the Session Remote, so its namespace must be injected, not only `remote`.
+      inject: ['slots', 'locale', 'uiSession', 'sessions', 'remote', 'remote.session', 'configForms', 'uiWorkspace', 'layout'],
       apply(ctx) {
         const logger = ctx.logger(NS)
         const form = ctx.configForms.get(NS)
@@ -141,7 +142,7 @@ window.__ModuleLoader__.load({
           const rows = [
             { field: 'enabled', title: () => t('settings.title'), description: () => t('settings.description') },
             ...KINDS.map(kind => ({ field: kind, nested: true, title: () => t(`settings.${kind}`),
-              description: () => (kind === 'waiting' ? t('settings.waitingDescription') : undefined) })),
+              description: () => (kind === 'waiting' || kind === 'input' ? t(`settings.${kind}Description`) : undefined) })),
           ]
           // After the conversation rows (12–17) and before performance usage (30).
           rows.forEach((row, index) => {

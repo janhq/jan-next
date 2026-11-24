@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { beforeAll, expect, it, vi } from 'vitest'
 
-type Status = { running: boolean | undefined; pendingInteraction: { key: string } | undefined }
-type Event = { kind: 'finished' | 'failed' | 'waiting'; sessionId: string }
+type Status = { running: boolean | undefined; pendingInteraction: { key: string; kind?: string } | undefined }
+type Event = { kind: 'finished' | 'failed' | 'waiting' | 'input'; sessionId: string }
 type Watcher = { observe(snapshot: ReadonlyMap<string, Status>): void; error(sessionId: string): void }
 type End = { seq: number; kind: string }
 type Factory = (options: {
@@ -116,6 +116,15 @@ it('reports each new pending interaction key once', () => {
   f.watcher.observe(f.status({ a: { running: true } }))
   f.watcher.observe(f.status({ a: { running: true, pendingInteraction: { key: 'k1' } } }))
   expect(f.events.map(event => event.kind)).toEqual(['waiting', 'waiting', 'waiting'])
+})
+
+it('reports a question as needing input and an approval or plan review as needing action', () => {
+  const f = setup()
+  f.watcher.observe(f.status({ a: { running: true } }))
+  f.watcher.observe(f.status({ a: { running: true, pendingInteraction: { key: 'q', kind: 'question' } } }))
+  f.watcher.observe(f.status({ a: { running: true, pendingInteraction: { key: 'p', kind: 'approval' } } }))
+  f.watcher.observe(f.status({ a: { running: true, pendingInteraction: { key: 'r', kind: 'plan-review' } } }))
+  expect(f.events.map(event => event.kind)).toEqual(['input', 'waiting', 'waiting'])
 })
 
 it('ignores Sessions that are not tracked, such as subagents', () => {
