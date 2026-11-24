@@ -188,6 +188,14 @@ describe('ui-permission browser plugin', () => {
     expect(b.catalogCalls()).toBe(1)
   })
 
+  it('only offers inline permission choices that do not need confirmation', async () => {
+    const b = await bench()
+    const sessionId = sid('s1')
+    b.values.set(sessionId, { currentValue: 'workspace-write' })
+    const options = await b.decoration()?.completeArguments?.('', { sessionId }, new AbortController().signal)
+    expect(options?.map(option => option.value)).toEqual(['read-only', 'workspace-write'])
+  })
+
   it('availability follows the session projection; options mark the current value active', async () => {
     const b = await bench()
     const c = b.decoration()!

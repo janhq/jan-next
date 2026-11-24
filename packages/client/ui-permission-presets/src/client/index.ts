@@ -16,7 +16,7 @@
  * created later through the host Settings API.
  */
 import type { Context as ClientContext } from '@janhq/cordis'
-import type { SessionFace } from '@janhq/jan-api-session-controller/client'
+import type { ISessions, SessionFace } from '@janhq/jan-api-session-controller/client'
 import type { SessionId } from '@janhq/jan-api-remotes/client'
 import type { PermissionCatalog, PermissionSelection } from '@janhq/jan-permission-presets/client'
 // Direct dependency: catalog settlements are fenced by the actual connection
@@ -114,7 +114,7 @@ const FULL_ACCESS_NOTICE_KEY = 'jan.permission.fullAccessNoticeSeen'
  */
 export function apply(ctx: ClientContext): void {
   const command = ctx.get('commandUi') as CommandUiContract
-  const sessions = ctx.sessions
+  const sessions = ctx.get('sessions') as ISessions
   const accessDictionaries = {
     zh: accessZh,
     en: accessEn,
@@ -205,6 +205,13 @@ export function apply(ctx: ClientContext): void {
     // surfaces through `options()`, which keeps the picker's own retry entry
     // reachable after a failed read instead of hiding the command.
     available: session => selectionOf(sessionFor(session)) !== undefined,
+    completeArguments: async (_query, session) => {
+      const selection = selectionOf(sessionFor(session))
+      if (selection === undefined) return []
+      return optionsOf(await catalog.load(), selection.currentValue, t).flatMap(option => option.confirmation === undefined
+        ? [{ value: option.id, label: option.label, ...(option.detail === undefined ? {} : { description: option.detail }) }]
+        : [])
+    },
     ui: {
       kind: 'popupSelect',
       options: async (session) => {
