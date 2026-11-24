@@ -3,7 +3,7 @@
   border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: var(--dsw-radius-xl);
   background: var(--dsw-alias-turn-trigger-bg, var(--dsw-alias-markdown-code-block));
-  transition: background-color 100ms ease;
+  transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 @media (hover: hover) {
   .root:hover { background: var(--dsw-alias-turn-trigger-bg-hover, var(--dsw-alias-interactive-bg-hover)); }
@@ -17,7 +17,7 @@
   border: 0;
   background: none;
   color: var(--dsw-alias-label-tertiary);
-  transition: color 100ms ease;
+  transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
   font: inherit;
   text-align: left;
   cursor: pointer;

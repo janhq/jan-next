@@ -484,11 +484,11 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .chevron {
-    transition: transform 140ms var(--ds-ease-in-out);
+    transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
   }
 
   .skeletonBar {
-    animation: plugin-inventory-skeleton 2s cubic-bezier(0.36, 0, 0.64, 1) infinite;
+    animation: plugin-inventory-skeleton var(--ds-transition-duration-ambient) var(--ds-ease-pulse) infinite;
   }
 }
 

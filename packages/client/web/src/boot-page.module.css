@@ -46,6 +46,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .mark { animation: none; }
+  .progress::after { transition: none; }
 }
 
 .wordmark {

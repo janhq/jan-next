@@ -165,7 +165,7 @@
   border: 1px dashed currentColor;
   border-radius: var(--dsw-radius-panel);
   color: var(--dsw-alias-border-l4);
-  transition: color 100ms ease;
+  transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
   pointer-events: none;
 }
 
@@ -229,7 +229,7 @@
   border-radius: 50%;
   corner-shape: round;
   background: var(--dsw-alias-state-business-primary);
-  animation: input-pending 1s ease-in-out infinite alternate;
+  animation: input-pending var(--ds-transition-duration-ambient) var(--ds-ease-pulse) infinite alternate;
 }
 
 @keyframes input-pending {
@@ -471,7 +471,7 @@
      fill in both themes (design 34:10465). */
   color: #fff;
   cursor: pointer;
-  transition: background-color 100ms ease;
+  transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
   /* Opts out of the row's 2px downward shift (.row top pad): the send circle
      keeps its original seat while the smaller chips sit lower. Transform, not
      margin, so flex centering math is untouched. */
@@ -506,12 +506,13 @@
 }
 
 .sendingSpinner {
-  animation: input-sending 800ms linear infinite;
+  animation: input-sending var(--ds-transition-duration-loop) linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .pending,
   .sendingSpinner {
-    animation-duration: 2400ms;
+    animation: none;
   }
 }
 

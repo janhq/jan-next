@@ -39,7 +39,7 @@
 }
 
 .errorDot { background: currentColor; width: 6px; height: 6px; border-radius: 50%; corner-shape: round; }
-.spinner { animation: spin 1s linear infinite; }
+.spinner { animation: spin var(--ds-transition-duration-loop) linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 

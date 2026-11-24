@@ -97,7 +97,7 @@
 }
 
 .switcherTrigger svg {
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .trigger .compactIcon {
@@ -286,7 +286,7 @@
 .disclosure svg {
   width: 12px;
   height: 12px;
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 @media (hover: hover) {

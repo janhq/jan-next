@@ -94,5 +94,5 @@
 }
 
 :global(html:active-view-transition-type(jan-guidance-step)::view-transition-group(jan-guidance-popover)) {
-  animation-duration: 150ms;
+  animation-duration: var(--ds-transition-duration);
 }

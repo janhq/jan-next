@@ -218,7 +218,7 @@
   width: 12px;
   height: 12px;
   color: var(--dsw-alias-label-tertiary);
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .inventoryRow[open] .chevron {

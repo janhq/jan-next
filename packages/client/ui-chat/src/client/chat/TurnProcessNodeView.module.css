@@ -29,7 +29,7 @@
   font-size: var(--jan-content-font-size, 14px);
   cursor: pointer;
   text-align: left;
-  transition: color 100ms ease;
+  transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .root:disabled {
@@ -48,7 +48,7 @@
   height: 14px;
   margin-left: 4px;
   color: inherit;
-  transition: transform 100ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .root[data-open] .chevron {

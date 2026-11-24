@@ -115,7 +115,7 @@
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .fishHitbox:hover .fish {
-    animation: hero-fish-swim 1.6s ease-in-out infinite;
+    animation: hero-fish-swim var(--ds-transition-duration-ambient) var(--ds-ease-pulse) infinite;
   }
 }
 

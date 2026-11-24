@@ -104,7 +104,7 @@
    gradient cannot transition from the hairline's solid colour. */
 .divider::after {
   opacity: 0;
-  transition: opacity 120ms ease-out;
+  transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .divider:focus-visible::after { opacity: 1; }
@@ -661,7 +661,7 @@
      whole scrim away from the content beneath it. */
   background: color-mix(in srgb, var(--dsw-alias-bg-base) 72%, transparent);
   backdrop-filter: blur(6px);
-  animation: dockScrimIn 140ms ease-out;
+  animation: dockScrimIn var(--ds-transition-duration-slow) var(--ds-ease-out);
 }
 
 .dockHint {
@@ -715,8 +715,8 @@
   color: var(--dsw-alias-label-tertiary);
   border: 1.5px dashed var(--dsw-alias-border-l2);
   border-radius: var(--dsw-radius-lg);
-  transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out;
-  animation: dockHintIn 140ms ease-out;
+  transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out), background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+  animation: dockHintIn var(--ds-transition-duration) var(--ds-ease-out);
 }
 
 /* The card under the pointer takes the accent: a tinted ground over the scrim,
@@ -880,7 +880,7 @@
   border-bottom: 1.5px solid var(--dsw-alias-label-caption);
   border-bottom-right-radius: calc(var(--dsw-radius-panel) - 4px);
   opacity: 0;
-  transition: opacity 120ms ease-out;
+  transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .floatResize:active::after {

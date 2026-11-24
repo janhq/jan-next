@@ -322,7 +322,7 @@
   border: 0.5px solid var(--dsw-alias-border-l3);
   border-radius: 12px;
   color: var(--dsw-alias-label-tertiary);
-  transition: border-color 0.15s;
+  transition: border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 @media (hover: hover) {
@@ -980,7 +980,7 @@
   min-height: 32px;
   padding: 0 8px;
   border-radius: 18px;
-  transition: background 0.15s;
+  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 @media (hover: hover) {
@@ -1058,7 +1058,7 @@
   font: inherit;
   font-size: 14px;
   text-align: right;
-  transition: background 0.15s;
+  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 @media (hover: hover) {
@@ -1216,7 +1216,7 @@
   font-size: 14px;
   line-height: 24px;
   resize: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
   /* The inset thumb and the vertical track margin keep the bar inside the
      box's rounded corners (rendered by ui-theme styles/scrollbar.css). */
   --jan-scrollbar-width: 9px;

@@ -140,7 +140,7 @@
   left: 0;
   background: var(--dsw-alias-interactive-bg-hover-accent);
   pointer-events: none;
-  animation: line-mark-fade 2s ease-in forwards;
+  animation: line-mark-fade 2s var(--ds-ease-in) forwards;
 }
 
 @keyframes line-mark-fade {

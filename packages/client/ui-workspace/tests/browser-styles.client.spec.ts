@@ -166,8 +166,9 @@ describe('WorkspaceBrowser.module.css list', () => {
     expect(declarations('.root:not(.rail) .sectionHeader')?.get('transition')).toBeUndefined()
     const selector = '.root:not(.rail) .sectionHeader.searchSpacingMotion'
     const [ordinary = '', reduced = ''] = css.split('@media (prefers-reduced-motion: reduce)')
+    const motion = 'var(--ds-transition-duration) var(--ds-ease-in-out)'
     expect(declarationsFrom(ordinary, selector)?.get('transition'))
-      .toBe('margin-right 180ms var(--ds-ease-in-out), padding-inline 180ms var(--ds-ease-in-out), gap 180ms var(--ds-ease-in-out)')
+      .toBe(`margin-right ${motion}, padding-inline ${motion}, gap ${motion}`)
     expect(declarationsFrom(reduced, selector)?.get('transition')).toBe('none')
   })
 

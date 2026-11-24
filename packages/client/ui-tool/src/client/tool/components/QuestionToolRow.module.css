@@ -16,7 +16,7 @@
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 100ms ease;
+  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .panelButton svg {

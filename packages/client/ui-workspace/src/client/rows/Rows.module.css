@@ -159,7 +159,7 @@
 
 /* Expand chevron (outline, like the list's other disclosures): points right closed, rotates to point down open. */
 .arrow {
-  transition: transform 150ms var(--ds-ease-in-out);
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .arrowOpen {

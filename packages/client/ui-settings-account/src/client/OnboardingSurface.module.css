@@ -13,7 +13,7 @@
 }
 
 .onboardingOverlay[data-exiting] {
-  animation: onboardingExit 180ms ease-out forwards;
+  animation: onboardingExit 180ms var(--ds-ease-in) forwards;
   pointer-events: none;
 }
 

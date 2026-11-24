@@ -187,7 +187,10 @@ export function SidebarRoot({
   // A closed drawer retains its content with the rail phase already settled.
   const [settled, setSettled] = useState(collapsed)
   useEffect(() => {
-    if (drawer || !collapsed) { setSettled(collapsed); return }
+    if (drawer || !collapsed || (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+      setSettled(collapsed)
+      return
+    }
     const timer = window.setTimeout(() => { setSettled(true) }, COLLAPSE_SETTLE_MS)
     return () => { window.clearTimeout(timer) }
   }, [collapsed, drawer])

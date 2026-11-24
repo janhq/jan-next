@@ -18,7 +18,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms ease;
+  transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 :global(body[data-ds-dark-theme]) .card { --plan-card-fill: var(--dsw-static-neutral-850); --plan-card-hover: var(--dsw-static-neutral-800); }
 @media (hover: hover) {
