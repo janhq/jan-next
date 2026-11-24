@@ -58,7 +58,7 @@ export interface CommandClaim {
 export type PickOutcome =
   | { readonly claim: CommandClaim }
   | { readonly insert: ReferenceInsert }
-  | { readonly text: string; readonly continue?: boolean }
+  | { readonly text: string; readonly continue?: boolean; readonly submit?: true }
   | 'handled'
   | undefined
 
@@ -86,6 +86,8 @@ export interface InsertTextRequest {
   readonly text: string
   readonly span: TokenSpan
   readonly continue?: boolean
+  /** Submit the completed line after the editor commits this replacement. */
+  readonly submit?: true
 }
 
 /** Trigger hit used to open one source programmatically. */

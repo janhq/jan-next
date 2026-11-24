@@ -7,6 +7,7 @@ import {
   BLUR_COMMAND, CLEAR_HISTORY_COMMAND, COMMAND_PRIORITY_BEFORE_CRITICAL, COMMAND_PRIORITY_CRITICAL, createEditor,
   HISTORY_MERGE_TAG, PASTE_TAG,
   RootNode, SELECTION_CHANGE_COMMAND, SKIP_DOM_SELECTION_TAG, KEY_BACKSPACE_COMMAND, KEY_DELETE_COMMAND, HISTORY_PUSH_TAG,
+  $onUpdate,
 } from 'lexical'
 import { registerPlainText } from '@lexical/plain-text'
 import { createEmptyHistoryState, registerHistory } from '@lexical/history'
@@ -279,12 +280,14 @@ export class DraftEditorRuntime {
    * Replace a mapped span without applying the model's phase or revision guards.
    * @param span - detect-coordinate range.
    * @param text - inserted text.
+   * @param onCommit - invoked after the composer has observed the successful replacement.
    * @returns whether the range mapped and the edit applied.
    */
-  replaceText(span: DetectSpan, text: string): boolean {
+  replaceText(span: DetectSpan, text: string, onCommit?: () => void): boolean {
     let applied = false
     this.applyEdit(() => {
       applied = $replaceDetectSpanWithText(span, text)
+      if (applied && onCommit !== undefined) $onUpdate(onCommit)
     })
     return applied
   }
