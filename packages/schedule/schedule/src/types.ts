@@ -504,6 +504,8 @@ export interface ScheduleCreateRequest {
   readonly timing: ScheduleTiming
   /** Delivery destination; omission creates one Session at first delivery and reuses it. */
   readonly target?: ScheduleTargetRequest
+  /** `false` saves the task paused; omission or `true` arms it on creation. */
+  readonly active?: boolean
 }
 
 /** Host-wide task list request. */

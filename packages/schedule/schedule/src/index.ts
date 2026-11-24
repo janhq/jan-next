@@ -424,7 +424,7 @@ export class ScheduleService extends TypertRemoteService {
   }
 
   /** Create an idempotently named task with a checkpoint for a mounted Session inbox.
-   * @param request - Task title, prompt and timing, as in ordinary Schedule creation.
+   * @param request - Task title, prompt, timing, and initial activity, as in ordinary Schedule creation.
    * @param destination - Session with a registered inbox, stable task key, and optional opaque payload.
    * @param signal - Cancellation before the durable write.
    * @returns The stored task without its private payload.
@@ -438,11 +438,11 @@ export class ScheduleService extends TypertRemoteService {
     const now = Date.now()
     const record = createScheduleRecord(id, request.title, request.prompt, request.timing, now)
     const target = await this.resolveTarget({ kind: 'session', sessionId }, signal)
-    return this.createTask(record, target, now, sessionId, signal, payload, true)
+    return this.createTask(record, request.active, target, now, sessionId, signal, payload, true)
   }
 
   /** Create a plugin-owned task, reusing its original task identity when the owner retries the same key.
-   * @param request - Task title, prompt and timing, as in ordinary Schedule creation.
+   * @param request - Task title, prompt, timing, and initial activity, as in ordinary Schedule creation.
    * @param destination - Registered owner, stable owner-local task key, and optional opaque payload.
    * @param signal - Cancellation before the durable write.
    * @returns The stored task without its private payload.
@@ -455,7 +455,7 @@ export class ScheduleService extends TypertRemoteService {
     const id = ScheduleId(`schedule-plugin-${createHash('sha256').update(JSON.stringify([owner, key])).digest('hex')}`)
     const now = Date.now()
     const record = createScheduleRecord(id, request.title, request.prompt, request.timing, now)
-    return this.createTask(record, { kind: 'plugin', owner }, now, undefined, signal, payload)
+    return this.createTask(record, request.active, { kind: 'plugin', owner }, now, undefined, signal, payload)
   }
 
   /** Read effective delivery limits without loading or activating a task.
@@ -468,7 +468,7 @@ export class ScheduleService extends TypertRemoteService {
 
   /**
    * Create one task with a Host-generated identity for a human Remote caller.
-   * @param request - Title, prompt, recurrence, and delivery destination.
+   * @param request - Title, prompt, recurrence, delivery destination, and initial activity.
    * @param signal - Cancellation checked before the durable write begins, including after FIFO waits.
    * @returns The stored task. Cancellation does not roll back an in-flight write.
    */
@@ -486,7 +486,7 @@ export class ScheduleService extends TypertRemoteService {
    *
    * The record is built from the clock reading taken before the request joins the serialized queue. A `session`
    * target must exist and must not belong to a delegated child; a `new_once` target reserves its Session identity.
-   * @param request - Title, prompt, recurrence, and delivery destination.
+   * @param request - Title, prompt, recurrence, delivery destination, and initial activity.
    * @param actorSessionId - Session of the acting Agent, or undefined for a human caller.
    * @param signal - Cancellation checked before the durable write begins, including after FIFO waits.
    * @returns The stored task. Cancellation does not roll back an in-flight write.
@@ -498,10 +498,10 @@ export class ScheduleService extends TypertRemoteService {
   ): Promise<ScheduleCatalogEntry> {
     const now = Date.now()
     const record = createScheduleRecord(ScheduleId(`schedule-${randomUUID()}`), request.title, request.prompt, request.timing, now)
-    return this.createTask(record, await this.resolveTarget(request.target ?? { kind: 'new_once' }, signal), now, actorSessionId, signal)
+    return this.createTask(record, request.active, await this.resolveTarget(request.target ?? { kind: 'new_once' }, signal), now, actorSessionId, signal)
   }
 
-  private async createTask(record: ScheduleRecord, target: ScheduleTarget, now: number,
+  private async createTask(record: ScheduleRecord, active: boolean | undefined, target: ScheduleTarget, now: number,
     actorSessionId?: SessionId, signal?: AbortSignal, pluginPayload?: string, idempotent = target.kind === 'plugin'): Promise<ScheduleCatalogEntry> {
     const { id } = record
     return this.serialize(async () => {
@@ -515,7 +515,7 @@ export class ScheduleService extends TypertRemoteService {
       const createdAt = new Date(now).toISOString()
       const sessionDestinationOwner = this.sessionDestinationOwner(target)
       const task = scheduleTaskSchema.parse({
-        record, target, involvedSessionIds: involved(actorSessionId, target, []), status: 'active',
+        record, target, involvedSessionIds: involved(actorSessionId, target, []), status: active === false ? 'paused' : 'active',
         createdAt, updatedAt: createdAt,
         ...(sessionDestinationOwner === undefined ? {} : { sessionDestinationOwner }),
         ...(pluginPayload === undefined ? {} : { pluginPayload }),
