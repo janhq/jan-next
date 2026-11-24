@@ -29,6 +29,7 @@ export const inject = ['agents', 'tools', 'skills', 'workingDirectory']
 
 const DEFAULT_CATALOG_DESCRIPTION_MAX_LENGTH = 500
 const DEFAULT_SEARCH_RESULT_LIMIT = 8
+const DEFAULT_LISTED_DESCRIPTION_MAX_LENGTH = 100
 /**
  * Durable provider and item records for one published session skill catalog. The catalog is a
  * `catalog`-form context, so it records the entries it published beside the
@@ -43,8 +44,8 @@ export interface SkillCatalogSource {
   /** Some discovery failed; entries contain only skills found in this observation. Absence means complete. */
   readonly incomplete?: true
   /**
-   * Published in `search` catalog mode: entries with an empty description were
-   * listed by name only, and skills absent from `entries` are found through `skill_search`.
+   * Published in `search` catalog mode: unpinned entries carry a shortened or empty
+   * description, and skills absent from `entries` are found through `skill_search`.
    */
   readonly search?: true
   /** Exactly the entries this message published, in catalog order. */
@@ -70,18 +71,24 @@ function catalogSourceEntries(
 
 /**
  * Search-mode entries: pinned skills keep their capped description, and the
- * rest appear by name with an empty description, or not at all.
+ * rest appear with a shortened description, by name alone, or not at all.
  */
 function searchCatalogEntries(
   skills: SkillSummary[],
   pinned: ReadonlySet<string>,
   listNames: boolean,
   descriptionMaxLength: number,
+  listedDescriptionMaxLength: number,
 ): SkillCatalogSource['entries'] {
   const entries: { name: string; description: string }[] = []
   for (const skill of skills) {
     if (pinned.has(skill.name)) entries.push({ name: skill.name, description: catalogDescription(skill.description, descriptionMaxLength) })
-    else if (listNames) entries.push({ name: skill.name, description: '' })
+    else if (listNames) {
+      entries.push({
+        name: skill.name,
+        description: listedDescriptionMaxLength === 0 ? '' : catalogDescription(skill.description, listedDescriptionMaxLength),
+      })
+    }
   }
   return entries
 }
@@ -91,15 +98,18 @@ export interface Config {
   /** Maximum normalized description length rendered in the session catalog; minimum 3. */
   catalogDescriptionMaxLength?: number
   /**
-   * `full` lists every model-invocable skill with its description. `search`
-   * lists only `pinnedSkills` with descriptions plus a bare name index, and
-   * registers `skill_search` for finding the rest by description.
+   * `search` lists `pinnedSkills` with their capped description and the other
+   * skills with a shortened one, and registers `skill_search` for finding a
+   * skill by its longer description. `full` lists every model-invocable skill
+   * with its capped description.
    */
   catalogMode?: 'full' | 'search'
-  /** Skills `search` mode still lists with descriptions; unknown names are ignored. */
+  /** Skills `search` mode lists with their capped description; unknown names are ignored. */
   pinnedSkills?: string[]
-  /** Whether `search` mode lists the names of unpinned skills, without descriptions. */
+  /** Whether `search` mode lists unpinned skills at all. */
   listSkillNames?: boolean
+  /** Description length for an unpinned skill listed in `search` mode; 0 lists its name alone, otherwise minimum 3. */
+  listedDescriptionMaxLength?: number
   /** Most results one `skill_search` call returns; minimum 1. */
   searchResultLimit?: number
 }
@@ -107,9 +117,10 @@ export interface Config {
 /** Validate and default the model-facing skill catalog configuration. */
 export const Config: z<Config> = z.object({
   catalogDescriptionMaxLength: z.number().default(DEFAULT_CATALOG_DESCRIPTION_MAX_LENGTH),
-  catalogMode: z.union([z.const('full'), z.const('search')]).default('full'),
+  catalogMode: z.union([z.const('full'), z.const('search')]).default('search'),
   pinnedSkills: z.array(z.string()).default([]),
   listSkillNames: z.boolean().default(true),
+  listedDescriptionMaxLength: z.number().default(DEFAULT_LISTED_DESCRIPTION_MAX_LENGTH),
   searchResultLimit: z.number().default(DEFAULT_SEARCH_RESULT_LIMIT),
 })
 
@@ -122,9 +133,11 @@ export const Config: z<Config> = z.object({
 export function apply(ctx: Context, config: Config = {}): void {
   const catalogDescriptionMaxLength = config.catalogDescriptionMaxLength ?? DEFAULT_CATALOG_DESCRIPTION_MAX_LENGTH
   assertPositiveInteger('catalogDescriptionMaxLength', catalogDescriptionMaxLength, 3)
-  const searchMode = config.catalogMode === 'search'
+  const searchMode = (config.catalogMode ?? 'search') === 'search'
   const pinnedSkills = new Set(config.pinnedSkills ?? [])
   const listSkillNames = config.listSkillNames ?? true
+  const listedDescriptionMaxLength = config.listedDescriptionMaxLength ?? DEFAULT_LISTED_DESCRIPTION_MAX_LENGTH
+  if (listedDescriptionMaxLength !== 0) assertPositiveInteger('listedDescriptionMaxLength', listedDescriptionMaxLength, 3)
   const searchResultLimit = config.searchResultLimit ?? DEFAULT_SEARCH_RESULT_LIMIT
   assertPositiveInteger('searchResultLimit', searchResultLimit)
   for (const name of pinnedSkills) {
@@ -347,7 +360,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     signal.throwIfAborted()
     const skills = snapshot.skills.filter(isModelInvocable)
     const entries = searchMode
-      ? searchCatalogEntries(skills, pinnedSkills, listSkillNames, catalogDescriptionMaxLength)
+      ? searchCatalogEntries(skills, pinnedSkills, listSkillNames, catalogDescriptionMaxLength, listedDescriptionMaxLength)
       : catalogSourceEntries(skills, catalogDescriptionMaxLength)
     const incomplete = !snapshot.complete
     const digest = digestCatalogEntries(entries, incomplete)
@@ -409,12 +422,10 @@ function renderCatalogMessage(entries: SkillCatalogSource['entries'], incomplete
 }
 
 /**
- * The `search`-mode catalog: pinned skills with descriptions, then a bare name
- * index, with `skill_search` as the way to find a skill by what it does.
+ * The `search`-mode catalog: one list whose descriptions may be shortened or
+ * absent, with `skill_search` as the way to read a skill's longer description.
  */
 function renderSearchCatalog(entries: SkillCatalogSource['entries'], incomplete: boolean, update: boolean): UserMessage {
-  const described = entries.filter(entry => entry.description !== '')
-  const named = entries.filter(entry => entry.description === '')
   return createUserMessage({
     content: [{
       type: 'text',
@@ -423,9 +434,10 @@ function renderSearchCatalog(entries: SkillCatalogSource['entries'], incomplete:
         update
           ? 'The available skill catalog changed. This catalog replaces every earlier available-skills list in this session.'
           : 'A skill is a reusable set of task-specific instructions.',
-        'Only some skills are described here. Before acting on a task that a skill could cover, call `skill_search` with a few words about the task, then load each matching skill with the `skill` tool.',
-        ...described.length > 0 ? ['', 'Pinned skills:', '<available_skills>', ...renderCatalogEntries(described), '</available_skills>'] : [],
-        ...named.length > 0 ? ['', `Other skills, by name only: ${named.map(entry => entry.name).join(', ')}`] : [],
+        'Descriptions in this list may be shortened, and some skills may not be listed. Before acting on a task that a skill could cover, load the matching skill with the `skill` tool; when no listed skill clearly matches, call `skill_search` with a few words about the task.',
+        ...entries.length > 0
+          ? ['', '<available_skills>', ...entries.map(entry => entry.description === '' ? `- \`${entry.name}\`` : `- \`${entry.name}\`: ${escapeText(entry.description)}`), '</available_skills>']
+          : [],
         '',
         ...incomplete ? [incompleteCatalogNotice(), ''] : [],
         'If the user names a skill, call the `skill` tool with that exact name. Do not infer or follow a skill\'s instructions until it has been loaded.',

@@ -7,7 +7,7 @@ kind: persistence-change
 
 ## Summary
 
-A `skill-catalog` message source gains an optional `search: true` marker. `jan-tool-skill` writes it when its `catalogMode` is `search`: the catalog lists pinned skills with descriptions and the rest by name, and the model finds the others through `skill_search`. Catalogs written in `full` mode omit the marker, as every earlier record does.
+A `skill-catalog` message source gains an optional `search: true` marker. `jan-tool-skill` writes it when its `catalogMode` is `search`: the catalog lists pinned skills with descriptions and the rest with a shortened description or by name, and the model finds the others through `skill_search`. Catalogs written in `full` mode omit the marker, as every earlier record does.
 
 ## Table of Contents
 

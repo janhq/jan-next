@@ -44,9 +44,10 @@ Load the plugin together with the skill registry and at least one provider. The 
 | Field | Default | Meaning |
 |---|---|---|
 | `catalogDescriptionMaxLength` | `500` | Maximum normalized description length rendered in the session catalog; minimum 3 |
-| `catalogMode` | `full` | `full` lists every model-invocable skill with its description; `search` lists only `pinnedSkills` with descriptions and adds the `skill_search` tool for the rest |
-| `pinnedSkills` | `[]` | Skill names listed with descriptions in `search` mode; each must be a valid skill name |
-| `listSkillNames` | `true` | In `search` mode, also list unpinned skills by name only |
+| `catalogMode` | `search` | `search` lists `pinnedSkills` with their capped description and the other skills with a shortened one, and adds the `skill_search` tool; `full` lists every model-invocable skill with its capped description |
+| `pinnedSkills` | `[]` | Skill names listed with their capped description in `search` mode; each must be a valid skill name |
+| `listSkillNames` | `true` | In `search` mode, also list unpinned skills |
+| `listedDescriptionMaxLength` | `100` | Description length for an unpinned skill listed in `search` mode; `0` lists its name alone, otherwise minimum 3 |
 | `searchResultLimit` | `8` | Maximum matches one `skill_search` call returns |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-tool-skill) is the exhaustive source for every accepted field.
@@ -54,7 +55,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-t
 ### What the model gets
 
 - **A session catalog.** When the `skill` tool is visible and either model-invocable skills exist or discovery is incomplete, the agent receives a durable user-role message before its first request, listing each confirmed skill's name and a capped description; a non-empty catalog tells the model to load a skill with the tool before acting on it, and never to infer instructions from the summary alone.
-- **A search tool in `search` mode.** The catalog keeps pinned skills' descriptions and, unless `listSkillNames` is false, the other names alone, so a large skill set costs a few tokens per skill. The model calls `skill_search` with a query and receives the best name and description matches, then loads one with `skill`. A query with no match says so instead of listing unrelated skills.
+- **A search tool in `search` mode.** The catalog keeps pinned skills' descriptions and, unless `listSkillNames` is false, lists the other skills with a description shortened to `listedDescriptionMaxLength`, so a large skill set costs about 30 tokens per skill. The model calls `skill_search` with a query and receives the best name and description matches, then loads one with `skill`. A query with no match says so instead of listing unrelated skills.
 - **A loader tool.** The model calls `skill` with the exact skill name and receives the full instruction body plus resource guidance in a canonical `<skill_content>` block; the result is retained as ordinary tool history.
 - **Explicit user invocation.** A `/name` token in direct user input that names a user-invocable skill injects that skill's instructions into the step, without the model having to load it.
 - **Live catalog updates.** Later membership, description, visibility, or completeness changes append a replacement catalog; removing every skill appends an empty catalog that retires older names.

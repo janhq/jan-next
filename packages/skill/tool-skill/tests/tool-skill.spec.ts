@@ -56,6 +56,7 @@ async function writeSkill(root: string, name: string, description: string, body:
   await writeFile(join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: ${description}\n---\n\n${body}\n`)
 }
 
+/** Mounts the complete-list catalog unless a test selects another mode. */
 async function setup(home: string, config: toolSkill.Config = {}): Promise<Context> {
   const ctx = new Context()
   provideWorkingDirectoryFixture(ctx, home)
@@ -66,7 +67,7 @@ async function setup(home: string, config: toolSkill.Config = {}): Promise<Conte
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(SkillRegistry)
   await ctx.plugin(SkillFileSystem, { janHome: join(home, '.jan'), agentsHome: join(home, '.agents'), watch: false })
-  await ctx.plugin(toolSkill, config)
+  await ctx.plugin(toolSkill, { catalogMode: 'full', ...config })
   return ctx
 }
 
@@ -209,7 +210,7 @@ describe('jan-tool-skill', () => {
     await ctx.plugin(SkillFileSystem, { janHome: join(home, '.jan'), agentsHome: join(home, '.agents'), watch: false })
     ctx.skills.register({ name: 'lifecycle-skill', description: 'Lifecycle', source: 'runtime', content: 'body' })
 
-    const fiber = await ctx.plugin(toolSkill)
+    const fiber = await ctx.plugin(toolSkill, { catalogMode: 'full' })
     expect(ctx.tools.schemas().map(tool => tool.name)).toEqual(['skill'])
     expect(await composePrefix(ctx, '/workspace')).toHaveLength(1)
     expect(ctx.tools.get('skill')?.presentCall?.({ name: 'project-skill' })).toEqual({
@@ -222,7 +223,7 @@ describe('jan-tool-skill', () => {
     expect(ctx.tools.schemas()).toEqual([])
     expect(await composePrefix(ctx, '/workspace')).toEqual([])
 
-    toolSkill.apply(ctx)
+    toolSkill.apply(ctx, { catalogMode: 'full' })
     expect(ctx.tools.schemas().map(tool => tool.name)).toEqual(['skill'])
   })
 
@@ -1266,17 +1267,50 @@ describe('jan-tool-skill search catalog mode', () => {
     return ctx
   }
 
-  it('lists pinned skills with descriptions and the rest by name only', async () => {
+  it('lists pinned skills with full descriptions and the rest with shortened ones', async () => {
     const ctx = await searchSetup()
+    const long = `Grade a colour pass shot by shot. ${'Match skin tones across every camera angle. '.repeat(6)}`
+    ctx.skills.register({ name: 'colour-grading', description: long, source: 'runtime', content: 'Grade body.' })
     expect(ctx.tools.schemas().map(tool => tool.name)).toEqual(['skill', 'skill_search'])
     const agent = sessionAgent(Session.create(SessionId('search-catalog')))
     openMessageTurn(agent.session)
-    const text = JSON.stringify(await composePrefixForAgent(ctx, agent))
-    expect(text).toContain('Always listed with its description.')
-    expect(text).toContain('Other skills, by name only: code-review, video-editing')
-    expect(text).not.toContain('Cut, trim and pace')
+    await composePrefixForAgent(ctx, agent)
     const [catalog] = catalogMessages(agent.session)
     expect(catalog?.data.source).toMatchObject({ kind: 'skill-catalog', search: true })
+    const entries = new Map((catalog?.data.source as toolSkill.SkillCatalogSource).entries.map(entry => [entry.name, entry.description]))
+    expect(entries.get('video-editing')).toBe('Cut, trim and pace a video edit.')
+    expect(entries.get('colour-grading')).toHaveLength(100)
+    expect(entries.get('colour-grading')).toMatch(/^Grade a colour pass shot by shot\. .*\.\.\.$/)
+    expect(entries.get('pinned-skill')).toBe('Always listed with its description.')
+  })
+
+  it('lists unpinned skills by name alone when listedDescriptionMaxLength is 0', async () => {
+    const home = await tempDir('tool-search-names')
+    const ctx = await setup(home, { catalogMode: 'search', listedDescriptionMaxLength: 0 })
+    ctx.skills.register({ name: 'video-editing', description: 'Cut, trim and pace a video edit.', source: 'runtime', content: 'Video body.' })
+    const text = JSON.stringify(await composePrefix(ctx, '/workspace'))
+    expect(text).toContain('- `video-editing`\\n')
+    expect(text).not.toContain('Cut, trim and pace')
+  })
+
+  it('selects search mode when no catalog mode is configured', async () => {
+    const home = await tempDir('tool-search-default')
+    const ctx = new Context()
+    provideWorkingDirectoryFixture(ctx, home)
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(ToolRuntime)
+    await ctx.plugin(SessionProjectionRegistry)
+    await ctx.plugin(NativeToolExecutor)
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(SkillRegistry)
+    await ctx.plugin(SkillFileSystem, { janHome: join(home, '.jan'), agentsHome: join(home, '.agents'), watch: false })
+    await ctx.plugin(toolSkill)
+    expect(ctx.tools.schemas().map(tool => tool.name)).toEqual(['skill', 'skill_search'])
+  })
+
+  it('rejects a listed description length between 1 and 2', async () => {
+    const home = await tempDir('tool-search-listed')
+    await expect(setup(home, { listedDescriptionMaxLength: 2 })).rejects.toThrow('listedDescriptionMaxLength')
   })
 
   it('omits unpinned names when listSkillNames is false', async () => {
