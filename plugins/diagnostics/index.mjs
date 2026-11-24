@@ -103,6 +103,11 @@ export function apply(ctx) {
       canOpen: canOpenNativePath(),
     }),
     report: async params => ({ text: await report(focusOf(params)) }),
+    failureLogTail: async () => {
+      if (logDirectory === undefined) return { text: null }
+      const tail = await readLogTail(join(logDirectory, 'jan.log'), { maxBytes: 8 * 1024, maxLines: 40 })
+      return { text: tail === undefined ? null : redact(tail, places) }
+    },
     openLogs: async () => {
       const directory = requireLogs()
       await mkdir(directory, { recursive: true })
