@@ -61,17 +61,36 @@ export interface DownloadSnapshot {
 
 /** Session-local Host service used by download producers. */
 export interface DownloadStore {
-  /** @param initial - Transfer identity and optional actions. @returns Attempt-specific reporting handle. */
+  /**
+   * Report a new transfer attempt.
+   * @param initial - Transfer identity and optional actions.
+   * @returns Attempt-specific reporting handle.
+   */
   start(initial: DownloadStart): DownloadHandle
-  /** @returns Current immutable transfer list and badge state. */
+  /**
+   * Read the transfer list and badge state.
+   * @returns Current immutable transfer list and badge state.
+   */
   snapshot(): DownloadSnapshot
-  /** @param listener - Called on changes; byte-only changes are coalesced. @returns Removal callback. */
+  /**
+   * Observe changes to the transfer list.
+   * @param listener - Called on changes; byte-only changes are coalesced.
+   * @returns Removal callback.
+   */
   subscribe(listener: () => void): () => void
-  /** @param sequence - Acknowledge finishes seen up to this sequence. */
+  /**
+   * Clear the unseen dot for finishes up to a sequence.
+   * @param sequence - Acknowledge finishes seen up to this sequence.
+   */
   markSeen(sequence: number): void
   /** Remove terminal rows, never an active or paused transfer. */
   clearFinished(): void
-  /** @param id - Transfer to operate on. @param action - Current producer callback to run. */
+  /**
+   * Run one producer action that the transfer currently offers.
+   * @param id - Transfer to operate on.
+   * @param action - Current producer callback to run.
+   * @returns Settles when the producer callback settles.
+   */
   act(id: string, action: DownloadAction): Promise<void>
   /** Withdraw subscriptions and scheduled publications. */
   dispose(): void

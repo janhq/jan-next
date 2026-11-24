@@ -481,6 +481,7 @@
       "@janhq/jan-cua-bundle": ["./packages/experimental/cua-bundle/src"],
       "@janhq/jan-deliverable-file-references": ["./packages/deliverables/deliverable-file-references/src"],
       "@janhq/jan-deque": ["./packages/util/deque/src"],
+      "@janhq/jan-downloads": ["./packages/host/downloads/src"],
       "@janhq/jan-file-reference": ["./packages/context/file-reference/src"],
       "@janhq/jan-file-reference-local": ["./packages/context/file-reference-local/src"],
       "@janhq/jan-fs": ["./packages/fs/fs/src"],

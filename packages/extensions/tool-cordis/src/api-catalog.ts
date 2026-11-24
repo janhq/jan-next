@@ -372,7 +372,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'toolRestrictionOf(profile: AgentProfileSummary): ToolRestriction | undefined',
-        description: 'Tool restriction for a delegated agent running one profile, with `mcp:<server>` expanded to tool names.',
+        description: 'Tool restriction for a delegated agent running one profile. The child resolves `mcp:<server>` against its composed tools.',
         parameters: [{ name: 'profile', description: 'the profile.' }],
         returns: 'the restriction, or undefined when the profile limits no tool.',
       },
@@ -841,6 +841,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         throws: ['{@link ManualCompactionError} for expected busy, agent-cancellation, changed-span, summarization/shrink, commit-stage, or persistence failures; an aborted request preserves its exact abort reason. Failed attempts remain visible in the log.'],
       },
       {
+        signature: 'autoCompactThreshold(_agent: CompactionAgentContext, _signal: AbortSignal): Promise<number | undefined>',
+        description: 'Request pressure at which automatic compaction would run for the agent\'s routed request. Read-only: a display such as `/context` uses it to show the remaining room.',
+        parameters: [{ name: '_agent', description: 'agent whose current route selects the policy.' }, { name: '_signal', description: 'cancels any capacity lookup.' }],
+        returns: 'threshold tokens, or undefined when this engine has no automatic threshold for the route.',
+      },
+      {
         signature: 'abstract compactRegion( start: SessionSeq, end: SessionSeq, agent: CompactionAgentContext, signal?: AbortSignal, ): Promise<CompactionResult>',
         description: 'Forcibly compact a range of surface nodes into a single summary node. `start` and `end` name an inclusive span by surface position, not numeric seq order; replacements can make visible seqs non-monotonic. Both edges must be balanced so assistant tool calls remain paired with their results. A model- backed implementation forwards cancellation and rejects active, missing, reversed, or unbalanced ranges. The target session is `agent.session`. Its replacement user message must use compactCheckpointSource with the transaction\'s `CompactionId`. Use toolPairingBalancedBefore and toolPairingBalancedAfter for the edge checks.',
         parameters: [{ name: 'start', description: 'first surface seq, inclusive.' }, { name: 'end', description: 'last surface seq, inclusive.' }, { name: 'agent', description: 'context whose session is mutated and whose routing options guide summarization.' }, { name: 'signal', description: 'optional cancellation; model-backed implementations must forward it.' }],
@@ -1168,6 +1174,52 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Create one child directory for a Remote caller (the in-app browser or the new-project menu\'s New folder); every backend that can create folders serves it.',
         parameters: [{ name: 'path', description: 'absolute existing parent directory.' }, { name: 'name', description: 'single non-blank path segment.' }],
         returns: 'the created directory\'s absolute path.',
+      },
+    ],
+  },
+  {
+    key: 'downloads',
+    summary: 'Session-local Host service used by download producers.',
+    description: 'Session-local Host service used by download producers.',
+    methods: [
+      {
+        signature: 'start(initial: DownloadStart): DownloadHandle',
+        description: 'Report a new transfer attempt.',
+        parameters: [{ name: 'initial', description: 'Transfer identity and optional actions.' }],
+        returns: 'Attempt-specific reporting handle.',
+      },
+      {
+        signature: 'snapshot(): DownloadSnapshot',
+        description: 'Read the transfer list and badge state.',
+        parameters: [],
+        returns: 'Current immutable transfer list and badge state.',
+      },
+      {
+        signature: 'subscribe(listener: () => void): () => void',
+        description: 'Observe changes to the transfer list.',
+        parameters: [{ name: 'listener', description: 'Called on changes; byte-only changes are coalesced.' }],
+        returns: 'Removal callback.',
+      },
+      {
+        signature: 'markSeen(sequence: number): void',
+        description: 'Clear the unseen dot for finishes up to a sequence.',
+        parameters: [{ name: 'sequence', description: 'Acknowledge finishes seen up to this sequence.' }],
+      },
+      {
+        signature: 'clearFinished(): void',
+        description: 'Remove terminal rows, never an active or paused transfer.',
+        parameters: [],
+      },
+      {
+        signature: 'act(id: string, action: DownloadAction): Promise<void>',
+        description: 'Run one producer action that the transfer currently offers.',
+        parameters: [{ name: 'id', description: 'Transfer to operate on.' }, { name: 'action', description: 'Current producer callback to run.' }],
+        returns: 'Settles when the producer callback settles.',
+      },
+      {
+        signature: 'dispose(): void',
+        description: 'Withdraw subscriptions and scheduled publications.',
+        parameters: [],
       },
     ],
   },
@@ -1787,10 +1839,10 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'Disposer removing the gate and applying anything it held.',
       },
       {
-        signature: 'applyHeld(): Promise<boolean>',
-        description: 'Apply held changes regardless of the gate.',
-        parameters: [],
-        returns: 'Whether anything was held.',
+        signature: 'applyHeld(options?: { readonly respectGate?: boolean; readonly beforeApply?: () => void }): Promise<boolean>',
+        description: 'Apply held changes in the reload queue.',
+        parameters: [{ name: 'options', description: 'By default bypass the gate. With `respectGate`, recheck it after entering the queue. `beforeApply` is called synchronously just before a held batch is attempted, even if every refresh then fails.' }],
+        returns: 'Whether any changes applied successfully.',
       },
       {
         signature: 'async watchConfig(filename: string, refresh: () => Promise<void>): Promise<() => Promise<void>>',
@@ -3116,13 +3168,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       {
         signature: 'async createSessionTask(request: Omit<ScheduleCreateRequest, \'target\'>, destination: { readonly sessionId: SessionId; readonly key: string; readonly payload?: string }, signal?: AbortSignal): Promise<ScheduleCatalogEntry>',
         description: 'Create an idempotently named task with a checkpoint for a mounted Session inbox.',
-        parameters: [{ name: 'request', description: 'Task title, prompt and timing, as in ordinary Schedule creation.' }, { name: 'destination', description: 'Session with a registered inbox, stable task key, and optional opaque payload.' }, { name: 'signal', description: 'Cancellation before the durable write.' }],
+        parameters: [{ name: 'request', description: 'Task title, prompt, timing, and initial activity, as in ordinary Schedule creation.' }, { name: 'destination', description: 'Session with a registered inbox, stable task key, and optional opaque payload.' }, { name: 'signal', description: 'Cancellation before the durable write.' }],
         returns: 'The stored task without its private payload.',
       },
       {
         signature: 'async createPluginTask(request: Omit<ScheduleCreateRequest, \'target\'>, destination: { readonly owner: string; readonly key: string; readonly payload?: string }, signal?: AbortSignal): Promise<ScheduleCatalogEntry>',
         description: 'Create a plugin-owned task, reusing its original task identity when the owner retries the same key.',
-        parameters: [{ name: 'request', description: 'Task title, prompt and timing, as in ordinary Schedule creation.' }, { name: 'destination', description: 'Registered owner, stable owner-local task key, and optional opaque payload.' }, { name: 'signal', description: 'Cancellation before the durable write.' }],
+        parameters: [{ name: 'request', description: 'Task title, prompt, timing, and initial activity, as in ordinary Schedule creation.' }, { name: 'destination', description: 'Registered owner, stable owner-local task key, and optional opaque payload.' }, { name: 'signal', description: 'Cancellation before the durable write.' }],
         returns: 'The stored task without its private payload.',
       },
       {
@@ -3134,13 +3186,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       {
         signature: '@Remote(\'create\') async remoteCreate(request: ScheduleCreateRequest, signal?: AbortSignal): Promise<ScheduleCatalogEntry>',
         description: 'Create one task with a Host-generated identity for a human Remote caller.',
-        parameters: [{ name: 'request', description: 'Title, prompt, recurrence, and delivery destination.' }, { name: 'signal', description: 'Cancellation checked before the durable write begins, including after FIFO waits.' }],
+        parameters: [{ name: 'request', description: 'Title, prompt, recurrence, delivery destination, and initial activity.' }, { name: 'signal', description: 'Cancellation checked before the durable write begins, including after FIFO waits.' }],
         returns: 'The stored task. Cancellation does not roll back an in-flight write.',
       },
       {
         signature: 'async create( request: ScheduleCreateRequest, actorSessionId?: SessionId, signal?: AbortSignal, ): Promise<ScheduleCatalogEntry>',
         description: 'Create one task and record the acting Agent\'s Session as involved; the Remote form omits that Session.\n\nThe record is built from the clock reading taken before the request joins the serialized queue. A `session` target must exist and must not belong to a delegated child; a `new_once` target reserves its Session identity.',
-        parameters: [{ name: 'request', description: 'Title, prompt, recurrence, and delivery destination.' }, { name: 'actorSessionId', description: 'Session of the acting Agent, or undefined for a human caller.' }, { name: 'signal', description: 'Cancellation checked before the durable write begins, including after FIFO waits.' }],
+        parameters: [{ name: 'request', description: 'Title, prompt, recurrence, delivery destination, and initial activity.' }, { name: 'actorSessionId', description: 'Session of the acting Agent, or undefined for a human caller.' }, { name: 'signal', description: 'Cancellation checked before the durable write begins, including after FIFO waits.' }],
         returns: 'The stored task. Cancellation does not roll back an in-flight write.',
       },
       {
@@ -3233,7 +3285,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: 'async resolveMode(workspaceId: WorkspaceId | undefined): Promise<string | undefined>',
         description: 'Mode (agent preset) a new chat in a project starts in.',
         parameters: [{ name: 'workspaceId', description: 'the project, or undefined outside any project.' }],
-        returns: 'the project\'s mode while that preset exists, else undefined.',
+        returns: 'the project mode if the preset exists, works, and meets the Coding Tools preference; otherwise undefined.',
       },
       {
         signature: 'resolveAgent(workspaceId: WorkspaceId | undefined): string | undefined',
@@ -3249,9 +3301,15 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote async skillCatalog(address: ScopeAddress): Promise<ScopedSkillCatalog>',
-        description: 'List every skill a chat in one scope could load, grouped by folder, with that scope\'s switches and the wider scopes\' ones. A global listing reads the skill folders outside any project.',
+        description: 'List skill candidates grouped by folder, with the selected scope\'s switches and inherited switches. A global listing reads skill folders outside any project.',
         parameters: [{ name: 'address', description: 'the scope and, for a project or chat, its id.' }],
         returns: 'folders with their skills.',
+      },
+      {
+        signature: 'async skillCatalogForProject(workspaceId: WorkspaceId, agent: Agent): Promise<ScopedSkillCatalog>',
+        description: 'List skill folders visible to a chat\'s preset with the project\'s switches, not the chat\'s own switches.',
+        parameters: [{ name: 'workspaceId', description: 'the project whose switches the chat is editing.' }, { name: 'agent', description: 'the calling chat, which supplies the registry scope and working directory.' }],
+        returns: 'folders with their project and wider switch state.',
       },
       {
         signature: '@Remote read(address: ScopeAddress): ScopedValues',
@@ -4058,7 +4116,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: 'async list(options: SkillViewOptions = {}): Promise<SkillSummary[]>',
         description: 'List invocation-neutral skill summaries for a workspace. Consumers apply model or user invocation policy at their operational boundary. Lookup options and provider candidates are readonly same-process values borrowed throughout discovery.',
         parameters: [{ name: 'options', description: 'view options; `scope` selects the viewing agent\'s layers, `cwd` selects project roots, and `signal` cancels discovery.' }],
-        returns: 'all sorted winning summaries.',
+        returns: 'sorted winning summaries, or all candidates for an unfiltered listing.',
       },
       {
         signature: 'async snapshot(options: SkillViewOptions = {}): Promise<SkillCatalogSnapshot>',
@@ -4792,9 +4850,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the exact disposer that unregisters the tool.',
       },
       {
-        signature: 'restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean } = {}): () => void',
-        description: 'Restrict global tools for the calling agent scope. Empty filters, unknown names, scope-local names, and reserved transport names fail. Restrictions intersect; scoped registrations remain visible.',
-        parameters: [{ name: 'filter', description: 'global-tool mask: `allow` (keep only) and/or `deny` (remove).' }, { name: 'options', description: 'permit names whose optional providers have not registered yet.' }],
+        signature: 'restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean; includeScopeLocal?: boolean } = {}): () => void',
+        description: 'Restrict tools for the calling scope. Masks intersect; the viewing scope\'s own registrations are exempt unless a mask opts in to include them.',
+        parameters: [{ name: 'filter', description: '`allow` keeps only named tools, `deny` removes named tools.' }, { name: 'options', description: '`allowUnregistered` permits names that have not registered yet; `includeScopeLocal` also masks the viewing scope\'s own registrations.' }],
         returns: 'the exact disposer that lifts this restriction.',
       },
       {
@@ -4820,6 +4878,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Read the visible capability definitions for descriptions and program bindings.',
         parameters: [{ name: 'scope', description: 'viewing Agent or preset; omitted selects the global view.' }, { name: 'toolSet', description: 'step admission; omit only to inspect registered definitions.' }],
         returns: 'definitions after scoped shadowing and restrictions, limited to the step\'s admission when given.',
+      },
+      {
+        signature: 'registeredDefinitions(scope?: ScopeKey): readonly ToolDefinition[]',
+        description: 'Inspect registered tools before restrictions and step admission, for computing masks.',
+        parameters: [{ name: 'scope', description: 'viewing Agent or preset; omitted selects global registrations.' }],
+        returns: 'definitions after scoped shadowing, including currently masked definitions.',
       },
       {
         signature: 'schemas(scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolSchema[]',
@@ -7228,6 +7292,46 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface DomainTableSpec<K extends string = string, V = unknown> {\n    readonly valueSchema: ZodType<V>;\n    readonly __key?: K;\n}',
   },
   {
+    name: 'DownloadAction',
+    declaration: 'export type DownloadAction = \'cancel\' | \'pause\' | \'resume\' | \'retry\' | \'open\' | \'reveal\';',
+  },
+  {
+    name: 'DownloadActions',
+    declaration: 'export type DownloadActions = Partial<Record<DownloadAction, () => void | Promise<void>>>;',
+  },
+  {
+    name: 'DownloadActiveState',
+    declaration: 'export type DownloadActiveState = \'queued\' | \'downloading\' | \'paused\';',
+  },
+  {
+    name: 'DownloadFinishState',
+    declaration: 'export type DownloadFinishState = \'done\' | \'failed\' | \'cancelled\';',
+  },
+  {
+    name: 'DownloadHandle',
+    declaration: 'export interface DownloadHandle {\n    update(update: DownloadUpdate): void;\n    finish(state: DownloadFinishState, error?: string, actions?: DownloadActions): void;\n}',
+  },
+  {
+    name: 'DownloadItem',
+    declaration: 'export interface DownloadItem {\n    readonly id: string;\n    readonly kind: DownloadKind;\n    readonly name: string;\n    readonly state: DownloadActiveState | DownloadFinishState;\n    readonly actions: readonly DownloadAction[];\n    readonly receivedBytes?: number;\n    readonly totalBytes?: number;\n    readonly percent?: number;\n    readonly bytesPerSecond?: number;\n    readonly error?: string;\n}',
+  },
+  {
+    name: 'DownloadKind',
+    declaration: 'export type DownloadKind = \'model\' | \'update\' | \'backend\' | \'plugin\' | \'voice\' | \'file\';',
+  },
+  {
+    name: 'DownloadSnapshot',
+    declaration: 'export interface DownloadSnapshot {\n    readonly items: readonly DownloadItem[];\n    readonly active: {\n        readonly count: number;\n        readonly percent: number | null;\n    };\n    readonly unseen: {\n        readonly sequence: number;\n        readonly failed: boolean;\n    } | null;\n}',
+  },
+  {
+    name: 'DownloadStart',
+    declaration: 'export interface DownloadStart {\n    readonly id?: string;\n    readonly kind: DownloadKind;\n    readonly name: string;\n    readonly totalBytes?: number;\n    readonly actions?: DownloadActions;\n}',
+  },
+  {
+    name: 'DownloadUpdate',
+    declaration: 'export interface DownloadUpdate {\n    readonly state?: DownloadActiveState;\n    readonly receivedBytes?: number;\n    readonly totalBytes?: number;\n    readonly percent?: number;\n    readonly bytesPerSecond?: number;\n    readonly actions?: DownloadActions;\n}',
+  },
+  {
     name: 'DynamicCordisPackage',
     declaration: 'export interface DynamicCordisPackage {\n    pluginId: CordisDynamicPluginId;\n    packageId: CordisDynamicPackageId;\n    pluginRunId: CordisDynamicPluginRunId;\n    name: string;\n}',
   },
@@ -9181,7 +9285,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ScheduleCreateRequest',
-    declaration: 'export interface ScheduleCreateRequest {\n    readonly title: string;\n    readonly prompt: string;\n    readonly timing: ScheduleTiming;\n    readonly target?: ScheduleTargetRequest;\n}',
+    declaration: 'export interface ScheduleCreateRequest {\n    readonly title: string;\n    readonly prompt: string;\n    readonly timing: ScheduleTiming;\n    readonly target?: ScheduleTargetRequest;\n    readonly active?: boolean;\n}',
   },
   {
     name: 'ScheduleDeleteInactiveResult',
@@ -10869,7 +10973,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ToolsService',
-    declaration: 'export class ToolsService extends Service {\n    static inject;\n    static Config;\n    constructor(ctx: Context);\n    ownerOf(definition: ToolDefinition): string | undefined;\n    register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () => void;\n    restrict(filter: ToolRestriction, options: {\n        allowUnregistered?: boolean;\n    } = {}): () => void;\n    get(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    executable(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    async resolve(context: ToolActivationContext): Promise<ResolvedToolSet>;\n    definitions(scope?: ScopeKey, toolSet?: ResolvedToolSet): readonly ToolDefinition[];\n    schemas(scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolSchema[];\n    setExecutor(executor: ToolExecutor): () => void;\n    async execute(input: ToolBatchInput): Promise<ToolBatchResult>;\n    guard(guard: ToolGuard): () => void;\n    checkGuards(exec: ToolExecution): string | undefined;\n}',
+    declaration: 'export class ToolsService extends Service {\n    static inject;\n    static Config;\n    constructor(ctx: Context);\n    ownerOf(definition: ToolDefinition): string | undefined;\n    register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () => void;\n    restrict(filter: ToolRestriction, options: {\n        allowUnregistered?: boolean;\n        includeScopeLocal?: boolean;\n    } = {}): () => void;\n    get(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    executable(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    async resolve(context: ToolActivationContext): Promise<ResolvedToolSet>;\n    definitions(scope?: ScopeKey, toolSet?: ResolvedToolSet): readonly ToolDefinition[];\n    registeredDefinitions(scope?: ScopeKey): readonly ToolDefinition[];\n    schemas(scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolSchema[];\n    setExecutor(executor: ToolExecutor): () => void;\n    async execute(input: ToolBatchInput): Promise<ToolBatchResult>;\n    guard(guard: ToolGuard): () => void;\n    checkGuards(exec: ToolExecution): string | undefined;\n}',
   },
   {
     name: 'ToolUpdate',
@@ -11473,7 +11577,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WorkspaceView',
-    declaration: 'export interface WorkspaceView {\n    readonly workspaceId: WorkspaceId;\n    readonly isDefault?: true;\n    readonly path: string;\n    readonly title: string;\n    readonly color?: WorkspaceColor;\n    readonly avatar?: WorkspaceAvatar;\n    readonly githubOwner?: string;\n    readonly repository?: string;\n    readonly branch?: string;\n    readonly sessionIds: readonly SessionId[];\n    readonly createdAt: string;\n    readonly updatedAt: string;\n    readonly hostId?: string;\n    readonly hostName?: string;\n    readonly hostState?: \'live\' | \'lost\';\n}',
+    declaration: 'export interface WorkspaceView {\n    readonly workspaceId: WorkspaceId;\n    readonly isDefault?: true;\n    readonly path: string;\n    readonly title: string;\n    readonly color?: WorkspaceColor;\n    readonly avatar?: WorkspaceAvatar;\n    readonly githubOwner?: string;\n    readonly repository?: string;\n    readonly checkoutRoot?: string;\n    readonly branch?: string;\n    readonly sessionIds: readonly SessionId[];\n    readonly createdAt: string;\n    readonly updatedAt: string;\n    readonly hostId?: string;\n    readonly hostName?: string;\n    readonly hostState?: \'live\' | \'lost\';\n}',
   },
 ]
 

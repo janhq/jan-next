@@ -170,6 +170,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Shares profile package operations with the CLI and reports persisted and running state to Web and agent callers.',
   },
   {
+    key: 'downloads',
+    pkg: 'downloads',
+    title: 'Host download inbox',
+    mode: 'core',
+    note: 'Producers report transfers and expose current actions; the sidebar inbox reads one coalesced snapshot over the authenticated Host route.',
+  },
+  {
     key: 'pluginMarket',
     pkg: 'plugin-market',
     title: 'Plugin market index reader',
@@ -321,6 +328,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     mode: 'core',
     consumers: ['compaction-basic'],
     note: 'Owns isolated per-session replay folds; pressure consumers share immutable revisioned measurements.',
+  },
+  {
+    key: 'contextUsage',
+    pkg: 'context-usage',
+    title: 'Per-category context breakdown Remote',
+    mode: 'service',
+    note: 'Splits the provider-reported prompt size across prompt sections, tools, skills and messages on demand without appending Session events.',
   },
   {
     key: 'toolResultPruner',

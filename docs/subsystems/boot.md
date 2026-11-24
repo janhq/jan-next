@@ -165,6 +165,56 @@ async edit( entry: Entry, change: (current: Record<string, unknown>, inherited: 
 
 Source: [`packages/boot/config-editor/src/index.ts`](../../packages/boot/config-editor/src/index.ts)
 
+<a id="ctxdownloads--downloadstore"></a>
+
+### `ctx.downloads` — `DownloadStore`
+
+Session-local Host service used by download producers.
+
+```ts cordis-catalog
+/**
+ * Report a new transfer attempt.
+ * @param initial - Transfer identity and optional actions.
+ * @returns Attempt-specific reporting handle.
+ */
+start(initial: DownloadStart): DownloadHandle
+
+/**
+ * Read the transfer list and badge state.
+ * @returns Current immutable transfer list and badge state.
+ */
+snapshot(): DownloadSnapshot
+
+/**
+ * Observe changes to the transfer list.
+ * @param listener - Called on changes; byte-only changes are coalesced.
+ * @returns Removal callback.
+ */
+subscribe(listener: () => void): () => void
+
+/**
+ * Clear the unseen dot for finishes up to a sequence.
+ * @param sequence - Acknowledge finishes seen up to this sequence.
+ */
+markSeen(sequence: number): void
+
+/** Remove terminal rows, never an active or paused transfer. */
+clearFinished(): void
+
+/**
+ * Run one producer action that the transfer currently offers.
+ * @param id - Transfer to operate on.
+ * @param action - Current producer callback to run.
+ * @returns Settles when the producer callback settles.
+ */
+act(id: string, action: DownloadAction): Promise<void>
+
+/** Withdraw subscriptions and scheduled publications. */
+dispose(): void
+```
+
+Source: [`packages/host/downloads/src/types.ts`](../../packages/host/downloads/src/types.ts)
+
 <a id="ctxheadlessstartup--headlessstartupvalues"></a>
 
 ### `ctx.headlessStartup` — `HeadlessStartupValues`
@@ -193,10 +243,12 @@ runExclusive<T>(operation: () => Promise<T>): Promise<T>
  */
 setGate(gate: ReloadGate): () => void
 
-/** Apply held changes regardless of the gate.
- * @returns Whether anything was held.
+/** Apply held changes in the reload queue.
+ * @param options - By default bypass the gate. With `respectGate`, recheck it after entering the queue.
+ * `beforeApply` is called synchronously just before a held batch is attempted, even if every refresh then fails.
+ * @returns Whether any changes applied successfully.
  */
-applyHeld(): Promise<boolean>
+applyHeld(options?: { readonly respectGate?: boolean; readonly beforeApply?: () => void }): Promise<boolean>
 
 /** Watch a configuration path through the same queue as module replacement.
  * @param filename Absolute path, which may not exist yet.
