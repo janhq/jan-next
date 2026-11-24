@@ -71,13 +71,7 @@
   "license": "MIT",
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
-    "@janhq/jan-agent-profiles": "workspace:*",
     "@janhq/jan-mcp-client": "workspace:*"
-  },
-  "peerDependenciesMeta": {
-    "@janhq/jan-agent-profiles": {
-      "optional": true
-    }
   },
   "dependencies": {
     "@janhq/jan-atomic-write": "workspace:*",

@@ -51,7 +51,8 @@
     "@janhq/jan-system-prompt": "workspace:*"
   },
   "dependencies": {
-    "@janhq/jan-typert-protocol": "workspace:*"
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@janhq/cordis": "workspace:~",

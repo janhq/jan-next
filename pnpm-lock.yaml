@@ -14550,9 +14550,6 @@ importers:
       '@janhq/jan-atomic-write':
         specifier: workspace:*
         version: link:../../util/atomic-write
-      '@janhq/jan-home-paths':
-        specifier: workspace:*
-        version: link:../../util/home-paths
       '@janhq/jan-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
@@ -14620,6 +14617,9 @@ importers:
       '@janhq/jan-client-ui-slots':
         specifier: workspace:*
         version: link:../../client/ui-slots
+      '@janhq/jan-home-paths':
+        specifier: workspace:*
+        version: link:../../util/home-paths
       '@janhq/jan-llm':
         specifier: workspace:*
         version: link:../../llm/llm
@@ -15262,6 +15262,9 @@ importers:
       '@janhq/jan-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
+      zod:
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~
