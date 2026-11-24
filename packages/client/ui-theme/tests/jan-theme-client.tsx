@@ -13,6 +13,7 @@ type Component = React.ComponentType
 type ClientScope = {
   inject(services: string[], callback: (scope: ClientScope) => void): void
   effect(callback: () => undefined | (() => void)): void
+  provide(name: 'janSidebar', service: { setLayout(layout: string): void }): void
   slots: {
     inject(name: string, callback: () => void): void
     register(options: { id?: string }, component: Component): void
@@ -40,6 +41,7 @@ export function mountAppearance(theme: ThemeRuntime): () => void {
       const stop = callback()
       if (stop) dispose.push(stop)
     },
+    provide: vi.fn(),
     slots: {
       inject(name, callback) { if (name === 'settings.general.item') callback() },
       register(options, component) { if (options.id === 'jt-accent-color') Component = component },
@@ -50,6 +52,7 @@ export function mountAppearance(theme: ThemeRuntime): () => void {
   const janTheme: unknown = Reflect.get(globalThis, '__JAN_THEME__')
   runInNewContext(janThemeClient, {
     document,
+    URL,
     // The appearance API echoes the saved params, as the host does on success.
     fetch: vi.fn((_url: string, init: RequestInit) => {
       const request: unknown = typeof init.body === 'string' ? JSON.parse(init.body) : undefined
