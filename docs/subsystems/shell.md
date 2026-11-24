@@ -294,6 +294,22 @@ Registry (`ctx.shellEnv`) for trusted, per-execution `JAN_*` variables. The name
 register(contributor: BashEnvContributor): () => void
 
 /**
+ * Register trusted subprocess environment overrides for matching shell calls.
+ * `JAN_*` keys are ignored: the managed snapshot from {@link collect} owns that namespace.
+ * @param resolve - returns ordinary environment entries, or `undefined` values that remove inherited
+ *   ones, for a call; returns undefined to leave it unchanged.
+ * @returns the disposer, also invoked automatically with the registering plugin.
+ */
+registerOverrides(resolve: (execution: ToolExecution) => Readonly<Record<string, string | undefined>> | undefined): () => void
+
+/**
+ * Collect ordinary environment overrides without changing the managed `JAN_*` snapshot.
+ * @param execution - the current tool execution.
+ * @returns a caller-owned overlay without `JAN_*` keys, or undefined if no resolver supplied one.
+ */
+collectOverrides(execution: ToolExecution): Record<string, string | undefined> | undefined
+
+/**
  * Build the trusted `JAN_*` snapshot for one shell tool execution.
  * @param execution - the current tool execution.
  * @returns an immutable environment overlay containing built-ins and current contributions.

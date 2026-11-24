@@ -134,6 +134,14 @@ The manager service. Reconciliation and `restart` serialize instance replacement
 list(): McpManagedServerView[]
 
 /**
+ * Check the exact registration, since scoped clients may reuse a managed server's name.
+ * @param name - configured or registered server name.
+ * @param connection - MCP client fiber that registered the tool.
+ * @returns whether that connection is owned by this manager.
+ */
+ownsConnection(name: string, connection: Fiber): boolean
+
+/**
  * Contribute one server for the calling plugin's lifetime. A registered
  * entry is enabled while registered; its removal awaits the instance's
  * unmount, so plugin disposal withdraws the server's tools before settling.
