@@ -540,8 +540,25 @@ describe('session.list projections column', () => {
     const row = response.value.items.find(item => item.sessionId === session.id)
     expect(row?.projections?.kind).toBe('sequenced')
     expect(Object.keys(row?.projections?.values ?? {})).toEqual([...ctx.sessionProjections.summaryKeys()])
-    expect(Object.keys(row?.projections?.values ?? {})).toEqual(['conversationContinuation', 'sessionListMetadata'])
+    expect(Object.keys(row?.projections?.values ?? {})).toEqual(['conversationContinuation', 'sessionListMetadata', 'lastTurnFailed'])
     expect(row?.projections?.values.conversationContinuation).toBeNull()
+    expect(row?.projections?.values.lastTurnFailed).toBe(false)
+  })
+
+  it('flags a Session whose latest turn ended in an error until the next turn starts', async () => {
+    const { ctx, session } = await harness(false)
+    const failed = async (): Promise<unknown> => {
+      const response = await (await remote(ctx)).list(request({}))
+      if (!response.ok) throw new Error('unreachable')
+      return response.value.items.find(item => item.sessionId === session.id)?.projections?.values.lastTurnFailed
+    }
+    session.append('turn/start', { turn: 1 })
+    session.append('turn/end', { turn: 1, reason: { kind: 'error', error: { code: 'SERVER', message: 'provider unavailable' } } })
+    expect(await failed()).toBe(true)
+    session.append('turn/start', { turn: 2 })
+    expect(await failed()).toBe(false)
+    session.append('turn/end', { turn: 2, reason: { kind: 'completed' } })
+    expect(await failed()).toBe(false)
   })
 
   it('serves the summary projection hints from the cache with zero log loads', async () => {

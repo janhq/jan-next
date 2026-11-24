@@ -20,6 +20,8 @@ declare module '@janhq/jan-session-projection/types' {
     conversationContinuation: SessionSeq | { readonly overflow: SessionSeq } | null
     /** Persisted facts used to summarize a Session without activating it. */
     sessionListMetadata: SessionListMetadata
+    /** Whether the Session's latest finished turn ended in an error; a new turn clears it. */
+    lastTurnFailed: boolean
     /**
      * Image-intake limits enforced by the Session prompt endpoint. Boot
      * constant, excluded from Session summary payloads: every Session shares
