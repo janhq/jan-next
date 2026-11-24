@@ -378,13 +378,13 @@ export type PostToolDecision =
   | { kind: 'block'; feedback: ContentBlock[]; additionalContexts?: UserMessage[] }
 
 /**
- * Per-scope filter over global tools. Restrictions intersect and do not affect
- * scoped registrations or the reserved PTC mode transport.
+ * Per-scope tool filter. Restrictions intersect and never affect the reserved
+ * PTC mode transport. Scope-local tools are exempt unless a mask opts in.
  */
 export interface ToolRestriction {
-  /** Global tool names that stay visible; everything else is removed. */
+  /** Tool names that stay visible; everything else covered by the mask is removed. */
   readonly allow?: readonly string[]
-  /** Global tool names removed from visibility. */
+  /** Tool names removed from visibility. */
   readonly deny?: readonly string[]
 }
 
