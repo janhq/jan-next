@@ -368,6 +368,11 @@ function mcpState(state) {
   }
 }
 
+/** Short display name of a plugin: `@janhq/jan-tool-image` -> `tool-image`. */
+function pluginLabel(owner) {
+  return owner.replace(/^@[^/]+\//, '').replace(/^jan-/, '')
+}
+
 async function projectToolRows(ctx, scoped, address) {
   const { mcpServers, tools } = await scoped.toolCatalog()
   const globalOff = new Set(scoped.read({ scope: 'global' }).toolsDisabled)
@@ -397,8 +402,25 @@ async function projectToolRows(ctx, scoped, address) {
     const globallyOff = state === 'disabled' || globalOff.has(namespace) || (registered.length !== 0 && registered.every(tool => globalOff.has(tool)))
     add(connector ? 'connectors' : 'mcp', name, title, mcpState(state), globallyOff, connector ? registered : [namespace], connector && projectOff.has(namespace))
   }
+  // One row per registering package; a tool whose owner is unknown stands alone.
+  const registry = ctx.get('tools')
+  const ownerByTool = new Map()
+  const lease = await ctx.get('agentPresets')?.acquireScope().catch(() => undefined)
+  try {
+    for (const definition of [...registry?.definitions() ?? [], ...lease === undefined ? [] : registry?.definitions(lease.key) ?? []]) {
+      ownerByTool.set(definition.name, registry.ownerOf?.(definition))
+    }
+  } finally {
+    await lease?.[Symbol.asyncDispose]()
+  }
+  const byOwner = new Map()
   for (const name of tools) {
-    if (!CORE_TOOLS.has(name) && !name.startsWith('web_')) add('plugins', name, name, 'available', globalOff.has(name), [name])
+    if (CORE_TOOLS.has(name) || name.startsWith('web_')) continue
+    const owner = ownerByTool.get(name) ?? name
+    byOwner.set(owner, [...byOwner.get(owner) ?? [], name])
+  }
+  for (const [owner, names] of byOwner) {
+    add('plugins', owner, pluginLabel(owner), 'available', names.every(name => globalOff.has(name)), names)
   }
   for (const rows of Object.values(groups)) rows.sort((a, b) => a.name.localeCompare(b.name))
   return groups
