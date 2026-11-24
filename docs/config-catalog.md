@@ -145,7 +145,7 @@ export type Config = PresetDefinition
 
 - `inject`: `loader` · `sessionProjections` · `agents`
 - `refs`: `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/preset/agent-preset-registry/src/preset.ts:15`](../packages/preset/agent-preset-registry/src/preset.ts)
+- `source`: [`packages/preset/agent-preset-registry/src/preset.ts:17`](../packages/preset/agent-preset-registry/src/preset.ts)
 
 ```ts config-catalog
 /** Registry selection policy. */
@@ -3099,7 +3099,7 @@ export interface Config {
 ## `@janhq/jan-scoped-settings`
 
 - `inject`: `agents` · `workspaceRegistry` · `tools`
-- `source`: [`packages/settings/scoped-settings/src/index.ts:22`](../packages/settings/scoped-settings/src/index.ts)
+- `source`: [`packages/settings/scoped-settings/src/index.ts:24`](../packages/settings/scoped-settings/src/index.ts)
 
 ```ts config-catalog
 /** Where the document lives. */

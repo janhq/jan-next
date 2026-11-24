@@ -175,7 +175,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | Package | Config | Description |
 |---|---|---|
 | `@janhq/jan-authorization` | no | Authorization seam (ctx.authorization): plugin-owned flows that obtain a credential through a conversation with the human |
-| `@janhq/jan-credentials-local` | yes | File-backed credentials provider ($JAN_HOME/.env under the live process environment) for Jan |
+| `@janhq/jan-credentials-local` | yes | Local credentials provider with optional OS keychain storage and environment fallbacks for Jan |
 | `@janhq/jan-tokamak-account` | yes | Authorize Tokamak accounts through the CLI device sign-in and store the minted API key |
 
 ## deliverables
@@ -410,6 +410,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@janhq/jan-scoped-settings` | yes | Model, mode and tool switches that resolve per chat, then per project, then globally |
 | `@janhq/jan-settings` | no | Abstract user-settings seam (ctx.settings) for Jan |
 
 ## shell
