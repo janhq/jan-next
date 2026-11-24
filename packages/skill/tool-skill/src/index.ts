@@ -28,6 +28,7 @@ export const name = 'tool-skill'
 export const inject = ['agents', 'tools', 'skills', 'workingDirectory']
 
 const DEFAULT_CATALOG_DESCRIPTION_MAX_LENGTH = 500
+const DEFAULT_SEARCH_RESULT_LIMIT = 8
 /**
  * Durable provider and item records for one published session skill catalog. The catalog is a
  * `catalog`-form context, so it records the entries it published beside the
@@ -41,6 +42,11 @@ export interface SkillCatalogSource {
   readonly update?: true
   /** Some discovery failed; entries contain only skills found in this observation. Absence means complete. */
   readonly incomplete?: true
+  /**
+   * Published in `search` catalog mode: entries with an empty description were
+   * listed by name only, and skills absent from `entries` are found through `skill_search`.
+   */
+  readonly search?: true
   /** Exactly the entries this message published, in catalog order. */
   readonly entries: readonly { readonly name: string; readonly description: string }[]
 }
@@ -62,15 +68,49 @@ function catalogSourceEntries(
   }))
 }
 
+/**
+ * Search-mode entries: pinned skills keep their capped description, and the
+ * rest appear by name with an empty description, or not at all.
+ */
+function searchCatalogEntries(
+  skills: SkillSummary[],
+  pinned: ReadonlySet<string>,
+  listNames: boolean,
+  descriptionMaxLength: number,
+): SkillCatalogSource['entries'] {
+  const entries: { name: string; description: string }[] = []
+  for (const skill of skills) {
+    if (pinned.has(skill.name)) entries.push({ name: skill.name, description: catalogDescription(skill.description, descriptionMaxLength) })
+    else if (listNames) entries.push({ name: skill.name, description: '' })
+  }
+  return entries
+}
+
 /** Model-facing skill catalog configuration. */
 export interface Config {
   /** Maximum normalized description length rendered in the session catalog; minimum 3. */
   catalogDescriptionMaxLength?: number
+  /**
+   * `full` lists every model-invocable skill with its description. `search`
+   * lists only `pinnedSkills` with descriptions plus a bare name index, and
+   * registers `skill_search` for finding the rest by description.
+   */
+  catalogMode?: 'full' | 'search'
+  /** Skills `search` mode still lists with descriptions; unknown names are ignored. */
+  pinnedSkills?: string[]
+  /** Whether `search` mode lists the names of unpinned skills, without descriptions. */
+  listSkillNames?: boolean
+  /** Most results one `skill_search` call returns; minimum 1. */
+  searchResultLimit?: number
 }
 
 /** Validate and default the model-facing skill catalog configuration. */
 export const Config: z<Config> = z.object({
   catalogDescriptionMaxLength: z.number().default(DEFAULT_CATALOG_DESCRIPTION_MAX_LENGTH),
+  catalogMode: z.union([z.const('full'), z.const('search')]).default('full'),
+  pinnedSkills: z.array(z.string()).default([]),
+  listSkillNames: z.boolean().default(true),
+  searchResultLimit: z.number().default(DEFAULT_SEARCH_RESULT_LIMIT),
 })
 
 /**
@@ -82,6 +122,14 @@ export const Config: z<Config> = z.object({
 export function apply(ctx: Context, config: Config = {}): void {
   const catalogDescriptionMaxLength = config.catalogDescriptionMaxLength ?? DEFAULT_CATALOG_DESCRIPTION_MAX_LENGTH
   assertPositiveInteger('catalogDescriptionMaxLength', catalogDescriptionMaxLength, 3)
+  const searchMode = config.catalogMode === 'search'
+  const pinnedSkills = new Set(config.pinnedSkills ?? [])
+  const listSkillNames = config.listSkillNames ?? true
+  const searchResultLimit = config.searchResultLimit ?? DEFAULT_SEARCH_RESULT_LIMIT
+  assertPositiveInteger('searchResultLimit', searchResultLimit)
+  for (const name of pinnedSkills) {
+    if (!isSkillName(name)) throw new Error(`tool-skill: pinnedSkills entry "${name}" is not a valid skill name`)
+  }
 
   const skillTool = defineTool({
     name: 'skill',
@@ -165,6 +213,50 @@ export function apply(ctx: Context, config: Config = {}): void {
     },
   })
   ctx.tools.register(skillTool)
+
+  if (searchMode) {
+    ctx.tools.register(defineTool({
+      name: 'skill_search',
+      description: 'Find skills by what they do when the session skill catalog does not list a matching one. Returns names and descriptions; load one with the `skill` tool.',
+      parameters: {
+        query: { type: 'string', required: true, description: 'Words describing the task, such as "edit a video" or "review a pull request".' },
+      },
+      output: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            matches: {
+              type: 'array',
+              required: true,
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  name: { type: 'string', required: true },
+                  description: { type: 'string', required: true },
+                },
+              },
+            },
+          },
+        },
+        render: (args, value) => [{ type: 'text', text: renderSearchResult(args.query, value.matches) }],
+      },
+      async execute(args, exec) {
+        const cwd = exec.agent === undefined ? undefined : await ctx.workingDirectory.ensure(exec.agent, exec.signal)
+        const skills = (await ctx.skills.list({ cwd, signal: exec.signal, scope: exec.agent })).filter(isModelInvocable)
+        return {
+          matches: rankSkills(skills, args.query, searchResultLimit).map(skill => ({
+            name: skill.name,
+            description: catalogDescription(skill.description, catalogDescriptionMaxLength),
+          })),
+        }
+      },
+      presentCall(args) {
+        return { card: 'generic', title: `Search skills for ${args.query}`, kind: 'search', rawInput: args.query }
+      },
+    }))
+  }
 
   // User-explicit skill invocation: a claimed user message whose first line
   // starts with `/<name>` naming a user-invocable skill is a deterministic
@@ -254,7 +346,9 @@ export function apply(ctx: Context, config: Config = {}): void {
       : { skills: [], complete: true }
     signal.throwIfAborted()
     const skills = snapshot.skills.filter(isModelInvocable)
-    const entries = catalogSourceEntries(skills, catalogDescriptionMaxLength)
+    const entries = searchMode
+      ? searchCatalogEntries(skills, pinnedSkills, listSkillNames, catalogDescriptionMaxLength)
+      : catalogSourceEntries(skills, catalogDescriptionMaxLength)
     const incomplete = !snapshot.complete
     const digest = digestCatalogEntries(entries, incomplete)
     const history = catalogHistory(agent)
@@ -271,8 +365,8 @@ export function apply(ctx: Context, config: Config = {}): void {
         : { ...decision, messages: decision.messages.filter(message => message.id !== existing.message.id) }
     }
     const catalog = history.published
-      ? renderCatalogUpdate(entries, incomplete)
-      : renderCatalogMessage(entries, incomplete)
+      ? renderCatalogUpdate(entries, incomplete, searchMode)
+      : renderCatalogMessage(entries, incomplete, searchMode)
     return {
       ...decision,
       messages: existing === undefined
@@ -282,7 +376,8 @@ export function apply(ctx: Context, config: Config = {}): void {
   })
 }
 
-function renderCatalogMessage(entries: SkillCatalogSource['entries'], incomplete: boolean): UserMessage {
+function renderCatalogMessage(entries: SkillCatalogSource['entries'], incomplete: boolean, search: boolean): UserMessage {
+  if (search) return renderSearchCatalog(entries, incomplete, false)
   return createUserMessage({
     content: [{
       type: 'text',
@@ -313,7 +408,44 @@ function renderCatalogMessage(entries: SkillCatalogSource['entries'], incomplete
   })
 }
 
-function renderCatalogUpdate(entries: SkillCatalogSource['entries'], incomplete: boolean): UserMessage {
+/**
+ * The `search`-mode catalog: pinned skills with descriptions, then a bare name
+ * index, with `skill_search` as the way to find a skill by what it does.
+ */
+function renderSearchCatalog(entries: SkillCatalogSource['entries'], incomplete: boolean, update: boolean): UserMessage {
+  const described = entries.filter(entry => entry.description !== '')
+  const named = entries.filter(entry => entry.description === '')
+  return createUserMessage({
+    content: [{
+      type: 'text',
+      text: [
+        '<system-reminder>',
+        update
+          ? 'The available skill catalog changed. This catalog replaces every earlier available-skills list in this session.'
+          : 'A skill is a reusable set of task-specific instructions.',
+        'Only some skills are described here. Before acting on a task that a skill could cover, call `skill_search` with a few words about the task, then load each matching skill with the `skill` tool.',
+        ...described.length > 0 ? ['', 'Pinned skills:', '<available_skills>', ...renderCatalogEntries(described), '</available_skills>'] : [],
+        ...named.length > 0 ? ['', `Other skills, by name only: ${named.map(entry => entry.name).join(', ')}`] : [],
+        '',
+        ...incomplete ? [incompleteCatalogNotice(), ''] : [],
+        'If the user names a skill, call the `skill` tool with that exact name. Do not infer or follow a skill\'s instructions until it has been loaded.',
+        'A user may also invoke a skill directly; its <skill_content> block then appears in this conversation. Follow it, and do not call the `skill` tool again for that skill.',
+        '</system-reminder>',
+      ].join('\n'),
+    }],
+    source: {
+      kind: 'skill-catalog',
+      form: 'catalog',
+      search: true,
+      ...update ? { update: true } : {},
+      entries,
+      ...incomplete ? { incomplete: true } : {},
+    },
+  })
+}
+
+function renderCatalogUpdate(entries: SkillCatalogSource['entries'], incomplete: boolean, search: boolean): UserMessage {
+  if (search) return renderSearchCatalog(entries, incomplete, true)
   const availability = entries.length === 0
     ? [
       incomplete
@@ -433,6 +565,60 @@ function catalogMessage(
     if (entries !== undefined) return { message, entries, incomplete: message.source.incomplete === true }
   }
   return undefined
+}
+
+/** Lowercase word tokens; letters and digits of any script, so Vietnamese or Japanese queries match too. */
+function searchTokens(text: string): string[] {
+  return text.toLowerCase().normalize('NFKC').match(/[\p{L}\p{N}]+/gu) ?? []
+}
+
+/**
+ * Rank skills against a query with BM25 over name and description, the name
+ * counted three times so a direct name hit outranks a passing mention.
+ * @returns at most `limit` skills with a positive score, best first, ties by name.
+ */
+function rankSkills(skills: readonly SkillSummary[], query: string, limit: number): SkillSummary[] {
+  const terms = [...new Set(searchTokens(query))]
+  if (terms.length === 0) return []
+  const documents = skills.map((skill) => {
+    const nameTokens = searchTokens(skill.name)
+    const tokens = [...nameTokens, ...nameTokens, ...nameTokens, ...searchTokens(skill.description), ...searchTokens(skill.whenToUse ?? '')]
+    const counts = new Map<string, number>()
+    for (const token of tokens) counts.set(token, (counts.get(token) ?? 0) + 1)
+    return { skill, counts, length: tokens.length }
+  })
+  const averageLength = documents.reduce((sum, document) => sum + document.length, 0) / Math.max(1, documents.length)
+  const idfs = new Map(terms.map((term) => {
+    const containing = documents.filter(document => document.counts.has(term)).length
+    return [term, Math.log(1 + (documents.length - containing + 0.5) / (containing + 0.5))]
+  }))
+  const k1 = 1.2
+  const b = 0.75
+  const scored = documents.map((document) => {
+    let score = 0
+    for (const [term, idf] of idfs) {
+      const frequency = document.counts.get(term) ?? 0
+      if (frequency === 0) continue
+      score += idf * (frequency * (k1 + 1)) / (frequency + k1 * (1 - b + b * document.length / averageLength))
+    }
+    return { skill: document.skill, score }
+  })
+  return scored
+    .filter(entry => entry.score > 0)
+    .sort((left, right) => right.score - left.score || (left.skill.name < right.skill.name ? -1 : 1))
+    .slice(0, limit)
+    .map(entry => entry.skill)
+}
+
+/** Model-facing `skill_search` result text. */
+function renderSearchResult(query: string, matches: readonly { name: string; description: string }[]): string {
+  if (matches.length === 0) {
+    return `No skill matches "${escapeText(query)}". Try other words, or continue without a skill.`
+  }
+  return [
+    `Skills matching "${escapeText(query)}", best first. Load a skill with the \`skill\` tool before following it.`,
+    ...renderCatalogEntries(matches),
+  ].join('\n')
 }
 
 function catalogDescription(value: string, maxLength: number): string {

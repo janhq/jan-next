@@ -1025,3 +1025,23 @@ describe('FileSystemSkillProvider', () => {
     }
   })
 })
+
+describe('scopedSkillDirs', () => {
+  it('lists a scoped root only for lookups inside its directories', async () => {
+    const home = await tempDir('scoped-roots')
+    const scopedRoot = join(home, 'scoped-skills')
+    const project = join(home, 'projects', 'one')
+    await mkdir(join(project, 'nested'), { recursive: true })
+    await writeSkill(scopedRoot, 'project-only', 'Only inside the project folder')
+    const ctx = new Context()
+    await ctx.plugin(SkillRegistry)
+    await ctx.plugin(SkillFileSystem, {
+      includeDefaultRoots: false, watch: false,
+      scopedSkillDirs: [{ path: scopedRoot, within: [join(home, 'projects')] }],
+    })
+
+    expect((await ctx.skills.list({ cwd: join(project, 'nested') })).map(skill => skill.name)).toEqual(['project-only'])
+    expect(await ctx.skills.list({ cwd: join(home, 'elsewhere') })).toEqual([])
+    expect(await ctx.skills.list()).toEqual([])
+  })
+})

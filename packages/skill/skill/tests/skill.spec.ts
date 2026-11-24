@@ -1270,3 +1270,51 @@ describe('SkillRegistry scoped layers', () => {
     await preset.dispose()
   })
 })
+
+describe('SkillRegistry filters', () => {
+  it('hides filtered skills from list and get, lets a lower-ranked same-name skill win, and restores them on dispose', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SkillRegistry)
+    registerProvider(ctx, new MemoryProvider([
+      { ...memorySkill('shared', 'Preferred copy', 10), path: '/off/shared/SKILL.md' },
+      { ...memorySkill('shared', 'Fallback copy', 20), path: '/on/shared/SKILL.md' },
+      { ...memorySkill('hidden', 'Hidden skill', 10), path: '/off/hidden/SKILL.md' },
+    ]))
+    const dispose = ctx.skills.registerFilter({
+      name: 'folder-off',
+      resolve: ({ cwd }) => cwd === '/project' ? skill => !skill.path?.startsWith('/off/') : undefined,
+    })
+
+    const inProject = await ctx.skills.list({ cwd: '/project' })
+    expect(inProject.map(skill => [skill.name, skill.description])).toEqual([['shared', 'Fallback copy']])
+    expect(await ctx.skills.get('hidden', { cwd: '/project' })).toBeUndefined()
+    expect((await ctx.skills.list({ cwd: '/elsewhere' })).map(skill => skill.name)).toEqual(['hidden', 'shared'])
+    expect((await ctx.skills.list({ cwd: '/project', unfiltered: true })).map(skill => skill.name)).toEqual(['hidden', 'shared'])
+
+    dispose()
+    expect((await ctx.skills.list({ cwd: '/project' })).map(skill => skill.name)).toEqual(['hidden', 'shared'])
+  })
+
+  it('re-resolves a filter after refresh so changed toggles take effect', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SkillRegistry)
+    registerProvider(ctx, new MemoryProvider([memorySkill('toggled', 'Toggled skill', 10)]))
+    let off = false
+    ctx.skills.registerFilter({ name: 'toggle', resolve: () => off ? skill => skill.name !== 'toggled' : undefined })
+    expect(await ctx.skills.list({ cwd: '/p' })).toHaveLength(1)
+    off = true
+    expect(await ctx.skills.list({ cwd: '/p' })).toHaveLength(1)
+    ctx.skills.refresh()
+    expect(await ctx.skills.list({ cwd: '/p' })).toHaveLength(0)
+  })
+
+  it('skips a throwing filter instead of hiding every skill', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SkillRegistry)
+    registerProvider(ctx, new MemoryProvider([memorySkill('kept', 'Kept skill', 10)]))
+    const warn = vi.spyOn(ctx.logger, 'warn')
+    ctx.skills.registerFilter({ name: 'broken', resolve: () => { throw new Error('settings unreadable') } })
+    expect((await ctx.skills.list()).map(skill => skill.name)).toEqual(['kept'])
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('skill filter "broken" skipped'))
+  })
+})

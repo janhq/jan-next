@@ -44,6 +44,14 @@ const DEFAULT_WATCH_MAX_PROJECTS = 128
 export const name = 'skill-filesystem'
 export const inject = ['skills']
 
+/** A custom skill root limited to lookups made from inside chosen directories. */
+export interface ScopedSkillDir {
+  /** Skill root, scanned at the `custom` rank. */
+  path: string
+  /** Directories whose own lookups, and their descendants', include this root. */
+  within: string[]
+}
+
 /** Local filesystem skill provider configuration. */
 export interface Config {
   /** Unique provider name. Defaults to `filesystem`. */
@@ -56,6 +64,8 @@ export interface Config {
   agentsHome?: string
   /** Additional skill roots scanned after project roots and before user roots. */
   customSkillDirs?: string[]
+  /** Custom skill roots scanned only for a lookup whose cwd is one of `within` or below it. */
+  scopedSkillDirs?: ScopedSkillDir[]
   /** Whether host-local skill roots are watched for catalog changes. */
   watch?: boolean
   /** Whether Chokidar uses polling instead of native filesystem events. */
@@ -78,6 +88,7 @@ export const Config: Schema<Config> = z.object({
   janHome: z.string(),
   agentsHome: z.string(),
   customSkillDirs: z.array(z.string()).default([]),
+  scopedSkillDirs: z.array(z.object({ path: z.string().required(), within: z.array(z.string()).required() })).default([]),
   watch: z.boolean().default(true),
   watchUsePolling: z.boolean().default(false),
   watchStabilityThresholdMs: z.number().default(DEFAULT_WATCH_STABILITY_THRESHOLD_MS),
@@ -136,7 +147,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     provider = new FileSystemSkillProvider(ctx, control, config)
     return provider
   })
-  ctx.effect(function* () {
+  ctx.effect(function*() {
     yield async () => { await provider.dispose() }
   }, 'skill-filesystem watcher')
   ctx.on('fs/observed', (target, _observation, actor) => {
@@ -152,6 +163,7 @@ export class FileSystemSkillProvider implements SkillProvider {
   private readonly janHome: string
   private readonly agentsHome: string
   private readonly customSkillDirs: string[]
+  private readonly scopedSkillDirs: ScopedSkillDir[]
   private readonly watchManager: SkillWatchManager
   private readonly bundledSkillDir: string | undefined
   private disposal: Promise<void> | undefined
@@ -166,6 +178,9 @@ export class FileSystemSkillProvider implements SkillProvider {
     this.janHome = resolveJanHome(config.janHome)
     this.agentsHome = resolveAgentsHome(config.agentsHome)
     this.customSkillDirs = (config.customSkillDirs ?? []).map(root => resolve(root))
+    this.scopedSkillDirs = (config.scopedSkillDirs ?? []).map(entry => ({
+      path: resolve(entry.path), within: entry.within.map(dir => resolve(dir)),
+    }))
     this.watchManager = new SkillWatchManager(ctx, control.invalidate, resolveWatchConfig(config))
     control.signal.addEventListener('abort', () => { void this.dispose() }, { once: true })
     // The environment bundled root is a default root: an isolated provider
@@ -258,6 +273,12 @@ export class FileSystemSkillProvider implements SkillProvider {
       )
     }
     roots.push(...this.customSkillDirs.map(path => ({ path, source: 'custom' as const, rank: CUSTOM_RANK })))
+    if (cwd !== undefined) {
+      const lookup = resolve(cwd)
+      for (const scoped of this.scopedSkillDirs) {
+        if (scoped.within.some(dir => containedSegments(dir, lookup) !== undefined)) roots.push({ path: scoped.path, source: 'custom', rank: CUSTOM_RANK })
+      }
+    }
     if (this.includeDefaultRoots) {
       roots.push(
         { path: join(this.janHome, 'skills'), source: 'user-jan', rank: USER_JAN_RANK, skipSystem: true },
@@ -302,7 +323,7 @@ class SkillWatchManager {
     private readonly ctx: Context,
     private readonly invalidate: () => void,
     private readonly config: ResolvedWatchConfig,
-  ) {}
+  ) { }
 
   async observeRoots(roots: readonly SkillRoot[]): Promise<void> {
     if (this.closing) return

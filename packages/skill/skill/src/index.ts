@@ -116,6 +116,25 @@ export interface SkillLookupOptions {
 export interface SkillViewOptions extends SkillLookupOptions {
   /** Viewing scope (the calling agent); omitted reads the global layer alone. */
   readonly scope?: ScopeKey | undefined
+  /** Skip registered {@link SkillFilter}s, for settings surfaces that list hidden skills to re-enable them. */
+  readonly unfiltered?: boolean | undefined
+}
+
+/**
+ * Decides which discovered skills a lookup may see. `resolve` runs once per
+ * uncached lookup with the caller's options and returns a candidate predicate,
+ * or `undefined` to leave that lookup unfiltered. A hidden candidate is dropped
+ * before duplicate names resolve, so a same-name skill from another root can
+ * win. The owner calls {@link SkillRegistry.refresh} after its own inputs change.
+ */
+export interface SkillFilter {
+  /** Unique filter name, used in failure logs. */
+  readonly name: string
+  /**
+   * @param options - the lookup's cwd and scope.
+   * @returns a predicate that keeps a skill when it returns true, or undefined for no filtering.
+   */
+  readonly resolve: (options: SkillViewOptions) => ((skill: SkillSummary) => boolean) | undefined
 }
 
 /**
@@ -364,6 +383,7 @@ export class SkillRegistry extends Service {
     () => { this.invalidateCache() },
   )
   private readonly collectCache = new Map<string, Map<string, IndexedCandidate>>()
+  private readonly filters = new NamedEntries<SkillFilter>(name => new Error(`a skill filter named "${name}" is already registered`))
   private revision = 0
   private nextProviderOrder = 0
   /** Stable identities for cache keys; scope keys are opaque identity-compared objects. */
@@ -460,6 +480,26 @@ export class SkillRegistry extends Service {
   }
 
   /**
+   * Register a visibility filter applied to every filtered lookup, in every
+   * scope, until the returned disposer runs. Registration and disposal
+   * invalidate cached catalogs.
+   * @param filter - borrowed filter with a registry-unique name.
+   * @returns the Cordis effect disposer that removes this filter.
+   */
+  registerFilter(filter: SkillFilter): () => void {
+    let undo: (() => void) | undefined
+    return this.ctx.effect(() => {
+      undo = this.filters.insert(filter.name, filter)
+      this.invalidateCache()
+      return () => {
+        undo?.()
+        undo = undefined
+        this.invalidateCache()
+      }
+    }, 'skills.registerFilter()')
+  }
+
+  /**
    * List invocation-neutral skill summaries for a workspace. Consumers apply
    * model or user invocation policy at their operational boundary. Lookup
    * options and provider candidates are readonly same-process values borrowed
@@ -533,7 +573,7 @@ export class SkillRegistry extends Service {
       // The chain is part of the key rather than assumed stable: a blank-session
       // recompose re-parents an existing scope without touching this registry,
       // and only a chain-bearing key makes the next read see the new preset.
-      const key = this.collectCacheKey(options.cwd, scopeChainOf(options.scope), revision)
+      const key = this.collectCacheKey(options, scopeChainOf(options.scope), revision)
       const cached = this.collectCache.get(key)
       if (cached !== undefined) return { entries: cached, cacheable: true }
 
@@ -563,23 +603,29 @@ export class SkillRegistry extends Service {
     // the farther ones — the tools registry's shadowing rule. Rank decides
     // duplicates only within one layer.
     const layers = [this.layers.global, ...this.layers.chainLayers(options.scope)]
+    const keep = this.resolveFilters(options)
     const merged = new Map<string, IndexedCandidate>()
     let cacheable = true
     for (const layer of layers) {
-      const collected = await this.collectLayer(layer, options)
+      const collected = await this.collectLayer(layer, options, keep)
       if (!collected.cacheable) cacheable = false
       for (const entry of collected.entries) merged.set(entry.candidate.name, entry)
     }
     return { entries: merged, cacheable }
   }
 
-  private async collectLayer(layer: SkillLayer, options: SkillLookupOptions): Promise<LayerCollectResult> {
+  private async collectLayer(
+    layer: SkillLayer,
+    options: SkillLookupOptions,
+    keep: ((skill: SkillSummary) => boolean) | undefined,
+  ): Promise<LayerCollectResult> {
     const collected = await this.listLayerCandidates(layer, options)
     collected.entries.sort(compareIndexedCandidates)
     const seen = new Set<string>()
     const result: IndexedCandidate[] = []
     for (const entry of collected.entries) {
       const skill = entry.candidate
+      if (keep !== undefined && !keep(toSummary(skill))) continue
       if (seen.has(skill.name)) {
         this.ctx.logger.warn(`skill "${skill.name}" from ${skill.source} ignored because a higher-priority skill already exists`)
         continue
@@ -649,8 +695,29 @@ export class SkillRegistry extends Service {
     return id
   }
 
-  private collectCacheKey(cwd: string | undefined, chain: ScopeKey[], revision: number): string {
-    return JSON.stringify({ cwd, scopes: chain.map(key => this.scopeId(key)), revision })
+  private collectCacheKey(options: SkillViewOptions, chain: ScopeKey[], revision: number): string {
+    return JSON.stringify({
+      cwd: options.cwd, scopes: chain.map(key => this.scopeId(key)), revision, unfiltered: options.unfiltered === true,
+    })
+  }
+
+  /**
+   * Combine every filter's predicate for one lookup. A filter that throws is
+   * logged and skipped, so a broken filter shows more skills rather than none.
+   */
+  private resolveFilters(options: SkillViewOptions): ((skill: SkillSummary) => boolean) | undefined {
+    if (options.unfiltered === true || this.filters.isEmpty()) return undefined
+    const predicates: ((skill: SkillSummary) => boolean)[] = []
+    for (const filter of this.filters.values()) {
+      try {
+        const predicate = filter.resolve(options)
+        if (predicate !== undefined) predicates.push(predicate)
+      } catch (error) {
+        this.ctx.logger.warn(`skill filter "${filter.name}" skipped: ${errorMessage(error)}`)
+      }
+    }
+    if (predicates.length === 0) return undefined
+    return skill => predicates.every(predicate => predicate(skill))
   }
 
   /** Notify catalog observers without making their refresh work load-bearing. */

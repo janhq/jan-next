@@ -3382,7 +3382,7 @@ export interface Config {
 
 ## `@janhq/jan-skill`
 
-- `source`: [`packages/skill/skill/src/index.ts:278`](../packages/skill/skill/src/index.ts)
+- `source`: [`packages/skill/skill/src/index.ts:297`](../packages/skill/skill/src/index.ts)
 
 ```ts config-catalog
 /** Skill registry configuration. */
@@ -3397,7 +3397,7 @@ export interface Config {
 ## `@janhq/jan-skill-filesystem`
 
 - `inject`: `skills`
-- `source`: [`packages/skill/skill-filesystem/src/index.ts:48`](../packages/skill/skill-filesystem/src/index.ts)
+- `source`: [`packages/skill/skill-filesystem/src/index.ts:56`](../packages/skill/skill-filesystem/src/index.ts)
 
 ```ts config-catalog
 /** Local filesystem skill provider configuration. */
@@ -3412,6 +3412,8 @@ export interface Config {
   agentsHome?: string
   /** Additional skill roots scanned after project roots and before user roots. */
   customSkillDirs?: string[]
+  /** Custom skill roots scanned only for a lookup whose cwd is one of `within` or below it. */
+  scopedSkillDirs?: ScopedSkillDir[]
   /** Whether host-local skill roots are watched for catalog changes. */
   watch?: boolean
   /** Whether Chokidar uses polling instead of native filesystem events. */
@@ -3426,6 +3428,14 @@ export interface Config {
   watchFollowSymlinks?: boolean
   /** Bundled skill root; defaults to `$JAN_BUNDLED_SKILL_DIR` when default roots are included, otherwise mounts none. */
   bundledSkillDir?: string
+}
+
+/** A custom skill root limited to lookups made from inside chosen directories. */
+export interface ScopedSkillDir {
+  /** Skill root, scanned at the `custom` rank. */
+  path: string
+  /** Directories whose own lookups, and their descendants', include this root. */
+  within: string[]
 }
 ```
 
@@ -4328,13 +4338,25 @@ export interface Config {
 ## `@janhq/jan-tool-skill`
 
 - `inject`: `agents` · `tools` · `skills` · `workingDirectory`
-- `source`: [`packages/skill/tool-skill/src/index.ts:66`](../packages/skill/tool-skill/src/index.ts)
+- `source`: [`packages/skill/tool-skill/src/index.ts:90`](../packages/skill/tool-skill/src/index.ts)
 
 ```ts config-catalog
 /** Model-facing skill catalog configuration. */
 export interface Config {
   /** Maximum normalized description length rendered in the session catalog; minimum 3. */
   catalogDescriptionMaxLength?: number
+  /**
+   * `full` lists every model-invocable skill with its description. `search`
+   * lists only `pinnedSkills` with descriptions plus a bare name index, and
+   * registers `skill_search` for finding the rest by description.
+   */
+  catalogMode?: 'full' | 'search'
+  /** Skills `search` mode still lists with descriptions; unknown names are ignored. */
+  pinnedSkills?: string[]
+  /** Whether `search` mode lists the names of unpinned skills, without descriptions. */
+  listSkillNames?: boolean
+  /** Most results one `skill_search` call returns; minimum 1. */
+  searchResultLimit?: number
 }
 ```
 

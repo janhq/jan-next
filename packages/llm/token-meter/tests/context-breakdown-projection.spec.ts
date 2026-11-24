@@ -262,6 +262,21 @@ describe('contextBreakdown session projection', () => {
     expect(projected(ctx, session)).toEqual({ systemTokens: 0, toolsTokens: 0, messageTokens: estimateMessage(summary) })
   })
 
+  it('counts skill_search results under skills', async () => {
+    const { ctx, session } = await harness()
+    appendUser(session, 'find a skill')
+    session.append('step/start', { turn: 1, step: 1 })
+    const call = session.append('tool/call', {
+      turn: 1, step: 1, callId: ToolCallId('call-search'), name: 'skill_search', arguments: '{"query":"video"}',
+    }).seq
+    const found = createToolResultMessage({
+      callId: ToolCallId('call-search'), content: [{ type: 'text', text: '- `video-editing`: Cut and trim.' }], isError: false,
+    })
+    session.append('tool/result', { turn: 1, step: 1, message: found }, { surfaceOp: 'append', sourceEventSeqs: [call] })
+    session.append('step/end', { turn: 1, step: 1 })
+    expect(projected(ctx, session).skillTokens).toBe(estimateMessage(found))
+  })
+
   it('shrinks the message figure when a metered replacement compacts the surface', async () => {
     const { ctx, session } = await harness()
     const first = appendUser(session, 'before compaction, a longer message')
@@ -467,7 +482,7 @@ describe('contextBreakdown session projection', () => {
       ctx.sessionProjections.checkpoint(session),
     )) as ReturnType<typeof ctx.sessionProjections.checkpoint>
     const row = checkpoint['contextBreakdown']!
-    expect(row.ver).toBe(7)
+    expect(row.ver).toBe(8)
     expect(ctx.sessionProjections.viewCheckpoint(checkpoint).contextBreakdown).toEqual(projected(ctx, session))
     appendSummaryMeter(ctx, session, first, last)
     const meter = session.snapshotEvents().at(-1)!
@@ -488,7 +503,7 @@ describe('contextBreakdown session projection', () => {
       stale, session.snapshotEvents(), SessionLogOffset(0), session.header, session.inheritedEventCount,
     )
     expect(replayed.snapshot.values.contextBreakdown).toEqual(projected(ctx, session))
-    expect(replayed.checkpoint['contextBreakdown']?.ver).toBe(7)
+    expect(replayed.checkpoint['contextBreakdown']?.ver).toBe(8)
     const invalid = {
       ...checkpoint,
       contextBreakdown: {
@@ -522,7 +537,7 @@ describe('contextBreakdown session projection', () => {
         systemTokens: 8, toolsTokens: staleValue.toolsTokens, messageTokens: 9,
       })
       expect(restored.checkpoint).toEqual(current)
-      expect(restored.checkpoint['contextBreakdown']?.ver).toBe(7)
+      expect(restored.checkpoint['contextBreakdown']?.ver).toBe(8)
     } finally {
       await ctx.fiber.dispose()
     }

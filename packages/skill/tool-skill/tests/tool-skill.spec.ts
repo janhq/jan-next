@@ -1255,3 +1255,67 @@ describe('user-explicit invocation injection', () => {
     expect(invoked).toEqual(['shared-skill'])
   })
 })
+
+describe('jan-tool-skill search catalog mode', () => {
+  async function searchSetup(config: toolSkill.Config = {}): Promise<Context> {
+    const home = await tempDir('tool-search')
+    const ctx = await setup(home, { catalogMode: 'search', pinnedSkills: ['pinned-skill'], ...config })
+    ctx.skills.register({ name: 'pinned-skill', description: 'Always listed with its description.', source: 'runtime', content: 'Pinned body.' })
+    ctx.skills.register({ name: 'video-editing', description: 'Cut, trim and pace a video edit.', source: 'runtime', content: 'Video body.' })
+    ctx.skills.register({ name: 'code-review', description: 'Review a pull request diff for bugs.', source: 'runtime', content: 'Review body.' })
+    return ctx
+  }
+
+  it('lists pinned skills with descriptions and the rest by name only', async () => {
+    const ctx = await searchSetup()
+    expect(ctx.tools.schemas().map(tool => tool.name)).toEqual(['skill', 'skill_search'])
+    const agent = sessionAgent(Session.create(SessionId('search-catalog')))
+    openMessageTurn(agent.session)
+    const text = JSON.stringify(await composePrefixForAgent(ctx, agent))
+    expect(text).toContain('Always listed with its description.')
+    expect(text).toContain('Other skills, by name only: code-review, video-editing')
+    expect(text).not.toContain('Cut, trim and pace')
+    const [catalog] = catalogMessages(agent.session)
+    expect(catalog?.data.source).toMatchObject({ kind: 'skill-catalog', search: true })
+  })
+
+  it('omits unpinned names when listSkillNames is false', async () => {
+    const ctx = await searchSetup({ listSkillNames: false })
+    const text = JSON.stringify(await composePrefix(ctx, '/workspace'))
+    expect(text).not.toContain('video-editing')
+    expect(text).toContain('pinned-skill')
+  })
+
+  it('finds an unpinned skill by its description and ranks the best match first', async () => {
+    const ctx = await searchSetup()
+    const agent = agentForCwd('/workspace')
+    const result = await executeToolFixture(ctx, {
+      signal: testToolSignal,
+      callId: ToolCallId('search-video'),
+      name: 'skill_search',
+      arguments: { query: 'trim a video' },
+      agent,
+    })
+    expect(result.isError).toBe(false)
+    const text = JSON.stringify(result.content)
+    expect(text).toContain('video-editing')
+    expect(text.indexOf('video-editing')).toBeLessThan(text.indexOf('code-review') === -1 ? Infinity : text.indexOf('code-review'))
+  })
+
+  it('reports no match instead of listing unrelated skills', async () => {
+    const ctx = await searchSetup()
+    const result = await executeToolFixture(ctx, {
+      signal: testToolSignal,
+      callId: ToolCallId('search-none'),
+      name: 'skill_search',
+      arguments: { query: 'quantum chromodynamics' },
+      agent: agentForCwd('/workspace'),
+    })
+    expect(JSON.stringify(result.content)).toContain('No skill matches')
+  })
+
+  it('rejects an invalid pinned skill name at load', async () => {
+    const home = await tempDir('tool-search-invalid')
+    await expect(setup(home, { catalogMode: 'search', pinnedSkills: ['Not A Name'] })).rejects.toThrow('pinnedSkills')
+  })
+})

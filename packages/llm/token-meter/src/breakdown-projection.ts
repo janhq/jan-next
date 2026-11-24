@@ -149,7 +149,7 @@ function withoutClaim(state: ContextBreakdownState): ContextBreakdownState {
  */
 export const contextBreakdownProjectionDefinition = {
   key: 'contextBreakdown',
-  stateVersion: 7,
+  stateVersion: 8,
   stateSchema: contextBreakdownStateSchema,
   init: (): ContextBreakdownState => ({
     systems: [],
@@ -180,7 +180,7 @@ export const contextBreakdownProjectionDefinition = {
         ? unclaimed
         : { ...unclaimed, breakdown: { ...unclaimed.breakdown, toolsTokens } }
     }
-    if (event.type === 'tool/call' && event.data.name === 'skill') {
+    if (event.type === 'tool/call' && (event.data.name === 'skill' || event.data.name === 'skill_search')) {
       return { ...unclaimed, skillCalls: [...unclaimed.skillCalls, event.seq] }
     }
     if (event.type === 'step/end' && unclaimed.skillCalls.length > 0) {
