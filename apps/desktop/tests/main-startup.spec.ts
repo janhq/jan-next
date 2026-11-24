@@ -603,6 +603,18 @@ describe('desktop main startup', () => {
     expect(harness.dialog.showMessageBox).not.toHaveBeenCalled()
   })
 
+  it('leaves the relaunch to the development launcher that asked for it', async () => {
+    vi.stubEnv('JAN_DESKTOP_RESTART_EXIT_CODE', '75')
+    const host = await readyForUpdate()
+    await harness.windows[0]!.shown.promise
+    harness.app.isPackaged = false
+    await invoke(DESKTOP_IPC.restartApplication, 'app')
+    await host.stopping.promise
+    host.exited.resolve()
+    await vi.waitFor(() => { expect(harness.app.exit).toHaveBeenCalledWith(75) })
+    expect(harness.app.relaunch).not.toHaveBeenCalled()
+  })
+
   it('restores and dispatches a notification click to its secondary conversation window', async () => {
     writeFileSync(join(harness.app.getPath('userData'), 'conversation-windows.json'), JSON.stringify({ windows: ['secondary'] }))
     await readyForUpdate()

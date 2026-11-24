@@ -94,6 +94,8 @@ let shuttingDown = false
  * development restart command. The installer handoff has its own before-quit branch.
  */
 let skipQuitConfirmation = false
+/** Exit code that asks the development launcher to start Electron again; unset for an ordinary quit. */
+let exitCodeAfterQuit: number | undefined
 let windowsLanguage: string | undefined = readDesktopLocaleCache(app.getPath('userData'))
 /**
  * Whether the backend has reached ready: false until the first ready, back to
@@ -1004,7 +1006,11 @@ async function main(): Promise<void> {
   ipcMain.handle(DESKTOP_IPC.restartApplication, (event) => {
     assertProductSender(event)
     if (quitting) return
-    app.relaunch()
+    // `dev --watch` keeps its rebuild watchers only while it owns Electron, so it starts Electron again itself.
+    const launcherCode = app.isPackaged ? undefined : Number(process.env.JAN_DESKTOP_RESTART_EXIT_CODE)
+    const launcherRestarts = launcherCode !== undefined && Number.isInteger(launcherCode) && launcherCode > 0 && launcherCode < 256
+    if (launcherRestarts) exitCodeAfterQuit = launcherCode
+    else app.relaunch()
     quitWithoutConfirmation()
   })
   ipcMain.handle(DESKTOP_IPC.factoryReset, async (event, value: unknown) => {
@@ -1837,7 +1843,7 @@ async function main(): Promise<void> {
       platformView.dispose(),
       disposeFileDrag(),
     ].map(cleanup => cleanup.catch((error: unknown) => { console.error(error) })))
-      .then(() => { app.quit() })
+      .then(() => { if (exitCodeAfterQuit === undefined) app.quit(); else app.exit(exitCodeAfterQuit) })
   }
   app.on('before-quit', (event) => {
     if (shellInstallerOwnsQuit) {
