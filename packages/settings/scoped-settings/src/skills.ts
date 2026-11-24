@@ -75,25 +75,28 @@ export function skillCatalog(
   wider: readonly { readonly at: InheritedOff; readonly switches: SkillSwitches }[],
 ): ScopedSkillCatalog {
   const folderOffAt = (root: string): InheritedOff | undefined => wider.find(({ switches }) => folderOff(switches, root))?.at
-  const folders = new Map<string | null, ScopedSkillFolder & { skills: ScopedSkillFolder['skills'][number][] }>()
+  const folders = new Map<string | null, { row: Omit<ScopedSkillFolder, 'skills'>; skills: Map<string, ScopedSkillFolder['skills'][number]> }>()
   for (const skill of skills) {
     const root = skillRoot(skill)
     let folder = folders.get(root)
     if (folder === undefined) {
       const offAt = root === null ? undefined : folderOffAt(root)
       folder = {
-        path: root, label: root === null ? null : homeRelative(root),
-        off: root !== null && folderOff(own, root),
-        ...offAt === undefined ? {} : { offAt },
-        skills: [],
+        row: {
+          path: root, label: root === null ? null : homeRelative(root),
+          off: root !== null && folderOff(own, root),
+          ...offAt === undefined ? {} : { offAt },
+        },
+        skills: new Map(),
       }
       folders.set(root, folder)
     }
+    if (folder.skills.has(skill.name)) continue
     const offAt = wider.find(({ switches }) => switchedOff(switches, skill))?.at
-    folder.skills.push({
+    folder.skills.set(skill.name, {
       name: skill.name, description: skill.description, off: own.skillsDisabled?.includes(skill.name) === true,
       ...offAt === undefined ? {} : { offAt },
     })
   }
-  return { folders: [...folders.values()] }
+  return { folders: Array.from(folders.values(), ({ row, skills }) => ({ ...row, skills: [...skills.values()] })) }
 }

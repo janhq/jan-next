@@ -9,6 +9,7 @@ import type { AgentToolLimits } from '@janhq/jan-agent-profiles/types'
 import { syncTools } from '@janhq/jan-mcp-client/src/tools.ts'
 import { createScope } from '@janhq/jan-scope'
 import { SessionId } from '@janhq/jan-session'
+import SkillRegistry, { type SkillCandidate } from '@janhq/jan-skill'
 import SystemPrompt from '@janhq/jan-system-prompt'
 import ToolRuntime, { defineTool } from '@janhq/jan-tools'
 import type { Workspace, WorkspaceId } from '@janhq/jan-workspace'
@@ -358,6 +359,31 @@ it('hides skills switched off at any scope from each lookup and lists them per s
   await settings.setSwitch({ scope: 'project', id: PROJECT }, 'skillFoldersDisabled', '/repo/c/.agents/skills', false)
   expect(await names({ cwd: '/repo/c/src' })).toEqual(['review', 'look', 'lint'])
   await expect(settings.setSwitch({ scope: 'global' }, 'skillFoldersDisabled', 'skills', true)).rejects.toMatchObject({ code: 'scoped-settings/invalid' })
+})
+
+it('lists folders containing only a shadowed skill and activates the fallback when the winner is switched off', async () => {
+  const h = await setup()
+  await h.ctx.plugin(SkillRegistry)
+  const preferred = join(h.dir, 'preferred')
+  const fallback = join(h.dir, 'fallback')
+  const candidate = (root: string, rank: number): SkillCandidate => ({
+    name: 'review', description: `Review from ${root}`, path: join(root, 'review', 'SKILL.md'),
+    source: 'fixture', provider: 'fixture', invocation: { modelInvocable: true, userInvocable: true }, rank, locator: root,
+  })
+  h.ctx.skills.registerProvider(() => ({
+    name: 'fixture',
+    list: async () => [candidate(preferred, 10), candidate(fallback, 20), candidate(fallback, 30)],
+    get: async skill => ({ ...skill, content: skill.description }),
+  }))
+  const settings = await h.start()
+  const project = { scope: 'project', id: PROJECT } as const
+  const switches = await settings.skillCatalog(project)
+  expect(switches.folders.map(folder => [folder.path, folder.skills.map(skill => skill.name)])).toEqual([
+    [preferred, ['review']], [fallback, ['review']],
+  ])
+  expect((await h.ctx.skills.list({ cwd: '/repo/c' })).map(skill => skill.path)).toEqual([join(preferred, 'review', 'SKILL.md')])
+  await settings.setSwitch(project, 'skillFoldersDisabled', preferred, true)
+  expect((await h.ctx.skills.get('review', { cwd: '/repo/c' }))?.path).toBe(join(fallback, 'review', 'SKILL.md'))
 })
 
 it('keeps every concurrent switch', async () => {

@@ -46,7 +46,7 @@ Built-in PTC and Minimal project defaults apply only while Coding Tools is enabl
 
 `toolsDisabled` lists tool names, or `mcp:<server>` for every tool of one MCP server, including tools that server registers later. `skillsDisabled` lists skill names; `skillFoldersDisabled` lists the absolute folder that holds `<name>/SKILL.md` or `<name>.md`, matched exactly so each entry is one row of the editor. To use a tool or skill a wider scope switched off, switch it back on at that scope.
 
-The project page's **Skills** card and the agent's `project_skills_read` / `project_skills_change` tools (jan-theme) read and write the project layer through this service.
+The project page's **Skills** card and the agent's `project_skills_read` / `project_skills_change` tools (jan-theme) read and write the project layer through this service. The tools discover skills in the calling chat's preset, while the project page previews the default preset.
 
 Remote methods (`ctx.remote.scopedSettings`):
 
@@ -54,7 +54,7 @@ Remote methods (`ctx.remote.scopedSettings`):
 - `write({ scope, id?, values })` sets only the supplied keys; `null` or an empty list removes one. The dialog submits only changed fields. Global and chat scopes store only the switch lists; a project id must exist.
 - `setSwitch({ scope, id? }, key, entry, off)` adds or removes one entry of one switch list inside the write queue, so concurrent switches never drop each other.
 - `toolCatalog()` lists tool names outside MCP and MCP servers from the global registry and the default preset.
-- `skillCatalog({ scope, id? })` lists every skill a chat in that scope could load, grouped by folder, with the scope's own switches and `offAt` naming the wider scope that already switched one off.
+- `skillCatalog({ scope, id? })` lists skill candidates grouped by folder, with the scope's own switches and `offAt` naming the wider scope that already switched one off. Folders containing only same-name fallback skills are still listed.
 
 Host callers use `resolveModel(sessionId, workspaceHint?)`, `resolveMode(workspaceId)`, `resolveAgent(workspaceId)`, `resolveToolsDisabled(sessionId)` and `projectOf(sessionId, cwd?)`. The session controller reads the project defaults when it creates a chat. Each write emits `scoped-settings/changed`.
 

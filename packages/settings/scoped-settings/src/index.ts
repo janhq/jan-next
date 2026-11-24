@@ -171,8 +171,8 @@ export default class ScopedSettings extends TypertRemoteService {
   }
 
   /**
-   * List every skill a chat in one scope could load, grouped by folder, with that scope's switches and the
-   * wider scopes' ones. A global listing reads the skill folders outside any project.
+   * List skill candidates grouped by folder, with the selected scope's switches and inherited switches.
+   * A global listing reads skill folders outside any project.
    * @param address - the scope and, for a project or chat, its id.
    * @returns folders with their skills.
    */

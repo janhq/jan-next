@@ -480,7 +480,8 @@ function registerSkillTools(scope, projectSkills) {
         reason: `Turn ${state} skills from ${folder.label} (${folder.skills.length}) in project ${basename(workspace.path)}?`
       }
     }
-    const skill = folders.flatMap(folder => folder.skills).find(entry => entry.name === args.skill)
+    const candidates = folders.flatMap(folder => folder.skills).filter(entry => entry.name === args.skill)
+    const skill = candidates.find(entry => entry.offAt === undefined) ?? candidates[0]
     if (skill === undefined) throw new Error(`No skill named ${JSON.stringify(args.skill)} is loaded in this project. Read the list again.`)
     if (args.enabled && skill.offAt !== undefined) throw new Error(`${skill.name} is off in global settings, so this project cannot turn it on.`)
     return {

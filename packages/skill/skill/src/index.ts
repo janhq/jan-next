@@ -116,7 +116,7 @@ export interface SkillLookupOptions {
 export interface SkillViewOptions extends SkillLookupOptions {
   /** Viewing scope (the calling agent); omitted reads the global layer alone. */
   readonly scope?: ScopeKey | undefined
-  /** Skip registered {@link SkillFilter}s, for settings surfaces that list hidden skills to re-enable them. */
+  /** Skip filters. Listings also include shadowed candidates so settings can show every skill folder. */
   readonly unfiltered?: boolean | undefined
 }
 
@@ -339,6 +339,8 @@ interface LayerCollectResult {
 
 interface CollectResult {
   entries: Map<string, IndexedCandidate>
+  /** Unfiltered candidates in precedence order, including shadowed ones. */
+  candidates?: IndexedCandidate[]
   cacheable: boolean
 }
 
@@ -382,7 +384,7 @@ export class SkillRegistry extends Service {
     scope => new SkillLayer(scope),
     () => { this.invalidateCache() },
   )
-  private readonly collectCache = new Map<string, Map<string, IndexedCandidate>>()
+  private readonly collectCache = new Map<string, CollectResult>()
   private readonly filters = new NamedEntries<SkillFilter>(name => new Error(`a skill filter named "${name}" is already registered`))
   private revision = 0
   private nextProviderOrder = 0
@@ -506,7 +508,7 @@ export class SkillRegistry extends Service {
    * options and provider candidates are readonly same-process values borrowed
    * throughout discovery.
    * @param options - view options; `scope` selects the viewing agent's layers, `cwd` selects project roots, and `signal` cancels discovery.
-   * @returns all sorted winning summaries.
+   * @returns sorted winning summaries, or all candidates for an unfiltered listing.
    */
   async list(options: SkillViewOptions = {}): Promise<SkillSummary[]> {
     return (await this.snapshot(options)).skills
@@ -522,8 +524,7 @@ export class SkillRegistry extends Service {
   async snapshot(options: SkillViewOptions = {}): Promise<SkillCatalogSnapshot> {
     const collected = await this.collect(options)
     return {
-      skills: [...collected.entries.values()]
-        .map(entry => toSummary(entry.candidate))
+      skills: Array.from(collected.candidates ?? collected.entries.values(), entry => toSummary(entry.candidate))
         .sort(compareSkillSummary),
       complete: collected.cacheable,
     }
@@ -576,7 +577,7 @@ export class SkillRegistry extends Service {
       // and only a chain-bearing key makes the next read see the new preset.
       const key = this.collectCacheKey(options, scopeChainOf(options.scope), revision)
       const cached = this.collectCache.get(key)
-      if (cached !== undefined) return { entries: cached, cacheable: true }
+      if (cached !== undefined) return cached
 
       const result = await this.collectFresh(options)
       throwIfAborted(options.signal)
@@ -585,10 +586,10 @@ export class SkillRegistry extends Service {
           attempt += 1
           continue
         }
-        return { entries: result.entries, cacheable: false }
+        return { ...result, cacheable: false }
       }
       if (result.cacheable) {
-        this.collectCache.set(key, result.entries)
+        this.collectCache.set(key, result)
         if (this.collectCache.size > this.collectCacheMaxEntries) {
           const oldest = this.collectCache.keys().next() as IteratorYieldResult<string>
           this.collectCache.delete(oldest.value)
@@ -604,6 +605,20 @@ export class SkillRegistry extends Service {
     // the farther ones — the tools registry's shadowing rule. Rank decides
     // duplicates only within one layer.
     const layers = [this.layers.global, ...this.layers.chainLayers(options.scope)]
+    if (options.unfiltered === true) {
+      const entries = new Map<string, IndexedCandidate>()
+      const candidates: IndexedCandidate[] = []
+      let cacheable = true
+      for (const layer of layers.reverse()) {
+        const collected = await this.listLayerCandidates(layer, options)
+        if (!collected.cacheable) cacheable = false
+        for (const entry of collected.entries.sort(compareIndexedCandidates)) {
+          candidates.push(entry)
+          if (!entries.has(entry.candidate.name)) entries.set(entry.candidate.name, entry)
+        }
+      }
+      return { entries, candidates, cacheable }
+    }
     const keep = this.resolveFilters(options)
     const merged = new Map<string, IndexedCandidate>()
     let cacheable = true

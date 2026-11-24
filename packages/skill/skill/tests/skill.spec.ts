@@ -1289,7 +1289,12 @@ describe('SkillRegistry filters', () => {
     expect(inProject.map(skill => [skill.name, skill.description])).toEqual([['shared', 'Fallback copy']])
     expect(await ctx.skills.get('hidden', { cwd: '/project' })).toBeUndefined()
     expect((await ctx.skills.list({ cwd: '/elsewhere' })).map(skill => skill.name)).toEqual(['hidden', 'shared'])
-    expect((await ctx.skills.list({ cwd: '/project', unfiltered: true })).map(skill => skill.name)).toEqual(['hidden', 'shared'])
+    const raw = { cwd: '/project', unfiltered: true } as const
+    expect((await ctx.skills.list(raw)).map(skill => [skill.name, skill.description])).toEqual([
+      ['hidden', 'Hidden skill'], ['shared', 'Preferred copy'], ['shared', 'Fallback copy'],
+    ])
+    expect((await ctx.skills.list(raw)).map(skill => skill.name)).toEqual(['hidden', 'shared', 'shared'])
+    expect((await ctx.skills.get('shared', raw))?.description).toBe('Preferred copy')
 
     dispose()
     expect((await ctx.skills.list({ cwd: '/project' })).map(skill => skill.name)).toEqual(['hidden', 'shared'])
