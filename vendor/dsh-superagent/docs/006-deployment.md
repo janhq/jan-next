@@ -20,7 +20,7 @@ Both presets run with `danger-full-access` as the operator's OS user and read me
 
 ## Prerequisites
 
-- Node.js 24.9 or later (the Jan checkout's requirement), pnpm, git 2.32+, Python 3.8+ and tmux
+- Node.js 24.9 or later (the Jan checkout's requirement), pnpm, git 2.32+, Python 3.8+, tmux and `jq` for the startup health check
 - GitHub CLI (`gh`) 2.48 or later. Source CLI fields must point to `gh` or `lark-cli` wrappers; the host relies on their subcommands and output formats.
 - A repository on github.com; GitHub Enterprise Server is not supported. To create a checkout per Ticket, keep a local clone from which the prepare command can add worktrees. Install `git-lfs` if that repository uses Git LFS.
 - A model provider configured in Jan. dsh-superagent uses the profile's default model unless the Eval or Execution settings name another.
@@ -120,7 +120,7 @@ Open `http://127.0.0.1:3082/`, then choose **Superagent** in the sidebar.
 Create the hourly check in the Jan profile you normally use, not in `superagent`. It must keep running when the agent service is down. Ask an agent in that profile to create an hourly schedule using this prompt, with the checkout path filled in:
 
 ```text
-Check dsh-superagent: run `curl -s -H 'x-orchestrator-request: 1' http://127.0.0.1:3082/orchestrator/api/state`. If health.runtime.state is ready and setup.problem is null, do nothing and say nothing. If setup.problem is set, do not restart; tell me its detail, unless you already told me. If another health entry is error, do not restart; tell me each one with its detail, unless you already told me about the same ones. If there is no answer, wait a minute and check again; if there is still none, run `tmux new-session -d -s jan-superagent "cd '<checkout>' && pnpm jan --profile superagent --no-open"` and check once more after a minute. If it still does not answer, read its output with `tmux capture-pane -p -t jan-superagent` and the Troubleshooting section of vendor/dsh-superagent/docs/006-deployment.md, fix what you can, and tell me what was wrong and what you did.
+Check dsh-superagent: run `curl -s -H 'x-orchestrator-request: 1' http://127.0.0.1:3082/orchestrator/api/state`. If setup.problem is set or any health entry has state error, do not restart; report each problem and its detail unless you already told me about it. If health.runtime.state is ready, setup.problem is null and no health entry has state error, do nothing and say nothing. If there is no answer, wait a minute and check again; if there is still none, run `tmux new-session -d -s jan-superagent "cd '<checkout>' && pnpm jan --profile superagent --no-open"` and check once more after a minute. If it still does not answer, read its output with `tmux capture-pane -p -t jan-superagent` and the Troubleshooting section of vendor/dsh-superagent/docs/006-deployment.md, fix what you can, and tell me what was wrong and what you did.
 ```
 
 To keep the service stopped on purpose, pause this schedule first.
