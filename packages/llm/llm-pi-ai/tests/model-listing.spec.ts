@@ -460,6 +460,8 @@ describe('runtime model listing', () => {
       expect(server.listings).toHaveLength(count)
     }
     await listed(1)
+    // The server counts a request on arrival; a tick during the launch request would join it.
+    await ctx.llm.listModels('tokamak')
     vi.advanceTimersByTime(20)
     await listed(2)
 

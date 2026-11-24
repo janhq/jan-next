@@ -135,7 +135,11 @@ describe('browser dependency discovery', () => {
       'export const lazy = () => import("lazy-lib")',
     ].join('\n'))
     const app = join(root, 'apps/web')
-    write(root, 'apps/web/package.json', '{"name":"@fixture/web","type":"module","exports":{"./dist/*":"./dist/*"}}')
+    // The app's alias must not hide the npm package of the same name that a followed workspace module imports.
+    write(root, 'apps/web/package.json', JSON.stringify({
+      name: '@fixture/web', type: 'module', exports: { './dist/*': './dist/*' },
+      dependencies: { 'shell-lib': 'workspace:@fixture/static@*' },
+    }))
     const owner = bundler === 'Rollup' ? resolve(repositoryRoot, 'apps/web/package.json')
       : createRequire(resolve(repositoryRoot, 'package.json')).resolve('vitest/package.json')
     const viteDirectory = dirname(createRequire(owner).resolve('vite/package.json'))

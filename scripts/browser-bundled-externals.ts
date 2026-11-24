@@ -38,7 +38,23 @@ export function browserPackageOfFile(file: string): string | undefined {
   return parts[0]?.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0]
 }
 
-function recorder(seen: Set<string>, workspaceNames: ReadonlySet<string>, followWorkspace = false) {
+/** Workspace package names, plus the `workspace:` aliases each package directory declares for its own imports. */
+interface WorkspaceScope {
+  readonly names: ReadonlySet<string>
+  readonly aliases: readonly { readonly dir: string; readonly names: ReadonlySet<string> }[]
+}
+
+function isWorkspaceImport(scope: WorkspaceScope, name: string, importer: string): boolean {
+  if (scope.names.has(name)) return true
+  const file = importer.replaceAll('\\', '/')
+  if (file.includes('/node_modules/')) return false
+  const owner = scope.aliases
+    .filter(({ dir }) => file.startsWith(dir + '/'))
+    .reduce<WorkspaceScope['aliases'][number] | undefined>((best, entry) => best === undefined || entry.dir.length > best.dir.length ? entry : best, undefined)
+  return owner?.names.has(name) === true
+}
+
+function recorder(seen: Set<string>, scope: WorkspaceScope, followWorkspace = false) {
   return {
     name: 'jan-browser-direct-dependencies',
     enforce: 'pre' as const,
@@ -49,7 +65,7 @@ function recorder(seen: Set<string>, workspaceNames: ReadonlySet<string>, follow
           || source.startsWith('\0') || source.startsWith('node:')) return null
         const parts = source.split('/')
         const name = source.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0]
-        if (name !== undefined && workspaceNames.has(name)) {
+        if (name !== undefined && isWorkspaceImport(scope, name, importer)) {
           return followWorkspace ? null : { id: source, external: true }
         }
         const resolved = await this.resolve(source, importer, { skipSelf: true })
@@ -96,7 +112,7 @@ export function browserSourceAliases(root: string): { find: RegExp; replacement:
 async function collectClientBundles(
   root: string,
   manifests: ReadonlyMap<string, Manifest>,
-  workspaceNames: ReadonlySet<string>,
+  scope: WorkspaceScope,
   seen: Set<string>,
 ): Promise<void> {
   for (const [manifestPath, manifest] of manifests) {
@@ -115,7 +131,7 @@ async function collectClientBundles(
       input: client.entry as Rolldown.InputOption,
       platform: 'browser',
       transform: client.define === undefined ? {} : { define: client.define },
-      plugins: [recorder(seen, new Set([...workspaceNames, ...workspaceAliases(manifest)])), client.plugins ?? []] as NonNullable<Rolldown.InputOptions['plugins']>,
+      plugins: [recorder(seen, scope), client.plugins ?? []] as NonNullable<Rolldown.InputOptions['plugins']>,
       tsconfig: resolve(root, 'tsconfig.base.client.json'),
     })
     try {
@@ -139,7 +155,7 @@ interface ViteApi {
 
 async function collectShell(
   root: string,
-  workspaceNames: ReadonlySet<string>,
+  scope: WorkspaceScope,
   seen: Set<string>,
 ): Promise<void> {
   for (const path of globSync('apps/*/vite.config.ts', { cwd: root }).sort()) {
@@ -156,7 +172,7 @@ async function collectShell(
     await vite.build({
       root: dir,
       logLevel: 'error',
-      plugins: [browserDependencyAnalysis(), recorder(seen, new Set([...workspaceNames, ...workspaceAliases(manifest)]), true)],
+      plugins: [browserDependencyAnalysis(), recorder(seen, scope, true)],
       resolve: { alias: browserSourceAliases(root) },
       build: {
         write: false,
@@ -188,9 +204,13 @@ export async function browserBundledExternals(root: string): Promise<Set<string>
       manifests.set(absolute, readManifest(absolute))
     }
   }
-  const names = new Set([...manifests.values()].map(manifest => manifest.name))
+  const aliases = [...manifests, ...globSync('apps/*/package.json', { cwd: root }).map((path) => {
+    const absolute = resolve(root, path)
+    return [absolute, readManifest(absolute)] as const
+  })].map(([path, manifest]) => ({ dir: dirname(path).replaceAll('\\', '/'), names: new Set(workspaceAliases(manifest)) }))
+  const scope: WorkspaceScope = { names: new Set([...manifests.values()].map(manifest => manifest.name)), aliases }
   const seen = new Set<string>()
-  await collectClientBundles(root, manifests, names, seen)
-  await collectShell(root, names, seen)
+  await collectClientBundles(root, manifests, scope, seen)
+  await collectShell(root, scope, seen)
   return seen
 }
