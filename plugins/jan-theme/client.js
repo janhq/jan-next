@@ -1152,6 +1152,16 @@ window.__ModuleLoader__.load({
   .jt-project-task { padding: 6px 0; border-top: 0.5px solid var(--dsw-alias-border-l2); font-size: 13px; line-height: 18px; }
   .jt-project-task:first-child { border-top: 0; }
   .jt-project-task-meta { color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
+  .jt-project-skill-count { color: var(--dsw-alias-label-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .jt-project-skill-folders { margin: 8px 0 0; padding: 0; list-style: none; max-height: 320px; overflow-y: auto; }
+  .jt-project-skill-folder { border-top: 0.5px solid var(--dsw-alias-border-l2); }
+  .jt-project-skill-folder:first-child { border-top: 0; }
+  .jt-project-skill-list { margin: 0 0 4px; padding: 0 0 0 24px; list-style: none; }
+  .jt-project-skill-row { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 13px; line-height: 18px; }
+  .jt-project-skill-row[data-off='true'] { color: var(--dsw-alias-label-tertiary); }
+  .jt-project-skill-expand { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .jt-project-skill-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jt-project-skill-meta { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
   .jt-project-error { margin: 8px 0 0; color: var(--dsw-alias-state-error-primary); font-size: 13px; line-height: 18px; }
   /* Text-style card links align with the card text instead of the button's inner padding. */
   .jt-project-card .jt-project-link { margin: 6px 0 0 -10px; }
@@ -1932,6 +1942,62 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
         error && h('p', { className: 'jt-project-error', role: 'alert' }, error)))
     }
 
+    // Skill folders and skills a chat in this project loads; a switch hides one from new turns here only.
+    function ProjectSkills({ workspaceId, t }) {
+      const [data, setData] = React.useState(null)
+      const [error, setError] = React.useState('')
+      const [open, setOpen] = React.useState(() => new Set())
+      const [busy, setBusy] = React.useState(false)
+      const [version, reload] = React.useReducer(value => value + 1, 0)
+      React.useEffect(() => {
+        const controller = new AbortController()
+        void projectApi('skills', { workspaceId }, controller.signal).then(
+          (next) => { if (!controller.signal.aborted) { setData(next); setError('') } },
+          (failure) => { if (!controller.signal.aborted) setError(failure.message) },
+        )
+        return () => { controller.abort() }
+      }, [workspaceId, version])
+      const toggle = (method, params) => {
+        setBusy(true)
+        setError('')
+        projectApi(method, { workspaceId, ...params }).then(() => { reload() }, (failure) => { setError(failure.message) }).finally(() => { setBusy(false) })
+      }
+      const folders = data?.folders ?? []
+      const total = folders.reduce((sum, folder) => sum + folder.skills.length, 0)
+      const active = folders.reduce((sum, folder) => sum + (folder.enabled ? folder.skills.filter(skill => skill.enabled).length : 0), 0)
+      return h('section', { className: 'jt-project-card', 'aria-label': t('project.skills') },
+        h('div', { className: 'jt-project-card-head' }, h('h2', null, t('project.skills')),
+          data !== null && h('span', { className: 'jt-project-skill-count' }, t('project.skills.count', { active, total }))),
+        data === null && !error ? h('p', { className: 'jt-project-card-text' }, t('loading'))
+          : folders.length === 0 ? h('p', { className: 'jt-project-card-text', 'data-empty': true }, t('project.skills.empty'))
+            : h('ul', { className: 'jt-project-skill-folders' }, folders.map((folder) => {
+              const key = folder.path ?? ''
+              const expanded = open.has(key)
+              const label = folder.label ?? t('project.skills.builtIn')
+              const on = folder.skills.filter(skill => skill.enabled).length
+              return h('li', { key, className: 'jt-project-skill-folder' },
+                h('div', { className: 'jt-project-skill-row' },
+                  h('button', {
+                    type: 'button', className: 'jt-project-skill-expand', 'aria-expanded': expanded, title: folder.path ?? undefined,
+                    onClick: () => { setOpen(current => { const next = new Set(current); if (expanded) next.delete(key); else next.add(key); return next }) },
+                  }, h(IconFolderCloseRegular, { size: 16, 'aria-hidden': true }),
+                    h('span', { className: 'jt-project-skill-name' }, label),
+                    h('span', { className: 'jt-project-skill-meta' }, folder.enabled ? t('project.skills.folderCount', { active: on, total: folder.skills.length }) : t('project.skills.off'))),
+                  folder.path !== null && h(Switch, {
+                    label: t('project.skills.folderToggle', { name: label }), checked: folder.enabled, disabled: busy,
+                    onChange: enabled => { toggle('setSkillFolder', { path: folder.path, enabled }) },
+                  })),
+                expanded && h('ul', { className: 'jt-project-skill-list' }, folder.skills.map(skill => h('li', { key: skill.name, className: 'jt-project-skill-row', 'data-off': !folder.enabled || undefined },
+                  h('span', { className: 'jt-project-skill-name', title: skill.description }, skill.name),
+                  h(Switch, {
+                    label: t('project.skills.skillToggle', { name: skill.name }), checked: skill.enabled, disabled: busy || !folder.enabled,
+                    onChange: enabled => { toggle('setSkill', { name: skill.name, enabled }) },
+                  })))))
+            })),
+        h('p', { className: 'jt-project-editor-note' }, t('project.skills.note')),
+        error && h('p', { className: 'jt-project-error', role: 'alert' }, error))
+    }
+
     function ProjectHome({ useProject, useWorkspaces, backToProjects, t, ...props }) {
       const workspaceId = useProject(value => value)
       const workspace = useWorkspaces(snapshot => snapshot.items.find(item => item.workspaceId === workspaceId))
@@ -2196,6 +2262,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           card('project.memory',
             h(Button, { size: 'sm', variant: 'outline', disabled: details === null, onClick: () => { setEditing('memory') } }, t(details?.memory.trim() ? 'project.edit' : 'project.add')),
             preview(details?.memory ?? '', 'project.memory.empty')),
+          h(ProjectSkills, { workspaceId, t }),
           projectTasks !== null && card('project.scheduled',
             h(Button, { size: 'sm', variant: 'outline', onClick: () => { setAddingTask(true) } }, t('project.add')),
             h(React.Fragment, null,
@@ -2625,6 +2692,15 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.pathCopied': "Path copied",
               'project.git.branch': "Current branch",
               'project.git.open': "Open {name} on {host}",
+              'project.skills': "Skills",
+              'project.skills.count': "{active} of {total} on",
+              'project.skills.folderCount': "{active} of {total}",
+              'project.skills.off': "Off",
+              'project.skills.empty': "No skills are installed.",
+              'project.skills.builtIn': "Built in",
+              'project.skills.folderToggle': "Use skills from {name} in this project",
+              'project.skills.skillToggle': "Use {name} in this project",
+              'project.skills.note': "Changes apply to the next message in this project's chats. Skill files are not changed.",
               'project.memory': "Memory",
               'project.memory.empty': "Notes the agent keeps about this project.",
               'project.memory.description': "Private notes every new session in this project reads after its instructions.",

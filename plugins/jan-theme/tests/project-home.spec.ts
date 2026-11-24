@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, onTestFinished } from 'vitest'
@@ -21,9 +21,10 @@ async function projectHome(events = [], inheritedEventCount = 0) {
     get: (key: string) => ({
       workspaceRegistry: { get: (id: string) => id === 'project' ? workspace : undefined, list: () => [workspace] },
       janHomePath: (...segments: string[]) => join(settings, ...segments),
-      sessionQuery: { observeSession: async () => ({ events, inheritedEventCount, cursor: events.length - 1, source: 'live', [Symbol.dispose]() {} }) },
+      sessionQuery: { observeSession: async () => ({ events, inheritedEventCount, cursor: events.length - 1, source: 'live', [Symbol.dispose]() { } }) },
     })[key],
-    inject: (_, callback) => callback({ systemPrompt: { context: section => { prompt = section.text } } }),
+    // Like Cordis, only call back for services this harness provides.
+    inject: (keys: string[], callback) => { if (keys.includes('systemPrompt')) callback({ systemPrompt: { context: section => { prompt = section.text } } }) },
     effect: (register: () => void) => register(),
     webServer: { register: (route: { handler: typeof handler }) => { handler = route.handler } },
     connection: { requestRejection: () => undefined },
@@ -148,10 +149,12 @@ it('lists configured names and source paths without returning MCP secrets', asyn
   await writeFile(join(root, '.vscode', 'mcp.json'), '{ "servers": { "example": { "command": "secret" } }, }')
   await writeFile(join(root, 'package.json'), JSON.stringify({ jan: { profile: { bundles: ['my-plugin'] } } }))
   const { body } = await call('read')
-  expect(body.result).toMatchObject({ inventory: {
-    mcp: [{ name: 'example', path: join(root, '.vscode', 'mcp.json'), loaded: false }],
-    plugins: [{ name: 'my-plugin', path: join(root, 'package.json'), loaded: false }],
-  } })
+  expect(body.result).toMatchObject({
+    inventory: {
+      mcp: [{ name: 'example', path: join(root, '.vscode', 'mcp.json'), loaded: false }],
+      plugins: [{ name: 'my-plugin', path: join(root, 'package.json'), loaded: false }],
+    }
+  })
   expect(JSON.stringify(body)).not.toContain('secret')
 })
 
@@ -168,4 +171,121 @@ it('counts owned turns only and replaces duplicate usage within an attempt', asy
     event('turn/start', 2000, 2),
   ], 3)
   expect((await call('usage')).body.result).toMatchObject({ inputTokens: 21, outputTokens: 3, workingMs: 200, cost: null })
+})
+
+it('turns a skill folder and a single skill off for one project, leaving files and other folders untouched', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'jan-project-skills-'))
+  onTestFinished(() => rm(root, { recursive: true, force: true }))
+  const settings = await mkdtemp(join(tmpdir(), 'jan-project-skill-settings-'))
+  onTestFinished(() => rm(settings, { recursive: true, force: true }))
+  const project = join(root, 'project')
+  await mkdir(project)
+  const skill = (folder: string, name: string) => ({
+    name, description: `${name} skill`, path: join(root, folder, name, 'SKILL.md'),
+    source: 'custom', invocation: { modelInvocable: true, userInvocable: true },
+  })
+  const all = [skill('styles', 'look-a'), skill('styles', 'look-b'), skill('shared', 'review'), skill('shared', 'deploy')]
+  let filter: { resolve(options: { cwd?: string }): ((s: typeof all[number]) => boolean) | undefined } | undefined
+  let refreshes = 0
+  const skills = {
+    registerFilter: (value: typeof filter) => { filter = value; return () => { } },
+    refresh: () => { refreshes += 1 },
+    list: async ({ unfiltered }: { unfiltered?: boolean }) => {
+      const keep = unfiltered ? undefined : filter?.resolve({ cwd: project })
+      return keep === undefined ? all : all.filter(keep)
+    },
+  }
+  let handler: ((req: Request, res: Response) => Promise<void>) | undefined
+  const workspace = { id: 'project', path: project, sessionIds: [] }
+  mountProjectHome({
+    get: (key: string) => ({
+      workspaceRegistry: { get: (id: string) => id === 'project' ? workspace : undefined, list: () => [workspace] },
+      janHomePath: (...segments: string[]) => join(settings, ...segments),
+      skills,
+    })[key],
+    inject: (keys: string[], callback: (scope: unknown) => void) => { if (keys.includes('skills')) callback({ skills, effect: (register: () => void) => register() }) },
+    effect: (register: () => void) => register(),
+    webServer: { register: (route: { handler: typeof handler }) => { handler = route.handler } },
+    connection: { requestRejection: () => undefined },
+  })
+  const call = async (method: string, params: Record<string, unknown> = {}) => {
+    let reply: Reply | undefined
+    let status = 0
+    const payload = Buffer.from(JSON.stringify({ method, params: { workspaceId: 'project', ...params } }))
+    await handler!({ method: 'POST', headers: { 'content-type': 'application/json' }, async *[Symbol.asyncIterator]() { yield payload } },
+      { writeHead: value => { status = value }, end: body => { reply = { status, body: JSON.parse(body) } } })
+    return reply!.body.result as { folders: { path: string; enabled: boolean; skills: { name: string; enabled: boolean }[] }[] }
+  }
+
+  await call('setSkillFolder', { path: join(root, 'styles'), enabled: false })
+  await call('setSkill', { name: 'deploy', enabled: false })
+  expect(refreshes).toBe(2)
+
+  const view = await call('skills')
+  expect(view.folders.map(folder => [folder.path, folder.enabled, folder.skills.map(s => `${s.name}:${s.enabled}`)])).toEqual([
+    [join(root, 'styles'), false, ['look-a:true', 'look-b:true']],
+    [join(root, 'shared'), true, ['review:true', 'deploy:false']],
+  ])
+  expect(filter?.resolve({ cwd: join(project, 'src') })!(all[0]!)).toBe(false)
+  expect(all.filter(filter!.resolve({ cwd: project })!).map(s => s.name)).toEqual(['review'])
+  expect(filter?.resolve({ cwd: join(root, 'other') })).toBeUndefined()
+
+  await call('setSkillFolder', { path: join(root, 'styles'), enabled: true })
+  expect(all.filter(filter!.resolve({ cwd: project })!).map(s => s.name)).toEqual(['look-a', 'look-b', 'review'])
+})
+
+it('lets the agent read and change its own project skill switches, asking once and refusing outside a project', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'jan-agent-skills-'))
+  onTestFinished(() => rm(root, { recursive: true, force: true }))
+  const settings = await mkdtemp(join(tmpdir(), 'jan-agent-skill-settings-'))
+  onTestFinished(() => rm(settings, { recursive: true, force: true }))
+  const project = join(root, 'project')
+  await mkdir(project)
+  const all = ['meme-look', 'review'].map(name => ({
+    name, description: `${name} skill`, path: join(root, 'skills', name, 'SKILL.md'),
+    source: 'custom', invocation: { modelInvocable: true, userInvocable: true },
+  }))
+  const skills = { registerFilter: () => () => { }, refresh: () => { }, list: async () => all }
+  const tools = new Map<string, { execute: (args: unknown, exec: unknown) => Promise<{ ok?: boolean; message?: string; folders?: unknown }> }>()
+  let gate: ((exec: unknown, next: () => Promise<{ kind: string }>) => Promise<{ kind: string; reason?: string }>) | undefined
+  const workspace = { id: 'project', path: project, sessionIds: [] }
+  const toolScope = {
+    tools: { register: (tool: { name: string }) => { tools.set(tool.name, tool as never); return () => { } } },
+    on: (_event: string, listener: typeof gate) => { gate = listener; return () => { } },
+    get: () => undefined,
+    effect: (body: () => Generator) => { for (const _ of body()) { /* registrations only */ } },
+  }
+  mountProjectHome({
+    get: (key: string) => ({
+      workspaceRegistry: { get: (id: string) => id === 'project' ? workspace : undefined, list: () => [workspace] },
+      janHomePath: (...segments: string[]) => join(settings, ...segments),
+      skills,
+    })[key],
+    inject: (keys: string[], callback: (scope: unknown) => void) => {
+      if (keys.includes('tools')) callback(toolScope)
+      else if (keys.includes('skills')) callback({ skills, effect: (register: () => void) => register() })
+    },
+    effect: (register: () => void) => register(),
+    webServer: { register: () => { } },
+    connection: { requestRejection: () => undefined },
+  })
+  const agentIn = (cwd: string) => ({ session: { header: { cwd } } })
+  const execFor = (args: unknown, cwd = project) => ({ name: 'project_skills_change', arguments: args, agent: agentIn(cwd), signal: new AbortController().signal })
+
+  const listed = await tools.get('project_skills_read')!.execute({}, { agent: agentIn(project) })
+  expect(JSON.stringify(listed.folders)).toContain('meme-look')
+  expect((await tools.get('project_skills_read')!.execute({}, { agent: agentIn(root) })).message).toContain('not in a Jan project')
+
+  const outside = execFor({ skill: 'meme-look', enabled: false }, root)
+  expect(await gate!(outside, async () => ({ kind: 'allow' }))).toMatchObject({ kind: 'deny' })
+
+  const exec = execFor({ skill: 'meme-look', enabled: false })
+  expect(await gate!(exec, async () => ({ kind: 'allow' }))).toEqual({ kind: 'ask', reason: 'Turn off skill meme-look in project project?' })
+  expect(await tools.get('project_skills_change')!.execute(exec.arguments, exec)).toMatchObject({ ok: true })
+  const saved = JSON.parse(await readFile(join(settings, 'project-home', (await readdir(join(settings, 'project-home')))[0]!), 'utf8'))
+  expect(saved.disabledSkills).toEqual(['meme-look'])
+
+  const again = execFor({ skill: 'meme-look', enabled: false })
+  expect(await gate!(again, async () => ({ kind: 'ask' }))).toEqual({ kind: 'allow' })
+  expect((await tools.get('project_skills_change')!.execute(again.arguments, again)).message).toContain('already off')
 })

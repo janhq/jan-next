@@ -4,6 +4,7 @@ import { readFile, readdir, lstat, stat, writeFile, rename, unlink, open, mkdir,
 import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
+import { homedir } from 'node:os'
 import { JSON_SCHEMA, load as loadYaml } from 'js-yaml'
 import { registerApi } from '@janhq/jan-plugin-api'
 
@@ -19,7 +20,8 @@ const MAX_ICON_BYTES = 256 * 1024
 const MAX_LINKS = 32
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
 const HIDDEN_FILES = new Set(['.git', 'node_modules'])
-const EMPTY_SETTINGS = { identity: null, linkedFolders: [] }
+const EMPTY_SETTINGS = { identity: null, linkedFolders: [], disabledSkillFolders: [], disabledSkills: [] }
+const MAX_SKILL_TOGGLES = 2000
 
 /** @param {import('@janhq/cordis').Context} ctx @param {unknown} id */
 function getProject(ctx, id) {
@@ -45,11 +47,13 @@ function projectSettings(ctx) {
       if (error?.code === 'ENOENT') return EMPTY_SETTINGS
       throw error
     }
+    // Files written before skill toggles existed lack both lists.
+    value = { ...EMPTY_SETTINGS, ...value }
     cache.set(id, value)
     return value
   }
   const update = (id, patch) => {
-    const task = (pending.get(id) ?? Promise.resolve()).catch(() => {}).then(async () => {
+    const task = (pending.get(id) ?? Promise.resolve()).catch(() => { }).then(async () => {
       const next = patch(read(id))
       const path = settingsPath(id)
       await mkdir(dirname(path), { recursive: true })
@@ -355,10 +359,215 @@ async function gitInfo(root) {
   return { branch: branch ?? null, repository: remote === undefined ? null : repositoryOf(remote) }
 }
 
+const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const SKILLS_READ = 'project_skills_read'
+const SKILLS_CHANGE = 'project_skills_change'
+const renderMessage = (_args, value) => [{ type: 'text', text: typeof value?.message === 'string' ? value.message : JSON.stringify(value) }]
+
+/**
+ * Register the agent's project skill tools: a read of the folders and skills its chat's project loads,
+ * and an approved change of the same switches as the project page. A chat outside a project gets a refusal.
+ */
+function registerSkillTools(scope, projectSkills, projectFor) {
+  const projectOf = (agent) => {
+    const workspace = projectFor(agent?.session.header.cwd)
+    if (workspace === undefined) throw new Error('This chat is not in a Jan project, so it has no project skill switches.')
+    return workspace
+  }
+  const prepared = new WeakMap()
+  const plan = async (args, agent) => {
+    if (args === null || typeof args !== 'object' || typeof args.enabled !== 'boolean'
+      || (typeof args.folder === 'string') === (typeof args.skill === 'string')) {
+      throw new Error('Name one skill or one folder path from project_skills_read, and whether to turn it on.')
+    }
+    const workspace = projectOf(agent)
+    const { folders } = await projectSkills.list(workspace)
+    const state = args.enabled ? 'on' : 'off'
+    if (typeof args.folder === 'string') {
+      const folder = folders.find(entry => entry.path !== null && relative(entry.path, args.folder) === '')
+      if (folder === undefined) throw new Error(`No skill folder ${JSON.stringify(args.folder)} is loaded in this project. Read the list again.`)
+      return {
+        workspace, kind: 'folder', target: folder.path, unchanged: folder.enabled === args.enabled, enabled: args.enabled,
+        reason: `Turn ${state} skills from ${folder.label} (${folder.skills.length}) in project ${basename(workspace.path)}?`
+      }
+    }
+    const skill = folders.flatMap(folder => folder.skills).find(entry => entry.name === args.skill)
+    if (skill === undefined) throw new Error(`No skill named ${JSON.stringify(args.skill)} is loaded in this project. Read the list again.`)
+    return {
+      workspace, kind: 'skill', target: skill.name, unchanged: skill.enabled === args.enabled, enabled: args.enabled,
+      reason: `Turn ${state} skill ${skill.name} in project ${basename(workspace.path)}?`
+    }
+  }
+  scope.effect(function*() {
+    yield scope.tools.register({
+      name: SKILLS_READ,
+      description: 'List the skill folders and skills this chat\'s Jan project loads, with the project\'s on/off switches. Use it before project_skills_change. Switches apply to this project only and never change skill files.',
+      parameters: {
+        type: 'object', additionalProperties: false, properties: {
+          folder: { type: 'string', description: 'Optional folder path from an earlier read; adds each skill\'s description for that folder.' },
+        }
+      },
+      output: { schema: {}, render: renderMessage },
+      async execute(args, exec) {
+        try {
+          const { folders } = await projectSkills.list(projectOf(exec.agent))
+          return {
+            folders: folders.map(folder => {
+              const detail = typeof args?.folder === 'string' && folder.path !== null && relative(folder.path, args.folder) === ''
+              return {
+                path: folder.path, label: folder.label, enabled: folder.enabled,
+                skills: folder.skills.map(skill => detail ? { name: skill.name, enabled: skill.enabled, description: skill.description } : `${skill.name}${skill.enabled ? '' : ' (off)'}`)
+              }
+            })
+          }
+        } catch (error) {
+          return { message: error instanceof Error ? error.message : String(error) }
+        }
+      },
+      presentCall: () => ({ card: 'generic', title: 'Read project skills', kind: 'search' }),
+    })
+    yield scope.tools.register({
+      name: SKILLS_CHANGE,
+      description: 'Turn one skill or one skill folder on or off for this chat\'s Jan project, with one approval. These are the switches on the project page: other projects and the skill files are unchanged. The change applies from the next step in this project\'s chats.',
+      parameters: {
+        type: 'object', additionalProperties: false, required: ['enabled'], properties: {
+          skill: { type: 'string', description: 'Skill name from project_skills_read. Give skill or folder, not both.' },
+          folder: { type: 'string', description: 'Folder path from project_skills_read.' },
+          enabled: { type: 'boolean', description: 'true turns it on, false turns it off.' },
+        }
+      },
+      output: { schema: { type: 'object', additionalProperties: false, required: ['ok', 'message'], properties: { ok: { type: 'boolean' }, message: { type: 'string' } } }, render: renderMessage },
+      async execute(_args, exec) {
+        const change = prepared.get(exec)
+        prepared.delete(exec)
+        if (change === undefined) return { ok: false, message: 'Nothing changed. The request did not pass the approval gate.' }
+        const state = change.enabled ? 'on' : 'off'
+        if (change.unchanged) return { ok: true, message: `No change. ${change.target} is already ${state} in this project.` }
+        try {
+          exec.signal.throwIfAborted()
+          if (change.kind === 'folder') await projectSkills.setFolder(change.workspace, change.target, change.enabled)
+          else await projectSkills.setSkill(change.workspace, change.target, change.enabled)
+        } catch (error) {
+          return { ok: false, message: `Nothing changed. ${error instanceof Error ? error.message : String(error)}` }
+        }
+        return { ok: true, message: `Turned ${state} ${change.target} in this project. The skill list updates from the next step; see the Skills card on the project page.` }
+      },
+      presentCall: args => ({ card: 'generic', title: args?.enabled === false ? 'Turn off project skill' : 'Turn on project skill', kind: 'edit' }),
+    })
+    yield scope.on('tools/pre-execute', async (exec, next) => {
+      const decision = await next()
+      if (exec.name !== SKILLS_CHANGE || (decision.kind !== 'allow' && decision.kind !== 'ask')) return decision
+      try {
+        const change = await plan(exec.arguments, exec.agent)
+        prepared.set(exec, change)
+        if (change.unchanged) return { kind: 'allow' }
+        const approval = scope.get('approval')
+        if (decision.kind === 'allow' && exec.agent && approval
+          && (approval.overrideOf(exec.agent.session) ?? approval.config.policy ?? 'ask') === 'never') return decision
+        return { kind: 'ask', reason: change.reason }
+      } catch (error) {
+        return { kind: 'deny', reason: `Nothing changed. ${error instanceof Error ? error.message : String(error)}` }
+      }
+    })
+  }, 'jan-theme: project skill tools')
+}
+
+/** Show a folder under the home directory as `~/…` so its row names the folder people recognise. */
+function homeRelative(path) {
+  const rest = relative(homedir(), path)
+  return rest !== '' && !rest.startsWith('..') && !isAbsolute(rest) ? `~/${rest.split(sep).join('/')}` : path
+}
+
+/**
+ * Group skills by the folder that holds them, `<root>/<name>/SKILL.md` or
+ * `<root>/<name>.md`. A skill turned off by name or by its folder reads as off.
+ * Skills without a file are grouped under `path: null`.
+ */
+export function skillFolders(skills, disabledFolders, disabledNames) {
+  const folders = new Map()
+  for (const skill of skills) {
+    const file = skill.path
+    const root = file === undefined ? null
+      : basename(file) === 'SKILL.md' ? dirname(dirname(file)) : dirname(file)
+    let folder = folders.get(root)
+    if (folder === undefined) {
+      folder = {
+        path: root, label: root === null ? null : homeRelative(root), source: skill.source,
+        enabled: root === null || !disabledFolders.some(path => relative(path, root) === ''),
+        skills: [],
+      }
+      folders.set(root, folder)
+    }
+    folder.skills.push({ name: skill.name, description: skill.description, enabled: !disabledNames.has(skill.name), modelInvocable: skill.invocation.modelInvocable })
+  }
+  return [...folders.values()]
+}
+
 /** @param {import('@janhq/cordis').Context} ctx */
 export function mountProjectHome(ctx) {
   const settings = projectSettings(ctx)
   const readUsage = usageReader(ctx)
+  // A chat inside a project skips the skills and skill folders that project turned off.
+  const projectFor = (cwd) => {
+    if (typeof cwd !== 'string') return undefined
+    let best
+    for (const workspace of ctx.get('workspaceRegistry')?.list() ?? []) {
+      if (within(workspace.path, cwd) && (best === undefined || workspace.path.length > best.path.length)) best = workspace
+    }
+    return best
+  }
+  ctx.inject(['skills'], (scope) => {
+    scope.effect(() => scope.skills.registerFilter({
+      name: 'jan-theme:project-skills',
+      resolve: ({ cwd }) => {
+        const workspace = projectFor(cwd)
+        if (workspace === undefined) return undefined
+        const { disabledSkillFolders, disabledSkills } = settings.read(workspace.id)
+        if (disabledSkillFolders.length === 0 && disabledSkills.length === 0) return undefined
+        const names = new Set(disabledSkills)
+        return skill => !names.has(skill.name)
+          && !(skill.path !== undefined && disabledSkillFolders.some(folder => within(folder, skill.path)))
+      },
+    }), 'jan-theme: project skill toggles')
+  })
+  const refreshSkills = () => { ctx.get('skills')?.refresh() }
+  // One implementation behind the project page switches and the agent's skill tools.
+  const projectSkills = {
+    async list(workspace) {
+      const registry = ctx.get('skills')
+      if (registry === undefined) throw new Error('Skills are not available in this Jan build.')
+      const { disabledSkillFolders, disabledSkills } = settings.read(workspace.id)
+      // The default preset's scope adds its own skill folders, as a new chat here would see them.
+      const lease = await ctx.get('agentPresets')?.acquireScope().catch(() => undefined)
+      try {
+        const all = await registry.list({ cwd: workspace.path, scope: lease?.key, unfiltered: true })
+        return { folders: skillFolders(all, disabledSkillFolders, new Set(disabledSkills)) }
+      } finally {
+        await lease?.[Symbol.asyncDispose]()
+      }
+    },
+    async setFolder(workspace, path, enabled) {
+      if (typeof path !== 'string' || !isAbsolute(path) || typeof enabled !== 'boolean') throw new Error('Choose a skill folder to turn on or off.')
+      const { disabledSkillFolders } = await settings.update(workspace.id, (current) => {
+        const rest = current.disabledSkillFolders.filter(folder => relative(folder, path) !== '')
+        if (!enabled && rest.length >= MAX_SKILL_TOGGLES) throw new Error('Too many skill folders are turned off in this project.')
+        return { ...current, disabledSkillFolders: enabled ? rest : [...rest, path] }
+      })
+      refreshSkills()
+      return disabledSkillFolders
+    },
+    async setSkill(workspace, name, enabled) {
+      if (typeof name !== 'string' || !SKILL_NAME.test(name) || typeof enabled !== 'boolean') throw new Error('Choose a skill to turn on or off.')
+      const { disabledSkills } = await settings.update(workspace.id, (current) => {
+        const rest = current.disabledSkills.filter(skill => skill !== name)
+        if (!enabled && rest.length >= MAX_SKILL_TOGGLES) throw new Error('Too many skills are turned off in this project.')
+        return { ...current, disabledSkills: enabled ? rest : [...rest, name] }
+      })
+      refreshSkills()
+      return disabledSkills
+    },
+  }
+  ctx.inject(['tools'], (scope) => { registerSkillTools(scope, projectSkills, projectFor) })
   ctx.inject(['systemPrompt'], (scope) => {
     scope.systemPrompt.context({
       name: 'jan-theme:project-linked-folders', order: 500, required: true, interpolate: false,
@@ -385,6 +594,10 @@ export function mountProjectHome(ctx) {
     browse: async ({ workspaceId, folderId, parts }) => listFiles(await contextPath(getProject(ctx, workspaceId), settings, folderId, parts)),
     preview: async ({ workspaceId, folderId, parts }) => readPreview(await contextPath(getProject(ctx, workspaceId), settings, folderId, parts)),
     usage: ({ workspaceId }) => readUsage(getProject(ctx, workspaceId)),
+    /** Every skill a chat in this project could see, grouped by folder, with this project's switches. */
+    skills: ({ workspaceId }) => projectSkills.list(getProject(ctx, workspaceId)),
+    setSkillFolder: ({ workspaceId, path, enabled }) => projectSkills.setFolder(getProject(ctx, workspaceId), path, enabled),
+    setSkill: ({ workspaceId, name, enabled }) => projectSkills.setSkill(getProject(ctx, workspaceId), name, enabled),
     async linkFolder({ workspaceId, path }) {
       const workspace = getProject(ctx, workspaceId)
       if (typeof path !== 'string' || !isAbsolute(path)) throw new Error('Choose an external folder.')
