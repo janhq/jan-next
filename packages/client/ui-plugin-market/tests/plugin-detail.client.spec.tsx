@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { PluginDetailDocumentId } from '@janhq/jan-api-remotes/client'
 import { brandString } from '@janhq/jan-brand'
+import { captureFailure } from '@janhq/jan-client-ui-primitives'
 import { bindSnapshotSelector } from '@janhq/jan-client-test-runtime'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import type { LocaleSnapshot } from '@janhq/jan-client-locale/client'
@@ -67,7 +68,7 @@ it('renders nothing without a document, and a reason with a retry when the read 
     ['invalid', en.detailInvalid], ['other', en.detailFailed],
   ] as const
   for (const [failure, text] of reasons) {
-    set(key, { status: 'error', failure })
+    set(key, { status: 'error', failure, diagnostics: captureFailure('pluginMarket.detail', new Error(failure)) })
     expect(screen.getByRole('alert').textContent).toBe(text)
   }
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
