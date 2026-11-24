@@ -15,6 +15,8 @@ class Adapter extends LlmAdapter {
   readonly mainStreaming = Promise.withResolvers<undefined>()
   partialMain = false
   toolOnly = false
+  /** Keep answering with only tool calls even after tool choice is disabled. */
+  ignoresToolChoice = false
   holdSide = false
 
   override resolveModel(provider: string, model: string) {
@@ -47,7 +49,7 @@ class Adapter extends LlmAdapter {
       signal.addEventListener('abort', () => { aborted.resolve(undefined) }, { once: true })
       await aborted.promise
       signal.throwIfAborted()
-    } else if (this.toolOnly && options.toolChoice === undefined) {
+    } else if (this.toolOnly && (options.toolChoice === undefined || this.ignoresToolChoice)) {
       yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('side-call'), name: 'first', arguments: '{}' } }
       yield { type: 'finish', reason: { kind: 'tool-calls' } }
       return
@@ -141,6 +143,16 @@ it('never executes a requested tool and retries a tool-only answer once with too
   expect(adapter.requests[0]?.tools).toEqual(adapter.requests[1]?.tools)
   expect(executed).toEqual([])
   expect(agent.session.snapshotEvents()).toBe(before)
+})
+
+it('reports a failed side answer when the retry still returns no text', async () => {
+  const { ctx, agent, adapter, executed } = await harness()
+  adapter.toolOnly = true
+  adapter.ignoresToolChoice = true
+  const outcome = collect(ctx.btwRuntime.ask(agent, 'side question?', new AbortController().signal))
+  await expect(outcome).rejects.toMatchObject({ code: 'btw/answer-failed' })
+  expect(adapter.requests.map(options => options.toolChoice)).toEqual([undefined, 'none'])
+  expect(executed).toEqual([])
 })
 
 it('cancels only the side provider call', async () => {

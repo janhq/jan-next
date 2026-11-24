@@ -102,7 +102,8 @@ export default class BtwRuntime extends TypertRemoteService {
     }
     try {
       // Keep the same tool declarations as the main call for cache reuse. A
-      // tool-only reply gets one more chance with tool choice disabled.
+      // tool-only reply gets one more chance with tool choice disabled; a reply
+      // that still carries no text is a failure, not an empty answer.
       for (let attempt = 0; attempt < 2; attempt += 1) {
         signal.throwIfAborted()
         const options: GenerateOptions = attempt === 0 ? request : { ...request, toolChoice: 'none' }
@@ -120,12 +121,13 @@ export default class BtwRuntime extends TypertRemoteService {
             yield chunk.block.text
           } else if (chunk.type === 'finish') {
             if (chunk.reason.kind === 'error' || chunk.reason.kind === 'aborted') throw new Error(chunk.reason.failure.message)
-            if (answered || chunk.reason.kind !== 'tool-calls') return
-            toolOnly = true
+            toolOnly = chunk.reason.kind === 'tool-calls'
           }
         }
-        if (!toolOnly) return
+        if (answered) return
+        if (!toolOnly) break
       }
+      throw new Error('The model returned no answer text.')
     } catch (cause: unknown) {
       signal.throwIfAborted()
       throw new RemoteError('btw/answer-failed', 'The model could not answer the side question.', {}, { cause })

@@ -41,7 +41,7 @@ The owner-only `btw/ask` Remote takes a chat session identity and question and s
 
 #### What the model sees
 
-The request appends one user message to the chat's current prefix. The model receives the chat's tool declarations for cache reuse, but the side request never executes any tool. Only a tool-only response is retried, once, with tool choice disabled.
+The request appends one user message to the chat's current prefix. The model receives the chat's tool declarations for cache reuse, but the side request never executes any tool. Only a tool-only response is retried, once, with tool choice disabled; a reply that still has no text fails with `btw/answer-failed` instead of showing an empty answer.
 
 ##### Verbatim side instruction
 
