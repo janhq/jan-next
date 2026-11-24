@@ -14,6 +14,7 @@ import type { RemoteResult, TypertClientRemote } from '@janhq/jan-typert-protoco
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import type { ModelCatalogDirectory } from './catalog.ts'
+import { modelKey, recordRecent } from './model-rank.ts'
 
 /** Directory snapshot both entries render from. */
 export interface ModelDirectoryState {
@@ -123,6 +124,7 @@ export class ModelDirectory {
         ...this.isBlank() ? {} : { session_id: this.sessionId }, model_name: to, switch_from: previousEffort ?? 'default', switch_to: nextEffort ?? 'default',
       })
     }
+    recordRecent(modelKey(selection.provider, selection.model))
     this.store.update((s) => { s.status = 'ready'; s.pending = null; s.error = null })
     this.syncInputs()
     return { ok: true, value: undefined }

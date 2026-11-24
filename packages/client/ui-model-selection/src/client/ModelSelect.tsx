@@ -41,7 +41,7 @@ import {
   IconSearchOutlineRegular, IconStarFillRegular, IconStarOutlineRegular, IconTextOutlineRegular, IconThinkOutlineRegular,
   IconWarningOutlineRegular, Input, isMobileDevice, StateDot, Tag, Toast,
 } from '@janhq/jan-client-ui-primitives'
-import { createSnapshotStore } from '@janhq/jan-client-store'
+import { displayNames, favoriteStore, modelKey, rankModels, RECENT_ROWS, recentStore, toggleFavorite } from './model-rank.ts'
 import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { ModelDetailsOwner, ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
 import { compareModelNames } from './model-order.ts'
@@ -63,41 +63,6 @@ interface EffortChoice {
 /** Short token count for the details card: 32768 -> 33K, 1048576 -> 1M. */
 function formatTokens(tokens: number): string {
   return tokens >= 1_000_000 ? `${Number((tokens / 1_000_000).toFixed(1))}M` : `${Math.round(tokens / 1000)}K`
-}
-
-/**
- * Display names for one provider's models: a router name such as
- * `anthropic/claude-opus-5-5` drops its vendor prefix unless that would make
- * two rows read the same.
- */
-function displayNames(models: readonly ModelCatalogModel[]): Map<string, string> {
-  const short = (name: string): string => name.slice(name.lastIndexOf('/') + 1) || name
-  const counts = new Map<string, number>()
-  for (const model of models) counts.set(short(model.name), (counts.get(short(model.name)) ?? 0) + 1)
-  return new Map(models.map(model => [model.id, counts.get(short(model.name)) === 1 ? short(model.name) : model.name]))
-}
-
-/**
- * Starred models, as `provider/model` keys in the order they were starred. Shared
- * by every seat and kept across restarts; a starred model that leaves the
- * catalog stays starred and returns to Favorites when it comes back.
- */
-const favoriteStore = createSnapshotStore<readonly string[]>([], { persist: { name: 'jan.models.favorites' } })
-const favoriteKey = (provider: string, model: string): string => `${provider}/${model}`
-
-function toggleFavorite(key: string): void {
-  const keys = favoriteStore.getSnapshot()
-  favoriteStore.set(keys.includes(key) ? keys.filter(item => item !== key) : [...keys, key])
-}
-
-/** Lowercase, with `-`, `_`, `.`, `/` and whitespace runs folded to one space. */
-function normalizeSearch(text: string): string {
-  return text.toLowerCase().replace(/[\s\-_./]+/g, ' ').trim()
-}
-
-function searchWords(query: string): string[] {
-  const normalized = normalizeSearch(query)
-  return normalized === '' ? [] : normalized.split(' ')
 }
 
 /**
@@ -186,32 +151,21 @@ export function ModelSelect(
     }))), [groups])
   const showSearch = choices.length > 4
   const favorites = useSyncExternalStore(fn => favoriteStore.subscribe(fn), () => favoriteStore.getSnapshot())
+  const recents = useSyncExternalStore(fn => recentStore.subscribe(fn), () => recentStore.getSnapshot())
   // A model name matches when it contains every typed word, each as one run:
   // "opus 5" finds claude-opus-5, "lam" finds Llama but not cLAude-opus[1M].
   // Scattered-letter matching suits short command names, not model names.
-  // Starred models move out of their provider into Favorites at the top.
-  const sections = useMemo(() => {
-    const words = showSearch ? searchWords(query) : []
-    type Group = (typeof groups)[number]
-    const matches = (group: Group, model: ModelCatalogModel): boolean => {
-      if (words.length === 0) return true
-      const haystack = `${normalizeSearch(model.name)} ${normalizeSearch(group.label(model))}`
-      return words.every(word => haystack.includes(word))
-    }
-    const starred = new Set(favorites)
-    const favoriteRows = favorites.flatMap(key => groups.flatMap(group => group.models
-      .filter(model => favoriteKey(group.id, model.id) === key && matches(group, model))
-      .map(model => ({ group, model }))))
-    return [
-      ...favoriteRows.length === 0 ? [] : [{ key: '\u0000favorites', name: t('menu.favorites'), rows: favoriteRows }],
-      ...groups.map(group => ({
-        key: group.id,
-        name: group.name,
-        rows: group.models.filter(model => !starred.has(favoriteKey(group.id, model.id)) && matches(group, model))
-          .map(model => ({ group, model })),
-      })).filter(section => section.rows.length > 0),
-    ]
-  }, [groups, query, showSearch, favorites, t])
+  // Starred models lead, then the ones used last, then each provider's rest.
+  const sections = useMemo(() => rankModels(groups, {
+    favorites,
+    recents,
+    query: showSearch ? query : '',
+    recentLimit: RECENT_ROWS,
+  }).map(section => ({
+    key: section.key,
+    name: section.kind === 'provider' ? section.name : t(section.kind === 'favorites' ? 'menu.favorites' : 'menu.recent'),
+    rows: section.rows,
+  })), [groups, query, showSearch, favorites, recents, t])
   const visibleChoices = useMemo(() => sections.flatMap(section => section.rows), [sections])
   const visibleModels = useMemo(() => visibleChoices.map(({ group, model }) => ({
     provider: group.id, model: model.id,
@@ -250,14 +204,14 @@ export function ModelSelect(
   // Starring moves a row between sections; the highlight follows the model, not its old index.
   const followRef = useRef<string | null>(null)
   const star = (provider: string, model: string): void => {
-    followRef.current = favoriteKey(provider, model)
+    followRef.current = modelKey(provider, model)
     toggleFavorite(followRef.current)
   }
   useLayoutEffect(() => {
     const key = followRef.current
     if (key === null) return
     followRef.current = null
-    const index = visibleModels.findIndex(choice => favoriteKey(choice.provider, choice.model) === key)
+    const index = visibleModels.findIndex(choice => modelKey(choice.provider, choice.model) === key)
     if (index >= 0) setHighlightedIndex(index)
   }, [visibleModels])
 
@@ -689,7 +643,7 @@ export function ModelSelect(
                   {section.rows.map(({ group, model }) => {
                     const index = modelIndex++
                     const selected = state.current?.provider === group.id && state.current.model === model.id
-                    const starred = favorites.includes(favoriteKey(group.id, model.id))
+                    const starred = favorites.includes(modelKey(group.id, model.id))
                     return (
                       <button
                         ref={(node) => { itemRefs.current[index] = node }}
@@ -793,7 +747,7 @@ export function ModelSelect(
             ? { effort: pending.reasoningEffort }
             : undefined}
           busy={busy}
-          starred={favorites.includes(favoriteKey(activeChoice.group.id, activeChoice.model.id))}
+          starred={favorites.includes(modelKey(activeChoice.group.id, activeChoice.model.id))}
           onToggleStar={() => { star(activeChoice.group.id, activeChoice.model.id) }}
           t={t}
           onPick={(effort) => {

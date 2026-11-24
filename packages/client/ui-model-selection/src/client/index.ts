@@ -14,7 +14,7 @@
 import { createElement } from 'react'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
-import type { ModelSelection } from '@janhq/jan-api-session-controller/types'
+import type { ModelCatalogModel, ModelSelection } from '@janhq/jan-api-session-controller/types'
 import type { ISessions } from '@janhq/jan-api-session-controller/client'
 import type { Context as ClientContext } from '@janhq/cordis'
 import type { CommandArgumentOption, CommandUiContract, SelectOption } from '@janhq/jan-client-ui-commands/client'
@@ -31,6 +31,7 @@ import { IconDataOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type { ModelDirectory, ModelDirectoryState } from './directory.ts'
 import { ModelDirectoryResolver } from './service.ts'
 import type { ModelSelectInjected } from './slots.ts'
+import { displayNames, favoriteStore, modelKey, rankModels, RECENT_ROWS, recentStore, toggleFavorite } from './model-rank.ts'
 import { ModelSelect } from './ModelSelect.tsx'
 import { ImageNotice, type ImageNoticeInjected } from './ImageNotice.tsx'
 import { ToolNotice, type ToolNoticeInjected } from './ToolNotice.tsx'
@@ -159,8 +160,16 @@ function optionsOf(directory: ModelDirectoryState, t: TranslateNS<'model'>): Sel
   return rows
 }
 
-/** Use the catalog model id unless its provider is needed to identify the route. */
-function argumentOptionsOf(state: ModelDirectoryState): CommandArgumentOption[] {
+/**
+ * Inline `/model` suggestions in the picker's order (Favorites, Recent, then
+ * providers) and with its matching. A value is the catalog model id unless
+ * its provider is needed to identify the route.
+ * @param state - the session's directory snapshot.
+ * @param query - typed argument text.
+ * @param t - model namespace translator for the Favorites and Recent headings.
+ * @returns ordered, filtered options.
+ */
+function argumentOptionsOf(state: ModelDirectoryState, query: string, t: TranslateNS<'model'>): CommandArgumentOption[] {
   const ids = new Set<string>()
   const duplicates = new Set<string>()
   const routes = new Set<string>()
@@ -171,11 +180,37 @@ function argumentOptionsOf(state: ModelDirectoryState): CommandArgumentOption[] 
       routes.add(rowId(group.id, model.id))
     }
   }
-  return state.groups.flatMap(group => group.models.map(model => ({
-    value: duplicates.has(model.id) || routes.has(model.id) ? rowId(group.id, model.id) : model.id,
-    label: model.name,
-    group: group.name,
-  })))
+  const groups = state.groups.map((group) => {
+    const names = displayNames(group.models)
+    return { ...group, label: (model: ModelCatalogModel): string => names.get(model.id) ?? model.name }
+  })
+  const favorites = favoriteStore.getSnapshot()
+  const sections = rankModels(groups, { favorites, recents: recentStore.getSnapshot(), query, recentLimit: RECENT_ROWS })
+  return sections.flatMap((section) => {
+    const heading = section.kind === 'provider'
+      ? section.name
+      : t(section.kind === 'favorites' ? 'menu.favorites' : 'menu.recent')
+    return section.rows.map(({ group, model }) => ({
+      value: duplicates.has(model.id) || routes.has(model.id) ? rowId(group.id, model.id) : model.id,
+      label: group.label(model),
+      group: heading,
+      starred: favorites.includes(modelKey(group.id, model.id)),
+    }))
+  })
+}
+
+/**
+ * Resolve a typed or picked `/model` argument: a `provider/model` route, or a
+ * model id that only one provider lists.
+ * @param state - the session's directory snapshot.
+ * @param argument - argument text.
+ * @returns the selection, or undefined when nothing or several routes match.
+ */
+function argumentSelectionOf(state: ModelDirectoryState, argument: string): ModelSelection | undefined {
+  const route = selectionOf(state, argument)
+  if (route !== undefined) return route
+  const groups = state.groups.filter(group => group.models.some(model => model.id === argument))
+  return groups.length === 1 && groups[0] !== undefined ? selectionOf(state, rowId(groups[0].id, argument)) : undefined
 }
 
 /**
@@ -322,17 +357,17 @@ export function apply(ctx: ClientContext): void {
       icon: IconDataOutlineRegular,
       available: session => sessions.subagentAddress(session.sessionId) === undefined,
       arguments: {
-        complete: async (_query, session) => argumentOptionsOf(await directoryFor(session.sessionId).load()),
+        complete: async (query, session) => argumentOptionsOf(await directoryFor(session.sessionId).load(), query, t),
+        ordered: true,
         run: async (argument, session) => {
           const directory = directoryFor(session.sessionId)
-          const state = await directory.load()
-          const route = selectionOf(state, argument)
-          if (route !== undefined) return select(directory, route)
-          const groups = state.groups.filter(group => group.models.some(model => model.id === argument))
-          const group = groups.length === 1 ? groups[0] : undefined
-          const selection = group === undefined ? undefined : selectionOf(state, rowId(group.id, argument))
+          const selection = argumentSelectionOf(await directory.load(), argument)
           if (selection === undefined) throw new Error(t('search.empty'))
           return select(directory, selection)
+        },
+        star: async (value, session) => {
+          const selection = argumentSelectionOf(await directoryFor(session.sessionId).load(), value)
+          if (selection !== undefined) toggleFavorite(modelKey(selection.provider, selection.model))
         },
       },
       ui: {

@@ -9,7 +9,8 @@
  * Scope disposal drops the directory (HMR safety).
  */
 import { Context } from '@janhq/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { favoriteStore, recentStore } from '../src/client/model-rank.ts'
 import { createScope } from '@janhq/jan-api-session-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
@@ -229,21 +230,30 @@ describe('ui-model-selection dual entry', () => {
     expect(b.seat().locale).toBe('model')
   })
 
-  it('selects a catalog model from its inline argument without the popup', async () => {
+  it('selects, orders and stars catalog models from the inline argument without the popup', async () => {
+    onTestFinished(() => { favoriteStore.set([]); recentStore.set([]) })
     const b = await bench('en')
     b.mint('s1')
     const args = b.contribution().arguments!
     const session = projection('s1')
-    expect(await args.complete('pro', session, new AbortController().signal)).toContainEqual({
-      value: 'tokamak-1-pro', label: 'Tokamak 1 Pro', group: 'Tokamak',
+    const complete = (query: string) => args.complete(query, session, new AbortController().signal)
+    expect(await complete('pro')).toContainEqual({
+      value: 'tokamak-1-pro', label: 'Tokamak 1 Pro', group: 'Tokamak', starred: false,
     })
     await args.run('tokamak-1-pro', session)
     expect(b.hostCurrent()).toEqual({ provider: 'example', model: 'tokamak-1-pro', reasoningEffort: 'high' })
-    expect(await args.complete('', session, new AbortController().signal)).toContainEqual({
-      value: 'external/tokamak-1-preview', label: 'External Flash', group: 'External Provider',
+    expect(await complete('')).toContainEqual({
+      value: 'external/tokamak-1-preview', label: 'External Flash', group: 'External Provider', starred: false,
     })
     await args.run('external/tokamak-1-preview', session)
     expect(b.hostCurrent()).toEqual({ provider: 'external', model: 'tokamak-1-preview' })
+    // The models used last lead, most recent first.
+    expect((await complete('')).slice(0, 2).map(option => [option.value, option.group]))
+      .toEqual([['external/tokamak-1-preview', 'Recent'], ['tokamak-1-pro', 'Recent']])
+    // A starred model moves above them into Favorites.
+    await args.star!('tokamak-1-pro', session)
+    expect((await complete('')).slice(0, 2).map(option => [option.value, option.group, option.starred]))
+      .toEqual([['tokamak-1-pro', 'Favorites', true], ['external/tokamak-1-preview', 'Recent', false]])
     await expect(args.run('missing-model', session)).rejects.toThrow('No matching models.')
   })
 
