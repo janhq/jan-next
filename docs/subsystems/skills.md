@@ -293,6 +293,15 @@ registerProvider(create: (control: SkillProviderControl) => SkillProvider): () =
 register(skill: SkillRegistration): () => void
 
 /**
+ * Register a visibility filter applied to every filtered lookup, in every
+ * scope, until the returned disposer runs. Registration and disposal
+ * invalidate cached catalogs.
+ * @param filter - borrowed filter with a registry-unique name.
+ * @returns the Cordis effect disposer that removes this filter.
+ */
+registerFilter(filter: SkillFilter): () => void
+
+/**
  * List invocation-neutral skill summaries for a workspace. Consumers apply
  * model or user invocation policy at their operational boundary. Lookup
  * options and provider candidates are readonly same-process values borrowed

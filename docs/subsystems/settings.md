@@ -44,7 +44,7 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
 
 ### `ctx.scopedSettings` — `ScopedSettings`
 
-Stores per-scope values in one document and applies the tool switches to every live agent. Chat model and mode already live in each chat's own log; this service adds the project layer for new chats and the tool switches for every scope.
+Stores per-scope values in one document, applies the tool switches to every live agent and hides switched-off skills from every lookup. Chat model and mode already live in each chat's own log; this service adds the project layer for new chats and the switches for every scope.
 
 ```ts cordis-catalog
 /**
@@ -54,6 +54,13 @@ Stores per-scope values in one document and applies the tool switches to every l
  * @returns the project id, or undefined outside any project.
  */
 projectOf(sessionId: SessionId, cwd?: string): WorkspaceId | undefined
+
+/**
+ * Find the project whose folder holds a path; the innermost one wins when projects nest.
+ * @param path - absolute folder or file.
+ * @returns the project id, or undefined outside every project folder.
+ */
+projectAt(path: string): WorkspaceId | undefined
 
 /**
  * Model a chat starts on from its project. A model the chat picked itself is recorded in its log and wins.
@@ -79,6 +86,14 @@ async resolveMode(workspaceId: WorkspaceId | undefined): Promise<string | undefi
 resolveToolsDisabled(sessionId: SessionId, cwd?: string): string[]
 
 /**
+ * List every skill a chat in one scope could load, grouped by folder, with that scope's switches and the
+ * wider scopes' ones. A global listing reads the skill folders outside any project.
+ * @param address - the scope and, for a project or chat, its id.
+ * @returns folders with their skills.
+ */
+@Remote async skillCatalog(address: ScopeAddress): Promise<ScopedSkillCatalog>
+
+/**
  * Read the values one scope stores, without inherited ones.
  * @param address - the scope and, for a project or chat, its id.
  * @returns the stored values; an empty object when the scope stores nothing.
@@ -91,6 +106,17 @@ resolveToolsDisabled(sessionId: SessionId, cwd?: string): string[]
  * @returns the values the scope stores after the write.
  */
 @Remote async write(request: ScopedWriteRequest): Promise<ScopedValues>
+
+/**
+ * Switch one entry of one list off or back on, reading the list inside the write queue so
+ * concurrent switches from the editor and the agent never drop each other.
+ * @param address - the scope and, for a project or chat, its id.
+ * @param key - the list.
+ * @param entry - a tool name, `mcp:<server>`, skill name or absolute skill folder.
+ * @param off - true adds the entry, false removes it.
+ * @returns the values the scope stores after the write.
+ */
+@Remote async setSwitch(address: ScopeAddress, key: ScopeListKey, entry: string, off: boolean): Promise<ScopedValues>
 
 /**
  * List what a scope can switch off.

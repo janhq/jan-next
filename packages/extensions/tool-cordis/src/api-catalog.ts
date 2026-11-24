@@ -3082,14 +3082,20 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'scopedSettings',
-    summary: 'Stores per-scope values in one document and applies the tool switches to every live agent.',
-    description: 'Stores per-scope values in one document and applies the tool switches to every live agent. Chat model and mode already live in each chat\'s own log; this service adds the project layer for new chats and the tool switches for every scope.',
+    summary: 'Stores per-scope values in one document, applies the tool switches to every live agent and hides switched-off skills from every lookup.',
+    description: 'Stores per-scope values in one document, applies the tool switches to every live agent and hides switched-off skills from every lookup. Chat model and mode already live in each chat\'s own log; this service adds the project layer for new chats and the switches for every scope.',
     methods: [
       {
         signature: 'projectOf(sessionId: SessionId, cwd?: string): WorkspaceId | undefined',
         description: 'Find the project a chat belongs to.',
         parameters: [{ name: 'sessionId', description: 'the chat.' }, { name: 'cwd', description: 'the chat\'s folder, for a chat the project list has not indexed yet.' }],
         returns: 'the project id, or undefined outside any project.',
+      },
+      {
+        signature: 'projectAt(path: string): WorkspaceId | undefined',
+        description: 'Find the project whose folder holds a path; the innermost one wins when projects nest.',
+        parameters: [{ name: 'path', description: 'absolute folder or file.' }],
+        returns: 'the project id, or undefined outside every project folder.',
       },
       {
         signature: 'resolveModel(sessionId: SessionId, workspaceHint?: WorkspaceId): ScopedModel | undefined',
@@ -3110,6 +3116,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'sorted tool names and `mcp:<server>` entries.',
       },
       {
+        signature: '@Remote async skillCatalog(address: ScopeAddress): Promise<ScopedSkillCatalog>',
+        description: 'List every skill a chat in one scope could load, grouped by folder, with that scope\'s switches and the wider scopes\' ones. A global listing reads the skill folders outside any project.',
+        parameters: [{ name: 'address', description: 'the scope and, for a project or chat, its id.' }],
+        returns: 'folders with their skills.',
+      },
+      {
         signature: '@Remote read(address: ScopeAddress): ScopedValues',
         description: 'Read the values one scope stores, without inherited ones.',
         parameters: [{ name: 'address', description: 'the scope and, for a project or chat, its id.' }],
@@ -3119,6 +3131,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: '@Remote async write(request: ScopedWriteRequest): Promise<ScopedValues>',
         description: 'Replace or remove values of one scope.',
         parameters: [{ name: 'request', description: 'the scope, its id, and the keys to set; `null` or an empty list returns a key to the wider scope.' }],
+        returns: 'the values the scope stores after the write.',
+      },
+      {
+        signature: '@Remote async setSwitch(address: ScopeAddress, key: ScopeListKey, entry: string, off: boolean): Promise<ScopedValues>',
+        description: 'Switch one entry of one list off or back on, reading the list inside the write queue so concurrent switches from the editor and the agent never drop each other.',
+        parameters: [{ name: 'address', description: 'the scope and, for a project or chat, its id.' }, { name: 'key', description: 'the list.' }, { name: 'entry', description: 'a tool name, `mcp:<server>`, skill name or absolute skill folder.' }, { name: 'off', description: 'true adds the entry, false removes it.' }],
         returns: 'the values the scope stores after the write.',
       },
       {
@@ -3897,6 +3915,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Register a borrowed readonly runtime skill into the calling context\'s layer. Project entries outrank runtime entries, which outrank user entries, within one layer. Same-name runtime entries in one layer are first-wins; a duplicate logs a warning and receives a no-op disposer so it cannot remove the winner.',
         parameters: [{ name: 'skill', description: 'the skill definition input; omitted invocation and provider fields receive defaults.' }],
         returns: 'the exact Cordis effect disposer, preserving composite teardown order and invalidating caches.',
+      },
+      {
+        signature: 'registerFilter(filter: SkillFilter): () => void',
+        description: 'Register a visibility filter applied to every filtered lookup, in every scope, until the returned disposer runs. Registration and disposal invalidate cached catalogs.',
+        parameters: [{ name: 'filter', description: 'borrowed filter with a registry-unique name.' }],
+        returns: 'the Cordis effect disposer that removes this filter.',
       },
       {
         signature: 'async list(options: SkillViewOptions = {}): Promise<SkillSummary[]>',
@@ -6207,7 +6231,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AgentPresetRow',
-    declaration: 'export interface AgentPresetRow {\n    readonly id: string;\n    readonly isDefault: boolean;\n    readonly name?: string;\n    readonly description?: string;\n    readonly icon?: string;\n    readonly broken?: string;\n}',
+    declaration: 'export interface AgentPresetRow {\n    readonly id: string;\n    readonly isDefault: boolean;\n    readonly name?: string;\n    readonly description?: string;\n    readonly icon?: string;\n    readonly order?: number;\n    readonly showInModePicker?: boolean;\n    readonly broken?: string;\n}',
   },
   {
     name: 'AgentResolver',
@@ -7410,6 +7434,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type IndexInjectionPlacement = \'head\' | \'body\';',
   },
   {
+    name: 'InheritedOff',
+    declaration: 'export type InheritedOff = \'global\' | \'project\';',
+  },
+  {
     name: 'InspectOptions',
     declaration: 'export interface InspectOptions {\n    readonly registry?: Registry;\n}',
   },
@@ -8447,7 +8475,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'PresetDefinition',
-    declaration: 'export interface PresetDefinition {\n    readonly id: string;\n    readonly name?: string;\n    readonly description?: string;\n    readonly icon?: string;\n    readonly order?: number;\n    readonly toolAllowlist?: readonly string[] | undefined;\n    readonly readOnlyDelegation?: boolean | undefined;\n    readonly plugins: readonly (Omit<EntryOptions, \'id\' | \'disabled\'> & {\n        id?: string;\n        disabled?: EntryOptions[\'disabled\'] | JsExpr;\n    })[];\n}',
+    declaration: 'export interface PresetDefinition {\n    readonly id: string;\n    readonly name?: string;\n    readonly description?: string;\n    readonly icon?: string;\n    readonly order?: number;\n    readonly showInModePicker?: boolean;\n    readonly toolAllowlist?: readonly string[] | undefined;\n    readonly readOnlyDelegation?: boolean | undefined;\n    readonly plugins: readonly (Omit<EntryOptions, \'id\' | \'disabled\'> & {\n        id?: string;\n        disabled?: EntryOptions[\'disabled\'] | JsExpr;\n    })[];\n}',
   },
   {
     name: 'PresetOption',
@@ -9046,16 +9074,28 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ScopedModel {\n    readonly provider: string;\n    readonly model: string;\n    readonly reasoningEffort?: string;\n}',
   },
   {
+    name: 'ScopedSkillCatalog',
+    declaration: 'export interface ScopedSkillCatalog {\n    readonly folders: readonly ScopedSkillFolder[];\n}',
+  },
+  {
+    name: 'ScopedSkillEntry',
+    declaration: 'export interface ScopedSkillEntry {\n    readonly name: string;\n    readonly description: string;\n    readonly off: boolean;\n    readonly offAt?: InheritedOff;\n}',
+  },
+  {
+    name: 'ScopedSkillFolder',
+    declaration: 'export interface ScopedSkillFolder {\n    readonly path: string | null;\n    readonly label: string | null;\n    readonly off: boolean;\n    readonly offAt?: InheritedOff;\n    readonly skills: readonly ScopedSkillEntry[];\n}',
+  },
+  {
     name: 'ScopedToolCatalog',
     declaration: 'export interface ScopedToolCatalog {\n    readonly tools: readonly string[];\n    readonly mcpServers: readonly string[];\n}',
   },
   {
     name: 'ScopedValues',
-    declaration: 'export interface ScopedValues {\n    readonly model?: ScopedModel;\n    readonly mode?: string;\n    readonly toolsDisabled?: string[];\n}',
+    declaration: 'export interface ScopedValues {\n    readonly model?: ScopedModel;\n    readonly mode?: string;\n    readonly toolsDisabled?: string[];\n    readonly skillsDisabled?: string[];\n    readonly skillFoldersDisabled?: string[];\n}',
   },
   {
     name: 'ScopedValuesPatch',
-    declaration: 'export interface ScopedValuesPatch {\n    readonly model?: ScopedModel | null;\n    readonly mode?: string | null;\n    readonly toolsDisabled?: string[] | null;\n}',
+    declaration: 'export interface ScopedValuesPatch {\n    readonly model?: ScopedModel | null;\n    readonly mode?: string | null;\n    readonly toolsDisabled?: string[] | null;\n    readonly skillsDisabled?: string[] | null;\n    readonly skillFoldersDisabled?: string[] | null;\n}',
   },
   {
     name: 'ScopedWriteRequest',
@@ -9064,6 +9104,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ScopeKey',
     declaration: 'export type ScopeKey = object;',
+  },
+  {
+    name: 'ScopeListKey',
+    declaration: 'export type ScopeListKey = \'toolsDisabled\' | \'skillsDisabled\' | \'skillFoldersDisabled\';',
   },
   {
     name: 'SearchFileMatches',
@@ -9894,6 +9938,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SkillEntry {\n    readonly path?: string;\n    readonly name: string;\n    readonly description: string;\n    readonly whenToUse?: string;\n    readonly modelInvocable: boolean;\n}',
   },
   {
+    name: 'SkillFilter',
+    declaration: 'export interface SkillFilter {\n    readonly name: string;\n    readonly resolve: (options: SkillViewOptions) => ((skill: SkillSummary) => boolean) | undefined;\n}',
+  },
+  {
     name: 'SkillInvocationPolicy',
     declaration: 'export interface SkillInvocationPolicy {\n    readonly modelInvocable: boolean;\n    readonly userInvocable: boolean;\n}',
   },
@@ -9939,7 +9987,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SkillViewOptions',
-    declaration: 'export interface SkillViewOptions extends SkillLookupOptions {\n    readonly scope?: ScopeKey | undefined;\n}',
+    declaration: 'export interface SkillViewOptions extends SkillLookupOptions {\n    readonly scope?: ScopeKey | undefined;\n    readonly unfiltered?: boolean | undefined;\n}',
   },
   {
     name: 'SpeechCatalog',

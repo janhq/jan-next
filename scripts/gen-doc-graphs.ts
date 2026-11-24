@@ -396,6 +396,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Projects the user-settings seam onto the generated Remote namespace: the read is always redacted and every refusal is classified here, not on the seam Definition.',
   },
   {
+    key: 'scopedSettings',
+    pkg: 'scoped-settings',
+    title: 'Chat, project and global switch store',
+    mode: 'core',
+    note: 'Stores model and mode defaults per project and tool and skill switches per chat, project and globally; applies tool switches as per-agent restrictions and skill switches as one registry filter.',
+  },
+  {
     key: 'workspaceFiles',
     pkg: 'api-workspace-files',
     title: 'Host workspace file Remote service',
