@@ -131,8 +131,10 @@ async function startRebuildWatchers(): Promise<() => Promise<void>> {
   let tail = ''
   child.stdout?.on('data', (chunk: Buffer) => {
     process.stdout.write(chunk)
-    tail = (tail + chunk.toString('utf8')).slice(-1024)
-    if (tail.includes(WATCHERS_READY)) ready.resolve()
+    // Test before trimming: the marker opens a multi-kilobyte package listing that arrives as one chunk.
+    const seen = tail + chunk.toString('utf8')
+    if (seen.includes(WATCHERS_READY)) ready.resolve()
+    tail = seen.slice(-WATCHERS_READY.length)
   })
   let stopping = false
   const exit = exited(child)
