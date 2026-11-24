@@ -4,10 +4,10 @@
  * @module @janhq/jan-agent-profiles/types
  */
 import type {} from '@janhq/cordis'
-import type { SessionId } from '@janhq/jan-session'
+import type { SessionId } from '@janhq/jan-session/types'
 import type {} from '@janhq/jan-session-projection/types'
 import type {} from '@janhq/jan-typert-protocol'
-import type { WorkspaceId } from '@janhq/jan-workspace'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
 
 declare module '@janhq/cordis' {
   interface Events {
