@@ -1,18 +1,13 @@
-/** Desktop Office skills and bundled authoring dependencies. */
+/** Desktop paths for the optional Office plugin rows in the `@janhq/jan-desktop-app` bundle. */
 
 import { realpathSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { runtimeArchivePath } from './office-engine.ts'
-import type { Context } from '@janhq/cordis'
-import * as officeSkills from '@janhq/jan-skill-office'
-import * as workspaceDependencies from '@janhq/jan-tool-workspace-dependencies'
 
-/** Loader identity for the application-owned Office composition. */
-export const name = 'desktop-office'
-/** Application-selected bundled payload and installation directories. */
-export interface Config {
-  /** Bundled payload directory. Missing sibling `office-skills` resources fail Host startup. */
+/** Bundled payload locations the Desktop carrier knows before the profile loads. */
+export interface OfficePaths {
+  /** Bundled payload directory. Its sibling `office-skills` holds the skill assets. */
   readonly source: string
   /** Harness-home directory where workspace dependencies are installed. */
   readonly root: string
@@ -21,18 +16,20 @@ export interface Config {
 }
 
 /**
- * Enable offline Office authoring and LibreOffice Kit operations in the Desktop profile.
- * @param ctx - Profile scope; child plugins declare their own service requirements.
- * @param config - Bundled payload source and Harness-home installation root.
+ * Name the bundled Office payload for the bundle rows, which read these variables in their config.
+ * The rows stay ordinary plugins: Plugins can switch them off or override any path.
+ * @param paths - Bundled payload source, installation root, and runtime directory.
+ * @returns Environment variables for `workspace-dependencies` and `skill-office`.
  */
-export async function apply(ctx: Context, config: Config): Promise<void> {
-  await ctx.plugin(workspaceDependencies, config)
-  const archive = runtimeArchivePath(config.runtimeDir) === undefined ? undefined : dirname(realpathSync(config.runtimeDir))
+export function officeEnvironment(paths: OfficePaths): Record<string, string> {
+  const archive = runtimeArchivePath(paths.runtimeDir) === undefined ? undefined : dirname(realpathSync(paths.runtimeDir))
   const manifest = fileURLToPath(import.meta.resolve('@deepseek-ai/libreoffice-kit/package.json'))
   const packageRoot = dirname(archive === undefined ? manifest : join(`${archive}.unpacked`, relative(archive, manifest)))
-  await ctx.plugin(officeSkills, {
-    assetRoot: join(dirname(config.source), 'office-skills'),
-    node: join(config.source, 'dependencies', 'node', 'bin', process.platform === 'win32' ? 'node.exe' : 'node'),
-    cli: join(packageRoot, 'lib', 'cli.js'),
-  })
+  return {
+    JAN_BUNDLED_PRIMARY_RUNTIME: paths.source,
+    JAN_BUNDLED_PRIMARY_RUNTIME_ROOT: paths.root,
+    JAN_BUNDLED_OFFICE_SKILLS: join(dirname(paths.source), 'office-skills'),
+    JAN_BUNDLED_OFFICE_NODE: join(paths.source, 'dependencies', 'node', 'bin', process.platform === 'win32' ? 'node.exe' : 'node'),
+    JAN_BUNDLED_OFFICE_CLI: join(packageRoot, 'lib', 'cli.js'),
+  }
 }

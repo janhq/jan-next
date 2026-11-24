@@ -117,6 +117,13 @@
     - id: jan-onboarding
       name: '@janhq/jan-onboarding'
 
+    # Office: Word, PowerPoint and Excel skills with the bundled Python and
+    # LibreOffice Kit. Customize > Plugins > Office switches it off, or one
+    # format or the LibreOffice operations at a time. The Desktop Host names
+    # its bundled payload in JAN_BUNDLED_* before the profile loads.
+    - id: jan-office
+      name: '@janhq/jan-office'
+
     # Generative UI: a reply can answer with a live React card (a ```ui4a/tsx
     # fence) inline in the chat, or a canvas file that opens beside it.
     - id: dsh-generative-ui

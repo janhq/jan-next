@@ -1,0 +1,25 @@
+{
+  "name": "@janhq/jan-office",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Word, PowerPoint and Excel skills with LibreOffice Kit rendering, recalculation and PDF export; switch each part on or off.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.mjs", "skills.mjs", "client.js", "README.md"],
+  "dependencies": {
+    "@janhq/jan-skill-office": "workspace:*",
+    "@janhq/jan-tool-workspace-dependencies": "workspace:*",
+    "@janhq/schemastery": "workspace:~"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-primitives"]
+    }
+  }
+}

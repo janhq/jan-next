@@ -887,15 +887,9 @@ importers:
       '@janhq/jan-schedule':
         specifier: workspace:*
         version: link:../../packages/schedule/schedule
-      '@janhq/jan-skill-office':
-        specifier: workspace:*
-        version: link:../../packages/skill/skill-office
       '@janhq/jan-tokamak-account':
         specifier: workspace:*
         version: link:../../packages/credentials/tokamak-account
-      '@janhq/jan-tool-workspace-dependencies':
-        specifier: workspace:*
-        version: link:../../packages/skill/tool-workspace-dependencies
       '@janhq/jan-workspace':
         specifier: workspace:*
         version: link:../../packages/workspace/workspace
@@ -19091,6 +19085,9 @@ importers:
       '@janhq/jan-notifications':
         specifier: workspace:*
         version: link:../notifications
+      '@janhq/jan-office':
+        specifier: workspace:*
+        version: link:../office
       '@janhq/jan-onboarding':
         specifier: workspace:*
         version: link:../jan-onboarding
@@ -19299,6 +19296,18 @@ importers:
 
   plugins/notifications:
     dependencies:
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
+
+  plugins/office:
+    dependencies:
+      '@janhq/jan-skill-office':
+        specifier: workspace:*
+        version: link:../../packages/skill/skill-office
+      '@janhq/jan-tool-workspace-dependencies':
+        specifier: workspace:*
+        version: link:../../packages/skill/tool-workspace-dependencies
       '@janhq/schemastery':
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery

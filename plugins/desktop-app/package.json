@@ -42,6 +42,7 @@
     "@janhq/jan-onboarding": "workspace:*",
     "@janhq/jan-persona": "workspace:*",
     "@janhq/jan-preset-square": "workspace:*",
+    "@janhq/jan-office": "workspace:*",
     "@janhq/jan-time-context": "workspace:*",
     "@janhq/jan-tokamak": "workspace:*",
     "@janhq/jan-tool-fs": "workspace:*",
