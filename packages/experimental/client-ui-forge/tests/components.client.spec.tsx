@@ -12,6 +12,7 @@ import { changesAddress } from '../src/client/changes-address.ts'
 import { ChangesTabTitle } from '../src/client/ChangesTabTitle.tsx'
 import { ForgeTabTitle } from '../src/client/ForgeTabTitle.tsx'
 import { HeaderButton } from '../src/client/HeaderButton.tsx'
+import { SidebarStatusRow } from '../src/client/SidebarStatusRow.tsx'
 import { en } from '../src/client/locales.ts'
 import { createNoticeSource, type PanelSnapshot } from '../src/client/source.ts'
 import type { ForgePanelState } from '../src/types.ts'
@@ -39,13 +40,14 @@ describe('HeaderButton', () => {
     ['before the first state', null],
     ['outside a Git checkout', ready({ checkout: { state: 'none' } })],
     ['while the first inspection of an unknown repository runs', ready({ checkout: { state: 'pending' }, repository: null })],
+    // Most people have no Git: an inspection that could not run it must not surface Git controls.
+    ['when the inspection could not run Git', ready({ checkout: { state: 'failed', message: 'spawn git ENOENT' }, repository: null })],
   ])('stays hidden %s', (_label, state) => {
     expect(header(state).view.container.innerHTML).toBe('')
   })
 
   it.each([
     ['a ready checkout', ready()],
-    ['a failed inspection', ready({ checkout: { state: 'failed', message: 'boom' } })],
     ['a repeated inspection of a known repository', ready({ checkout: { state: 'pending' } })],
     ['bound change requests outside a Git checkout', ready({ checkout: { state: 'none' }, changeRequests: [entry(1, snapshot(1))] })],
   ])('opens the hidden tab for %s', (_label, state) => {
@@ -199,5 +201,19 @@ describe('ActionToast', () => {
     act(() => { vi.advanceTimersByTime(1000) })
     expect(b.dismiss).toHaveBeenCalledOnce()
     expect(screen.queryByRole('alert')).toBeNull()
+  })
+})
+
+describe('SidebarStatusRow', () => {
+  it('stays out of Settings until a chat has a pull request, then shows the switch', () => {
+    const relevant = createSnapshotStore(false)
+    const shown = createSnapshotStore(true)
+    const view = render(
+      <SidebarStatusRow useSidebarStatus={bindSnapshotSelector(shown)} useRelevant={bindSnapshotSelector(relevant)}
+        setShown={vi.fn(async () => true)} t={t} />,
+    )
+    expect(view.container.innerHTML).toBe('')
+    act(() => { relevant.set(true) })
+    expect(view.getByRole('switch', { name: en['settings.sidebarStatus.title'] })).toBeTruthy()
   })
 })

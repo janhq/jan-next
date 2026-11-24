@@ -18,6 +18,22 @@ export interface StreamSnapshot<S> {
 /** What the panel surfaces of one Session read; `state` is null before the first one arrives. */
 export type PanelSnapshot = StreamSnapshot<ForgePanelState | null>
 
+/**
+ * Whether a Session's surfaces mention Git at all: once it has bound change requests, or its
+ * directory is known to be inside a Git checkout - an inspection found one, or a later inspection
+ * runs for a directory whose repository is already known. A directory outside a checkout, an
+ * inspection that could not run Git (most people have no Git installed), and the time before the
+ * first state all answer false, so someone who never uses Git never sees branches or reviews.
+ * @param snapshot - panel snapshot.
+ * @returns whether Git surfaces show.
+ */
+export function offersForge(snapshot: PanelSnapshot): boolean {
+  const state = snapshot.state
+  if (state === null) return false
+  return state.changeRequests.length > 0 || state.checkout.state === 'ready'
+    || (state.checkout.state === 'pending' && state.repository !== null)
+}
+
 /** One open Host stream. */
 export interface HostStream<F> extends AsyncIterable<F> {
   /** Close the stream. */

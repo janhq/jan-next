@@ -393,6 +393,28 @@ describe('mountForgePanel Session stores', () => {
     await f.dispose()
   })
 
+  it('offers the review guide entry only while the Session\'s folder is a Git checkout, over its shared panel stream', async () => {
+    const f = await fixture()
+    const offeredIn = f.sidebarRightTabs.register.mock.calls[0]?.[0].guide?.[0]?.offeredIn
+    if (offeredIn === undefined) throw new Error('expected the review entry to declare offeredIn')
+    const offered = offeredIn(S1)
+    expect(offered.getSnapshot()).toBe(false)
+    const unsubscribe = offered.subscribe(() => {})
+    expect(f.forgePanel.follow).toHaveBeenCalledOnce()
+    f.streams[0]?.push(ready({ checkout: { state: 'none' }, repository: null }))
+    await vi.waitFor(() => { expect(f.tab(S1).hooks.panel.getSnapshot().state).not.toBeNull() })
+    expect(offered.getSnapshot()).toBe(false)
+    f.streams[0]?.push(ready())
+    await vi.waitFor(() => { expect(offered.getSnapshot()).toBe(true) })
+    // Git that cannot run reads as no Git, not as a broken checkout.
+    f.streams[0]?.push(ready({ checkout: { state: 'failed', message: 'spawn git ENOENT' }, repository: null }))
+    await vi.waitFor(() => { expect(offered.getSnapshot()).toBe(false) })
+    unsubscribe()
+    f.sessions.scope.mockReturnValue(undefined)
+    expect(offeredIn(S2).getSnapshot()).toBe(false)
+    await f.dispose()
+  })
+
   it('shares the Host facts between Sessions and reads them again after each reconnect', async () => {
     const f = await fixture()
     const host = f.tab(S1).hooks.host

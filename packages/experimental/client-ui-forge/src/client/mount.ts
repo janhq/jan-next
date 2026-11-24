@@ -32,7 +32,8 @@ import { SessionHoverForge } from './SessionHoverForge.tsx'
 import { SessionRowForge } from './SessionRowForge.tsx'
 import { SidebarStatusRow, type SidebarStatusRowInjected } from './SidebarStatusRow.tsx'
 import {
-  createNoticeSource, createPanelSource, createStreamSource, createVisibilitySource, foldStates, type PanelSource, type VisibilitySource,
+  createNoticeSource, createPanelSource, createStreamSource, createVisibilitySource, foldStates, offersForge,
+  type PanelSource, type VisibilitySource,
 } from './source.ts'
 import { numberOf } from './status.ts'
 import { GitStrip, type GitStripInjected } from './GitStrip.tsx'
@@ -58,6 +59,9 @@ export const CONFIG_ENTRY = 'forge-panel'
 function openLink(url: string): void {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
+
+/** The answer for a Session this window no longer retains: it offers nothing Git. */
+const NEVER: HostObservable<boolean> = { getSnapshot: () => false, subscribe: () => () => {} }
 
 /** Per-Session stores shared by the tab, the header button, the New Session option, and the worktree card. */
 interface SessionStores {
@@ -276,6 +280,11 @@ function registerUi(ctx: Context): void {
     id: TAB_ID, kind: TAB_KIND, title: () => t('tab.title'),
     guide: [{
       id: 'review', order: 15, title: () => t('guide.title'), description: () => t('guide.description'), icon: IconBranchOutlineRegular,
+      offeredIn: (sessionId): HostObservable<boolean> => {
+        if (ctx.sessions.scope(sessionId) === undefined) return NEVER
+        const panel = storesOf(sessionId).panel.hooks.panel
+        return { getSnapshot: () => offersForge(panel.getSnapshot()), subscribe: listener => panel.subscribe(listener) }
+      },
     }],
   }), 'forge-panel: sidebar tab')
   ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
@@ -347,12 +356,17 @@ function registerUi(ctx: Context): void {
     name: 'sidebar.session.row.hover', id: 'forge-panel.row', order: 20, locale: NS, inject: listFace,
   }, SessionHoverForge))
   // The switch writes the Host entry's volatile field, so every window follows it without a restart.
+  // It only governs chats with a pull request, so it stays out of Settings until one exists.
+  const anyChangeRequest: HostObservable<boolean> = {
+    getSnapshot: () => states.observable.getSnapshot().state.size > 0,
+    subscribe: listener => states.observable.subscribe(listener),
+  }
   ctx.inject(['configForms'], (scope) => {
     const form = scope.configForms.get<Pick<Config, 'sidebarStatus'>>(CONFIG_ENTRY)
     scope.slots.inject('settings.general.item', () => scope.slots.register({
       name: 'settings.general.item', id: 'forge-sidebar-status', order: 16, locale: NS,
       inject: (): SidebarStatusRowInjected => ({
-        hooks: { sidebarStatus: sidebarStatusOf(scope) },
+        hooks: { sidebarStatus: sidebarStatusOf(scope), relevant: anyChangeRequest },
         setShown: shown => form.set('sidebarStatus', shown),
       }),
     }, SidebarStatusRow))

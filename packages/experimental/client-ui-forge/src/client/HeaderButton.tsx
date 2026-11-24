@@ -6,7 +6,7 @@ import type { HostObservable, InjectFace, PropsLocale } from '@janhq/jan-client-
 import type {} from '@janhq/jan-client-ui-conversation/client'
 import { ChangeRequestGlyph } from './glyphs.tsx'
 import type { NS } from './locales.ts'
-import type { PanelSnapshot } from './source.ts'
+import { offersForge, type PanelSnapshot } from './source.ts'
 import { needsAttention } from './status.ts'
 import css from './HeaderButton.module.css'
 
@@ -25,27 +25,12 @@ export interface HeaderButtonInjected {
 export type HeaderButtonProps = InjectFace<HeaderButtonInjected> & PropsLocale<typeof NS>
 
 /**
- * Show the entry once the Session has bound change requests or its directory
- * is known to be inside a Git checkout: after an inspection found one or
- * failed, or while a later inspection runs for a directory whose repository
- * is already known.
- * @param snapshot - panel snapshot.
- * @returns whether the entry shows.
- */
-function shown(snapshot: PanelSnapshot): boolean {
-  const state = snapshot.state
-  if (state === null) return false
-  return state.changeRequests.length > 0 || state.checkout.state === 'ready' || state.checkout.state === 'failed'
-    || (state.checkout.state === 'pending' && state.repository !== null)
-}
-
-/**
  * Render the header entry.
  * @param props - panel snapshot and visibility hooks, the toggle, and copy.
  * @returns the entry, or nothing outside a Git checkout without bound change requests.
  */
 export function HeaderButton({ usePanel, useVisible, toggle, t }: HeaderButtonProps): ReactNode {
-  const visible = usePanel(shown)
+  const visible = usePanel(offersForge)
   const attention = usePanel(snapshot => snapshot.state?.changeRequests.some(needsAttention) === true)
   const pressed = useVisible(current => current)
   if (!visible) return null
