@@ -10,7 +10,7 @@ export const name = 'jan-office'
 export const Config = Schema.object({
   enabled: Schema.boolean().default(true).description('Offer the Office skills to agents.'),
   word: Schema.boolean().default(true).description('Word documents (.docx).'),
-  powerpoint: Schema.boolean().default(true).description('PowerPoint presentations (.pptx).'),
+  powerpoint: Schema.boolean().default(false).description('PowerPoint presentations (.pptx); off until switched on.'),
   excel: Schema.boolean().default(true).description('Excel workbooks (.xlsx).'),
   operations: Schema.boolean().default(true).description('Render pages, recalculate formulas and export PDF with LibreOffice Kit.'),
 })

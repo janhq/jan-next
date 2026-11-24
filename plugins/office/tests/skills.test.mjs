@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { Config } from '../index.mjs'
 import { officeSkills } from '../skills.mjs'
 
 const all = { word: true, powerpoint: true, excel: true, operations: true }
@@ -12,4 +13,9 @@ test('registers the router, the chosen formats, and LibreOffice operations only 
 
 test('lists nothing, not a lone router, when every format is off', () => {
   assert.deepEqual(officeSkills({ word: false, powerpoint: false, excel: false, operations: true }), [])
+})
+
+test('leaves PowerPoint off by default and keeps the other parts on', () => {
+  assert.deepEqual(officeSkills(Config({})),
+    ['office', 'office-docx', 'office-xlsx', 'office-render', 'office-recalculate', 'office-export-pdf'])
 })
