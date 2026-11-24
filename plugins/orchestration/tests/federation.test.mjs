@@ -18,6 +18,7 @@ async function pair(t) {
   let offline = false
   let refuseStop = false
   let lostStartReplies = 0
+  let extraStartFields = false
   let beforeAck
   const auth = 'Bearer federation-test'
   async function host(id, peerId, kind) {
@@ -49,6 +50,7 @@ async function pair(t) {
           lostStartReplies--
           throw new Error('socket hang up')
         }
+        if (extraStartFields && method === 'peerStart' && !body.error) Object.assign(body.result, { status: 'done', host: 'elsewhere', taskId: 'task_zzzzzzzzzz' })
         // Like Hosts' callPlugin: a 4xx is a refusal, a 5xx a temporary failure.
         if (body.error) throw Object.assign(new Error(body.error), response.status < 500 ? { code: 'rejected' } : {})
         assert.equal(response.status, 200)
@@ -69,7 +71,8 @@ async function pair(t) {
   const state = async host => JSON.parse(await readFile(join(host.home, 'orchestration', 'state.json'), 'utf8'))
   const outbox = async () => (await state(b)).outbox
   return { a, b, start, inbox, outbox, state, auth, calls, blockAck: fn => { beforeAck = fn },
-    setOffline: value => { offline = value }, setRefuseStop: value => { refuseStop = value }, loseStartReplies: count => { lostStartReplies = count } }
+    setOffline: value => { offline = value }, setRefuseStop: value => { refuseStop = value }, loseStartReplies: count => { lostStartReplies = count },
+    sendExtraStartFields: () => { extraStartFields = true } }
 }
 
 test('delivers sends and ordered reports between two Hosts, then clears the outbox', async t => {
@@ -243,6 +246,15 @@ test('retries a remote start that failed after its worker was saved', async t =>
   assert.equal(Object.keys((await state(b)).workers).length, 1)
   assert.equal((await state(a)).dispatches[task.dispatchId].status, 'running')
   assert.equal(b.notifications.filter(item => item.id === task.sessionId).length, 1)
+})
+
+test('keeps only the session and isolation from a peer start reply', async t => {
+  const { a, state, sendExtraStartFields } = await pair(t)
+  sendExtraStartFields()
+  const { tasks: [task] } = await a.call('start', { tasks: [{ title: 'Draft', spec: 'Write the notes.', host: 'host b', worktree: 'current' }] })
+  const dispatch = (await state(a)).dispatches[task.dispatchId]
+  assert.deepEqual([dispatch.status, dispatch.host, dispatch.taskId], ['running', 'b', task.taskId])
+  assert.deepEqual(dispatch.isolation, { kind: 'shared', reason: 'requested' })
 })
 
 test('retries a remote stop whose save failed there, after cancelling the worker', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async t => {

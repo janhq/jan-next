@@ -119,34 +119,37 @@ export function createWorkers(ctx, store, delivery, emit) {
     const { dispatchId, taskId, title, project, worktree, mode, agent: profile, coordinator } = payload
     assertActive(dispatchId, signal)
     let worker = store.read().workers[dispatchId]
-    let isolation = store.read().dispatches[dispatchId]?.isolation
-    let agent, cwd, sessionId
-    if (worker) {
-      ({ sessionId } = worker)
-      // A relaunch after a failed save may find a worker its first launch never indexed.
-      bySession.set(sessionId, worker)
-      if (worker.doneSent || store.read().dispatches[dispatchId].status !== 'starting') return { sessionId, isolation }
-      agent = await resolveAgent(sessionId)
-      if (isolation.kind === 'shared') cwd = await ctx.workingDirectory.ensure(agent, signal)
-    } else {
+    if (!worker) {
       const id = workspaceId(project, coordinator)
       const preset = await workerPreset(ctx, mode)
       const created = await ctx.sessionController.create({ ...(id ? { workspaceId: id } : {}),
         ...(preset ? { agentPreset: preset } : {}), ...(profile === undefined ? {} : { agentProfile: profile }) })
-      sessionId = created.sessionId
-      agent = await resolveAgent(sessionId)
-      assertActive(dispatchId, signal)
+      // Record the chat before any later step can fail, so a relaunch resumes
+      // it instead of creating another, and a stop finds it.
+      worker = { dispatchId, taskId, sessionId: created.sessionId, title, coordinator, doneSent: false }
+      bySession.set(worker.sessionId, worker)
+      await store.mutate(state => {
+        const dispatch = state.dispatches[dispatchId] ??= { id: dispatchId, taskId, host: 'local', status: 'starting', createdAt: Date.now() }
+        dispatch.sessionId = worker.sessionId
+        state.workers[dispatchId] = worker
+      })
+    }
+    const { sessionId } = worker
+    // A relaunch after a failed save may find a worker its first launch never indexed.
+    bySession.set(sessionId, worker)
+    let isolation = store.read().dispatches[dispatchId]?.isolation
+    if (worker.doneSent || store.read().dispatches[dispatchId].status !== 'starting') return { sessionId, isolation }
+    const agent = await resolveAgent(sessionId)
+    assertActive(dispatchId, signal)
+    let cwd
+    if (isolation === undefined) {
       if (ctx.get('sessionTitle')) await ctx.sessionController.rename({ sessionId, title })
       cwd = await ctx.workingDirectory.ensure(agent, signal)
       isolation = await isolate(agent, title, worktree, cwd, signal)
-      worker = { dispatchId, taskId, sessionId, title, coordinator, doneSent: false }
-      await store.mutate(state => {
-        assertActive(dispatchId, signal)
-        const dispatch = state.dispatches[dispatchId] ??= { id: dispatchId, taskId, host: 'local', status: 'starting', createdAt: Date.now() }
-        Object.assign(dispatch, { sessionId, isolation })
-        state.workers[dispatchId] = worker
-      })
-      bySession.set(sessionId, worker)
+      const chosen = isolation
+      await store.mutate(state => { state.dispatches[dispatchId].isolation = chosen })
+    } else if (isolation.kind === 'shared') {
+      cwd = await ctx.workingDirectory.ensure(agent, signal)
     }
     await delivery.send(agent, `orch-brief:${dispatchId}`, brief(payload, isolation.path ?? cwd, isolation), 'queue', signal,
       () => assertActive(dispatchId, signal))

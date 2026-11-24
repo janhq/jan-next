@@ -243,4 +243,14 @@ if (process.argv[1] === import.meta.filename) {
     assert.ok(stopped.dispatch.sessionId)
     assert.deepEqual(host.removals, [stopped.dispatch.sessionId])
   })
+
+  test('records a worker chat as soon as it is created, even if its setup then fails', async t => {
+    const host = await fakeHost(t)
+    await host.start()
+    host.ctx.workingDirectory.ensure = async () => { throw new Error('Folder is gone.') }
+    await host.call('start', { tasks: [task('A')] })
+    const { tasks: [failed] } = await host.call('tasks', {})
+    assert.equal(failed.status, 'failed')
+    assert.ok(host.agents.has(failed.dispatch.sessionId))
+  })
 }

@@ -22,6 +22,22 @@ const isTaskId = value => typeof value === 'string' && /^task_[a-z2-7]{10}$/.tes
 // retry reuses the dispatch id, which peerStart treats as the same start.
 const START_RETRY_MS = [1_000, 2_000, 5_000, 10_000, 10_000]
 
+/** Take only the fields this Host records from a peer's start reply, which another Host sent.
+ * @param {unknown} value - the peerStart result.
+ * @returns {{sessionId: string, isolation: object}} the validated session id and isolation.
+ */
+function startReply(value) {
+  const isolation = value?.isolation
+  if (typeof value?.sessionId !== 'string' || !value.sessionId || value.sessionId.length > 200
+    || !isolation || !['shared', 'worktree'].includes(isolation.kind)
+    || !['path', 'branch', 'reason'].every(key => isolation[key] === undefined || typeof isolation[key] === 'string')) {
+    throw new Error('The other computer sent an invalid start reply.')
+  }
+  const { kind, path, branch, reason } = isolation
+  return { sessionId: value.sessionId, isolation: { kind, ...(path !== undefined && { path }),
+    ...(branch !== undefined && { branch }), ...(reason !== undefined && { reason }) } }
+}
+
 function ownedTask(state, sessionId, id) {
   const task = isTaskId(id) ? state.tasks[id] : undefined
   if (!task || task.coordinator !== sessionId) throw new Error(`Unknown task ${id}.`)
@@ -272,7 +288,7 @@ export async function apply(ctx) {
         const peer = (await peers.known()).find(candidate => candidate.id === host)
         for (let retry = 0; ; retry++) {
           try {
-            started = await peers.call(host, 'peerStart', { ...payload, ref, coordinatorName: hostname() }, control)
+            started = startReply(await peers.call(host, 'peerStart', { ...payload, ref, coordinatorName: hostname() }, control))
             break
           } catch (error) {
             if (control.aborted || error.rejected || retry === START_RETRY_MS.length || !activeDispatch(dispatch)) throw error
@@ -298,11 +314,17 @@ export async function apply(ctx) {
     } finally {
       launchAborts.delete(dispatch.id)
     }
-    // The worker runs; a failed save here must not mark its task failed.
-    await store.mutate(() => {
-      Object.assign(dispatch, started, { qualifiedSessionId })
-      if (dispatch.status === 'starting') dispatch.status = 'running'
-    })
+    // The worker runs; a failed save here must not fail the task or the
+    // orchestration_start call, since the change stays in memory and resume()
+    // follows up once a save succeeds.
+    try {
+      await store.mutate(() => {
+        Object.assign(dispatch, { sessionId: started.sessionId, isolation: started.isolation, qualifiedSessionId })
+        if (dispatch.status === 'starting') dispatch.status = 'running'
+      })
+    } catch (error) {
+      if (!(error instanceof StateWriteError)) throw error
+    }
     if (host !== 'local') peers.watch(host)
   }
 
