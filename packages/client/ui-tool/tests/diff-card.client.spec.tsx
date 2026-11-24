@@ -138,23 +138,26 @@ describe('diffCardModel', () => {
     })
   })
 
-  it('returns null for errors, malformed args, unrelated tools, and child dispatches', () => {
+  it('returns null for errors, malformed args, and unrelated tools', () => {
     expect(diffCardModel(settled({ call: null, meta: {} }))).toBeNull()
     expect(diffCardModel(settled({ isError: true }))).toBeNull()
     expect(diffCardModel(running({ argsRaw: '{' }))).toBeNull()
     expect(diffCardModel(running({ name: 'read' }))).toBeNull()
-    expect(diffCardModel(running({ parentCallId: 'parent' }))).toBeNull()
-    expect(diffCardModel(settled({ parentCallId: 'parent' }))).toBeNull()
   })
 
-  it('keeps edit generic for missing or malformed applied metadata', () => {
-    expect(diffCardModel(settled({ meta: undefined }))).toBeNull()
-    expect(diffCardModel(settled({ meta: null }))).toBeNull()
-    expect(diffCardModel(settled({ meta: { diffs: 'nope' } }))).toBeNull()
-    expect(diffCardModel(settled({ meta: { diffs: [null] } }))).toBeNull()
-    expect(diffCardModel(settled({ meta: { diffs: [{ path: 1, oldText: null, newText: 'x' }] } }))).toBeNull()
-    expect(diffCardModel(settled({ meta: { diffs: [{ path: 'a', oldText: 5, newText: 'x' }] } }))).toBeNull()
-    expect(diffCardModel(settled({ meta: { diffs: [{ path: 'a', oldText: null, newText: 9 }] } }))).toBeNull()
+  it('shows code changes made by Code Mode child calls', () => {
+    expect(diffCardModel(running({ parentCallId: 'parent' }))).toEqual({ card: { diffs: DIFFS } })
+    expect(diffCardModel(settled({ parentCallId: 'parent' }))).toEqual({ card: { diffs: DIFFS } })
+  })
+
+  it.each([
+    undefined,
+    null,
+    { diffs: 'nope' },
+    { diffs: [null] },
+    { diffs: [{ path: 'a', oldText: 5, newText: 'x' }] },
+  ])('uses the intended edit diff when applied metadata is absent or malformed: %j', (meta) => {
+    expect(diffCardModel(settled({ meta }))).toEqual({ card: { diffs: DIFFS } })
   })
 
   it.each([
@@ -245,10 +248,14 @@ describe('FileMutationRow diff card', () => {
 
   it('shows patch titles, applied multi-file diffs, and stopped reasons together', () => {
     const output = 'Patch stopped after 1 of 3 operations.\nFailed:\nsource removal denied\n  destination b was written; source a remains'
-    const block = settled({ call: { name: 'apply_patch', argsRaw: JSON.stringify({ input: '*** Begin Patch' }) },
-      content: [{ type: 'text', text: output }], meta: { stopped: true, diffs: [
-        { path: 'first', oldText: null, newText: 'created' }, { path: 'b', oldText: 'before', newText: 'after' },
-      ] } })
+    const block = settled({
+      call: { name: 'apply_patch', argsRaw: JSON.stringify({ input: '*** Begin Patch' }) },
+      content: [{ type: 'text', text: output }], meta: {
+        stopped: true, diffs: [
+          { path: 'first', oldText: null, newText: 'created' }, { path: 'b', oldText: 'before', newText: 'after' },
+        ],
+      },
+    })
     const model = toolRowModel('apply_patch', block)
     expect(model.variant).toBe('edit')
     expect(model.titleKey).toBe('tool.title.applyPatch')
@@ -273,11 +280,13 @@ describe('FileMutationRow diff card', () => {
     expect(patchRow([
       '*** Begin Patch', '*** Add File: /w/app/docs/new.md', '+hello', '*** Update File: src/a.ts', '*** Move to: src/b.ts',
       '@@', ' *** Delete File: context.txt', '-old', '+new', '*** Delete File: old.txt  ', '*** End Patch',
-    ].join('\n'))).toMatchObject({ summary: 'docs/new.md, src/a.ts → src/b.ts, old.txt', filePath: undefined, fileTargets: [
-      { id: 2, label: 'docs/new.md', filePath: '/w/app/docs/new.md' },
-      { id: 4, from: 'src/a.ts', label: 'src/b.ts', filePath: 'src/b.ts' },
-      { id: 10, label: 'old.txt', filePath: undefined },
-    ] })
+    ].join('\n'))).toMatchObject({
+      summary: 'docs/new.md, src/a.ts → src/b.ts, old.txt', filePath: undefined, fileTargets: [
+        { id: 2, label: 'docs/new.md', filePath: '/w/app/docs/new.md' },
+        { id: 4, from: 'src/a.ts', label: 'src/b.ts', filePath: 'src/b.ts' },
+        { id: 10, label: 'old.txt', filePath: undefined },
+      ],
+    })
     expect(patchRow('*** Begin Patch\n*** Delete File: old.txt\n*** End Patch')).toMatchObject({ summary: 'old.txt', filePath: undefined, fileTargets: undefined })
     expect(patchRow('*** Begin Patch\n*** Update File: a.ts\n*** Move to: b.ts\n@@\n-x\n+y\n*** End Patch')).toMatchObject({
       summary: 'a.ts → b.ts', filePath: undefined, fileTargets: [{ id: 2, from: 'a.ts', label: 'b.ts', filePath: 'b.ts' }],
@@ -373,12 +382,12 @@ describe('FileMutationRow diff card', () => {
     expect(errorView.container.querySelector('[data-state="error"] svg')).not.toBeNull()
   })
 
-  it('a mutation result with no metadata renders the summary row alone', () => {
+  it('a mutation result with no metadata shows its intended change totals and diff', () => {
     const view = render(<FileMutationRow {...rowProps(settled({ meta: undefined }))} />)
-    // No diff material: expanding shows the args-JSON body, never a diff card.
-    expect(view.container.querySelector('[data-diff]')).toBeNull()
+    expect(view.getByText('+1')).toBeTruthy()
+    expect(view.getByText('-1')).toBeTruthy()
     toggleRow(view)
-    expect(view.container.querySelector('[data-diff]')).toBeNull()
+    expect(view.container.querySelector('[data-diff]')).not.toBeNull()
   })
 
   it('surfaces the result text when an errored mutation has no diff card', () => {
@@ -433,7 +442,7 @@ describe('fileMutationToolview registration', () => {
   it('registers one component under all file mutation tools, and each disposes', () => {
     const registered: { key: string; locale: unknown; disposed: boolean }[] = []
     const disposers: (() => void)[] = []
-    let disposeInjection = (): void => {}
+    let disposeInjection = (): void => { }
     const ctx = {
       slots: {
         inject: (_name: string, callback: () => Iterable<() => void>) => {

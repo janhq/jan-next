@@ -1,5 +1,5 @@
 /** Root/subcall Tool composition with one keyed atomic dispatch path. */
-import { memo, useCallback, useMemo, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { ToolCallBlock } from '@janhq/jan-client-ui-chat/client'
 import type { ToolCallOwnerProps, ToolCallPhaseProps, ToolTreeProps } from '../contract/slots.ts'
 import type { ToolTitles } from './title-source.ts'
@@ -17,6 +17,25 @@ function toolCallPhase(block: ToolCallBlock): ToolCallPhaseProps {
 /** Resolve a Tool call's wire name from its current stage. */
 function callName(call: ToolCallPhaseProps): string {
   return call.phase === 'result' ? call.block.call?.name ?? '' : call.block.name
+}
+
+function ToolDuration({ start, end }: { start: number; end?: number }) {
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => {
+    if (end !== undefined) return
+    const timer = window.setInterval(() => { setNow(Date.now()) }, 1000)
+    return () => { window.clearInterval(timer) }
+  }, [end])
+  const ms = Math.max(0, (end ?? now) - start)
+  const seconds = end !== undefined && ms < 10_000 ? Math.round(ms / 100) / 10 : Math.floor(ms / 1000)
+  const locale = document.documentElement.lang || undefined
+  const format = (value: number, unit: 'hour' | 'minute' | 'second') =>
+    new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'narrow' }).format(value)
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor(seconds / 60) % 60
+  const label = [hours > 0 && format(hours, 'hour'), (hours > 0 || minutes > 0) && format(minutes, 'minute'), format(seconds % 60, 'second')]
+    .filter(Boolean).join(' ')
+  return <span className={css.duration}>{label}</span>
 }
 
 /** One atomic call dispatched through the Tool-owned keyed slot. */
@@ -57,12 +76,20 @@ const ToolCall = memo(function ToolCall({
       data-chat-anchor-key={`call:${callId}`}
       data-chat-call-id={callId}
     >
-      {autoReviewDenied
-        ? renderFallback(owner)
-        : renderSlot('tool.call.toolview', owner, {
-          entryKey: toolName,
-          fallback: renderFallback(owner),
-        })}
+      <div className={css.cardLine}>
+        <div className={css.card}>
+          {autoReviewDenied
+            ? renderFallback(owner)
+            : renderSlot('tool.call.toolview', owner, {
+              entryKey: toolName,
+              fallback: renderFallback(owner),
+            })}
+        </div>
+        {call.phase === 'start' && <ToolDuration start={call.block.time} />}
+        {call.phase === 'result' && call.block.callTime !== null && (
+          <ToolDuration start={call.block.callTime} end={call.block.time} />
+        )}
+      </div>
       {input !== '' && <pre className={css.liveInput} aria-label={t('row.input')}>{input}</pre>}
       {images !== null && (
         <div className={css.inlineImages}>

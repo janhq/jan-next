@@ -89,10 +89,10 @@ function appliedDiffs(meta: unknown): DiffHunk[] | 'empty' | null {
 }
 
 /**
- * Derive running diffs for root write/edit and `str_replace_editor`
- * create/replace calls, plus applied settled diffs for root write/edit calls.
- * A successful write with valid empty metadata uses its argument-derived
- * whole-file diff, matching create and identical-overwrite presentation;
+ * Derive running diffs for root and nested write/edit and `str_replace_editor`
+ * create/replace calls, plus applied settled diffs for write/edit calls.
+ * A successful write or edit without applied hunks uses its argument-derived
+ * diff, so its row still reports added and removed lines;
  * `str_replace_editor` settles through Generic because it has no result view.
  * A settled call whose arguments carry no single intended diff, such as a
  * multi-file patch, shows only the applied diffs its result metadata records.
@@ -100,7 +100,6 @@ function appliedDiffs(meta: unknown): DiffHunk[] | 'empty' | null {
  * @returns the diff-card props, or null for the generic path.
  */
 export function diffCardModel(block: ToolCallBlock): DiffCardModel | null {
-  if (block.parentCallId !== undefined) return null
   const intended = intendedDiff(block)
   if (intended === null) {
     if (!('kind' in block) || block.isError) return null
@@ -112,7 +111,7 @@ export function diffCardModel(block: ToolCallBlock): DiffCardModel | null {
   if (block.isError) return null
   const applied = appliedDiffs(block.meta)
   if (applied === null || applied === 'empty') {
-    return intended.tool === 'write' ? { card: { diffs: [intended.diff] } } : null
+    return { card: { diffs: [intended.diff] } }
   }
   const path = recordedAbsolutePath(block.meta, 'path')
   return { card: { diffs: applied.map(diff => diff.path === path ? { ...diff, path: intended.diff.path } : diff) } }
