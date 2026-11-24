@@ -80,7 +80,7 @@ export function createDevReload(ctx, config = {}) {
       while (!stop.signal.aborted && ctx.hmr.held !== undefined) {
         const running = busy()
         if (running.length === 0) {
-          await ctx.hmr.applyHeld()
+          await ctx.hmr.applyHeld({ respectGate: true })
           continue
         }
         await Promise.race([
@@ -135,9 +135,9 @@ export function createDevReload(ctx, config = {}) {
       }
     },
     async reloadNow() {
-      const sessionIds = runningChats(ctx.agents.list())
-      const applied = await ctx.hmr.applyHeld()
-      return { applied, continued: await continueChats(sessionIds) }
+      let sessionIds = []
+      const applied = await ctx.hmr.applyHeld({ beforeApply: () => { sessionIds = runningChats(ctx.agents.list()) } })
+      return { applied, continued: applied ? await continueChats(sessionIds) : 0 }
     },
     async prepareRestart() {
       const sessionIds = runningChats(ctx.agents.list())
