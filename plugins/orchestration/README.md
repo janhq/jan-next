@@ -4,7 +4,7 @@ Orchestration runs a set of background worker chats from one coordinator chat, o
 
 ## Use it
 
-Ask a regular chat: “Use orchestration to split this release into two tasks: update the changelog here and review the examples in the Docs project on my other computer. Once both finish, summarize their results.” The Orchestration sidebar tab shows the current chat's tasks and opens their worker chats. Stopping a task leaves its chat and worktree in place. To retry, ask the coordinator to reuse the task with `retry_of`.
+Ask a regular chat: “Use orchestration to split this release into two tasks: update the changelog here and review the examples in the Docs project on my other computer. Once both finish, summarize their results.” The Orchestration sidebar tab shows the current chat's tasks and opens their worker chats. Stopping a task leaves its chat and worktree in place; stopping one whose worker is still being created waits for that chat and worktree to be recorded, then stops it. To retry, ask the coordinator to reuse the task with `retry_of`.
 
 ## How workers report back
 

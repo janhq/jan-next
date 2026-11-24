@@ -220,4 +220,27 @@ if (process.argv[1] === import.meta.filename) {
     assert.deepEqual(host.removals, [a.sessionId])
     await host.dispose()
   })
+
+  test('stops a local worker that is still being created without orphaning its chat', async t => {
+    const host = await fakeHost(t)
+    await host.start()
+    const create = host.ctx.sessionController.create
+    let release, entered
+    const creating = new Promise(resolve => { entered = resolve })
+    host.ctx.sessionController.create = async params => {
+      entered()
+      await new Promise(resolve => { release = resolve })
+      return create(params)
+    }
+    const starting = host.call('start', { tasks: [task('A')] })
+    await creating
+    const { tasks: [pending] } = await host.call('tasks', {})
+    const stopping = host.call('stop', { task: pending.taskId })
+    release()
+    await Promise.all([starting, stopping])
+    const { tasks: [stopped] } = await host.call('tasks', {})
+    assert.equal(stopped.status, 'stopped')
+    assert.ok(stopped.dispatch.sessionId)
+    assert.deepEqual(host.removals, [stopped.dispatch.sessionId])
+  })
 }

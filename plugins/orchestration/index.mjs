@@ -438,6 +438,9 @@ export async function apply(ctx) {
       // stop, and the peer's poll loop delivers it when that Host is back. A
       // Host that refuses the stop answered, so there is nothing to retry.
       let unreachable, refused
+      // A local start still creating its chat and worktree finishes first, so
+      // the stop finds and cancels a recorded worker instead of orphaning them.
+      if (dispatch?.host === 'local') await launches.get(dispatch.id)
       if (dispatch && dispatch.host !== 'local') {
         launchAborts.get(dispatch.id)?.abort()
         await launches.get(dispatch.id)
