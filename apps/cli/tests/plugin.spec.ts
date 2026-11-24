@@ -23,9 +23,9 @@ const packageRun = vi.fn<typeof runPluginCommand>()
 function fixture() {
   const home = mkdtempSync(join(tmpdir(), 'cli-version-exemptions-'))
   vi.stubEnv('JAN_HOME', home)
-  const stdout = vi.spyOn(process.stdout, 'write').mockImplementation((_text, encoding, callback) => {
-    if (typeof encoding === 'function') encoding()
-    else callback?.()
+  // Settle the write callback, whichever overload position the caller passed it in.
+  const stdout = vi.spyOn(process.stdout, 'write').mockImplementation((...args: unknown[]) => {
+    args.findLast((arg): arg is () => void => typeof arg === 'function')?.()
     return true
   })
   const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
@@ -334,7 +334,7 @@ it.each(['test', 'desktop'])('compares the %s profile before and after under its
     fs.writeFileSync('node_modules/added/package.json', '{"name":"added","version":"1.0.0"}');
   `)
   vi.mocked(runProfilePnpm).mockImplementation(actual.runProfilePnpm)
-  const manager = { command: process.execPath, args: [script] }
+  const manager = { command: process.execPath, args: [script], env: {} }
   const ready = Promise.withResolvers<undefined>()
   const release = Promise.withResolvers<undefined>()
   const prior = withFileLock(join(dir, 'package.json'), async () => {
