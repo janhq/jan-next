@@ -488,8 +488,8 @@ export interface PluginManagerFace {
   enableInstalled: () => void
   /** Translate the installed plugin into the UI language in the Host; also retries a failed translation. */
   translateInstalled: () => void
-  /** Decline the offer to translate the installed plugin. */
-  declineTranslation: () => void
+  /** Decline the translation offer for this app start or permanently for this package. */
+  declineTranslation: (mode?: 'later' | 'never') => void
   /** Drop the list mark once it has been shown. */
   clearHighlight: () => void
   /** Put a bundle into, or take it out of, the profile's layer list. */
@@ -842,9 +842,9 @@ export class PluginManagerController {
       toggleInstallDetails: () => { this.patchInstall({ detailsOpen: !this.getSnapshot().install.detailsOpen }) },
       enableInstalled: () => { void this.enableInstalled() },
       translateInstalled: () => { void this.translateInstalled() },
-      declineTranslation: () => {
+      declineTranslation: (mode = 'later') => {
         const offer = this.getSnapshot().install.translate
-        if (offer?.step === 'offer' || offer?.step === 'failed') this.ctx.get('pluginI18n')?.dismiss(offer.pkg, 'later')
+        if (offer?.step === 'offer' || offer?.step === 'failed') this.ctx.get('pluginI18n')?.dismiss(offer.pkg, mode)
         this.patchInstall({ translate: null })
       },
       clearHighlight: () => { if (this.getSnapshot().highlight !== null) this.patch({ highlight: null }) },

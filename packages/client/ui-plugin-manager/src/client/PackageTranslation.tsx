@@ -72,7 +72,7 @@ export function usePackageTranslations(service: PackageTranslationService | unde
     const offer = translated || running || suggestion !== undefined ? null : service.assess({
       pkg: name,
       meta: [pkg.meta?.title, pkg.meta?.description ?? pkg.description].filter(text => text !== undefined),
-    })
+    }, { manual: true })
     const screenError = state.failures[name]
     if (!translated && !running && !failed && suggestion === undefined && offer === null) return
 

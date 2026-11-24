@@ -1111,8 +1111,8 @@ function InstallDialog({
   readonly onEnableNow: () => void
   /** Translate the installed plugin into the UI language, or retry a failed translation. */
   readonly onTranslate: () => void
-  /** Decline the translation offer. */
-  readonly onDeclineTranslate: () => void
+  /** Decline the translation offer for this app start or permanently for this package. */
+  readonly onDeclineTranslate: (mode?: 'later' | 'never') => void
   readonly onApproveBuilds: () => void
   readonly onToggleRegistry: () => void
   readonly onChooseRegistry: (choice: RegistryChoice) => void
@@ -1557,7 +1557,8 @@ function InstallDialog({
                 {install.translate.step === 'offer' || install.translate.step === 'failed'
                   ? (
                     <span className={css.wizardActions}>
-                      <Button variant="outline" size="sm" onClick={onDeclineTranslate}>{t('installTranslateSkip')}</Button>
+                      <Button size="sm" onClick={() => { onDeclineTranslate('never') }}>{t('installTranslateNever')}</Button>
+                      <Button variant="outline" size="sm" onClick={() => { onDeclineTranslate() }}>{t('installTranslateSkip')}</Button>
                       <Button variant="primary" size="sm" onClick={onTranslate}>
                         {t('installTranslateAction', { language: install.translate.language })}
                       </Button>

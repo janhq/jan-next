@@ -71,7 +71,7 @@ When the Host attributes a network failure or timeout to a GitHub address and of
 
 ### Translating a plugin
 
-When Jan detects an installed third-party plugin uses another language, its card and details offer translation into the current UI language. The chip names both languages when known; it shows progress while Jan translates. Choose **Show original** to clear the translation and return to the plugin's own text. Choosing **Not now** in the install dialog also hides suggestions for that plugin until Jan restarts.
+When Jan detects an installed third-party plugin uses another language, its card and details offer translation into the current UI language. The chip names both languages when known; it shows progress while Jan translates. Choose **Show original** to clear the translation and return to the plugin's own text. The install dialog offers the same [dismissal options](../ui-plugin-i18n/README.md#on-screen-text) as the on-screen notice.
 
 ### Updating a registry bundle
 

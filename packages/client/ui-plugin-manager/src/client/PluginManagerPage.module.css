@@ -1335,11 +1335,14 @@ label.registryOption {
   min-width: 0;
 }
 
-/* The failed screen's actions beside the details toggle: change the registry, retry. */
 .wizardActions {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+[data-install-translate] .wizardActions {
+  flex-wrap: wrap;
 }
 
 /* One pnpm run of the install; once several registries were asked, a badge names each run's. */
