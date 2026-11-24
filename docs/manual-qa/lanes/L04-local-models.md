@@ -9,7 +9,7 @@ Needs: the seed, the network, and 5 GB of free disk. Run alone: the timing cases
 | ID | Via | Steps | Expect | Sev |
 |---|---|---|---|---|
 | L04-01 | any | Settings > Models > Local model. | Lists installed models with size, status and context settings, or an empty state with a way to add one | P1 |
-| L04-02 | local | Add a model from a Hugging Face repository (`Qwen/Qwen3-0.6B-GGUF`), pick the Q4 file, press Download. | A progress row appears with bytes, percent and speed. The Downloads page (More > Downloads) shows the same row | P1 |
+| L04-02 | local | Add a model from a Hugging Face repository (`Qwen/Qwen3-0.6B-GGUF`), pick the Q4 file, press Download. | A progress row appears with bytes, percent, speed and time left (for example "48 MB/s · 2 min left"); the time left counts down and is hidden while paused or when the size is unknown. The Downloads page (More > Downloads) shows the same row | P1 |
 | L04-03 | local | Pause the download at about 30%. Watch for 10 seconds. | Progress stops, the row says Paused, no bytes grow | P1 |
 | L04-04 | local | Resume. | It continues from the partial file (not from zero) and finishes. The final size matches the repository's size | P0 |
 | L04-05 | local | Pause, quit the app, relaunch, resume. | Same as L04-04: resumed from the partial file | P1 |
