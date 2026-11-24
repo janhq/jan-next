@@ -258,6 +258,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
         ...(record.config.description === undefined ? {} : { description: record.config.description }),
         ...(record.config.icon === undefined ? {} : { icon: record.config.icon }),
         ...(record.config.order === undefined ? {} : { order: record.config.order }),
+        ...(record.config.showInModePicker === false ? { showInModePicker: false } : {}),
         ...(broken === undefined ? {} : { broken }),
       }
     }))

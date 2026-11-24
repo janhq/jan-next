@@ -469,6 +469,7 @@
       name: '@janhq/jan-agent-preset'
       config:
         id: scout
+        showInModePicker: false
         description: Read-only repository discovery; fast, inexpensive model.
         icon: search-outline
         toolAllowlist: [read, read_image, glob, grep, send_message, wait_agent, list_agents]
@@ -487,6 +488,7 @@
       name: '@janhq/jan-agent-preset'
       config:
         id: reviewer
+        showInModePicker: false
         description: Read-only diff review and tests that do not write files.
         icon: inspect-outline
         toolAllowlist: [read, read_image, glob, grep, bash, pwsh, job_output, job_kill, job_watch, wake_after, send_message, wait_agent, list_agents]
@@ -514,6 +516,7 @@
       name: '@janhq/jan-agent-preset'
       config:
         id: worker
+        showInModePicker: false
         description: Implement changes with read, shell, and full file editing tools.
         icon: tool-outline
         plugins:

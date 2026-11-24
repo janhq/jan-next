@@ -7,7 +7,7 @@
       config:
         id: cordis
         icon: plugin-pinwheel-outline
-        order: 4
+        order: 5
         plugins:
           # Same persona as `standard`: tool descriptions and the skill catalog carry
           # the operating detail, and the skills own the preset-authoring rules.

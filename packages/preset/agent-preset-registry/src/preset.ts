@@ -8,6 +8,8 @@ export interface AgentPreset {
   /** Menu icon: a product glyph name or one emoji. */
   readonly icon?: string
   readonly order?: number
+  /** False omits the preset from the mode picker without changing its availability to Agents. */
+  readonly showInModePicker?: boolean
   readonly broken?: string
 }
 

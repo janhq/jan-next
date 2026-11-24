@@ -20,6 +20,7 @@ export default class AgentPreset {
     // A product glyph name (`code-outline`) or one emoji; unknown glyph names render as text.
     icon: z.string().max(32),
     order: z.number(),
+    showInModePicker: z.boolean().default(true),
     toolAllowlist: (z.array(z.string().min(1)) as z<string[] | undefined>).default(undefined),
     readOnlyDelegation: z.boolean(),
     // Cordis owns individual plugin schemas; the registry validates entry structure.

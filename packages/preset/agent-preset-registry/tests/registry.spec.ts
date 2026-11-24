@@ -100,6 +100,20 @@ describe('declarative preset revisions', () => {
     expect(roster.presets.find(row => row.id === 'standard')?.isDefault).toBe(true)
   })
 
+  it('publishes picker visibility in roster order without changing preset composition', async () => {
+    const ctx = await setup()
+    await declare(ctx, { ...contribution('scout'), showInModePicker: false })
+    await declare(ctx, { ...contribution('cordis'), order: 5 })
+    await declare(ctx, { ...contribution('standard'), order: 1 })
+    expect((await ctx.agentPresets.remoteExportList()).presets).toEqual([
+      { id: 'standard', isDefault: true, order: 1 },
+      { id: 'cordis', isDefault: false, order: 5 },
+      { id: 'scout', isDefault: false, showInModePicker: false },
+    ])
+    const scout = await agentOn(ctx, 'delegated-scout', 'scout')
+    expect(ctx.tools.schemas(scout).map(row => row.name)).toEqual(['scout'])
+  })
+
   it('rejects duplicate IDs without disposing the first definition', async () => {
     const ctx = await setup()
     await declare(ctx, contribution('standard'))
