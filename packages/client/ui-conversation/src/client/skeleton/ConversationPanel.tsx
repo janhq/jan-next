@@ -1,7 +1,7 @@
 /** Main Conversation desk; each added pane leases its own Session binding. */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { Dispatch, ReactNode, SetStateAction } from 'react'
-import { DockSurface, dockPaneIds, getPane, MAX_DOCK_PANES } from '@janhq/jan-client-ui-dockkit'
+import { DockSurface, dockPaneIds, findTabPane, getPane, MAX_DOCK_PANES } from '@janhq/jan-client-ui-dockkit'
 import type { DockLabels, PaneId, TabId, TabRecord } from '@janhq/jan-client-ui-dockkit'
 import type { ISessions, SessionReference } from '@janhq/jan-api-session-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
@@ -168,8 +168,30 @@ export function ConversationPanel({ renderSlot, SessionProvider, layout, retainP
         {...desktop === undefined ? {} : { onTabReleasedOutsideViewport: moveToWindow }}
         renderTabMenuItems={(tab, dismiss) => {
           const id = tabSessionId(tab)
+          const { tabs, activeTabId } = findTabPane(dock, tab.id)
+          const tabIndex = tabs.indexOf(tab.id)
+          const closeTabs = (start: number, end: number): void => {
+            dismiss()
+            // Close the active tab last so the normal close selects the clicked tab without focusing another pane.
+            let last: TabId | undefined
+            tabs.forEach((tabId, index) => {
+              if (index < start || index >= end || tabId === tab.id) return
+              if (tabId === activeTabId) last = tabId
+              else layout.closeTab(tabId)
+            })
+            if (last !== undefined) layout.closeTab(last)
+          }
           return <>
-            <MenuItemButton disabled={!layout.canSplitTab(tab.id, 'row')} onSelect={() => { dismiss(); layout.splitTab(tab.id, 'row') }}>
+            <MenuItemButton disabled={tabs.length === 1} onSelect={() => { closeTabs(0, tabs.length) }}>
+              {t('desk.closeOtherTabs')}
+            </MenuItemButton>
+            <MenuItemButton disabled={tabIndex === 0} onSelect={() => { closeTabs(0, tabIndex) }}>
+              {t('desk.closeTabsLeft')}
+            </MenuItemButton>
+            <MenuItemButton disabled={tabIndex === tabs.length - 1} onSelect={() => { closeTabs(tabIndex + 1, tabs.length) }}>
+              {t('desk.closeTabsRight')}
+            </MenuItemButton>
+            <MenuItemButton separatorBefore disabled={!layout.canSplitTab(tab.id, 'row')} onSelect={() => { dismiss(); layout.splitTab(tab.id, 'row') }}>
               {t('desk.splitRight')}
             </MenuItemButton>
             <MenuItemButton disabled={!layout.canSplitTab(tab.id, 'column')} onSelect={() => { dismiss(); layout.splitTab(tab.id, 'column') }}>

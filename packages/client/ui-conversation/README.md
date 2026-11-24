@@ -78,6 +78,8 @@ Drag a tab along a strip to reorder it, to another strip to move it, or onto a p
 
 With focus in the Conversation, the New Session shortcut opens a new tab in that pane. The Close Page shortcut closes the focused chat tab when more than one is open, collapsing the pane when its last tab closes. Closing a tab leaves the chat and draft intact.
 
+In a chat tab's menu, choose **Close other tabs**, **Close tabs to the left**, or **Close tabs to the right** to close matching tabs in that pane only. Actions with no matching tabs are disabled. If the action closes the selected tab, the tab whose menu you opened becomes selected.
+
 On desktop, **Move to new window** in a tab's menu, or releasing a dragged tab outside the window, moves that chat into a new native window. Each window keeps its own tabs and selection, and windows open at quit come back on the next launch. Subagent chats cannot be moved to another window.
 
 `ctx.uiSession` provides `useConversation`, `useInput`, and `inputActions` as standard props for the shared shell.
