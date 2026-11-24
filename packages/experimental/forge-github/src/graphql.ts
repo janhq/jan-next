@@ -7,29 +7,30 @@ import type {
   Mergeability, MergeMethod, ReviewDecision,
 } from '@janhq/jan-experimental-forge'
 import { z } from 'zod'
-import { checkedRepository } from './urls.ts'
+import { checkedRepository, webUrl } from './urls.ts'
 
-const CHECK_FIELDS = `pageInfo { hasNextPage endCursor }
+const checkFields = (withOutput: boolean): string => `pageInfo { hasNextPage endCursor }
   nodes {
     __typename
     ... on CheckRun {
       id databaseId name status conclusion detailsUrl startedAt completedAt
+      ${withOutput ? 'title summary' : ''}
       checkSuite { app { id } workflowRun { event workflow { id name } } }
     }
     ... on StatusContext { context state targetUrl createdAt }
   }`
 
-const PULL_REQUEST_FIELDS = `number url title state isDraft updatedAt closedAt
+const pullRequestFields = (withOutput: boolean): string => `number url title state isDraft updatedAt closedAt
   author { login }
   headRefName headRefOid baseRefName additions deletions mergeable mergeStateStatus reviewDecision
   reviewThreads(first: 100) { nodes { isResolved } }
   commits(last: 1) { nodes { commit { statusCheckRollup { id state contexts(first: 100) {
-    ${CHECK_FIELDS}
+    ${checkFields(withOutput)}
   } } } } }`
 
 /** Continue reading the same commit's rollup even if the pull request head moves. */
 export const CHECKS_QUERY = `query($id: ID!, $cursor: String!) {
-  node(id: $id) { ... on StatusCheckRollup { contexts(first: 100, after: $cursor) { ${CHECK_FIELDS} } } }
+  node(id: $id) { ... on StatusCheckRollup { contexts(first: 100, after: $cursor) { ${checkFields(true)} } } }
 }`
 
 const REPOSITORY_FIELDS = 'squashMergeAllowed mergeCommitAllowed rebaseMergeAllowed viewerPermission viewerDefaultMergeMethod'
@@ -50,6 +51,8 @@ const checkRunSchema = z.object({
   status: z.string(),
   conclusion: z.string().nullable(),
   detailsUrl: z.string().nullable(),
+  title: z.string().nullable().optional(),
+  summary: z.string().nullable().optional(),
   startedAt: z.string().nullable(),
   completedAt: z.string().nullable(),
   checkSuite: z.object({
@@ -178,7 +181,7 @@ export interface SnapshotQuery {
  * @returns the document and its alias targets.
  * @throws when an owner, name, or number cannot be inlined safely.
  */
-export function snapshotQuery(refs: readonly ChangeRequestRef[]): SnapshotQuery {
+export function snapshotQuery(refs: readonly ChangeRequestRef[], withOutput = false): SnapshotQuery {
   const repositories = new Map<string, { repository: ForgeRepository; numbers: Map<number, ChangeRequestRef> }>()
   for (const ref of refs) {
     const { owner, name } = checkedRepository(ref)
@@ -201,7 +204,7 @@ export function snapshotQuery(refs: readonly ChangeRequestRef[]): SnapshotQuery 
     const owner = JSON.stringify(repository.owner)
     fields.push(`r${r}: repository(owner: ${owner}, name: ${JSON.stringify(repository.name)}) { ${REPOSITORY_FIELDS} ${pulls.join(' ')} }`)
   }
-  return { document: `query { ${fields.join(' ')} }\nfragment ChangeRequestFields on PullRequest { ${PULL_REQUEST_FIELDS} }`, targets }
+  return { document: `query { ${fields.join(' ')} }\nfragment ChangeRequestFields on PullRequest { ${pullRequestFields(withOutput)} }`, targets }
 }
 
 /**
@@ -316,10 +319,13 @@ function toSnapshot(
       retain(key, run.data.databaseId ?? 0, {
         name: run.data.name,
         state: checkRunState(run.data.status, run.data.conclusion),
-        url: run.data.detailsUrl,
-        workflow: run.data.checkSuite?.workflowRun?.workflow.name ?? null,
+        url: webUrl(run.data.detailsUrl),
+        workflow: workflow?.workflow.name ?? null,
         startedAt: run.data.startedAt,
         completedAt: run.data.completedAt,
+        ...run.data.title == null && run.data.summary == null ? {} : {
+          output: { title: run.data.title ?? null, summary: run.data.summary ?? null },
+        },
       })
       continue
     }
@@ -328,7 +334,7 @@ function toSnapshot(
       retain(JSON.stringify(['status', status.data.context]), Date.parse(status.data.createdAt), {
         name: status.data.context,
         state: statusContextState(status.data.state),
-        url: status.data.targetUrl,
+        url: webUrl(status.data.targetUrl),
         workflow: null,
         startedAt: null,
         completedAt: null,

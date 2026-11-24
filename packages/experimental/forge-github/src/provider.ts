@@ -2,14 +2,17 @@
 
 import { changeRequestKey } from '@janhq/jan-experimental-forge'
 import type {
-  ChangeRequestKey, ChangeRequestRef, ChangeRequestSnapshot, ForgeActionFailure, ForgeFailure, ForgeProvider, ForgeReadiness,
-  ForgeRepository, ForgeReviewRequest, ForgeReviewResult, MergeRequest,
+  ChangeRequestAssets, ChangeRequestFailureContext, ChangeRequestFailureSelection, ChangeRequestKey, ChangeRequestRef,
+  ChangeRequestSnapshot, ForgeActionFailure, ForgeFailure, ForgeProvider, ForgeReadiness, ForgeRepository, ForgeReviewRequest,
+  ForgeReviewResult, MergeRequest,
 } from '@janhq/jan-experimental-forge'
 import { GhOutputLimitError, GhTimeoutError, GhUnavailableError } from './gh.ts'
 import type { GhOutput, GhRunner } from './gh.ts'
 import { CHECKS_QUERY, hasGraphqlFields, HEAD_QUERY, mapCheckPageResponse, mapHeadResponse, mapSnapshotResponse, snapshotQuery } from './graphql.ts'
 import { checkedRepository, parsePullRequestUrl, parseRemoteUrl } from './urls.ts'
 import { submitGitHubReview } from './review.ts'
+import { readAssets } from './assets.ts'
+import { readBlockingReviews, readFailureLogs } from './failure-context.ts'
 
 const AUTHENTICATION = /gh auth login|authentication|bad credentials|HTTP 401/i
 
@@ -97,6 +100,35 @@ export class GitHubProvider implements ForgeProvider {
         return { code: error instanceof GhOutputLimitError ? 'too-large' : 'unavailable', message: error.message }
       }
       throw error
+    }
+  }
+
+  async fetchAssets(ref: ChangeRequestRef, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets> {
+    const { host, owner, name } = checkedRepository(ref)
+    const failure = this.hostFailure(host)
+    if (failure !== undefined) return { previews: [], artifacts: [], failures: [failure], truncated: false }
+    if (!COMMIT.test(headSha)) throw new Error('forge-github: invalid assets commit')
+    return await readAssets(endpoint => this.read(['api', '--hostname', host, endpoint], signal),
+      `repos/${owner}/${name}`, `https://${host}/${owner}/${name}`, ref.number, headSha)
+  }
+
+  async fetchFailureContext(ref: ChangeRequestRef, headSha: string, selection: ChangeRequestFailureSelection,
+    signal: AbortSignal): Promise<ChangeRequestFailureContext | ForgeFailure> {
+    const snapshot = await this.fetchChecks(ref, signal)
+    if ('code' in snapshot) return snapshot
+    if (snapshot.headSha !== headSha) return { snapshot, logs: [], reviews: [], failures: [], truncated: false }
+    const { host } = ref.repository
+    const [checks, feedback] = await Promise.all([
+      selection.kind === 'review' ? undefined : readFailureLogs((endpoint, rawLog) => {
+        return this.read(['api', '--hostname', host, ...(rawLog ? ['--allow-escape-sequences'] : []), endpoint], signal)
+      }, snapshot, selection),
+      selection.kind === 'check' || snapshot.reviewDecision !== 'changes-requested' ? undefined
+        : readBlockingReviews(query => this.read(['api', 'graphql', '--hostname', host, '-f', `query=${query}`], signal), snapshot),
+    ])
+    return {
+      snapshot, logs: checks?.logs ?? [], reviews: feedback === undefined || 'code' in feedback ? [] : feedback.reviews,
+      failures: [...checks?.failures ?? [], ...feedback !== undefined && 'code' in feedback ? [feedback] : []],
+      truncated: snapshot.checksTruncated || checks?.truncated === true || (feedback !== undefined && !('code' in feedback) && feedback.truncated),
     }
   }
 
@@ -232,7 +264,7 @@ export class GitHubProvider implements ForgeProvider {
     signal: AbortSignal,
     completeChecks = false,
   ): Promise<ReadonlyMap<ChangeRequestKey, ChangeRequestSnapshot | ForgeFailure>> {
-    const query = snapshotQuery(refs)
+    const query = snapshotQuery(refs, completeChecks)
     const output = await this.gh(['api', 'graphql', '--hostname', host, '-f', `query=${query.document}`], signal)
     const body = parseJson(output.stdout)
     if (!completeChecks && hasGraphqlFields(body)) return await mapSnapshotResponse(body, query)

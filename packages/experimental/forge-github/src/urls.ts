@@ -75,3 +75,15 @@ export function parsePullRequestUrl(url: string): (GitHubLocation & { readonly n
   if (!isSegment(owner) || !isSegment(name) || !Number.isSafeInteger(number) || number <= 0) return undefined
   return { host: host.toLowerCase(), owner, name, number }
 }
+
+/**
+ * Validate a host-supplied browser link without allowing custom schemes or credentials.
+ * @param value - candidate URL from GitHub.
+ * @returns the original HTTP(S) link, or null when it is not safe to open.
+ */
+export function webUrl(value: string | null): string | null {
+  if (value === null) return null
+  const parsed = URL.parse(value)
+  if (parsed === null || (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') || parsed.username || parsed.password) return null
+  return value
+}
