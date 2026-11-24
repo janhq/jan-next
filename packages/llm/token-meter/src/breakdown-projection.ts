@@ -11,10 +11,10 @@ import { canonicalHeader, deriveEventMessage, isSurfaceEvent, SessionSeq } from 
 import type { SurfaceEvent } from '@janhq/jan-session'
 import type { ProjectionDefinition } from '@janhq/jan-session-projection'
 // Type-only: the `compaction/*` SessionEventMap merges (shadow-price events).
-import type {} from '@janhq/jan-compaction'
+import type { } from '@janhq/jan-compaction'
 import { estimateMessage, estimateToolsTokens } from './estimate.ts'
 // Type-only: the client projection key and value declaration.
-import type {} from './projection.ts'
+import type { } from './projection.ts'
 
 const tokenCount = z.number().int().nonnegative()
 const sessionSeq = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq)
@@ -23,6 +23,7 @@ const breakdownSchema = z.object({
   systemTokens: tokenCount,
   toolsTokens: tokenCount,
   messageTokens: tokenCount,
+  skillTokens: tokenCount.optional(),
 }).strict()
 
 /** One surviving `system/message` node and its heuristic price. */
@@ -41,11 +42,14 @@ const claimSchema = z.object({
   end: sessionSeq,
   tokens: tokenCount,
   systemSeqs: z.array(sessionSeq),
+  skillSeqs: z.array(sessionSeq),
 }).strict()
 
 /** Plain-JSON checkpoint: surviving system prompts in surface order, the surface total, and an armed claim. */
 const contextBreakdownStateSchema = z.object({
   systems: z.array(systemNodeSchema),
+  skills: z.array(systemNodeSchema),
+  skillCalls: z.array(sessionSeq),
   surfaceTokens: tokenCount,
   claim: claimSchema.optional(),
   breakdown: breakdownSchema,
@@ -118,10 +122,12 @@ function placeSurfaceEvent(
 function withTotals(state: ContextBreakdownState, totals: SurfaceTotals): ContextBreakdownState {
   const surfaceTokens = Math.max(0, totals.surfaceTokens)
   const systemTokens = totals.systems.findLast(system => system.tokens > 0)?.tokens ?? 0
-  const messageTokens = Math.max(0, surfaceTokens - systemTokens)
+  const skillTokens = state.skills.reduce((sum, node) => sum + node.tokens, 0)
+  const messageTokens = Math.max(0, surfaceTokens - systemTokens - skillTokens)
   const breakdown = systemTokens === state.breakdown.systemTokens && messageTokens === state.breakdown.messageTokens
+    && skillTokens === (state.breakdown.skillTokens ?? 0)
     ? state.breakdown
-    : { systemTokens, toolsTokens: state.breakdown.toolsTokens, messageTokens }
+    : { systemTokens, toolsTokens: state.breakdown.toolsTokens, messageTokens, ...skillTokens > 0 ? { skillTokens } : {} }
   return { ...state, systems: totals.systems, surfaceTokens, breakdown }
 }
 
@@ -143,10 +149,12 @@ function withoutClaim(state: ContextBreakdownState): ContextBreakdownState {
  */
 export const contextBreakdownProjectionDefinition = {
   key: 'contextBreakdown',
-  stateVersion: 6,
+  stateVersion: 7,
   stateSchema: contextBreakdownStateSchema,
   init: (): ContextBreakdownState => ({
     systems: [],
+    skills: [],
+    skillCalls: [],
     surfaceTokens: 0,
     breakdown: { systemTokens: 0, toolsTokens: 0, messageTokens: 0 },
   }),
@@ -160,6 +168,7 @@ export const contextBreakdownProjectionDefinition = {
           end: SessionSeq(event.data.shadowedRange.end),
           tokens: event.data.shadowedTokenCount,
           systemSeqs: state.systems.filter(system => shadowed.has(system.seq)).map(system => system.seq),
+          skillSeqs: state.skills.filter(skill => shadowed.has(skill.seq)).map(skill => skill.seq),
         },
       }
     }
@@ -171,10 +180,37 @@ export const contextBreakdownProjectionDefinition = {
         ? unclaimed
         : { ...unclaimed, breakdown: { ...unclaimed.breakdown, toolsTokens } }
     }
+    if (event.type === 'tool/call' && event.data.name === 'skill') {
+      return { ...unclaimed, skillCalls: [...unclaimed.skillCalls, event.seq] }
+    }
+    if (event.type === 'step/end' && unclaimed.skillCalls.length > 0) {
+      return { ...unclaimed, skillCalls: [] }
+    }
     if (!isSurfaceEvent(event)) return unclaimed
     const message = deriveEventMessage(event)
     const tokens = message === null ? 0 : estimateMessage(message)
-    return withTotals(unclaimed, placeSurfaceEvent(unclaimed, state.claim, event, tokens))
+    const op = event.surfaceOp
+    const removed = state.claim?.skillSeqs
+    let skills = unclaimed.skills
+    const isSkill = (event.type === 'user/message' && ['skill-catalog', 'skill-invocation'].includes(event.data.source.kind))
+      || (event.type === 'tool/result' && event.data.message.isError !== true
+        && event.sourceEventSeqs?.some(seq => unclaimed.skillCalls.includes(seq)) === true)
+    let totals = placeSurfaceEvent(unclaimed, state.claim, event, tokens)
+    if (op !== 'append' && removed !== undefined && removed.length > 0) {
+      const shadowed = new Set(removed)
+      skills = skills.filter(node => !shadowed.has(node.seq))
+    } else if (op !== 'append' && state.claim === undefined && op.startSeq === op.endSeq) {
+      const replaced = skills.find(node => node.seq === op.startSeq)
+      if (replaced !== undefined) {
+        skills = skills.filter(node => node !== replaced)
+        totals = { ...totals, surfaceTokens: totals.surfaceTokens + tokens - replaced.tokens }
+      }
+    }
+    if (isSkill && tokens > 0 && (op === 'append' || totals.surfaceTokens !== unclaimed.surfaceTokens
+      || skills !== unclaimed.skills || totals.systems !== unclaimed.systems || state.claim !== undefined)) {
+      skills = [...skills, { seq: event.seq, tokens }]
+    }
+    return withTotals(skills === unclaimed.skills ? unclaimed : { ...unclaimed, skills }, totals)
   },
   wire: {
     viewSchema: breakdownSchema,

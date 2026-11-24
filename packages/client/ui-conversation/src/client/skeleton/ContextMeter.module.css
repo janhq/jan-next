@@ -150,6 +150,10 @@
   --meter-tint: rgb(167, 139, 250);
 }
 
+.colorSkills {
+  --meter-tint: var(--dsw-alias-state-success-primary);
+}
+
 .colorMessages {
   --meter-tint: var(--dsw-static-blue-450);
 }

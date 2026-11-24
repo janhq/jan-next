@@ -10,7 +10,7 @@ import { createPortal } from 'react-dom'
 import type { UseProjection } from '@janhq/jan-api-session-controller/client'
 import type { SessionContextPreviewValue, SessionInventory, SessionItemOrigin } from '@janhq/jan-api-session-controller/types'
 // Type-only: the `contextPressure` / `contextBreakdown` projection key merges.
-import type {} from '@janhq/jan-token-meter/client'
+import type { } from '@janhq/jan-token-meter/client'
 import { IconChevronRightOutlineRegular, Tooltip, useDismissOnOutsidePointer } from '@janhq/jan-client-ui-primitives'
 import type { ComposerBarProps } from '../contract/slots.ts'
 import { contextOccupancy } from '../context-occupancy.ts'
@@ -31,6 +31,7 @@ const READING_SLOT = '\u0000'
 const ROWS = [
   { key: 'systemTokens', label: 'context.system', color: css.colorSystem },
   { key: 'toolsTokens', label: 'context.tools', color: css.colorTools },
+  { key: 'skillTokens', label: 'context.inventory.skills', color: css.colorSkills },
   { key: 'messageTokens', label: 'context.messages', color: css.colorMessages },
 ] as const
 
@@ -125,7 +126,7 @@ export function ContextMeter({ useProjection, selectedWindow, previewContext, t 
   const panelRef = useRef<HTMLDivElement | null>(null)
   // Before the first request nothing is logged, so the Host's priced preview of the
   // system prompt, tools, and runtime context stands in for both reading and breakdown.
-  const loggedTotal = logged === undefined ? 0 : logged.systemTokens + logged.toolsTokens + logged.messageTokens
+  const loggedTotal = logged === undefined ? 0 : logged.systemTokens + logged.toolsTokens + logged.messageTokens + (logged.skillTokens ?? 0)
   const unlogged = loggedTotal === 0
   // Re-read on a model switch and on each panel open, so preset and tool changes show;
   // a logged Session still reads it on open for what the next request runs with.
@@ -140,10 +141,10 @@ export function ContextMeter({ useProjection, selectedWindow, previewContext, t 
   }, [unlogged, previewContext, selectedWindow, open])
   const unsent = unlogged && preview !== null ? preview : undefined
   const inventory = preview?.inventory
-  const breakdown = unsent ?? logged
+  const breakdown = unsent === undefined ? logged : { ...unsent, skillTokens: undefined }
   // Until a provider reports usage (a first reply cut before it did), the
   // priced composition stands in for the reading, so it never reads ~0.
-  const estimate = breakdown === undefined ? 0 : breakdown.systemTokens + breakdown.toolsTokens + breakdown.messageTokens
+  const estimate = breakdown === undefined ? 0 : ROWS.reduce((sum, row) => sum + (breakdown[row.key] ?? 0), 0)
   const context = contextOccupancy(pressure, selectedWindow, estimate)
   const available = context !== null
   const anchorName = `--jan-context-${useId().replaceAll(':', '')}`
@@ -175,12 +176,9 @@ export function ContextMeter({ useProjection, selectedWindow, previewContext, t 
   // breakdown only proportions its colored parts. A zero-width part is dropped
   // instead of rendered: `.segment`'s min-width keeps a hairline part visible,
   // which at 0% occupancy would draw a filled bar over an empty context.
-  const breakdownTotal = breakdown === undefined
-    ? 0
-    : breakdown.systemTokens + breakdown.toolsTokens + breakdown.messageTokens
-  const parts = breakdown === undefined || breakdownTotal === 0
+  const parts = breakdown === undefined || estimate === 0
     ? [{ key: 'total', color: undefined, width: percent }]
-    : ROWS.map(row => ({ key: row.key, color: row.color, width: percent * breakdown[row.key] / breakdownTotal }))
+    : ROWS.map(row => ({ key: row.key, color: row.color, width: percent * (breakdown[row.key] ?? 0) / estimate }))
   const segments = parts.filter(part => part.width > 0)
 
   return (
@@ -239,13 +237,13 @@ export function ContextMeter({ useProjection, selectedWindow, previewContext, t 
           </div>
           {breakdown !== undefined && (
             <dl className={css.rows}>
-              {ROWS.map(row => (
+              {ROWS.filter(row => row.key !== 'skillTokens' || breakdown.skillTokens !== undefined).map(row => (
                 <div key={row.key} className={css.row}>
                   <dt>
                     <span className={`${css.swatch} ${row.color}`} aria-hidden />
                     {t(row.label)}
                   </dt>
-                  <dd>{`~${formatTokens(breakdown[row.key], t)}`}</dd>
+                  <dd>{`~${formatTokens(breakdown[row.key] ?? 0, t)}`}</dd>
                 </div>
               ))}
             </dl>
