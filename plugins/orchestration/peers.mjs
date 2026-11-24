@@ -56,6 +56,7 @@ export function readLimit(limit = 20) {
 export function createPeers(ctx, store, workers, accept, signal) {
   const listeners = new Map()
   const loops = new Map()
+  const wakers = new Map()
   const forgotten = new Set()
   const local = () => ({ hostName: hostname(), projects: ctx.workspaceRegistry.list().map(({ title, path }) => ({ title, path })) })
   const known = () => ctx.get('janHosts')?.peers() ?? []
@@ -184,6 +185,8 @@ export function createPeers(ctx, store, workers, accept, signal) {
       return { delivered: true }
     },
     async peerStop({ ref, dispatchId }) {
+      // A coordinator that lost a peerStart reply stops the dispatch; let that start finish first.
+      if (typeof dispatchId === 'string' && dispatchIdPattern.test(dispatchId)) await workers.settled(dispatchId)
       requireRemoteWorker(dispatchId, ref)
       await workers.stopLocalWorker(dispatchId)
       return { stopped: true }
@@ -229,7 +232,18 @@ export function createPeers(ctx, store, workers, accept, signal) {
           await store.mutate(() => { delete dispatch.remoteStop })
         }
         if (!hasActive(id)) return
-        const { messages } = await request(id, 'peerPull', { ref, after, waitMs: LONG_POLL_MS }, control)
+        // watch() cuts the long poll short when this peer newly owes a stop.
+        const poll = new AbortController()
+        wakers.set(id, () => poll.abort())
+        let messages
+        try {
+          ({ messages } = await request(id, 'peerPull', { ref, after, waitMs: LONG_POLL_MS }, AbortSignal.any([control, poll.signal])))
+        } catch (error) {
+          if (poll.signal.aborted && !control.aborted) continue
+          throw error
+        } finally {
+          wakers.delete(id)
+        }
         control.throwIfAborted()
         for (const entry of messages) {
           if (entry?.ref !== ref || !Number.isSafeInteger(entry.seq) || entry.seq <= 0 || !isUpdate(entry.message, entry.seq)) {
@@ -248,7 +262,8 @@ export function createPeers(ctx, store, workers, accept, signal) {
   }
 
   function watch(id) {
-    if (loops.has(id) || signal.aborted || forgotten.has(id)) return
+    if (loops.has(id)) return wakers.get(id)?.()
+    if (signal.aborted || forgotten.has(id)) return
     const controller = new AbortController()
     const operation = ctx.agents.withoutInitiator(() => pullLoop(id, controller.signal)).catch(error => {
       if (!(signal.aborted || controller.signal.aborted)) ctx.logger.warn(`Orchestration polling ended for ${id}: ${error.message}`)

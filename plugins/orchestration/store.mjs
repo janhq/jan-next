@@ -33,11 +33,12 @@ function trim(messages) {
 
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 
-/** A mutation applied in memory whose save failed; a later write saves it. */
+/** A mutation applied in memory whose save failed; a later write saves it. Peers get it as a temporary 503. */
 export class StateWriteError extends Error {
   constructor(cause) {
     super(`Could not save orchestration state: ${cause.message}`, { cause })
     this.name = 'StateWriteError'
+    this.status = 503
   }
 }
 

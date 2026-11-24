@@ -184,14 +184,23 @@ export function createWorkers(ctx, store, delivery, emit) {
 
   async function stopLocalWorker(dispatchId) {
     const worker = workerForDispatch(dispatchId)
-    const agent = ctx.agents.get(worker.sessionId)
-    const stopped = await store.mutate(state => {
-      const dispatch = state.dispatches[dispatchId]
-      if (['done', 'failed', 'stopped'].includes(dispatch.status)) return false
-      dispatch.status = 'stopped'
-      return true
-    })
-    if (stopped) agent?.cancel({ kind: 'hook', reason: 'Stopped by the coordinator' })
+    let stopped = false
+    try {
+      await store.mutate(state => {
+        const dispatch = state.dispatches[dispatchId]
+        if (['done', 'failed', 'stopped'].includes(dispatch.status)) return
+        dispatch.status = 'stopped'
+        stopped = true
+      })
+    } finally {
+      // The stop holds in memory even when its save fails, so the worker must not keep running.
+      if (stopped) ctx.agents.get(worker.sessionId)?.cancel({ kind: 'hook', reason: 'Stopped by the coordinator' })
+    }
+  }
+
+  /** Wait for a start of this dispatch still in flight, whatever its outcome. */
+  async function settled(dispatchId) {
+    await starting.get(dispatchId)?.catch(() => {})
   }
 
   async function readWorker(dispatchId, limit) {
@@ -231,6 +240,6 @@ export function createWorkers(ctx, store, delivery, emit) {
     if (worker) idleTurns.delete(worker.dispatchId)
   }
 
-  return { resolveAgent, startLocalWorker, deliverToWorker, stopLocalWorker, readWorker, onIdle, onDisposed,
+  return { resolveAgent, startLocalWorker, deliverToWorker, stopLocalWorker, settled, readWorker, onIdle, onDisposed,
     forSession: sessionId => bySession.get(sessionId), drain: () => Promise.allSettled(starting.values()) }
 }

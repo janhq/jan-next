@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { chmod, readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
 import { setTimeout } from 'node:timers/promises'
@@ -17,6 +17,7 @@ async function pair(t) {
   const calls = []
   let offline = false
   let refuseStop = false
+  let loseStartReply = false
   let beforeAck
   const auth = 'Bearer federation-test'
   async function host(id, peerId, kind) {
@@ -44,7 +45,9 @@ async function pair(t) {
         const response = await fetch(addresses.get(target), { method: 'POST',
           headers: { 'content-type': 'application/json', authorization: auth }, body: JSON.stringify({ method, params }), signal })
         const body = await response.json()
-        if (body.error) throw Object.assign(new Error(body.error), { code: 'rejected' })
+        if (loseStartReply && method === 'peerStart') throw new Error('socket hang up')
+        // Like Hosts' callPlugin: a 4xx is a refusal, a 5xx a temporary failure.
+        if (body.error) throw Object.assign(new Error(body.error), response.status < 500 ? { code: 'rejected' } : {})
         assert.equal(response.status, 200)
         return body.result
       },
@@ -63,7 +66,7 @@ async function pair(t) {
   const state = async host => JSON.parse(await readFile(join(host.home, 'orchestration', 'state.json'), 'utf8'))
   const outbox = async () => (await state(b)).outbox
   return { a, b, start, inbox, outbox, state, auth, calls, blockAck: fn => { beforeAck = fn },
-    setOffline: value => { offline = value }, setRefuseStop: value => { refuseStop = value } }
+    setOffline: value => { offline = value }, setRefuseStop: value => { refuseStop = value }, setLoseStartReply: value => { loseStartReply = value } }
 }
 
 test('delivers sends and ordered reports between two Hosts, then clears the outbox', async t => {
@@ -178,6 +181,34 @@ test('records a stop the remote Host refuses without retrying it', async t => {
   assert.match(result.note, /Host B refused: Unknown remote worker dispatch\. The task is stopped here\./)
   assert.equal((await state(a)).dispatches[task.dispatchId].remoteStop, undefined)
   assert.equal((await a.call('tasks', {})).tasks[0].status, 'stopped')
+})
+
+test('stops a worker whose start reply was lost', async t => {
+  const { a, b, state, setLoseStartReply } = await pair(t)
+  setLoseStartReply(true)
+  const { tasks: [task] } = await a.call('start', { tasks: [{ title: 'Draft', spec: 'Write the notes.', host: 'host b', worktree: 'current' }] })
+  setLoseStartReply(false)
+  await eventually(async () => (await a.call('tasks', {})).tasks[0].status === 'failed')
+  await eventually(async () => (await state(a)).dispatches[task.dispatchId].remoteStop === undefined, 10_000)
+  assert.equal((await state(b)).dispatches[task.dispatchId].status, 'stopped')
+  assert.equal(b.removals.length, 1)
+})
+
+test('retries a remote stop whose save failed there, after cancelling the worker', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async t => {
+  const { a, b, start, state } = await pair(t)
+  const { task, worker } = await start()
+  const directory = join(b.home, 'orchestration')
+  await chmod(directory, 0o500)
+  let result
+  try {
+    result = await a.call('stop', { task: task.taskId })
+  } finally {
+    await chmod(directory, 0o700)
+  }
+  assert.match(result.note, /Could not save orchestration state/)
+  assert.deepEqual(b.removals, [worker.id])
+  await eventually(async () => (await state(a)).dispatches[task.dispatchId].remoteStop === undefined, 10_000)
+  assert.equal((await state(b)).dispatches[task.dispatchId].status, 'stopped')
 })
 
 test('refuses worker operations from a Host other than the coordinator that started it', async t => {

@@ -267,7 +267,14 @@ export async function apply(ctx) {
     } catch (error) {
       // A failed save keeps the start in memory, and resume() relaunches a dispatch still starting once a save succeeds.
       if (signal.aborted || !activeDispatch(dispatch) || error instanceof StateWriteError) return
-      const result = await store.mutate(state => saveUpdate(state, task, dispatch, { type: 'error', body: error.message || String(error) }))
+      // An unanswered peerStart may still have started the worker there (peerStart
+      // is idempotent), so the failed dispatch owes that Host a stop.
+      const orphan = host !== 'local' && !error.rejected
+      const result = await store.mutate(state => {
+        if (orphan) dispatch.remoteStop = true
+        return saveUpdate(state, task, dispatch, { type: 'error', body: error.message || String(error) })
+      })
+      if (orphan) peers.watch(host)
       await publish(result, signal)
       return
     }
@@ -423,15 +430,19 @@ export async function apply(ctx) {
           }
         }
       }
-      await store.mutate(() => {
-        if (terminalTask(task)) return
-        if (dispatch) dispatch.status = 'stopped'
-        if (unreachable) dispatch.remoteStop = true
-        task.status = 'stopped'
-        task.updatedAt = Date.now()
-      })
-      if (dispatch?.host === 'local' && dispatch.status === 'stopped') {
-        const worker = store.read().workers[dispatch.id]
+      let stopped = false
+      try {
+        await store.mutate(() => {
+          if (terminalTask(task)) return
+          if (dispatch) dispatch.status = 'stopped'
+          if (unreachable) dispatch.remoteStop = true
+          task.status = 'stopped'
+          task.updatedAt = Date.now()
+          stopped = true
+        })
+      } finally {
+        // The stop holds in memory even when its save fails, so a local worker must not keep running.
+        const worker = stopped && dispatch?.host === 'local' ? store.read().workers[dispatch.id] : undefined
         if (worker) ctx.agents.get(worker.sessionId)?.cancel({ kind: 'hook', reason: 'Stopped by the coordinator' })
       }
       if (refused) return { stopped: true, note: `${refused} The task is stopped here.` }

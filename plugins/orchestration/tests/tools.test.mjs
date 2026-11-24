@@ -205,4 +205,19 @@ if (process.argv[1] === import.meta.filename) {
     assert.match(host.notifications.find(item => item.id === host.coordinator.id).text, /DONE: Wrote A\./)
     await host.dispose()
   })
+
+  test('cancels a local worker even when saving its stop fails', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async t => {
+    const host = await fakeHost(t)
+    await host.start()
+    const { tasks: [a] } = await host.call('start', { tasks: [task('A')] })
+    const directory = join(host.home, 'orchestration')
+    await chmod(directory, 0o500)
+    try {
+      await assert.rejects(host.call('stop', { task: a.taskId }), /Could not save orchestration state/)
+    } finally {
+      await chmod(directory, 0o700)
+    }
+    assert.deepEqual(host.removals, [a.sessionId])
+    await host.dispose()
+  })
 }
