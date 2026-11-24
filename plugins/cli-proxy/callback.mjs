@@ -17,8 +17,9 @@ export async function openCallback(provider, authorize, state, session) {
     for (const server of servers) { server.close(); server.closeAllConnections() }
   }
   const receive = (request, response) => {
-    const callback = new URL(request.url, redirect.origin)
-    if (request.method !== 'GET' || callback.pathname !== redirect.pathname
+    // A malformed request target (for example `//[`) must not throw inside the listener and take the Host down.
+    const callback = URL.parse(request.url ?? '', redirect.origin)
+    if (callback === null || request.method !== 'GET' || callback.pathname !== redirect.pathname
       || callback.searchParams.get('state') !== state
       || (!callback.searchParams.has('code') && !callback.searchParams.has('error'))) {
       response.writeHead(404).end()

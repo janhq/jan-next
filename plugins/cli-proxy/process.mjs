@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { once } from 'node:events'
-import { mkdir, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -51,10 +51,11 @@ export class ProxyProcess {
     const origin = `http://${LOOPBACK}:${port}`
     const apiKey = randomBytes(32).toString('hex')
     const managementKey = randomBytes(32).toString('hex')
-    const configPath = join(this.root, 'config.yaml')
-    const temporary = `${configPath}.${randomBytes(8).toString('hex')}`
+    // Each launch reads its own file: two Hosts sharing a Jan home must never hand a child the other's port and keys.
+    const configPath = join(this.root, `config-${randomBytes(8).toString('hex')}.yaml`)
+    const discard = () => rm(configPath, { force: true }).catch(() => {})
     try {
-      await writeFile(temporary, JSON.stringify({
+      await writeFile(configPath, JSON.stringify({
         'config-version': 8,
         server: { host: LOOPBACK, port, discovery: { enabled: false } },
         management: { 'allow-remote': false, 'secret-key': managementKey, 'disable-control-panel': true },
@@ -62,11 +63,11 @@ export class ProxyProcess {
         oauth: { 'auth-dir': this.authDir },
         plugins: { enabled: false },
       }), { flag: 'wx', mode: 0o600, signal })
-      await rename(temporary, configPath)
-    } finally {
-      await rm(temporary, { force: true })
+      signal.throwIfAborted()
+    } catch (error) {
+      await discard()
+      throw error
     }
-    signal.throwIfAborted()
     // The installed version directory is private and contains only the verified executable.
     const child = this.launch(binary, ['--config', configPath, '--local-model'], {
       cwd: join(binary, '..'), env: childEnvironment(), stdio: 'ignore', windowsHide: true,
@@ -79,6 +80,7 @@ export class ProxyProcess {
       if (lifetime.signal.aborted) return
       lifetime.abort()
       closed.resolve()
+      void discard()
       if (ready && !stopping) onExit(session)
     }
     child.once('error', ended)

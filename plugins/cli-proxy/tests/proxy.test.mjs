@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { once, EventEmitter } from 'node:events'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
+import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -131,6 +131,11 @@ test('brings up the authenticated loopback proxy and updates its model route aft
   assert.equal(pending.signIn.url, authorize.href)
   assert.equal(pending.signIn.code, 'ABC-12')
   assert.equal((await fetch(`${callback}?code=one-time-code&state=wrong`, { redirect: 'manual' })).status, 404)
+  // An unparseable request target is refused; the listener keeps serving the real callback.
+  const raw = connect(Number(new URL(callback).port), '127.0.0.1')
+  raw.end('GET //[ HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n')
+  const [rawReply] = await Promise.all([Array.fromAsync(raw).then(parts => Buffer.concat(parts).toString()), once(raw, 'close')])
+  assert.match(rawReply, /^HTTP\/1\.1 404 /)
   const redirect = await fetch(`${callback}?code=one-time-code&state=codex-state`, { redirect: 'manual' })
   assert.equal(new URL(redirect.headers.get('location')).pathname, '/codex/callback')
   complete()
@@ -228,4 +233,31 @@ test('does not create an inbox item for a cached proxy executable', async t => {
     fetchAsset: () => assert.fail('unexpected download'),
     downloads: { start: () => assert.fail('unexpected inbox item') },
   }), binary)
+})
+
+test('gives each proxy launch its own configuration file and removes it when the child ends', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'jan-cli-proxy-config-test-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const launches = []
+  const launch = (_binary, args) => {
+    const child = new EventEmitter()
+    child.kill = () => true
+    // Read what this launch was handed after both Hosts have written theirs, then fail startup.
+    launches.push(new Promise(resolve => setImmediate(async () => {
+      resolve({ path: args[1], config: JSON.parse(await readFile(args[1], 'utf8')) })
+      child.emit('exit', 1)
+    })))
+    return child
+  }
+  const start = () => new ProxyProcess(root, { install: async () => 'fake-executable', launch })
+    .start(AbortSignal.timeout(3000), () => {}, () => {})
+  const results = await Promise.allSettled([start(), start()])
+  assert.deepEqual(results.map(({ status }) => status), ['rejected', 'rejected'])
+  const [first, second] = await Promise.all(launches)
+  assert.notEqual(first.path, second.path)
+  assert.notEqual(first.config.access['api-keys'][0], second.config.access['api-keys'][0])
+  // Removal runs when each child reports its exit.
+  const leftovers = async () => (await readdir(root)).filter(name => name.startsWith('config'))
+  for (let tries = 0; (await leftovers()).length > 0 && tries < 100; tries++) await sleep(10)
+  assert.deepEqual(await leftovers(), [])
 })
