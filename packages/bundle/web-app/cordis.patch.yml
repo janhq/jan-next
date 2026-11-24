@@ -147,6 +147,9 @@
     - id: session-controller
       name: '@janhq/jan-api-session-controller'
 
+    - id: btw
+      name: '@janhq/jan-btw'
+
     # One background job's observation record streamed over Typert Remote;
     # the roster rides the session control stream above.
     - id: job-controller

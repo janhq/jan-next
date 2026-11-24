@@ -68,6 +68,7 @@
     "@janhq/jan-api-workspace-controller": "workspace:*",
     "@janhq/jan-api-workspace-files": "workspace:*",
     "@janhq/jan-app-boot": "workspace:*",
+    "@janhq/jan-btw": "workspace:*",
     "@janhq/jan-client-connection": "workspace:*",
     "@janhq/jan-client-file-upload": "workspace:*",
     "@janhq/jan-client-hmr": "workspace:*",
