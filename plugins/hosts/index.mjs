@@ -70,6 +70,7 @@ async function ownerCookieFor(ctx) {
 export function apply(ctx, config) {
   const store = new HostsStore(join(ctx.janHomePath(), 'hosts'))
   const tunnels = new Map()
+  const urlLinks = new Map()
   const syncReviews = createSyncReview()
   // What a running Connect is doing, per Host id; cleared when it ends either way.
   const progress = new Map()
@@ -79,6 +80,7 @@ export function apply(ctx, config) {
   let gatewayError
   let hashes = new Map()
   const federation = createFederation(ctx)
+  ctx.provide('janHosts', { peers, callPlugin })
   // A Gateway from before federation has no forwarder: Hosts still answers copies and folder
   // browsing there, and only another computer's projects stay out of that Jan's own window.
   if (typeof ctx.typertGateway.registerForwarder === 'function') {
@@ -89,11 +91,56 @@ export function apply(ctx, config) {
     if (!await federation.upload(request, response)) await next()
   }), 'jan-hosts: federated uploads')
 
-  // The saved destination and its credential live in different stores. Keep edits ordered.
-  function writeConnection(write) {
-    const result = connectionWrites.then(write)
+  // The saved destination and its credential live in different stores. Order edits and link lookups together.
+  function withConnections(run) {
+    const result = connectionWrites.then(run)
     connectionWrites = result.catch(() => undefined)
     return result
+  }
+
+  /** @returns {Promise<{ id: string, name: string, kind: 'ssh' | 'url', state: 'connected' | 'offline' }[]>} saved peers without credentials. */
+  async function peers() {
+    return Promise.all((await store.connections()).map(async (entry) => {
+      const { id, name, kind } = entry
+      const connected = kind === 'ssh' ? federation.linkOf(id) !== undefined : (await token(entry)) !== undefined
+      return { id, name, kind, state: connected ? 'connected' : 'offline' }
+    }))
+  }
+
+  /**
+   * Call a plugin's JSON route without exposing the peer's login to the caller.
+   * @param {string} id - saved peer id.
+   * @param {string} feature - plugin route name.
+   * @param {string} method - operation name on that route.
+   * @param {object} params - operation arguments.
+   * @param {AbortSignal} [signal] - cancels the request.
+   * @returns {Promise<unknown>} the remote operation's result.
+   */
+  async function callPlugin(id, feature, method, params, signal) {
+    const link = await withConnections(async () => {
+      const entry = (await store.connections()).find(item => item.id === id)
+      if (entry?.kind === 'ssh') return federation.linkOf(id)
+      if (entry?.kind !== 'url') return undefined
+      const value = await token(entry)
+      if (value === undefined) return undefined
+      const cached = urlLinks.get(id)
+      if (cached?.url === entry.url && cached.token === value) return cached.link
+      const link = createHostLink({ root: entry.url, token: value })
+      urlLinks.set(id, { url: entry.url, token: value, link })
+      return link
+    })
+    if (link === undefined) throw new HostsError('not-connected', 'That computer is not connected. Connect it in Settings, Hosts.')
+
+    let body
+    try {
+      body = await link.post(`jan-api/${feature}`, { method, params }, signal)
+    } catch (error) {
+      const message = error?.cause?.body?.error
+      if (typeof message === 'string') throw new Error(message, { cause: error })
+      throw error
+    }
+    if (typeof body.error === 'string') throw new Error(body.error)
+    return body.result
   }
 
   /** This computer's side of a customization copy: its settings, skill folders and plugin manager. */
@@ -131,11 +178,13 @@ export function apply(ctx, config) {
 
   async function saveToken(entry, value) {
     await ctx.credentials.modifyRecord(tokenKey(entry.id), () => Promise.resolve({ kind: 'grant', payload: { url: entry.url, token: value } }))
+    if (urlLinks.get(entry.id)?.token !== value) urlLinks.delete(entry.id)
   }
 
   function dropTunnel(id, forget = false) {
     tunnels.get(id)?.close()
     tunnels.delete(id)
+    urlLinks.delete(id)
     syncReviews.clear(id)
     federation.detach(id, forget)
   }
@@ -224,6 +273,7 @@ export function apply(ctx, config) {
     void gatewayReady
     return async () => {
       disposed = true
+      urlLinks.clear()
       await gatewayStart
       await gateway?.close()
       for (const tunnel of tunnels.values()) tunnel.close()
@@ -348,7 +398,7 @@ export function apply(ctx, config) {
     },
     async save(params) {
       try {
-        return await writeConnection(async () => {
+        return await withConnections(async () => {
           const { connection, token: pasted, previous } = await store.saveConnection(params)
           if (previous !== undefined && !sameDestination(previous, connection)) {
             dropTunnel(connection.id, true)
@@ -379,7 +429,7 @@ export function apply(ctx, config) {
       return { imported, failed }
     },
     async remove({ id }) {
-      return writeConnection(async () => {
+      return withConnections(async () => {
         dropTunnel(id, true)
         await store.removeConnection(id)
         await ctx.credentials.deleteRecord(tokenKey(id))

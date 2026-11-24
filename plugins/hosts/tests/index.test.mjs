@@ -15,6 +15,7 @@ async function mountedHosts(t, config = {}) {
   const settings = { ...config.saved }
   let volatileUpdate
   let route
+  let janHosts
   const server = createServer((req, res) => {
     if (req.url === '/') { res.writeHead(303, { 'set-cookie': 'owner=test' }).end(); return }
     return route.handler(req, res)
@@ -39,6 +40,7 @@ async function mountedHosts(t, config = {}) {
         if (changed) volatileUpdate()
       },
     },
+    provide(name, service) { if (name === 'janHosts') janHosts = service },
     get: () => undefined,
     credentials: {
       readRecord: async key => records.get(key),
@@ -61,6 +63,7 @@ async function mountedHosts(t, config = {}) {
     records,
     directory,
     writes,
+    janHosts,
     async call(method, params) {
       const result = await fetch(`${root}/jan-api/hosts`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }),
@@ -84,6 +87,65 @@ test('an Address Host keeps its login for the same normalized URL but never send
   assert.equal(records.size, 0)
   await save('https://example.net/?token=new')
   assert.equal(await open(), 'https://example.net/?token=new')
+})
+
+test('janHosts lists saved peers and reuses Address Host sign-in until the login or URL changes', async (t) => {
+  const { call, janHosts } = await mountedHosts(t)
+  const signIns = []
+  const peer = createServer(async (req, res) => {
+    const url = new URL(req.url, 'http://127.0.0.1')
+    if (url.pathname.endsWith('/connect')) {
+      const token = url.searchParams.get('token')
+      signIns.push([url.pathname, token])
+      return res.writeHead(302, { 'set-cookie': `jan-auth=${token}` }).end()
+    }
+    const chunks = []
+    for await (const chunk of req) chunks.push(chunk)
+    const { method, params } = JSON.parse(Buffer.concat(chunks).toString())
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
+      result: { path: url.pathname, method, params, cookie: req.headers.cookie },
+    }))
+  })
+  await new Promise(resolve => peer.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise(resolve => peer.close(resolve)))
+  const address = `http://127.0.0.1:${peer.address().port}`
+  const { id } = await call('save', { name: 'Office', kind: 'url', url: `${address}/?token=first` })
+  const ssh = await call('save', { name: 'Server', kind: 'ssh', ssh: 'server' })
+  const request = () => janHosts.callPlugin(id, 'orchestration', 'peerRead', { limit: 1 })
+  assert.deepEqual(await janHosts.peers(), [
+    { id, name: 'Office', kind: 'url', state: 'connected' },
+    { id: ssh.id, name: 'Server', kind: 'ssh', state: 'offline' },
+  ])
+  assert.deepEqual(signIns, [])
+  assert.deepEqual(await request(), {
+    path: '/jan-api/orchestration', method: 'peerRead', params: { limit: 1 }, cookie: 'jan-auth=first',
+  })
+  await request()
+  assert.deepEqual(signIns, [['/connect', 'first']])
+  const save = url => call('save', { id, name: 'Office', kind: 'url', url })
+  await save(`${address}/?token=second`)
+  assert.equal((await request()).cookie, 'jan-auth=second')
+  await save(`${address}/new/`)
+  assert.equal((await janHosts.peers())[0].state, 'offline')
+  const unavailable = { code: 'not-connected', message: 'That computer is not connected. Connect it in Settings, Hosts.' }
+  await assert.rejects(request, unavailable)
+  await save(`${address}/new/?token=second`)
+  assert.equal((await request()).path, '/new/jan-api/orchestration')
+  await call('remove', { id })
+  await assert.rejects(request, unavailable)
+  assert.deepEqual(signIns, [['/connect', 'first'], ['/connect', 'second'], ['/new/connect', 'second']])
+})
+
+test('janHosts surfaces the remote plugin operation error', async (t) => {
+  const { call, janHosts } = await mountedHosts(t)
+  const peer = createServer((req, res) => {
+    if (req.url.startsWith('/connect?')) return res.writeHead(302, { 'set-cookie': 'jan-auth=test' }).end()
+    res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'Worker is already stopped.' }))
+  })
+  await new Promise(resolve => peer.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise(resolve => peer.close(resolve)))
+  const { id } = await call('save', { name: 'Office', kind: 'url', url: `http://127.0.0.1:${peer.address().port}/?token=test` })
+  await assert.rejects(janHosts.callPlugin(id, 'orchestration', 'peerStop', {}), { message: 'Worker is already stopped.' })
 })
 
 test('editing a connected SSH destination closes its tunnel instead of reusing it', { skip: process.platform === 'win32' }, async (t) => {

@@ -88,6 +88,37 @@ export function createHostLink({ root, token, onState = () => { } }) {
   }
 
   /**
+   * POST JSON to a plugin route, refreshing sign-in once if the remote rejects the cookie.
+   * @param {string} path - path relative to the remote Jan's base URL.
+   * @param {unknown} body - JSON payload sent on both attempts.
+   * @param {AbortSignal} [signal] - cancels the POST.
+   * @returns {Promise<unknown>} the decoded JSON reply.
+   */
+  async function post(path, body, signal) {
+    await signedIn()
+    const url = new URL(path, base)
+    const payload = JSON.stringify(body)
+    const send = () => fetch(url, {
+      method: 'POST', headers: { ...headers(), 'content-type': 'application/json' }, body: payload, signal,
+    })
+    let response = await send()
+    if (response.status === 401) {
+      login = undefined
+      await signedIn()
+      response = await send()
+    }
+    if (!response.ok) {
+      const status = response.status
+      const message = `The other Jan answered HTTP ${status} for ${path}.`
+      const errorBody = (response.headers.get('content-type') ?? '').startsWith('application/json')
+        ? await response.json().catch(() => undefined)
+        : undefined
+      throw new Error(message, { cause: { status, body: errorBody } })
+    }
+    return response.json()
+  }
+
+  /**
    * Call one unary endpoint with named args and return its value.
    * @throws {LinkRemoteError} when the remote answers a failure.
    */
@@ -209,6 +240,7 @@ export function createHostLink({ root, token, onState = () => { } }) {
     open: () => connectSocket().then(() => undefined),
     call,
     callWire,
+    post,
     upload,
     stream,
     close() {

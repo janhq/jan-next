@@ -51,6 +51,8 @@ This Host signs in to each other computer with `forward=local`, so that Jan answ
 
 A chat running on another computer reads only chats on that computer with `read_chat`; a chat on this computer reads every connected computer's.
 
+Other plugins can use `ctx.get('janHosts')` to list saved peers with `peers()` and call a peer's authenticated plugin route with `callPlugin(id, feature, method, params, signal)`.
+
 ## Sync setup to another computer
 
 In **Settings → Hosts**, connect to an SSH Host and choose **Sync setup…**. Jan compares the two setups without writing to the destination. Review the changes, then choose **Apply**. For each conflict, **Keep remote** is the default; choose **Use this computer** only for items you want to replace. New items that may contain credentials, including provider keys, are not selected by default. Identical and remote-only items are left untouched.
