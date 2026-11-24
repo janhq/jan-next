@@ -331,7 +331,7 @@ export default class ScopedSettings extends TypertRemoteService {
     if (limits?.deny.length) disabled.push(...limits.deny)
     const hasMcp = disabled.some(name => name.startsWith(MCP_SERVER_PREFIX))
       || limits?.allow?.some(name => name.startsWith(MCP_SERVER_PREFIX))
-    const definitions = hasMcp ? this.ctx.tools.definitions() : []
+    const definitions = hasMcp ? this.ctx.tools.registeredDefinitions(agent) : []
     const deny = expandMcpServerEntries(disabled, definitions)
     const allow = limits?.allow === undefined ? undefined : expandMcpServerEntries(limits.allow, definitions)
     const key = JSON.stringify([allow, deny])
@@ -342,7 +342,9 @@ export default class ScopedSettings extends TypertRemoteService {
     current?.lift?.()
     if (allow === undefined && deny.length === 0) return
     try {
-      next.lift = agent.ctx.tools.restrict({ ...(allow === undefined ? {} : { allow }), deny }, { allowUnregistered: true })
+      next.lift = agent.ctx.tools.restrict({ ...(allow === undefined ? {} : { allow }), deny }, {
+        allowUnregistered: true, includeScopeLocal: true,
+      })
     } catch (error) {
       this.ctx.logger.warn(`scoped settings: could not restrict tools for ${agent.id}: ${String(error)}`)
     }

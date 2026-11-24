@@ -102,6 +102,15 @@ it('stores each scope separately, persists privately, and reads back after a res
   expect(again.resolveModel(SessionId('new-chat'), PROJECT)).toEqual({ provider: 'tokamak', model: 'haiku' })
 })
 
+it('applies project switches to an unindexed chat under a folder whose name begins with two dots', async () => {
+  const settings = await (await setup()).start()
+  const unindexed = SessionId('new-chat')
+  await settings.write({ scope: 'project', id: PROJECT, values: { toolsDisabled: ['bash'] } })
+
+  expect(settings.resolveToolsDisabled(unindexed, join('/repo/c', '..notes', 'drafts'))).toEqual(['bash'])
+  expect(settings.resolveToolsDisabled(unindexed, join('/repo/c', '..', 'c-sibling'))).toEqual([])
+})
+
 it('reads back a project that stores a mode or tools without a model after a restart', async () => {
   const h = await setup()
   const settings = await h.start()
@@ -262,6 +271,30 @@ it('uses a project mode only while that preset exists', async () => {
   await settings.write({ scope: 'project', id: PROJECT, values: { mode: 'removed' } })
   expect(await settings.resolveMode(PROJECT)).toBeUndefined()
   expect(await settings.resolveMode(undefined)).toBeUndefined()
+})
+
+it('skips saved built-in coding presets while Coding Tools is disabled without clearing the choice', async () => {
+  const h = await setup({ presets: [{ id: 'ptc' }, { id: 'minimal' }, { id: 'standard' }] })
+  let enabled = true
+  h.ctx.provide('settings', {
+    configure: () => () => {},
+    describe: () => [{ ns: 'ui-settings', value: { enabled } }],
+  } as never)
+  const settings = await h.start()
+  await settings.write({ scope: 'project', id: PROJECT, values: { mode: 'ptc' } })
+  await settings.write({ scope: 'project', id: OTHER, values: { mode: 'minimal' } })
+  expect(await settings.resolveMode(PROJECT)).toBe('ptc')
+
+  enabled = false
+  expect(await settings.resolveMode(PROJECT)).toBeUndefined()
+  expect(await settings.resolveMode(OTHER)).toBeUndefined()
+  expect(settings.read({ scope: 'project', id: PROJECT }).mode).toBe('ptc')
+  expect(settings.read({ scope: 'project', id: OTHER }).mode).toBe('minimal')
+
+  await settings.write({ scope: 'project', id: OTHER, values: { mode: 'standard' } })
+  expect(await settings.resolveMode(OTHER)).toBe('standard')
+  enabled = true
+  expect(await settings.resolveMode(PROJECT)).toBe('ptc')
 })
 
 it('hides skills switched off at any scope from each lookup and lists them per scope with the wider switches', async () => {

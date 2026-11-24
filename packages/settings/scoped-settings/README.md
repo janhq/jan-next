@@ -51,7 +51,7 @@ Remote methods (`ctx.remote.scopedSettings`):
 - `read({ scope, id? })` returns the values one scope stores, without inherited ones.
 - `write({ scope, id?, values })` sets keys; `null` or an empty list removes one. Global and chat scopes store only the switch lists; a project id must exist.
 - `setSwitch({ scope, id? }, key, entry, off)` adds or removes one entry of one switch list inside the write queue, so concurrent switches never drop each other.
-- `toolCatalog()` lists global tool names outside MCP and the MCP servers with tools.
+- `toolCatalog()` lists tool names outside MCP and MCP servers from the global registry and the default preset.
 - `skillCatalog({ scope, id? })` lists every skill a chat in that scope could load, grouped by folder, with the scope's own switches and `offAt` naming the wider scope that already switched one off.
 
 Host callers use `resolveModel(sessionId, workspaceHint?)`, `resolveMode(workspaceId)`, `resolveAgent(workspaceId)`, `resolveToolsDisabled(sessionId)` and `projectOf(sessionId, cwd?)`. The session controller reads the project defaults when it creates a chat. Each write emits `scoped-settings/changed`.
@@ -64,7 +64,7 @@ Host callers use `resolveModel(sessionId, workspaceHint?)`, `resolveMode(workspa
 
 The [store](src/store.ts) validates the document with the same schema on every load. A file that does not parse is renamed to `scoped.json.invalid-<timestamp>` with a warning, and Jan starts empty. Writes run one at a time and replace the file atomically with mode `0600`.
 
-The [service](src/index.ts) keeps at most one tool restriction per live agent. It expands MCP server entries against the current registry and refreshes on agent creation, tool registration changes, scoped settings writes, and profile changes. A chat belongs to the project whose session list holds it, or else to the innermost project whose folder holds the chat's folder.
+The [service](src/index.ts) keeps at most one tool restriction per live agent. It expands MCP server entries against the agent's own scope before applying restrictions, and refreshes on agent creation, tool registration changes, scoped settings writes, and profile changes. A chat belongs to the project whose session list holds it, or else to the innermost project whose folder holds the chat's folder.
 
 Skills use one `skills.registerFilter` entry. For a lookup whose scope is a chat's agent, it unions the global, project and chat switches; a lookup without an agent (a new chat, the project page) uses the global switches and the project that holds its folder. Each write calls `skills.refresh()`, so the next turn gets a new skill catalog. [Skill matching](src/skills.ts) groups skills by the folder above `<name>/SKILL.md` or `<name>.md`.
 
@@ -112,7 +112,7 @@ A skill switch appends a replacement skill catalog to the conversation instead o
 <a id="known-limitations-and-deferred-work"></a>
 
 - Jan has no chat deletion today, so chat entries stay in the document until removed through `write`.
-- Scoped registrations inside a preset are not listed by `toolCatalog()` and are switched off only by exact name.
+- `toolCatalog()` does not list registrations unique to a live agent or to a non-default preset.
 - Plugins that run once per Host (theme, sidebar, bundles) stay global.
 - Projects and chats on a remote Host are not covered yet.
 
