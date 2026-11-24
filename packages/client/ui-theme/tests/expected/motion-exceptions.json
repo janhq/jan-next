@@ -1,0 +1,248 @@
+[
+  {
+    "file": "packages/client/ui-chat/src/client/chat/ChatView.module.css",
+    "selector": ".hint",
+    "declaration": "animation: hint-in var(--ds-transition-duration) var(--ds-ease-out) 400ms backwards",
+    "reason": "The 400 ms delay suppresses the hint during brief turns."
+  },
+  {
+    "file": "packages/client/ui-conversation/src/client/skeleton/ConversationRoot.module.css",
+    "selector": ":is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child, :is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot] > *",
+    "declaration": "animation: conversation-welcome-in var(--ds-transition-duration-slow) var(--ds-ease-emphasized) 120ms backwards",
+    "reason": "The composer follows the welcome heading by 120 ms."
+  },
+  {
+    "file": "packages/client/ui-conversation/src/client/skeleton/ConversationRoot.module.css",
+    "selector": ":is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot='conversation.hero.suggestions'] > *",
+    "declaration": "animation-delay: 240ms",
+    "reason": "Suggestions follow the composer in the welcome sequence."
+  },
+  {
+    "file": "packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css",
+    "selector": ".card[data-plugin-highlight]",
+    "declaration": "animation: jan-plugin-highlight 2400ms var(--ds-ease-out)",
+    "reason": "The highlight lasts long enough to locate the newly revealed plugin card."
+  },
+  {
+    "file": "packages/client/ui-primitives/src/ConnectionIndicator.module.css",
+    "selector": ".secondDot",
+    "declaration": "animation: reveal-second-dot var(--ds-transition-duration-ambient) step-end infinite",
+    "reason": "The second connection dot appears as a discrete step rather than fading."
+  },
+  {
+    "file": "packages/client/ui-primitives/src/ConnectionIndicator.module.css",
+    "selector": ".thirdDot",
+    "declaration": "animation: reveal-third-dot var(--ds-transition-duration-ambient) step-end infinite",
+    "reason": "The third connection dot appears as a discrete step rather than fading."
+  },
+  {
+    "file": "packages/client/ui-primitives/src/TextShimmer.module.css",
+    "selector": ".sweep, .highlight",
+    "declaration": "animation-duration: 1.5s",
+    "reason": "The keyframes divide this period into a one-second sweep and a half-second rest."
+  },
+  {
+    "file": "packages/client/ui-primitives/src/TextShimmer.module.css",
+    "selector": ".sweep, .highlight",
+    "declaration": "animation-delay: 0.3s",
+    "reason": "The activity sweep waits briefly before starting so brief activity does not shimmer."
+  },
+  {
+    "file": "packages/client/ui-primitives/src/TextShimmer.module.css",
+    "selector": ".sweep, .highlight",
+    "declaration": "animation-timing-function: steps(48, end)",
+    "reason": "Discrete frames keep the paired sweep and counter-sweep visually aligned."
+  },
+  {
+    "file": "packages/client/ui-primitives/src/Toast.module.css",
+    "selector": ".toast",
+    "declaration": "animation: jan-toast-in var(--ds-transition-duration) var(--ds-ease-out), jan-toast-fade 1000ms var(--ds-ease-in) var(--jan-toast-hold) forwards",
+    "reason": "The opacity fade is part of the notice lifetime and matches the Toast unmount timer."
+  },
+  {
+    "file": "packages/client/ui-primitives/src/Toast.module.css",
+    "selector": ".toast",
+    "declaration": "animation: jan-toast-fade 1000ms var(--ds-ease-in) var(--jan-toast-hold) forwards",
+    "reason": "Reduced motion drops the entrance but keeps the opacity fade aligned with the Toast unmount timer."
+  },
+  {
+    "file": "packages/client/ui-settings-account/src/client/DesktopOnboarding.module.css",
+    "selector": ".selected::after",
+    "declaration": "animation: borderSweep 14s linear infinite",
+    "reason": "The decorative border makes a slow circuit around the selected template."
+  },
+  {
+    "file": "packages/client/ui-settings-account/src/client/DesktopOnboarding.module.css",
+    "selector": ".iconsEntering > svg:nth-child(2)",
+    "declaration": "animation-delay: 30ms",
+    "reason": "This offset sets the second icon in the onboarding file stack stagger."
+  },
+  {
+    "file": "packages/client/ui-settings-account/src/client/DesktopOnboarding.module.css",
+    "selector": ".iconsEntering > svg:nth-child(3)",
+    "declaration": "animation-delay: 50ms",
+    "reason": "This offset sets the third icon in the onboarding file stack stagger."
+  },
+  {
+    "file": "packages/client/ui-settings-account/src/client/DesktopOnboarding.module.css",
+    "selector": ".iconsEntering > svg:nth-child(4)",
+    "declaration": "animation-delay: 62ms",
+    "reason": "This offset sets the fourth icon in the onboarding file stack stagger."
+  },
+  {
+    "file": "packages/client/ui-settings-account/src/client/DesktopOnboarding.module.css",
+    "selector": ".iconsEntering > svg:nth-child(5)",
+    "declaration": "animation-delay: 70ms",
+    "reason": "This offset sets the final icon in the onboarding file stack stagger."
+  },
+  {
+    "file": "packages/client/ui-settings-account/src/client/DesktopOnboarding.module.css",
+    "selector": ".demoStep",
+    "declaration": "animation: demoIn var(--ds-transition-duration-slow) var(--ds-ease-out) calc(220ms + var(--i) * 140ms) both",
+    "reason": "The scripted demo spaces the process steps independently of the entrance duration."
+  },
+  {
+    "file": "packages/client/ui-settings-account/src/client/DesktopOnboarding.module.css",
+    "selector": ".demoAnswer",
+    "declaration": "animation: demoIn var(--ds-transition-duration-slow) var(--ds-ease-out) calc(300ms + var(--i) * 140ms) both",
+    "reason": "The scripted demo reveals the answer after the process steps."
+  },
+  {
+    "file": "packages/client/ui-settings-account/src/client/DesktopOnboarding.module.css",
+    "selector": ".demoPhotos",
+    "declaration": "animation: demoIn var(--ds-transition-duration-slow) var(--ds-ease-out) calc(300ms + var(--i) * 140ms) both",
+    "reason": "The scripted demo reveals the photos together with the answer."
+  },
+  {
+    "file": "packages/client/ui-settings-account/src/client/OnboardingSurface.module.css",
+    "selector": ".onboardingOverlay[data-exiting]",
+    "declaration": "animation: onboardingExit 180ms var(--ds-ease-in) forwards",
+    "reason": "The overlay remains mounted for this duration after onboarding completes."
+  },
+  {
+    "file": "packages/client/ui-sidebar-documentpreview/src/client/TextPreview.module.css",
+    "selector": ".lineMark",
+    "declaration": "animation: line-mark-fade 2s var(--ds-ease-in) forwards",
+    "reason": "The navigation highlight holds the destination line long enough to locate it before removal."
+  },
+  {
+    "file": "packages/client/ui-sidebar-right/src/client/shell/SidebarRight.module.css",
+    "selector": ".panel :global([data-dockkit-pane][data-sidebar-right-flash])::after, .panel :global([data-dockkit-float][data-sidebar-right-flash])",
+    "declaration": "animation-timing-function: step-end",
+    "reason": "Reduced motion keeps the selection highlight static while still firing its cleanup event."
+  },
+  {
+    "file": "packages/client/ui-sidebar-terminal/src/client/terminal.module.css",
+    "selector": ".screen :global(.xterm .xterm-rows.xterm-focus .xterm-cursor.xterm-cursor-block.xterm-cursor-blink)",
+    "declaration": "animation: terminal-cursor-blink 1s step-end infinite",
+    "reason": "The native terminal cursor uses a discrete blink independent of spinner speed."
+  },
+  {
+    "file": "packages/client/ui-sidebar/src/client/SidebarRoot.module.css",
+    "selector": ".fading > *",
+    "declaration": "transition: opacity 150ms var(--ds-ease-in-out)",
+    "reason": "The wide sidebar fades until the JavaScript rail handoff at the midpoint of the collapse."
+  },
+  {
+    "file": "packages/client/ui-sidebar/src/client/SidebarRoot.module.css",
+    "selector": ".railIn .iconButton, .railIn .newSession, .railIn .panelList, .railIn .regionArea",
+    "declaration": "animation: rail-in 150ms var(--ds-ease-in-out) backwards",
+    "reason": "The rail controls enter during the second half of the sidebar collapse."
+  },
+  {
+    "file": "packages/client/ui-sidebar/src/client/SidebarRoot.module.css",
+    "selector": ".railIn .footArea",
+    "declaration": "animation: rail-fade-in 150ms var(--ds-ease-in-out) backwards",
+    "reason": "The pinned footer joins the same rail handoff without moving horizontally."
+  },
+  {
+    "file": "packages/client/web/src/boot-page.module.css",
+    "selector": ".mark",
+    "declaration": "animation: wave 1.8s ease-in-out infinite",
+    "reason": "The pre-theme boot page can render even if ui-theme never loads."
+  },
+  {
+    "file": "packages/client/web/src/boot-page.module.css",
+    "selector": ".progress::after",
+    "declaration": "transition: width 240ms cubic-bezier(0.23, 1, 0.32, 1)",
+    "reason": "Boot progress updates before the theme plugin is available."
+  },
+  {
+    "file": "packages/experimental/client-ui-forge/src/client/RefreshGlyph.module.css",
+    "selector": ".glyph[data-turning]",
+    "declaration": "animation-duration: 1s",
+    "reason": "The non-spatial dim uses a full interval to preserve the glyph iteration events without flicker."
+  },
+  {
+    "file": "plugins/jan-onboarding/client.view.js",
+    "selector": ".jan-onboarding-mark img",
+    "declaration": "animation: jan-onboarding-wave 1.1s var(--ds-ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)) 360ms both",
+    "reason": "The illustrated hand greeting has its own cadence and waits for the welcome content."
+  },
+  {
+    "file": "plugins/jan-onboarding/client.view.js",
+    "selector": ".jan-onboarding :is([data-enter='description'], [data-onboarding-entrance='description'])",
+    "declaration": "animation-delay: 40ms",
+    "reason": "The description follows the heading in the onboarding stagger."
+  },
+  {
+    "file": "plugins/jan-onboarding/client.view.js",
+    "selector": ".jan-onboarding :is([data-enter='body'], [data-onboarding-entrance='body'])",
+    "declaration": "animation-delay: 80ms",
+    "reason": "The body follows the description in the onboarding stagger."
+  },
+  {
+    "file": "plugins/jan-onboarding/client.view.js",
+    "selector": ".jan-onboarding [data-enter='item']",
+    "declaration": "animation-delay: calc(80ms + min(var(--i) * 20ms, 120ms))",
+    "reason": "The onboarding rows use a capped stagger so larger lists do not delay interaction."
+  },
+  {
+    "file": "plugins/jan-onboarding/client.view.js",
+    "selector": ".jan-onboarding :is([data-enter='action'], [data-onboarding-entrance='action'])",
+    "declaration": "animation-delay: 120ms",
+    "reason": "The primary action appears after the step description and body."
+  },
+  {
+    "file": "plugins/jan-theme/client.js",
+    "selector": "html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='chat']",
+    "declaration": "animation: jt-anim-chat 0.5s var(--ds-ease-in-out)",
+    "reason": "The animated chat glyph has a two-swing drawing cadence."
+  },
+  {
+    "file": "plugins/jan-theme/client.js",
+    "selector": "html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='search']",
+    "declaration": "animation: jt-anim-search 1s var(--ds-ease-in-out)",
+    "reason": "The search glyph traces two offsets before returning to rest."
+  },
+  {
+    "file": "plugins/jan-theme/client.js",
+    "selector": "html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='box'], html[data-jan-theme] [data-slot='sidebar'] button[aria-haspopup='menu'][class*='panelRow']:hover [class*='panelGlyph']",
+    "declaration": "animation: jt-anim-box 0.45s var(--ds-ease-in-out)",
+    "reason": "The box drawing tips once and returns to rest."
+  },
+  {
+    "file": "plugins/jan-theme/client.js",
+    "selector": "html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='folder']",
+    "declaration": "animation: jt-anim-folder 0.6s var(--ds-ease-in-out)",
+    "reason": "The folder glyph has three declining swings before it returns to rest."
+  },
+  {
+    "file": "plugins/jan-theme/client.js",
+    "selector": "html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='home']",
+    "declaration": "animation: jt-anim-home 0.45s var(--ds-ease-in-out)",
+    "reason": "The home glyph lifts and tips once before returning to rest."
+  },
+  {
+    "file": "plugins/jan-theme/client.js",
+    "selector": "html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='shake']",
+    "declaration": "animation: jt-anim-shake 0.5s var(--ds-ease-in-out)",
+    "reason": "The shake draws two opposing swings before returning to rest."
+  },
+  {
+    "file": "plugins/jan-theme/client.js",
+    "selector": "html[data-jan-theme] .jt-nav-icon[data-jt-anim='spin']",
+    "declaration": "transition: rotate 600ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+    "reason": "The glyph uses an overshooting curve to land the half-turn with a small rebound."
+  }
+]
