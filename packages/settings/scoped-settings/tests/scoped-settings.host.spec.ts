@@ -182,3 +182,59 @@ it('uses a project mode only while that preset exists', async () => {
   expect(await settings.resolveMode(PROJECT)).toBeUndefined()
   expect(await settings.resolveMode(undefined)).toBeUndefined()
 })
+
+it('hides skills switched off at any scope from each lookup and lists them per scope with the wider switches', async () => {
+  const h = await setup()
+  const skill = (folder: string, name: string) => ({ name, description: `${name} skill`, path: `${folder}/${name}/SKILL.md` }) as never
+  const all: { name: string; path: string }[] = [
+    skill('/home/u/.agents/skills', 'review'), skill('/home/u/.agents/skills', 'deploy'),
+    skill('/repo/c/.agents/skills', 'look'), skill('/repo/c/.agents/skills', 'lint'),
+  ]
+  let filter: { resolve(options: { cwd?: string; scope?: unknown }): ((s: unknown) => boolean) | undefined } | undefined
+  let refreshes = 0
+  h.ctx.provide('skills', {
+    registerFilter: (value: typeof filter) => { filter = value; return () => { filter = undefined } },
+    refresh: () => { refreshes += 1 },
+    list: async (options: { cwd?: string; scope?: unknown; unfiltered?: boolean }) => {
+      const keep = options.unfiltered === true ? undefined : filter?.resolve(options)
+      return keep === undefined ? all : all.filter(keep)
+    },
+  } as never)
+  const chat = await h.addAgent('chat-a', '/repo/c')
+  const settings = await h.start()
+  const names = async (options: { cwd?: string; scope?: unknown }) =>
+    (await h.ctx.skills.list(options as never)).map(entry => entry.name)
+
+  await settings.write({ scope: 'global', values: { skillsDisabled: ['deploy'] } })
+  await settings.setSwitch({ scope: 'project', id: PROJECT }, 'skillFoldersDisabled', '/repo/c/.agents/skills/', true)
+  await settings.setSwitch({ scope: 'session', id: 'chat-a' }, 'skillsDisabled', 'review', true)
+  expect(refreshes).toBe(3)
+  expect(settings.read({ scope: 'project', id: PROJECT })).toEqual({ skillFoldersDisabled: ['/repo/c/.agents/skills'] })
+
+  expect(await names({ cwd: '/repo/c', scope: chat })).toEqual([])
+  expect(await names({ cwd: '/repo/c/src' })).toEqual(['review'])
+  expect(await names({ cwd: '/repo/d' })).toEqual(['review', 'look', 'lint'])
+
+  const catalog = await settings.skillCatalog({ scope: 'session', id: 'chat-a' })
+  expect(catalog.folders.map(folder => [folder.path, folder.off, folder.offAt, folder.skills.map(s => `${s.name}:${String(s.off)}:${s.offAt ?? '-'}`)])).toEqual([
+    ['/home/u/.agents/skills', false, undefined, ['review:true:-', 'deploy:false:global']],
+    ['/repo/c/.agents/skills', false, 'project', ['look:false:project', 'lint:false:project']],
+  ])
+
+  await settings.setSwitch({ scope: 'project', id: PROJECT }, 'skillFoldersDisabled', '/repo/c/.agents/skills', false)
+  expect(await names({ cwd: '/repo/c/src' })).toEqual(['review', 'look', 'lint'])
+  await expect(settings.setSwitch({ scope: 'global' }, 'skillFoldersDisabled', 'skills', true)).rejects.toMatchObject({ code: 'scoped-settings/invalid' })
+})
+
+it('keeps every concurrent switch', async () => {
+  const settings = await (await setup()).start()
+  await Promise.all(['a', 'b', 'c'].map(name => settings.setSwitch({ scope: 'project', id: PROJECT }, 'skillsDisabled', name, true)))
+  expect(settings.read({ scope: 'project', id: PROJECT })).toEqual({ skillsDisabled: ['a', 'b', 'c'] })
+})
+
+it('normalizes hand-edited skill folders when the document loads', async () => {
+  const h = await setup()
+  writeFileSync(join(h.dir, 'edited.json'), JSON.stringify({ version: 1, global: { skillFoldersDisabled: ['/home/u/skills/', '/home/u/x/../skills'] }, projects: {}, sessions: {} }))
+  const settings = await (await setup({ file: join(h.dir, 'edited.json') })).start()
+  expect(settings.read({ scope: 'global' })).toEqual({ skillFoldersDisabled: ['/home/u/skills'] })
+})

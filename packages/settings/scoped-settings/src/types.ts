@@ -29,6 +29,10 @@ export interface ScopedValues {
   readonly mode?: string
   /** Tool names, or `mcp:<server>` for every tool of one MCP server, switched off. */
   readonly toolsDisabled?: string[]
+  /** Skill names switched off. */
+  readonly skillsDisabled?: string[]
+  /** Absolute skill folders (the root that holds `<name>/SKILL.md` or `<name>.md`) whose skills are switched off. */
+  readonly skillFoldersDisabled?: string[]
 }
 
 /** One write: a key set to `null` returns it to the wider scope's value. */
@@ -36,6 +40,8 @@ export interface ScopedValuesPatch {
   readonly model?: ScopedModel | null
   readonly mode?: string | null
   readonly toolsDisabled?: string[] | null
+  readonly skillsDisabled?: string[] | null
+  readonly skillFoldersDisabled?: string[] | null
 }
 
 /** Address of one stored scope; `id` names the project or chat and is absent for `global`. */
@@ -57,12 +63,49 @@ export interface ScopedToolCatalog {
   readonly mcpServers: readonly string[]
 }
 
+/** Wider scope that switched a skill or folder off, so a narrower scope cannot turn it back on. */
+export type InheritedOff = 'global' | 'project'
+
+/** One skill a scope can switch off. */
+export interface ScopedSkillEntry {
+  readonly name: string
+  readonly description: string
+  /** Off at the scope being read. */
+  readonly off: boolean
+  /** Off at a wider scope, by name or by its folder; absent when no wider scope switched it off. */
+  readonly offAt?: InheritedOff
+}
+
+/** Skills grouped by the folder that holds them. */
+export interface ScopedSkillFolder {
+  /** Absolute folder path; `null` for skills without a file (built in to a plugin). */
+  readonly path: string | null
+  /** Path shown to people, `~/...` under the home directory; `null` with `path`. */
+  readonly label: string | null
+  /** Folder off at the scope being read; always false without a path. */
+  readonly off: boolean
+  /** Folder off at a wider scope. */
+  readonly offAt?: InheritedOff
+  readonly skills: readonly ScopedSkillEntry[]
+}
+
+/** Every skill a chat in a scope could load, with that scope's and wider scopes' switches. */
+export interface ScopedSkillCatalog {
+  readonly folders: readonly ScopedSkillFolder[]
+}
+
+/** Switch lists every scope stores; each resolves as the union of the scopes that apply. */
+export type ScopeListKey = 'toolsDisabled' | 'skillsDisabled' | 'skillFoldersDisabled'
+
+/** Keys of {@link ScopeListKey}, in storage order. */
+export const SCOPE_LIST_KEYS: readonly ScopeListKey[] = ['toolsDisabled', 'skillsDisabled', 'skillFoldersDisabled']
+
 /** Persisted document at `$JAN_HOME/settings/scoped.json`. */
 export interface ScopedSettingsDocument {
   readonly version: 1
-  readonly global: Pick<ScopedValues, 'toolsDisabled'>
+  readonly global: Pick<ScopedValues, ScopeListKey>
   readonly projects: Readonly<Record<string, ScopedValues>>
-  readonly sessions: Readonly<Record<string, Pick<ScopedValues, 'toolsDisabled'>>>
+  readonly sessions: Readonly<Record<string, Pick<ScopedValues, ScopeListKey>>>
 }
 
 /** Prefix of a `toolsDisabled` entry that names a whole MCP server. */
