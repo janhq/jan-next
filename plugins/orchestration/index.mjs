@@ -275,7 +275,7 @@ export async function apply(ctx) {
             started = await peers.call(host, 'peerStart', { ...payload, ref, coordinatorName: hostname() }, control)
             break
           } catch (error) {
-            if (error.rejected || retry === START_RETRY_MS.length || !activeDispatch(dispatch)) throw error
+            if (control.aborted || error.rejected || retry === START_RETRY_MS.length || !activeDispatch(dispatch)) throw error
             ctx.logger.warn(`Retrying the start of orchestration dispatch ${dispatch.id}: ${error.message}`)
             await delay(START_RETRY_MS[retry], undefined, { signal: control })
           }
