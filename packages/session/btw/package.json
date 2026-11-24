@@ -1,0 +1,77 @@
+{
+  "name": "@janhq/jan-btw",
+  "description": "Ephemeral side questions in Jan chats",
+  "version": "0.2.2-rc.1",
+  "publishConfig": { "access": "public" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/janhq/jan-next.git",
+    "directory": "packages/session/btw"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": { "types": "./lib/types/index.d.ts", "default": "./lib/index.js" },
+    "./client": { "types": "./lib/types/client/index.d.ts", "default": "./lib/client.js" },
+    "./remote": { "types": "./lib/typert.remote-client.d.ts", "default": "./lib/typert.remote-client.js" },
+    "./typert": { "types": "./lib/typert.host.d.ts", "default": "./lib/typert.host.js" },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "jan": {
+    "client": {
+      "inject": [
+        "@janhq/jan-api-remotes",
+        "@janhq/jan-api-session-controller",
+        "@janhq/jan-client-locale",
+        "@janhq/jan-client-ui-commands",
+        "@janhq/jan-client-ui-conversation",
+        "@janhq/jan-client-ui-renderer"
+      ],
+      "platform": "web"
+    }
+  },
+  "files": [
+    "locale/*.json",
+    "lib/index.js",
+    "lib/client.js",
+    "lib/types/**/*.d.ts",
+    "lib/typert.host.js",
+    "lib/typert.host.d.ts",
+    "lib/typert.remote-client.js",
+    "lib/typert.remote-client.d.ts"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*"
+  },
+  "dependencies": {
+    "@janhq/jan-typert-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-agent-loop": "workspace:*",
+    "@janhq/jan-agent-loop-testkit": "workspace:*",
+    "@janhq/jan-api-remotes": "workspace:*",
+    "@janhq/jan-api-session-controller": "workspace:*",
+    "@janhq/jan-client-locale": "workspace:*",
+    "@janhq/jan-client-store": "workspace:*",
+    "@janhq/jan-client-ui-commands": "workspace:*",
+    "@janhq/jan-client-ui-conversation": "workspace:*",
+    "@janhq/jan-client-ui-primitives": "workspace:*",
+    "@janhq/jan-client-ui-renderer": "workspace:*",
+    "@janhq/jan-client-ui-slots": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tool-testkit": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "react": "^18.2.0"
+  }
+}

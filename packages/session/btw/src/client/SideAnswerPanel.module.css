@@ -1,0 +1,49 @@
+.panel {
+  box-sizing: border-box;
+  width: min(calc(100% - 2 * var(--jan-composer-side-clearance)), var(--jan-composer-card-max-width));
+  min-width: 0;
+  margin-inline: auto;
+  overflow: hidden;
+  flex: none;
+  border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-specific-menu);
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-panel);
+  color: var(--dsw-alias-label-primary);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.heading {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.question {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.answer {
+  max-height: min(28dvh, 280px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+  padding: 0 12px 12px;
+}
+
+.status {
+  margin: 0;
+  padding: 0 12px 12px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+}

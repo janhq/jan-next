@@ -439,6 +439,7 @@
       "@janhq/jan-session-format-catalog/message-projections": ["./packages/session/session-format-catalog/src/message-projections.ts"],
       "@janhq/jan-native-command/types": ["./packages/util/native-command/src/types.ts"],
       "@janhq/jan-message-quotes/client": ["./packages/session/message-quotes/src/client/index.ts"],
+      "@janhq/jan-btw/client": ["./packages/session/btw/src/client/index.ts"],
       "@janhq/jan-ptc-runtime-node/configuration": ["./packages/ptc-runtime/ptc-runtime-node/src/configuration.ts"],
       // BEGIN generated package aliases — pnpm run gen-tsconfig-paths
       "@janhq/jan-acp": ["./packages/acp/acp/src"],
@@ -462,6 +463,7 @@
       "@janhq/jan-bash-local": ["./packages/shell/bash-local/src"],
       "@janhq/jan-bash-sandbox": ["./packages/shell/bash-sandbox/src"],
       "@janhq/jan-brand": ["./packages/util/brand/src"],
+      "@janhq/jan-btw": ["./packages/session/btw/src"],
       "@janhq/jan-chunked-list": ["./packages/util/chunked-list/src"],
       "@janhq/jan-cmdline": ["./packages/boot/cmdline/src"],
       "@janhq/jan-command-compact": ["./packages/compaction/command-compact/src"],

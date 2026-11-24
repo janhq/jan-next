@@ -15248,6 +15248,70 @@ importers:
         specifier: workspace:*
         version: link:../session-query
 
+  packages/session/btw:
+    dependencies:
+      '@janhq/jan-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@janhq/jan-agent-loop':
+        specifier: workspace:*
+        version: link:../../core/agent-loop
+      '@janhq/jan-agent-loop-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/agent-loop-testkit
+      '@janhq/jan-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
+      '@janhq/jan-api-session-controller':
+        specifier: workspace:*
+        version: link:../../api/session-controller
+      '@janhq/jan-client-locale':
+        specifier: workspace:*
+        version: link:../../client/locale
+      '@janhq/jan-client-store':
+        specifier: workspace:*
+        version: link:../../client/store
+      '@janhq/jan-client-ui-commands':
+        specifier: workspace:*
+        version: link:../../client/ui-commands
+      '@janhq/jan-client-ui-conversation':
+        specifier: workspace:*
+        version: link:../../client/ui-conversation
+      '@janhq/jan-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../../client/ui-primitives
+      '@janhq/jan-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../../client/ui-renderer
+      '@janhq/jan-client-ui-slots':
+        specifier: workspace:*
+        version: link:../../client/ui-slots
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@janhq/jan-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@janhq/jan-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@janhq/jan-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+
   packages/session/message-quotes:
     devDependencies:
       '@janhq/cordis':
