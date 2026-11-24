@@ -34,6 +34,20 @@ export interface SettingsTargetRegistration {
   readonly aliases?: readonly string[]
 }
 
+/** The Settings search catalog: an external store plus feature destination registration. */
+export interface SettingsSearchSource {
+  /**
+   * Publish one destination until the returned disposer runs.
+   * @param target - destination to add to the catalog.
+   * @returns disposer that removes it.
+   */
+  register(target: SettingsTargetRegistration): () => void
+  /** Current catalog; the same array until a slot, locale, or registration changes. */
+  getSnapshot(): readonly SettingsSearchTarget[]
+  /** Subscribe to catalog changes; returns the unsubscribe. */
+  subscribe(listener: () => void): () => void
+}
+
 const SECTIONS = 'settings.section'
 const GENERAL_ROWS = 'settings.general.item'
 
@@ -49,7 +63,7 @@ function humanize(id: string): string {
  */
 export function createSettingsSearchSource(
   slots: Context['slots'], locale: Context['locale'],
-) {
+): SettingsSearchSource {
   const t = locale.bind('settings')
   const titles = new Map<unknown, () => string>([
     [DeveloperToolsRow, () => t('developerTools.title')],
