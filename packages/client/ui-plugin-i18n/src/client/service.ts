@@ -98,12 +98,13 @@ export interface PluginI18nService extends HostObservable<PluginI18nState> {
    * the locale is stored, or when the package ships the locale: its registered dictionaries have it and its display
    * text names it or is already written for the locale.
    * @param subject - package name and display text.
+   * @param options - `manual` keeps the Plugins page action available even if automated offers were dismissed.
    * @returns the offer, or null when the package needs none.
    */
-  assess(subject: TranslationSubject): TranslationOffer | null
+  assess(subject: TranslationSubject, options?: { readonly manual?: boolean }): TranslationOffer | null
   /**
    * Translate a package into the active locale in the Host and wait for the job to end. Asking records consent for
-   * the package. Entries unchanged since the last run are reused.
+   * the package and clears an earlier offer dismissal. Entries unchanged since the last run are reused.
    * @param pkg - npm package name.
    * @param rerun - translate every entry again.
    * @returns the settled job.
@@ -291,7 +292,7 @@ export class PluginI18nClient implements PluginI18nService {
     const total = Object.values(sources).reduce((sum, keys) => sum + Object.keys(keys).length, 0)
     const stored = state.statuses[pkg]?.locales.find(item => item.locale === locale)
     if (stored !== undefined && stored.entries + stored.kept === total) return
-    void this.translate(pkg).catch((error: unknown) => { this.ctx.logger.warn(error) })
+    void this.runTranslation(pkg, false, false).catch((error: unknown) => { this.ctx.logger.warn(error) })
   }
 
   /** A Host change event arrived: read again, coalescing a burst into one trailing read. */
@@ -322,11 +323,12 @@ export class PluginI18nClient implements PluginI18nService {
     return again
   }
 
-  assess(subject: TranslationSubject): TranslationOffer | null {
+  assess(subject: TranslationSubject, options?: { readonly manual?: boolean }): TranslationOffer | null {
     const state = this.getSnapshot()
     const locale = this.locale()
-    if (!this.canSuggest(subject.pkg)) return null
-    const lacks = lacksDictionary(this.ctx.locale, this.ownership.ownedBy(subject.pkg), locale)
+    const manual = options?.manual === true
+    if (!this.canSuggest(subject.pkg, manual)) return null
+    const lacks = (manual && this.isDismissed(subject.pkg)) || lacksDictionary(this.ctx.locale, this.ownership.ownedBy(subject.pkg), locale)
       || subject.meta.some(text => (typeof text === 'string' && typeof this.detectLanguage(text, locale) === 'string') || metaLacksLocale(text, locale))
     return lacks ? { pkg: subject.pkg, locale, language: languageName(locale), route: state.route } : null
   }
@@ -361,8 +363,8 @@ export class PluginI18nClient implements PluginI18nService {
     return dismissed
   }
 
-  private canSuggest(pkg: string): boolean {
-    return !this.consentedPackages.has(pkg) && !this.waiting.has(pkg) && !this.isDismissed(pkg)
+  private canSuggest(pkg: string, manual = false): boolean {
+    return !this.consentedPackages.has(pkg) && !this.waiting.has(pkg) && (manual || !this.isDismissed(pkg))
       && this.getSnapshot().statuses[pkg]?.locales.some(item => item.locale === this.locale()) !== true
   }
 
@@ -442,7 +444,11 @@ export class PluginI18nClient implements PluginI18nService {
     })) this.suggestionStore.set(suggestions)
   }
 
-  async translate(pkg: string, rerun = false): Promise<PluginI18nJob> {
+  translate(pkg: string, rerun = false): Promise<PluginI18nJob> {
+    return this.runTranslation(pkg, rerun, true)
+  }
+
+  private async runTranslation(pkg: string, rerun: boolean, manual: boolean): Promise<PluginI18nJob> {
     const locale = this.locale()
     const { sourceLocale, sources } = collectSources(this.ctx.locale, this.ownership.ownedBy(pkg), locale)
     if (rerun) this.rerunScreen(pkg)
@@ -453,6 +459,12 @@ export class PluginI18nClient implements PluginI18nService {
         pkg, locale, sourceLocale, sources, ...rerun ? { rerun } : {},
       })
       if (!started.ok) throw started.error
+      if (manual && this.isDismissed(pkg)) {
+        try {
+          if (typeof window !== 'undefined') window.localStorage.removeItem(DISMISSED_KEY + pkg)
+          this.dismissed.delete(pkg)
+        } catch (error) { this.ctx.logger.warn(error) }
+      }
       const settled = started.value.state === 'running' ? this.settled(pkg, locale) : Promise.resolve(started.value)
       void this.refresh().catch((error: unknown) => { this.ctx.logger.warn(error) })
       const job = await settled
