@@ -1,12 +1,12 @@
 /** Profile package management, explicit exact-version approvals, and machine-readable command reports. */
 import {
-  blockedBuildNames, runPluginCommand, runProfilePnpm, setProfileVersionExemption, type PackageOperationOptions,
+  blockedBuildNames, readPendingBuilds, runPluginCommand, runProfilePnpm, setProfileVersionExemption, type PackageOperationOptions,
 } from '@janhq/jan-plugin-manager/operations'
 import { INSTALL_ANCHOR } from './profile-boot.ts'
 import {
   initProfile, readProfileCompatibility, readProfileManifest, resolveProfileDir, type ProfileContext, type ProfileManifest,
 } from '@janhq/jan-app-boot'
-import type { IncompatiblePlugin } from '@janhq/jan-plugin-manager/types'
+import type { IncompatiblePlugin, PackageResult } from '@janhq/jan-plugin-manager/types'
 import { PROFILE_TEMPLATES, DEFAULT_PROFILE_BUNDLES } from '@janhq/jan-official-bundles'
 import { withFileLock } from '@janhq/jan-atomic-write'
 import { existsSync } from 'node:fs'
@@ -234,6 +234,9 @@ export async function runPlugin(profile: string, args: readonly string[], packag
   // The state the report compares against: what the command changed, what it activated, and the
   // version a removal takes away. A non-desktop profile may not exist yet, which reads as empty.
   const before = snapshotProfile(dir)
+  // Keys that were already pending belong to earlier work: the report names only what this run introduced,
+  // which is also exactly the set `--yes-builds` would approve.
+  const earlierBuilds: readonly string[] = await readPendingBuilds(dir).catch(() => [])
   let approvedBuilds: string[] = []
   const context = { profile, dir, installAnchor: INSTALL_ANCHOR, cwd: process.cwd() }
   const options: PackageOperationOptions = {
@@ -249,26 +252,13 @@ export async function runPlugin(profile: string, args: readonly string[], packag
     onOutput: (text, stream) => { (json ? process.stderr : process[stream]).write(text) },
     ...yesBuilds ? { onBuildsApproved: (names: readonly string[]) => { approvedBuilds = [...names] } } : {},
   }
-  const result = profile === 'desktop'
-    ? await withFileLock(join(dir, 'package.json'), async () => {
-      requireDesktopProfile(dir)
-      return runProfilePnpm(context, invocation.args, options)
-    }, { waitMs: 120000 })
-    : await runPluginCommand(context, invocation.args, options)
-  if (!json) {
-    if (result.exitCode === 127) process.stderr.write('jan: pnpm was not found; install pnpm and make it available on PATH.\n')
-    for (const { name, version, runtimeVersion } of result.incompatible ?? []) {
-      process.stderr.write(`jan: to accept the risk, run: jan plugin --profile ${profile} allow-version ${name}@${version} --jan-version ${runtimeVersion} --accept-risk\n`)
-    }
-    if (result.exitCode !== 0) process.stderr.write(`jan: plugin command failed; diagnostics: ${result.logPath}\n`)
-    if (result.exitCode !== 0 && invocation.args.some(argument => /^git\+|^github:|\.git(?:#|$)/.test(argument))) {
-      process.stderr.write(`jan: git-hosted plugins build on install via their prepare script, which pnpm blocks until allowed — re-run with --yes-builds to allow exactly the scripts pnpm printed, or add that key under allowBuilds in ${join(dir, 'pnpm-workspace.yaml')}\n`)
-    }
-  }
-  if (json && reports) {
+  // The report describes the profile the run left behind, so a Desktop run takes its snapshot and writes
+  // the document before the shared lock is released: no other writer can land between the two.
+  const describe = (result: PackageResult): void => {
+    if (!json || !reports) return
     const after = snapshotProfile(dir)
     const declared = Object.keys(after.dependencies)
-    const packages = command === 'list'
+    const packages: PluginCommandPackage[] = command === 'list'
       ? declared.map(name => after.versions[name] === undefined ? { name } : { name, version: after.versions[name] })
       : changedPackages(before, after)
     // A second `add` of the same version saves no new spec, so the spec's own name is what the report
@@ -279,7 +269,8 @@ export async function runPlugin(profile: string, args: readonly string[], packag
       }
     }
     const activated = after.bundles.filter(name => !before.bundles.includes(name))
-    const pendingBuilds = result.exitCode === 0 ? [] : blockedBuildNames(result.output)
+    const pendingBuilds = result.exitCode === 0
+      ? [] : blockedBuildNames(result.output).filter(name => !earlierBuilds.includes(name))
     report({
       ok: result.exitCode === 0,
       exitCode: result.exitCode,
@@ -291,6 +282,25 @@ export async function runPlugin(profile: string, args: readonly string[], packag
       ...result.incompatible === undefined ? {} : { incompatible: result.incompatible },
       logPath: result.logPath,
     })
+  }
+  const result = profile === 'desktop'
+    ? await withFileLock(join(dir, 'package.json'), async () => {
+      requireDesktopProfile(dir)
+      const run = await runProfilePnpm(context, invocation.args, options)
+      describe(run)
+      return run
+    }, { waitMs: 120000 })
+    : await runPluginCommand(context, invocation.args, options)
+  if (profile !== 'desktop') describe(result)
+  if (!json) {
+    if (result.exitCode === 127) process.stderr.write('jan: pnpm was not found; install pnpm and make it available on PATH.\n')
+    for (const { name, version, runtimeVersion } of result.incompatible ?? []) {
+      process.stderr.write(`jan: to accept the risk, run: jan plugin --profile ${profile} allow-version ${name}@${version} --jan-version ${runtimeVersion} --accept-risk\n`)
+    }
+    if (result.exitCode !== 0) process.stderr.write(`jan: plugin command failed; diagnostics: ${result.logPath}\n`)
+    if (result.exitCode !== 0 && invocation.args.some(argument => /^git\+|^github:|\.git(?:#|$)/.test(argument))) {
+      process.stderr.write(`jan: git-hosted plugins build on install via their prepare script, which pnpm blocks until allowed — re-run with --yes-builds to allow exactly the scripts pnpm printed, or add that key under allowBuilds in ${join(dir, 'pnpm-workspace.yaml')}\n`)
+    }
   }
   return result.exitCode
 }

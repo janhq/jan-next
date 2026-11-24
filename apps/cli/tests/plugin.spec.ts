@@ -1,5 +1,5 @@
 /** Explicit CLI exemptions use the profile lock and never become pnpm arguments. */
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, onTestFinished, vi } from 'vitest'
@@ -28,6 +28,23 @@ function fixture() {
     rmSync(home, { recursive: true, force: true })
   })
   return { home, dir: join(home, 'profiles', 'test'), stdout, stderr }
+}
+
+/** Record a dependency the way a successful pnpm run leaves it: an exact spec and installed contents. */
+function declarePlugin(dir: string, name: string, version: string): void {
+  const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as {
+    dependencies?: Record<string, string>
+  }
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ ...manifest, dependencies: { ...manifest.dependencies, [name]: version } }))
+  mkdirSync(join(dir, 'node_modules', name), { recursive: true })
+  writeFileSync(join(dir, 'node_modules', name, 'package.json'), JSON.stringify({ name, version }))
+}
+
+/** The one document a `--json` run wrote to stdout. */
+function report(stdout: { mock: { calls: unknown[][] } }): Record<string, unknown> {
+  const documents = stdout.mock.calls.map(call => call[0] as string)
+  expect(documents).toHaveLength(1)
+  return JSON.parse(documents[0]!) as Record<string, unknown>
 }
 
 it('requires explicit acknowledgement, grants only the exact pair, lists and revokes it without pnpm', async () => {
@@ -175,4 +192,101 @@ it('applies version approvals to the existing Desktop profile without replacing 
   expect(existsSync(join(dir, 'package.json.lock'))).toBe(false)
   expect(runPluginCommand).not.toHaveBeenCalled()
   expect(runProfilePnpm).not.toHaveBeenCalled()
+})
+
+it('reports one JSON document for add, including the installed version and activated bundle', async () => {
+  const { dir, stdout } = fixture()
+  initProfile(dir, [])
+  vi.mocked(runPluginCommand).mockImplementation(async () => {
+    declarePlugin(dir, 'example-plugin', '1.2.3')
+    const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as Record<string, unknown>
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ ...manifest, jan: { profile: { bundles: ['example-plugin'] } } }))
+    return { exitCode: 0, output: 'pnpm progress\n', truncated: false, logPath: '/profile/log' }
+  })
+  expect(await runPlugin('test', ['add', 'example-plugin', '--json'])).toBe(0)
+  expect(report(stdout)).toEqual({
+    command: 'add',
+    ok: true,
+    exitCode: 0,
+    packages: [{ name: 'example-plugin', version: '1.2.3' }],
+    bundles: ['example-plugin'],
+    bundle: 'example-plugin',
+    logPath: '/profile/log',
+  })
+  expect(stdout).toHaveBeenCalledTimes(1)
+})
+
+it('reports a repeated add by the name the spec asked for', async () => {
+  const { dir, stdout } = fixture()
+  initProfile(dir, [])
+  declarePlugin(dir, 'example-plugin', '1.2.3')
+  vi.mocked(runPluginCommand).mockResolvedValue({ exitCode: 0, output: '', truncated: false, logPath: '/profile/log' })
+  expect(await runPlugin('test', ['add', 'example-plugin@1.2.3', '--json'])).toBe(0)
+  expect(report(stdout)).toMatchObject({ packages: [{ name: 'example-plugin', version: '1.2.3' }] })
+})
+
+it('reports a failed add with the pending build scripts it introduced and the key it approved', async () => {
+  const { dir, stdout } = fixture()
+  initProfile(dir, [])
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), 'allowBuilds:\n  earlier@1.0.0: set this to true or false\n')
+  vi.mocked(runPluginCommand).mockImplementation(async (_context, _args, options) => {
+    // pnpm reports every pending key in the tree; only the one this run added is its own answer.
+    options.onBuildsApproved?.(['example-plugin'])
+    return {
+      exitCode: 1, truncated: false, logPath: '/profile/log',
+      output: '[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: earlier@1.0.0, example-plugin\n',
+    }
+  })
+  expect(await runPlugin('test', ['add', 'example-plugin', '--yes-builds', '--json'])).toBe(1)
+  expect(report(stdout)).toMatchObject({ ok: false, exitCode: 1, approvedBuilds: ['example-plugin'], pendingBuilds: ['example-plugin'] })
+})
+
+it('lists declared dependencies with their installed versions as JSON', async () => {
+  const { dir, stdout } = fixture()
+  initProfile(dir, [])
+  declarePlugin(dir, 'example-plugin', '1.2.3')
+  declarePlugin(dir, 'not-installed', '2.0.0')
+  rmSync(join(dir, 'node_modules', 'not-installed'), { recursive: true })
+  vi.mocked(runPluginCommand).mockResolvedValue({ exitCode: 0, output: '', truncated: false, logPath: '/profile/log' })
+  expect(await runPlugin('test', ['list', '--json'])).toBe(0)
+  expect(report(stdout)).toMatchObject({
+    command: 'list', ok: true, packages: [{ name: 'example-plugin', version: '1.2.3' }, { name: 'not-installed' }],
+  })
+})
+
+it('removes a dependency and reports the version it took away', async () => {
+  const { dir, stdout } = fixture()
+  initProfile(dir, [])
+  declarePlugin(dir, 'example-plugin', '1.2.3')
+  vi.mocked(runPluginCommand).mockImplementation(async () => {
+    const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { jan?: unknown }
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ dependencies: {}, jan: manifest.jan }))
+    return { exitCode: 0, output: '', truncated: false, logPath: '/profile/log' }
+  })
+  expect(await runPlugin('test', ['remove', 'example-plugin', '--json'])).toBe(0)
+  expect(report(stdout)).toMatchObject({ command: 'remove', ok: true, packages: [{ name: 'example-plugin', version: '1.2.3' }] })
+})
+
+it('reports why a desktop run could not start, as JSON', async () => {
+  const { stdout } = fixture()
+  expect(await runPlugin('desktop', ['list', '--json'])).toBe(1)
+  expect(report(stdout)).toMatchObject({ command: 'list', ok: false, exitCode: 1 })
+  expect(String(report(stdout).error)).toContain('Open Jan Desktop once')
+  expect(runPluginCommand).not.toHaveBeenCalled()
+})
+
+it('refuses --yes-builds on anything but add', async () => {
+  const { stdout, stderr } = fixture()
+  expect(await runPlugin('test', ['list', '--yes-builds'])).toBe(1)
+  expect(stderr).toHaveBeenCalledWith('jan: --yes-builds applies to add\n')
+  expect(stdout).not.toHaveBeenCalled()
+  expect(runPluginCommand).not.toHaveBeenCalled()
+})
+
+it('forwards --json to a command Jan does not report on', async () => {
+  fixture()
+  vi.mocked(runPluginCommand).mockResolvedValue({ exitCode: 0, output: '', truncated: false, logPath: '/profile/log' })
+  expect(await runPlugin('test', ['why', 'example-plugin', '--json'])).toBe(0)
+  expect(runPluginCommand).toHaveBeenCalledWith(expect.anything(), ['why', 'example-plugin', '--json'],
+    expect.not.objectContaining({ captureOutput: true }))
 })

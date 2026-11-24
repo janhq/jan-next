@@ -51,6 +51,17 @@ async function readPolicy(dir: string) {
 }
 
 /**
+ * Read the `allowBuilds` keys already awaiting a decision, without recording or changing anything.
+ * The keys pnpm reports as ignored are every pending one in the tree, so a caller that approves a
+ * run's report compares against this snapshot to approve only the keys that run itself introduced.
+ * @param dir Current profile directory.
+ * @returns Exact `allowBuilds` keys still set to the undecided placeholder; wildcard rules are excluded.
+ */
+export async function readPendingBuilds(dir: string): Promise<string[]> {
+  return (await readPolicy(dir)).pending
+}
+
+/**
  * Record the build scripts a failed run reported as blocked, then list every `allowBuilds` key awaiting a decision.
  *
  * pnpm writes those policy entries itself only when it can prompt, and the
