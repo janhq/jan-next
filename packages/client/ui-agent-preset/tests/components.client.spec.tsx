@@ -157,7 +157,7 @@ describe('the new-session chip', () => {
     expect(screen.getAllByRole('menuitem')).toHaveLength(enabled ? 5 : 3)
     expect(screen.getByRole('menuitem', { name: /^Code mode/ })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: /^mine/ })).toBeTruthy()
-    expect(screen.queryByRole('menuitem', { name: /^Code Mode/ }) !== null).toBe(enabled)
+    expect(screen.queryByRole('menuitem', { name: /^PTC mode/ }) !== null).toBe(enabled)
     expect(screen.queryByRole('menuitem', { name: /^Minimal mode/ }) !== null).toBe(enabled)
     fireEvent.click(screen.getByRole('menuitem', { name: /^Creator mode/ }))
     expect(actions.select).toHaveBeenCalledWith('cordis')

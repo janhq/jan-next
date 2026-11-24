@@ -145,7 +145,7 @@ describe('diffCardModel', () => {
     expect(diffCardModel(running({ name: 'read' }))).toBeNull()
   })
 
-  it('shows code changes made by Code Mode child calls', () => {
+  it('shows code changes made by PTC mode child calls', () => {
     expect(diffCardModel(running({ parentCallId: 'parent' }))).toEqual({ card: { diffs: DIFFS } })
     expect(diffCardModel(settled({ parentCallId: 'parent' }))).toEqual({ card: { diffs: DIFFS } })
   })

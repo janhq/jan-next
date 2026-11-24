@@ -44,9 +44,9 @@ describe('web e2e: preset roster guidance', () => {
   it('reads mode details and examples without changing the new-task default', async () => {
     onTestFailed(() => saveFailureShot(page, 'preset-roster-guide'))
     const settings = page.getByRole('dialog', { name: 'Settings' })
-    const trigger = settings.getByRole('button', { name: 'Mode details: Code Mode', exact: true })
+    const trigger = settings.getByRole('button', { name: 'Mode details: PTC mode', exact: true })
     await trigger.click()
-    const guide = page.getByRole('dialog', { name: 'Code Mode', exact: true })
+    const guide = page.getByRole('dialog', { name: 'PTC mode', exact: true })
     await guide.getByRole('heading', { name: 'How tools are called', exact: true }).waitFor()
     await guide.getByRole('tab', { name: 'How to use', exact: true }).click()
     await guide.getByRole('heading', { name: 'Check a set of configuration files', exact: true }).waitFor()
@@ -59,8 +59,8 @@ describe('web e2e: preset roster guidance', () => {
   it('views a shipped composition read-only', async () => {
     onTestFailed(() => saveFailureShot(page, 'preset-roster-view'))
     const settings = page.getByRole('dialog', { name: 'Settings' })
-    await settings.getByRole('button', { name: 'View configuration: Code Mode', exact: true }).click()
-    const viewer = page.getByRole('dialog', { name: 'View configuration · Code Mode', exact: true })
+    await settings.getByRole('button', { name: 'View configuration: PTC mode', exact: true }).click()
+    const viewer = page.getByRole('dialog', { name: 'View configuration · PTC mode', exact: true })
     await viewer.waitFor({ timeout: 10_000 })
     // The real shipped declaration, not a golden: the viewer shows whatever
     // the deployment ships, and this lane only asserts it is shown read-only

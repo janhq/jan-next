@@ -612,7 +612,7 @@ else process.exit(1);
     })
     await page.locator('[data-slot="conversation.hero.agentPreset"]').getByRole('button', { name: 'Code mode', exact: true }).click()
     await expect.poll(() => page.getByRole('menuitem').count()).toBe(2)
-    expect(await page.getByRole('menuitem', { name: /^Code Mode|^Minimal mode/ }).count()).toBe(0)
+    expect(await page.getByRole('menuitem', { name: /^PTC mode|^Minimal mode/ }).count()).toBe(0)
     await page.keyboard.press('Escape')
     expect(scaffold.ctx.settings.describe().find(row => row.ns === 'ui-settings')?.value).toEqual({ enabled: false })
     const settled = scaffold.whenTurnSettled()

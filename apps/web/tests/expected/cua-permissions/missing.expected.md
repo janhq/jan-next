@@ -2,8 +2,8 @@
   - heading "Authorize computer use" [level=3]
   - group "Default mode for new sessions":
     - strong: Default mode for new sessions
-    - paragraph: Computer use is available only in Code Mode.
-    - button "Set to Code Mode"
+    - paragraph: Computer use is available only in PTC mode.
+    - button "Set to PTC mode"
   - group "PTC execution mode":
     - strong: PTC execution mode
     - paragraph: Keep variables and application objects across tool calls. Switching restarts the PTC runtime.

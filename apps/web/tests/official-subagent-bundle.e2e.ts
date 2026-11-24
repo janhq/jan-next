@@ -113,9 +113,9 @@ describe.skipIf(MODE === 'record')('web snapshot: Official native subagent bundl
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
-    await page.getByRole('button', { name: 'Standard mode', exact: true }).click()
-    await page.getByRole('menuitem', { name: /^Code Mode/ }).click()
-    await page.getByRole('button', { name: 'Code Mode', exact: true }).waitFor({ state: 'visible' })
+    await page.getByRole('button', { name: 'Code mode', exact: true }).click()
+    await page.getByRole('menuitem', { name: /^PTC mode/ }).click()
+    await page.getByRole('button', { name: 'PTC mode', exact: true }).waitFor({ state: 'visible' })
   })
 
   afterAll(async () => {

@@ -21,13 +21,13 @@
       - 'button "How to use: Code mode"': How to use
       - 'button "View configuration: Code mode"': View configuration
     - listitem:
-      - 'button "Set as new task default: Code Mode"':
-        - text: Code Mode Built-in
+      - 'button "Set as new task default: PTC mode"':
+        - text: PTC mode Built-in
         - code: ptc
-        - text: Includes all Standard mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results.
-      - 'button "Mode details: Code Mode"': Mode details
-      - 'button "How to use: Code Mode"': How to use
-      - 'button "View configuration: Code Mode"': View configuration
+        - text: Includes all Code mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results.
+      - 'button "Mode details: PTC mode"': Mode details
+      - 'button "How to use: PTC mode"': How to use
+      - 'button "View configuration: PTC mode"': View configuration
     - listitem:
       - 'button "Set as new task default: Minimal mode"':
         - text: Minimal mode Built-in

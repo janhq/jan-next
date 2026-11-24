@@ -52,7 +52,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   presetStandardName: 'Code mode',
   presetStandardDescription:
     'Work with code, files, and information. Suitable for most tasks, with search, editing, terminal commands, and other tools available as needed.',
-  presetPtcName: 'Code Mode',
+  presetPtcName: 'PTC mode',
   presetPtcDescription:
     'Includes all Code mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results.',
   presetMinimalName: 'Minimal mode',
@@ -97,8 +97,8 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
 
   presetStandardName: '代码模式',
   presetStandardDescription: '处理代码、文件和资料，适合大多数任务。Agent 会按需使用检索、编辑和终端等工具。',
-  presetPtcName: 'Code Mode',
-  presetPtcDescription: '包含标准模式的所有能力，更适合批量调用工具，并对结果进行筛选、整理、去重、统计或汇总的任务。',
+  presetPtcName: 'PTC 模式',
+  presetPtcDescription: '包含代码模式的所有能力，更适合批量调用工具，并对结果进行筛选、整理、去重、统计或汇总的任务。',
   presetMinimalName: '极简模式',
   presetMinimalDescription: 'Agent 使用终端和图片读取工具，并支持上下文压缩，适合测试和对比其基础表现。',
   presetCordisName: '创造模式',
@@ -143,8 +143,8 @@ export const ja = {
   'view': '設定を表示',
   'presetStandardName': 'コードモード',
   'presetStandardDescription': 'コード、ファイル、情報を扱います。検索、編集、ターミナルコマンドなどのツールを必要に応じて利用でき、ほとんどのタスクに適しています。',
-  'presetPtcName': 'Code Mode',
-  'presetPtcDescription': '標準モードのすべての機能を含みます。ツールを一括で呼び出し、その結果を絞り込み、整理、重複排除、集計、要約するタスクに適しています。',
+  'presetPtcName': 'PTCモード',
+  'presetPtcDescription': 'コードモードのすべての機能を含みます。ツールを一括で呼び出し、その結果を絞り込み、整理、重複排除、集計、要約するタスクに適しています。',
   'presetMinimalName': '最小モード',
   'presetMinimalDescription': 'エージェントはターミナルと画像読み取りを使用し、コンテキスト圧縮にも対応します。基本的な性能のテストや比較に役立ちます。',
   'presetCordisName': 'クリエイターモード',
@@ -180,7 +180,7 @@ export const es = {
   presetStandardName: 'Modo de código',
   presetStandardDescription:
     'Trabaje con código, archivos e información. Adecuado para la mayoría de las tareas, con búsqueda, edición, comandos de terminal y otras herramientas disponibles según sea necesario.',
-  presetPtcName: 'Code Mode',
+  presetPtcName: 'Modo PTC',
   presetPtcDescription:
     'Incluye todas las capacidades del modo de código. Más adecuado para tareas que llaman a herramientas en lotes y luego filtran, organizan, deduplican, cuentan o resumen los resultados.',
   presetMinimalName: 'modo mínimo',
@@ -226,7 +226,7 @@ export const fr = {
   presetStandardName: 'Mode code',
   presetStandardDescription:
     'Travaillez avec du code, des fichiers et des informations. Convient à la plupart des tâches, avec recherche, édition, commandes de terminal et autres outils disponibles selon les besoins.',
-  presetPtcName: 'Code Mode',
+  presetPtcName: 'Mode PTC',
   presetPtcDescription:
     'Inclut toutes les fonctionnalités du mode code. Mieux adapté aux tâches qui appellent des outils par lots, puis filtrent, organisent, dédupliquent, comptent ou résument les résultats.',
   presetMinimalName: 'Mode minimal',
@@ -272,7 +272,7 @@ export const de = {
   presetStandardName: 'Code-Modus',
   presetStandardDescription:
     'Arbeiten Sie mit Code, Dateien und Informationen. Geeignet für die meisten Aufgaben, da bei Bedarf Suche, Bearbeitung, Terminalbefehle und andere Tools verfügbar sind.',
-  presetPtcName: 'Code Mode',
+  presetPtcName: 'PTC-Modus',
   presetPtcDescription:
     'Beinhaltet alle Funktionen des Code-Modus. Besser geeignet für Aufgaben, bei denen Tools stapelweise aufgerufen und die Ergebnisse dann gefiltert, organisiert, dedupliziert, gezählt oder zusammengefasst werden.',
   presetMinimalName: 'Minimalmodus',
@@ -318,7 +318,7 @@ export const ru = {
   presetStandardName: 'Режим кода',
   presetStandardDescription:
     'Работайте с кодом, файлами и информацией. Подходит для большинства задач, с поиском, редактированием, командами терминала и другими инструментами, доступными по мере необходимости.',
-  presetPtcName: 'Code Mode',
+  presetPtcName: 'Режим PTC',
   presetPtcDescription:
     'Включает все возможности режима кода. Лучше подходит для задач, которые вызывают инструменты в пакетном режиме, а затем фильтруют, организуют, дедуплицируют, подсчитывают или суммируют результаты.',
   presetMinimalName: 'Минимальный режим',
@@ -364,7 +364,7 @@ export const pt = {
   presetStandardName: 'Modo de código',
   presetStandardDescription:
     'Trabalhe com código, arquivos e informações. Adequado para a maioria das tarefas, com pesquisa, edição, comandos de terminal e outras ferramentas disponíveis conforme necessário.',
-  presetPtcName: 'Code Mode',
+  presetPtcName: 'Modo PTC',
   presetPtcDescription:
     'Inclui todos os recursos do modo de código. Mais adequado para tarefas que chamam ferramentas em lotes e depois filtram, organizam, desduplicam, contam ou resumem os resultados.',
   presetMinimalName: 'Modo mínimo',
