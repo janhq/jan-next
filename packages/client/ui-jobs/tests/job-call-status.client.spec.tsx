@@ -25,7 +25,7 @@ function job(over: Partial<JobView> = {}): JobView {
     status: 'running',
     startedAt: STARTED,
     output: { total: 0, earliest: 0 },
-    toolCall: { callId: 'call-1', rootCallId: 'call-1' } as JobView['toolCall'],
+    toolCall: { callId: 'call-1', rootCallId: 'call-1' } as NonNullable<JobView['toolCall']>,
     ...over,
   }
 }
