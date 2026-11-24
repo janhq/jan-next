@@ -83,6 +83,7 @@
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-agent-default-model": "workspace:*",
     "@janhq/jan-agent-preset-registry": "workspace:*",
+    "@janhq/jan-agent-profiles": "workspace:*",
     "@janhq/jan-api-gateway": "workspace:*",
     "@janhq/jan-attachment": "workspace:*",
     "@janhq/jan-client-connection": "workspace:*",
@@ -116,6 +117,9 @@
     "@janhq/jan-working-directory": "workspace:*"
   },
   "peerDependenciesMeta": {
+    "@janhq/jan-agent-profiles": {
+      "optional": true
+    },
     "@janhq/jan-mcp-manager": {
       "optional": true
     },
@@ -137,6 +141,7 @@
     "@janhq/jan-agent-loop": "workspace:*",
     "@janhq/jan-agent-loop-testkit": "workspace:*",
     "@janhq/jan-agent-preset-registry": "workspace:*",
+    "@janhq/jan-agent-profiles": "workspace:*",
     "@janhq/jan-api-gateway": "workspace:*",
     "@janhq/jan-attachment": "workspace:*",
     "@janhq/jan-attachment-local": "workspace:*",

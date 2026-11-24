@@ -7,6 +7,7 @@ import { Context } from '@janhq/cordis'
 import AgentRegistry, { AgentModel, modelSelectionProjectionDefinition } from '@janhq/jan-agent'
 import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import type { Agent, AgentFactory, AgentOptions } from '@janhq/jan-agent'
+import type { AgentProfileSelectRequest, AgentProfileSummary } from '@janhq/jan-agent-profiles/types'
 import { agentPresetProjectionDefinition } from '@janhq/jan-agent-preset-registry'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@janhq/jan-session'
 import type { Session, SessionEvent, SessionHeader } from '@janhq/jan-session'
@@ -53,7 +54,10 @@ interface HarnessOptions {
   /** Roster default per provider route, below the first preset. */
   readonly routeDefaults?: Readonly<Record<string, string>>
   /** Scoped-settings defaults of the Workspace's project; omitted, no scoped settings are composed. */
-  readonly project?: { readonly model?: { provider: string; model: string }; readonly mode?: string }
+  readonly project?: { readonly model?: { provider: string; model: string }; readonly mode?: string; readonly agent?: string }
+  /** Profiles returned by the project catalog and an optional selection failure. */
+  readonly profiles?: readonly AgentProfileSummary[]
+  readonly failProfileSelection?: boolean
 }
 
 const WORKSPACE = 'workspace-1' as WorkspaceId
@@ -145,12 +149,28 @@ async function harness(options: HarnessOptions = {}) {
     archivedSessionIds: archived,
   } as never)
   if (options.project !== undefined) {
-    const { model, mode } = options.project
+    const { model, mode, agent } = options.project
     const inProject = (sessionId: SessionId, hint?: WorkspaceId): boolean =>
       (hint ?? (sessionIds.includes(sessionId) ? WORKSPACE : undefined)) === WORKSPACE
     ctx.provide('scopedSettings', {
       resolveModel: (sessionId: SessionId, hint?: WorkspaceId) => inProject(sessionId, hint) ? model : undefined,
       resolveMode: (workspaceId: WorkspaceId | undefined) => Promise.resolve(workspaceId === WORKSPACE ? mode : undefined),
+      resolveAgent: (workspaceId: WorkspaceId | undefined) => workspaceId === WORKSPACE ? agent : undefined,
+    } as never)
+  }
+  const selectedProfiles = new Map<SessionId, string | null>()
+  const selectProfile = vi.fn(async ({ sessionId, id }: AgentProfileSelectRequest) => {
+    if (options.failProfileSelection === true) throw new Error('profile selection failed')
+    if (ctx.agents.get(sessionId) === undefined) throw new Error('the Agent is not live')
+    selectedProfiles.set(sessionId, id)
+  })
+  const listProfiles = vi.fn(async () => ({ profiles: options.profiles ?? [], problems: [] }))
+  if (options.profiles !== undefined) {
+    ctx.provide('agentProfiles', {
+      list: listProfiles,
+      projectOf: (agent: Agent) => agent.session.header.cwd === cwd ? WORKSPACE : undefined,
+      profileForSession: (session: Session) => selectedProfiles.get(session.id) ?? null,
+      select: selectProfile,
     } as never)
   }
 
@@ -221,7 +241,7 @@ async function harness(options: HarnessOptions = {}) {
       .filter(event => event.type === 'agent-preset/selected')
       .map(event => event.data)
   }
-  return { ctx, remote, cwd, route, selections, resumed, presetOf, selectedEvents }
+  return { ctx, remote, cwd, route, selections, resumed, presetOf, selectedEvents, selectProfile, listProfiles }
 }
 
 function storedHeader(id: SessionId, cwd: string, extra: Partial<SessionHeader> = {}): SessionHeader {
@@ -841,5 +861,58 @@ describe('session.create project defaults from scoped settings', () => {
 
     expect(routeOf(ctx, SessionId('outside'))).toMatchObject({ provider: 'test', model: 'test-model' })
     expect(presetOf(SessionId('outside'))).toBe('standard')
+  })
+})
+
+describe('session.create agent profiles', () => {
+  const choice = (id: string, changes: Partial<AgentProfileSummary> = {}): AgentProfileSummary => ({
+    id, description: '', use: 'all', scope: 'project', source: 'jan', path: `/fixture/${id}.md`, writable: true,
+    disallowedTools: [], warnings: [], ...changes,
+  })
+  const project = { agent: 'reviewer' }
+
+  it.each([
+    { name: 'by project id', place: () => ({ workspaceId: WORKSPACE }) },
+    { name: 'by project folder', place: (cwd: string) => ({ cwd }) },
+  ])('selects the project default $name after creating the live Agent', async ({ place }) => {
+    const { cwd, remote, selectProfile, listProfiles } = await harness({ project, profiles: [choice('reviewer')] })
+    const sessionId = SessionId('review-chat')
+    expect(await remote.create({ sessionId, ...place(cwd) })).toMatchObject({ ok: true, value: { sessionId } })
+    expect(listProfiles).toHaveBeenCalledExactlyOnceWith({ workspaceId: WORKSPACE })
+    expect(selectProfile).toHaveBeenCalledExactlyOnceWith({ sessionId, id: 'reviewer' })
+  })
+
+  it('honors an explicit profile and lets explicit Jan clear a reused blank', async () => {
+    const { remote, selectProfile } = await harness({ project, profiles: [choice('reviewer'), choice('writer')] })
+    const sessionId = SessionId('picked-agent')
+    expect(await remote.create({ sessionId, workspaceId: WORKSPACE, agentProfile: 'writer' }))
+      .toMatchObject({ ok: true, value: { sessionId } })
+    expect(await remote.create({ sessionId, workspaceId: WORKSPACE, agentProfile: null }))
+      .toMatchObject({ ok: true, value: { sessionId } })
+    expect(selectProfile.mock.calls).toEqual([[{ sessionId, id: 'writer' }], [{ sessionId, id: null }]])
+  })
+
+  it('skips a missing project default without warning', async () => {
+    const { ctx, remote, selectProfile } = await harness({ project, profiles: [] })
+    const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    expect((await remote.create({ workspaceId: WORKSPACE })).ok).toBe(true)
+    expect(selectProfile).not.toHaveBeenCalled()
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { name: 'missing', profiles: [], failProfileSelection: false },
+    { name: 'subagent-only', profiles: [choice('reviewer', { use: 'subagent' })], failProfileSelection: false },
+    { name: 'shadowed', profiles: [choice('reviewer', { shadowedBy: '/fixture/winner.md' })], failProfileSelection: false },
+    { name: 'unselectable', profiles: [choice('reviewer')], failProfileSelection: true },
+  ])('keeps a chat usable when the requested profile is $name', async ({ profiles, failProfileSelection }) => {
+    const { ctx, remote, selectProfile } = await harness({ profiles, failProfileSelection })
+    const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    const sessionId = SessionId('kept-chat')
+    expect(await remote.create({ sessionId, workspaceId: WORKSPACE, agentProfile: 'reviewer' }))
+      .toMatchObject({ ok: true, value: { sessionId } })
+    expect(selectProfile).toHaveBeenCalledTimes(Number(failProfileSelection))
+    expect(ctx.agents.get(sessionId)).toBeDefined()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('reviewer'))
   })
 })

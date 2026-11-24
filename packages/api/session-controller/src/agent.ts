@@ -7,6 +7,7 @@ import type { Agent, AgentOptions, AgentSetup, ModelSelection } from '@janhq/jan
 import type {} from '@janhq/jan-agent-default-model'
 import { installModelSelection } from '@janhq/jan-agent'
 import type {} from '@janhq/jan-agent-preset-registry'
+import type {} from '@janhq/jan-agent-profiles'
 import { ReasoningEffortId } from '@janhq/jan-llm'
 import type {} from '@janhq/jan-scoped-settings'
 import { brandString } from '@janhq/jan-brand'
@@ -55,7 +56,7 @@ export class ApiSessionPresetConflict extends Error {
 /** A blank Session chosen for reuse started a turn before this Host acquired its writer. */
 class ApiSessionStartedSinceObserved extends Error {}
 
-/** Placement and Agent preset for one Session created for a new conversation. */
+/** Placement, preset and agent profile for one Session created for a new conversation. */
 export interface ApiSessionCreateRequest {
   /** Blank Session to reuse, or the identity of a new Session when none is stored under it. */
   readonly sessionId?: SessionId
@@ -65,6 +66,8 @@ export interface ApiSessionCreateRequest {
   readonly workspaceId?: WorkspaceId
   /** Preset the Session runs; the configured default when omitted. */
   readonly agentPreset?: string
+  /** Agent profile to select; omit to use the project default, or pass `null` for plain Jan. */
+  readonly agentProfile?: string | null
   /**
    * Placement rule the caller owns, such as Workspace membership and archive state.
    * @param sessionId - existing Session named by the request.
@@ -224,7 +227,7 @@ export class ApiSessionAgentController {
    * caller's placement rule, or is written by another owner stays unchanged,
    * and a new Session is created instead. The named Session's directory and
    * ownership are checked before resolving the preset.
-   * @param request - optional Session to reuse, directory, preset, and placement rule.
+   * @param request - optional Session to reuse, directory, preset, agent profile, and placement rule.
    * @returns the reused or created Session and the preset it ran when this request finished.
    * @throws ApiSessionCwdConflict when the named Session belongs to another directory.
    * @throws ApiSessionSubagentOwnership when subagent routing owns the named Session.
@@ -234,8 +237,9 @@ export class ApiSessionAgentController {
   async createSession(request: ApiSessionCreateRequest): Promise<ApiSessionCreated> {
     const placed = await this.withProjectMode(request)
     const named = placed.sessionId
-    if (named === undefined) return this.created(await this.createMinted(placed))
-    return this.created(await this.claim(named, placed))
+    const agent = named === undefined ? await this.createMinted(placed) : await this.claim(named, placed)
+    await this.selectAgentProfile(agent, placed)
+    return this.created(agent)
   }
 
   /** A request that names no preset starts in its project's mode while that preset exists. */
@@ -244,6 +248,42 @@ export class ApiSessionAgentController {
     if (request.agentPreset !== undefined || scoped === undefined) return request
     const mode = await scoped.resolveMode(await this.projectOf(request))
     return mode === undefined ? request : { ...request, agentPreset: mode }
+  }
+
+  /** Select a requested or project-default profile without failing an already created Session. */
+  private async selectAgentProfile(agent: Agent, request: ApiSessionCreateRequest): Promise<void> {
+    const profiles = this.ctx.get('agentProfiles')
+    const { agentProfile, workspaceId } = request
+    if (profiles === undefined) {
+      if (typeof agentProfile === 'string') {
+        this.ctx.logger.warn(`session-controller: could not select agent profile "${agentProfile}" for ${agent.id}: agent profiles are unavailable`)
+      }
+      return
+    }
+
+    let id = agentProfile
+    try {
+      if (id === null) {
+        if (profiles.profileForSession(agent.session) !== null) await profiles.select({ sessionId: agent.id, id })
+        return
+      }
+      const scoped = this.ctx.get('scopedSettings')
+      if (id === undefined && scoped === undefined) return
+      const project = workspaceId ?? profiles.projectOf(agent)
+      id ??= scoped?.resolveAgent(project)
+      if (id === undefined) return
+      const { profiles: available } = await profiles.list(project === undefined ? {} : { workspaceId: project })
+      if (!available.some(profile => profile.id === id && profile.shadowedBy === undefined && profile.use !== 'subagent')) {
+        if (agentProfile !== undefined) {
+          this.ctx.logger.warn(`session-controller: agent profile "${id}" is unavailable for ${agent.id}`)
+        }
+        return
+      }
+      await profiles.select({ sessionId: agent.id, id })
+    } catch (error) {
+      const selection = id === null ? 'plain Jan' : `agent profile "${id}"`
+      this.ctx.logger.warn(`session-controller: could not select ${selection} for ${agent.id}: ${String(error)}`)
+    }
   }
 
   /**

@@ -6,6 +6,7 @@
  * type-only.
  */
 
+import type {} from '@janhq/jan-agent-profiles/types'
 import type {} from '@janhq/jan-api-session-controller/remote-events'
 import type { SessionId } from '@janhq/jan-session/types'
 import type {} from '@janhq/jan-tokamak-account/types'
@@ -28,6 +29,7 @@ import type {} from '@janhq/jan-web/types'
  */
 export const API_REMOTE_FORWARDED_EVENTS = [
   { event: 'agent-preset/selected', mode: 'emit' },
+  { event: 'agent-profiles/changed', mode: 'emit' },
   { event: 'approval/request', mode: 'waterfall' },
   { event: 'api-session/activity', mode: 'emit', resources: { session: (sessionId): SessionId => sessionId } },
   { event: 'api-session/added', mode: 'emit', resources: { session: (summary): SessionId => summary.sessionId } },

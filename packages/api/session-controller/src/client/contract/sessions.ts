@@ -82,7 +82,7 @@ export interface ISessions {
    * Create a Session for a new conversation on the Host. The Host reuses the
    * named blank Session while it is reusable and otherwise creates another; the
    * Session runs the named preset, or the Host default when none is named.
-   * @param opts - target workspace or directory, an optional blank Session to reuse, and an optional Agent preset.
+   * @param opts - target workspace or directory, an optional blank Session, preset, and profile (null for plain Jan).
    * @returns the catalogued identity the Host created or reused; retain it before borrowing its binding.
    */
   create(opts?: {
@@ -90,6 +90,7 @@ export interface ISessions {
     cwd?: string
     sessionId?: SessionId
     agentPreset?: string
+    agentProfile?: string | null
   }): Promise<SessionId>
   /**
    * Resolve an already discovered direct-parent address without opening it.

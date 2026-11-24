@@ -63,6 +63,7 @@
   "devDependencies": {
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-agent-preset-registry": "workspace:*",
+    "@janhq/jan-agent-profiles": "workspace:*",
     "@janhq/jan-api-gateway": "workspace:*",
     "@janhq/jan-api-job-controller": "workspace:*",
     "@janhq/jan-api-session-controller": "workspace:*",
