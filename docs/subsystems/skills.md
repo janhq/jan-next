@@ -209,6 +209,8 @@ interface SkillLookupOptions {
 interface SkillViewOptions extends SkillLookupOptions {
   /** Viewing scope (the calling agent); omitted reads the global layer alone. */
   readonly scope?: ScopeKey | undefined
+  /** Skip registered {@link SkillFilter}s, for settings surfaces that list hidden skills to re-enable them. */
+  readonly unfiltered?: boolean | undefined
 }
 ```
 
