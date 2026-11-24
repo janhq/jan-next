@@ -5384,6 +5384,9 @@ importers:
       '@janhq/jan-client-ui-slots':
         specifier: workspace:*
         version: link:../ui-slots
+      '@janhq/jan-client-ui-tool':
+        specifier: workspace:*
+        version: link:../ui-tool
       '@janhq/jan-jobs':
         specifier: workspace:*
         version: link:../../jobs/jobs
