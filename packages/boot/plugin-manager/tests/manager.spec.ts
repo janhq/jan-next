@@ -9,6 +9,7 @@ import { homedir, tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execa } from 'execa'
 import type { Context } from '@janhq/cordis'
+import type { DownloadActions, DownloadHandle, DownloadStart } from '@janhq/jan-downloads/types'
 import { afterAll, beforeAll, expect, it, onTestFinished, vi } from 'vitest'
 import {
   boot, composeEntries, initProfile, loadProfileDirectory, readProfilePatches, readProfileManifest,
@@ -1230,6 +1231,44 @@ it('streams pnpm output, reports the installation phases, and names the installe
   expect(chunks.at(-1)).toMatchObject({ argv: ['pnpm', 'remove', 'streamed'], stream: 'stdout', exitCode: 0 })
   expect(chunks.at(-1)).not.toHaveProperty('requestId')
   expect(changes).toEqual([{ reason: 'install' }, { reason: 'remove' }])
+})
+
+it('reports an archive install by its filename and replaces the failed row on retry', async () => {
+  const rows = new Map<string, { name: string; state: string; error?: string; actions: DownloadActions }>()
+  let id: string | undefined
+  const { manager } = await fixture('live', false, (ctx) => {
+    ctx.provide('downloads', {
+      start(initial: DownloadStart): DownloadHandle {
+        id = initial.id ?? ''
+        const row = { name: initial.name, state: 'queued', actions: initial.actions ?? {} }
+        rows.set(id, row)
+        return {
+          update(update) { Object.assign(row, update) },
+          finish(state, error, actions) { Object.assign(row, { state, error, actions: actions ?? {} }) },
+        }
+      },
+      snapshot: () => ({ items: [], active: { count: 0, percent: null }, unseen: null }),
+      subscribe: () => () => {}, markSeen() {}, clearFinished() {}, async act() {}, dispose() {},
+    })
+  })
+  const failure = { exitCode: 1, output: 'ERR_PNPM_FETCH_TIMEOUT', truncated: false, logPath: 'pnpm.log', timedOut: true }
+  const pnpm = vi.spyOn(operations, 'runProfilePnpm').mockImplementation(async () => {
+    expect(rows.get(id ?? '')).toMatchObject({ state: 'downloading', actions: { cancel: expect.any(Function) } })
+    return failure
+  })
+  onTestFinished(() => { pnpm.mockRestore() })
+  const requestId = 'f2340b6d-40bb-46b7-8b94-217bdf5010bd' as PluginInstallRequestId
+  const run = manager.installBundle('https://user:secret@example.com/private/addon.tgz#fragment', { requestId })
+  expect(rows.get(id ?? '')).toMatchObject({ name: 'addon.tgz', state: 'queued' })
+  await run
+  const row = rows.get(id ?? '')
+  expect(row).toMatchObject({ state: 'failed', error: failure.output, actions: { retry: expect.any(Function) } })
+  expect(row?.actions.cancel).toBeUndefined()
+  expect(row).not.toHaveProperty('percent')
+  expect(row).not.toHaveProperty('receivedBytes')
+  await row?.actions.retry?.()
+  expect(rows.size).toBe(1)
+  expect(pnpm).toHaveBeenCalledTimes(2)
 })
 
 it('stops a run on request, restores the files, and answers not-running or too-late otherwise', async () => {

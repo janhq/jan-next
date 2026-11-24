@@ -16,6 +16,7 @@ import type { NpmFileSource } from '@janhq/jan-plugin-detail/types'
 import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
 import { janDeclaration } from '@janhq/jan-package-manifest'
 import type {} from '@janhq/jan-client-connection'
+import type { DownloadHandle } from '@janhq/jan-downloads/types'
 import { readBundleDocument, readBundleImage, type BundleDetailOptions } from './bundle-detail.ts'
 import { pluginEntryId, readPluginInventory } from '@janhq/jan-host-plugin-inventory'
 import {
@@ -125,6 +126,7 @@ class InstallCancelledError extends Error {
 /** One installation the manager owns until its call settles. */
 interface InstallControl {
   readonly abort: AbortController
+  download?: DownloadHandle
   /** `applying` once pnpm has exited and the bundle is being selected and loaded, which cannot be stopped. */
   phase: 'installing' | 'applying'
   /** The active install's result, shared with clients recovering a lost response. */
@@ -285,6 +287,18 @@ function installOperationTarget(spec: string): string | null {
   try { parsed = parseInstallSpec(spec) }
   catch (_error) { return null /* Invalid specs remain private; installation owns their refusal. */ }
   return parsed.kind === 'registry' ? parsed.name : null
+}
+
+function installDownloadName(spec: string): string {
+  const input = spec.trim()
+  if (/^https?:\/\//i.test(input) && URL.canParse(input)) {
+    const name = new URL(input).pathname.split('/').at(-1)
+    if (name && /^[a-z0-9._-]+\.(?:tgz|tar\.gz)$/i.test(name)) return name
+  } else {
+    const name = installOperationTarget(spec)
+    if (name !== null) return name
+  }
+  return 'Plugin package'
 }
 
 /** Exemption facts use canonical package identity, never the raw request or installed version. */
@@ -873,6 +887,10 @@ export class PluginManager extends TypertRemoteService {
    */
   @Remote
   installBundle(spec: string, options?: InstallBundleOptions): Promise<ChangeResult> {
+    return this.startInstall(spec, options)
+  }
+
+  private startInstall(spec: string, options?: InstallBundleOptions, downloadId?: string): Promise<ChangeResult> {
     const requestId = options?.requestId
     const control: InstallControl = { abort: new AbortController(), phase: 'installing', result: Promise.resolve(null) }
     const stopped = (): boolean => control.abort.signal.aborted || this.abort.signal.aborted
@@ -880,6 +898,14 @@ export class PluginManager extends TypertRemoteService {
     const announce = (phase: PluginInstallProgress['phase'], attempt?: PluginInstallProgress['attempt']): void => {
       if (requestId !== undefined) this.ownerContext.emit('plugin-manager/install-state', { requestId, phase, ...attempt === undefined ? {} : { attempt } })
     }
+    const downloads = this.ownerContext.get('downloads')
+    const id = downloadId ?? (downloads === undefined ? undefined : `plugin-install:${randomUUID()}`)
+    const download = id === undefined ? undefined : downloads?.start({
+      id, kind: 'plugin', name: installDownloadName(spec),
+      ...requestId === undefined ? {} : { actions: { cancel: async () => { await this.cancelInstall(requestId) } } },
+    })
+    if (download !== undefined) control.download = download
+    let restored = false
     const result = this.change(async (result) => {
       if (spec.trim() === '' || spec.startsWith('-')) throw new ManagementFailure('invalid-spec')
       if (stopped()) throw new InstallCancelledError()
@@ -940,6 +966,7 @@ export class PluginManager extends TypertRemoteService {
           if (stopped()) throw new InstallCancelledError()
           result.registries.push(registry)
           used = registry
+          if (index === 0) download?.update({ state: 'downloading' })
           announce('installing', { registry, index: index + 1, total: plan.length })
           run = await this.runPnpm(['add', installSpec, ...options?.saveExact === true ? ['--save-exact'] : [], ...registryArguments(registry)], control.abort.signal, requestId)
           result.packageResult = run
@@ -963,6 +990,7 @@ export class PluginManager extends TypertRemoteService {
         // A terminated run reports no usable exit status, so neither its files nor its bundle are trusted.
         const succeeded = run.exitCode === 0 && run.timedOut !== true
         if (succeeded) delete result.failedAt
+        download?.update({ actions: {} })
         if (!succeeded) {
           // pnpm-workspace.yaml is not restored, so the names it left undecided, or reported as blocked, are offered for approval.
           try { result.pendingBuilds = await recordPendingBuilds(this.profile.dir, run.output) }
@@ -990,8 +1018,10 @@ export class PluginManager extends TypertRemoteService {
         version = manifest.version
         this.installedFrom.set(name, used)
       } catch (error) {
+        download?.update({ actions: {} })
         // pnpm has exited by now, so the files it rewrote go back as they were.
         await this.restoreFiles(files)
+        restored = true
         throw error
       }
       control.phase = 'applying'
@@ -1010,7 +1040,30 @@ export class PluginManager extends TypertRemoteService {
       })
     }, { stage: 'install', target: spec, enabled: options?.enabled !== false }, 'install')
     control.result = result
-    return result.finally(() => { if (requestId !== undefined) this.installs.delete(requestId) })
+    return result.then((outcome) => {
+      if (download === undefined) return outcome
+      if (outcome.application === 'cancelled') download.finish('cancelled')
+      else if (outcome.application !== 'failed') download.finish('done')
+      else {
+        const kind = outcome.packageResult?.kind
+        // Updates and their restores use exact installs. Only retry ordinary interactive installs after rollback.
+        const retry = requestId !== undefined && restored && !stopped() && options?.saveExact !== true
+          && options?.approvedBuilds === undefined && outcome.pendingBuilds?.length === 0 && (kind === 'network' || kind === 'timeout')
+          ? async () => {
+            this.abort.signal.throwIfAborted()
+            await this.startInstall(spec, { ...options, requestId: randomUUID() as PluginInstallRequestId }, id)
+          }
+          : undefined
+        const diagnostic = outcome.error?.diagnostic || (outcome.stage === 'install' ? outcome.packageResult?.output : undefined)
+          || outcome.error?.code
+        download.finish('failed', diagnostic, retry === undefined ? {} : { retry })
+      }
+      return outcome
+    }, (error: unknown) => {
+      if (this.abort.signal.aborted && error === this.abort.signal.reason) download?.finish('cancelled')
+      else download?.finish('failed', messageOf(error))
+      throw error
+    }).finally(() => { if (requestId !== undefined) this.installs.delete(requestId) })
   }
 
   /** Recover the result of an active installation without cancelling it.
@@ -1034,6 +1087,7 @@ export class PluginManager extends TypertRemoteService {
     if (control === undefined) return { status: 'not-running' }
     if (control.phase === 'applying') return { status: 'too-late' }
     this.ownerContext.emit('plugin-manager/install-state', { requestId, phase: 'cancelling' })
+    control.download?.update({ actions: {} })
     control.abort.abort()
     /* v8 ignore next -- change() folds every failure into its result; only a lock or disposal error rejects */
     await control.result.then(() => undefined, () => undefined)
