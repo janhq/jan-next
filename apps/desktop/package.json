@@ -72,6 +72,7 @@
     "@janhq/jan-client-ui-settings-general": "workspace:*",
     "@janhq/jan-client-ui-sidebar-browser": "workspace:*",
     "@janhq/jan-client-ui-theme": "workspace:*",
+    "@janhq/jan-dev-reload": "workspace:*",
     "@janhq/jan-home-paths": "workspace:*",
     "@janhq/jan-official-bundles": "workspace:*",
     "@janhq/jan-plugin-manager": "workspace:*",

@@ -758,6 +758,9 @@ importers:
       '@janhq/jan-client-ui-theme':
         specifier: workspace:*
         version: link:../../packages/client/ui-theme
+      '@janhq/jan-dev-reload':
+        specifier: workspace:*
+        version: link:../../plugins/dev-reload
       '@janhq/jan-home-paths':
         specifier: workspace:*
         version: link:../../packages/util/home-paths
@@ -18703,9 +18706,6 @@ importers:
       '@janhq/jan-compaction-tool-result-pruner':
         specifier: workspace:*
         version: link:../../packages/compaction/compaction-tool-result-pruner
-      '@janhq/jan-dev-reload':
-        specifier: workspace:*
-        version: link:../dev-reload
       '@janhq/jan-diagnostics':
         specifier: workspace:*
         version: link:../diagnostics
