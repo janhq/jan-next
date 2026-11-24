@@ -33,7 +33,7 @@ async function bench(options: { declareConversation?: boolean } = {}) {
       'main': { kind: 'keyed', scope: 'root' },
       'settings.general.item': { kind: 'list', scope: 'root' },
       'settings.agentLoop.item': { kind: 'list', scope: 'root' },
-    }, (_props: { renderSlot?: unknown }) => null)
+    }, () => null)
   }
   const feature = await runtime.mount({ inject: [...inject], apply })
   if (options.declareConversation !== false) runtime.renderRoot()

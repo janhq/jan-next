@@ -169,7 +169,15 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   // Schemastery's field default is materialized before Cordis calls apply.
   const maxConcurrentFileUploads = config.maxConcurrentFileUploads as number
   const workspaceNavigation = ctx.get('uiWorkspace') as WorkspaceNavigation
-  const uiConversation = new UiConversation(ctx, sessions)
+  const desktop = (globalThis as { janConversationWindow?: ConversationPanelInjected['desktop'] }).janConversationWindow
+  const storageKey = desktop?.id === undefined ? MULTITASK_LAYOUT_KEY : `${MULTITASK_LAYOUT_KEY}.${desktop.id}`
+  const layout = new ConversationLayout(globalThis.localStorage.getItem(storageKey) ?? undefined,
+    (value) => { globalThis.localStorage.setItem(storageKey, value) },
+    (id) => {
+      if (id === undefined) workspaceNavigation.showEmptyConversation?.()
+      else workspaceNavigation.openSession(id)
+    })
+  const uiConversation = new UiConversation(ctx, sessions, layout)
   uiConversation.userText.register(sessionReferenceRule)
   uiConversation.userText.register(collapseWhitespaceRule)
   uiConversation.userText.register(trimWhitespaceRule)
@@ -197,14 +205,6 @@ export function apply(ctx: Context, config: Config = Config({})): void {
 
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-conversation: dictionaries')
   const t = ctx.locale.bind(NS)
-  const desktop = (globalThis as { janConversationWindow?: ConversationPanelInjected['desktop'] }).janConversationWindow
-  const storageKey = desktop?.id === undefined ? MULTITASK_LAYOUT_KEY : `${MULTITASK_LAYOUT_KEY}.${desktop.id}`
-  const layout = new ConversationLayout(globalThis.localStorage.getItem(storageKey) ?? undefined,
-    (value) => { globalThis.localStorage.setItem(storageKey, value) },
-    (id) => {
-      if (id === undefined) workspaceNavigation.showEmptyConversation?.()
-      else workspaceNavigation.openSession(id)
-    })
   const retainPane = paneRetainer(sessions)
   const mainBinding = ctx.uiSession.adapter.current
   const workspaces = ctx.workspaces.list

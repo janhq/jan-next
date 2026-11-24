@@ -26,6 +26,7 @@ import { HistoricalImageCache } from './historical-images.ts'
 import { ConversationViewRegistry } from './view-registry.ts'
 import { ConversationGroupRegistry } from './group-registry.ts'
 import { ConversationInteractionRegistry } from './interaction-registry.ts'
+import type { ConversationLayout } from '../skeleton/multitask-layout.ts'
 import { UserTextRegistry } from './user-text-registry.ts'
 
 /** Observable faces published for one Session's Conversation assembly. */
@@ -218,8 +219,9 @@ export class UiConversation extends Service {
   /**
    * @param ctx - owning Client context.
    * @param sessions - Session Controller object layer.
+   * @param desk - main-area chat panes, when the Conversation shell is assembled.
    */
-  constructor(ctx: Context, private readonly sessions: ISessions) {
+  constructor(ctx: Context, private readonly sessions: ISessions, readonly desk?: ConversationLayout) {
     super(ctx, 'uiConversation')
     this.events = new ConversationEventRegistry(ctx)
     this.views = new ConversationViewRegistry(ctx)

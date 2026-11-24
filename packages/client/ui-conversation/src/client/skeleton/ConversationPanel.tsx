@@ -73,6 +73,8 @@ function LeasedConversation({ id, retainPane, SessionProvider, children }: {
 
 type StripTargets = Partial<Record<TabId, HTMLElement>>
 
+const MIN_CHAT_PANE_SIZE = { width: 240, height: 200 }
+
 function StripTarget({ id, setTargets }: {
   readonly id: TabId
   readonly setTargets: Dispatch<SetStateAction<StripTargets>>
@@ -153,6 +155,7 @@ export function ConversationPanel({ renderSlot, SessionProvider, layout, retainP
     <div className={css.desk} data-chat-tabs="">
       <DockSurface state={dock} intents={layout} labels={labels} canSplit={panes.length < MAX_DOCK_PANES}
         showSplitControl={false} tabListLabel={t('desk.chatTabs')} dividerLabel={t('desk.resize')} renderTab={renderTab}
+        minPaneSize={MIN_CHAT_PANE_SIZE} onRoom={layout.setRoom}
         renderAddTabMenu={renderAddTabMenu}
         renderTabTitle={(tab) => {
           const id = tabSessionId(tab)
@@ -162,14 +165,20 @@ export function ConversationPanel({ renderSlot, SessionProvider, layout, retainP
           return <ChatTabTitle label={label} />
         }}
         renderTabActions={tab => <StripTarget id={tab.id} setTargets={setTargets} />}
-        {...desktop === undefined ? {} : {
-          onTabReleasedOutsideViewport: moveToWindow,
-          renderTabMenuItems: (tab, dismiss) => {
-            const id = tabSessionId(tab)
-            return id === undefined || list.byId[id]?.origin === 'subagent' ? null : (
+        {...desktop === undefined ? {} : { onTabReleasedOutsideViewport: moveToWindow }}
+        renderTabMenuItems={(tab, dismiss) => {
+          const id = tabSessionId(tab)
+          return <>
+            <MenuItemButton disabled={!layout.canSplitTab(tab.id, 'row')} onSelect={() => { dismiss(); layout.splitTab(tab.id, 'row') }}>
+              {t('desk.splitRight')}
+            </MenuItemButton>
+            <MenuItemButton disabled={!layout.canSplitTab(tab.id, 'column')} onSelect={() => { dismiss(); layout.splitTab(tab.id, 'column') }}>
+              {t('desk.splitDown')}
+            </MenuItemButton>
+            {desktop !== undefined && id !== undefined && list.byId[id]?.origin !== 'subagent' && (
               <MenuItemButton onSelect={() => { dismiss(); moveToWindow(tab.id) }}>{t('desk.moveToNewWindow')}</MenuItemButton>
-            )
-          },
+            )}
+          </>
         }} />
     </div>
   )

@@ -3,12 +3,12 @@ import { apply as applyMenus, inject as injectMenus } from '@janhq/jan-client-ui
 /** Conversation assembly acceptance independent of Tool presentation. */
 import './control-row-dom.ts'
 import { createSnapshotStore } from '@janhq/jan-client-store'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { act, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
 import type { ISession } from '@janhq/jan-api-session-controller/client'
-import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import type { PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
   RemoteError, SlotTestRuntime, usePinnedBrowserLanguages, stubConfigForm,
 } from '@janhq/jan-client-test-runtime'
@@ -221,6 +221,35 @@ describe('resident composer', () => {
 })
 
 describe('multitask conversation', () => {
+  it('opens history with its own Session binding in a restored background pane', async () => {
+    localStorage.setItem(MULTITASK_LAYOUT_KEY, JSON.stringify({
+      root: { axis: 'column', sizes: [0.5, 0.5], children: [{ tabs: [SID], active: 0 }, { tabs: ['second'], active: 0 }] },
+      active: 0,
+    }))
+    const runtime = await bench({ listPending: true })
+    onTestFinished(() => runtime.dispose())
+    const history = Promise.withResolvers<undefined>()
+    onTestFinished(() => { history.resolve(undefined) })
+    const opened = vi.fn(() => history.promise)
+    const second = await runtime.sessions.add({ id: 'second', snapshot: { openState: 'loading' }, initialOpen: opened })
+    function HistoryProbe({ sessionId, useSession }: PropsRuntime<'conversation.view'>) {
+      const openState = useSession(value => value.openState)
+      return <output data-session={sessionId} data-open={openState} />
+    }
+    runtime.slots.register({ name: 'conversation.view', id: 'chat', label: 'History probe' }, HistoryProbe)
+    const view = runtime.renderRoot()
+    act(() => { runtime.sessions.list.update((draft) => { draft.phase = 'ready' }) })
+    const background = view.container.querySelector<HTMLElement>('[data-dockkit-pane]:not([data-dockkit-pane-active])')!
+    const probe = await within(background).findByRole('status')
+    expect(probe.getAttribute('data-session')).toBe(second)
+    expect(probe.getAttribute('data-open')).toBe('loading')
+    expect(opened).toHaveBeenCalledOnce()
+
+    history.resolve(undefined)
+    await runtime.sessions.updateSessionSnapshot(second, (draft) => { draft.openState = 'open' })
+    expect(probe.getAttribute('data-open')).toBe('open')
+  })
+
   it('gives a split pane its own composer and releases its Session when its tab closes', async () => {
     localStorage.setItem(MULTITASK_LAYOUT_KEY, JSON.stringify({
       root: { axis: 'row', sizes: [0.5, 0.5], children: [{ tabs: [SID], active: 0 }, { tabs: ['second'], active: 0 }] },

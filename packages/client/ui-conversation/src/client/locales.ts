@@ -11,6 +11,8 @@ const PLAN_NEXT_ACTION_EN = 'describe your task to generate plan'
 export const zh = {
   'desk.split': '分屏',
   'desk.openBeside': '在旁边打开',
+  'desk.splitRight': '向右拆分',
+  'desk.splitDown': '向下拆分',
   'desk.openInNewTab': '在新标签页中打开',
   'desk.moveToNewWindow': '移至新窗口',
   'desk.chatTabs': '对话标签页',
@@ -438,6 +440,8 @@ export type ConversationKey = keyof typeof zh
 export const en = {
   'desk.split': 'Split chat',
   'desk.openBeside': 'Open beside',
+  'desk.splitRight': 'Split right',
+  'desk.splitDown': 'Split down',
   'desk.openInNewTab': 'Open in new tab',
   'desk.moveToNewWindow': 'Move to new window',
   'desk.chatTabs': 'Chat tabs',
@@ -864,6 +868,8 @@ export const en = {
 export const ja = {
   'desk.split': 'チャットを分割',
   'desk.openBeside': '隣に開く',
+  'desk.splitRight': '右に分割',
+  'desk.splitDown': '下に分割',
   'desk.openInNewTab': '新しいタブで開く',
   'desk.moveToNewWindow': '新しいウィンドウに移動',
   'desk.chatTabs': 'チャットタブ',
@@ -1288,6 +1294,8 @@ export const ja = {
 export const es = {
   'desk.split': 'Dividir chat',
   'desk.openBeside': 'Abrir al lado',
+  'desk.splitRight': 'Dividir a la derecha',
+  'desk.splitDown': 'Dividir hacia abajo',
   'desk.openInNewTab': 'Abrir en una pestaña nueva',
   'desk.moveToNewWindow': 'Mover a una ventana nueva',
   'desk.chatTabs': 'Pestañas de chat',
@@ -1714,6 +1722,8 @@ export const es = {
 export const fr = {
   'desk.split': 'Scinder le chat',
   'desk.openBeside': 'Ouvrir à côté',
+  'desk.splitRight': 'Scinder vers la droite',
+  'desk.splitDown': 'Scinder vers le bas',
   'desk.openInNewTab': 'Ouvrir dans un nouvel onglet',
   'desk.moveToNewWindow': 'Déplacer vers une nouvelle fenêtre',
   'desk.chatTabs': 'Onglets de discussion',
@@ -2140,6 +2150,8 @@ export const fr = {
 export const de = {
   'desk.split': 'Chat teilen',
   'desk.openBeside': 'Daneben öffnen',
+  'desk.splitRight': 'Nach rechts teilen',
+  'desk.splitDown': 'Nach unten teilen',
   'desk.openInNewTab': 'In neuem Tab öffnen',
   'desk.moveToNewWindow': 'In neues Fenster verschieben',
   'desk.chatTabs': 'Chat-Tabs',
@@ -2566,6 +2578,8 @@ export const de = {
 export const ru = {
   'desk.split': 'Разделить чат',
   'desk.openBeside': 'Открыть рядом',
+  'desk.splitRight': 'Разделить вправо',
+  'desk.splitDown': 'Разделить вниз',
   'desk.openInNewTab': 'Открыть в новой вкладке',
   'desk.moveToNewWindow': 'Переместить в новое окно',
   'desk.chatTabs': 'Вкладки чатов',
@@ -2992,6 +3006,8 @@ export const ru = {
 export const pt = {
   'desk.split': 'Dividir chat',
   'desk.openBeside': 'Abrir ao lado',
+  'desk.splitRight': 'Dividir à direita',
+  'desk.splitDown': 'Dividir para baixo',
   'desk.openInNewTab': 'Abrir em nova aba',
   'desk.moveToNewWindow': 'Mover para nova janela',
   'desk.chatTabs': 'Abas de conversa',
