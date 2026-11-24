@@ -5,10 +5,10 @@ window.__ModuleLoader__.load({
       unsupported download checksum startup retry preparing pending cancelling openBrowser deviceCode cancel
       signInUnavailable signInFailed timeout cancelFailed signOutFailed refreshFailed`.split(/\s+/)
     const copy = {
-      en: `Subscriptions|Connect your own subscriptions. Jan sends requests through a local proxy, and supported models appear in the model picker automatically.|Local proxy|Connect a subscription|Connected accounts|No subscriptions connected yet.|Sign in with {provider}|Sign out
+      en: `Bring your own subscription|Sign in with a provider to use its supported models in Jan.|Local proxy|Connect a subscription|Connected accounts|No subscriptions connected yet.|Sign in with {provider}|Sign out
 Loading…|Couldn’t reach subscription settings.|Not started|Downloading CLIProxyAPI…|Downloading CLIProxyAPI: {percent}%|Starting the local proxy…|Restarting the local proxy…|Running
 CLIProxyAPI isn’t available on this platform.|Couldn’t download the local proxy.|Jan couldn’t verify the download.|Couldn’t start the local proxy.|Try again
-Preparing sign-in…|Finish signing in in your browser.|Cancelling sign-in…|Open sign-in in browser|Enter this code if asked: {code}|Cancel
+Preparing sign-in…|Complete sign-in in your browser.|Cancelling sign-in…|Open sign-in in browser|Enter this code if asked: {code}|Cancel
 Couldn’t open this sign-in. Try again and close other apps using the provider’s sign-in port.|Sign-in didn’t finish. Try again.|Sign-in timed out. Try again.|Couldn’t confirm cancellation. Check the account list before trying again.|Couldn’t sign out. Try again.|Couldn’t refresh subscriptions and models. Try again.`,
       de: `Abonnements|Verbinde deine eigenen Abonnements. Jan sendet Anfragen über einen lokalen Proxy. Unterstützte Modelle erscheinen automatisch in der Modellauswahl.|Lokaler Proxy|Abonnement verbinden|Verbundene Konten|Noch keine Abonnements verbunden.|Mit {provider} anmelden|Abmelden
 Wird geladen…|Die Abonnementeinstellungen sind nicht erreichbar.|Nicht gestartet|CLIProxyAPI wird heruntergeladen…|CLIProxyAPI wird heruntergeladen: {percent} %|Lokaler Proxy wird gestartet…|Lokaler Proxy wird neu gestartet…|Läuft
@@ -46,10 +46,20 @@ CLIProxyAPI недоступен на этой платформе.|Не удал
 正在准备登录…|请在浏览器中完成登录|正在取消登录…|在浏览器中打开登录页面|如果系统提示，请输入此代码：{code}|取消
 无法打开登录页面。请关闭占用该服务登录端口的其他应用后重试|登录未完成，请重试|登录超时，请重试|无法确认是否已取消。重试前请检查账号列表|无法退出登录，请重试|无法刷新订阅和模型，请重试`,
     }
+    const poweredBy = {
+      en: 'Powered by CLI Proxy {version}',
+      de: 'Mit CLI Proxy {version}',
+      es: 'Con tecnología de CLI Proxy {version}',
+      fr: 'Propulsé par CLI Proxy {version}',
+      ja: 'CLI Proxy {version} を使用',
+      pt: 'Com tecnologia do CLI Proxy {version}',
+      ru: 'Работает на базе CLI Proxy {version}',
+      zh: '由 CLI Proxy {version} 提供支持',
+    }
     return { dictionaries: Object.fromEntries(Object.entries(copy).map(([locale, value]) => {
       const labels = value.split(/[|\n]/)
       if (labels.length !== keys.length) throw new Error(`Invalid subscription copy: ${locale}`)
-      return [locale, Object.fromEntries(keys.map((key, i) => [key, labels[i]]))]
+      return [locale, { ...Object.fromEntries(keys.map((key, i) => [key, labels[i]])), poweredBy: poweredBy[locale] }]
     })) }
   },
 })

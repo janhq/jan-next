@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { resolveJanHome } from '@janhq/jan-home-paths'
 import { registerApi } from '@janhq/jan-plugin-api'
 import { ProxyProcess } from './process.mjs'
+import { VERSION } from './release.mjs'
 import { modelRoute } from './route.mjs'
 import { SubscriptionProxy } from './subscriptions.mjs'
 
@@ -18,7 +19,7 @@ export function apply(ctx) {
     onError: operation => ctx.logger.warn(`CLIProxyAPI: ${operation} failed`),
   })
   ctx.effect(() => registerApi(ctx, 'cli-proxy', {
-    state: () => proxy.state(),
+    state: () => ({ ...proxy.state(), version: `v${VERSION}` }),
     signIn: ({ provider }) => proxy.signIn(provider),
     cancel: () => proxy.cancel(),
     signOut: ({ id }) => proxy.signOut(id),

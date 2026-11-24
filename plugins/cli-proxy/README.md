@@ -1,10 +1,10 @@
 # Jan subscriptions
 
-Open **Settings > Subscriptions**, choose a provider and finish signing in in your browser. A provider may display a device code to enter in the browser. When the proxy finishes connecting the account, its supported chat models appear under **Subscriptions (CLIProxyAPI)** in Jan's model picker. No API key or provider setup is required. Sign out here to remove Jan's local copy of the account; this does not revoke the provider's grant or cancel your subscription.
+Open **Settings > AI Models > Bring your own subscription**, choose a provider, and complete sign-in in your browser. A provider may display a device code to enter in the browser. Once connected, supported chat models appear under **Subscriptions (CLIProxyAPI)** in Jan's model picker. No API key is required. The Local proxy card displays the release Jan uses. Sign out here to remove Jan's local copy of the account; this does not revoke the provider's grant or cancel your subscription.
 
 ## Placement
 
-`@janhq/jan-cli-proxy` is private, plain JavaScript shipped as source in `plugins/cli-proxy`. Its Host and Settings entry are desktop product behavior and consume the existing authenticated plugin API, LLM adapter registry and Settings section slot; they have no new shared service or TypeScript build. The desktop bundle mounts it. A browser using the desktop profile has the same Settings page when the browser and Host run on the same computer. The published `@janhq/jan-web-app` bundle does not include this plugin.
+`@janhq/jan-cli-proxy` is private, plain JavaScript shipped as source in `plugins/cli-proxy`. It uses the authenticated plugin API, the LLM adapter registry, and the `settings.models.setup-subscription` slot. Its browser contribution also registers Settings search and redirects the old `jan-cli-proxy` section id. The desktop bundle mounts the plugin; the published `@janhq/jan-web-app` bundle does not.
 
 ## Runtime
 

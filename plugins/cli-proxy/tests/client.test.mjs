@@ -29,13 +29,13 @@ async function mount(t, initial) {
   })
   const modules = new Map([['react', React], ['@janhq/jan-client-ui-primitives', {
     Button: ({ variant: _variant, size: _size, ...props }) => h('button', props),
-    IconLinkOutlineRegular: () => h('svg'), IconUserOutlineRegular: () => h('svg'),
+    IconUserOutlineRegular: () => h('svg'),
   }]])
   const load = key => modules.get(key)
   load.async = async key => modules.get(key.slice(2))
   window.__ModuleLoader__ = { load: ({ chunk, factory }) => { modules.set(chunk || 'plugin', factory(load)) } }
   const requests = []
-  const snapshot = { status: { phase: 'idle' }, accounts: [], signIn: null, ...initial }
+  const snapshot = { version: 'v9.2.3-test', status: { phase: 'idle' }, accounts: [], signIn: null, ...initial }
   const sandbox = {
     window, document, URL, AbortController, setTimeout, clearTimeout,
     fetch: async (_, options) => {
@@ -52,25 +52,32 @@ async function mount(t, initial) {
     runInNewContext(readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), sandbox, { filename: file })
   }
   const registrations = new Map()
+  const targets = []
   const tMessage = (key, params) => modules.get('client.locale.js').dictionaries.en[key]
     .replace(/\{(\w+)\}/g, (_, name) => params[name])
   const registered = Promise.withResolvers()
   modules.get('plugin').apply({
     effect: install => install(), locale: { register() {}, bind: () => tMessage },
-    slots: { inject: (_slot, register) => register(), register: ({ name }, Component) => {
+    settingsNavigation: { registerTarget: target => { targets.push(target); return () => {} } },
+    slots: { inject: (_slot, register) => { for (const _dispose of register()) { /* apply the effect */ } }, register: ({ name }, Component) => {
       registrations.set(name, Component)
-      if (name === 'settings.section') registered.resolve()
+      registered.resolve()
+      return () => registrations.delete(name)
     } },
   })
   await registered.promise
-  await React.act(async () => root.render(h(registrations.get('settings.section'), { t: tMessage })))
+  assert.deepEqual([...registrations.keys()], ['settings.models.setup-subscription'])
+  assert.equal(targets[0]?.sectionId, 'models')
+  assert.equal(targets[0]?.id, 'subscription')
+  assert.ok(targets[0]?.aliases.includes('jan-cli-proxy'))
+  await React.act(async () => root.render(h(registrations.get('settings.models.setup-subscription'), { t: tMessage })))
   return { rootNode, requests, button: name => [...rootNode.querySelectorAll('button')].find(button => button.textContent === name) }
 }
 
 test('offers provider sign-in and shows a browser link, device code, and cancel action while waiting', async t => {
   const { rootNode, requests, button } = await mount(t)
   await React.act(async () => button('Sign in with ChatGPT').click())
-  assert.match(rootNode.textContent, /Finish signing in in your browser/)
+  assert.match(rootNode.textContent, /Complete sign-in in your browser/)
   assert.match(rootNode.textContent, /ABC-123/)
   assert.equal(rootNode.querySelector('a').href, 'https://example.com/sign-in')
   assert.equal(button('Sign in with Claude').disabled, true)
@@ -86,6 +93,7 @@ test('shows connected accounts and offers a retry for a failed proxy', async t =
     accounts: [{ id: 'account.json', provider: 'claude', label: 'casey@example.com' }],
   })
   assert.match(rootNode.textContent, /couldn’t verify/)
+  assert.match(rootNode.textContent, /Powered by CLI Proxy v9\.2\.3-test/)
   assert.match(rootNode.textContent, /casey@example.com/)
   assert.equal(button('Sign out').disabled, true)
   await React.act(async () => button('Try again').click())

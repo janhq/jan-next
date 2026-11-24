@@ -7,7 +7,8 @@ import { pipeline } from 'node:stream/promises'
 import { unzipSync } from 'fflate'
 import { extract } from 'tar'
 
-const VERSION = '8.1.2'
+/** The verified CLIProxyAPI release installed by Jan. */
+export const VERSION = '8.1.2'
 const BASE_URL = `https://github.com/router-for-me/CLIProxyAPI/releases/download/v${VERSION}/`
 const ASSETS = {
   'darwin-arm64': ['darwin_aarch64.tar.gz', '95d746c8d6cb418a88cb79937ca90194388faa707c30e3ec53e7d41f469cd6ec'],

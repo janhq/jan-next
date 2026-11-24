@@ -2,14 +2,15 @@ window.__ModuleLoader__.load({
   id: '@janhq/jan-cli-proxy',
   factory(require) {
     const { createElement: h, useEffect, useRef, useState } = require('react')
-    const { Button, IconLinkOutlineRegular, IconUserOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const { Button, IconUserOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const ID = 'jan-cli-proxy'
+    const SETUP_SLOT = 'settings.models.setup-subscription'
     const providers = {
       claude: 'Claude', codex: 'ChatGPT', antigravity: 'Google Antigravity', xai: 'Grok', kimi: 'Kimi Code (kimi.com)',
       'kimi-ai': 'Kimi Code (kimi.ai)', copilot: 'GitHub Copilot', devin: 'Devin', meta: 'Meta Muse',
     }
     const CSS = `
-.jan-cli-proxy{display:grid;gap:24px;max-width:640px;padding-block-end:24px}
+.jan-cli-proxy{display:grid;gap:12px;max-width:640px;padding-block-end:12px}
 .jan-cli-proxy h2,.jan-cli-proxy p{margin:0}
 .jan-cli-proxy h2{font:inherit;font-weight:500}
 .jan-cli-proxy-detail{color:var(--dsw-alias-label-secondary);font-size:13px;overflow-wrap:anywhere}
@@ -103,6 +104,7 @@ window.__ModuleLoader__.load({
               role: 'status', className: status?.error ? 'jan-cli-proxy-error' : 'jan-cli-proxy-detail',
             },
               t(phase))),
+          state?.version && h('p', { className: 'jan-cli-proxy-detail' }, t('poweredBy', { version: state.version })),
           status?.phase === 'downloading' && h('div', null,
             h('p', { className: 'jan-cli-proxy-detail' }, percent === null ? t('downloading') : t('progress', { percent })),
             h('progress', { max: 100, value: percent ?? undefined, 'aria-label': t('downloading') })),
@@ -139,7 +141,7 @@ window.__ModuleLoader__.load({
 
     return {
       name: ID,
-      inject: ['slots', 'locale'],
+      inject: ['slots', 'locale', 'settingsNavigation'],
       apply(ctx) {
         let live = true
         ctx.effect(() => {
@@ -155,11 +157,12 @@ window.__ModuleLoader__.load({
           ctx.effect(() => ctx.locale.register(ID, dictionaries), 'Subscription settings copy')
           const t = ctx.locale.bind(ID)
           const Page = props => h(Section, { ...props, ProviderIcon })
-          ctx.slots.inject('settings.section', () => ctx.slots.register({
-            name: 'settings.section', id: ID, order: 45, locale: ID, label: () => t('title'),
-          }, Page))
-          ctx.slots.inject('settings.section.icon', () => ctx.slots.register({ name: 'settings.section.icon', id: ID },
-            ({ size }) => h(IconLinkOutlineRegular, { size, 'aria-hidden': true })))
+          ctx.slots.inject(SETUP_SLOT, function* () {
+            yield ctx.slots.register({ name: SETUP_SLOT, locale: ID }, Page)
+            yield ctx.settingsNavigation.registerTarget({
+              sectionId: 'models', id: 'subscription', title: () => t('title'), aliases: [ID, 'subscriptions'],
+            })
+          })
         }).catch(() => console.warn('Subscription settings assets could not be loaded'))
       },
     }
