@@ -98,6 +98,21 @@ it('holds a changed plugin while the gate gives a reason and applies it on reque
   expect(await f.ctx.hmr.applyHeld()).toBe(false)
 })
 
+it('lets a held listener apply the changes later from its own continuation', async () => {
+  const f = await fixture()
+  let busy: string | undefined = 'running-chats'
+  onTestFinished(f.ctx.hmr.setGate({ hold: () => busy }))
+  const idle = Promise.withResolvers<undefined>()
+  let applied: Promise<boolean> | undefined
+  // Like a gate owner waiting for its chats: the continuation keeps the async context the listener ran in.
+  f.ctx.on('hmr/held', () => { applied = idle.promise.then(() => f.ctx.hmr.applyHeld()) })
+  await f.edit()
+  busy = undefined
+  idle.resolve(undefined)
+  expect(await applied).toBe(true)
+  expect(f.trace).toEqual(['start:a', 'stop:a', 'start:a'])
+})
+
 it('applies held changes when the gate is removed', async () => {
   const f = await fixture()
   const dispose = f.ctx.hmr.setGate({ hold: () => 'busy' })

@@ -556,7 +556,8 @@ class Hmr extends Service {
             loader.exit()
             return
           }
-          this.ctx.emit('hmr/restart-required', 'external-module', external)
+          // Listeners run outside the transaction so their later work can start one.
+          this.executing.exit(() => { this.ctx.emit('hmr/restart-required', 'external-module', external) })
           if (includes.size === 0 && this.stashed.size === 0) return
         }
         const reason = this.gate?.hold()
@@ -564,7 +565,7 @@ class Hmr extends Service {
           for (const include of includes) this.heldIncludes.add(include)
           this.heldReason = reason
           const held = this.held
-          if (held !== undefined) this.ctx.emit('hmr/held', held)
+          if (held !== undefined) this.executing.exit(() => { this.ctx.emit('hmr/held', held) })
           return
         }
         await this.applyChanges(includes)
