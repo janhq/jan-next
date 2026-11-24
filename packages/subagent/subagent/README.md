@@ -71,7 +71,7 @@ The root is always `lead`. A descendant's full name is the slash-separated path 
 
 In-process spawn accepts an independent `agentPreset`; fork and external backends reject this option. Without a selection, a local child joins the parent's current preset revision. An explicit id mounts the currently available revision, even when that id matches the parent's. Configure model choices through [`jan-tool-subagent`](../tool-subagent/README.md#selecting-a-child-preset).
 
-Spawn accepts an already resolved profile id in `agent`; the child descriptor and parent catalog record it separately from the creation label. The id does not apply or reload a profile. The caller supplies its literal `persona` and `toolFilter`, which override the deployment persona and narrow inherited tools for that child only. The optional `sandboxMode` caps file access without granting more than the parent has. See [local child permission rules](../../../docs/subsystems/subagent.md#local-children-and-activations).
+Spawn accepts an already resolved profile id in `agent`; the child descriptor and parent catalog record it separately from the creation label. The id does not apply or reload a profile. The caller supplies its literal `persona` and `toolFilter`, which override the deployment persona and narrow the child preset's tools without changing the parent's. A `toolFilter` entry of `mcp:<server>` matches that server's registered tools in the child's scope, including after reconnection or cold resume. The optional `sandboxMode` caps file access without granting more than the parent has. See [local child permission rules](../../../docs/subsystems/subagent.md#local-children-and-activations).
 
 ### Messaging, interrupting, and discovering
 

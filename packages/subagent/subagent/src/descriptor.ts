@@ -84,7 +84,7 @@ export interface ContinuableSubagentDescriptorData extends SubagentDescriptorBas
   readonly agentReasoningEffort?: ReasoningEffortId
   /** Literal per-child persona applied at start and on cold resume. */
   readonly persona?: string
-  /** Child tool restriction applied at start and on cold resume. */
+  /** Child tool names and MCP server selectors reapplied to its composition on cold resume. */
   readonly toolFilter?: ToolRestriction
   /** Effective sandbox ceiling fixed at delegation; absent when no profile cap was requested. */
   readonly sandboxMode?: SandboxMode

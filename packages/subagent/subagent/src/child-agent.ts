@@ -8,6 +8,8 @@
 
 import type { Context } from '@janhq/cordis'
 import type { Agent, AgentOptions, CreateAgentOptions } from '@janhq/jan-agent'
+import { expandMcpServerEntries } from '@janhq/jan-mcp-client'
+import { scopeOf } from '@janhq/jan-scope'
 import type { SandboxMode } from '@janhq/jan-sandbox'
 import type { Session } from '@janhq/jan-session'
 import type {} from '@janhq/jan-system-prompt'
@@ -160,7 +162,7 @@ export interface ChildComposition {
   readonly agentPreset?: string | undefined
   /** Literal persona applied on creation and restored from the descriptor on cold resume. */
   readonly persona?: string | undefined
-  /** Tool restriction applied on creation and restored from the descriptor on cold resume. */
+  /** Tool names and `mcp:<server>` selectors applied to the composed tools on start and cold resume. */
   readonly toolFilter?: ToolRestriction | undefined
   /** Sandbox ceiling fixed at delegation or restored from the child descriptor. */
   readonly sandboxMode?: SandboxMode | undefined
@@ -219,7 +221,36 @@ function applyChildOverrides(childCtx: Context, composition: ChildComposition): 
       interpolate: false,
     })
   }
-  if (composition.toolFilter !== undefined) childCtx.tools.restrict(composition.toolFilter, { allowUnregistered: true })
+  if (composition.toolFilter !== undefined) restrictChildTools(childCtx, composition.toolFilter)
+}
+
+function restrictChildTools(childCtx: Context, filter: ToolRestriction): void {
+  const { tools } = childCtx
+  const options = { allowUnregistered: true, includeScopeLocal: true }
+  const hasMcp = filter.allow?.some(name => name.startsWith('mcp:')) === true
+    || filter.deny?.some(name => name.startsWith('mcp:')) === true
+  if (!hasMcp) {
+    tools.restrict(filter, options)
+    return
+  }
+
+  const scope = scopeOf(childCtx)
+  let key: string | undefined
+  let lift: (() => void) | undefined
+  const refresh = (): void => {
+    const definitions = tools.registeredDefinitions(scope)
+    const allow = filter.allow === undefined ? undefined : expandMcpServerEntries(filter.allow, definitions)
+    const deny = filter.deny === undefined ? undefined : expandMcpServerEntries(filter.deny, definitions)
+    const nextKey = JSON.stringify([allow, deny])
+    if (nextKey === key) return
+    // Installing or lifting a mask synchronously emits tools/change.
+    key = nextKey
+    const previous = lift
+    lift = tools.restrict({ ...allow === undefined ? {} : { allow }, ...deny === undefined ? {} : { deny } }, options)
+    previous?.()
+  }
+  refresh()
+  childCtx.on('tools/change', refresh)
 }
 
 /** Policy seeded onto a child session's log at the delegation boundary. */

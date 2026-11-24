@@ -10,7 +10,7 @@ const args = { description: 'Review the evidence', prompt: 'Check these files.' 
 const reviewer: AgentProfile = {
   id: 'reviewer', description: 'Reviews {{examples}}.', use: 'subagent', instructions: 'Review only.',
   scope: 'global', source: 'jan', path: '/example/reviewer.md', writable: true,
-  model: { model: 'fast-model' }, disallowedTools: ['write'], warnings: [],
+  model: { model: 'fast-model' }, tools: ['read', 'mcp:project'], disallowedTools: ['write', 'mcp:private'], warnings: [],
 }
 const primary: AgentProfile = { ...reviewer, id: 'primary-only', use: 'primary', path: '/example/primary-only.md' }
 const shadowed: AgentProfile = { ...reviewer, id: 'shadowed', path: '/example/shadowed.md', shadowedBy: '/example/winner.md' }
@@ -35,7 +35,7 @@ async function setupProfiles(entries: readonly AgentProfile[] = [reviewer, prima
     owner.provide('agentProfiles', {
       get, resolveModel, projectOf: () => undefined,
       snapshot: () => ({ profiles: entries, problems: [] }),
-      toolRestrictionOf: () => ({ deny: ['write'] }),
+      toolRestrictionOf: (profile: AgentProfile) => ({ allow: profile.tools, deny: profile.disallowedTools }),
     } as never)
   })
   const context = async () => {
@@ -56,7 +56,8 @@ describe('named subagent profiles', () => {
       text: 'Available agents (pass as `agent`):\n- reviewer: Reviews {{examples}}.', interpolate: false,
     })
     const expectedComposition = {
-      label: 'Review the evidence', agent: 'reviewer', persona: 'Review only.', toolFilter: { deny: ['write'] },
+      label: 'Review the evidence', agent: 'reviewer', persona: 'Review only.',
+      toolFilter: { allow: ['read', 'mcp:project'], deny: ['write', 'mcp:private'] },
     }
 
     expect((await callSubagent(ctx, { ...args, agent: 'reviewer' })).isError).not.toBe(true)

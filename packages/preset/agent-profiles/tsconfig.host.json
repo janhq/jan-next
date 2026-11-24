@@ -48,9 +48,6 @@
     },
     {
       "path": "../../util/atomic-write"
-    },
-    {
-      "path": "../../mcp/mcp-client"
     }
   ]
 }

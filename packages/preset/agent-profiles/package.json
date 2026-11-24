@@ -75,8 +75,7 @@
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-home-paths": "workspace:*",
-    "@janhq/jan-llm": "workspace:*",
-    "@janhq/jan-mcp-client": "workspace:*"
+    "@janhq/jan-llm": "workspace:*"
   },
   "dependencies": {
     "@janhq/jan-atomic-write": "workspace:*",
@@ -106,7 +105,6 @@
     "@janhq/jan-client-ui-slots": "workspace:*",
     "@janhq/jan-home-paths": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
-    "@janhq/jan-mcp-client": "workspace:*",
     "@janhq/jan-scoped-settings": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-session-projection": "workspace:*",

@@ -8,7 +8,6 @@ import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-prot
 import { writeFileAtomic } from '@janhq/jan-atomic-write'
 import { resolveAgentsHome, resolveJanHome } from '@janhq/jan-home-paths'
 import { ReasoningEffortId } from '@janhq/jan-llm/brand'
-import { expandMcpServerEntries } from '@janhq/jan-mcp-client'
 import type { Agent, ModelSelection } from '@janhq/jan-agent'
 import type { Session } from '@janhq/jan-session'
 import type { ProjectionHandle } from '@janhq/jan-session-projection'
@@ -331,14 +330,13 @@ export default class AgentProfiles extends TypertRemoteService {
   }
 
   /**
-   * Tool restriction for a delegated agent running one profile, with `mcp:<server>` expanded to tool names.
+   * Tool restriction for a delegated agent running one profile. The child resolves `mcp:<server>` against its composed tools.
    * @param profile - the profile.
    * @returns the restriction, or undefined when the profile limits no tool.
    */
   toolRestrictionOf(profile: AgentProfileSummary): ToolRestriction | undefined {
-    const definitions = this.ctx.get('tools')?.definitions() ?? []
-    const allow = profile.tools === undefined ? undefined : expandMcpServerEntries(profile.tools, definitions)
-    const deny = expandMcpServerEntries(profile.disallowedTools, definitions)
+    const allow = profile.tools
+    const deny = profile.disallowedTools
     if (allow === undefined && deny.length === 0) return undefined
     return { ...allow === undefined ? {} : { allow }, ...deny.length === 0 ? {} : { deny } }
   }
@@ -373,11 +371,8 @@ export default class AgentProfiles extends TypertRemoteService {
   }
 
   private async applySelection(agent: Agent, id: string | null, keepModel: boolean): Promise<void> {
-    if (this.ctx.agents.turnBoundaryOf(agent.session).openTurnStartSeq !== null) {
-      throw new RemoteError('agent-profiles/locked', 'Wait for the running turn to finish before changing the agent.', { sessionId: agent.id })
-    }
-    // An explicit pick, even of the same profile, takes the file as it is now.
-    this.pinned.delete(agent.id)
+    const busy = (): RemoteError => new RemoteError('agent-profiles/locked', 'Wait for the running turn to finish before changing the agent.', { sessionId: agent.id })
+    if (this.ctx.agents.turnBoundaryOf(agent.session).openTurnStartSeq !== null) throw busy()
     let profile: AgentProfileSummary | undefined
     if (id !== null) {
       const workspaceId = this.projectOf(agent)
@@ -386,28 +381,47 @@ export default class AgentProfiles extends TypertRemoteService {
       if (profile === undefined) throw new RemoteError('agent-profiles/not-found', `No agent named "${id}".`, { id })
       if (profile.use === 'subagent') throw invalid(`Agent "${id}" only runs delegated tasks.`)
     }
-    if (this.profileForSession(agent.session) !== id || !this.hasSelection(agent.session)) {
-      agent.session.append('agent-profile/selected', { agentProfile: id })
-      this.ctx.emit('agent-profiles/changed')
+    const model = keepModel ? undefined : profile?.model
+    const selection = model === undefined ? undefined : await this.prepareModel(model)
+    if (this.ctx.agents.turnBoundaryOf(agent.session).openTurnStartSeq !== null) throw busy()
+
+    const commit = async (): Promise<void> => {
+      // An explicit pick, even of the same profile, takes the file as it is now.
+      this.pinned.delete(agent.id)
+      const changed = this.profileForSession(agent.session) !== id || !this.hasSelection(agent.session)
+      if (changed) agent.session.append('agent-profile/selected', { agentProfile: id })
+      if (profile !== undefined && model !== undefined) {
+        if (selection === undefined) {
+          const label = model.provider === undefined ? model.model : `${model.provider}/${model.model}`
+          this.modelWarnings.set(profile.path, `model "${label}" is not available`)
+        } else {
+          this.modelWarnings.delete(profile.path)
+          agent.model.select(selection)
+        }
+      }
+      if (changed) this.ctx.emit('agent-profiles/changed')
     }
-    if (!keepModel && profile?.model !== undefined) await this.applyModel(agent, profile, profile.model)
+    let committing: Promise<void>
+    try {
+      committing = agent.runMaintenance(commit)
+    } catch {
+      // Agent creation already owns maintenance while it awaits announcement listeners.
+      if (!this.ctx.agents.isAnnouncing(agent)) throw busy()
+      committing = commit()
+    }
+    await committing
   }
 
-  private async applyModel(agent: Agent, profile: AgentProfileSummary, model: AgentProfileModel): Promise<void> {
+  private async prepareModel(model: AgentProfileModel): Promise<ModelSelection | undefined> {
     const resolved = await this.resolveModel(model)
     const llm = this.ctx.get('llm')
-    if (resolved === undefined || llm === undefined) {
-      const label = model.provider === undefined ? model.model : `${model.provider}/${model.model}`
-      this.modelWarnings.set(profile.path, `model "${label}" is not available`)
-      return
-    }
-    this.modelWarnings.delete(profile.path)
+    if (resolved === undefined || llm === undefined) return undefined
     const selection: ModelSelection = {
       provider: resolved.provider, model: resolved.model,
       ...resolved.reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(resolved.reasoningEffort) },
     }
     await llm.resolveCallConfig(selection)
-    agent.model.select(selection)
+    return selection
   }
 
   private promptText(agent: Agent): string {

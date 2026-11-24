@@ -55,6 +55,7 @@ async function setup() {
     get: (id: string) => agents.find(agent => agent.id === id),
     list: () => agents,
     turnBoundaryOf: (session: FakeSession) => ({ openTurnStartSeq: session.openTurn }),
+    isAnnouncing: () => false,
   } as never)
   ctx.provide('sessionController', {
     modelCatalog: async () => ({
@@ -71,7 +72,8 @@ async function setup() {
       append(type, data) { this.events.push({ type, data }) },
     }
     const model = { select: (selection: unknown) => { selected.push(selection) } }
-    const agent = { id: SessionId(id), session, model } as never as Agent & { session: FakeSession }
+    const runMaintenance: Agent['runMaintenance'] = job => job(new AbortController().signal)
+    const agent = { id: SessionId(id), session, model, runMaintenance } as never as Agent & { session: FakeSession }
     agents.push(agent)
     return agent
   }
@@ -210,6 +212,15 @@ it('ships read-only built-in profiles that parse cleanly and give way to any use
   expect((await h.profiles.get({ id: 'researcher' })).instructions).toBe('Mine')
 })
 
+it('returns unexpanded MCP server selectors for a delegated profile', async () => {
+  const h = await setup()
+  const profile = await h.profiles.save({ scope: 'global', profile: {
+    id: 'project-reader', description: '', use: 'subagent', instructions: '',
+    tools: ['mcp:project'], disallowedTools: ['mcp:private'],
+  } })
+  expect(h.profiles.toolRestrictionOf(profile)).toEqual({ allow: ['mcp:project'], deny: ['mcp:private'] })
+})
+
 it('emits a change within a second when a file is renamed on disk or a folder appears', async () => {
   const h = await setup()
   const file = join(h.project, '.claude', 'agents', 'pirate.md')
@@ -245,6 +256,53 @@ it('selects a profile at a turn boundary, logs it, switches the model and adds t
   await h.profiles.select({ sessionId: agent.id, id: null })
   expect(h.profiles.profileForSession(agent.session as never)).toBeNull()
   expect(await h.prompt(agent)).not.toContain('Active agent: pirate')
+})
+
+it('leaves the selected profile pinned when a turn opens during a profile scan', async () => {
+  const h = await setup()
+  await h.profiles.save({ scope: 'global', profile: { id: 'pirate', description: '', use: 'all', instructions: 'Arr.' } })
+  const agent = h.addAgent('chat-a')
+  await h.profiles.select({ sessionId: agent.id, id: 'pirate' })
+  expect(await h.prompt(agent)).toContain('Arr.')
+  const paused = Promise.withResolvers<undefined>()
+  const resume = Promise.withResolvers<undefined>()
+  const list = h.profiles.list.bind(h.profiles)
+  vi.spyOn(h.profiles, 'list').mockImplementationOnce(async (request) => {
+    paused.resolve(undefined)
+    await resume.promise
+    return list(request)
+  })
+  const selecting = h.profiles.select({ sessionId: agent.id, id: 'planner' })
+  await paused.promise
+  agent.session.openTurn = 3
+  await h.profiles.save({ scope: 'global', profile: { id: 'pirate', description: '', use: 'all', instructions: 'Squawk.' } })
+  resume.resolve(undefined)
+
+  await expect(selecting).rejects.toMatchObject({ code: 'agent-profiles/locked' })
+  expect(agent.session.events).toEqual([{ type: 'agent-profile/selected', data: { agentProfile: 'pirate' } }])
+  expect(await h.prompt(agent)).toContain('Arr.')
+})
+
+it('does not append a selection or switch models when a turn opens during model validation', async () => {
+  const h = await setup()
+  await h.profiles.save({ scope: 'global', profile: { id: 'pirate', description: '', use: 'all', model: { model: 'haiku' }, instructions: 'Arr.' } })
+  const agent = h.addAgent('chat-a')
+  const paused = Promise.withResolvers<undefined>()
+  const resume = Promise.withResolvers<undefined>()
+  const validate = h.ctx.llm.resolveCallConfig.bind(h.ctx.llm)
+  vi.spyOn(h.ctx.llm, 'resolveCallConfig').mockImplementationOnce(async (selection) => {
+    paused.resolve(undefined)
+    await resume.promise
+    return validate(selection)
+  })
+  const selecting = h.profiles.select({ sessionId: agent.id, id: 'pirate' })
+  await paused.promise
+  agent.session.openTurn = 3
+  resume.resolve(undefined)
+
+  await expect(selecting).rejects.toMatchObject({ code: 'agent-profiles/locked' })
+  expect(agent.session.events).toEqual([])
+  expect(h.selected).toEqual([])
 })
 
 it('keeps a running chat on the profile it first read, so a hot edit never rewrites its prompt or tools', async () => {

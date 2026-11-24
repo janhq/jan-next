@@ -28,7 +28,7 @@ The web-app bundle mounts it before scoped settings:
   name: '@janhq/jan-agent-profiles'
 ```
 
-Config: `janHome`, `agentsHome` and `userHome` override the resolved homes; `debounceMs` (default 200) is the quiet period after file events; `maxFileBytes` (default 65536) is the largest file read. The service requires `workspaceRegistry`, `sessionProjections`, `agents` and `systemPrompt`, and reads the optional `sessionController`, `llm` and `tools`.
+Config: `janHome`, `agentsHome` and `userHome` override the resolved homes; `debounceMs` (default 200) is the quiet period after file events; `maxFileBytes` (default 65536) is the largest file read. The service requires `workspaceRegistry`, `sessionProjections`, `agents` and `systemPrompt`, and reads the optional `sessionController` and `llm`.
 
 Profiles are read from these folders, highest precedence first. When two files share an id, the higher one wins and the other is listed with `shadowedBy`.
 
@@ -107,6 +107,8 @@ Instructions.
 The [parser](src/parse.ts) is pure: it turns one file's text into a profile or a problem, and renders a Jan file. [Roots](src/roots.ts) lists the ten folders, reads one folder, and watches it with chokidar. A missing folder is watched through its nearest existing parent, one level deep, and the watch moves down as folders appear; each watch triggers one re-read when it becomes ready, so changes made while it starts are not lost.
 
 The [service](src/index.ts) keeps the last read of every folder in memory for synchronous readers (the prompt section, tool limits, the subagent list). `list`, `get`, `save` and `deleteProfile` read their folders again first. Project folders are tracked for every registered project and refreshed after file events and agent creation. Selections are serialized per chat and logged as `agent-profile/selected`; the [projection](src/session.ts) `agentProfile` restores them on replay, resume and fork.
+
+Selection resolves the profile and verifies its model before committing either selection. If a turn opens during preparation and is still open at commit time, the request leaves the current profile and model unchanged.
 
 </details>
 

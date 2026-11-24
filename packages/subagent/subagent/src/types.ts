@@ -155,7 +155,7 @@ export interface SubagentStartRequest {
   readonly agent?: string
   /** Literal child system-prompt persona; omission leaves the preset or deployment persona intact. Requires independent composition. */
   readonly persona?: string
-  /** Additional child tool restriction; omission leaves the composed tools unchanged. Requires independent composition. */
+  /** Restrict by tool name or `mcp:<server>` selector. Requires independent composition. */
   readonly toolFilter?: ToolRestriction
   /** Maximum sandbox mode, never a grant beyond the parent's effective mode. Requires in-process independent composition. */
   readonly sandboxMode?: SandboxMode
