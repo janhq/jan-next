@@ -40,6 +40,7 @@ import {
   IconDataOutlineRegular, IconDatabaseOutlineRegular, IconImageOutlineRegular,
   IconSearchOutlineRegular, IconStarFillRegular, IconStarOutlineRegular, IconTextOutlineRegular, IconThinkOutlineRegular,
   IconWarningOutlineRegular, Input, isMobileDevice, StateDot, Tag, Toast,
+  captureFailure, type FailureDetails,
 } from '@janhq/jan-client-ui-primitives'
 import { displayNames, favoriteStore, modelKey, rankModels, RECENT_ROWS, recentStore, toggleFavorite } from './model-rank.ts'
 import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
@@ -101,7 +102,7 @@ export function ModelSelect(
   // instead, so the strip renders only while the latest failure-capable
   // action was a load.
   const lastActionRef = useRef<'load' | 'select'>('load')
-  const [toast, setToast] = useState<{ seq: number; text: string } | null>(null)
+  const [toast, setToast] = useState<{ seq: number; text: string; failure?: FailureDetails } | null>(null)
   const toastSeq = useRef(0)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
@@ -459,6 +460,7 @@ export function ModelSelect(
     toastSeq.current += 1
     setToast({
       seq: toastSeq.current,
+      failure: captureFailure('session.selectModel', error),
       text: error.code === 'session/writer-held'
         ? t('error.sessionInUse')
         : t('error.action', { message: `${error.code}: ${error.message}` }),
@@ -767,6 +769,7 @@ export function ModelSelect(
         <Toast
           key={toast.seq}
           text={toast.text}
+          failure={toast.failure}
           icon={<IconWarningOutlineRegular />}
           onDone={() => { setToast(null) }}
         />
