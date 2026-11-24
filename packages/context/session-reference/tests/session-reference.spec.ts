@@ -817,6 +817,50 @@ describe('read_chat', () => {
     })
   })
 
+  it('recalls checkpointed-away text from its own history and from a mentioned chat', async () => {
+    const { ctx, target, read, mention } = await toolHarness()
+    const source = ctx.sessions.create(SessionId('source'))
+    appendConversation(target)
+    appendConversation(source)
+    await mention(source, 'Research')
+
+    expect((await read({ session_id: 'source', query: 'old' })).text).toContain('No messages match.')
+    for (const args of [{}, { session_id: 'source', include_history: true }]) {
+      const { text } = await read({ ...args, query: 'old' })
+      expect(text).toContain('(recorded history)')
+      expect(text).toContain('#0 user:\nold user')
+      expect(text).toContain('#1 assistant:\nold assistant')
+      expect(text).not.toContain('<compacted-summary>')
+    }
+  })
+
+  it('continues a filtered history page in the same mentioned chat', async () => {
+    const { ctx, target, read, mention } = await toolHarness()
+    const source = ctx.sessions.create(SessionId('archive'))
+    appendConversation(source)
+    appendText(target, 'old text from a different chat')
+    await mention(source, 'Archive')
+
+    const first = (await read({ session_id: 'archive', include_history: true, query: 'old', limit: 1 })).text!
+    expect(first).toContain('#1 assistant:\nold assistant')
+    const next = first.match(/call read_chat with (\{[^\n]+\})\.$/u)?.[1]
+    expect(next).toBeDefined()
+    const second = (await read(JSON.parse(next!))).text
+    expect(second).toContain('Chat "Archive" (recorded history):')
+    expect(second).toContain('#0 user:\nold user')
+    expect(second).not.toContain('different chat')
+  })
+
+  it('shows the match after characters that expand when lowercased', async () => {
+    const { target, read } = await toolHarness()
+    appendText(target, `${'İ'.repeat(2100)} Needle ${'other text '.repeat(700)}`)
+
+    const { text } = await read({ query: 'needle' })
+    expect(text).toContain('1 of 1 messages contain "needle"')
+    expect(text).toMatch(/#0 user:\n.* Needle /u)
+    expect(text?.length).toBeLessThan(MAX_MESSAGE_CHARS + 150)
+  })
+
   it('pages back from the newest message, narrows by query, and says when nothing matches', async () => {
     const { ctx, read, mention } = await toolHarness()
     const source = ctx.sessions.create(SessionId('source'))
@@ -829,10 +873,10 @@ describe('read_chat', () => {
     expect(page.text).toBe([
       'Chat "Notes" (session_id: source, project folder: none): 4 messages.',
       '', '#2 user:\nAlpha three', '', '#3 user:\ngamma four',
-      '', '2 earlier messages remain: call read_chat with before=2.',
+      '', '2 earlier messages remain: call read_chat with {"session_id":"source","limit":2,"before":2}.',
     ].join('\n'))
     expect((await read({ session_id: 'source', limit: 1, before: 2 })).text)
-      .toMatch(/#1 user:\nbeta two\n\n1 earlier message remains: call read_chat with before=1\.$/u)
+      .toMatch(/#1 user:\nbeta two\n\n1 earlier message remains: call read_chat with \{"session_id":"source","limit":1,"before":1\}\.$/u)
     expect((await read({ session_id: 'source', query: ' ALPHA ' })).text).toBe([
       'Chat "Notes" (session_id: source, project folder: none): 2 of 4 messages contain "ALPHA".',
       '', '#0 user:\nalpha one', '', '#2 user:\nAlpha three',
@@ -851,7 +895,7 @@ describe('read_chat', () => {
     await mention(source, 'Long')
     const page = (await read({ session_id: 'source', limit: MAX_READ_LIMIT })).text!
     expect(Buffer.byteLength(page, 'utf8')).toBeLessThan(MAX_READ_BYTES + 200)
-    expect(page).toMatch(/\d earlier messages remain: call read_chat with before=\d\.$/u)
+    expect(page).toMatch(/\d earlier messages remain: call read_chat with \{"session_id":"source","limit":50,"before":\d\}\.$/u)
     expect((await read({ session_id: 'source', before: 1 })).text).toContain(`${'界'.repeat(MAX_MESSAGE_CHARS)} [... 5 more characters]`)
   })
 

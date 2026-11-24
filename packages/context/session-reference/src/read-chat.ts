@@ -33,10 +33,6 @@ interface ReadChatArgs {
   limit?: number | undefined
 }
 
-interface IndexedItem extends ReferencedConversationItem {
-  index: number
-}
-
 /**
  * The visible user and assistant text of one chat in model-history order.
  * Compact checkpoints stand in for the messages they summarize; tool
@@ -94,37 +90,56 @@ export function mentionedChats(messages: readonly Message[]): Map<string, string
  * @param args - the model's query, cursor, and limit.
  * @returns the page text, with a cursor line when older matches remain.
  */
-export function renderPage(heading: string, items: readonly ReferencedConversationItem[], args: Omit<ReadChatArgs, 'session_id'>): string {
-  const needle = args.query?.trim().toLocaleLowerCase() ?? ''
-  const indexed: IndexedItem[] = items.map((item, index) => ({ ...item, index }))
-  const matched = needle === '' ? indexed : indexed.filter(item => item.text.toLocaleLowerCase().includes(needle))
-  const before = args.before
-  const window = before === undefined ? matched : matched.filter(item => item.index < before)
+export function renderPage(heading: string, items: readonly ReferencedConversationItem[], args: ReadChatArgs): string {
+  const query = args.query?.trim()
+  const needle = query?.toLowerCase() ?? ''
+  const before = args.before ?? items.length
   const limit = args.limit ?? DEFAULT_READ_LIMIT
   const blocks: string[] = []
+  let matchedCount = 0
+  let remaining = 0
   let bytes = 0
   let oldest: number | undefined
-  for (const item of window.toReversed()) {
-    if (blocks.length === limit) break
-    const block = `#${item.index} ${item.role}:\n${clip(item.text, needle)}`
-    const size = Buffer.byteLength(block, 'utf8')
-    if (blocks.length > 0 && bytes + size > MAX_READ_BYTES) break
-    blocks.unshift(block)
-    bytes += size
-    oldest = item.index
+  let full = false
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index]
+    if (item === undefined) continue
+    let match: number | undefined
+    let expanded = false
+    if (needle !== '') {
+      const folded = item.text.toLowerCase()
+      match = folded.indexOf(needle)
+      if (match === -1) continue
+      expanded = folded.length !== item.text.length
+    }
+    matchedCount += 1
+    if (index >= before) continue
+    if (!full) {
+      if (expanded && match !== undefined && item.text.length > MAX_MESSAGE_CHARS) match = originalOffset(item.text, match)
+      const block = `#${index} ${item.role}:\n${clip(item.text, match)}`
+      const size = Buffer.byteLength(block, 'utf8')
+      if (blocks.length === 0 || bytes + size <= MAX_READ_BYTES) {
+        blocks.push(block)
+        bytes += size
+        oldest = index
+        full = blocks.length === limit
+        continue
+      }
+      full = true
+    }
+    remaining += 1
   }
   const scope = needle === ''
     ? `${items.length} messages`
-    : `${matched.length} of ${items.length} messages contain ${JSON.stringify(args.query?.trim())}`
+    : `${matchedCount} of ${items.length} messages contain ${JSON.stringify(query)}`
   if (oldest === undefined) {
     const empty = items.length === 0 ? 'This chat has no messages yet.' : 'No messages match.'
     return `${heading} ${scope}.\n\n${empty}`
   }
-  const remaining = window.filter(item => item.index < oldest).length
-  const more = remaining === 0
-    ? ''
-    : `\n\n${remaining} earlier ${remaining === 1 ? 'message remains' : 'messages remain'}: call ${READ_CHAT_TOOL} with before=${oldest}.`
-  return `${heading} ${scope}.\n\n${blocks.join('\n\n')}${more}`
+  const more = remaining === 0 ? '' : `\n\n${remaining} earlier ${remaining === 1 ? 'message remains' : 'messages remain'}: call ${READ_CHAT_TOOL} with ${JSON.stringify({
+    session_id: args.session_id, include_history: args.include_history, query, limit: args.limit, before: oldest,
+  })}.`
+  return `${heading} ${scope}.\n\n${blocks.reverse().join('\n\n')}${more}`
 }
 
 /**
@@ -194,14 +209,24 @@ async function readChat(ctx: Context, agent: Agent | undefined, args: ReadChatAr
   return renderPage(`Chat ${JSON.stringify(label)} (session_id: ${args.session_id}, project folder: ${folder}):`, projectConversation(snapshot), args)
 }
 
-function clip(text: string, needle: string): string {
+/** Map an offset in Unicode default lowercase text back to its source code point. */
+function originalOffset(text: string, offset: number): number {
+  let index = 0
+  for (const char of text) {
+    offset -= char.toLowerCase().length
+    if (offset < 0) return index
+    index += char.length
+  }
+  return index
+}
+
+function clip(text: string, match: number | undefined): string {
   if (text.length <= MAX_MESSAGE_CHARS) return text
-  if (needle === '') {
+  if (match === undefined) {
     const chars = Array.from(text)
     if (chars.length <= MAX_MESSAGE_CHARS) return text
     return `${chars.slice(0, MAX_MESSAGE_CHARS).join('')} [... ${chars.length - MAX_MESSAGE_CHARS} more characters]`
   }
-  const match = text.toLocaleLowerCase().indexOf(needle)
   let start = Math.max(0, match - Math.floor(MAX_MESSAGE_CHARS / 4))
   if (/[\uDC00-\uDFFF]/u.test(text.charAt(start))) start -= 1
   let end = Math.min(text.length, start + MAX_MESSAGE_CHARS)
