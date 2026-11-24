@@ -137,16 +137,19 @@ test('janHosts lists saved peers and reuses Address Host sign-in until the login
   assert.deepEqual(signIns, [['/connect', 'first'], ['/connect', 'second'], ['/new/connect', 'second']])
 })
 
-test('janHosts surfaces the remote plugin operation error', async (t) => {
+test('janHosts marks a peer refusal as rejected and a temporary peer failure as retryable', async (t) => {
   const { call, janHosts } = await mountedHosts(t)
+  let status = 400
   const peer = createServer((req, res) => {
     if (req.url.startsWith('/connect?')) return res.writeHead(302, { 'set-cookie': 'jan-auth=test' }).end()
-    res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'Worker is already stopped.' }))
+    res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'Worker is already stopped.' }))
   })
   await new Promise(resolve => peer.listen(0, '127.0.0.1', resolve))
   t.after(() => new Promise(resolve => peer.close(resolve)))
   const { id } = await call('save', { name: 'Office', kind: 'url', url: `http://127.0.0.1:${peer.address().port}/?token=test` })
   await assert.rejects(janHosts.callPlugin(id, 'orchestration', 'peerStop', {}), { code: 'rejected', message: 'Worker is already stopped.' })
+  status = 503
+  await assert.rejects(janHosts.callPlugin(id, 'orchestration', 'peerStop', {}), error => error.code === undefined && error.message === 'Worker is already stopped.')
 })
 
 test('forgetting a Host notifies plugins after its saved entry and login are removed', async (t) => {
