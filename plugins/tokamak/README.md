@@ -28,6 +28,8 @@ The desktop bundle mounts it as the `jan-tokamak` row, together with the compose
 
 Requests use the signed-in Tokamak account's key, then the `TOKAMAK_API_KEY` credential. Without either, the tool tells the user to sign in to Tokamak in Settings > Account. A key the server rejects with HTTP 401 signs the account out, as web search does. The browser half never sees the key: Read aloud goes through `POST /jan-api/tokamak`, and a voice conversation gets a one-time `tkrt_` token that opens one call and expires within 60 seconds.
 
+Host callers of `createTokamakApi().request()` can supply a synchronous `beforeSend` check. It runs after credential lookup; throwing prevents any data from being sent.
+
 Refusals a user can act on are reworded: an organization whose guardrail policy cannot screen audio (`guardrail_policy_unsupported`) is told an admin can allow unscreened voice, `402` names the balance, and `speech_unverified` asks for plainer text.
 
 ## Model Experience
