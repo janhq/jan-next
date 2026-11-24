@@ -8,8 +8,8 @@ import { writeFileAtomic } from '@janhq/jan-atomic-write'
 /** Value pnpm leaves for a build script that still needs a decision. */
 const UNDECIDED_BUILD = 'set this to true or false'
 
-/** Where a non-interactive run names the build scripts it skipped. */
-const IGNORED_BUILDS = /\bIgnored build scripts: (.+)/
+/** Pnpm's ignored-build error or the warning sentence preceding its approval hint. */
+const IGNORED_BUILDS = /\bIgnored build scripts: ([^\r\n]+?)(?:\.[ \t]*\r?\n[ \t]*Run "pnpm approve-builds|\r?$)/m
 
 /** The `allowBuilds` key pnpm suggests when it refuses to prepare a git-hosted package; a subdirectory key can contain spaces. */
 const GIT_DEP_PREPARE = /ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED[\s\S]*?^allowBuilds:\r?\n[ \t]+(.+?): true$/m

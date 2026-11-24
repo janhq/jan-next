@@ -101,6 +101,16 @@ it('records the ignored build scripts a non-interactive run reported', async () 
   expect(parse(readFileSync(filename, 'utf8'))).toMatchObject({ allowBuilds: { 'native@1.0.0': true } })
 })
 
+it('records exact build keys from a successful pnpm warning sentence', async () => {
+  const { dir, filename } = fixture()
+  const version = '@scope/native@1.0.0'
+  const file = 'local@file:../directory-ending-in-dot.'
+  const output = `Ignored build scripts: ${version}, ${file}.\r\nRun "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.\r\n`
+  expect(await recordPendingBuilds(dir, output)).toEqual([version, file])
+  await approveBuilds(dir, [version, file])
+  expect(parse(readFileSync(filename, 'utf8'))).toMatchObject({ allowBuilds: { [version]: true, [file]: true } })
+})
+
 function gitPrepareRefusal(key: string, eol = '\n') {
   return [
     '[ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED] Failed to prepare git-hosted package fetched from "https://example.com/sidechat.git": The git-hosted package "@scope/sidechat@0.2.0" needs to execute build scripts but is not in the "allowBuilds" allowlist.',
