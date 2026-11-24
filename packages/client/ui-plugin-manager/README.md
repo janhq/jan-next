@@ -9,9 +9,9 @@ Desktop product events use the optional [product analytics service](../product-a
 
 ## Summary
 
-Plugin operation and refresh failures offer **Copy details** and **Show log** in their toasts. Failed inventory and description reads also offer **Details** beside **Retry**.
+In the Web sidebar, open **Plugins** to toggle installed bundles, their rows, and official bundles shipped off by default. Preview a bundle before installing, watch pnpm's output, cancel preparation or download, and switch on the new bundle after installation; uninstalling asks for confirmation. Edit plugin configuration on its own page, not in the read-only **Settings** inventory.
 
-Use the **Plugins** entry in the Web sidebar to manage the profile's installed bundles and the official bundles the installation ships switched off. Switch bundles and their rows on and off, install a bundle after the Host has read what the spec names, watch pnpm's output, stop a run, and enable what it added. Uninstalling asks for confirmation. A plugin that registers a configuration page is edited here, on its own page; Settings keeps the read-only inventory.
+Plugin operation and refresh failures offer **Copy details** and **Show log** in their toasts. Failed inventory and description reads offer **Details** beside **Retry**.
 
 ## Table of Contents
 

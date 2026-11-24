@@ -9,7 +9,7 @@ Desktop product events use the optional [product analytics service](../product-a
 
 ## Summary
 
-`ui-conversation` owns target-neutral Conversation assembly and the shared browser shell. It consumes Session Controller `SessionEventLikeEntry` feeds, exposes React-free registries and per-Session bindings through `ctx.uiConversation`, and contributes the `useConversation`, `useInput`, and `inputActions` standard props through `ctx.uiSession`. It also owns the per-session durable image URL cache: `ctx.uiConversation.imageUrl(sessionId, attachment)` resolves one Gateway-authorized browser URL per attachment and revokes it with the Session binding, so every Conversation target shares one `session.attachment` read. Concrete targets such as Chat are separate packages that register their own Definitions, snapshot builders, Views, and renderers.
+Open a Session in Chat or another registered view and use the same browser composer. Views share the Session's event history and reuse one image load per saved attachment.
 
 Prompt failures show **Copy details** and **Show log** in the composer toast. The failed draft remains available to edit and resubmit.
 
@@ -50,6 +50,8 @@ A target becomes active when shell selection resolves it or when its source rece
 
 Group registration rejects a missing View target. Removing an already registered View Definition pauses its grouping and clears its published results without removing the Group Definition; registering that View again rebuilds from the current loaded timeline through the existing replacement flow. Switching View tabs does not remove a View Definition.
 
+Target packages such as Chat supply their own event Definitions, snapshot builders, and View renderers. The shared assembly and its registries are React-free.
+
 Target packages declaration-merge their snapshot and Location data maps, then register with `ctx.uiConversation.events.register(...)` and `ctx.uiConversation.views.register(...)`. A target reads its Session-owned source with `ctx.uiConversation.binding(binding).target(targetId)`. Registrations are Cordis effects and their returned disposers remove the contribution from the same registry. The shared request inspection serves every target: `ctx.uiConversation.inspectSystemPrompt(previous, event)` interprets system messages and positional replacements as immutable loaded-surface state. It selects the last nonempty surviving system node in surface order, retains only surviving replacement positions for chained rewrites, and withholds the prompt after an unindexed older endpoint until prepend replay supplies its order. Target-owned Definitions retain historical cards independently. `ctx.uiConversation.inspectRequestPrompt(previous, header, system)` classifies request changes against that effective prompt; ordinary messages and stream chunks require no system-state work.
 
 <a id="sent-user-text"></a>
@@ -78,6 +80,8 @@ With focus in the Conversation, the New Session shortcut opens a new tab in that
 
 On desktop, **Move to new window** in a tab's menu, or releasing a dragged tab outside the window, moves that chat into a new native window. Each window keeps its own tabs and selection, and windows open at quit come back on the next launch. Subagent chats cannot be moved to another window.
 
+`ctx.uiSession` provides `useConversation`, `useInput`, and `inputActions` as standard props for the shared shell.
+
 The root-scoped `conversation.hero.frame` hoc Slot wraps the scroll body in every phase, so its layers never remount the composer when the home ends. Its owner props carry `hero`, true only for the blank home of a standalone Conversation. Layers keep the scroll body a direct flex item of the body, for example with `display: contents`. On the home, the Conversation root, which paints the background, isolates stacking: a layer decoration at negative `z-index` paints above that background and below all Conversation content, including composer takeovers. Other phases leave the root out of the stacking order, so unportaled Conversation popovers can still rise above AppFrame chrome that floats over the column. Layers own their own input handling. With no occupant, the body is unchanged.
 
 The `conversation.hero.agentProfile` and `conversation.composer.agentProfile` single slots sit immediately after their matching `agentPreset` slots. The hero can stage a profile before a Session exists and passes that choice through draft creation; once the Session binds, the occupant reads its durable selection.
@@ -85,6 +89,8 @@ The `conversation.hero.agentProfile` and `conversation.composer.agentProfile` si
 Below 768px, Web view tabs align with the header's 20px left inset. Desktop and wider Web windows retain the additional 8px tab inset.
 
 The shared image slot props keep display choices separate from durable references: `thumbnail` requests a contained attachment-list thumbnail, while `compact` requests a cropped gallery tile. An optional per-image `label` supplies the accessible display name; loading and cache identity still use the original attachment reference. `MessageImagesContentInput` adds optional complete `MessageImageLabels` for the root-scoped `conversation.images.content` Factory. Message, tool, and Factory inputs carry the view's authorized `loadImage` callback explicitly; loading and URL caching remain with the resource owner. [ui-attachment](../ui-attachment/README.md) provides this Factory and owns rendering and the lightbox.
+
+`ctx.uiConversation.imageUrl(sessionId, attachment)` shares one Gateway-authorized `session.attachment` read and browser URL per durable image attachment across all Conversation targets. The cache revokes the URL when the Session binding is released.
 
 The composer uses a minimum 16px draft font on coarse-pointer devices to avoid focus-triggered browser zoom; larger font preferences still apply.
 

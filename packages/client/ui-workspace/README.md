@@ -9,9 +9,7 @@ Desktop product events use the optional [product analytics service](../product-a
 
 ## Summary
 
-This package lets users browse grouped or flat Session lists, choose a Workspace for a new Session, and manage Workspaces and Sessions through add, rename, reorder, search, fork, archive, and Workspace deletion; the Session row menu and its hover buttons are slot lists that client plugins extend. Pending interactions appear as warning dots, and subagent-origin Sessions remain hidden. An idle, unarchived Session row with active scheduled tasks shows a clock mark, and its hover card lists those tasks. Canonically distinct folder paths remain separate Workspaces. Adding a Workspace requires a composed directory picker; without one, adding is unavailable.
-
-Session and project operation failures, including pinning and forking, carry captured diagnostics to the shared toast. **Copy details** reports what failed without copying credentials, and **Show log** opens diagnostics without changing the selected chat.
+Browse grouped or flat Session lists and pick a Workspace for a new Session. Search, rename, reorder, fork, or archive Sessions, and add, rename, reorder, or delete Workspace registrations. Pending interactions show a warning dot, idle Sessions with active scheduled tasks can show a clock, and subagent Sessions stay hidden from the lists. Adding a Workspace requires a directory picker in the composition.
 
 ## Table of Contents
 
@@ -47,6 +45,8 @@ Choose **Add workspace** and select a directory to register it and open a Sessio
 
 Hierarchy uses registered canonical paths only. It does not scan for projects or resolve symlink aliases. Nesting does not change Session working directories, logs, or Workspace membership. Deleting a parent Workspace leaves its child Workspaces registered and places them under their next registered ancestor, or at the root.
 
+Different canonical folder paths remain separate Workspaces, even when their display names match.
+
 On devices without hover, expanded Workspace rows keep their menu and New Session controls visible, and archived search results keep the Unarchive control visible.
 
 Open **Project actions** on a project row and choose **Edit project...** to change its name, accent color, or avatar, then check the preview and choose **Save**. Escape or **Cancel** discards the draft; **Reset** returns the draft to the default color and the automatic avatar. The avatar has three tabs:
@@ -75,6 +75,8 @@ Collapsed search is one header action beside the view and add actions: activatin
 
 Session row actions appear on hover for devices that support hovering. Without hover, non-blank Sessions keep More visible alongside trailing status icons and pending-interaction labels; update times have no display entry. Pinned rows show Unpin before More with the same spacing as Workspace actions; rows without unpin permission retain the static pin marker. Pin and archive remain available in More. Workspace row actions appear only while expanded. An open row menu keeps its action strip visible on either device type.
 
+Session and project operation failures, including pinning and forking, send captured diagnostics to the shared toast. **Copy details** describes the failure without copying credentials. **Show log** opens diagnostics without changing the selected chat.
+
 The Copy Session ID item is in the identification group of a Session row's "..." menu. It closes the menu and copies the complete ID directly, without opening a dialog. Clipboard success or failure appears in the global toast; a failed copy can be retried from the menu. Copying does not retain the Session, load its history, or call the Host.
 
 The Session row's Rename action opens a dialog prefilled with the row's display title; confirming an unchanged title is deliberately allowed — it pins the current automatic title against regeneration. Double-clicking a title also opens Rename; for an unarchived Session, the preceding clicks open its conversation. When the click that activates an unfocused window is not delivered to the page, as on macOS, the next click does not open Rename. Rename uses a temporary `workspaceOperation` reference and awaits its initial history opening. The row's Fork action reads ordinary cold history normally. When the Host reports that source migration is required, an app-wide Toast offers to open that Session; the action only navigates and does not retry fork. A successful fork uses the source's last completed turn and increments the inherited persisted title through Session Controller without retaining the child, opening its history, or changing selection. Workspace Delete opens a confirmation that states the retention boundary; success removes the group while its Sessions remain under Ungrouped. Built-in menus use structured contributions; see [Session row actions](#session-row-actions).
@@ -98,6 +100,8 @@ Session rows render the runtime's live `pendingInteraction` classification: appr
 ### Active Schedule markers
 
 Grouped and flat Session rows show a clock mark when the Session has active scheduled tasks. It is an occupant of the row's `sidebar.session.row.leading` seat, so it renders only on a row whose primary status is idle and never beside the row's own status dot; an archived row keeps that cell blank, and a search result has no leading seat and shows no mark. It is not a button, has no tab stop, and a press on its area does not open the row. The mark's own read and the meaning of its active-task condition belong to [ui-schedule](../ui-schedule/README.md).
+
+The Session's hover card lists its active scheduled tasks.
 
 Workspace headers share one `workspace` context-menu target, declared by this package, between right-click and the ellipsis. Rename and Delete use the existing confirmation dialogs and recheck Workspace existence and access before opening; native directory reveal is contributed by [ui-open-in-app](../ui-open-in-app/README.md). The menu remains available for native and plugin actions when mutation permissions are absent. Opening it changes neither expansion nor Session selection.
 
