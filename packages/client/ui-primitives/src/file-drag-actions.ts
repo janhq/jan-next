@@ -1,5 +1,6 @@
 /** Stable file preparation callbacks supplied by a transfer-owning plugin. */
 import type { DragFileName } from '@janhq/jan-util-file-drag'
+import type { FailureDetails } from './failure-details.ts'
 
 /** Content source and optional Host-verifiable identity of its unmodified local original. */
 export type FileDragSource = DragFileName & { readonly resourceAddress?: string | undefined } & (
@@ -24,6 +25,6 @@ export interface PreparedFileDrag {
 export interface FileDragActions {
   /** @param source - file content and export name. @param signal - preparation cancellation. @returns the ready start/release operation. */
   prepare(source: FileDragSource, signal: AbortSignal): Promise<PreparedFileDrag>
-  /** Display the plugin's localized retry message, independently of the originating component. */
-  reportFailure(): void
+  /** Publish a captured transfer failure independently of the originating component. @param failure - Redacted transfer failure. */
+  reportFailure(failure: FailureDetails): void
 }

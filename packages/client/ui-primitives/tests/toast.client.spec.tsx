@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { Toast } from '../src/Toast.tsx'
+import { captureFailure } from '../src/failure-details.ts'
 
 afterEach(cleanup)
 
@@ -128,6 +129,36 @@ describe('Toast', () => {
       view.unmount()
       vi.advanceTimersByTime(10_000)
       expect(onDone).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+  it('only offers diagnostic actions for a failure and pauses while hovered or focused', () => {
+    vi.useFakeTimers()
+    document.documentElement.lang = 'en'
+    try {
+      const onDone = vi.fn()
+      const failure = captureFailure('session.pin', new Error('request failed'))
+      const view = render(<>
+        <Toast text="info" onDone={vi.fn()} />
+        <Toast text="success" tone="success" onDone={vi.fn()} />
+        <Toast text="failure" failure={failure} onDone={onDone} />
+      </>)
+      const alerts = view.getAllByRole('alert')
+      const containers = alerts.map(alert => alert.closest('[data-jan-notification]')!)
+      expect(containers.map(container => container.querySelectorAll('button').length)).toEqual([1, 1, 3])
+      const failureToast = containers[2]!.firstElementChild!
+      fireEvent.pointerEnter(failureToast)
+      vi.advanceTimersByTime(30_000)
+      expect(onDone).not.toHaveBeenCalled()
+      const action = failureToast.querySelector<HTMLButtonElement>('button')!
+      fireEvent.focusIn(action)
+      fireEvent.pointerLeave(failureToast)
+      vi.advanceTimersByTime(30_000)
+      expect(onDone).not.toHaveBeenCalled()
+      fireEvent.focusOut(action)
+      vi.advanceTimersByTime(30_000)
+      expect(onDone).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
     }

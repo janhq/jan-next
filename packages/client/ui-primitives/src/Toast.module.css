@@ -27,6 +27,14 @@
     jan-toast-fade 1000ms var(--ds-ease-in) var(--jan-toast-hold) forwards;
 }
 
+.toast[data-failure] {
+  pointer-events: auto;
+}
+
+.toast[data-paused] {
+  animation-play-state: running, paused;
+}
+
 .icon {
   display: grid;
   place-items: center;
@@ -59,6 +67,47 @@
   pointer-events: auto;
 }
 
+.diagnosticActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+  font-size: 12px;
+}
+
+.diagnosticAction {
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--dsw-alias-toast-action);
+  font: inherit;
+  cursor: pointer;
+}
+
+.diagnosticAction[aria-disabled='true'] {
+  opacity: 0.65;
+}
+
+.diagnosticAction:focus-visible,
+.diagnosticText:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);
+  outline-offset: 2px;
+}
+
+.diagnosticStatus {
+  font-size: 12px;
+}
+
+.diagnosticText {
+  max-height: min(50vh, 480px);
+  margin: 0;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
 /* Dismisses the notice at once; like the action text, it alone takes the pointer. */
 .close {
   display: grid;
@@ -85,7 +134,8 @@
 }
 
 @media (hover: hover) {
-  .action:hover {
+  .action:hover,
+  .diagnosticAction:hover {
     opacity: 0.8;
   }
 
@@ -120,4 +170,6 @@
   .toast {
     animation: jan-toast-fade 1000ms var(--ds-ease-in) var(--jan-toast-hold) forwards;
   }
+
+  .toast[data-paused] { animation-play-state: paused; }
 }

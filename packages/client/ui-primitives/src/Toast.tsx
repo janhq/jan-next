@@ -1,12 +1,15 @@
-import { Fragment, useEffect, useLayoutEffect, useRef } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
-import { IconCheckCircleOutlineRegular, IconCloseOutlineRegular } from './icons/index.tsx'
+import { IconCheckCircleOutlineRegular, IconCloseOutlineRegular, IconWarningOutlineRegular } from './icons/index.tsx'
 import { NotificationPortal } from './NotificationLayer.tsx'
 import { TOAST_CLOSE_LABELS } from './locales/toast.ts'
+import { FailureActions } from './FailureActions.tsx'
+import { redactFailureText, type FailureDetails } from './failure-details.ts'
 import css from './Toast.module.css'
 
 /** Full-opacity hold before the fade starts, when the owner names none. */
 const HOLD_MS = 3000
+const FAILURE_HOLD_MS = 8000
 /** Fade duration. Must agree with the stylesheet's toast-fade duration. */
 const FADE_MS = 1000
 
@@ -43,21 +46,30 @@ function documentCloseLabel(): string {
  * change, then unmount the toast). The banner surface stays click-through —
  * only the action text takes the pointer.
  * @param props.holdMs - full-opacity hold before the fade; defaults to 3000.
+ * @param props.failure - Captured failure facts; adds copy and log actions, and holds while interacting.
  * @param props.closeLabel - accessible name of the close button; defaults to
  * the document language's word for Dismiss.
  * @param props.onDone - called once the fade completes, or at once when the
  * user presses the close button; unmount the toast here.
  * @returns the floating banner.
  */
-export function Toast({ text, icon, tone, holdMs = HOLD_MS, actions, closeLabel, onDone }: {
+export function Toast({ text, icon, tone, holdMs, actions, failure, closeLabel, onDone }: {
   text: string
   icon?: ReactNode
   tone?: 'success'
   holdMs?: number
   actions?: readonly { label: string; prefix?: string; onClick: () => void }[]
+  failure?: FailureDetails | undefined
   closeLabel?: string
   onDone: () => void
 }) {
+  const isFailure = failure !== undefined && tone !== 'success'
+  const hold = holdMs ?? (isFailure ? FAILURE_HOLD_MS : HOLD_MS)
+  const [hovered, setHovered] = useState(false)
+  const [focused, setFocused] = useState(false)
+  const [active, setActive] = useState(false)
+  const paused = hovered || focused || active
+  const elapsed = useRef(0)
   const latestOnDone = useRef(onDone)
   useLayoutEffect(() => { latestOnDone.current = onDone }, [onDone])
   // Closing early and the timed fade both end the notice; only the first reports done.
@@ -68,21 +80,33 @@ export function Toast({ text, icon, tone, holdMs = HOLD_MS, actions, closeLabel,
     latestOnDone.current()
   }).current
   useEffect(() => {
-    const timer = setTimeout(finish, holdMs + FADE_MS)
-    return () => { clearTimeout(timer) }
-  }, [holdMs, finish])
+    if (paused) return
+    const start = Date.now()
+    const timer = setTimeout(finish, Math.max(0, hold + FADE_MS - elapsed.current))
+    return () => { clearTimeout(timer); elapsed.current += Date.now() - start }
+  }, [hold, paused, finish])
   return (
     <NotificationPortal>
       <div
         className={css.toast}
-        role="alert"
-        style={{ '--jan-toast-hold': `${String(holdMs)}ms` } as CSSProperties}
+        role={isFailure ? undefined : 'alert'}
+        data-failure={isFailure || undefined}
+        data-paused={paused || undefined}
+        style={{ '--jan-toast-hold': `${String(hold)}ms` } as CSSProperties}
+        {...isFailure ? {
+          onPointerEnter: () => { setHovered(true) },
+          onPointerLeave: () => { setHovered(false) },
+          onFocus: () => { setFocused(true) },
+          onBlur: (event: React.FocusEvent<HTMLDivElement>) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false)
+          },
+        } : {}}
       >
         {tone === 'success'
           ? <span className={`${css.icon} ${css.success}`} aria-hidden><IconCheckCircleOutlineRegular /></span>
-          : icon !== undefined && <span className={css.icon} aria-hidden>{icon}</span>}
+          : (icon !== undefined || isFailure) && <span className={css.icon} aria-hidden>{icon ?? <IconWarningOutlineRegular />}</span>}
         <span className={css.text}>
-          {text}
+          {isFailure ? <span role="alert">{redactFailureText(text)}</span> : text}
           {actions?.map(action => (
             <Fragment key={action.label}>
               {action.prefix}
@@ -91,6 +115,7 @@ export function Toast({ text, icon, tone, holdMs = HOLD_MS, actions, closeLabel,
               </button>
             </Fragment>
           ))}
+          {isFailure && <FailureActions kind="toast" failure={failure} closeLabel={closeLabel ?? documentCloseLabel()} onActiveChange={setActive} />}
         </span>
         <button type="button" className={css.close} aria-label={closeLabel ?? documentCloseLabel()}
           onClick={finish}>
