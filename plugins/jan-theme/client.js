@@ -1061,7 +1061,9 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-slot='sidebar'] [class*='scrollArea'] { grid-template-rows: 0 max-content 2px max-content; }
   html[data-jan-theme] button[aria-haspopup='menu'][class*='panelRow'] [class*='panelGlyph'] { color: var(--jt-side-icon); }
   /* Projects page. */
-  .jt-projects { box-sizing: border-box; width: 100%; max-width: 880px; margin: 0 auto; padding: 48px 32px; color: var(--dsw-alias-label-primary); }
+  /* Main-panel pages own their scroll: the panel is a fixed-height flex column. Side padding centres the
+     column, so the scrollbar sits at the panel edge instead of the column's. */
+  .jt-projects { box-sizing: border-box; flex: 1 1 auto; min-height: 0; overflow-y: auto; width: 100%; padding: 48px max(32px, calc((100% - 816px) / 2)); color: var(--dsw-alias-label-primary); }
   .jt-projects-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .jt-projects-head h1 { margin: 0; font-size: 24px; font-weight: 500; line-height: 32px; }
   .jt-projects-head button { display: inline-flex; align-items: center; gap: 6px; }
@@ -1094,7 +1096,7 @@ window.__ModuleLoader__.load({
   .jt-projects-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 64px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; }
   @media (max-width: 600px) { .jt-projects { padding: 24px 16px; } }
   /* Project home: the main column (title, composer, recents) and a details rail. */
-  .jt-project { box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 40px; width: 100%; max-width: 1120px; margin: 0 auto; padding: 40px 32px 48px; color: var(--dsw-alias-label-primary); }
+  .jt-project { box-sizing: border-box; flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-content: start; gap: 40px; width: 100%; padding: 40px max(32px, calc((100% - 1056px) / 2)) 48px; color: var(--dsw-alias-label-primary); }
   .jt-project-back { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 12px -6px; padding: 2px 6px; border: 0; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; line-height: 20px; cursor: pointer; }
   .jt-project-back:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
   @media (hover: hover) { .jt-project-back:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); } }
@@ -1134,7 +1136,8 @@ window.__ModuleLoader__.load({
   .jt-project-session-date { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
   .jt-project-session-status { display: inline-flex; flex: none; align-items: center; gap: 6px; align-self: center; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 16px; }
   .jt-project-empty { margin: 0; padding: 20px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
-  .jt-project-rail { display: flex; flex-direction: column; gap: 12px; align-self: start; position: sticky; top: 24px; }
+  /* The rail scrolls with the page: it is often taller than the window, and a sticky rail would hide its last cards. */
+  .jt-project-rail { display: flex; flex-direction: column; gap: 12px; align-self: start; }
   .jt-project-rail-actions { display: flex; justify-content: flex-end; }
   .jt-project-refresh-spin { animation: jt-project-refresh-spin var(--ds-transition-duration-loop) linear infinite; }
   @keyframes jt-project-refresh-spin { to { transform: rotate(360deg); } }
@@ -1175,7 +1178,7 @@ window.__ModuleLoader__.load({
   .jt-project-editor label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
   .jt-project-editor-note { margin: 0; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
   .jt-project-editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
-  @media (max-width: 900px) { .jt-project { grid-template-columns: minmax(0, 1fr); } .jt-project-rail { position: static; } }
+  @media (max-width: 900px) { .jt-project { grid-template-columns: minmax(0, 1fr); } }
   @media (max-width: 600px) { .jt-project { padding: 24px 16px; } }
   /* Startup failure notices: a bottom-right stack, newest last. */
   .jt-startup { position: absolute; right: 16px; bottom: 16px; z-index: 40; display: flex; flex-direction: column; gap: 8px; width: min(380px, calc(100% - 32px)); pointer-events: none; }
