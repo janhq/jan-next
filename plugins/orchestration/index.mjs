@@ -1,6 +1,7 @@
 /** Coordinate durable tasks and worker chats across one or more Jan Hosts. */
 import { hostname } from 'node:os'
 import { join } from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { AgentDelivery } from '@janhq/dsh-superagent/queue'
 import { registerApi } from '@janhq/jan-plugin-api'
 import { activeDispatch, createPeers, readLimit } from './peers.mjs'
@@ -17,6 +18,9 @@ const LOCAL_NAME = 'This computer'
 const terminalTask = task => ['completed', 'failed', 'stopped'].includes(task.status)
 const current = (state, task) => state.dispatches[task.dispatchIds.at(-1)]
 const isTaskId = value => typeof value === 'string' && /^task_[a-z2-7]{10}$/.test(value)
+// Pauses between retries of a remote start that failed without a refusal. The
+// retry reuses the dispatch id, which peerStart treats as the same start.
+const START_RETRY_MS = [1_000, 2_000, 5_000, 10_000, 10_000]
 
 function ownedTask(state, sessionId, id) {
   const task = isTaskId(id) ? state.tasks[id] : undefined
@@ -140,6 +144,7 @@ export async function apply(ctx) {
   const workers = createWorkers(ctx, store, delivery, emit)
   const peers = createPeers(ctx, store, workers, acceptPeer, signal)
   const launches = new Map()
+  const launchAborts = new Map()
   const stopping = new Map()
 
   // Finish what state alone records: coordinator reports not yet delivered,
@@ -251,6 +256,10 @@ export async function apply(ctx) {
     if (!activeDispatch(dispatch) || signal.aborted) return
     const { host, ...placement } = task.placement
     const payload = { dispatchId: dispatch.id, taskId: task.id, title: task.title, spec: task.spec, ...placement }
+    // stop() aborts a start still retrying.
+    const attempt = new AbortController()
+    const control = AbortSignal.any([signal, attempt.signal])
+    launchAborts.set(dispatch.id, attempt)
     let started, qualifiedSessionId
     try {
       if (host === 'local') {
@@ -261,14 +270,23 @@ export async function apply(ctx) {
       } else {
         const { hostId: ref } = store.read()
         const peer = (await peers.known()).find(candidate => candidate.id === host)
-        started = await peers.call(host, 'peerStart', { ...payload, ref, coordinatorName: hostname() }, signal)
+        for (let retry = 0; ; retry++) {
+          try {
+            started = await peers.call(host, 'peerStart', { ...payload, ref, coordinatorName: hostname() }, control)
+            break
+          } catch (error) {
+            if (error.rejected || retry === START_RETRY_MS.length || !activeDispatch(dispatch)) throw error
+            ctx.logger.warn(`Retrying the start of orchestration dispatch ${dispatch.id}: ${error.message}`)
+            await delay(START_RETRY_MS[retry], undefined, { signal: control })
+          }
+        }
         if (peer?.kind === 'ssh') qualifiedSessionId = `${host}~${started.sessionId}`
       }
     } catch (error) {
       // A failed save keeps the start in memory, and resume() relaunches a dispatch still starting once a save succeeds.
-      if (signal.aborted || !activeDispatch(dispatch) || error instanceof StateWriteError) return
-      // An unanswered peerStart may still have started the worker there (peerStart
-      // is idempotent), so the failed dispatch owes that Host a stop.
+      if (control.aborted || !activeDispatch(dispatch) || error instanceof StateWriteError) return
+      // After the last retry, a start that was never refused may still have
+      // created the worker there, so the failed dispatch owes that Host a stop.
       const orphan = host !== 'local' && !error.rejected
       const result = await store.mutate(state => {
         if (orphan) dispatch.remoteStop = true
@@ -277,6 +295,8 @@ export async function apply(ctx) {
       if (orphan) peers.watch(host)
       await publish(result, signal)
       return
+    } finally {
+      launchAborts.delete(dispatch.id)
     }
     // The worker runs; a failed save here must not mark its task failed.
     await store.mutate(() => {
@@ -419,15 +439,17 @@ export async function apply(ctx) {
       // Host that refuses the stop answered, so there is nothing to retry.
       let unreachable, refused
       if (dispatch && dispatch.host !== 'local') {
+        launchAborts.get(dispatch.id)?.abort()
         await launches.get(dispatch.id)
-        if (dispatch.sessionId) {
-          try {
-            await peers.call(dispatch.host, 'peerStop', { ref: store.read().hostId, dispatchId: dispatch.id }, control)
-          } catch (error) {
-            control.throwIfAborted()
-            if (error.rejected) refused = error.message
-            else unreachable = error.message
-          }
+        // A start whose reply never arrived may have created the worker, so the
+        // stop goes out even without a session id; a refusal then only means
+        // that start never reached the Host.
+        try {
+          await peers.call(dispatch.host, 'peerStop', { ref: store.read().hostId, dispatchId: dispatch.id }, control)
+        } catch (error) {
+          control.throwIfAborted()
+          if (!error.rejected) unreachable = error.message
+          else if (dispatch.sessionId) refused = error.message
         }
       }
       let stopped = false
