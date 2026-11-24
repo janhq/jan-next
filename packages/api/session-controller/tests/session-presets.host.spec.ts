@@ -170,6 +170,7 @@ async function harness(options: HarnessOptions = {}) {
       list: listProfiles,
       projectOf: (agent: Agent) => agent.session.header.cwd === cwd ? WORKSPACE : undefined,
       profileForSession: (session: Session) => selectedProfiles.get(session.id) ?? null,
+      hasSelection: (session: Session) => selectedProfiles.has(session.id),
       select: selectProfile,
     } as never)
   }
@@ -890,6 +891,15 @@ describe('session.create agent profiles', () => {
     expect(await remote.create({ sessionId, workspaceId: WORKSPACE, agentProfile: null }))
       .toMatchObject({ ok: true, value: { sessionId } })
     expect(selectProfile.mock.calls).toEqual([[{ sessionId, id: 'writer' }], [{ sessionId, id: null }]])
+  })
+
+  it('reopening a blank chat keeps the choice made on it over the project default', async () => {
+    const { remote, selectProfile } = await harness({ project, profiles: [choice('reviewer')] })
+    const sessionId = SessionId('reopened-blank')
+    expect((await remote.create({ sessionId, workspaceId: WORKSPACE, agentProfile: null })).ok).toBe(true)
+    selectProfile.mockClear()
+    expect((await remote.create({ sessionId, workspaceId: WORKSPACE })).ok).toBe(true)
+    expect(selectProfile).not.toHaveBeenCalled()
   })
 
   it('skips a missing project default without warning', async () => {

@@ -250,7 +250,11 @@ export class ApiSessionAgentController {
     return mode === undefined ? request : { ...request, agentPreset: mode }
   }
 
-  /** Select a requested or project-default profile without failing an already created Session. */
+  /**
+   * Select a requested or project-default profile without failing an already created Session.
+   * The project default only fills a chat that never recorded a choice: reopening a blank chat
+   * the user already set, to plain Jan included, keeps that choice.
+   */
   private async selectAgentProfile(agent: Agent, request: ApiSessionCreateRequest): Promise<void> {
     const profiles = this.ctx.get('agentProfiles')
     const { agentProfile, workspaceId } = request
@@ -264,11 +268,13 @@ export class ApiSessionAgentController {
     let id = agentProfile
     try {
       if (id === null) {
-        if (profiles.profileForSession(agent.session) !== null) await profiles.select({ sessionId: agent.id, id })
+        if (profiles.profileForSession(agent.session) !== null || !profiles.hasSelection(agent.session)) {
+          await profiles.select({ sessionId: agent.id, id })
+        }
         return
       }
       const scoped = this.ctx.get('scopedSettings')
-      if (id === undefined && scoped === undefined) return
+      if (id === undefined && (scoped === undefined || profiles.hasSelection(agent.session))) return
       const project = workspaceId ?? profiles.projectOf(agent)
       id ??= scoped?.resolveAgent(project)
       if (id === undefined) return
