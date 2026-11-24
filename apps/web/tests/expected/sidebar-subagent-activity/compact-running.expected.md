@@ -1,10 +1,8 @@
-- banner:
-  - navigation "Session hierarchy": Delegate a background job.
-  - button "1 subagent"
-  - button "1 background job"
-  - button "More actions"
-  - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- region "Subagents":
+  - button "1 subagent ·1 in progress" [expanded]
+  - list:
+    - listitem:
+      - button "running sidebar activity child"
+      - text: hold 0 tok {{duration}}
+      - button "Open sidebar activity child in sidebar"
+- button "1 running"
