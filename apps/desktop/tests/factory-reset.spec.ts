@@ -59,6 +59,23 @@ it('resets everything on the list while the workspace and the profile root stay'
   expect(left.sort()).toEqual(['agents', 'connections', 'model', 'profileRoot', 'workspace'])
 })
 
+it('removes CLI Proxy subscription sign-ins without removing the installed binary', async () => {
+  const { roots } = installation()
+  const authDir = join(roots.janHome, 'cli-proxy', 'auth')
+  const binary = join(roots.janHome, 'cli-proxy', 'v8.1.2', 'cli-proxy-api')
+  mkdirSync(authDir, { recursive: true })
+  mkdirSync(dirname(binary), { recursive: true })
+  writeFileSync(join(authDir, 'account.json'), '{}')
+  writeFileSync(binary, 'proxy')
+  await performFactoryReset(['settings'], roots, async () => {}, async () => {})
+  expect(existsSync(authDir)).toBe(true)
+
+  const result = await performFactoryReset(['credentials'], roots, async () => {}, async () => {})
+  expect(result.completed).toEqual(['credentials'])
+  expect(existsSync(authDir)).toBe(false)
+  expect(existsSync(binary)).toBe(true)
+})
+
 it('preserves the credentials index and reports an incomplete reset when keychain cleanup fails', async () => {
   const { roots, files } = installation()
   const error = new Error('Cannot read keychain')

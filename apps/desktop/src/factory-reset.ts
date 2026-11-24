@@ -40,7 +40,7 @@ export function factoryResetTargets(category: FactoryResetCategory, roots: Facto
     ]
     // The profile manifest is rewritten with only the shipped bundles at the next launch.
     case 'plugins': return [join(profile, 'package.json'), join(profile, 'node_modules'), join(profile, 'pnpm-lock.yaml')]
-    case 'credentials': return [join(janHome, 'hosts', 'devices.json')]
+    case 'credentials': return [join(janHome, 'hosts', 'devices.json'), join(janHome, 'cli-proxy', 'auth')]
     case 'skills': return [join(janHome, 'skills')]
     case 'logs': return [...new Set([join(janHome, 'logs'), desktopLogs])]
   }
