@@ -37,6 +37,7 @@ import { resolveJanHome } from '@janhq/jan-home-paths'
 import { parseFactoryResetRequest, performFactoryReset, type FactoryResetCategory } from './factory-reset.ts'
 import { DesktopProjectManager } from './project-manager.ts'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError } from './host-process.ts'
+import { DesktopDownloads, nativeDownloadBytes } from './native-downloads.ts'
 import { DesktopPlatformView, PLATFORM_IPC, platformBounds } from './platform-view.ts'
 import { installDesktopFileDrag } from './file-drag.ts'
 import { installDesktopDirectoryPicker } from './directory-picker.ts'
@@ -583,6 +584,7 @@ async function main(): Promise<void> {
     () => locale.id === 'zh-CN' ? 'zh_CN' : 'en_US',
     process.platform === 'win32' || process.platform === 'darwin' ? process.platform : null,
     owner => isMandatory() || updateOverlays.input(owner).blocked)
+  const nativeDownloads = new DesktopDownloads()
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.jan, activeProject,
@@ -595,7 +597,7 @@ async function main(): Promise<void> {
           segmentBytes: 256 * 1024, recordBytes: 4096, queuedBytes: 64 * 1024,
         })
         operationJournal.enqueue(JSON.stringify(record))
-      })
+      }, nativeDownloads)
     return {
       start: async () => {
         const ready = await host.start()
@@ -761,7 +763,7 @@ async function main(): Promise<void> {
     ...(initialChannel.kind === 'error' ? { error: configurationFailure(initialChannel.error) } : {}),
   }
   const updateChannel = initialChannel.kind === 'ready' ? initialChannel.channel : packagedChannel
-  const updates = new DesktopUpdateCoordinator(
+  const updates: DesktopUpdateCoordinator = new DesktopUpdateCoordinator(
     publishUpdate,
     async () => {
       await commandManager.idle()
@@ -819,6 +821,30 @@ async function main(): Promise<void> {
     undefined, undefined, undefined,
     (success, reason) => { void track('desktop_upgrade_download_result', { is_success: success, ...reason === undefined ? {} : { error_reason: reason } }) },
     updateChannel,
+    undefined,
+    (version, revision) => {
+      const transfer = nativeDownloads.start({ id: `desktop-update:${revision}:${version}`, kind: 'update',
+        name: `${locale.messages.updateTitle} ${version}` })
+      transfer.update({ state: 'downloading' })
+      const open = (expected: 'done' | 'failed'): void => {
+        const state = updates.state
+        const ready = state.phase === 'ready' || (state.phase === 'error' && state.failedOperation === 'install')
+        const retryable = state.phase === 'available' || (state.phase === 'error' && state.failedOperation === 'download')
+        if (quitting || updates.revision !== revision || state.version !== version || !(expected === 'done' ? ready : retryable)) {
+          throw new Error('Desktop update action is no longer available')
+        }
+        void openUpdatePrompt().catch((error: unknown) => { console.error(error) })
+      }
+      return {
+        progress: (received, total) => { transfer.update({ state: 'downloading', ...nativeDownloadBytes(received, total) }) },
+        finish: (outcome, failure) => {
+          if (outcome === 'done') transfer.finish('done', undefined, { open: () => open('done') })
+          else if (outcome === 'failed' && failure !== undefined) {
+            transfer.finish('failed', desktopUpdateErrorSummary(failure, locale.messages), { retry: () => open('failed') })
+          } else transfer.finish(outcome)
+        },
+      }
+    },
   )
 
   if (initialChannel.kind === 'error') updates.suspendConfiguration(initialChannel.error.path)
@@ -923,7 +949,7 @@ async function main(): Promise<void> {
     if (owner === undefined || !event.senderFrame?.url.startsWith('jan-app://app/')) throw new Error('Rejected Platform command')
     return owner
   }
-  installFileActions(assertMainApplication, () => hostUrl)
+  installFileActions(assertMainApplication, () => hostUrl, nativeDownloads)
   ipcMain.on(PLATFORM_IPC.bootstrap, (event) => {
     try { event.returnValue = platformView.bootstrap(event) }
     catch { event.returnValue = null }
