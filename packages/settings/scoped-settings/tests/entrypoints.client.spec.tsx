@@ -99,7 +99,7 @@ it('opens the correct scope from each entry point and excludes federated chats a
     expect(command.available({ sessionId: SessionId('host~chat-a') })).toBe(false)
     expect(command.available(chat)).toBe(true)
     const ui = command.ui
-    if (ui.kind !== 'action') throw new Error('/tools must open the editor without submitting a message')
+    if (ui?.kind !== 'action') throw new Error('/tools must open the editor without submitting a message')
     act(() => { ui.run(chat) })
     const session = await screen.findByRole('dialog', { name: en['session.title'] })
     expect(read).toHaveBeenLastCalledWith({ scope: 'session', id: 'chat-a' })
