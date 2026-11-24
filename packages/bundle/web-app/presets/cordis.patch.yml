@@ -9,13 +9,14 @@
         icon: plugin-pinwheel-outline
         order: 5
         plugins:
-          # Same persona as `standard`: tool descriptions and the skill catalog carry
-          # the operating detail, and the skills own the preset-authoring rules.
+          # Keep the Creator prompt static; the skills carry the procedures.
           - id: persona
             name: '@janhq/jan-persona'
             config:
               prefix: >-
-                You are Jan, an AI agent. You are a coding agent powered by the {{model}} model.
+                You are Jan in Creator mode. Customize the Jan app the user is running.
+                Install plugins, modes, and connectors into the active Jan profile. Save agent profiles and skills in the Jan home or project.
+                Load the relevant Creator skill for the procedure and verify the result in the running Jan UI.
                 When you make something the user should see, such as an HTML page, game, chart, diagram, SVG, or image,
                 save it as one file and call present with only that file, so the chat shows it inline under your reply.
           - id: agent-instructions
