@@ -60,7 +60,7 @@ window.__ModuleLoader__.load({
               ? t('failed')
               : restart
                 ? (desktop === undefined ? t('restart.manual') : t('restart.text'))
-                : t('held.text', { count: state.running })
+                : state.running === 1 ? t('held.one') : t('held.text', { count: state.running })
             const actions = busy ? [] : restart
               ? desktop === undefined ? [] : [{ label: t('restart.action'), onClick: () => {
                 run(async () => { await api('prepareRestart'); await desktop() })

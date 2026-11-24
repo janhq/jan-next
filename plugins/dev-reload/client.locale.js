@@ -2,9 +2,10 @@ window.__ModuleLoader__.load({
   id: '@janhq/jan-dev-reload',
   chunk: 'client.locale.js',
   factory() {
-    const keys = ['held.text', 'held.action', 'restart.text', 'restart.manual', 'restart.action', 'failed']
+    const keys = ['held.one', 'held.text', 'held.action', 'restart.text', 'restart.manual', 'restart.action', 'failed']
     const copy = {
       en: [
+        'Code changes are waiting for 1 running chat. They apply when the chat finishes.',
         'Code changes are waiting for {count} running chats. They apply when the chats finish.',
         'Reload now and continue',
         'Restart Jan to apply app changes. Running chats continue after the restart.',
@@ -13,6 +14,7 @@ window.__ModuleLoader__.load({
         'Jan could not apply the change. Check the Host log, then try again.',
       ],
       zh: [
+        '代码更改正在等待 1 个运行中的聊天。聊天结束后会自动应用。',
         '代码更改正在等待 {count} 个运行中的聊天。聊天结束后会自动应用。',
         '立即重新加载并继续',
         '重启 Jan 以应用应用程序更改。运行中的聊天会在重启后继续。',
@@ -21,6 +23,7 @@ window.__ModuleLoader__.load({
         'Jan 无法应用此更改。请查看 Host 日志后重试。',
       ],
       ja: [
+        'コードの変更が実行中の 1 件のチャットを待っています。チャットが終わると適用されます。',
         'コードの変更が実行中の {count} 件のチャットを待っています。チャットが終わると適用されます。',
         '今すぐ再読み込みして続行',
         'アプリの変更を適用するには Jan を再起動してください。実行中のチャットは再起動後に続行します。',
@@ -29,6 +32,7 @@ window.__ModuleLoader__.load({
         '変更を適用できませんでした。Host のログを確認して、もう一度お試しください。',
       ],
       es: [
+        'Hay cambios de código esperando a 1 chat en ejecución. Se aplican cuando termine.',
         'Hay cambios de código esperando a {count} chats en ejecución. Se aplican cuando terminen.',
         'Recargar ahora y continuar',
         'Reinicia Jan para aplicar los cambios de la app. Los chats en ejecución continúan después del reinicio.',
@@ -37,6 +41,7 @@ window.__ModuleLoader__.load({
         'Jan no pudo aplicar el cambio. Revisa el registro del Host e inténtalo de nuevo.',
       ],
       fr: [
+        'Des modifications de code attendent 1 discussion en cours. Elles s’appliquent quand elle se termine.',
         'Des modifications de code attendent {count} discussions en cours. Elles s’appliquent quand elles se terminent.',
         'Recharger maintenant et continuer',
         'Redémarrez Jan pour appliquer les modifications de l’app. Les discussions en cours reprennent après le redémarrage.',
@@ -45,6 +50,7 @@ window.__ModuleLoader__.load({
         'Jan n’a pas pu appliquer la modification. Consultez le journal du Host, puis réessayez.',
       ],
       de: [
+        'Codeänderungen warten auf 1 laufenden Chat. Sie werden angewendet, sobald der Chat fertig ist.',
         'Codeänderungen warten auf {count} laufende Chats. Sie werden angewendet, sobald die Chats fertig sind.',
         'Jetzt neu laden und fortsetzen',
         'Starte Jan neu, um App-Änderungen anzuwenden. Laufende Chats werden nach dem Neustart fortgesetzt.',
@@ -53,6 +59,7 @@ window.__ModuleLoader__.load({
         'Jan konnte die Änderung nicht anwenden. Prüfe das Host-Protokoll und versuche es erneut.',
       ],
       ru: [
+        'Изменения кода ждут завершения 1 запущенного чата. Они применятся, когда чат закончит работу.',
         'Изменения кода ждут завершения запущенных чатов: {count}. Они применятся, когда чаты закончат работу.',
         'Перезагрузить сейчас и продолжить',
         'Перезапустите Jan, чтобы применить изменения приложения. Запущенные чаты продолжатся после перезапуска.',
@@ -61,6 +68,7 @@ window.__ModuleLoader__.load({
         'Jan не удалось применить изменение. Проверьте журнал Host и попробуйте снова.',
       ],
       pt: [
+        'Há alterações de código aguardando 1 chat em execução. Elas são aplicadas quando o chat terminar.',
         'Há alterações de código aguardando {count} chats em execução. Elas são aplicadas quando os chats terminarem.',
         'Recarregar agora e continuar',
         'Reinicie o Jan para aplicar as alterações do app. Os chats em execução continuam após a reinicialização.',
