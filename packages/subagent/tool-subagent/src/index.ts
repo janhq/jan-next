@@ -491,9 +491,12 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     },
   })
   const bindProfiles = ctx.inject(['agentProfiles'], (scope) => {
+    // Operational, not optional runtime context: the tool's `agent` field
+    // points at this roster, so a preset with runtime context off keeps it.
     scope.effect(() => scope.systemPrompt.context({
       name: toolName === 'subagent' ? 'agent-profiles:subagents' : `agent-profiles:subagents:${toolName}`,
       order: ctx.systemPrompt.getContextOrder('SUBAGENT_DELEGATION'),
+      required: true,
       interpolate: false,
       text: ({ agent, scope: agentScope }) => {
         if (agent === undefined || mounted === undefined || !delegationTools.get(mounted.definition)

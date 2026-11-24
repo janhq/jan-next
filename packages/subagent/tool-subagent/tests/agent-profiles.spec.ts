@@ -76,6 +76,16 @@ describe('named subagent profiles', () => {
     }))
   })
 
+  it('keeps the agent roster when the preset turns optional runtime context off', async () => {
+    const { agent, context } = await setupProfiles()
+    const restore = agent.ctx.systemPrompt.suppressRuntimeContext()
+    try {
+      expect(await context()).toMatchObject({ text: 'Available agents (pass as `agent`):\n- reviewer: Reviews {{examples}}.' })
+    } finally {
+      restore()
+    }
+  })
+
   it('lists only selectable profiles in argument errors and removes guidance when the catalog unloads', async () => {
     const { ctx, agent, catalog, context, onStart } = await setupProfiles()
     for (const id of ['missing', primary.id, shadowed.id]) {
