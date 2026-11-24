@@ -14,7 +14,7 @@
 - button "Read image red.png" [expanded]:
   - text: Read image
   - button "red.png"
-- text: {{cwd}}/red.png 1x1px, 69 bytes
+- text: {{cwd}}/red.png 1x1px, 69 bytes {{duration}}
 - button "red.png, click to view original":
   - img "red.png"
 - paragraph: MINIMAL_IMAGE_OK
@@ -32,7 +32,8 @@
 - button "Select model, current Tokamak 1 Vision Experimental, reasoning effort high": Tokamak 1 Vision Experimental high
 - button "Send message" [disabled]
 - button "Choose project" [disabled]
-- 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
+- 'button "Switch the mode for this task: Minimal mode"': Minimal mode
+- 'button "Choose agent: Jan"': Jan
 - button "1 turns 2 steps"
 - button "28 tok · Cache hit 0%": 28 tokCache hit 0%
 - button "0% of context used": 0%

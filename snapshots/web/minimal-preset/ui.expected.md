@@ -12,7 +12,7 @@
 - button "Ran commands" [expanded]
 - button "Inject context runtime-context"
 - button "Bash printf 'MINIMAL_BASH_CARD_OK\\n'" [expanded]
-- text: "IN { \"command\": \"printf 'MINIMAL_BASH_CARD_OK\\\\n'\" } OUT MINIMAL_BASH_CARD_OK [Command finished with exit code 0]"
+- text: "IN { \"command\": \"printf 'MINIMAL_BASH_CARD_OK\\\\n'\" } OUT MINIMAL_BASH_CARD_OK [Command finished with exit code 0] {{duration}}"
 - paragraph: MINIMAL_PRESET_REQUEST_OK
 - button "Copy"
 - button "Branch into a new conversation"
@@ -28,7 +28,8 @@
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
 - button "Choose project" [disabled]
-- 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
+- 'button "Switch the mode for this task: Minimal mode"': Minimal mode
+- 'button "Choose agent: Jan"': Jan
 - button "1 turns 2 steps"
 - button "28 tok · Cache hit 0%": 28 tokCache hit 0%
 - button "0% of context used": 0%

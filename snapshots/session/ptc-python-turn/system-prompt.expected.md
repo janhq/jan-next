@@ -279,7 +279,7 @@ class JobOutputArgs(TypedDict):
     job_id: str
     # Block until the job finishes or the timeout expires; a timed-out wait leaves the job running. Defaults to false.
     wait: NotRequired[bool]
-    # Max wait in milliseconds with wait: true. Defaults to and is capped by configuration.
+    # Max wait in milliseconds with wait: true. Defaults to and is capped by configuration (270000 unless configured, inside the provider prompt-cache window); wait again to keep waiting.
     timeout_ms: NotRequired[float]
     # Additional keys beyond those declared are allowed.
 
@@ -403,6 +403,8 @@ class SubagentArgs(TypedDict):
     name: NotRequired[str]
     # The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs.
     prompt: str
+    # Name of a Jan agent to run this task (see Available agents)
+    agent: NotRequired[str]
     # Additional keys beyond those declared are allowed.
 
 class SubagentOutput(TypedDict):
@@ -484,7 +486,7 @@ class UpdateGoalOutput2(TypedDict):
     activation: Literal["armed", "disarmed"]
 
 class WaitAgentArgs(TypedDict):
-    # Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000.
+    # Wait duration in milliseconds, from 10000; values above 270000 (4.5 minutes, inside the provider prompt-cache window) are clamped to it. Defaults to 30000. Call again to keep waiting.
     timeout_ms: NotRequired[int]
     # Additional keys beyond those declared are allowed.
 
@@ -492,7 +494,7 @@ class WaitAgentOutput(TypedDict):
     timedOut: bool
 
 class WakeAfterArgs(TypedDict):
-    # Delay in seconds, from 1 to 86400.
+    # Delay in seconds, from 1 to 86400. Prefer 270 or less: the provider prompt cache expires after about five minutes idle, so a longer delay makes the next request re-read the whole conversation.
     seconds: float
     # Non-blank reminder to include in the completion notice (up to 1024 UTF-8 bytes).
     note: str

@@ -310,7 +310,7 @@
           },
           "timeout_ms": {
             "type": "number",
-            "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration."
+            "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration (270000 unless configured, inside the provider prompt-cache window); wait again to keep waiting."
           }
         },
         "required": [
@@ -673,6 +673,10 @@
           "prompt": {
             "type": "string",
             "description": "The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs."
+          },
+          "agent": {
+            "type": "string",
+            "description": "Name of a Jan agent to run this task (see Available agents)"
           }
         },
         "required": [
@@ -802,7 +806,7 @@
         "properties": {
           "timeout_ms": {
             "type": "integer",
-            "description": "Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000."
+            "description": "Wait duration in milliseconds, from 10000; values above 270000 (4.5 minutes, inside the provider prompt-cache window) are clamped to it. Defaults to 30000. Call again to keep waiting."
           }
         }
       }
@@ -815,7 +819,7 @@
         "properties": {
           "seconds": {
             "type": "number",
-            "description": "Delay in seconds, from 1 to 86400."
+            "description": "Delay in seconds, from 1 to 86400. Prefer 270 or less: the provider prompt cache expires after about five minutes idle, so a longer delay makes the next request re-read the whole conversation."
           },
           "note": {
             "type": "string",
@@ -1316,7 +1320,7 @@
             },
             "timeout_ms": {
               "type": "number",
-              "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration."
+              "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration (270000 unless configured, inside the provider prompt-cache window); wait again to keep waiting."
             }
           },
           "required": [
@@ -1679,6 +1683,10 @@
             "prompt": {
               "type": "string",
               "description": "The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs."
+            },
+            "agent": {
+              "type": "string",
+              "description": "Name of a Jan agent to run this task (see Available agents)"
             }
           },
           "required": [
@@ -1808,7 +1816,7 @@
           "properties": {
             "timeout_ms": {
               "type": "integer",
-              "description": "Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000."
+              "description": "Wait duration in milliseconds, from 10000; values above 270000 (4.5 minutes, inside the provider prompt-cache window) are clamped to it. Defaults to 30000. Call again to keep waiting."
             }
           }
         }
@@ -1821,7 +1829,7 @@
           "properties": {
             "seconds": {
               "type": "number",
-              "description": "Delay in seconds, from 1 to 86400."
+              "description": "Delay in seconds, from 1 to 86400. Prefer 270 or less: the provider prompt cache expires after about five minutes idle, so a longer delay makes the next request re-read the whole conversation."
             },
             "note": {
               "type": "string",
@@ -2321,7 +2329,7 @@
             },
             "timeout_ms": {
               "type": "number",
-              "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration."
+              "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration (270000 unless configured, inside the provider prompt-cache window); wait again to keep waiting."
             }
           },
           "required": [
@@ -2684,6 +2692,10 @@
             "prompt": {
               "type": "string",
               "description": "The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs."
+            },
+            "agent": {
+              "type": "string",
+              "description": "Name of a Jan agent to run this task (see Available agents)"
             }
           },
           "required": [
@@ -2813,7 +2825,7 @@
           "properties": {
             "timeout_ms": {
               "type": "integer",
-              "description": "Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000."
+              "description": "Wait duration in milliseconds, from 10000; values above 270000 (4.5 minutes, inside the provider prompt-cache window) are clamped to it. Defaults to 30000. Call again to keep waiting."
             }
           }
         }
@@ -2826,7 +2838,7 @@
           "properties": {
             "seconds": {
               "type": "number",
-              "description": "Delay in seconds, from 1 to 86400."
+              "description": "Delay in seconds, from 1 to 86400. Prefer 270 or less: the provider prompt cache expires after about five minutes idle, so a longer delay makes the next request re-read the whole conversation."
             },
             "note": {
               "type": "string",
@@ -3326,7 +3338,7 @@
             },
             "timeout_ms": {
               "type": "number",
-              "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration."
+              "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration (270000 unless configured, inside the provider prompt-cache window); wait again to keep waiting."
             }
           },
           "required": [
@@ -3689,6 +3701,10 @@
             "prompt": {
               "type": "string",
               "description": "The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs."
+            },
+            "agent": {
+              "type": "string",
+              "description": "Name of a Jan agent to run this task (see Available agents)"
             }
           },
           "required": [
@@ -3818,7 +3834,7 @@
           "properties": {
             "timeout_ms": {
               "type": "integer",
-              "description": "Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000."
+              "description": "Wait duration in milliseconds, from 10000; values above 270000 (4.5 minutes, inside the provider prompt-cache window) are clamped to it. Defaults to 30000. Call again to keep waiting."
             }
           }
         }
@@ -3831,7 +3847,7 @@
           "properties": {
             "seconds": {
               "type": "number",
-              "description": "Delay in seconds, from 1 to 86400."
+              "description": "Delay in seconds, from 1 to 86400. Prefer 270 or less: the provider prompt cache expires after about five minutes idle, so a longer delay makes the next request re-read the whole conversation."
             },
             "note": {
               "type": "string",
@@ -4331,7 +4347,7 @@
             },
             "timeout_ms": {
               "type": "number",
-              "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration."
+              "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration (270000 unless configured, inside the provider prompt-cache window); wait again to keep waiting."
             }
           },
           "required": [
@@ -4694,6 +4710,10 @@
             "prompt": {
               "type": "string",
               "description": "The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs."
+            },
+            "agent": {
+              "type": "string",
+              "description": "Name of a Jan agent to run this task (see Available agents)"
             }
           },
           "required": [
@@ -4823,7 +4843,7 @@
           "properties": {
             "timeout_ms": {
               "type": "integer",
-              "description": "Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000."
+              "description": "Wait duration in milliseconds, from 10000; values above 270000 (4.5 minutes, inside the provider prompt-cache window) are clamped to it. Defaults to 30000. Call again to keep waiting."
             }
           }
         }
@@ -4836,7 +4856,7 @@
           "properties": {
             "seconds": {
               "type": "number",
-              "description": "Delay in seconds, from 1 to 86400."
+              "description": "Delay in seconds, from 1 to 86400. Prefer 270 or less: the provider prompt cache expires after about five minutes idle, so a longer delay makes the next request re-read the whole conversation."
             },
             "note": {
               "type": "string",
