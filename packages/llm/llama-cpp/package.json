@@ -50,6 +50,7 @@
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-agent-default-model": "workspace:*",
     "@janhq/jan-credentials": "workspace:*",
+    "@janhq/jan-downloads": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-llm-pi-ai": "workspace:*",
     "@janhq/jan-settings": "workspace:*",

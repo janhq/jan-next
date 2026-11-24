@@ -47,6 +47,7 @@
   },
   "devDependencies": {
     "@janhq/cordis": "workspace:~",
+    "@janhq/jan-downloads": "workspace:*",
     "@janhq/jan-experimental-speech-to-text": "workspace:*",
     "@janhq/jan-subprocess": "workspace:*",
     "@janhq/jan-subprocess-local": "workspace:*",

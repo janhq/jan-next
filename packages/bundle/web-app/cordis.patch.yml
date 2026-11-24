@@ -197,6 +197,10 @@
     - id: ui-settings-local-model
       name: '@janhq/jan-client-ui-settings-local-model'
 
+    # Track app, model and plugin transfers in the sidebar inbox on Web and Desktop.
+    - id: jan-downloads
+      name: '@janhq/jan-downloads'
+
     # Jan: Agent loop settings page for fallback, compaction, and busy send behavior.
     - id: ui-settings-model-policy
       name: '@janhq/jan-client-ui-settings-model-policy'

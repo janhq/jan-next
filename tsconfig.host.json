@@ -580,6 +580,7 @@
     { "path": "./packages/host/open-in-app" },
     { "path": "./packages/host/plugin-i18n" },
     { "path": "./packages/host/plugin-inventory" },
+    { "path": "./packages/host/downloads" },
     { "path": "./packages/boot/plugin-manager" },
     { "path": "./packages/boot/plugin-market" },
     { "path": "./packages/host/webserver" },

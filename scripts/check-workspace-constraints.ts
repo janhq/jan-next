@@ -196,6 +196,7 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   '@janhq/jan-experimental-subagent-oar': ['LICENSE-OAR'],
   // CUA publishes its client API and attributed native source for local macOS builds.
   '@janhq/jan-cua': ['lib/remote-types.js', 'lib/api.js', 'lib/bridge.js', 'lib/native-client.js', 'lib/protocol.js'],
+  '@janhq/jan-downloads': ['client.js'],
   '@janhq/jan-experimental-cua-macos': ['native/bin', 'cua-helper.json', 'native/Package.swift', 'native/Info.plist', 'native/JANComputerUse.icns', 'native/build_app.py', 'native/Sources', 'native/tests/swift', 'native/tests/test_swift.py', 'native/LICENSE.cua-driver', 'native/LICENSE.computer-use-icon', 'native/upstream.json', 'native/README.md', 'native/protocol.schema.json'],
   '@janhq/jan-webhook-github': ['examples/github-review/cordis.yml', 'examples/github-review/github-ready-review-rule.mjs'],
   // Liveshare publishes its built Relay gateway entry and the shared runtime

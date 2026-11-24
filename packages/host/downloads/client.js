@@ -4,12 +4,27 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const h = React.createElement
     const { Button, RiskConfirmation, Tooltip, IconDownloadOutlineRegular, IconTrashOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const { createPortal } = require('react-dom')
+    const { MenuSurface, useDismissOnOutsidePointer, isBehindModal, IconCloseOutlineRegular, IconPauseOutlineRegular,
+      IconPlayOutlineRegular, IconRefreshOutlineRegular, IconDatabaseOutlineRegular, IconSettingsOutlineRegular,
+      IconCordisPluginOutlineRegular, IconMicrophoneOutlineRegular, IconDeliverDocRegular, IconLinkOutlineRegular,
+      IconFolderOpenOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const KIND_ICONS = { model: IconDatabaseOutlineRegular, update: IconDownloadOutlineRegular, backend: IconSettingsOutlineRegular,
+      plugin: IconCordisPluginOutlineRegular, voice: IconMicrophoneOutlineRegular, file: IconDeliverDocRegular }
+    const ACTION_ICONS = { cancel: IconCloseOutlineRegular, pause: IconPauseOutlineRegular, resume: IconPlayOutlineRegular,
+      retry: IconRefreshOutlineRegular, open: IconLinkOutlineRegular, reveal: IconFolderOpenOutlineRegular }
+    const API = new URL('api/downloads.inbox', document.baseURI)
     const PANEL = 'jan-downloads'
 
     const COPY = {
       en: {
         title: 'Downloads',
         activeProgress: 'Downloads: {percent} downloaded', activeTransfer: 'Downloads: Download in progress',
+        inboxEmpty: 'Your download progress will appear here', clearFinished: 'Clear finished', manage: 'Manage downloads',
+        unread: 'Downloads: New activity', inboxError: 'Download activity is temporarily unavailable', actionError: 'Could not complete the download action. {error}',
+        'status.done': 'Done', 'status.cancelled': 'Cancelled', open: 'Open', reveal: 'Show in folder', eta: '{duration} left',
+        'kind.model': 'Model', 'kind.update': 'App update', 'kind.backend': 'Backend', 'kind.plugin': 'Plugin', 'kind.voice': 'Voice', 'kind.file': 'File',
+        byteFraction: '{received} / {total}',
         lede: 'Local model downloads on this computer. Pause keeps the partial file so you can resume.',
         stale: '{error} The list may be out of date.',
         loading: 'Loading downloads...',
@@ -43,6 +58,11 @@ window.__ModuleLoader__.load({
       zh: {
         title: '下载',
         activeProgress: '下载：已完成 {percent}', activeTransfer: '下载：正在下载',
+        inboxEmpty: '下载进度将在此显示', clearFinished: '清除已结束的下载', manage: '管理下载',
+        unread: '下载：有新动态', inboxError: '暂时无法查看下载动态', actionError: '无法完成下载操作：{error}',
+        'status.done': '已完成', 'status.cancelled': '已取消', open: '打开', reveal: '在文件夹中显示', eta: '剩余 {duration}',
+        'kind.model': '模型', 'kind.update': '应用更新', 'kind.backend': '后端', 'kind.plugin': '插件', 'kind.voice': '语音', 'kind.file': '文件',
+        byteFraction: '{received} / {total}',
         lede: '此电脑上的本地模型下载。暂停会保留已下载的部分，以便稍后继续。',
         stale: '{error} 列表可能不是最新的。',
         loading: '正在加载下载列表...',
@@ -63,6 +83,11 @@ window.__ModuleLoader__.load({
       ja: {
         title: 'ダウンロード',
         activeProgress: 'ダウンロード: {percent} 完了', activeTransfer: 'ダウンロード: 進行中',
+        inboxEmpty: 'ダウンロードの進捗がここに表示されます', clearFinished: '終了した項目を消去', manage: 'ダウンロードを管理',
+        unread: 'ダウンロード: 新しいアクティビティ', inboxError: 'ダウンロード状況を一時的に表示できません', actionError: 'ダウンロード操作を完了できませんでした。{error}',
+        'status.done': '完了', 'status.cancelled': 'キャンセル済み', open: '開く', reveal: 'フォルダーに表示', eta: '残り {duration}',
+        'kind.model': 'モデル', 'kind.update': 'アプリの更新', 'kind.backend': 'バックエンド', 'kind.plugin': 'プラグイン', 'kind.voice': '音声', 'kind.file': 'ファイル',
+        byteFraction: '{received} / {total}',
         lede: 'このコンピューターでのローカルモデルのダウンロードです。一時停止すると途中までのファイルが残り、後で再開できます。',
         stale: '{error} 一覧が最新でない可能性があります。',
         loading: 'ダウンロード一覧を読み込み中...',
@@ -83,6 +108,11 @@ window.__ModuleLoader__.load({
       es: {
         title: 'Descargas',
         activeProgress: 'Descargas: {percent} completado', activeTransfer: 'Descargas: Descarga en curso',
+        inboxEmpty: 'Aquí aparecerá el progreso de tus descargas', clearFinished: 'Borrar finalizadas', manage: 'Gestionar descargas',
+        unread: 'Descargas: actividad nueva', inboxError: 'La actividad de descarga no está disponible temporalmente', actionError: 'No se pudo completar la acción de descarga. {error}',
+        'status.done': 'Finalizada', 'status.cancelled': 'Cancelada', open: 'Abrir', reveal: 'Mostrar en carpeta', eta: 'Quedan {duration}',
+        'kind.model': 'Modelo', 'kind.update': 'Actualización de la app', 'kind.backend': 'Motor', 'kind.plugin': 'Complemento', 'kind.voice': 'Voz', 'kind.file': 'Archivo',
+        byteFraction: '{received} / {total}',
         lede: 'Descargas de modelos locales en este equipo. Al pausar una descarga, se conserva el archivo parcial para que puedas reanudarla.',
         stale: '{error} Es posible que la lista no esté actualizada.',
         loading: 'Cargando descargas...',
@@ -103,6 +133,11 @@ window.__ModuleLoader__.load({
       fr: {
         title: 'Téléchargements',
         activeProgress: 'Téléchargements : {percent} terminé', activeTransfer: 'Téléchargements : Téléchargement en cours',
+        inboxEmpty: 'La progression de vos téléchargements apparaîtra ici', clearFinished: 'Effacer les téléchargements terminés', manage: 'Gérer les téléchargements',
+        unread: 'Téléchargements : nouvelle activité', inboxError: 'L’activité des téléchargements est temporairement indisponible', actionError: 'Impossible de terminer l’action de téléchargement. {error}',
+        'status.done': 'Terminé', 'status.cancelled': 'Annulé', open: 'Ouvrir', reveal: 'Afficher dans le dossier', eta: 'Encore {duration}',
+        'kind.model': 'Modèle', 'kind.update': 'Mise à jour de l’application', 'kind.backend': 'Moteur', 'kind.plugin': 'Extension', 'kind.voice': 'Voix', 'kind.file': 'Fichier',
+        byteFraction: '{received} / {total}',
         lede: 'Téléchargements de modèles locaux sur cet ordinateur. La mise en pause conserve le fichier partiel pour permettre la reprise.',
         stale: '{error} La liste n’est peut-être pas à jour.',
         loading: 'Chargement des téléchargements...',
@@ -123,6 +158,11 @@ window.__ModuleLoader__.load({
       de: {
         title: 'Downloads',
         activeProgress: 'Downloads: {percent} heruntergeladen', activeTransfer: 'Downloads: Download läuft',
+        inboxEmpty: 'Hier erscheint der Fortschritt deiner Downloads', clearFinished: 'Beendete Downloads entfernen', manage: 'Downloads verwalten',
+        unread: 'Downloads: Neue Aktivität', inboxError: 'Downloadaktivität ist vorübergehend nicht verfügbar', actionError: 'Die Downloadaktion konnte nicht abgeschlossen werden. {error}',
+        'status.done': 'Fertig', 'status.cancelled': 'Abgebrochen', open: 'Öffnen', reveal: 'Im Ordner anzeigen', eta: 'Noch {duration}',
+        'kind.model': 'Modell', 'kind.update': 'App-Update', 'kind.backend': 'Backend', 'kind.plugin': 'Erweiterung', 'kind.voice': 'Sprache', 'kind.file': 'Datei',
+        byteFraction: '{received} / {total}',
         lede: 'Downloads lokaler Modelle auf diesem Computer. Beim Pausieren bleibt die unvollständige Datei erhalten, damit du den Download fortsetzen kannst.',
         stale: '{error} Die Liste ist möglicherweise nicht aktuell.',
         loading: 'Downloads werden geladen...',
@@ -143,6 +183,11 @@ window.__ModuleLoader__.load({
       ru: {
         title: 'Загрузки',
         activeProgress: 'Загрузки: загружено {percent}', activeTransfer: 'Загрузки: идёт загрузка',
+        inboxEmpty: 'Здесь будет отображаться ход загрузок', clearFinished: 'Убрать завершённые', manage: 'Управление загрузками',
+        unread: 'Загрузки: новая активность', inboxError: 'Сведения о загрузках временно недоступны', actionError: 'Не удалось выполнить действие с загрузкой. {error}',
+        'status.done': 'Готово', 'status.cancelled': 'Отменено', open: 'Открыть', reveal: 'Показать в папке', eta: 'Осталось {duration}',
+        'kind.model': 'Модель', 'kind.update': 'Обновление приложения', 'kind.backend': 'Сервер', 'kind.plugin': 'Плагин', 'kind.voice': 'Голос', 'kind.file': 'Файл',
+        byteFraction: '{received} / {total}',
         lede: 'Загрузки локальных моделей на этом компьютере. При паузе частично загруженный файл сохраняется, чтобы можно было продолжить загрузку.',
         stale: '{error} Возможно, список устарел.',
         loading: 'Загрузка списка...',
@@ -163,6 +208,11 @@ window.__ModuleLoader__.load({
       pt: {
         title: 'Downloads',
         activeProgress: 'Downloads: {percent} concluído', activeTransfer: 'Downloads: Download em andamento',
+        inboxEmpty: 'O progresso dos seus downloads aparecerá aqui', clearFinished: 'Limpar finalizados', manage: 'Gerenciar downloads',
+        unread: 'Downloads: nova atividade', inboxError: 'A atividade de download está temporariamente indisponível', actionError: 'Não foi possível concluir a ação de download. {error}',
+        'status.done': 'Concluído', 'status.cancelled': 'Cancelado', open: 'Abrir', reveal: 'Mostrar na pasta', eta: 'Restam {duration}',
+        'kind.model': 'Modelo', 'kind.update': 'Atualização do aplicativo', 'kind.backend': 'Backend', 'kind.plugin': 'Plugin', 'kind.voice': 'Voz', 'kind.file': 'Arquivo',
+        byteFraction: '{received} / {total}',
         lede: 'Downloads de modelos locais neste computador. Ao pausar, o arquivo parcial é mantido para que você possa retomar o download.',
         stale: '{error} A lista pode estar desatualizada.',
         loading: 'Carregando downloads...',
@@ -204,8 +254,6 @@ window.__ModuleLoader__.load({
     function follow(remote) {
       const controller = new AbortController()
       const listeners = new Set()
-      const activityListeners = new Set()
-      let activity = null
       let snapshot = { downloads: null, models: null, error: '', storageRevision: 0 }
       let timer
       const set = next => { snapshot = { ...snapshot, ...next }; for (const listener of listeners) listener() }
@@ -219,12 +267,6 @@ window.__ModuleLoader__.load({
               const models = state.models ?? []
               const modelsChanged = snapshot.models === null || models.length !== snapshot.models.length || models.some((model, index) =>
                 model.id !== snapshot.models[index].id || model.status !== snapshot.models[index].status)
-              const running = state.downloads.find(item => statusOf(item) === 'downloading')
-              const next = running ? percentOf(running.progress) ?? 'indeterminate' : null
-              if (activity !== next) {
-                activity = next
-                for (const listener of activityListeners) listener()
-              }
               set({ downloads: state.downloads, models, error: '', storageRevision: snapshot.storageRevision + Number(changed || modelsChanged) })
             }
           } catch (error) {
@@ -239,11 +281,49 @@ window.__ModuleLoader__.load({
       return {
         get: () => snapshot,
         subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
-        activity: {
-          getSnapshot: () => activity,
-          subscribe: listener => { activityListeners.add(listener); return () => activityListeners.delete(listener) },
-        },
         dispose: () => { controller.abort(); clearTimeout(timer) },
+      }
+    }
+
+    function createInboxFeed() {
+      const controller = new AbortController(), { signal } = controller
+      const listeners = new Set()
+      let snapshot = { items: [], active: { count: 0, percent: null }, unseen: null, loading: true, unavailable: false }
+      const set = next => { snapshot = next; for (const listener of listeners) listener() }
+      void (async () => {
+        while (!signal.aborted) {
+          try {
+            const response = await fetch(API, { signal })
+            if (!response.ok || !response.body) throw new Error(`Downloads feed: ${response.status}`)
+            let pending = ''
+            for await (const text of response.body.pipeThrough(new TextDecoderStream())) {
+              pending += text
+              let end
+              while ((end = pending.indexOf('\n')) >= 0) {
+                set({ ...JSON.parse(pending.slice(0, end)), loading: false, unavailable: false })
+                pending = pending.slice(end + 1)
+              }
+            }
+          } catch { if (signal.aborted) return }
+          if (signal.aborted) return
+          set({ ...snapshot, loading: false, unavailable: true })
+          const { promise, resolve } = Promise.withResolvers()
+          const timer = setTimeout(resolve, 1000)
+          signal.addEventListener('abort', resolve, { once: true })
+          await promise
+          clearTimeout(timer)
+          signal.removeEventListener('abort', resolve)
+        }
+      })()
+      return {
+        getSnapshot: () => snapshot,
+        subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
+        dispose: () => controller.abort(),
+        async request(method, args) {
+          const response = await fetch(API, { signal, method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ method, ...args }) })
+          if (!response.ok) throw new Error((await response.json())?.error ?? `HTTP ${response.status}`)
+        },
       }
     }
 
@@ -382,17 +462,128 @@ window.__ModuleLoader__.load({
         }))
     }
 
-    function DownloadsButton({ className, iconSize, tooltipSide, portal, activePanelId, openPanel, useActivity, t }) {
-      const activity = useActivity(value => value)
-      const determinate = typeof activity === 'number'
-      const label = determinate ? t('activeProgress', { percent: formatPercent(activity, document.documentElement.lang || undefined) })
-        : t(activity === 'indeterminate' ? 'activeTransfer' : 'title')
-      return h(Tooltip, { label, delayMs: 500, side: tooltipSide, portal }, h('button', {
-        type: 'button', className: [className, 'jan-downloads-trigger'].filter(Boolean).join(' '), 'aria-label': label,
-        'aria-current': activePanelId === PANEL ? 'page' : undefined, onClick: () => openPanel(PANEL),
-      }, h('span', { className: 'jan-downloads-trigger-icon', 'aria-hidden': true },
-        h(IconDownloadOutlineRegular, { size: iconSize }),
-        activity !== null && h('span', { className: 'jan-downloads-badge', style: determinate ? { '--jan-download-percent': `${activity}%` } : undefined }))))
+    function InboxRow({ item, t, locale, run, busy, failure, onCancel }) {
+      const icon = KIND_ICONS[item.kind] ?? IconDownloadOutlineRegular
+      const active = item.state === 'downloading' || item.state === 'queued'
+      const percent = item.percent === undefined ? '' : formatPercent(item.percent, locale)
+      let transfer = ''
+      if (item.totalBytes > 0 && item.receivedBytes !== undefined) {
+        transfer = t('byteFraction', { received: bytes(item.receivedBytes, locale), total: bytes(item.totalBytes, locale) })
+      } else if (item.receivedBytes !== undefined) transfer = t('transferred', { size: bytes(item.receivedBytes, locale) })
+      const rate = item.state === 'downloading' && item.bytesPerSecond >= 1 ? item.bytesPerSecond : 0
+      const remaining = rate && item.totalBytes > item.receivedBytes ? (item.totalBytes - item.receivedBytes) / rate : 0
+      const unit = remaining >= 3600 ? 'hour' : remaining >= 60 ? 'minute' : 'second'
+      const duration = remaining > 0 ? new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'short' })
+        .format(Math.ceil(remaining / (unit === 'hour' ? 3600 : unit === 'minute' ? 60 : 1))) : ''
+      return h('li', { className: 'jan-inbox-row', 'data-state': item.state },
+        h('div', { className: 'jan-inbox-item-heading' },
+          h('div', { className: 'jan-inbox-item-name', title: item.name }, h(icon, { size: 16, 'aria-hidden': true }), h('span', null, item.name)),
+          item.actions.map(action => {
+            const actionIcon = ACTION_ICONS[action]
+            const label = t(action)
+            return h(Tooltip, { key: action, label }, h('button', { type: 'button', className: 'jan-inbox-action', 'aria-label': label,
+              disabled: busy, onClick: () => action === 'cancel' && item.kind === 'model' ? onCancel(item) : run(item.id, action),
+            }, h(actionIcon, { size: 16, 'aria-hidden': true })))
+          })),
+        h('div', { className: 'jan-inbox-metadata' }, h('span', null, t(`kind.${item.kind}`)), h('span', null, t(`status.${item.state}`))),
+        (active || item.percent !== undefined || transfer) && h('div', { className: 'jan-inbox-track', role: 'progressbar',
+          'aria-label': t('progressLabel', { name: item.name }), 'aria-valuenow': item.percent,
+          'data-indeterminate': item.state === 'downloading' && item.percent === undefined ? '' : undefined },
+          h('span', { className: 'jan-inbox-fill', style: { '--jan-inbox-progress': `${item.percent ?? 0}%` } }),
+          h('span', { className: 'jan-inbox-track-labels' }, h('span', null, percent), h('span', null, transfer))),
+        rate > 0 && h('div', { className: 'jan-inbox-metadata' }, h('span', null, t('speed', { size: bytes(rate, locale) })),
+          duration && h('span', null, t('eta', { duration }))),
+        item.error && h('p', { className: 'jan-inbox-error' }, item.error),
+        failure && h('p', { className: 'jan-inbox-error', role: 'alert' }, failure))
+    }
+
+    function DownloadsButton({ className, iconSize, tooltipSide, portal, openPanel, useInbox, request, t }) {
+      const { items, active, unseen, loading, unavailable } = useInbox(value => value)
+      const [open, setOpen] = React.useState(false)
+      const [mounted, setMounted] = React.useState(false)
+      const [busy, setBusy] = React.useState(null)
+      const [failure, setFailure] = React.useState(null)
+      const [confirm, setConfirm] = React.useState(null)
+      const [acknowledged, setAcknowledged] = React.useState(false)
+      const trigger = React.useRef(null), panel = React.useRef(null)
+      const id = React.useId()
+      const anchorName = `--jan-downloads-${id.replaceAll(':', '')}`
+      const locale = document.documentElement.lang || undefined
+      const label = active.count ? (active.percent === null ? t('activeTransfer') : t('activeProgress', { percent: formatPercent(active.percent, locale) }))
+        : t(unseen ? 'unread' : 'title')
+      useDismissOnOutsidePointer(trigger, open && confirm === null, setOpen, panel)
+      React.useLayoutEffect(() => { if (open) panel.current?.focus() }, [open])
+      React.useEffect(() => {
+        if (!open || unseen === null) return
+        void request('markSeen', { sequence: unseen.sequence }).catch(() => { /* The badge survives a lost connection. */ })
+      }, [open, unseen?.sequence, request])
+      React.useEffect(() => {
+        if (!open || confirm !== null) return
+        const dismiss = event => {
+          if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing || isBehindModal(panel.current)) return
+          event.preventDefault()
+          event.stopPropagation()
+          setOpen(false)
+          trigger.current?.focus()
+        }
+        const leave = event => {
+          if (!trigger.current?.contains(event.target) && !panel.current?.contains(event.target)) setOpen(false)
+        }
+        document.addEventListener('keydown', dismiss, true)
+        document.addEventListener('focusin', leave)
+        return () => {
+          document.removeEventListener('keydown', dismiss, true)
+          document.removeEventListener('focusin', leave)
+        }
+      }, [open, confirm])
+      const run = async (id, action) => {
+        setConfirm(null)
+        setBusy(id)
+        setFailure(null)
+        try { await request('act', { id, action }) }
+        catch (error) { setFailure({ id, text: t('actionError', { error: message(error) }) }) }
+        finally { setBusy(null) }
+      }
+      const hasFinished = items.some(item => item.state === 'done' || item.state === 'failed' || item.state === 'cancelled')
+      const clear = async () => {
+        setFailure(null)
+        panel.current?.focus()
+        try { await request('clearFinished') }
+        catch (error) { setFailure({ id: null, text: t('actionError', { error: message(error) }) }) }
+      }
+      return h(React.Fragment, null,
+        h(Tooltip, { label, delayMs: 500, disabled: open, side: tooltipSide, portal }, h('button', {
+          ref: trigger, type: 'button', className: [className, 'jan-downloads-trigger'].filter(Boolean).join(' '),
+          style: { anchorName }, 'aria-label': label, 'aria-haspopup': 'dialog', 'aria-expanded': open, 'aria-controls': open ? id : undefined,
+          onClick: () => { if (!open) { setMounted(true); setOpen(true) } else setOpen(false) },
+        }, h('span', { className: 'jan-downloads-trigger-icon', 'aria-hidden': true },
+          h(IconDownloadOutlineRegular, { size: iconSize }),
+          active.count > 0 && h('span', { className: 'jan-downloads-badge', 'data-indeterminate': active.percent === null ? '' : undefined,
+            style: { '--jan-download-percent': `${active.percent ?? 30}%` } }),
+          unseen && h('span', { className: 'jan-downloads-unseen', 'data-failed': unseen.failed ? '' : undefined })))),
+        mounted && createPortal(h(MenuSurface, { ref: panel, id, role: 'dialog', tabIndex: -1, className: 'jan-downloads-inbox',
+          'aria-label': t('title'), 'aria-hidden': !open || undefined, inert: !open ? '' : undefined,
+          'data-open': open, style: { positionAnchor: anchorName },
+          onAnimationEnd: event => { if (event.currentTarget === event.target && !open) setMounted(false) },
+        }, loading ? h('p', { className: 'jan-inbox-empty', role: 'status' }, t('loading')) :
+          items.length === 0 ? h('div', { className: 'jan-inbox-empty' }, h(IconDownloadOutlineRegular, { size: 24, 'aria-hidden': true }),
+            h('p', null, t(unavailable ? 'inboxError' : 'inboxEmpty'))) : h(React.Fragment, null,
+            h('h2', { className: 'jan-inbox-title' }, t(active.count ? 'status.downloading' : 'title')),
+            unavailable && h('p', { className: 'jan-inbox-error', role: 'status' }, t('inboxError')),
+            h('ul', { className: 'jan-inbox-list' }, items.map(item => h(InboxRow, {
+              key: item.id, item, t, locale, run, busy: busy === item.id, failure: failure?.id === item.id ? failure.text : null,
+              onCancel: value => { setAcknowledged(false); setConfirm(value) },
+            }))),
+            h('div', { className: 'jan-inbox-footer' },
+              openPanel && h(Button, { variant: 'ghost', size: 'sm', onClick: () => { setOpen(false); openPanel(PANEL) } }, t('manage')),
+              hasFinished && h(Button, { variant: 'ghost', size: 'sm', onClick: () => { void clear() } }, t('clearFinished'))),
+            failure?.id === null && h('p', { className: 'jan-inbox-error', role: 'alert' }, failure.text))), document.body),
+        h(RiskConfirmation, { open: confirm !== null, title: t('confirm.title'),
+          description: confirm ? t('confirm.description', { name: confirm.name }) : '', acknowledgeLabel: t('confirm.acknowledge'),
+          cancelLabel: t('confirm.keep'), closeLabel: t('confirm.keep'), confirmLabel: t('confirm.discard'), acknowledged,
+          onAcknowledgedChange: setAcknowledged, onCancel: () => setConfirm(null),
+          onConfirm: () => { if (confirm) void run(confirm.id, 'cancel') },
+        }))
     }
 
     const CSS = `
@@ -419,24 +610,86 @@ window.__ModuleLoader__.load({
       .jan-downloads-stored-info h3{margin:0;font-size:14px;font-weight:600}
       .jan-downloads-stored-info p{margin:4px 0 0;font-size:13px}
       .jan-downloads-stored-row button{flex-shrink:0}
-      .jan-downloads-trigger:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
-      .jan-downloads-trigger-icon{position:relative;display:flex}
-      .jan-downloads-badge{position:absolute;inset-block-start:-4px;inset-inline-end:-6px;width:9px;height:9px;border-radius:50%;pointer-events:none;box-shadow:0 0 0 1px var(--dsw-alias-bg-layer-1);background:conic-gradient(var(--dsw-alias-brand-primary) var(--jan-download-percent,100%),var(--dsw-alias-border-l4) 0) var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-brand-primary)}
+      .jan-downloads-trigger { transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out); -webkit-app-region: no-drag; }
+      .jan-downloads-trigger[aria-expanded='true'], .jan-downloads-trigger:active { background-color: var(--dsw-alias-interactive-bg-active); }
+      .jan-downloads-trigger:focus-visible, .jan-inbox-action:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; }
+      .jan-downloads-trigger-icon { position: relative; display: flex; }
+      .jan-downloads-badge { position: absolute; inset: -5px; border-radius: 50%; pointer-events: none;
+        background: conic-gradient(var(--dsw-alias-brand-primary) var(--jan-download-percent), var(--dsw-alias-border-l2) 0);
+        mask: radial-gradient(farthest-side, transparent calc(100% - 2px), currentColor 0); }
+      .jan-downloads-badge[data-indeterminate] { animation: jan-inbox-spin var(--ds-transition-duration-loop) linear infinite; }
+      .jan-downloads-unseen { position: absolute; inset-block-start: -5px; inset-inline-end: -6px; width: 6px; height: 6px;
+        border-radius: 50%; background: var(--dsw-alias-state-success-primary); box-shadow: 0 0 0 2px var(--dsw-alias-bg-layer-1); pointer-events: none; }
+      .jan-downloads-unseen[data-failed] { background: var(--dsw-alias-state-error-primary); }
+      .jan-downloads-inbox { --jan-inbox-padding: 8px; --jan-inbox-gap: 8px; --jan-inbox-edge: 12px;
+        position: fixed; z-index: 1100; width: min(296px, calc(100vw - 2 * var(--jan-inbox-edge))); box-sizing: border-box;
+        top: max(var(--jan-frame-overlay-top, 0px), calc(anchor(bottom, 32px) + var(--jan-inbox-gap)));
+        left: clamp(var(--jan-inbox-edge), anchor(left, 12px), max(var(--jan-inbox-edge), calc(100vw - 296px - var(--jan-inbox-edge))));
+        max-height: calc(100dvh - anchor(bottom, 32px) - var(--jan-inbox-gap) - var(--jan-inbox-edge));
+        overflow: auto; overscroll-behavior: contain; outline: none; padding: var(--jan-inbox-padding);
+        border: 1px solid var(--dsw-alias-border-l2); box-shadow: var(--dsw-elevation-panel);
+        color: var(--dsw-alias-label-primary); font-size: 13px; line-height: 18px; }
+      .jan-downloads-inbox[data-open='true'] { animation: jan-inbox-in var(--ds-transition-duration) var(--ds-ease-out); }
+      .jan-downloads-inbox[data-open='false'] { animation: jan-inbox-out var(--ds-transition-duration-fast) var(--ds-ease-in) both; pointer-events: none; }
+      .jan-inbox-empty { box-sizing: border-box; min-height: 120px; margin: 0; padding: 20px; display: grid; align-content: center;
+        justify-items: center; gap: var(--jan-inbox-gap); text-align: center; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
+      .jan-inbox-empty p { margin: 0; max-width: 23ch; text-wrap: balance; }
+      .jan-inbox-empty svg { color: var(--dsw-alias-label-tertiary); }
+      .jan-inbox-title { margin: 0; padding: 2px 4px 8px; font-size: 14px; font-weight: 500; line-height: 20px; }
+      .jan-inbox-list { display: grid; gap: var(--jan-inbox-gap); list-style: none; margin: 0; padding: 0; }
+      .jan-inbox-row { min-width: 0; display: grid; gap: 4px; padding: var(--jan-inbox-padding);
+        border-radius: var(--dsw-radius-md); background: var(--dsw-alias-interactive-bg-hover);
+        animation: jan-inbox-in var(--ds-transition-duration) var(--ds-ease-out); }
+      .jan-inbox-item-heading, .jan-inbox-item-name { display: flex; align-items: center; gap: 4px; min-width: 0; }
+      .jan-inbox-item-name { flex: 1; gap: 6px; font-weight: 500; }
+      .jan-inbox-item-name > svg { flex-shrink: 0; color: var(--dsw-alias-label-secondary); }
+      .jan-inbox-item-name > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .jan-inbox-action { width: 24px; height: 24px; display: grid; place-items: center; flex: none; padding: 0; border: 0;
+        border-radius: var(--dsw-radius-sm); color: var(--dsw-alias-label-secondary); background: transparent; cursor: pointer;
+        transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), color var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
+      @media (hover: hover) { .jan-inbox-action:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); } }
+      .jan-inbox-action:active:not(:disabled) { background: var(--dsw-alias-interactive-bg-active); }
+      .jan-inbox-action:disabled { cursor: default; opacity: .5; }
+      .jan-inbox-metadata, .jan-inbox-track-labels { display: flex; justify-content: space-between; gap: 4px; font-variant-numeric: tabular-nums; }
+      .jan-inbox-metadata { color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 16px; }
+      .jan-inbox-track { position: relative; overflow: hidden; min-height: 24px; isolation: isolate; border-radius: var(--dsw-radius-sm);
+        background: var(--dsw-alias-interactive-bg-active); }
+      .jan-inbox-track-labels { padding: 4px 8px; font-size: 12px; line-height: 16px; }
+      .jan-inbox-fill { position: absolute; z-index: -1; inset-block: 0; inset-inline-start: 0; width: var(--jan-inbox-progress);
+        opacity: .4; background: var(--dsw-alias-brand-primary); transition: width var(--ds-transition-duration) var(--ds-ease-in-out); }
+      .jan-inbox-track[data-indeterminate] .jan-inbox-fill { width: 25%; animation: jan-inbox-scan var(--ds-transition-duration-ambient) var(--ds-ease-in-out) infinite alternate; }
+      .jan-inbox-footer { display: flex; justify-content: flex-end; gap: var(--jan-inbox-gap); flex-wrap: wrap; margin-top: 4px; }
+      .jan-inbox-error { margin: 0; color: var(--dsw-alias-state-error-primary); overflow-wrap: anywhere; white-space: pre-wrap; }
+      @keyframes jan-inbox-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes jan-inbox-out { from { opacity: 1; } to { opacity: 0; } }
+      @keyframes jan-inbox-spin { to { transform: rotate(1turn); } }
+      @keyframes jan-inbox-scan { to { transform: translateX(300%); } }
+      @media (prefers-reduced-motion: reduce) {
+        .jan-downloads-badge[data-indeterminate], .jan-inbox-track[data-indeterminate] .jan-inbox-fill { animation: none; }
+      }
       @media(max-width:600px){.jan-downloads{padding:20px}}
     `
     return {
       name: 'jan-downloads',
-      inject: ['slots'],
+      inject: ['slots', 'locale'],
       apply(ctx) {
         const style = document.createElement('style')
         style.dataset.plugin = '@janhq/jan-downloads'
         style.textContent = CSS
         document.head.append(style)
         ctx.effect(() => () => style.remove(), 'jan-downloads: styles')
+        ctx.effect(() => ctx.locale.register(PANEL, COPY), 'jan-downloads: owned copy')
+        ctx.effect(() => {
+          const inbox = createInboxFeed()
+          const dispose = ctx.slots.inject('sidebar.toggle.actions', () => ctx.slots.register({
+            name: 'sidebar.toggle.actions', id: PANEL, locale: PANEL,
+            inject: () => ({ hooks: { inbox }, request: inbox.request }),
+          }, DownloadsButton))
+          return () => { inbox.dispose(); return dispose() }
+        }, 'jan-downloads: inbox')
         // ui-settings-local-model mounts the llamaCpp Remote; this page waits for it.
         // Reading `scope.remote` needs the `remote` root service injected too.
-        ctx.inject(['locale', 'remote', 'remote.llamaCpp'], scope => {
-          scope.effect(() => scope.locale.register(PANEL, COPY), 'jan-downloads: owned copy')
+        ctx.inject(['remote', 'remote.llamaCpp'], scope => {
           const t = scope.locale.bind(PANEL)
           const remote = scope.remote.llamaCpp
           const feed = follow(remote)
@@ -447,10 +700,6 @@ window.__ModuleLoader__.load({
           scope.slots.inject('sidebar.panellist', () => scope.slots.register({
             name: 'sidebar.panellist', id: PANEL, order: 20, label: () => t('title'),
           }, ({ size }) => h(IconDownloadOutlineRegular, { size, 'aria-hidden': true })))
-          // Jan Desktop v04 keeps Downloads one click away, beside the sidebar toggle.
-          scope.slots.inject('sidebar.toggle.actions', () => scope.slots.register({
-            name: 'sidebar.toggle.actions', id: PANEL, locale: PANEL, inject: () => ({ hooks: { activity: feed.activity } }),
-          }, DownloadsButton))
         })
       },
     }

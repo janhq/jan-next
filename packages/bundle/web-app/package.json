@@ -205,6 +205,7 @@
     "@janhq/jan-api-llama-cpp-controller": "workspace:*",
     "@janhq/jan-llama-cpp": "workspace:*",
     "@janhq/jan-client-ui-settings-local-model": "workspace:*",
+    "@janhq/jan-downloads": "workspace:*",
     "@janhq/jan-client-ui-settings-model-policy": "workspace:*",
     "@janhq/jan-client-shortcuts": "workspace:*",
     "@janhq/jan-client-ui-shortcuts": "workspace:*",

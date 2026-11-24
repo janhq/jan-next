@@ -44,7 +44,6 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'plugins/cli-proxy',
   'plugins/desktop-app',
   'plugins/diagnostics',
-  'plugins/downloads',
   'plugins/hosts',
   'plugins/jan-always-on',
   'plugins/jan-browser',

@@ -8,6 +8,8 @@
     "src"
   ],
   "references": [
+    { "path": "../../packages/host/downloads" },
+    { "path": "../../packages/util/brand" },
     {
       "path": "../../packages/boot/app-boot"
     },

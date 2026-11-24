@@ -737,6 +737,9 @@ importers:
       '@janhq/jan-atomic-write':
         specifier: workspace:*
         version: link:../../packages/util/atomic-write
+      '@janhq/jan-brand':
+        specifier: workspace:*
+        version: link:../../packages/util/brand
       '@janhq/jan-client-product-analytics':
         specifier: workspace:*
         version: link:../../packages/client/product-analytics
@@ -761,6 +764,9 @@ importers:
       '@janhq/jan-dev-reload':
         specifier: workspace:*
         version: link:../../plugins/dev-reload
+      '@janhq/jan-downloads':
+        specifier: workspace:*
+        version: link:../../packages/host/downloads
       '@janhq/jan-home-paths':
         specifier: workspace:*
         version: link:../../packages/util/home-paths
@@ -906,6 +912,9 @@ importers:
       '@janhq/jan-brand':
         specifier: workspace:*
         version: link:../../packages/util/brand
+      '@janhq/jan-downloads':
+        specifier: workspace:*
+        version: link:../../packages/host/downloads
       '@janhq/jan-fs':
         specifier: workspace:*
         version: link:../../packages/fs/fs
@@ -2760,6 +2769,9 @@ importers:
       '@janhq/jan-client-connection':
         specifier: workspace:*
         version: link:../../client/connection
+      '@janhq/jan-downloads':
+        specifier: workspace:*
+        version: link:../../host/downloads
       '@janhq/jan-hmr':
         specifier: workspace:*
         version: link:../hmr
@@ -3735,6 +3747,9 @@ importers:
       '@janhq/jan-deliverable-file-references':
         specifier: workspace:*
         version: link:../../deliverables/deliverable-file-references
+      '@janhq/jan-downloads':
+        specifier: workspace:*
+        version: link:../../host/downloads
       '@janhq/jan-file-reference':
         specifier: workspace:*
         version: link:../../context/file-reference
@@ -11753,6 +11768,9 @@ importers:
       '@janhq/cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
+      '@janhq/jan-downloads':
+        specifier: workspace:*
+        version: link:../../host/downloads
       '@janhq/jan-experimental-speech-to-text':
         specifier: workspace:*
         version: link:../speech-to-text
@@ -13312,6 +13330,18 @@ importers:
         specifier: ^4.23.13
         version: 4.23.13
 
+  packages/host/downloads:
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/jan-client-connection':
+        specifier: workspace:*
+        version: link:../../client/connection
+      '@janhq/jan-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../../client/ui-primitives
+
   packages/host/frontend-static:
     dependencies:
       '@janhq/schemastery':
@@ -13823,6 +13853,9 @@ importers:
       '@janhq/jan-credentials':
         specifier: workspace:*
         version: link:../../credentials/credentials
+      '@janhq/jan-downloads':
+        specifier: workspace:*
+        version: link:../../host/downloads
       '@janhq/jan-llm':
         specifier: workspace:*
         version: link:../llm
@@ -19046,9 +19079,6 @@ importers:
       '@janhq/jan-diagnostics':
         specifier: workspace:*
         version: link:../diagnostics
-      '@janhq/jan-downloads':
-        specifier: workspace:*
-        version: link:../downloads
       '@janhq/jan-hosts':
         specifier: workspace:*
         version: link:../hosts
@@ -19115,8 +19145,6 @@ importers:
       '@janhq/jan-plugin-api':
         specifier: workspace:*
         version: link:../plugin-api
-
-  plugins/downloads: {}
 
   plugins/edge-app:
     dependencies:
