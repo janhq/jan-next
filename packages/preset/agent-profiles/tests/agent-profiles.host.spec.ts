@@ -176,6 +176,12 @@ it.skipIf(process.platform === 'win32')('lists only bounded regular profile file
     { scope: 'project', path: oversized, reason: 'larger than 64 KiB' },
     { scope: 'project', path: pipe, reason: 'not a regular file' },
   ])
+
+  const renamed = join(agents, 'renamed.md')
+  renameSync(regular, renamed)
+  await vi.waitFor(() => {
+    expect(h.profiles.snapshot(PROJECT).profiles.some(profile => profile.path === renamed)).toBe(true)
+  }, { timeout: 2_000 })
 })
 
 it('rejects hidden and over-deep profile ids before creating files', async () => {

@@ -185,7 +185,11 @@ export function watchRoot(path: string, changed: () => void, failed: (error: unk
   const open = async (): Promise<{ close(): Promise<void> }> => {
     const anchor = await nearestExisting(target)
     const depth = anchor === target ? MAX_PROFILE_DIRECTORY_DEPTH : 0
-    const watcher = chokidar.watch(anchor, { persistent: true, ignoreInitial: true, atomic: true, depth })
+    const watcher = chokidar.watch(anchor, {
+      persistent: true, ignoreInitial: true, atomic: true, depth,
+      // On macOS, fs.watch can block opening a FIFO even though the scanner skips it.
+      ignored: (_path, stats) => stats !== undefined && !stats.isDirectory() && !stats.isFile(),
+    })
     watcher.on('error', failed)
     watcher.on('all', (event, changedPath) => {
       const at = resolve(changedPath)
