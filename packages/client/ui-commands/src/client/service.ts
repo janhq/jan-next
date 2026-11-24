@@ -28,7 +28,7 @@ import type {
   CandidateRequest, ClientSessionContext, CommandClaim, PickOutcome, InputTriggerCandidate, InputTriggerPick,
   SubmitAttachment, SubmitEnvelope, SubmitOutcome,
 } from '@janhq/jan-client-ui-input-trigger/client'
-import type { CommandContribution, CommandDecoration, CommandUiContract } from './contract.ts'
+import type { CommandArguments, CommandContribution, CommandDecoration, CommandUiContract } from './contract.ts'
 import type { CommandDescriptor } from './directory.ts'
 import { CommandDirectory } from './directory.ts'
 import { PopupSelectController } from './popup.ts'
@@ -117,7 +117,8 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
       name: 'command',
       candidates: (session, req) => this.candidates(session, req),
       onPick: pick => this.dispatch(pick),
-      matchesArguments: (session, name) => this.completerOf(session, name) !== undefined,
+      matchesArguments: (session, name) => this.argumentsOf(session, name) !== undefined,
+      onStar: (session, candidate) => this.star(session, candidate),
       matchSpace: (session, token) => this.matchSpace(session, token),
       matchClaim: (session, token, signal) => this.matchClaim(session, token, signal),
       matchEnter: (session, line, signal, envelope) => this.matchEnter(session, line, signal, envelope),
@@ -227,18 +228,20 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     if (separator !== -1) {
       if (req.position !== 'leading') return []
       const name = req.query.slice(0, separator)
-      const complete = this.completerOf(session, name)
-      if (complete === undefined) return []
+      const args = this.argumentsOf(session, name)
+      if (args === undefined) return []
       const query = req.query.slice(separator + 1).trim()
-      const options = await complete(query, session, req.signal)
-      return rankByName(options.map(option => ({
+      const options = await args.complete(query, session, req.signal)
+      const rows = options.map(option => ({
         name: option.value,
         label: option.label,
         ...(option.description === undefined ? {} : { description: option.description }),
         ...(option.group === undefined ? {} : { section: option.group }),
+        ...(option.starred === undefined || args.star === undefined ? {} : { star: { on: option.starred } }),
         value: `/${name} ${option.value}`,
         complete: true as const,
-      })), query)
+      }))
+      return args.ordered === true ? rows : rankByName(rows, query)
     }
     const list = await this.directory.ensureReady(session.sessionId, req.signal)
     const rows: InputTriggerCandidate[] = []
@@ -267,14 +270,25 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     return req.query === '' ? sectionRows(visible, this.t) : rankByName(visible, req.query)
   }
 
-  private completerOf(session: ClientSessionContext, name: string) {
+  private argumentsOf(session: ClientSessionContext, name: string): Pick<CommandArguments, 'complete' | 'ordered' | 'star'> | undefined {
     const contribution = this.live.contributions.get(name)
-    if (contribution?.available(session) === true) return contribution.arguments?.complete
+    if (contribution?.available(session) === true) return contribution.arguments
     const descriptor = this.directory.resolve(session.sessionId, name)
     if (descriptor?.input === undefined) return undefined
     const decoration = this.live.decorations.get(descriptor.name)
-    if (decoration?.available(session) === true) return decoration.completeArguments
+    if (decoration?.available(session) === true && decoration.completeArguments !== undefined) {
+      return { complete: decoration.completeArguments }
+    }
     return undefined
+  }
+
+  /** Star toggle on an argument row: the row's value is `/<command> <option value>`. */
+  private star(session: ClientSessionContext, candidate: InputTriggerCandidate): void | Promise<void> {
+    const value = candidate.value
+    if (value === undefined || !value.startsWith('/')) return
+    const separator = value.indexOf(' ')
+    if (separator === -1) return
+    return this.argumentsOf(session, value.slice(1, separator))?.star?.(candidate.name, session)
   }
 
   /** Decision table, menu column: contribution/decorated-host → popup or action; host input → claim; host bare → detached execute. */
@@ -308,7 +322,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
 
   /** Decision table, space column: hot-key sync check; only host leadingInput claims. */
   private matchSpace(session: ClientSessionContext, token: string): PickOutcome {
-    if (token.startsWith('/') && this.completerOf(session, token.slice(1)) !== undefined) return undefined
+    if (token.startsWith('/') && this.argumentsOf(session, token.slice(1)) !== undefined) return undefined
     const claim = this.claimOf(session, token)
     return claim === undefined ? undefined : { claim }
   }

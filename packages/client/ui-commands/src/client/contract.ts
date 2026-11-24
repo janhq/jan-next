@@ -93,12 +93,15 @@ export interface CommandArgumentOption {
   readonly description?: string
   /** Optional localized heading for related options. */
   readonly group?: string
+  /** Whether the option is starred; absent when the command offers no star for it. */
+  readonly starred?: boolean
 }
 
 /** A client command's optional inline arguments, independent of its bare invocation. */
 export interface CommandArguments {
   /**
-   * List candidates from the session's current catalog. The menu further ranks matches by value and label.
+   * List candidates from the session's current catalog. The menu further ranks matches by value and label
+   * unless {@link CommandArguments.ordered} is set.
    * @param query - trimmed argument text; empty immediately after the command separator.
    * @param session - session owning the draft.
    * @param signal - canceled when the query changes or the menu closes.
@@ -111,6 +114,15 @@ export interface CommandArguments {
    * @param session - session owning the draft.
    */
   run(argument: string, session: ClientSessionContext): void | Promise<void>
+  /** When true, `complete` already filters and orders options for the query, and the menu keeps that order. */
+  readonly ordered?: boolean
+  /**
+   * Star or unstar one option; the menu then asks `complete` again for the same query.
+   * Options report their state through {@link CommandArgumentOption.starred}.
+   * @param value - the option's value.
+   * @param session - session owning the draft.
+   */
+  star?(this: void, value: string, session: ClientSessionContext): void | Promise<void>
 }
 
 /**
