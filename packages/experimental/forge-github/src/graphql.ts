@@ -178,6 +178,7 @@ export interface SnapshotQuery {
  * Build one query that reads every change request in `refs`, grouping them by
  * repository. Owners, names, and numbers are validated before they are inlined.
  * @param refs - change requests on one host.
+ * @param withOutput - whether to include check run titles and summaries; omitted by default.
  * @returns the document and its alias targets.
  * @throws when an owner, name, or number cannot be inlined safely.
  */

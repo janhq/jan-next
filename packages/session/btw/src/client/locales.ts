@@ -12,8 +12,10 @@ const en = {
   footnotes: 'Footnotes',
 }
 
+/** Translation keys for the side-question command and answer panel. */
 export type BtwKey = keyof typeof en
 
+/** Side-question strings keyed by locale, with every key supplied for each locale. */
 export const dictionaries = {
   en,
   zh: {

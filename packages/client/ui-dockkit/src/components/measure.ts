@@ -88,6 +88,7 @@ function splitControlFootprint(pane: HTMLElement): number {
  * controls (`hideSplitWhenBlocked`); the room rule then leaves the control's
  * footprint out of each strip's fixed part, so the reading cannot flip with
  * the control's visibility (see `PaneMeasure.splitControlWidth`).
+ * @param minPaneSize - optional additional minimum size in pixels for each half of a measured pane, excluding the divider.
  * @returns each pane's fit, keyed by pane id.
  */
 export function measurePaneFits(root: HTMLElement, splitHiddenWhenBlocked = false, minPaneSize?: Size): ReadonlyMap<PaneId, HalvesFit> {

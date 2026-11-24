@@ -229,11 +229,16 @@ export class ConversationLayout {
   /** Keep menu and keyboard splits on the same measured room rule as edge drops. */
   setRoom = (room: ReadonlyMap<PaneId, HalvesFit>): void => { this.room = room }
 
+  /** Check the pane limit and any available room measurement before splitting an existing tab's pane. */
   canSplitTab = (tabId: TabId, axis: SplitAxis): boolean => this.manual.tabs[tabId] !== undefined
     && dockPaneIds(this.manual).length < MAX_DOCK_PANES
     && this.room?.get(findTabPane(this.manual, tabId).id)?.[axis] !== false
 
-  /** Resolve a focused control to its chat pane without relying on stale window selection. */
+  /**
+   * Resolve a focused control to its chat pane without relying on window selection.
+   * @param target - focused element, or null when there is no target.
+   * @returns the containing pane id if it is still in the layout, otherwise undefined.
+   */
   paneForTarget(target: Element | null): PaneId | undefined {
     const element = target?.closest<HTMLElement>('[data-chat-tabs] [data-dockkit-pane]')
     if (element === null || element === undefined) return undefined
@@ -241,7 +246,12 @@ export class ConversationLayout {
     return id !== undefined && this.manual.nodes[id]?.kind === 'pane' ? id : undefined
   }
 
-  /** The focused tab chip, or the tab shown in the pane containing focus. */
+  /**
+   * Resolve focus to a tab in the current chat layout.
+   * @param target - focused element, or null when there is no target.
+   * @returns the focused tab chip's id, the pane's active tab id as a fallback,
+   * or undefined if focus is outside the current chat layout.
+   */
   tabForTarget(target: Element | null): TabId | undefined {
     const paneId = this.paneForTarget(target)
     if (paneId === undefined) return undefined
@@ -250,6 +260,7 @@ export class ConversationLayout {
     return tab !== undefined && pane.tabs.includes(tab) ? tab : pane.activeTabId
   }
 
+  /** Check whether the window can close a tab without removing its last tab. */
   canCloseTab = (): boolean => Object.keys(this.manual.tabs).length > 1
 
   /** Split the tab's pane and focus a new blank chat without moving the original tab. */
