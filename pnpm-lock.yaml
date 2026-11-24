@@ -2099,6 +2099,9 @@ importers:
       '@janhq/jan-settings':
         specifier: workspace:*
         version: link:../../settings/settings
+      '@janhq/jan-skill':
+        specifier: workspace:*
+        version: link:../../skill/skill
       '@janhq/jan-subagent':
         specifier: workspace:*
         version: link:../../subagent/subagent
