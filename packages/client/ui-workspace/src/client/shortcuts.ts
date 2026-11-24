@@ -88,7 +88,11 @@ export function installWorkspaceShortcuts(
     }), `ui-workspace: ${id}`)
   }
   register('session.new', () => t('session.new'), ['new session', 'new chat'], 'KeyN', ['primary'], ['primary', 'alt'],
-    () => ({ status: 'handled', run: () => { navigation.startSession() } }))
+    ({ target, modal }) => {
+      const desk = modal === null ? ctx.get('uiConversation')?.desk : undefined
+      const pane = desk?.paneForTarget(target)
+      return { status: 'handled', run: () => { if (desk !== undefined && pane !== undefined) desk.addTab(pane); else navigation.startSession() } }
+    })
   register('session.search', () => t('search.sessions.aria'), ['search sessions'], 'KeyK', ['primary'], ['primary', 'alt'],
     () => ({ status: 'handled', run: controls.search }))
   register('workspace.add', () => t('workspace.add'), ['add workspace', 'open folder'], 'KeyO', ['primary'], ['primary', 'alt'],
