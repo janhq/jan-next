@@ -79,7 +79,7 @@ describe('ScheduleDeleteToast', () => {
   })
 
   it('shows the warning banner for a deletion that could not be confirmed', () => {
-    mount({ kind: 'deleteFailed', seq: 2 }, zh)
+    mount({ kind: 'deleteFailed', seq: 2, failure: captureFailure('schedule.delete', new Error('unavailable')) }, zh)
     expect(screen.getByRole('alert').textContent).toBe(zh['toast.deleteFailed'])
   })
 
@@ -100,7 +100,7 @@ describe('ScheduleDeleteToast', () => {
   })
 
   it('shows the warning banner for a bulk removal that failed', () => {
-    mount({ kind: 'clearFailed', seq: 5 }, zh)
+    mount({ kind: 'clearFailed', seq: 5, failure: captureFailure('schedule.deleteInactive', new Error('unavailable')) }, zh)
     expect(screen.getByRole('alert').textContent).toBe(zh['toast.clearFailed'])
   })
 })
