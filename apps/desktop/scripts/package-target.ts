@@ -41,6 +41,7 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'plugins/agent-desktop',
   'plugins/agent-settings',
   'plugins/annotate',
+  'plugins/cli-proxy',
   'plugins/desktop-app',
   'plugins/diagnostics',
   'plugins/downloads',

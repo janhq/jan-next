@@ -18759,6 +18759,34 @@ importers:
 
   plugins/annotate: {}
 
+  plugins/cli-proxy:
+    dependencies:
+      '@earendil-works/pi-ai':
+        specifier: ^1.3.0
+        version: 1.3.0(patch_hash=4e1c90fd00aea42989664504668633033c1962e53c07860901edb4f72d843765)(@aws-sdk/credential-provider-node@3.972.84)(@modelcontextprotocol/sdk@1.32.0(supports-color@9.4.0)(zod@4.6.6))(@smithy/signature-v4@5.7.4)(supports-color@9.4.0)(undici@8.12.2)(ws@8.21.3)(zod@4.6.6)
+      '@janhq/jan-home-paths':
+        specifier: workspace:*
+        version: link:../../packages/util/home-paths
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm
+      '@janhq/jan-llm-pi-ai':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm-pi-ai
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      fflate:
+        specifier: ^0.8.2
+        version: 0.8.3
+      tar:
+        specifier: ^7.5.22
+        version: 7.5.22
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../vendor/cordis
+
   plugins/desktop-app:
     dependencies:
       '@janhq/dsh-generative-ui':
@@ -18788,6 +18816,9 @@ importers:
       '@janhq/jan-browser-use':
         specifier: workspace:*
         version: link:../../packages/browser-use/browser-use
+      '@janhq/jan-cli-proxy':
+        specifier: workspace:*
+        version: link:../cli-proxy
       '@janhq/jan-client-ui-jan-theme':
         specifier: workspace:*
         version: link:../jan-theme
