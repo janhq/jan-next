@@ -56,8 +56,11 @@ async function writeSkill(root: string, name: string, description: string, body:
   await writeFile(join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: ${description}\n---\n\n${body}\n`)
 }
 
+/** Plain-object view of the plugin config, so tests can spread it into a mount call. */
+type SetupConfig = { [K in keyof toolSkill.Config]: toolSkill.Config[K] }
+
 /** Mounts the complete-list catalog unless a test selects another mode. */
-async function setup(home: string, config: toolSkill.Config = {}): Promise<Context> {
+async function setup(home: string, config: SetupConfig = {}): Promise<Context> {
   const ctx = new Context()
   provideWorkingDirectoryFixture(ctx, home)
   await ctx.plugin(SystemPrompt)
