@@ -39,6 +39,7 @@
   },
   "peerDependencies": {
     "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-session-projection": "workspace:*",
     "@janhq/jan-tools": "workspace:*",

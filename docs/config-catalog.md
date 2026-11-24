@@ -4528,7 +4528,7 @@ export interface Config {
 ## `@janhq/jan-tool-todo`
 
 - `inject`: `tools` · `sessionProjections`
-- `source`: [`packages/todo/tool-todo/src/index.ts:29`](../packages/todo/tool-todo/src/index.ts)
+- `source`: [`packages/todo/tool-todo/src/index.ts:40`](../packages/todo/tool-todo/src/index.ts)
 
 ```ts config-catalog
 /** Model-facing todo tool configuration. */
@@ -4541,6 +4541,13 @@ export interface Config {
    * rejected.
    */
   allowParallelInProgress: boolean
+  /**
+   * How many times one turn may be steered back when the agent stops with unfinished todos
+   * (default 0: never). Each reminder lists the open todos and asks the agent to finish them or
+   * update the list; a user message resets the count, and a tool that ends the turn on purpose
+   * (a question to the user, a plan awaiting approval) is never overridden.
+   */
+  stopReminders?: number
 }
 ```
 
