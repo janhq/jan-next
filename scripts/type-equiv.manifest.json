@@ -2513,6 +2513,16 @@
       "source": "packages/boot/hmr/src/index.ts"
     },
     {
+      "doc": "docs/subsystems/boot.md",
+      "symbol": "ReloadGate",
+      "source": "packages/boot/hmr/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/boot.md",
+      "symbol": "HeldReload",
+      "source": "packages/boot/hmr/src/index.ts"
+    },
+    {
       "doc": "docs/subsystems/tools.md",
       "symbol": "ToolModelInput",
       "source": "packages/core/tools/src/executor.ts"

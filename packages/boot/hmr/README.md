@@ -46,6 +46,16 @@ Chokidar options, including polling, retain their existing meaning. Exact config
 
 Profile recompositions run by HMR's profile watches and by Plugin Manager also replace plugins whose loaded files below the profile directory changed on disk. This covers installed packages below `node_modules` and the targets of linked packages. A package whose files changed in place, such as a linked package whose build output changed or a dependency another installation upgraded, therefore takes effect without a restart at the next such recomposition; source watching through `root` is not required. A replacement that fails to load stops the previous plugin and is reported as `failed` with its load error instead of as a restart, which would load the same files; every later recomposition imports it again, so it starts once its files or dependencies are corrected.
 
+### Reload gate
+
+A plugin may install one gate with `ctx.hmr.setGate({ hold })`; a second `setGate` throws until the first disposer runs. After each batch of module changes, `hold()` returns a reason to wait, or `undefined` to apply now. While it waits:
+
+- Changed modules and Include files stay pending; `hmr/held` carries their file URLs and the reason, also readable as `ctx.hmr.held`. Later batches add to them.
+- `ctx.hmr.applyHeld()` applies them through the same queue regardless of the gate and emits `hmr/applied`. A later batch applies them too once `hold()` returns `undefined`. Removing the gate applies anything still held.
+- An external module change (the process entry point's static graph) emits `hmr/restart-required` instead of exiting; the gate owner decides when to restart. Without a gate, it still exits.
+
+Profile recompositions that leave modules pending until a restart also emit `hmr/restart-required`, with or without a gate. The gate does not change configuration watches or Plugin Manager operations.
+
 -----
 
 <a id="understand-the-implementation"></a>

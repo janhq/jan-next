@@ -38,7 +38,37 @@ declare module '@janhq/cordis' {
      * @param reloads Replaced plugins and their module locations.
      */
     'hmr/reload'(reloads: Map<Plugin, Reload>): void
+    /** The reload gate held changed modules; they apply through `applyHeld` or a later open dispatch.
+     * @mode emit
+     * @param held Every held module and include file, and the gate's reason.
+     */
+    'hmr/held'(held: HeldReload): void
+    /** Changed modules and include files were applied.
+     * @mode emit
+     * @param modules Canonical file URLs that were applied.
+     */
+    'hmr/applied'(modules: readonly string[]): void
+    /** A change can load only after the process restarts. Without a reload gate, an external module change also exits.
+     * @mode emit
+     * @param reason `external-module` for a change in the process entry point's static graph, or the profile reconciliation reason.
+     * @param modules Canonical file URLs that wait for the restart.
+     */
+    'hmr/restart-required'(reason: string, modules: readonly string[]): void
   }
+}
+
+/** Decides whether changed Host modules apply now. */
+export interface ReloadGate {
+  /** @returns why changes wait, or `undefined` to apply them now. */
+  hold(): string | undefined
+}
+
+/** Module changes waiting for the reload gate. */
+export interface HeldReload {
+  /** Canonical file URLs of held modules and include files. */
+  readonly modules: readonly string[]
+  /** The gate's latest reason. */
+  readonly reason: string
 }
 
 function canonicalPath(filename: string): string {
@@ -260,6 +290,10 @@ class Hmr extends Service {
   private readonly files = new ModuleFiles()
   /** Every module statically reachable from the process entry point, including those under node_modules; collected on first use. */
   private hostModules!: () => Promise<Set<string>>
+  private gate: ReloadGate | undefined
+  /** Include files whose refresh waits for the gate; held modules stay in `stashed`. */
+  private readonly heldIncludes = new Set<Include>()
+  private heldReason: string | undefined
 
   /** Serialize a caller-owned mutation with all automatic reload paths.
    * @param operation Work that must not overlap module or configuration replacement.
@@ -279,6 +313,54 @@ class Hmr extends Service {
     return this.runExclusive(async () => {
       if (await this.applicationReady) await operation()
     })
+  }
+
+  /** Install the gate that decides whether changed Host modules apply now; one gate at a time.
+   * An external module change no longer exits the process while a gate is installed: `hmr/restart-required` reports it.
+   * @param gate Holds changes while it returns a reason.
+   * @returns Disposer removing the gate and applying anything it held.
+   */
+  setGate(gate: ReloadGate): () => void {
+    if (this.gate !== undefined) throw new Error('HMR already has a reload gate')
+    this.gate = gate
+    return () => {
+      if (this.gate !== gate) return
+      this.gate = undefined
+      if (this.heldReason !== undefined && !this.closing) void this.applyHeld().catch((error: unknown) => { this.ctx.logger.warn(error) })
+    }
+  }
+
+  /** Changes the gate held, or `undefined` while none wait. */
+  get held(): HeldReload | undefined {
+    if (this.heldReason === undefined) return undefined
+    const includes = [...this.heldIncludes].map(include => pathToFileURL(include.filename).href)
+    return { modules: [...this.stashed, ...includes], reason: this.heldReason }
+  }
+
+  /** Apply held changes regardless of the gate.
+   * @returns Whether anything was held.
+   */
+  applyHeld(): Promise<boolean> {
+    return this.runExclusive(async () => {
+      if (!await this.applicationReady || this.heldReason === undefined) return false
+      await this.applyChanges(new Set(this.heldIncludes))
+      return true
+    })
+  }
+
+  private async applyChanges(includes: Set<Include>): Promise<void> {
+    const modules = [...this.stashed, ...[...includes].map(include => pathToFileURL(include.filename).href)]
+    this.heldIncludes.clear()
+    this.heldReason = undefined
+    for (const include of includes) {
+      // A rejected refresh reports unsaved runtime changes; Include keeps its running tree.
+      try { await include.refresh() } catch (error) { this.ctx.logger.warn(error) }
+    }
+    if (this.stashed.size > 0) {
+      try { await this.partialReload() } finally { this.stashed.clear() }
+    }
+    await this.ctx.loader.await()
+    this.ctx.emit('hmr/applied', modules)
   }
 
   /** Watch a configuration path through the same queue as module replacement.
@@ -399,6 +481,9 @@ class Hmr extends Service {
         const { warnings, pending, restartReason } = await this.reconcileProfile()
         if (restartReason !== undefined) this.ctx.logger.warn('restart required: %s', restartReason)
         if (pending.length > 0) this.ctx.logger.warn('changed modules keep running their previous code until a restart: %o', pending)
+        if (restartReason !== undefined || pending.length > 0) {
+          this.ctx.emit('hmr/restart-required', restartReason ?? 'host-module', pending.map(module => module.url))
+        }
         lastInputs = inputs
         lastBundles = bundles
         for (const diagnostic of warnings) this.ctx.logger.warn(diagnostic)
@@ -439,8 +524,8 @@ class Hmr extends Service {
         if (!await this.applicationReady) return
         const batch = [...changed]
         changed.clear()
-        const includes = new Set<Include>()
-        let fullReload = false
+        const includes = new Set<Include>(this.heldIncludes)
+        const external: string[] = []
         for (const path of batch) {
           const filename = canonicalPath(resolve(watchBaseDir, path))
           const configuredFilename = resolve(this.baseDir, path)
@@ -451,7 +536,7 @@ class Hmr extends Service {
           }
           const url = pathToFileURL(filename).href
           if (this.externals.has(url)) {
-            fullReload = true
+            external.push(url)
             continue
           }
           if (this.esmHas(url) || this.esmHas(url, 'json')) {
@@ -464,19 +549,25 @@ class Hmr extends Service {
           if (include !== undefined) includes.add(include)
           else this.ctx.emit('hmr/change', url)
         }
-        if (!fullReload && includes.size === 0 && this.stashed.size === 0) return
-        if (fullReload) {
-          loader.exit()
+        if (external.length === 0 && includes.size === 0 && this.stashed.size === 0) return
+        if (external.length > 0) {
+          // Without a gate an external change restarts the process; with one, its owner decides when.
+          if (this.gate === undefined) {
+            loader.exit()
+            return
+          }
+          this.ctx.emit('hmr/restart-required', 'external-module', external)
+          if (includes.size === 0 && this.stashed.size === 0) return
+        }
+        const reason = this.gate?.hold()
+        if (reason !== undefined) {
+          for (const include of includes) this.heldIncludes.add(include)
+          this.heldReason = reason
+          const held = this.held
+          if (held !== undefined) this.ctx.emit('hmr/held', held)
           return
         }
-        for (const include of includes) {
-          // A rejected refresh reports unsaved runtime changes; Include keeps its running tree.
-          try { await include.refresh() } catch (error) { this.ctx.logger.warn(error) }
-        }
-        if (this.stashed.size > 0) {
-          try { await this.partialReload() } finally { this.stashed.clear() }
-        }
-        await loader.await()
+        await this.applyChanges(includes)
       }).catch((error: unknown) => { this.ctx.logger.warn(error) })
     }, this.config.debounce)
     this.watcher.on('change', (path) => { changed.add(path); dispatch() })

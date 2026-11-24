@@ -324,6 +324,8 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   WorkspaceFileDiff: 'deliverables.md',
   Reload: 'boot.md',
   ProfileReconciliation: 'boot.md',
+  ReloadGate: 'boot.md',
+  HeldReload: 'boot.md',
   PluginInfo: 'boot.md',
   BundleInfo: 'boot.md',
   MarketIndexSummary: 'boot.md',

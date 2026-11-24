@@ -59,6 +59,30 @@ interface PendingModule {
 }
 ```
 
+## Reload gate
+
+<a id="reload-gate"></a>
+
+`ctx.hmr.setGate` installs the one `ReloadGate`; [jan-hmr](../../packages/boot/hmr/README.md#reload-gate) describes when held changes apply and when `hmr/restart-required` replaces an exit.
+
+```ts type-equiv
+/** Decides whether changed Host modules apply now. */
+interface ReloadGate {
+  /** @returns why changes wait, or `undefined` to apply them now. */
+  hold(): string | undefined
+}
+```
+
+```ts type-equiv
+/** Module changes waiting for the reload gate. */
+interface HeldReload {
+  /** Canonical file URLs of held modules and include files. */
+  readonly modules: readonly string[]
+  /** The gate's latest reason. */
+  readonly reason: string
+}
+```
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -161,6 +185,18 @@ Hot reload service with Cordis-compatible module configuration and events.
  * @returns The operation result after its asynchronous work completes.
  */
 runExclusive<T>(operation: () => Promise<T>): Promise<T>
+
+/** Install the gate that decides whether changed Host modules apply now; one gate at a time.
+ * An external module change no longer exits the process while a gate is installed: `hmr/restart-required` reports it.
+ * @param gate Holds changes while it returns a reason.
+ * @returns Disposer removing the gate and applying anything it held.
+ */
+setGate(gate: ReloadGate): () => void
+
+/** Apply held changes regardless of the gate.
+ * @returns Whether anything was held.
+ */
+applyHeld(): Promise<boolean>
 
 /** Watch a configuration path through the same queue as module replacement.
  * @param filename Absolute path, which may not exist yet.
@@ -579,6 +615,22 @@ Source: [`packages/boot/app-boot/src/index.ts`](../../packages/boot/app-boot/src
 
 ### `hmr/*` events
 
+<a id="hmrapplied--emit"></a>
+
+#### `hmr/applied` — emit
+
+Changed modules and include files were applied.
+
+```ts cordis-catalog
+/** Changed modules and include files were applied.
+ * @mode emit
+ * @param modules Canonical file URLs that were applied.
+ */
+'hmr/applied'(modules: readonly string[]): void
+```
+
+Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)
+
 <a id="hmrchange--emit"></a>
 
 #### `hmr/change` — emit
@@ -595,6 +647,22 @@ A watched file has no module or configuration handler.
 
 Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)
 
+<a id="hmrheld--emit"></a>
+
+#### `hmr/held` — emit
+
+The reload gate held changed modules; they apply through `applyHeld` or a later open dispatch.
+
+```ts cordis-catalog
+/** The reload gate held changed modules; they apply through `applyHeld` or a later open dispatch.
+ * @mode emit
+ * @param held Every held module and include file, and the gate's reason.
+ */
+'hmr/held'(held: HeldReload): void
+```
+
+Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)
+
 <a id="hmrreload--emit"></a>
 
 #### `hmr/reload` — emit
@@ -607,6 +675,23 @@ Module replacements have finished loading.
  * @param reloads Replaced plugins and their module locations.
  */
 'hmr/reload'(reloads: Map<Plugin, Reload>): void
+```
+
+Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)
+
+<a id="hmrrestart-required--emit"></a>
+
+#### `hmr/restart-required` — emit
+
+A change can load only after the process restarts. Without a reload gate, an external module change also exits.
+
+```ts cordis-catalog
+/** A change can load only after the process restarts. Without a reload gate, an external module change also exits.
+ * @mode emit
+ * @param reason `external-module` for a change in the process entry point's static graph, or the profile reconciliation reason.
+ * @param modules Canonical file URLs that wait for the restart.
+ */
+'hmr/restart-required'(reason: string, modules: readonly string[]): void
 ```
 
 Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)

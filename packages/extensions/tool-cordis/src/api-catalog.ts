@@ -1655,6 +1655,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'The operation result after its asynchronous work completes.',
       },
       {
+        signature: 'setGate(gate: ReloadGate): () => void',
+        description: 'Install the gate that decides whether changed Host modules apply now; one gate at a time. An external module change no longer exits the process while a gate is installed: `hmr/restart-required` reports it.',
+        parameters: [{ name: 'gate', description: 'Holds changes while it returns a reason.' }],
+        returns: 'Disposer removing the gate and applying anything it held.',
+      },
+      {
+        signature: 'applyHeld(): Promise<boolean>',
+        description: 'Apply held changes regardless of the gate.',
+        parameters: [],
+        returns: 'Whether anything was held.',
+      },
+      {
         signature: 'async watchConfig(filename: string, refresh: () => Promise<void>): Promise<() => Promise<void>>',
         description: 'Watch a configuration path through the same queue as module replacement.',
         parameters: [{ name: 'filename', description: 'Absolute path, which may not exist yet.' }, { name: 'refresh', description: 'Rebuilds configuration from its current files and awaits Loader completion.' }],
@@ -5577,6 +5589,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'payload', description: '.change - fresh current projection or clear tombstone.' }],
   },
   {
+    name: 'hmr/applied',
+    mode: 'emit',
+    signature: '\'hmr/applied\'(modules: readonly string[]): void',
+    summary: 'Changed modules and include files were applied.',
+    description: 'Changed modules and include files were applied.',
+    parameters: [{ name: 'modules', description: 'Canonical file URLs that were applied.' }],
+  },
+  {
     name: 'hmr/change',
     mode: 'emit',
     signature: '\'hmr/change\'(url: string): void',
@@ -5585,12 +5605,28 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'url', description: 'Canonical file URL.' }],
   },
   {
+    name: 'hmr/held',
+    mode: 'emit',
+    signature: '\'hmr/held\'(held: HeldReload): void',
+    summary: 'The reload gate held changed modules; they apply through `applyHeld` or a later open dispatch.',
+    description: 'The reload gate held changed modules; they apply through `applyHeld` or a later open dispatch.',
+    parameters: [{ name: 'held', description: 'Every held module and include file, and the gate\'s reason.' }],
+  },
+  {
     name: 'hmr/reload',
     mode: 'emit',
     signature: '\'hmr/reload\'(reloads: Map<Plugin, Reload>): void',
     summary: 'Module replacements have finished loading.',
     description: 'Module replacements have finished loading.',
     parameters: [{ name: 'reloads', description: 'Replaced plugins and their module locations.' }],
+  },
+  {
+    name: 'hmr/restart-required',
+    mode: 'emit',
+    signature: '\'hmr/restart-required\'(reason: string, modules: readonly string[]): void',
+    summary: 'A change can load only after the process restarts.',
+    description: 'A change can load only after the process restarts. Without a reload gate, an external module change also exits.',
+    parameters: [{ name: 'reason', description: '`external-module` for a change in the process entry point\'s static graph, or the profile reconciliation reason.' }, { name: 'modules', description: 'Canonical file URLs that wait for the restart.' }],
   },
   {
     name: 'llm-pi-ai/prompt-progress',
@@ -7229,6 +7265,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface GrantRecord {\n    readonly kind: \'grant\';\n    readonly payload: unknown;\n}',
   },
   {
+    name: 'HeldReload',
+    declaration: 'export interface HeldReload {\n    readonly modules: readonly string[];\n    readonly reason: string;\n}',
+  },
+  {
     name: 'HookBudget',
     declaration: 'export interface HookBudget {\n    readonly ms: number;\n    readonly remainingMs: number;\n}',
   },
@@ -8579,6 +8619,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'Reload',
     declaration: 'export interface Reload {\n    filename: string;\n    modules: ReloadModules;\n    runtime?: Plugin.Runtime | undefined;\n}',
+  },
+  {
+    name: 'ReloadGate',
+    declaration: 'export interface ReloadGate {\n    hold(): string | undefined;\n}',
   },
   {
     name: 'RemoteAccessAction',
