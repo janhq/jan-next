@@ -1035,7 +1035,7 @@ async function main(): Promise<void> {
           // Resolve from the same immutable runtime as the Host, only for a credential reset.
           const entry = createRequire(join(resources.jan, 'package.json')).resolve('@janhq/jan-credentials-local')
           const { resetCredentialDocument, CREDENTIALS_FILENAME } = await import(pathToFileURL(entry).href) as {
-            resetCredentialDocument(filename: string): Promise<void>
+            readonly resetCredentialDocument: (filename: string) => Promise<void>
             CREDENTIALS_FILENAME: string
           }
           await resetCredentialDocument(join(roots.janHome, CREDENTIALS_FILENAME))
