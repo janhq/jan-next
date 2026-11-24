@@ -1,11 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, onTestFinished } from 'vitest'
 import { gitMetadataOf } from '../src/github-owner.ts'
 
 function scratch(): string {
-  const root = mkdtempSync(join(tmpdir(), 'jan-github-owner-'))
+  // The repository identity is a real path; macOS reaches the temp directory through the /var -> /private/var link.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'jan-github-owner-')))
   onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
   return root
 }
