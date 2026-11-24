@@ -49,7 +49,7 @@ The seat reports presentation through `ctx.layout.openRightbar(track, fullscreen
 
 The panel has no header row. Its two controls — the presentation switch and the collapse button — ride the kit's chrome seat at the far end of the top-right pane's tab strip, so the strip is the panel's whole top edge. Each strip reads, left to right: the tab capsules with close controls where allowed, the add control (drawn only while that pane holds no guide tab; it opens the guide there through `ctx.sidebarRight.openTab`), the pane's split control, and in the top-right pane the two panel controls. Only the chips give way in a narrow pane; the controls after them never shrink or clip.
 
-The chat tab strip's `+` menu lists every guide entry (Project files, New terminal, Canvases, Browser, and any registered type) with its open shortcut. A pick opens that type in the pane's chat sidebar: in place when that chat is on screen, otherwise through `openTabIn` for that Session. While the pane shows a blank new chat the rows stay disabled with a reason, since there is no chat to attach them to.
+The chat tab strip's `+` menu lists every guide entry that chat offers (Project files, New terminal, Canvases, Browser, and any registered type) with its open shortcut. A pick opens that type in the pane's chat sidebar: in place when that chat is on screen, otherwise through `openTabIn` for that Session. While the pane shows a blank new chat the rows stay disabled with a reason, since there is no chat to attach them to, and an entry with `offeredIn` is left out.
 
 <a id="the-expand-button"></a>
 ## The expand button
@@ -121,6 +121,8 @@ Close and refresh commands resolve the focused pane and tab occurrence. Page bod
 ## The guide
 
 Each `guide` entry has an `id` unique within its provider. The guide renders `sidebar.right.tab.guide.entry` by the active definition id, forwarding the entry id, resolved title and optional description, plus the framework `useTabInfo` hook. A provider can register a custom card under its definition id; otherwise the standard icon/title button renders. A custom card that opens a page the guide's pane may already show calls `tab.actions.close()` after `openTab`, because a reveal leaves the guide open. The reveal and explicit close can record two history entries; a new-content replacement remains one. The sidebar owns width and placement, while custom components own their markup and interaction. Guide cards use the shared R20 radius, including hover fills and provider-owned split buttons. Entry identity remains stable across sorting and unrelated registrations. Unboxed shortcut text aligns at the right. The terminal shell menu sits beside its entry title.
+
+An entry that only applies to some chats declares `offeredIn(sessionId)`, returning a live boolean for that chat; the forge panel's review entry answers whether the chat's folder is a Git checkout, so a chat outside one never mentions Git. The guide and the `+` menu ask once per registration and chat, list the entry only while the answer is true, and leave it out of a blank chat. Entries without `offeredIn` show in every chat. The default page still follows the registered entry count below, not the offered one.
 
 A card whose tab body was registered by a third-party package carries that package in `data-plugin-owner`, the same marker the slot renderer puts around the package's own slot entries. [Plugin translation](../ui-plugin-i18n/README.md) uses it to detect and translate a plugin's card title and description.
 
