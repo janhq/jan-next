@@ -7,8 +7,8 @@ import { join } from 'node:path'
 import test from 'node:test'
 import { fakeHost } from './tools.test.mjs'
 
-async function eventually(predicate) {
-  const signal = AbortSignal.timeout(2000)
+async function eventually(predicate, ms = 2000) {
+  const signal = AbortSignal.timeout(ms)
   while (!await predicate()) await setTimeout(5, undefined, { signal })
 }
 
@@ -37,7 +37,7 @@ async function pair(t) {
         assert.equal(target, peerId)
         assert.equal(feature, 'orchestration')
         calls.push([id, method])
-        if (offline && id === 'a' && method === 'peerPull') throw new Error('Peer is offline.')
+        if (offline && id === 'a' && (method === 'peerPull' || method === 'peerStop')) throw new Error('Peer is offline.')
         if (id === 'a' && method === 'peerAck' && beforeAck) await beforeAck(signal)
         const response = await fetch(addresses.get(target), { method: 'POST',
           headers: { 'content-type': 'application/json', authorization: auth }, body: JSON.stringify({ method, params }), signal })
@@ -137,4 +137,30 @@ test('retries a temporarily offline peer while a worker is still active', async 
   await eventually(() => inbox().length === 1)
   assert.match(inbox()[0].text, /Finished while offline/)
   await eventually(async () => (await outbox()).length === 0)
+})
+
+test('stops a task whose Host is offline and delivers the stop once it is back', async t => {
+  const { a, b, start, calls, state, setOffline } = await pair(t)
+  setOffline(true)
+  const { task } = await start()
+  const result = await a.call('stop', { task: task.taskId })
+  assert.equal(result.stopped, true)
+  assert.match(result.note, /Host B is not reachable: Peer is offline\. The worker there stops/)
+  assert.equal((await a.call('tasks', {})).tasks[0].status, 'stopped')
+  assert.equal((await state(b)).dispatches[task.dispatchId].status, 'running')
+  setOffline(false)
+  await eventually(async () => (await state(b)).dispatches[task.dispatchId].status === 'stopped', 10_000)
+  await eventually(async () => (await state(a)).dispatches[task.dispatchId].remoteStop === undefined)
+  assert.ok(calls.some(([id, method]) => id === 'a' && method === 'peerStop'))
+})
+
+test('refuses worker operations from a Host other than the coordinator that started it', async t => {
+  const { b, start, auth, state } = await pair(t)
+  const { task } = await start()
+  const other = '00000000-0000-4000-8000-000000000000'
+  for (const [method, params] of [['peerRead', {}], ['peerStop', {}], ['peerSend', { message: { id: 'msg_aaaaaaaaaa', type: 'message', body: 'Hi' } }]]) {
+    await assert.rejects(b.request(method, { ref: other, dispatchId: task.dispatchId, ...params }, { authorization: auth }), /Unknown remote worker dispatch/)
+    await assert.rejects(b.request(method, { dispatchId: task.dispatchId, ...params }, { authorization: auth }), /Unknown remote worker dispatch/)
+  }
+  assert.equal((await state(b)).dispatches[task.dispatchId].status, 'running')
 })

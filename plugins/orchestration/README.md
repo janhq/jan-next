@@ -37,6 +37,8 @@ Connect a peer in **Settings > Hosts**. For SSH peers, the worker opens in this 
 | Pull | The coordinator Host long-polls for up to 25 seconds at a time while its peer has active dispatches. |
 | Acknowledge | The coordinator Host records its progress and acknowledges those reports to the executing Host. It resumes any outstanding acknowledgement after restart. |
 | Retain | The executing Host keeps a report in its outbox until the coordinator acknowledges it. Replayed reports keep their original delivery IDs. |
+| Stop | Stopping a task whose Host is unreachable stops it here at once and tells the coordinator; the coordinator Host keeps retrying until that Host stops the worker. |
+| Scope | The executing Host lets only the coordinator Host that started a worker message, stop or read it. |
 
 ## Worker mode
 

@@ -144,9 +144,10 @@ export function createPeers(ctx, store, workers, accept, signal) {
     return { acknowledged: true }
   }
 
-  function requireRemoteWorker(dispatchId) {
-    if (typeof dispatchId !== 'string' || !dispatchIdPattern.test(dispatchId)
-      || store.read().workers[dispatchId]?.coordinator.kind !== 'remote') throw new Error('Unknown remote worker dispatch.')
+  // Only the coordinator Host that started a worker may message, stop or read it.
+  function requireRemoteWorker(dispatchId, ref) {
+    const coordinator = typeof dispatchId === 'string' && dispatchIdPattern.test(dispatchId) ? store.read().workers[dispatchId]?.coordinator : undefined
+    if (coordinator?.kind !== 'remote' || typeof ref !== 'string' || coordinator.ref !== ref) throw new Error('Unknown remote worker dispatch.')
   }
 
   const methods = {
@@ -170,8 +171,8 @@ export function createPeers(ctx, store, workers, accept, signal) {
       return workers.startLocalWorker({ dispatchId, taskId, title, spec, project, worktree, mode, agent,
         coordinator: { kind: 'remote', ref, name: coordinatorName } }, signal)
     },
-    async peerSend({ dispatchId, message }) {
-      requireRemoteWorker(dispatchId)
+    async peerSend({ ref, dispatchId, message }) {
+      requireRemoteWorker(dispatchId, ref)
       if (!message || typeof message.id !== 'string' || !messageIdPattern.test(message.id) || typeof message.body !== 'string'
         || !['message', 'answer'].includes(message.type)
         || (message.type === 'answer' && (typeof message.questionId !== 'string' || !questionIdPattern.test(message.questionId)))
@@ -179,13 +180,13 @@ export function createPeers(ctx, store, workers, accept, signal) {
       await workers.deliverToWorker(dispatchId, message, signal)
       return { delivered: true }
     },
-    async peerStop({ dispatchId }) {
-      requireRemoteWorker(dispatchId)
+    async peerStop({ ref, dispatchId }) {
+      requireRemoteWorker(dispatchId, ref)
       await workers.stopLocalWorker(dispatchId)
       return { stopped: true }
     },
-    peerRead({ dispatchId, limit }) {
-      requireRemoteWorker(dispatchId)
+    peerRead({ ref, dispatchId, limit }) {
+      requireRemoteWorker(dispatchId, ref)
       return workers.readWorker(dispatchId, readLimit(limit))
     },
     peerPull,
@@ -193,7 +194,9 @@ export function createPeers(ctx, store, workers, accept, signal) {
     peerProjects: local,
   }
 
-  const hasActive = id => Object.values(store.read().dispatches).some(dispatch => dispatch.host === id && activeDispatch(dispatch))
+  // A peer is polled while it runs one of this Host's dispatches or owes it a stop.
+  const polled = dispatch => activeDispatch(dispatch) || dispatch.remoteStop === true
+  const hasActive = id => Object.values(store.read().dispatches).some(dispatch => dispatch.host === id && polled(dispatch))
 
   async function pullLoop(id, peerSignal) {
     const ref = store.read().hostId
@@ -209,6 +212,12 @@ export function createPeers(ctx, store, workers, accept, signal) {
           await store.mutate(state => {
             if (!forgotten.has(id)) state.peerAcks[id] = after
           })
+        }
+        // A stop recorded while this peer was unreachable reaches it now.
+        for (const dispatch of Object.values(store.read().dispatches)) {
+          if (dispatch.host !== id || !dispatch.remoteStop) continue
+          await request(id, 'peerStop', { ref, dispatchId: dispatch.id }, control)
+          await store.mutate(() => { delete dispatch.remoteStop })
         }
         if (!hasActive(id)) return
         const { messages } = await request(id, 'peerPull', { ref, after, waitMs: LONG_POLL_MS }, control)
@@ -249,6 +258,9 @@ export function createPeers(ctx, store, workers, accept, signal) {
     return store.mutate(state => {
       delete state.peerCursors[id]
       delete state.peerAcks[id]
+      for (const dispatch of Object.values(state.dispatches)) {
+        if (dispatch.host === id) delete dispatch.remoteStop
+      }
       return applyRemoval(state)
     })
   }
@@ -257,7 +269,7 @@ export function createPeers(ctx, store, workers, accept, signal) {
     // A terminal message may have been committed just before shutdown interrupted its ack.
     const ids = new Set(Object.keys(store.read().peerCursors).filter(owesAck))
     for (const dispatch of Object.values(store.read().dispatches)) {
-      if (dispatch.host !== 'local' && activeDispatch(dispatch)) ids.add(dispatch.host)
+      if (dispatch.host !== 'local' && polled(dispatch)) ids.add(dispatch.host)
     }
     for (const id of ids) watch(id)
   }

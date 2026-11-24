@@ -379,7 +379,7 @@ export async function apply(ctx) {
     })
     const sent = await Promise.all(queued.map(async ({ dispatch, message }) => {
       if (dispatch.host === 'local') await workers.deliverToWorker(dispatch.id, message, control)
-      else await peers.call(dispatch.host, 'peerSend', { dispatchId: dispatch.id, message }, control)
+      else await peers.call(dispatch.host, 'peerSend', { ref: store.read().hostId, dispatchId: dispatch.id, message }, control)
       await store.mutate(() => {
         message.delivered = true
         dispatch.lastMessageAt = Date.now()
@@ -397,7 +397,7 @@ export async function apply(ctx) {
     if (task.status === 'pending' || !dispatch?.sessionId) throw new Error(`Task ${task.id} does not have a worker yet.`)
     const count = readLimit(limit)
     return dispatch.host === 'local' ? workers.readWorker(dispatch.id, count)
-      : peers.call(dispatch.host, 'peerRead', { dispatchId: dispatch.id, limit: count }, control)
+      : peers.call(dispatch.host, 'peerRead', { ref: state.hostId, dispatchId: dispatch.id, limit: count }, control)
   }
 
   function stop(sessionId, id, control) {
@@ -407,13 +407,24 @@ export async function apply(ctx) {
     operation = (async () => {
       if (terminalTask(task)) return { stopped: true }
       const dispatch = task.status === 'pending' ? undefined : current(store.read(), task)
+      // An unreachable Host must not keep the task running here: record the
+      // stop, and the peer's poll loop delivers it when that Host is back.
+      let unreachable
       if (dispatch && dispatch.host !== 'local') {
         await launches.get(dispatch.id)
-        if (dispatch.sessionId) await peers.call(dispatch.host, 'peerStop', { dispatchId: dispatch.id }, control)
+        if (dispatch.sessionId) {
+          try {
+            await peers.call(dispatch.host, 'peerStop', { ref: store.read().hostId, dispatchId: dispatch.id }, control)
+          } catch (error) {
+            control.throwIfAborted()
+            unreachable = error.message
+          }
+        }
       }
       await store.mutate(() => {
         if (terminalTask(task)) return
         if (dispatch) dispatch.status = 'stopped'
+        if (unreachable) dispatch.remoteStop = true
         task.status = 'stopped'
         task.updatedAt = Date.now()
       })
@@ -421,7 +432,9 @@ export async function apply(ctx) {
         const worker = store.read().workers[dispatch.id]
         if (worker) ctx.agents.get(worker.sessionId)?.cancel({ kind: 'hook', reason: 'Stopped by the coordinator' })
       }
-      return { stopped: true }
+      if (!unreachable) return { stopped: true }
+      peers.watch(dispatch.host)
+      return { stopped: true, note: `${unreachable} The worker there stops once that computer is reachable again.` }
     })().finally(() => stopping.delete(id))
     stopping.set(id, operation)
     return operation
