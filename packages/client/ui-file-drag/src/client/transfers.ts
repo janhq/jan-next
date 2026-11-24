@@ -4,7 +4,7 @@ import {
   type DesktopFileDrag, type DesktopFileSource, type FileDragHandle, type FileDragRequestId,
 } from '@janhq/jan-util-file-drag'
 import { randomUUID } from '@janhq/jan-util-crypto'
-import type { FileDragSource, PreparedFileDrag } from '@janhq/jan-client-ui-primitives'
+import { captureFailure, type FileDragActions, type FileDragSource, type PreparedFileDrag } from '@janhq/jan-client-ui-primitives'
 
 /** Application-local browser transfer owner, including detached source-node drag end. */
 export class FileTransfers {
@@ -14,7 +14,7 @@ export class FileTransfers {
   private readonly lifetime = new AbortController()
 
   /** @param desktop - verified native bridge, absent in Web. @param reportFailure - localized plugin feedback. */
-  constructor(private readonly desktop: DesktopFileDrag | undefined, private readonly reportFailure: () => void) {}
+  constructor(private readonly desktop: DesktopFileDrag | undefined, private readonly reportFailure: FileDragActions['reportFailure']) {}
 
   /**
    * Resolve this instance's active transfer.
@@ -110,7 +110,9 @@ export class FileTransfers {
     return {
       start: () => {
         if (!this.prepared.has(release)) return false
-        starting = desktop.start(nativeHandle).then((started) => { if (!started) this.reportFailure() }, this.reportFailure)
+        starting = desktop.start(nativeHandle).then((started) => {
+          if (!started) this.reportFailure(captureFailure('fileDrag.start', { code: 'file-drag/rejected' }))
+        }, (error: unknown) => { this.reportFailure(captureFailure('fileDrag.start', error)) })
         return false
       },
       release,
