@@ -451,9 +451,17 @@ describe('runtime model listing', () => {
     await ctx.plugin(LocalCredentialProvider, { path: join(dir, '.credentials.yaml'), watch: false })
     const live = await liveConfig(ctx, LlmPiAi, route(server.url, { refreshIntervalMs: 20 }))
     const scheduled = vi.getTimerCount()
-    await vi.waitFor(() => { expect(server.listings).toHaveLength(1) })
+    // vi.waitFor advances fake timers while polling, which would fire extra refresh ticks.
+    const listed = async (count: number) => {
+      for (const start = Date.now(); server.listings.length < count;) {
+        if (Date.now() - start > 5000) throw new Error(`expected ${count} listing requests, saw ${server.listings.length}`)
+        await new Promise(resolve => setTimeout(resolve, 5))
+      }
+      expect(server.listings).toHaveLength(count)
+    }
+    await listed(1)
     vi.advanceTimersByTime(20)
-    await vi.waitFor(() => { expect(server.listings).toHaveLength(2) })
+    await listed(2)
 
     await live.replace({ providers: { tokamak: { api: 'openai-completions', baseURL: server.url, models: [{ id: 'fixed' }] } } })
     expect(vi.getTimerCount()).toBe(scheduled - 1)

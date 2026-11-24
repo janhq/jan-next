@@ -64,6 +64,13 @@ function recorder(seen: Set<string>, workspaceNames: ReadonlySet<string>, follow
   }
 }
 
+/** Dependency names a manifest binds to workspace packages, such as a vendored package's upstream import names. */
+function workspaceAliases(manifest: Manifest): string[] {
+  return DEPENDENCY_KINDS.flatMap(kind => Object.entries(manifest[kind] ?? {}))
+    .filter(([, range]) => range.startsWith('workspace:'))
+    .map(([alias]) => alias)
+}
+
 function readManifest(path: string): Manifest {
   return JSON.parse(readFileSync(path, 'utf8')) as Manifest
 }
@@ -108,7 +115,7 @@ async function collectClientBundles(
       input: client.entry as Rolldown.InputOption,
       platform: 'browser',
       transform: client.define === undefined ? {} : { define: client.define },
-      plugins: [recorder(seen, workspaceNames), client.plugins ?? []] as NonNullable<Rolldown.InputOptions['plugins']>,
+      plugins: [recorder(seen, new Set([...workspaceNames, ...workspaceAliases(manifest)])), client.plugins ?? []] as NonNullable<Rolldown.InputOptions['plugins']>,
       tsconfig: resolve(root, 'tsconfig.base.client.json'),
     })
     try {
@@ -149,7 +156,7 @@ async function collectShell(
     await vite.build({
       root: dir,
       logLevel: 'error',
-      plugins: [browserDependencyAnalysis(), recorder(seen, workspaceNames, true)],
+      plugins: [browserDependencyAnalysis(), recorder(seen, new Set([...workspaceNames, ...workspaceAliases(manifest)]), true)],
       resolve: { alias: browserSourceAliases(root) },
       build: {
         write: false,
@@ -182,14 +189,6 @@ export async function browserBundledExternals(root: string): Promise<Set<string>
     }
   }
   const names = new Set([...manifests.values()].map(manifest => manifest.name))
-  // Vendored sources keep upstream import names through `workspace:` aliases.
-  for (const manifest of manifests.values()) {
-    for (const kind of DEPENDENCY_KINDS) {
-      for (const [alias, range] of Object.entries(manifest[kind] ?? {})) {
-        if (range.startsWith('workspace:')) names.add(alias)
-      }
-    }
-  }
   const seen = new Set<string>()
   await collectClientBundles(root, manifests, names, seen)
   await collectShell(root, names, seen)

@@ -114,7 +114,7 @@ const DEPENDENCY_TEST_DIRECTORIES = '{test,tests,__tests__,.history}'
 export async function pruneDependencyTestDirectories(staging: string): Promise<void> {
   const directories: string[] = []
   for await (const entry of glob(`node_modules/**/${DEPENDENCY_TEST_DIRECTORIES}`, {
-    cwd: staging, withFileTypes: true, exclude: ['node_modules/@janhq/**'],
+    cwd: staging, withFileTypes: true, exclude: ['**/node_modules/@janhq/**'],
   })) {
     const path = join(entry.parentPath, entry.name)
     if (entry.isDirectory() && !existsSync(join(path, 'package.json'))) directories.push(path)

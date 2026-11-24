@@ -127,6 +127,7 @@ it('prunes third-party test directories but keeps Jan packages and packages name
   const keep = [
     join(modules, 'qs', 'lib', 'index.js'),
     join(modules, '@janhq', 'jan-tool-fs', 'tests', 'case.js'),
+    join(modules, 'host', 'node_modules', '@janhq', 'jan-tool-fs', 'tests', 'case.js'),
     join(modules, 'host', 'node_modules', 'test', 'package.json'),
   ]
   const drop = [
