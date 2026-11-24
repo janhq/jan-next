@@ -19176,6 +19176,9 @@ importers:
       '@janhq/jan-onboarding':
         specifier: workspace:*
         version: link:../jan-onboarding
+      '@janhq/jan-orchestration':
+        specifier: workspace:*
+        version: link:../orchestration
       '@janhq/jan-persona':
         specifier: workspace:*
         version: link:../../packages/preset/persona
@@ -19233,6 +19236,9 @@ importers:
       '@janhq/jan-hosts':
         specifier: workspace:*
         version: link:../hosts
+      '@janhq/jan-orchestration':
+        specifier: workspace:*
+        version: link:../orchestration
 
   plugins/hosts:
     dependencies:

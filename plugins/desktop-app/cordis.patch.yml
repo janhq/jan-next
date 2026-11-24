@@ -60,6 +60,10 @@
     - id: jan-hosts
       name: '@janhq/jan-hosts'
 
+    # Coordinate worker chats from one chat, on this or connected computers.
+    - id: jan-orchestration
+      name: '@janhq/jan-orchestration'
+
     # Let Sessions use the published Chrome extension without an MCP subprocess.
     # Off until the user enables Jan Browser in Plugins: its loopback bridge
     # trusts any local process that reaches the port, and an unconnected

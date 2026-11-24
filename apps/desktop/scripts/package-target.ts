@@ -52,6 +52,7 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'plugins/legacy-import',
   'plugins/model-hub',
   'plugins/notifications',
+  'plugins/orchestration',
   'plugins/plugin-api',
   'plugins/preset-square',
   'plugins/status-bar',

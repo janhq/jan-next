@@ -40,6 +40,7 @@
     "@janhq/jan-model-hub": "workspace:*",
     "@janhq/jan-notifications": "workspace:*",
     "@janhq/jan-onboarding": "workspace:*",
+    "@janhq/jan-orchestration": "workspace:*",
     "@janhq/jan-persona": "workspace:*",
     "@janhq/jan-preset-square": "workspace:*",
     "@janhq/jan-office": "workspace:*",

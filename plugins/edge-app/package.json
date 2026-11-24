@@ -13,7 +13,8 @@
     "cordis.patch.yml"
   ],
   "dependencies": {
-    "@janhq/jan-hosts": "workspace:*"
+    "@janhq/jan-hosts": "workspace:*",
+    "@janhq/jan-orchestration": "workspace:*"
   },
   "jan": {
     "bundle": {
