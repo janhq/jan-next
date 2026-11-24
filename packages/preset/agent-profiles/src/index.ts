@@ -1,7 +1,7 @@
 /** Named agent profiles read from Jan, `.agents`, Claude Code, opencode and Codex agent folders. */
-import { rm } from 'node:fs/promises'
+import { lstat, realpath, rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { isAbsolute, join, relative } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative } from 'node:path'
 import { Context, Service } from '@janhq/cordis'
 import z from '@janhq/schemastery'
 import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
@@ -200,12 +200,11 @@ export default class AgentProfiles extends TypertRemoteService {
       throw new RemoteError('agent-profiles/not-found', `No Jan agent named "${request.profile.id}" at ${request.path}.`, { id: request.profile.id })
     }
     const path = existing?.path ?? join(state.root.path, ...`${request.profile.id}.md`.split('/'))
-    if (!inside(state.root.path, path)) throw invalid(`Name "${request.profile.id}" leaves the agents folder.`)
     const text = renderProfile(request.profile)
     if (Buffer.byteLength(text) > this.config.maxFileBytes) {
       throw invalid(`The agent file would be larger than ${Math.floor(this.config.maxFileBytes / 1024)} KiB; shorten its instructions.`)
     }
-    await writeFileAtomic(path, text, { mode: 0o644 })
+    await writeFileAtomic(await mutationPath(state.root, path), text, { mode: 0o644 })
     this.modelWarnings.delete(path)
     await this.rescan([state])
     const saved = this.compose([state], false).profiles.find(profile => profile.path === path)
@@ -230,7 +229,7 @@ export default class AgentProfiles extends TypertRemoteService {
       if (foreign !== undefined) throw new RemoteError('agent-profiles/read-only', `${foreign.path} belongs to another tool.`, { path: foreign.path })
       throw new RemoteError('agent-profiles/not-found', `No Jan agent named "${request.id}".`, { id: request.id })
     }
-    await rm(existing.path, { force: true })
+    await rm(await mutationPath(state.root, existing.path), { force: true })
     this.modelWarnings.delete(existing.path)
     await this.rescan([state])
   }
@@ -540,6 +539,32 @@ export default class AgentProfiles extends TypertRemoteService {
 
 function invalid(reason: string): RemoteError {
   return new RemoteError('agent-profiles/invalid', reason, { reason })
+}
+
+async function mutationPath(root: AgentRoot, path: string): Promise<string> {
+  if (!inside(root.path, path)) throw invalid(`The profile path ${path} leaves the agents folder.`)
+  const base = root.scope === 'project' ? dirname(dirname(root.path)) : dirname(root.path)
+  const parentPath = dirname(path)
+  const expected = join(await realpathWithMissingFolders(base), relative(base, parentPath))
+  const parent = await realpathWithMissingFolders(parentPath)
+  if (relative(expected, parent) !== '') throw invalid(`The profile folder ${dirname(path)} is redirected by a symbolic link.`)
+  return join(parent, basename(path))
+}
+
+async function realpathWithMissingFolders(path: string): Promise<string> {
+  const missing: string[] = []
+  let current = path
+  for (;;) {
+    const existing = await lstat(current).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== 'ENOENT') throw error
+      return undefined
+    })
+    if (existing !== undefined) return join(await realpath(current), ...missing.reverse())
+    const parent = dirname(current)
+    if (parent === current) throw invalid(`The profile folder ${path} could not be resolved.`)
+    missing.push(basename(current))
+    current = parent
+  }
 }
 
 function inside(parent: string, child: string): boolean {

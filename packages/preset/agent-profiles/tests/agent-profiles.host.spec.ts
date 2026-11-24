@@ -1,5 +1,6 @@
 /** Agent profiles: folder precedence, Jan file writes, watching, and per-chat selection. */
-import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
@@ -118,6 +119,71 @@ it('round-trips a saved Jan profile and refuses to delete a foreign one', async 
   await h.profiles.deleteProfile({ scope: 'global', id: 'reviewer' })
   // Deleting the Jan copy brings back the shipped profile it replaced.
   expect(await h.profiles.get({ id: 'reviewer' })).toMatchObject({ source: 'builtin', writable: false })
+})
+
+it.each(['.jan', '.jan/agents'])('refuses to save or delete profiles through a symlinked %s folder', async (segment) => {
+  const h = await setup()
+  const outside = join(h.dir, 'project-outside')
+  const link = join(h.project, segment)
+  const escaped = join(outside, segment === '.jan' ? 'agents' : '', 'outsider.md')
+  write(escaped, '---\nname: outsider\n---\nOriginal')
+  mkdirSync(dirname(link), { recursive: true })
+  symlinkSync(outside, link, 'junction')
+
+  const profile = { id: 'outsider', description: '', use: 'all' as const, instructions: 'Replacement' }
+  await expect(h.profiles.save({ scope: 'project', workspaceId: PROJECT, profile }))
+    .rejects.toMatchObject({ code: 'agent-profiles/invalid' })
+  await expect(h.profiles.deleteProfile({ scope: 'project', workspaceId: PROJECT, id: profile.id }))
+    .rejects.toMatchObject({ code: 'agent-profiles/invalid' })
+  expect(readFileSync(escaped, 'utf8')).toContain('Original')
+})
+
+it('does not create missing directories below a nested symlink out of the agents folder', async () => {
+  const h = await setup()
+  const outside = join(h.dir, 'outside')
+  const agents = join(h.project, '.jan', 'agents')
+  mkdirSync(outside)
+  mkdirSync(agents, { recursive: true })
+  symlinkSync(outside, join(agents, 'team'), 'junction')
+
+  await expect(h.profiles.save({ scope: 'project', workspaceId: PROJECT,
+    profile: { id: 'team/new/outsider', description: '', use: 'all', instructions: 'Outside' },
+  })).rejects.toMatchObject({ code: 'agent-profiles/invalid' })
+  expect(existsSync(join(outside, 'new'))).toBe(false)
+})
+
+it.skipIf(process.platform === 'win32')('lists only bounded regular profile files without following links or reading pipes', async () => {
+  const h = await setup()
+  const agents = join(h.project, '.jan', 'agents')
+  const regular = join(agents, 'regular.md')
+  const oversized = join(agents, 'oversized.md')
+  const link = join(agents, 'link.md')
+  const pipe = join(agents, 'pipe.md')
+  const pipeLink = join(agents, 'link-to-pipe.md')
+  write(regular, '---\nname: regular\n---\nBody')
+  write(oversized, 'x'.repeat(64 * 1024 + 1))
+  symlinkSync(regular, link)
+  execFileSync('mkfifo', [pipe])
+  symlinkSync(pipe, pipeLink)
+
+  const listed = await h.profiles.list({ workspaceId: PROJECT })
+  expect(listed.profiles.filter(profile => profile.scope === 'project').map(profile => profile.path)).toEqual([regular])
+  expect(listed.problems).toEqual([
+    { scope: 'project', path: pipeLink, reason: 'not a regular file' },
+    { scope: 'project', path: link, reason: 'not a regular file' },
+    { scope: 'project', path: oversized, reason: 'larger than 64 KiB' },
+    { scope: 'project', path: pipe, reason: 'not a regular file' },
+  ])
+})
+
+it('rejects hidden and over-deep profile ids before creating files', async () => {
+  const h = await setup()
+  for (const id of ['team/.private/reviewer', 'a/b/c/d/e/f/g/h/i/reviewer']) {
+    await expect(h.profiles.save({ scope: 'project', workspaceId: PROJECT,
+      profile: { id, description: '', use: 'all', instructions: 'Invisible' },
+    })).rejects.toMatchObject({ code: 'agent-profiles/invalid' })
+  }
+  expect(existsSync(join(h.project, '.jan'))).toBe(false)
 })
 
 it('ships read-only built-in profiles that parse cleanly and give way to any user file with the same id', async () => {

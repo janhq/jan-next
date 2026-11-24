@@ -12,6 +12,9 @@ import type {
 /** Pattern every profile id matches; `/` allows opencode subfolders. */
 export const PROFILE_ID = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/
 
+/** Maximum number of directories below an agent root before the profile file. */
+export const MAX_PROFILE_DIRECTORY_DEPTH = 8
+
 /** Where one file was found. */
 export interface ProfileFile {
   readonly source: AgentProfileSource
@@ -83,7 +86,7 @@ export function parseProfile(file: ProfileFile): ParsedProfile {
   const warnings: string[] = []
   const id = profileId(file, fields)
   if (id === undefined) return { problem: 'missing name' }
-  if (!PROFILE_ID.test(id) || id.split('/').some(segment => segment === '' || segment === '.' || segment === '..')) {
+  if (!validProfileId(id)) {
     return { problem: `invalid name "${id}"` }
   }
   for (const key of Object.keys(fields)) {
@@ -136,13 +139,19 @@ export function renderProfile(draft: AgentProfileDraft): string {
  * @returns the reason the draft cannot be written, or undefined.
  */
 export function draftProblem(draft: AgentProfileDraft): string | undefined {
-  if (!PROFILE_ID.test(draft.id) || draft.id.split('/').some(segment => segment === '.' || segment === '..' || segment === '')) {
-    return `Name "${draft.id}" must start with a letter or digit and use only letters, digits, ".", "_", "-" and "/", up to 64 characters.`
+  if (!validProfileId(draft.id)) {
+    return `Name "${draft.id}" must start with a letter or digit and use only letters, digits, ".", "_", "-" and "/", up to 64 characters. Use at most ${MAX_PROFILE_DIRECTORY_DEPTH} nested folders and no empty or dot-prefixed segments.`
   }
   if (!USES.includes(draft.use)) return `Use must be one of ${USES.join(', ')}.`
   if (draft.model !== undefined && draft.model.model.trim() === '') return 'The model needs an id.'
   if (draft.sandbox !== undefined && !SANDBOXES.includes(draft.sandbox)) return `Sandbox must be one of ${SANDBOXES.join(', ')}.`
   return undefined
+}
+
+function validProfileId(id: string): boolean {
+  if (!PROFILE_ID.test(id)) return false
+  const segments = id.split('/')
+  return segments.length <= MAX_PROFILE_DIRECTORY_DEPTH + 1 && segments.every(segment => segment !== '' && !segment.startsWith('.'))
 }
 
 function writtenTools(names: readonly string[]): string {

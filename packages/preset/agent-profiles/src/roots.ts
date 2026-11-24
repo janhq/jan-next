@@ -2,11 +2,12 @@
  * Agent folders of each supported tool, how one folder is read, and how it is watched.
  * @module @janhq/jan-agent-profiles/roots
  */
-import { lstat, readdir, readFile, stat } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { lstat, open, readdir } from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import chokidar from 'chokidar'
-import { parseProfile } from './parse.ts'
+import { MAX_PROFILE_DIRECTORY_DEPTH, parseProfile } from './parse.ts'
 import type { AgentProfile, AgentProfileProblem, AgentProfileScope, AgentProfileSource } from './types.ts'
 
 /** One agent folder. A lower rank wins when two folders define the same id. */
@@ -32,8 +33,7 @@ export interface RootScan {
   readonly problems: readonly AgentProfileProblem[]
 }
 
-/** Folders below a root deeper than this are not read. */
-const MAX_DEPTH = 8
+const READ_FLAGS = process.platform === 'win32' ? constants.O_RDONLY : constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
 
 /**
  * Agent folders of one project, highest precedence first.
@@ -84,15 +84,46 @@ export async function scanRoot(root: AgentRoot, maxBytes: number): Promise<RootS
   const files = await listFiles(root.path, `.${root.format}`)
   const profiles: AgentProfile[] = []
   const problems: AgentProfileProblem[] = []
+  let buffer: Buffer | undefined
   for (const path of files) {
     const problem = (reason: string): void => { problems.push({ scope: root.scope, path, reason }) }
     try {
-      const info = await stat(path)
+      const info = await lstat(path)
+      if (!info.isFile()) {
+        problem('not a regular file')
+        continue
+      }
       if (info.size > maxBytes) {
         problem(`larger than ${Math.floor(maxBytes / 1024)} KiB`)
         continue
       }
-      const text = await readFile(path, 'utf8')
+      const handle = await open(path, READ_FLAGS)
+      let text: string
+      try {
+        const opened = await handle.stat()
+        if (!opened.isFile()) {
+          problem('not a regular file')
+          continue
+        }
+        if (opened.size > maxBytes) {
+          problem(`larger than ${Math.floor(maxBytes / 1024)} KiB`)
+          continue
+        }
+        buffer ??= Buffer.allocUnsafe(maxBytes + 1)
+        let length = 0
+        while (length < buffer.length) {
+          const { bytesRead } = await handle.read(buffer, length, buffer.length - length, length)
+          if (bytesRead === 0) break
+          length += bytesRead
+        }
+        if (length > maxBytes) {
+          problem(`larger than ${Math.floor(maxBytes / 1024)} KiB`)
+          continue
+        }
+        text = buffer.toString('utf8', 0, length)
+      } finally {
+        await handle.close()
+      }
       const parsed = parseProfile({
         source: root.source, scope: root.scope, writable: root.writable, path,
         relative: relative(root.path, path).split(sep).join('/'), text,
@@ -119,8 +150,9 @@ async function listFiles(folder: string, extension: string, depth = 0): Promise<
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     if (entry.name.startsWith('.')) continue
     const path = join(folder, entry.name)
-    if (entry.isDirectory() && depth < MAX_DEPTH) files.push(...await listFiles(path, extension, depth + 1))
-    else if ((entry.isFile() || entry.isSymbolicLink()) && entry.name.toLowerCase().endsWith(extension)) files.push(path)
+    if (entry.isDirectory()) {
+      if (depth < MAX_PROFILE_DIRECTORY_DEPTH) files.push(...await listFiles(path, extension, depth + 1))
+    } else if (entry.name.toLowerCase().endsWith(extension)) files.push(path)
   }
   return files
 }
@@ -152,7 +184,7 @@ export function watchRoot(path: string, changed: () => void, failed: (error: unk
   }
   const open = async (): Promise<{ close(): Promise<void> }> => {
     const anchor = await nearestExisting(target)
-    const depth = anchor === target ? MAX_DEPTH : 0
+    const depth = anchor === target ? MAX_PROFILE_DIRECTORY_DEPTH : 0
     const watcher = chokidar.watch(anchor, { persistent: true, ignoreInitial: true, atomic: true, depth })
     watcher.on('error', failed)
     watcher.on('all', (event, changedPath) => {

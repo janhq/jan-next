@@ -1,6 +1,6 @@
 /** Agent files of each supported tool read into Jan profiles, and Jan files written back. */
 import { expect, it } from 'vitest'
-import { parseProfile, renderProfile, type ProfileFile } from '../src/parse.ts'
+import { draftProblem, parseProfile, renderProfile, type ProfileFile } from '../src/parse.ts'
 import type { AgentProfile } from '../src/types.ts'
 
 function file(source: ProfileFile['source'], relative: string, text: string): ProfileFile {
@@ -77,6 +77,11 @@ it('records an unknown key as a warning instead of rejecting the file', () => {
 it('reports a Claude file without a name and an invalid id as problems', () => {
   expect(parseProfile(file('claude', 'a.md', '---\ndescription: d\n---\n'))).toEqual({ problem: 'missing name' })
   expect(parseProfile(file('jan', 'a.md', '---\nname: ../up\n---\n'))).toEqual({ problem: 'invalid name "../up"' })
+})
+
+it.each(['team/.private/reviewer', 'team/.reviewer', 'a/b/c/d/e/f/g/h/i/reviewer'])('rejects the undiscoverable id %s', (id) => {
+  expect(draftProblem({ id, description: '', use: 'all', instructions: '' })).toContain(`Name "${id}"`)
+  expect(parseProfile(file('jan', 'a.md', `---\nname: ${id}\n---\n`))).toEqual({ problem: `invalid name "${id}"` })
 })
 
 it('writes Claude-compatible keys that read back to the same profile', () => {
