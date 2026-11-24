@@ -62,7 +62,7 @@ function abortedBeforeDispatchResult(): ToolExecutionResult {
  */
 export function apply(ctx: Context): void {
   ctx.on('llm/stream', (options, next): AsyncIterable<StreamChunk> => {
-    if (options.sessionId === undefined) return next()
+    if (options.sessionId === undefined || options.ephemeral === true) return next()
     const session = ctx.sessions.get(options.sessionId)
     return session === undefined ? next() : afterCheckpoint(ctx, session, next)
   })
