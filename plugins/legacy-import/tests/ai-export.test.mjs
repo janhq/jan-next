@@ -25,6 +25,12 @@ test('merges complete split documents without dropping distinct routines with th
   assert.equal(bot.skills[0].instruction, 'Read the source.')
 })
 
+test('ignores numbered Markdown citations around complete exports', () => {
+  const exported = documentOf({ name: 'Atlas' })
+  const [bot] = parseAiExport([`See [1] for the export:\n\n\`\`\`json\n${exported}\n\`\`\`\n\nRead more [2](https://example.com/help).`])
+  assert.equal(bot.name, 'Atlas')
+})
+
 test('refuses a truncated or unsupported split and credential material without exposing it', () => {
   const good = documentOf({ name: 'Atlas' })
   assert.throws(() => parseAiExport([good, good.slice(0, -1)]), /invalid-export/)

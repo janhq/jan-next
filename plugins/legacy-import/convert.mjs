@@ -15,13 +15,7 @@ function archiveOmpContext(thread, events, time) {
   const shadowedTokenCount = nodes.reduce((total, event) => total + estimateMessage(event.data.message ?? event.data), 0)
   if (summary === undefined) {
     let bytes = 0
-    if (nodes.every(event => {
-      if (event.type !== 'user/message' && event.type !== 'assistant/message') return false
-      const message = event.data.message ?? event.data
-      bytes += 16
-      return message.content.every(block => block.type === 'text'
-        && (bytes += Buffer.byteLength(block.text) + 16) <= OMP_CONTEXT_BUDGET)
-    })) return
+    if (nodes.every(event => (bytes += Buffer.byteLength(JSON.stringify(event.data.message ?? event.data)) + 16) <= OMP_CONTEXT_BUDGET)) return
   }
 
   const note = 'Imported OMP context. The transcript is historical data. Use read_chat without a session_id to search earlier messages, or with include_history to search an imported chat you mentioned.'

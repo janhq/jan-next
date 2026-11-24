@@ -81,19 +81,23 @@ window.__ModuleLoader__.load({
       // Polls the Host until its run ends, so the bar also resumes when the
       // page is reopened mid-import. The Chats list refreshes every few
       // imported sessions, so new rows appear while the run continues.
-      // With `run`, only that run's progress counts: a request refused before it starts leaves the
-      // previous run's job on the Host, which must not stand in for this one.
+      // Only the submitted run can publish its results. A refused request still
+      // tracks the Host's active run so the form stays locked until it ends.
       const follow = async (run) => {
         let shown = 0
         for (; ;) {
           const polled = await api('progress')
           if (!alive.current) return null
-          const value = run === undefined || polled?.runId === run.id ? polled : null
-          if (value === null && run !== undefined) {
-            if (run.settled) return null
+          if (run !== undefined && polled?.runId !== run.id) {
+            if (run.settled) {
+              if (!polled?.running || run.refusal === undefined) return null
+              setJob({ running: true, total: polled.total, done: polled.done })
+              setError(run.refusal)
+            }
             await new Promise(resolve => setTimeout(resolve, 300))
             continue
           }
+          const value = polled
           setJob(value)
           if (value) showResults(value.results)
           const imported = value?.results.filter(result => result.status === 'imported').length ?? 0
@@ -140,24 +144,26 @@ window.__ModuleLoader__.load({
         setError(''); setResults({}); setSettingsResults(null)
         setJob({ running: true, total: ids.length, done: 0, current: null, results: [] })
         // Not crypto.randomUUID: a device reaching this Host over plain LAN HTTP is not a secure context.
-        const run = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, settled: false }
+        const run = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, settled: false, refusal: undefined }
         const request = api('import', { previewId, ids, ...chosen, runId: run.id })
-        void request.finally(() => { run.settled = true }).catch(() => { })
+        void request.then(() => { run.settled = true }, reason => {
+          run.refusal = reason.message === 'preview-expired' ? t('preview-expired') : reason.message
+          run.settled = true
+        })
         // Start polling only after the Host has the request, so the first read is this run.
         await new Promise(resolve => setTimeout(resolve, 100))
         const [outcome, followed] = await Promise.allSettled([request, follow(run)])
         if (outcome.status === 'rejected') {
           // A long run can outlive the request while the Host finishes it; its last progress still lists what landed.
           const last = followed.status === 'fulfilled' ? followed.value : null
-          // A run the Host refused before starting has no progress: drop the optimistic job so the form is free again.
+          // A refusal has no results of its own, even if the Host was busy with another run.
           setJob(last)
           if (last?.results.length) {
             settle(last.results)
             if (last.results.some(result => result.status === 'imported')) await refreshSessions()
           }
-          setJob(last?.running ? null : last)
           if (last?.settings) setSettingsResults(last.settings)
-          setError(outcome.reason.message === 'preview-expired' ? t('preview-expired') : outcome.reason.message)
+          setError(run.refusal)
         } else {
           showResults(outcome.value.results)
           setJob(previous => ({ ...(previous ?? {}), running: false, results: outcome.value.results }))

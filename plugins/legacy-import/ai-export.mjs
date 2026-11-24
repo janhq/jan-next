@@ -28,13 +28,15 @@ function assertNoCredentials(value) {
 // A balanced JSON object can be embedded in Markdown or prose. Parse each complete object,
 // never try to salvage a truncated one; JSON.parse errors can contain private text.
 function* readDocuments(doc) {
-  const match = /[\[{]/gu
+  const match = /\[\d+\]|[\[{]/gu
   const candidate = /\s*(.)/syu
   let end = 0
   while (end < doc.length) {
     match.lastIndex = end
     const next = match.exec(doc)
     if (!next) break
+    // A numbered citation is prose, not a top-level JSON document.
+    if (next[0].length > 1) { end = match.lastIndex; continue }
     const start = next.index
     candidate.lastIndex = start + 1
     const first = candidate.exec(doc)?.[1]

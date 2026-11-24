@@ -87,3 +87,34 @@ it('frees the form and ignores an earlier run when the Host refuses an import be
   expect((screen.getByRole('checkbox', { name: 'Trip plan' }) as HTMLInputElement).disabled).toBe(false)
   expect(screen.getByRole('region', { name: 'Local chats and settings' }).getAttribute('aria-busy')).toBe('false')
 })
+
+it('shows a refused import without unlocking the form until the other run ends', async () => {
+  const thread = { id: 't1', title: 'Trip plan', messageCount: 3 }
+  let running = false
+  let submitted = false
+  const calls = await mount(({ method }) => {
+    if (method === 'list') return { result: { folder: '/jan', threads: [thread], previewId: 'preview-1' } }
+    if (method === 'progress') return { result: submitted ? {
+      runId: 'other-tab', running, total: 2, done: running ? 1 : 2,
+      results: [{ id: 't1', status: 'imported' }],
+    } : null }
+    if (method === 'import') { submitted = running = true; return { error: 'An import is already running.' } }
+    return { result: null }
+  })
+  await waitFor(() => expect(calls.some(call => call.method === 'progress')).toBe(true))
+  fireEvent.click(screen.getByRole('button', { name: 'Import 1 chat' }))
+
+  const form = screen.getByRole('region', { name: 'Local chats and settings' })
+  expect((await screen.findByRole('alert')).textContent).toBe('An import is already running.')
+  expect(form.getAttribute('aria-busy')).toBe('true')
+  expect(screen.getByRole('button', { name: 'Importing 50%…' })).toHaveProperty('disabled', true)
+  expect(screen.getByRole('button', { name: 'Change' })).toHaveProperty('disabled', true)
+  expect(screen.queryByRole('button', { name: 'Scan again' })).toBeNull()
+  expect(screen.queryByText('Imported')).toBeNull()
+
+  running = false
+  await waitFor(() => expect(form.getAttribute('aria-busy')).toBe('false'))
+  expect(screen.queryByText('Imported')).toBeNull()
+  expect(screen.queryByRole('progressbar')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Scan again' })).toHaveProperty('disabled', false)
+})
