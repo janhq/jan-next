@@ -93,6 +93,7 @@ function theme(tasks: readonly unknown[] = [], shared?: { catalog: Source<{ reco
     locale: { bind: () => (key: string) => key, register: () => () => {}, subscribe: () => () => {} },
     remote: { schedule: { catalog, create: createSchedule }, $on: () => () => {} },
     on: () => () => {},
+    provide: () => {},
     ...(shared === undefined ? {} : { hostTaskCatalog: shared }),
     effect: (register: () => (() => void) | undefined) => {
       const dispose = register()
