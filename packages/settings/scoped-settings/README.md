@@ -37,10 +37,12 @@ Open **Project settings** from a project's context menu to choose its default mo
 | Setting | Chat | Project | Global | Resolution |
 |---|---|---|---|---|
 | Model and reasoning effort | Chat's own selection (session log) | `model` | `agent-default-model` | Chat, then project, then global |
-| Mode (agent preset) | Chat's own selection (session log) | `mode` | `agent-preset-registry` default | Chat, then project, then global |
+| Mode (agent preset) | Chat's own selection (session log) | `mode` | `agent-preset-registry` default | Chat, then eligible project mode, then global |
 | Agent profile | Chat's own selection (session log) | `agent` | None | Requested profile or plain Jan, then project default |
 | Tools off | `toolsDisabled` | `toolsDisabled` | `toolsDisabled` | Union: any scope can switch a tool off |
 | Skills off | `skillsDisabled`, `skillFoldersDisabled` | same | same | Union: any scope can switch a skill or its folder off |
+
+Built-in PTC and Minimal project defaults apply only while Coding Tools is enabled. Turning it off does not erase a saved project mode.
 
 `toolsDisabled` lists tool names, or `mcp:<server>` for every tool of one MCP server, including tools that server registers later. `skillsDisabled` lists skill names; `skillFoldersDisabled` lists the absolute folder that holds `<name>/SKILL.md` or `<name>.md`, matched exactly so each entry is one row of the editor. To use a tool or skill a wider scope switched off, switch it back on at that scope.
 

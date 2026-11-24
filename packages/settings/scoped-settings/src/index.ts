@@ -3,6 +3,7 @@ import { Context, Service } from '@janhq/cordis'
 import z from '@janhq/schemastery'
 import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
 import { expandMcpServerEntries, mcpToolOrigin } from '@janhq/jan-mcp-client'
+import { requiresCodingTools } from '@janhq/jan-agent-preset-registry/display'
 import type { Agent } from '@janhq/jan-agent'
 import type { SessionId } from '@janhq/jan-session'
 import type {} from '@janhq/jan-tools'
@@ -131,13 +132,18 @@ export default class ScopedSettings extends TypertRemoteService {
   /**
    * Mode (agent preset) a new chat in a project starts in.
    * @param workspaceId - the project, or undefined outside any project.
-   * @returns the project's mode while that preset exists, else undefined.
+   * @returns the project mode if the preset exists, works, and meets the Coding Tools preference; otherwise undefined.
    */
   async resolveMode(workspaceId: WorkspaceId | undefined): Promise<string | undefined> {
     const mode = workspaceId === undefined ? undefined : this.document.projects[workspaceId]?.mode
     const presets = this.ctx.get('agentPresets')
     if (mode === undefined || presets === undefined) return undefined
-    return (await presets.list()).some(preset => preset.id === mode && preset.broken === undefined) ? mode : undefined
+    const preset = (await presets.list()).find(row => row.id === mode)
+    if (preset === undefined || preset.broken !== undefined) return undefined
+    if (!requiresCodingTools(preset)) return mode
+    const preference = this.ctx.get('settings')?.describe().find(row => row.ns === 'ui-settings')?.value
+    return typeof preference === 'object' && preference !== null && 'enabled' in preference && preference.enabled === true
+      ? mode : undefined
   }
 
   /**
