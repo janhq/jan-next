@@ -61,14 +61,14 @@ describe('createClearEnded', () => {
   it('reports a refused removal and reads nothing back', async () => {
     const { clearEnded, refresh } = setup(failure)
 
-    await expect(clearEnded()).resolves.toEqual({ cleared: false })
+    await expect(clearEnded()).resolves.toMatchObject({ cleared: false, failure: { operation: 'schedule.deleteInactive' } })
     expect(refresh).not.toHaveBeenCalled()
   })
 
   it('reports a rejected removal and reads nothing back', async () => {
     const { clearEnded, refresh } = setup(new Error('connection lost'))
 
-    await expect(clearEnded()).resolves.toEqual({ cleared: false })
+    await expect(clearEnded()).resolves.toMatchObject({ cleared: false, failure: { errors: [expect.objectContaining({ message: 'connection lost' })] } })
     expect(refresh).not.toHaveBeenCalled()
   })
 })

@@ -9,7 +9,7 @@
  * it.
  */
 import type { ReactNode } from 'react'
-import { IconWarningOutlineRegular, Toast } from '@janhq/jan-client-ui-primitives'
+import { IconWarningOutlineRegular, Toast, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type {} from '@janhq/jan-client-ui-layout/client'
 import { assertNever } from '@janhq/jan-util-values'
@@ -18,9 +18,10 @@ import type { ClearEndedOutcome } from './clear-ended.ts'
 
 /** One reported outcome; `seq` keys the banner so a re-show restarts it. */
 export type DeleteToastState =
-  | { readonly kind: 'deleted' | 'deleteFailed'; readonly seq: number }
+  | { readonly kind: 'deleted'; readonly seq: number }
+  | { readonly kind: 'deleteFailed'; readonly seq: number; readonly failure: FailureDetails }
   | { readonly kind: 'cleared'; readonly count: number; readonly seq: number }
-  | { readonly kind: 'clearFailed'; readonly seq: number }
+  | { readonly kind: 'clearFailed'; readonly seq: number; readonly failure: FailureDetails }
 
 /** Store the deletion wiring reports into and the overlay entry reads. */
 export interface DeleteToastSource {
@@ -65,12 +66,13 @@ export function createDeleteToastSource(): DeleteToastSource {
     },
     report: (outcome) => {
       if (outcome === 'pending') return
-      publish({ kind: outcome === 'deleted' ? 'deleted' : 'deleteFailed', seq: ++seq })
+      publish(outcome === 'deleted' ? { kind: 'deleted', seq: ++seq }
+        : { kind: 'deleteFailed', seq: ++seq, failure: outcome.failure })
     },
     reportClear: (outcome) => {
       publish(outcome.cleared
         ? { kind: 'cleared', count: outcome.count, seq: ++seq }
-        : { kind: 'clearFailed', seq: ++seq })
+        : { kind: 'clearFailed', seq: ++seq, failure: outcome.failure })
     },
     dismiss: () => { publish(null) },
   }
@@ -96,7 +98,7 @@ export function ScheduleDeleteToast({ useToast, dismiss, t }: ScheduleDeleteToas
     case 'deleted':
       return <Toast key={key} text={t('toast.deleted')} tone="success" onDone={dismiss} />
     case 'deleteFailed':
-      return <Toast key={key} text={t('toast.deleteFailed')} icon={<IconWarningOutlineRegular />} onDone={dismiss} />
+      return <Toast key={key} text={t('toast.deleteFailed')} failure={toast.failure} icon={<IconWarningOutlineRegular />} onDone={dismiss} />
     case 'cleared':
       // A removal that found nothing states that instead of a zero count, and
       // without the success tone: the ended rows can leave between the
@@ -110,7 +112,7 @@ export function ScheduleDeleteToast({ useToast, dismiss, t }: ScheduleDeleteToas
           onDone={dismiss}
         />
     case 'clearFailed':
-      return <Toast key={key} text={t('toast.clearFailed')} icon={<IconWarningOutlineRegular />} onDone={dismiss} />
+      return <Toast key={key} text={t('toast.clearFailed')} failure={toast.failure} icon={<IconWarningOutlineRegular />} onDone={dismiss} />
     /* v8 ignore next -- the store publishes only the union's members, so the default holds no reachable statement. */
     default:
       return assertNever(toast)

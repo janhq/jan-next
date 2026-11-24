@@ -1,11 +1,12 @@
 /** Host-wide removal of every ended task, as the management page's one action reports it. */
 import type { RemoteResult } from '@janhq/jan-api-remotes/client'
+import { captureFailure, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type { ScheduleDeleteInactiveResult } from '@janhq/jan-schedule/client'
 
 /** How one bulk removal settled; the wiring reports it as an app-wide notice. */
 export type ClearEndedOutcome =
   | { readonly cleared: true; readonly count: number }
-  | { readonly cleared: false }
+  | { readonly cleared: false; readonly failure: FailureDetails }
 
 /** Remote removal and the authoritative readback that follows it. */
 export interface ClearEndedDependencies {
@@ -34,11 +35,10 @@ export function createClearEnded(deps: ClearEndedDependencies): () => Promise<Cl
     let result: RemoteResult<ScheduleDeleteInactiveResult>
     try {
       result = await deps.removeInactive()
-    } catch (_error: unknown) {
-      // A rejected request does not establish which rows changed.
-      return { cleared: false }
+    } catch (error) {
+      return { cleared: false, failure: captureFailure('schedule.deleteInactive', error) }
     }
-    if (!result.ok) return { cleared: false }
+    if (!result.ok) return { cleared: false, failure: captureFailure('schedule.deleteInactive', result.error) }
     await deps.refresh()
     return { cleared: true, count: result.value.deleted }
   }

@@ -1,11 +1,12 @@
 /** Authoritative Schedule queries and deletion for Session and Host catalogs. */
 
 import type { RemoteResult } from '@janhq/jan-api-remotes/client'
+import { captureFailure, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type { HostObservable } from '@janhq/jan-client-ui-slots'
 import type { ScheduleDeleteResult, ScheduleId, ScheduleRecord } from '@janhq/jan-schedule/client'
 
 /** How one deletion settled; the wiring reports it as a transient notice. */
-export type CatalogDeleteOutcome = 'deleted' | 'failed' | 'pending'
+export type CatalogDeleteOutcome = 'deleted' | 'pending' | { readonly failure: FailureDetails }
 
 /** Query and mutation state exposed to a catalog component. */
 export interface CatalogSnapshot<Item extends { readonly id: ScheduleId } = ScheduleRecord> {
@@ -151,19 +152,20 @@ export function createCatalogSource<Item extends { readonly id: ScheduleId } = S
     let result: RemoteResult<ScheduleDeleteResult>
     try {
       result = await deps.remove(id)
-    } catch (_error: unknown) {
+    } catch (error) {
       // A rejected deletion does not establish that the durable record changed.
       if (started === lifecycle) {
         publish({ ...snapshot, deleting: snapshot.deleting.filter(value => value !== id) })
       }
-      return 'failed'
+      return { failure: captureFailure('schedule.delete', error) }
     }
-    if (started !== lifecycle) return result.ok ? 'deleted' : 'failed'
+    const outcome = result.ok ? 'deleted' : { failure: captureFailure('schedule.delete', result.error) }
+    if (started !== lifecycle) return outcome
     publish({ ...snapshot, deleting: snapshot.deleting.filter(value => value !== id) })
     // The deletion changed the authoritative state, so the acknowledgement reads
     // again rather than joining a read that may have been sent before it.
     if (result.ok) await refresh(true)
-    return result.ok ? 'deleted' : 'failed'
+    return outcome
   }
   return {
     hooks: {
