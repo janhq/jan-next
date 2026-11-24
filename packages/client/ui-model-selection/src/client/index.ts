@@ -213,6 +213,49 @@ function argumentSelectionOf(state: ModelDirectoryState, argument: string): Mode
   return groups.length === 1 && groups[0] !== undefined ? selectionOf(state, rowId(groups[0].id, argument)) : undefined
 }
 
+/** The current model's catalog entry, or undefined when it is unselected or not loaded. */
+function currentModelOf(state: ModelDirectoryState): ModelCatalogModel | undefined {
+  const current = state.current
+  if (current === null) return undefined
+  return state.groups.find(group => group.id === current.provider)?.models.find(model => model.id === current.model)
+}
+
+/**
+ * Inline `/effort` suggestions: the current model's levels in catalog order,
+ * the active one marked, filtered by id or name prefix.
+ * @param state - the session's directory snapshot.
+ * @param query - typed argument text.
+ * @param t - model namespace translator.
+ * @returns level options; empty when the model has no adjustable effort.
+ */
+function effortOptionsOf(state: ModelDirectoryState, query: string, t: TranslateNS<'model'>): CommandArgumentOption[] {
+  const reasoning = currentModelOf(state)?.reasoning
+  if (reasoning === undefined) return []
+  const active = state.current?.reasoningEffort ?? reasoning.defaultEffort
+  const needle = query.toLowerCase()
+  return reasoning.efforts
+    .filter(level => level.id.toLowerCase().startsWith(needle) || level.name.toLowerCase().startsWith(needle))
+    .map(level => ({ value: level.id, label: level.name, ...level.id === active ? { description: t('effortCommand.label') } : {} }))
+}
+
+/**
+ * Resolve a typed `/effort` argument to the current model with that level.
+ * @param state - the session's directory snapshot.
+ * @param argument - level id or display name, case-insensitive.
+ * @param t - model namespace translator for the failure text.
+ * @returns the selection to submit.
+ * @throws when the model has no adjustable effort or the level is unknown.
+ */
+function effortSelectionOf(state: ModelDirectoryState, argument: string, t: TranslateNS<'model'>): ModelSelection {
+  const current = state.current
+  const reasoning = currentModelOf(state)?.reasoning
+  if (current === null || reasoning === undefined || reasoning.efforts.length === 0) throw new Error(t('effortCommand.unsupported'))
+  const needle = argument.trim().toLowerCase()
+  const level = reasoning.efforts.find(item => item.id.toLowerCase() === needle || item.name.toLowerCase() === needle)
+  if (level === undefined) throw new Error(t('effortCommand.unknown', { effort: argument.trim() }))
+  return { provider: current.provider, model: current.model, reasoningEffort: level.id }
+}
+
 /**
  * Resolve a picked row back to its model selection by matching against the loaded
  * groups (the same data the rows were built from — ids stay opaque).
@@ -388,6 +431,35 @@ export function apply(ctx: ClientContext): void {
         },
       },
     }), 'ui-model-selection: /model contribution')
+    // `/effort high` changes only the thinking level of the chat's current model.
+    scope.effect(() => command.register({
+      name: 'effort',
+      label: () => t('effortCommand.label'),
+      description: () => t('effortCommand.description'),
+      icon: IconDataOutlineRegular,
+      available: session => sessions.subagentAddress(session.sessionId) === undefined,
+      arguments: {
+        complete: async (query, session) => effortOptionsOf(await directoryFor(session.sessionId).load(), query, t),
+        ordered: true,
+        run: async (argument, session) => {
+          const directory = directoryFor(session.sessionId)
+          return select(directory, effortSelectionOf(await directory.load(), argument, t))
+        },
+      },
+      ui: {
+        kind: 'popupSelect',
+        searchLabels: () => ({ placeholder: t('effortCommand.description'), empty: t('effortCommand.unsupported'), noResults: t('search.empty') }),
+        options: async (session) => {
+          const state = await directoryFor(session.sessionId).load()
+          const active = state.current?.reasoningEffort ?? currentModelOf(state)?.reasoning?.defaultEffort
+          return effortOptionsOf(state, '', t).map(option => ({ id: option.value, label: option.label, ...option.value === active ? { active: true } : {} }))
+        },
+        onSelect: async (option, session) => {
+          const directory = directoryFor(session.sessionId)
+          await select(directory, effortSelectionOf(directory.store.getSnapshot(), option.id, t))
+        },
+      },
+    }), 'ui-model-selection: /effort contribution')
   })
 
   ctx.inject(['slots', 'modelDirectories'], (scope: ClientContext) => {

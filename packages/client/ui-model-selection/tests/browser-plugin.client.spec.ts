@@ -116,13 +116,18 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
       set: (id: SessionId, block: { reason: string } | undefined) => { blocks.set(id, block) },
     },
   })
-  let contribution: CommandContribution | undefined
+  const contributions = new Map<string, CommandContribution>()
   ctx.provide('commandUi', {
     register(c: CommandContribution) {
-      contribution = c
-      return () => { contribution = undefined }
+      contributions.set(c.name, c)
+      return () => { contributions.delete(c.name) }
     },
   })
+  const contributionOf = (name: string): CommandContribution => {
+    const found = contributions.get(name)
+    if (found === undefined) throw new Error(`/${name} is not registered`)
+    return found
+  }
   const seats = new Map<string, {
     inject: ((sessionId: SessionId) => ModelSelectInjected) | undefined
     locale: string | undefined
@@ -184,9 +189,10 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
   }
   return {
     ctx, fiber, mint, calls, remote, track,
-    contribution: () => contribution!,
+    contribution: () => contributionOf('model'),
+    command: contributionOf,
     popup: (): PopupSelectSpec => {
-      const ui = contribution!.ui
+      const ui = contributionOf('model').ui
       if (ui.kind !== 'popupSelect') throw new Error('expected the popupSelect kind')
       return ui
     },
@@ -242,6 +248,12 @@ describe('ui-model-selection dual entry', () => {
     })
     await args.run('tokamak-1-pro', session)
     expect(b.hostCurrent()).toEqual({ provider: 'example', model: 'tokamak-1-pro', reasoningEffort: 'high' })
+    // `/effort` keeps the model and changes only its level, by id or by name.
+    const effort = b.command('effort').arguments!
+    expect((await effort.complete('m', session, new AbortController().signal)).map(option => option.value)).toEqual(['max'])
+    await effort.run('Max', session)
+    expect(b.hostCurrent()).toEqual({ provider: 'example', model: 'tokamak-1-pro', reasoningEffort: 'max' })
+    await expect(effort.run('turbo', session)).rejects.toThrow('Unknown effort "turbo"')
     expect(await complete('')).toContainEqual({
       value: 'external/tokamak-1-preview', label: 'External Flash', group: 'External Provider', starred: false,
     })
