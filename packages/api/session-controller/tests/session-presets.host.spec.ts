@@ -52,6 +52,8 @@ interface HarnessOptions {
   readonly workspace?: { readonly members: readonly SessionId[]; readonly archived: readonly SessionId[] }
   /** Roster default per provider route, below the first preset. */
   readonly routeDefaults?: Readonly<Record<string, string>>
+  /** Scoped-settings defaults of the Workspace's project; omitted, no scoped settings are composed. */
+  readonly project?: { readonly model?: { provider: string; model: string }; readonly mode?: string }
 }
 
 const WORKSPACE = 'workspace-1' as WorkspaceId
@@ -138,9 +140,19 @@ async function harness(options: HarnessOptions = {}) {
   ctx.provide('workspaceRegistry', {
     get: (id: WorkspaceId) => id === WORKSPACE ? workspace : undefined,
     list: () => [workspace],
+    resolveByPath: (path: string) => Promise.resolve(path === cwd ? workspace : undefined),
     ensureDefault: () => Promise.resolve(workspace),
     archivedSessionIds: archived,
   } as never)
+  if (options.project !== undefined) {
+    const { model, mode } = options.project
+    const inProject = (sessionId: SessionId, hint?: WorkspaceId): boolean =>
+      (hint ?? (sessionIds.includes(sessionId) ? WORKSPACE : undefined)) === WORKSPACE
+    ctx.provide('scopedSettings', {
+      resolveModel: (sessionId: SessionId, hint?: WorkspaceId) => inProject(sessionId, hint) ? model : undefined,
+      resolveMode: (workspaceId: WorkspaceId | undefined) => Promise.resolve(workspaceId === WORKSPACE ? mode : undefined),
+    } as never)
+  }
 
   /** Enter the Session for setup, then announce creation as the Agent factory does. */
   const publish = async (
@@ -788,5 +800,46 @@ describe('session.create Workspace placement', () => {
     expect(created.value.sessionId).not.toBe('placed-draft')
     expect(selections).toEqual([])
     expect(presetOf(draft)).toBe('minimal')
+  })
+})
+
+describe('session.create project defaults from scoped settings', () => {
+  const project = { model: { provider: 'local', model: 'small' }, mode: 'chat' }
+  const routeOf = (ctx: Context, id: SessionId) => ctx.agents.get(id)?.model.current()
+
+  it.each([
+    { name: 'by project id', place: () => ({ workspaceId: WORKSPACE }) },
+    { name: 'by project folder', place: (cwd: string) => ({ cwd }) },
+  ])('starts a chat in the project on its model and mode $name, and the mode stays when the model changes', async ({ place }) => {
+    const { ctx, remote, cwd, presetOf, selectedEvents } = await harness({ presets: ['standard', 'chat'], project })
+    const sessionId = SessionId('in-project')
+
+    expect((await remote.create({ sessionId, ...place(cwd) })).ok).toBe(true)
+
+    expect(routeOf(ctx, sessionId)).toMatchObject(project.model)
+    expect(presetOf(sessionId)).toBe('chat')
+    expect(selectedEvents(sessionId)).not.toContainEqual(expect.objectContaining({ source: 'route-default' }))
+    expect((await remote.selectModel({ sessionId, provider: 'test', model: 'test-model' })).ok).toBe(true)
+    expect(routeOf(ctx, sessionId)).toMatchObject({ provider: 'test', model: 'test-model' })
+    expect(presetOf(sessionId)).toBe('chat')
+  })
+
+  it('keeps a requested preset over the project mode', async () => {
+    const { remote, presetOf } = await harness({ presets: ['standard', 'chat'], project })
+
+    await remote.create({ sessionId: SessionId('named'), workspaceId: WORKSPACE, agentPreset: 'standard' })
+
+    expect(presetOf(SessionId('named'))).toBe('standard')
+  })
+
+  it('starts a chat outside the project on the global model and route default', async () => {
+    const { ctx, remote, presetOf } = await harness({ presets: ['standard', 'chat'], project })
+    const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-elsewhere-')))
+    tempDirs.push(elsewhere)
+
+    await remote.create({ sessionId: SessionId('outside'), cwd: elsewhere })
+
+    expect(routeOf(ctx, SessionId('outside'))).toMatchObject({ provider: 'test', model: 'test-model' })
+    expect(presetOf(SessionId('outside'))).toBe('standard')
   })
 })

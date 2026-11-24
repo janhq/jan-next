@@ -100,6 +100,9 @@
       "path": "../../preset/agent-preset-registry"
     },
     {
+      "path": "../../settings/scoped-settings/tsconfig.host.json"
+    },
+    {
       "path": "../../session/session-persistence"
     },
     {

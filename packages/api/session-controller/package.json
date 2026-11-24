@@ -95,6 +95,7 @@
     "@janhq/jan-mcp-manager": "workspace:*",
     "@janhq/jan-native-command": "workspace:*",
     "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-scoped-settings": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-session-persistence": "workspace:*",
     "@janhq/jan-session-projection": "workspace:*",
@@ -116,6 +117,9 @@
   },
   "peerDependenciesMeta": {
     "@janhq/jan-mcp-manager": {
+      "optional": true
+    },
+    "@janhq/jan-scoped-settings": {
       "optional": true
     },
     "@janhq/jan-session-persistence": {
@@ -152,6 +156,7 @@
     "@janhq/jan-permission-presets": "workspace:*",
     "@janhq/jan-remote-mock": "workspace:*",
     "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-scoped-settings": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-session-persistence": "workspace:*",
     "@janhq/jan-session-persistence-jsonl": "workspace:*",

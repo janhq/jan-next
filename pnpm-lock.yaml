@@ -2220,6 +2220,9 @@ importers:
       '@janhq/jan-scope':
         specifier: workspace:*
         version: link:../../core/scope
+      '@janhq/jan-scoped-settings':
+        specifier: workspace:*
+        version: link:../../settings/scoped-settings
       '@janhq/jan-session':
         specifier: workspace:*
         version: link:../../core/session

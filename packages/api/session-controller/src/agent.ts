@@ -3,10 +3,12 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, stat } from 'node:fs/promises'
 import type { Context } from '@janhq/cordis'
-import type { Agent, AgentOptions, AgentSetup } from '@janhq/jan-agent'
+import type { Agent, AgentOptions, AgentSetup, ModelSelection } from '@janhq/jan-agent'
 import type {} from '@janhq/jan-agent-default-model'
 import { installModelSelection } from '@janhq/jan-agent'
 import type {} from '@janhq/jan-agent-preset-registry'
+import { ReasoningEffortId } from '@janhq/jan-llm'
+import type {} from '@janhq/jan-scoped-settings'
 import { brandString } from '@janhq/jan-brand'
 import type { Session, SessionId } from '@janhq/jan-session'
 import { SessionQueryError, type SessionObservation } from '@janhq/jan-session-query'
@@ -213,10 +215,12 @@ export class ApiSessionAgentController {
 
   /**
    * Create a Session for a new conversation, reusing the named blank Session
-   * while it is still reusable. A reused Session runs the requested preset, or
-   * the default for the Session's model provider when the request names none; the preset it recorded
-   * is not resolved, and a change is logged as `agent-preset/selected` before
-   * the Agent is published. A named Session that has started a turn, fails the
+   * while it is still reusable. A reused Session runs the requested preset, else
+   * its project's mode from scoped settings, else the default for the Session's
+   * model provider; the preset it recorded is not resolved, and a change is
+   * logged as `agent-preset/selected` before the Agent is published. A project
+   * mode is recorded as the Session's own pick, so a later model change keeps it.
+   * A named Session that has started a turn, fails the
    * caller's placement rule, or is written by another owner stays unchanged,
    * and a new Session is created instead. The named Session's directory and
    * ownership are checked before resolving the preset.
@@ -228,9 +232,34 @@ export class ApiSessionAgentController {
    * @throws ApiSessionPresetConflict when no roster is composed and the request names a preset for a reused Session.
    */
   async createSession(request: ApiSessionCreateRequest): Promise<ApiSessionCreated> {
-    const named = request.sessionId
-    if (named === undefined) return this.created(await this.createMinted(request))
-    return this.created(await this.claim(named, request))
+    const placed = await this.withProjectMode(request)
+    const named = placed.sessionId
+    if (named === undefined) return this.created(await this.createMinted(placed))
+    return this.created(await this.claim(named, placed))
+  }
+
+  /** A request that names no preset starts in its project's mode while that preset exists. */
+  private async withProjectMode(request: ApiSessionCreateRequest): Promise<ApiSessionCreateRequest> {
+    const scoped = this.ctx.get('scopedSettings')
+    if (request.agentPreset !== undefined || scoped === undefined) return request
+    const mode = await scoped.resolveMode(await this.projectOf(request))
+    return mode === undefined ? request : { ...request, agentPreset: mode }
+  }
+
+  /**
+   * Project a new conversation joins: the requested one, else the one that owns its folder.
+   * @param request - the creation request.
+   * @returns the project, or undefined outside every project or without scoped settings.
+   */
+  private async projectOf(request: ApiSessionCreateRequest): Promise<WorkspaceId | undefined> {
+    if (request.workspaceId !== undefined || this.ctx.get('scopedSettings') === undefined) return request.workspaceId
+    try {
+      return (await this.ctx.workspaceRegistry.resolveByPath(request.cwd))?.id
+    } catch (error: unknown) {
+      // The folder may not exist yet: `createAgent` creates it.
+      if (error instanceof Error && 'code' in error && (error.code === 'ENOENT' || error.code === 'ENOTDIR')) return undefined
+      throw error
+    }
   }
 
   /**
@@ -313,7 +342,7 @@ export class ApiSessionAgentController {
     }
     return (await this.ctx.agents.resume({
       resumeSessionId: sessionId,
-      agentOptions: this.agentOptions(),
+      agentOptions: this.agentOptions(sessionId),
       setup: composition.setup,
     })).agent
   }
@@ -355,7 +384,7 @@ export class ApiSessionAgentController {
     try {
       return (await this.ctx.agents.resume({
         resumeSessionId: sessionId,
-        agentOptions: this.agentOptions(),
+        agentOptions: this.agentOptions(sessionId, await this.projectOf(request)),
         setup: this.reuseSetup(explicit),
       })).agent
     } catch (error: unknown) {
@@ -448,8 +477,10 @@ export class ApiSessionAgentController {
   }
 
   private async createAgent(sessionId: SessionId, request: ApiSessionCreateRequest): Promise<Agent> {
+    const project = await this.projectOf(request)
+    const options = this.agentOptions(sessionId, project)
     const composition = request.agentPreset === undefined
-      ? await this.composeRouteDefault(undefined)
+      ? await this.composeRouteDefault(options.provider)
       : await this.composeAgent(request.agentPreset)
     const routeDefault = request.agentPreset === undefined ? composition.agentPreset : undefined
     const { cwd, workspaceId } = request
@@ -473,7 +504,7 @@ export class ApiSessionAgentController {
     }
     return (await this.ctx.agents.create({
       sessionId,
-      agentOptions: this.agentOptions(),
+      agentOptions: options,
       meta: {
         cwd,
         ...(composition.agentPreset === undefined ? {} : { agentPreset: composition.agentPreset }),
@@ -491,13 +522,24 @@ export class ApiSessionAgentController {
     return this.composeAgent(presets?.defaultFor(provider ?? this.ctx.agentDefaultModel.currentSelection().provider))
   }
 
-  private agentOptions(): AgentOptions {
-    const defaults = this.ctx.agentDefaultModel
-    // A Session that records no selection or request follows default changes.
+  /**
+   * Model route a Session follows until it records its own selection or request:
+   * its project's model from scoped settings, else the global default.
+   * @param sessionId - the Session.
+   * @param project - the project a Session being created joins; an existing Session is found by id.
+   * @returns live accessors, read again on every request.
+   */
+  private agentOptions(sessionId: SessionId, project?: WorkspaceId): AgentOptions {
+    const current = (): ModelSelection => {
+      const scoped = this.ctx.get('scopedSettings')?.resolveModel(sessionId, project)
+      if (scoped === undefined) return this.ctx.agentDefaultModel.currentSelection()
+      const { provider, model, reasoningEffort } = scoped
+      return { provider, model, ...reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(reasoningEffort) } }
+    }
     return {
-      get provider() { return defaults.currentSelection().provider },
-      get model() { return defaults.currentSelection().model },
-      get reasoningEffort() { return defaults.currentSelection().reasoningEffort },
+      get provider() { return current().provider },
+      get model() { return current().model },
+      get reasoningEffort() { return current().reasoningEffort },
     }
   }
 
