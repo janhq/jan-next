@@ -350,7 +350,7 @@ it('opens, pages, navigates and streams into a 240-turn browser history', async 
     try {
       const replayOverride = join(root, 'reply.json')
       await writeFile(replayOverride, JSON.stringify([{ kind: 'chunks', chunks: syntheticReply() }]))
-      const scaffold = await launchWebScaffold({ replayFixture: join(root, 'override-only.jsonl'), replayOverride, paceMs: PACE_MS, replayContextWindow: 10000000 })
+      const scaffold = await launchWebScaffold({ developerTools: true, replayFixture: join(root, 'override-only.jsonl'), replayOverride, paceMs: PACE_MS, replayContextWindow: 10000000 })
       try {
         const history = syntheticHistory()
         await seedSession(scaffold, history, SESSION_ID)

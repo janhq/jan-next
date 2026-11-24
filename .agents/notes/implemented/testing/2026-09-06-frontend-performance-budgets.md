@@ -117,6 +117,12 @@ Local macOS arm64 measurements on Node 26.8.2 give these elapsed medians. The ti
 
 All four cases reject accumulated trimming and pass with cached visibility. Retained heap remains approximately 2.8/9.9 MiB for the two fragment counts, below the 20 MiB limit derived from a 16 MiB allowance. Maximum worker RSS across these samples falls from 185.70 to 89.36 MiB; it is a whole-process diagnostic, not aggregate application memory. This endpoint measures local assembly with one final publication, excluding network, browser rendering and Trajectory. Separate browser regressions cover settlement, cancellation, retry, reload, reopening and blank reasoning without asserting a browser speedup.
 
+### Client fold and scroll profile
+
+On Apple M4 with Node 25.9.0, three fresh plain-Node workers folding a 1,200-event window with 500,000 compact delta members reported a 4.5 ms baseline and a 4.2 ms updated median for the large fold. Streaming 16,384 reasoning deltas took 28.15 ms before and 24.36 ms after in three separate workers. Fixture materialization dominates full-process CPU profiles; these timings cover the fold after setup, not snapshot validation or browser paint.
+
+The private browser scaffold enables Developer Tools so the Trajectory endpoint remains in the measured workflow. Chromium CPU profiles attributed about 14% of non-idle samples to scroll metrics during anchor preservation, where the first layout read can flush the new transcript. Keeping that read synchronous preserves the first-frame scroll correction after prepends. No browser speedup was established; Playwright accessibility queries also accounted for substantial renderer CPU in this profile.
+
 ## Alternatives considered
 
 **Use the Node fold as paint evidence.** Rejected because it never performs DOM mutation, layout, or browser scheduling. The focused reconnect case likewise makes no GUI speed claim.
