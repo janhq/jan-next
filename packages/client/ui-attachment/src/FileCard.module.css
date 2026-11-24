@@ -117,12 +117,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .remove {
-    transition: none;
-  }
-}
-
 .card:focus-within .name {
   padding-right: 18px;
 }
@@ -171,5 +165,16 @@
 @media (hover: none), (pointer: coarse) {
   .remove {
     opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .remove {
+    transition: none;
+  }
+
+  .spinner,
+  .progressBar {
+    animation: none;
   }
 }
