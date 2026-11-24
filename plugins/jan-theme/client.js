@@ -617,7 +617,7 @@ window.__ModuleLoader__.load({
             onClose: () => setComposioMode(null),
             onSaved: () => { setComposioMode(null); setError(''); setNotice(''); void refresh().catch(() => {}) },
           }),
-          h('details', { className: 'jt-agent-note' }, h('summary', null, 'MCP servers, skills, plugins and agent presets'), h('p', null, 'MCP servers provide tools. Skills provide reusable instructions. Plugins add app features through Plugin manager. Agent presets hold saved instructions and working modes.')),
+          h('details', { className: 'jt-agent-note' }, h('summary', null, 'MCP servers, skills, plugins and modes'), h('p', null, 'MCP servers provide tools. Skills provide reusable instructions. Plugins add app features through Plugin manager. Modes hold saved instructions and tools for a way of working.')),
           draft && h(Modal, {
             open: true, title: original ? `Edit ${original}` : 'Add MCP server', closeLabel: 'Close editor', onClose: () => setDraft(null), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Save server', () => run(async () => {
               const { fields, source, ...rest } = draft
