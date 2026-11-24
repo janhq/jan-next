@@ -121,6 +121,47 @@
   color: var(--dsw-alias-label-caption);
 }
 
+.itemRow {
+  display: contents;
+}
+
+.itemDecoration {
+  display: none;
+}
+
+.itemRow:has(.itemDecoration [data-slot] > :not([data-slot-error])) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  .item {
+    min-inline-size: 0;
+    overflow: hidden;
+  }
+
+  .itemName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-inline-size: 100%;
+  }
+
+  .itemDesc {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .itemDecoration {
+    display: block;
+    /* Keep the menu's intrinsic width text-driven, even with several avatars. */
+    contain: inline-size;
+    flex: 0 0 36%;
+    max-inline-size: 96px;
+    margin-inline-start: auto;
+    pointer-events: none;
+  }
+}
+
 /* Menu rows carry the name over its description: the id alone never said what
    a preset does, which is why the metadata exists. */
 .item {

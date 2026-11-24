@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
   IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
 } from '@janhq/jan-client-ui-primitives'
@@ -73,6 +73,7 @@ function introStaggerMs(count: number): number {
 /** Full component props. */
 export type AgentPresetSeatProps =
   PropsRuntime<'conversation.hero.agentPreset'>
+  & PropsRenderFactories
   & PropsLocale<'settings.agentPreset'>
   & InjectFace<AgentPresetSeatInjected>
 
@@ -82,7 +83,8 @@ export type AgentPresetSeatProps =
  * @returns The chip and any pending selection refusal, or null outside the main view.
  */
 export function AgentPresetSeat({
-  sessionId, useSessionRetainInfo, load, select, dismissRefusal, introduced, useAgentPresetSeat, useDeveloperTools, useModeActions, t,
+  sessionId, useSessionRetainInfo, load, select, dismissRefusal, introduced,
+  useAgentPresetSeat, useDeveloperTools, useModeActions, renderFactorySlot, t,
 }: AgentPresetSeatProps) {
   const developerTools = useDeveloperTools(value => value)
   const state = useAgentPresetSeat(snapshot => snapshot)
@@ -169,7 +171,7 @@ export function AgentPresetSeat({
       {ready && <Menu
         open={open && hasItems}
         onClose={() => { setOpen(false) }}
-        items={modeMenuItems(options, modeActions, t)}
+        items={modeMenuItems(options, modeActions, t, state.current, renderFactorySlot)}
         selectedId={state.current}
         onSelect={(id) => {
           setOpen(false)

@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
   IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
 } from '@janhq/jan-client-ui-primitives'
@@ -49,6 +49,7 @@ export interface AgentPresetLabelInjected {
 /** Full component props. */
 export type AgentPresetLabelProps =
   PropsRuntime<'conversation.composer.agentPreset'>
+  & PropsRenderFactories
   & PropsLocale<'settings.agentPreset'>
   & InjectFace<AgentPresetLabelInjected>
 
@@ -61,7 +62,7 @@ const REFUSAL_HOLD_MS = 8000
  * @returns the control, or null when the session records no preset.
  */
 export function AgentPresetLabel({
-  sessionId, useSessions, useAgentPresets, useDeveloperTools, useModeActions, load, select, t,
+  sessionId, useSessions, useAgentPresets, useDeveloperTools, useModeActions, load, select, renderFactorySlot, t,
 }: AgentPresetLabelProps) {
   const preset = useSessions((state) => {
     const value = state.byId[sessionId]?.projectionValues?.agentPreset
@@ -106,7 +107,7 @@ export function AgentPresetLabel({
       <Menu
         open={open && !running}
         onClose={() => { setOpen(false) }}
-        items={modeMenuItems(choices, modeActions, t)}
+        items={modeMenuItems(choices, modeActions, t, preset, renderFactorySlot)}
         selectedId={preset}
         onSelect={(id) => {
           setOpen(false)
