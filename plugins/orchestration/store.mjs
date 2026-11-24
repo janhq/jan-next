@@ -16,15 +16,19 @@ export function newId(prefix) {
   return id
 }
 
+// Retention first drops the oldest delivered messages, then the oldest held
+// ones (reports for an archived coordinator), and never other pending ones.
 function trim(messages) {
   let excess = messages.length - MAX_MESSAGES
-  if (excess <= 0) return
-  let kept = 0
-  for (const message of messages) {
-    if (excess > 0 && message.delivered) excess--
-    else messages[kept++] = message
+  for (const drop of [message => message.delivered, message => message.held]) {
+    if (excess <= 0) return
+    let kept = 0
+    for (const message of messages) {
+      if (excess > 0 && drop(message)) excess--
+      else messages[kept++] = message
+    }
+    messages.length = kept
   }
-  messages.length = kept
 }
 
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -66,16 +70,18 @@ export async function openStore(path, logger) {
   }
   state.peerAcks ??= {}
   let tail = Promise.resolve()
+  // The latest write's failure, if it failed. Every mutation rewrites the whole
+  // state, so the next successful write also persists what a failed one missed.
   let writeError
   return {
     read: () => state,
     mutate(fn) {
       const result = tail.then(async () => {
-        if (writeError) throw writeError
         const value = fn(state)
         trim(state.messages)
         try {
           await write()
+          writeError = undefined
         } catch (error) {
           writeError = error
           throw error

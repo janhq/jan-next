@@ -138,9 +138,21 @@ export async function apply(ctx) {
   const launches = new Map()
   const stopping = new Map()
 
+  // A report for a deleted coordinator can never be delivered, so it is retired
+  // like a delivered one. An archived coordinator may be restored: its reports
+  // stay pending and are delivered on a later start, but are marked held so
+  // retention can reclaim them once the message cap is reached.
+  async function retire(message) {
+    await store.mutate(() => { message.delivered = true; message.retired = true })
+  }
+
   async function deliverToCoordinator(message, control) {
     const task = store.read().tasks[message.taskId]
-    if (!task || message.delivered || ctx.workspaceRegistry.archivedSessionIds.includes(task.coordinator)) return
+    if (!task || message.delivered) return
+    if (ctx.workspaceRegistry.archivedSessionIds.includes(task.coordinator)) {
+      if (!message.held) await store.mutate(() => { message.held = true })
+      return
+    }
     const dispatch = store.read().dispatches[message.dispatchId]
     try {
       const agent = await workers.resolveAgent(task.coordinator)
@@ -148,6 +160,7 @@ export async function apply(ctx) {
       await delivery.send(agent, `orch:${message.id}`, render(task, message, hostName), 'queue', control)
     } catch (error) {
       control.throwIfAborted()
+      if (error.code === 'session/not-found') return retire(message)
       ctx.logger.warn(`Could not deliver orchestration message ${message.id}: ${error.message}`)
       return
     }

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -53,4 +53,29 @@ test('retention discards the oldest delivered messages but never drops undeliver
     state.messages = Array.from({ length: 2001 }, (_, seq) => ({ seq, delivered: false }))
   })
   assert.equal(store.read().messages.length, 2001)
+})
+
+test('retention reclaims held reports after delivered ones', async t => {
+  const { path } = await scratch(t)
+  const store = await openStore(path, console)
+  await store.mutate(state => {
+    for (let seq = 1; seq <= 2003; seq++) state.messages.push({ seq, delivered: seq === 1, held: seq <= 3 })
+  })
+  assert.deepEqual(store.read().messages.slice(0, 2).map(message => message.seq), [4, 5])
+  assert.equal(store.read().messages.length, 2000)
+})
+
+test('a later mutation persists state after a failed write', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async t => {
+  const { directory, path } = await scratch(t)
+  const store = await openStore(path, console)
+  await chmod(directory, 0o500)
+  try {
+    await assert.rejects(store.mutate(state => { state.tasks.a = { id: 'a' } }))
+    await assert.rejects(store.flush())
+  } finally {
+    await chmod(directory, 0o700)
+  }
+  await store.mutate(state => { state.tasks.b = { id: 'b' } })
+  await store.flush()
+  assert.deepEqual(Object.keys((await openStore(path, console)).read().tasks), ['a', 'b'])
 })

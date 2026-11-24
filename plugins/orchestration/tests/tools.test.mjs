@@ -45,7 +45,8 @@ export async function fakeHost(t, { home, name = 'control', peers, register } = 
     agents: { get: id => agents.get(id), withoutInitiator: fn => fn() },
     sessionController: {
       create: async () => ({ sessionId: agent(`worker-${++nextSession}`).id }),
-      resolveAgent: async id => agents.has(id) ? { agent: agents.get(id) } : { error: new Error(`No session ${id}`) },
+      resolveAgent: async id => agents.has(id) ? { agent: agents.get(id) }
+        : { error: Object.assign(new Error(`session "${id}" not found`), { code: 'session/not-found' }) },
       rename: async ({ sessionId, title }) => { agents.get(sessionId).title = title },
     },
     sessionPersistence: {
@@ -169,5 +170,16 @@ if (process.argv[1] === import.meta.filename) {
     const { tasks: [after] } = await host.call('tasks', {})
     assert.equal(after.undelivered, 0)
     assert.match(host.notifications.find(item => item.id === host.coordinator.id).text, /STATUS: Draft ready\./)
+  })
+
+  test('retires reports for a deleted coordinator so retention can reclaim them', async t => {
+    const host = await fakeHost(t)
+    await host.start()
+    const { tasks: [a] } = await host.call('start', { tasks: [task('A')] })
+    host.agents.delete(host.coordinator.id)
+    await host.call('report', { message: 'Draft ready.' }, host.agents.get(a.sessionId))
+    const { tasks: [after] } = await host.call('tasks', {})
+    assert.equal(after.undelivered, 0)
+    assert.equal(host.notifications.filter(item => item.id === host.coordinator.id).length, 0)
   })
 }
