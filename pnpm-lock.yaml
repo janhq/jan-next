@@ -13837,6 +13837,9 @@ importers:
       '@janhq/jan-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
+      zod:
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~

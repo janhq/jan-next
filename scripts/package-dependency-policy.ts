@@ -99,6 +99,10 @@ const PEER_REQUIRED_HOST_EXPORTS = {
   '@janhq/jan-agent': ['assembleContextFor'],
   '@janhq/jan-llm': ['createAssistantMessage', 'createSystemMessage'],
   '@janhq/jan-system-prompt': ['joinContextSections', 'renderContextSections', 'renderPrompt'],
+  // The /context breakdown must add up to the composer meter's figure, so it estimates with the Host's token-meter copy.
+  '@janhq/jan-token-meter/estimate': ['ROLE_OVERHEAD', 'estimateContent'],
+  // Project defaults apply the same Coding Tools rule the Host's preset roster shows.
+  '@janhq/jan-agent-preset-registry/display': ['requiresCodingTools'],
   '@janhq/jan-scope': ['carrierKeyOf', 'createScope', 'scopeOf', 'scopeTarget'],
   // The launch snapshot belongs to the Host's own instance; remotes reads it to name the local computer.
   '@janhq/jan-launch-environment': ['launchEnvironmentOf', 'launchedThroughSsh'],

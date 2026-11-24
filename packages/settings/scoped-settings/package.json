@@ -71,6 +71,7 @@
   "license": "MIT",
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent-preset-registry": "workspace:*",
     "@janhq/jan-mcp-client": "workspace:*"
   },
   "dependencies": {

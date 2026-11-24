@@ -66,16 +66,13 @@
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-agent": "workspace:*",
-    "@janhq/jan-compaction": "workspace:*",
-    "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-mcp-client": "workspace:*",
-    "@janhq/jan-session": "workspace:*",
     "@janhq/jan-system-prompt": "workspace:*",
-    "@janhq/jan-token-meter": "workspace:*",
-    "@janhq/jan-tools": "workspace:*"
+    "@janhq/jan-token-meter": "workspace:*"
   },
   "dependencies": {
-    "@janhq/jan-typert-protocol": "workspace:*"
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@janhq/cordis": "workspace:~",
