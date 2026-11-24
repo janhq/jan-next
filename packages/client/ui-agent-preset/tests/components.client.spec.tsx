@@ -21,6 +21,8 @@ import type { AgentPresetSettingsState } from '../src/client/settings-store.ts'
 import type { AgentPresetSeatState } from '../src/client/seat-store.ts'
 import { en } from '../src/client/locales.ts'
 import { registerModeDecoration } from '../src/client/mode-actions.tsx'
+// Type-only: the emitted declarations drop this augmentation import, so the test pulls it in itself.
+import type {} from '../src/client/slot-contract.ts'
 
 afterEach(cleanup)
 
