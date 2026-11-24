@@ -2,6 +2,8 @@
  * The JSON operation route the plain-JS Jan plugins share: one same-origin
  * `POST /jan-api/<feature>` endpoint per feature, `{ method, params }` in and
  * `{ result }` or `{ error }` out, behind the connection's own request check.
+ * An operation error answers 400 unless it carries its own 4xx or 5xx
+ * `status`; a 5xx tells the caller the failure is temporary and worth retrying.
  */
 
 const MIB = 1024 * 1024
@@ -41,7 +43,8 @@ export function registerApi(ctx, feature, methods, { maxBodyBytes = MIB } = {}) 
         const result = await methods[method](params)
         send(res, 200, { result: result ?? null })
       } catch (error) {
-        send(res, 400, { error: error instanceof Error ? error.message : String(error) })
+        const status = Number.isInteger(error?.status) && error.status >= 400 && error.status < 600 ? error.status : 400
+        send(res, status, { error: error instanceof Error ? error.message : String(error) })
       }
     },
   })
