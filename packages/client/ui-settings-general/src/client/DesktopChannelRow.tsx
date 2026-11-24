@@ -51,7 +51,7 @@ export function DesktopChannelToast({ useChannel, dismiss, openConfiguration, t 
   PropsRuntime<'shell.overlay'> & PropsLocale<'settings'> & InjectFace<DesktopChannelToastInjected>) {
   const notice = useChannel(value => value.notice)
   if (notice === undefined) return null
-  return <Toast key={notice.sequence} text={t(`desktop.channel.result.${notice.outcome}`)}
+  return <Toast key={notice.sequence} text={t(`desktop.channel.result.${notice.outcome}`)} failure={notice.failure}
     {...notice.outcome === 'configuration' ? { holdMs: 10_000,
       actions: [{ label: t('desktop.channel.details'), onClick: openConfiguration }] } : {}}
     onDone={() => { dismiss(notice.sequence) }} {...notice.outcome === 'applied' ? { tone: 'success' as const } : { icon: <IconWarningOutlineRegular /> }} />

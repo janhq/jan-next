@@ -1,8 +1,9 @@
 /** One shell-owned channel subscription shared by Settings views and their toast. */
 import { createSnapshotStore } from '@janhq/jan-client-store'
+import { captureFailure, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type { DesktopChannelBridge, DesktopChannelState, DesktopUpdateChannel, DesktopChannelChangeResult } from '../types.ts'
 
-type Notice = { sequence: number; outcome: 'configuration' | 'applied' | Extract<DesktopChannelChangeResult, { kind: 'failed' }>['reason'] }
+type Notice = { sequence: number; outcome: 'configuration' | 'applied' | Extract<DesktopChannelChangeResult, { kind: 'failed' }>['reason']; failure?: FailureDetails }
 /** Actual shell state, optimistic selection and transient operation feedback. */
 export interface DesktopChannelSnapshot {
   state?: DesktopChannelState
@@ -39,7 +40,8 @@ export class DesktopChannelSource {
     const ownSaveFailure = previous.pending !== undefined || previous.notice?.outcome === 'uncertain'
     const notify = !ownSaveFailure && state.error !== undefined && state.error !== 'cleanup' && state.error !== previous.state?.error
     this.store.set({ ...previous, state, failed: false,
-      ...(notify ? { notice: { sequence: ++this.sequence, outcome: 'configuration' as const } } : {}),
+      ...(notify ? { notice: { sequence: ++this.sequence, outcome: 'configuration' as const,
+        failure: captureFailure('desktop.channel.configure', { code: state.error }) } } : {}),
     })
   }
 
@@ -56,12 +58,14 @@ export class DesktopChannelSource {
     const { notice: _notice, ...previous } = this.store.getSnapshot()
     this.store.set({ ...previous, pending: channel })
     let result: DesktopChannelChangeResult | undefined
+    let failure: FailureDetails | undefined
     try {
       result = await this.bridge.set(channel)
-    } catch (_error) {
-      // An IPC failure has no reliable user-facing detail or confirmed new selection.
+    } catch (error) {
+      failure = captureFailure('desktop.channel.select', error)
     }
     if (!this.isLive()) return
+    if (result?.kind === 'failed') failure = captureFailure('desktop.channel.select', { code: result.reason })
     const accept = result !== undefined && revision === this.revision
     if (accept) this.revision++
     const { pending: _pending, ...current } = this.store.getSnapshot()
@@ -69,7 +73,8 @@ export class DesktopChannelSource {
       ...current,
       ...(accept && result !== undefined ? { state: result.state, failed: false } : {}),
       ...(result?.kind === 'unchanged' ? {} : {
-        notice: { sequence: ++this.sequence, outcome: result?.kind === 'applied' ? 'applied' as const : result?.kind === 'failed' ? result.reason : 'save' as const },
+        notice: { sequence: ++this.sequence, outcome: result?.kind === 'applied' ? 'applied' as const : result?.kind === 'failed' ? result.reason : 'save' as const,
+          ...failure === undefined ? {} : { failure } },
       }),
     })
   }
