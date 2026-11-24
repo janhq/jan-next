@@ -1,5 +1,6 @@
 /** Prepare a symlink-free executable runtime payload with shared workspace module instances. */
-import { cp, lstat, readFile, readdir, realpath, rm, unlink } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { cp, glob, lstat, readFile, readdir, realpath, rm, unlink } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { load } from 'js-yaml'
 
@@ -100,4 +101,24 @@ export async function materializeStagedLinks(staging: string): Promise<void> {
     })
     remaining = await findSymlink(nodeModules)
   }
+}
+
+/** Third-party test and editor-history directory names that no runtime import reaches. */
+const DEPENDENCY_TEST_DIRECTORIES = '{test,tests,__tests__,.history}'
+
+/**
+ * Delete third-party test and editor-history directories from the payload to keep the runtime
+ * wheel under PyPI's file-size limit. Jan packages and directories that are package roots stay.
+ * @param staging - Symlink-free deployed payload root.
+ */
+export async function pruneDependencyTestDirectories(staging: string): Promise<void> {
+  const directories: string[] = []
+  for await (const entry of glob(`node_modules/**/${DEPENDENCY_TEST_DIRECTORIES}`, {
+    cwd: staging, withFileTypes: true, exclude: ['node_modules/@janhq/**'],
+  })) {
+    const path = join(entry.parentPath, entry.name)
+    if (entry.isDirectory() && !existsSync(join(path, 'package.json'))) directories.push(path)
+  }
+  const outermost = directories.filter(path => !directories.some(other => path.startsWith(other + sep)))
+  await Promise.all(outermost.map(path => rm(path, { recursive: true, force: true })))
 }
