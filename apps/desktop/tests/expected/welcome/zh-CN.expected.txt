@@ -1,7 +1,8 @@
-DeepSeek Harness
-DeepSeek Harness
-欢迎使用 DeepSeek Harness
+Jan
+Jan
+欢迎使用 Jan
 组装无限可能，共探智能上限
 Download a local model
 登录
 添加 API Key
+稍后配置

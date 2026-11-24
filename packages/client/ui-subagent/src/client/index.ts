@@ -1,23 +1,24 @@
 /** Web subagent catalog, navigation, and addressed-session composer owner. */
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { ComposerChainProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { Context as ClientContext } from '@janhq/cordis'
+import type { SubagentAddress } from '@janhq/jan-subagent/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { ComposerChainProps } from '@janhq/jan-client-ui-conversation/client'
 import { SubagentCatalogAction, SubagentHeaderLineage, type SubagentCatalogInjected, type SubagentCatalogActionInjected } from './SubagentHeaderLineage.tsx'
 import {
   SubagentReadOnlyComposer, type SubagentReadOnlyMatch,
 } from './SubagentReadOnlyComposer.tsx'
+import { TurnSubagents } from './TurnSubagents.tsx'
 import { registerSidebarChat, subagentChatAddress } from './sidebar-chat/index.tsx'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-chat/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-session/client'
+import type {} from '@janhq/jan-client-ui-sidebar-right/client'
+import type {} from '@janhq/jan-client-ui-workspace/client'
 import { en, ja, es, fr, de, ru, pt, NS, zh, type SubagentKey } from './locales.ts'
 export type * from './slots.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Subagent catalog and read-only composer copy. */
     'subagent': SubagentKey
@@ -52,16 +53,14 @@ export function apply(ctx: ClientContext): void {
   ctx.inject(['resources', 'sidebarRightTabs'], (scope) => {
     registerSidebarChat(scope, ctx.locale.bind(NS))
   })
+  const openChildAside = (address: SubagentAddress): void => {
+    ctx.sidebarRight.openResource(subagentChatAddress(address), { kind: 'subagentchat', preferNewPane: true })
+  }
   const catalogActions = (_parentSessionId: SessionId): SubagentCatalogInjected => ({
     openChild(address: SubagentAddress) {
       ctx.uiWorkspace.openSession(address)
     },
-    openChildAside(address: SubagentAddress) {
-      ctx.sidebarRight.openResource(subagentChatAddress(address), {
-        kind: 'subagentchat',
-        preferNewPane: true,
-      })
-    },
+    openChildAside,
     refreshProjection(parentSessionId: SessionId) {
       void ctx.sessions.refreshProjections(parentSessionId)
     },
@@ -79,18 +78,26 @@ export function apply(ctx: ClientContext): void {
     }, SubagentHeaderLineage),
   )
   ctx.slots.inject(
-    'conversation.session.header.actions',
+    'conversation.input.dock',
     () => ctx.slots.register({
-      name: 'conversation.session.header.actions',
+      name: 'conversation.input.dock',
       id: 'subagent-catalog',
-      // Between the preset label (-10) and background tasks (20).
-      order: 10,
+      order: 6,
       locale: NS,
       inject: (sessionId): SubagentCatalogActionInjected => ({
         ...catalogActions(sessionId), hooks: { footerAvailable },
       }),
       children: { 'conversation.session.header.actions.subagent.footer': { kind: 'list', scope: 'session' } },
     }, SubagentCatalogAction),
+  )
+  ctx.slots.inject(
+    'conversation.chat.turn-process.trailing',
+    () => ctx.slots.register({
+      name: 'conversation.chat.turn-process.trailing',
+      id: 'subagents',
+      locale: NS,
+      inject: catalogActions,
+    }, TurnSubagents),
   )
   ctx.slots.inject(
     'conversation.composer',

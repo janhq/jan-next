@@ -1,17 +1,17 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { act, cleanup, fireEvent, isInaccessible, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { allowAllAccess, bindSnapshotSelector, makeTranslate, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import { allowAllAccess, bindSnapshotSelector, makeTranslate, RemoteError } from '@janhq/jan-client-test-runtime'
+import type { RemoteResult } from '@janhq/jan-api-remotes/client'
+import type { SessionListState } from '@janhq/jan-api-session-controller/client'
+import type { WorkspaceSnapshot } from '@janhq/jan-api-workspace-controller/client'
 import type {
   ScheduleDeleteResult, ScheduleId, ScheduleCatalogEntry, ScheduleDeliveryReceipt,
-} from '@deepseek-ai/dsh-schedule/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+} from '@janhq/jan-schedule/client'
+import type { SessionId } from '@janhq/jan-session/types'
 import { TaskManagerPage, type TaskManagerPageProps } from '../src/client/TaskManagerPage.tsx'
 import { createEditorStore } from '../src/client/editor-store.ts'
 import { TaskManagerIcon } from '../src/client/TaskManagerIcon.tsx'
@@ -554,7 +554,7 @@ describe('Task manager catalog', () => {
 
   it('lists cross-session active records by target time without unsupported actions', () => {
     mount()
-    expect(screen.getByRole('heading', { level: 1, name: 'Automation tasks' })).toBeDefined()
+    expect(screen.getByRole('heading', { level: 1, name: 'Scheduled tasks' })).toBeDefined()
     expect(taskNames()).toEqual(['Send summary', 'Review release', 'Check metrics'])
     expect(screen.queryByText(alpha)).toBeNull()
     expect(screen.queryByText(beta)).toBeNull()
@@ -816,21 +816,11 @@ describe('Task manager catalog', () => {
     expect(within(statuses).getByRole('button', { name: en['statusFilter.all'] }).getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('renders a decorative document-and-clock illustration in an empty catalog', () => {
+  it('renders a decorative scheduled-task glyph in an empty catalog', () => {
     mount({ records: [], status: 'ready' })
-    const illustration = screen.getByRole('status').querySelector('svg')
-    expect(illustration?.getAttribute('aria-hidden')).toBe('true')
-    expect(illustration?.getAttribute('focusable')).toBe('false')
-    expect(illustration?.getAttribute('viewBox')).toBe('0 0 170 170')
-    const paths = illustration?.querySelectorAll('path')
-    expect(paths).toHaveLength(20)
-    // Roles follow the approved artwork's paint order, including overlapping paper and clock layers.
-    expect(paths?.[0]?.getAttribute('fill')).toBe('var(--dsw-alias-illustration-background)')
-    expect(paths?.[2]?.getAttribute('fill')).toBe('var(--dsw-alias-illustration-backing)')
-    expect(paths?.[3]?.getAttribute('fill')).toBe('var(--dsw-alias-illustration-surface)')
-    expect(paths?.[10]?.getAttribute('fill')).toBe('var(--dsw-alias-illustration-shadow)')
-    expect(paths?.[17]?.getAttribute('fill')).toBe('var(--dsw-alias-illustration-detail)')
-    expect(paths?.[18]?.getAttribute('fill')).toBe('var(--dsw-alias-illustration-inset)')
+    const glyph = screen.getByRole('status').querySelector('svg')
+    expect(glyph?.getAttribute('aria-hidden')).toBe('true')
+    expect(glyph?.querySelector('use')?.getAttribute('href')).toBe('#dsw-icon-scheduled-task-outline-regular')
     expect(emptyNewTaskButton().textContent).toBe(en['empty.action'])
   })
 
@@ -1666,7 +1656,7 @@ describe('Task manager details', () => {
 
   it('renders Chinese labels and local time without translating stored user data', () => {
     mount({}, zh)
-    expect(screen.getByRole('heading', { level: 1, name: '自动化任务' })).toBeDefined()
+    expect(screen.getByRole('heading', { level: 1, name: '定时任务' })).toBeDefined()
     expect(screen.getByRole('searchbox', { name: '搜索任务' })).toBeDefined()
     const statuses = screen.getByRole('group', { name: '任务状态' })
     expect(within(statuses).getAllByRole('button')[0]?.textContent).toBe('已开启')
@@ -1696,7 +1686,7 @@ describe('Task manager details', () => {
     h.view.rerender(<TaskManagerPage {...h.props} t={makeTranslate(zh)} />)
     expect(time?.textContent).toBe(absoluteNextRun(at.scheduledAt, zh))
     expect(relativeText(row)).toBe(relativeNextRun(at.scheduledAt, zh))
-    expect(screen.getByRole('heading', { level: 1, name: '自动化任务' })).toBeDefined()
+    expect(screen.getByRole('heading', { level: 1, name: '定时任务' })).toBeDefined()
   })
 
   it('states the next run in the device zone even when the rule stores another one', () => {
@@ -1849,10 +1839,7 @@ describe('Mock detail metrics shared with the task list', () => {
     expect(heading).toMatch(/font-size:\s*14px;/)
     expect(heading).toMatch(/font-weight:\s*400;/)
     expect(rule('emptyGlyph')).toMatch(/margin-bottom:\s*12px;/)
-    expect(rule('emptyIllustration')).toMatch(/width:\s*110px;/)
-    expect(rule('emptyIllustration')).toMatch(/max-width:\s*100%;/)
-    expect(rule('emptyIllustration')).toMatch(/height:\s*auto;/)
-    expect(rule('emptyIllustration')).toMatch(/margin-bottom:\s*12px;/)
+    expect(rule('emptyGlyph')).toMatch(/color:\s*var\(--dsw-alias-label-caption\);/)
     // The mock's `.empty h3 + .btn`.
     expect(rule('emptyAction')).toMatch(/margin-top:\s*16px;/)
   })
@@ -1876,7 +1863,7 @@ describe('Mock detail metrics shared with the task list', () => {
     // The Plugins page's macOS head clearance above that same row inset, so the
     // heading clears the hiddenInset titlebar and keeps the 76px total offset.
     expect(stylesheet).toMatch(
-      /\[data-platform='darwin'\][^{]*\.pageHeading\s*\{[^}]*padding-top:\s*calc\(28px \+ var\(--dsh-frame-top-clearance, 0px\)\);/,
+      /\[data-platform='darwin'\][^{]*\.pageHeading\s*\{[^}]*padding-top:\s*calc\(28px \+ var\(--jan-frame-top-clearance, 0px\)\);/,
     )
     // The column keeps no top inset of its own, on either platform.
     expect(stylesheet).not.toMatch(

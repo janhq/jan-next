@@ -1,12 +1,13 @@
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context } from '@janhq/cordis'
 import type {
   ConversationMatch, ConversationNodeContext, ConversationNodeDefinition, TurnLocation,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type {} from '@deepseek-ai/dsh-llm-retry/types'
-import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
-import { deriveTurnTokenUsage } from '@deepseek-ai/dsh-token-meter/client'
+} from '@janhq/jan-client-ui-conversation/client'
+import { assistantStreamFirstTokenTime, contentChars, measuredDecodeMs } from '@janhq/jan-llm/assistant-stream'
+import type {} from '@janhq/jan-llm-retry/types'
+import type { SessionEvent } from '@janhq/jan-session/types'
+import { deriveTurnTokenUsage } from '@janhq/jan-token-meter/client'
 import type {
-  AssistantChatData, FinalAssistantChatData, TurnTailChatData,
+  AssistantChatData, FinalAssistantChatData, TurnTailChatData, TurnTiming,
 } from '../contract/chat-nodes.ts'
 import { CHAT_SYNTHETIC_SEQ_OFFSETS, chatNode } from './common.ts'
 
@@ -17,7 +18,7 @@ declare module '../contract/chat-nodes.ts' {
   }
 }
 
-declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
+declare module '@janhq/jan-client-ui-conversation/client' {
   interface ConversationTurnDataMap {
     /** Closing Assistant and footer facts derived for this completed Turn. */
     'turn-tail': TurnTailChatData
@@ -60,6 +61,57 @@ function hasText(data: AssistantChatData): data is FinalAssistantChatData {
     && data.blocks.some(block => block.kind === 'text' && block.text.trim() !== '')
 }
 
+function outputTokens(usage: unknown): number | null {
+  if (typeof usage !== 'object' || usage === null) return null
+  const value = (usage as { outputTokens?: unknown }).outputTokens
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
+}
+
+/**
+ * Fold the Turn's durable step events the way the session-stats projection
+ * does, so a reloaded session shows the same figures as the live one: TTFT is
+ * the first step's step/start to first token, speed is output tokens over
+ * first-token-to-message time summed across steps.
+ */
+function turnTiming(events: readonly SessionEvent[]): TurnTiming | undefined {
+  let open: { step: number; start: number; first: number | null } | null = null
+  let ttftMs: number | undefined
+  let decodeMs = 0
+  let decodeTokens = 0
+  for (const event of events) {
+    if (event.type === 'step/start') {
+      open = { step: event.data.step, start: event.time, first: null }
+    } else if (event.type === 'assistant/attempt') {
+      if (open?.step === event.data.step && open.first === null) {
+        open.first = assistantStreamFirstTokenTime(event.data.stream) ?? null
+      }
+    } else if (event.type === 'assistant/message' && open?.step === event.data.step) {
+      const first = open.first ?? assistantStreamFirstTokenTime(event.data.stream) ?? null
+      if (first !== null) {
+        ttftMs ??= Math.max(0, first - open.start)
+        // A cut reply never received its final output count, and a burst-delivered step has no
+        // measurable decode span; leave both out of the speed.
+        const tokens = event.data.interrupted === true ? null : outputTokens(event.data.usage)
+        const span = tokens === null ? undefined : measuredDecodeMs({
+          stepStartTime: open.start, firstTokenTime: first, completedTime: event.time,
+          outputTokens: tokens, streamedChars: contentChars(event.data.message.content),
+        })
+        if (tokens !== null && span !== undefined) {
+          decodeMs += span
+          decodeTokens += tokens
+        }
+      }
+      open = null
+    }
+  }
+  const tokensPerSecond = decodeMs > 0 && decodeTokens > 0 ? decodeTokens / (decodeMs / 1_000) : undefined
+  if (ttftMs === undefined && tokensPerSecond === undefined) return undefined
+  return {
+    ...ttftMs === undefined ? {} : { ttftMs },
+    ...tokensPerSecond === undefined ? {} : { tokensPerSecond },
+  }
+}
+
 function tailData(context: ConversationNodeContext<TurnTailState>): TurnTailChatData | null {
   const end = context.state === undefined
     ? context.matches.find(match => match.event.type === 'turn/end')
@@ -87,9 +139,13 @@ function tailData(context: ConversationNodeContext<TurnTailState>): TurnTailChat
       latestTranscriptSeq = candidate
     }
   }
-  const tokenUsage = context.start?.event.type === 'turn/start'
-    ? deriveTurnTokenUsage(context.matches.map(match => match.event).filter(isSessionEvent))
+  // Both folds need the whole Turn: a window that starts mid-Turn would
+  // undercount usage and time a later step as the first.
+  const events = context.start?.event.type === 'turn/start'
+    ? context.matches.map(match => match.event).filter(isSessionEvent)
     : undefined
+  const tokenUsage = events === undefined ? undefined : deriveTurnTokenUsage(events)
+  const timing = events === undefined ? undefined : turnTiming(events)
   return {
     turn: end.event.data.turn,
     seq: end.event.seq,
@@ -97,6 +153,7 @@ function tailData(context: ConversationNodeContext<TurnTailState>): TurnTailChat
     closing,
     branchUnavailable: closing === null || latestTranscriptSeq !== closing.finalNode.seq,
     ...tokenUsage === undefined ? {} : { tokenUsage },
+    ...timing === undefined ? {} : { timing },
   }
 }
 

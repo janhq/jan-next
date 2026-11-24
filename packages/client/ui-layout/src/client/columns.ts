@@ -7,14 +7,26 @@
 /** Resolved widths for one frame. */
 export interface Columns { sidebar: number; center: number; rightbar: number }
 
+/** Sidebar width contract: drag range and the width reopened from closed. */
+export interface SidebarBounds {
+  /** Width restored when the sidebar reopens, and the untouched preference. */
+  readonly defaultWidth: number
+  /** Drag clamp floor. */
+  readonly minWidth: number
+  /** Drag clamp ceiling. */
+  readonly maxWidth: number
+}
+
 /** Center width protected while the normal right column is open. */
 export const CENTER_MIN = 400
 /** Sidebar drag clamp floor. */
 export const SIDEBAR_MIN = 264
 /** Sidebar drag clamp ceiling. */
 export const SIDEBAR_MAX = 420
-/** Sidebar width before any user drag. */
+/** Sidebar width preference before any user drag. */
 export const SIDEBAR_DEFAULT = 280
+/** Default width contract: the store starts here and callers may reconfigure it. */
+export const SIDEBAR_BOUNDS: SidebarBounds = { defaultWidth: SIDEBAR_DEFAULT, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }
 /** Closed-sidebar rail: a 24px icon column between 16px horizontal paddings. */
 export const SIDEBAR_COLLAPSED = 56
 /** Frame width below which the sidebar overlays the main content without a rail. */
@@ -49,13 +61,15 @@ export function clampWidth(px: number, min: number, max: number): number {
  * @param collapsedWidth - track width of the closed sidebar; the default keeps
  *   the icon rail, 0 hides the column entirely (macOS desktop).
  * @param centeredSidebar - place an expanded sidebar's edge at the frame midpoint.
+ * @param bounds - configured sidebar width contract; omission keeps the module defaults.
  * @returns actual widths after shrinking or removing the right track; only
  *   without that track may the center fall below its minimum, down to zero.
  */
 export function computeColumns(
   viewport: number, sidebar: number, rightbar: number, collapsedWidth = SIDEBAR_COLLAPSED, centeredSidebar = false,
+  bounds: SidebarBounds = SIDEBAR_BOUNDS,
 ): Columns {
-  const s = sidebar === 0 ? collapsedWidth : centeredSidebar ? viewport / 2 : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
+  const s = sidebar === 0 ? collapsedWidth : centeredSidebar ? viewport / 2 : clampWidth(sidebar, bounds.minWidth, bounds.maxWidth)
   const available = viewport - s - CENTER_MIN
   const r = rightbar === 0 || available < RIGHTBAR_MIN
     ? 0

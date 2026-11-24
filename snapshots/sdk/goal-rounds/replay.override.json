@@ -48,9 +48,9 @@
             },
             "replayState": {
               "response": {
-                "kind": "deepseek-messages",
+                "kind": "tokamak-messages",
                 "version": 1,
-                "model": "deepseek-v4-flash"
+                "model": "tokamak-1-preview"
               },
               "blocks": [
                 {

@@ -2,9 +2,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderReasoningSlot as renderSlot, unusedImageLoader } from './reasoning-component-fixture.tsx'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
-import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { bindSnapshotSelector, makeTranslate } from '@janhq/jan-client-test-runtime'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import { zh } from '../src/client/locale.ts'
 import { AssistantMarkdown, type AssistantMarkdownProps } from '../src/client/chat/AssistantMarkdown.tsx'
 import { useDetailedPresentation } from './presentation-fixture.client.ts'
@@ -78,7 +78,7 @@ describe('AssistantMarkdown reasoning blocks', () => {
     const tailToggle = toggles[1]!
     const tailRow = tailToggle.closest('[data-variant="think"]')
     expect(tailRow?.getAttribute('data-state')).toBe('running')
-    expect(view.queryByText(tail.text)).toBeNull()
+    expect(view.getByText(tail.text)).toBeTruthy()
     fireEvent.click(tailToggle)
     expect(view.getByText(tail.text)).toBeTruthy()
     expect(earlierToggle.getAttribute('aria-expanded')).toBe('true')
@@ -98,10 +98,16 @@ describe('AssistantMarkdown reasoning blocks', () => {
 
   it.each(['Partial thought', '', ' \t\r\n'])('retains the stopped marker with blank reasoning around %j', (text) => {
     const blocks = ['', text, ' \t\r\n'].map(text => ({ kind: 'reasoning' as const, text }))
-    const view = render(<AssistantMarkdown {...props} blocks={blocks} groupPart="reasoning" streaming={false} interrupted />)
+    const view = render(<AssistantMarkdown {...props} blocks={blocks} groupPart="reasoning" streaming={false} interrupted="stopped" />)
     expect(view.queryAllByRole('button')).toHaveLength(text.trim() === '' ? 0 : 1)
     expect(view.getByText(t('message.stopped'))).toBeTruthy()
     expect(view.queryByText('运行中')).toBeNull()
+  })
+
+  it('marks a reply cut by a steer as interrupted, not stopped', () => {
+    const view = render(<AssistantMarkdown {...props} blocks={[{ kind: 'text', text: 'Half an answer' }]} streaming={false} interrupted="steered" />)
+    expect(view.getByText(t('message.interrupted'))).toBeTruthy()
+    expect(view.queryByText(t('message.stopped'))).toBeNull()
   })
 
   it('keeps non-blank rows and their expanded bodies across modes, excluding them from the response part', () => {
@@ -150,26 +156,21 @@ describe('ReasoningRow', () => {
   })
 
   it.each([
-    ['', ''],
-    ['An unfinished line', ''],
-    ['A completed first line\nUnfinished continuation', 'A completed first line'],
-    ['First\nSecond\nThird\n', 'First'],
-    ['First\n\nNext unfinished', 'First'],
-    ['First\n\nNext complete\nDetails', 'Next complete'],
-    ['First\n\n\nNext complete\n', 'Next complete'],
-    ['First\n \n\t\nNext complete\nDetails', 'Next complete'],
-    ['First\r\n\r\n\r\nNext complete\r\n', 'Next complete'],
-    ['First\r\n \r\n\t\r\nNext complete\r\nDetails', 'Next complete'],
-    ['First\n\n\nNext unfinished', 'First'],
-    ['\n\n\nFirst complete\n', 'First complete'],
-    ['First\r\n \t\r\nNext complete\r\n', 'Next complete'],
-    ['First\n\n\n', 'First'],
-  ])('previews the completed paragraph first line for %j', (text, summary) => {
+    ['First\nSecond\nThird', 'Third'],
+    ['First\n\nNewest unfinished\n \t\n', 'Newest unfinished'],
+    ['First\r\n  **Check\t  boundaries**  \r\n\t\r\n', 'Check boundaries'],
+    ['First\n**\n', 'First'],
+  ])('previews the last non-blank streaming line for %j', (text, summary) => {
     const view = render(<ReasoningRow renderSlot={renderSlot} useDisclosure={useDisclosure}
       text={text} running usePresentation={useDetailedPresentation} t={t} />)
-    const root = view.container.querySelector('[data-variant="think"]')!
-    expect(root.querySelector('[class*="summaryText"]')?.textContent).toBe(summary)
-    expect(root.hasAttribute('data-preview')).toBe(summary !== '')
+    expect(view.getByText(summary, { normalizer: value => value })).toBeTruthy()
+    expect(view.getByRole('button', { expanded: false })).toBeTruthy()
+  })
+
+  it('does not show a preview when the streaming text is only Markdown emphasis markers', () => {
+    const view = render(<ReasoningRow renderSlot={renderSlot} useDisclosure={useDisclosure}
+      text={' **\n\t'} running usePresentation={useDetailedPresentation} t={t} />)
+    expect(view.getByRole('button', { name: '思考', expanded: false })).toBeTruthy()
   })
 
   it('retains summaries and expanded Markdown when the work-details mode changes', () => {
@@ -244,60 +245,33 @@ describe('ReasoningRow', () => {
     expect(view.getByRole('button').getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('advances on completed paragraph first lines, then restores the settled first line', () => {
-    const view = render(
-      <AssistantMarkdown renderSlot={renderSlot} useDisclosure={useDisclosure} useGroupAction={useSearchableHidden}
-        usePresentation={useDetailedPresentation}
-        t={t}
-        blocks={[{ kind: 'reasoning', text: 'Inspect the session\nDetails\n\nNewest reasoning tokens\n' }]}
-        streaming
-        loadImage={unusedImageLoader}
-      />,
-    )
-    expect(view.getByText('运行中')).toBeTruthy()
-    expect(view.getByRole('button').getAttribute('aria-expanded')).toBe('false')
-    expect(view.getByText('Newest reasoning tokens').closest('[data-streaming]')?.getAttribute('data-streaming'))
-      .toBe('true')
-
-    view.rerender(
-      <AssistantMarkdown renderSlot={renderSlot} useDisclosure={useDisclosure} useGroupAction={useSearchableHidden}
-        usePresentation={useDetailedPresentation}
-        t={t}
-        blocks={[{ kind: 'reasoning', text: 'Inspect the session\nDetails\n\nNewest reasoning tokens\nMore details\n\nChecking boundaries' }]}
-        streaming
-        loadImage={unusedImageLoader}
-      />,
-    )
-    expect(view.getByText('Newest reasoning tokens').closest('[data-streaming]')
-      ?.getAttribute('data-streaming')).toBe('true')
-    expect(view.queryByText('Checking boundaries')).toBeNull()
-
-    const text = 'Inspect the session\nDetails\n\nNewest reasoning tokens\nMore details\n\nChecking boundaries\n'
-    view.rerender(
+  it('updates the live preview before a line ends, then restores the settled first line', () => {
+    const assistant = (text: string, streaming: boolean) => (
       <AssistantMarkdown renderSlot={renderSlot} useDisclosure={useDisclosure} useGroupAction={useSearchableHidden}
         usePresentation={useDetailedPresentation}
         t={t}
         blocks={[{ kind: 'reasoning', text }]}
-        streaming
+        streaming={streaming}
         loadImage={unusedImageLoader}
-      />,
+      />
     )
+    const view = render(assistant('Planning the layout', true))
+    expect(view.getByText('Planning the layout')).toBeTruthy()
+
+    const firstLine = 'Planning the layout and colors'
+    view.rerender(assistant(firstLine, true))
+    expect(view.getByText(firstLine)).toBeTruthy()
+    expect(view.queryByText('Planning the layout')).toBeNull()
+
+    const text = `${firstLine}\nChecking boundaries`
+    view.rerender(assistant(text, true))
     expect(view.getByText('Checking boundaries')).toBeTruthy()
-    expect(view.queryByText('Newest reasoning tokens')).toBeNull()
+    expect(view.queryByText(firstLine)).toBeNull()
 
-    view.rerender(
-      <AssistantMarkdown renderSlot={renderSlot} useDisclosure={useDisclosure} useGroupAction={useSearchableHidden}
-        usePresentation={useDetailedPresentation}
-        t={t}
-        blocks={[{ kind: 'reasoning', text }]}
-        streaming={false}
-        loadImage={unusedImageLoader}
-      />,
-    )
-    const settledSummary = view.getByText('Inspect the session')
-    expect(view.getByRole('button').getAttribute('aria-expanded')).toBe('false')
-    expect(view.queryByText('运行中')).toBeNull()
-    expect(settledSummary.closest('[data-streaming]')).toBeNull()
+    view.rerender(assistant(text, false))
+    expect(view.getByText(firstLine)).toBeTruthy()
+    expect(view.queryByText('Checking boundaries')).toBeNull()
+    expect(view.getByRole('button', { expanded: false })).toBeTruthy()
   })
 
   it('expands from either Think or the reasoning summary', () => {

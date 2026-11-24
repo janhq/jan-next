@@ -6,15 +6,15 @@
  * roster's Connection, and it survives a Loader rebuild of the declarer.
  */
 import { describe, expect, onTestFinished, vi } from 'vitest'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { createClientTest, type TestClient, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import { createClientTest, type TestClient, webApp } from '@janhq/jan-client-test-runtime/src/assembly/index.ts'
 import { inject } from '../src/client/index.ts'
 import type { SettingsRootInjected } from '../src/client/shell-contract.ts'
 import { SettingsRoot } from '../src/client/SettingsRoot.tsx'
 import type { DesktopUpdatePresentation } from '../src/types.ts'
 
-const SELF = '@deepseek-ai/dsh-client-ui-settings-general'
-const SIDEBAR = '@deepseek-ai/dsh-client-ui-sidebar'
+const SELF = '@janhq/jan-client-ui-settings-general'
+const SIDEBAR = '@janhq/jan-client-ui-sidebar'
 const it = createClientTest({ roster: webApp })
 const withoutSettingsAccess = createClientTest({ roster: webApp }, { access: action => action !== 'settings/describe' })
 /** The whole roster's first boot pays the cold module transform of every plugin package. */
@@ -47,7 +47,7 @@ const PRODUCT_SECTIONS: readonly string[] = ['general', 'models', 'plugins', 'ag
 /** Onboarding steps the web-app roster registers, in coordinator order; both come from ui-settings-models. */
 const PRODUCT_ONBOARDING: readonly { id: string; order: number }[] = [
   { id: 'welcome-notice', order: -100 },
-  { id: 'deepseek-official', order: 0 },
+  { id: 'get-started', order: 0 },
 ]
 
 describe('ui-settings-general shell', () => {
@@ -57,7 +57,7 @@ describe('ui-settings-general shell', () => {
     const off = vi.fn()
     const subscribe = vi.fn((listener: typeof publish) => { publish = listener; return off })
     const open = vi.fn(async () => {})
-    vi.stubGlobal('dshDesktop', { protocolVersion: 1, updates: { status: () => initial.promise, subscribe, open } })
+    vi.stubGlobal('janDesktop', { protocolVersion: 1, updates: { status: () => initial.promise, subscribe, open } })
     onTestFinished(() => { vi.unstubAllGlobals(); initial.resolve({ phase: 'idle' }) })
     const c = await start()
     const row = injectedOf(c)
@@ -88,9 +88,21 @@ describe('ui-settings-general shell', () => {
     for (const name of CHILD_NAMES) expect(c.ctx.slots.spec(name)).toEqual(CHILD_SPECS[name])
   }, COLD_BOOT_TIMEOUT_MS)
 
+  it('opens the registered Models section through the client navigation service', async ({ start }) => {
+    const c = await start()
+    const decl = c.ctx.slots.entries('sidebar.settings')[0]!.store!
+    const instance = (typeof decl === 'function' ? decl() : decl).create()
+    expect(c.ctx.settingsNavigation.availability.getSnapshot()).toBe(true)
+    expect(instance.getSnapshot()).toMatchObject({ open: false })
+    expect(c.ctx.settingsNavigation.open('models')).toBe(true)
+    expect(instance.getSnapshot()).toMatchObject({ open: true, activeId: 'models' })
+  }, COLD_BOOT_TIMEOUT_MS)
+
   withoutSettingsAccess('leaves sidebar.settings unoccupied while the current Peer may not read the settings description', async ({ start }) => {
     const c = await start()
     expect(c.ctx.slots.entries('sidebar.settings')).toEqual([])
+    expect(c.ctx.settingsNavigation.availability.getSnapshot()).toBe(false)
+    expect(c.ctx.settingsNavigation.open('models')).toBe(false)
   }, COLD_BOOT_TIMEOUT_MS)
 
   it('projects the section ledger: product sections in order, defaults for bare rows, stable snapshots', async ({ start }) => {

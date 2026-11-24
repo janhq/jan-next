@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
-import { Context } from '@deepseek-ai/cordis'
-import { createScope, scopeOf } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { Context } from '@janhq/cordis'
+import { createScope, scopeOf } from '@janhq/jan-api-session-controller/client'
+import type { ToolCallId } from '@janhq/jan-llm'
+import type { SessionId } from '@janhq/jan-session/types'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { ApprovalCard } from '../src/client/ApprovalCard.tsx'
 import { ApprovalWarning } from '../src/client/ApprovalWarning.tsx'
-import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { FactoryComponentPropsOf } from '@deepseek-ai/dsh-client-ui-slots'
+import { Modal } from '@janhq/jan-client-ui-primitives'
+import type { FactoryComponentPropsOf } from '@janhq/jan-client-ui-slots'
 import { ApprovalPanel } from '../src/client/ApprovalPanel.tsx'
 import type { ApprovalCardInput, ApprovalComposerProps, ApprovalInjected } from '../src/client/contract/slots.ts'
 import { PendingApproval } from '../src/client/contract/slots.ts'
@@ -36,23 +36,26 @@ interface PluginBench {
   readonly disposeLocale: ReturnType<typeof vi.fn>
   readonly register: ReturnType<typeof vi.fn>
   readonly injectSlot: ReturnType<typeof vi.fn>
+  readonly registerFactory: Mock
   readonly shortcuts: ReturnType<typeof vi.fn<(entry: { label: () => string }) => () => void>>
   releasePending(): Promise<void>
   registration(): {
     options: {
-      select(props: { pendingInteraction: PendingApproval | undefined }): PendingApproval | null
       inject(): ApprovalInjected
     }
     component: unknown
   }
 }
 
-async function setupPlugin(): Promise<PluginBench> {
+async function setupPlugin({ binding, catalog, execute }: {
+  binding?: (sessionId: SessionId) => unknown
+  catalog?: () => Promise<unknown>
+  execute?: (sessionId: SessionId, line: string, attachments: readonly unknown[]) => Promise<unknown>
+} = {}): Promise<PluginBench> {
   const ctx = new Context()
   let listener: ApprovalListener | undefined
   let registration: {
     options: {
-      select(props: { pendingInteraction: PendingApproval | undefined }): PendingApproval | null
       inject(): ApprovalInjected
     }
     component: unknown
@@ -79,16 +82,19 @@ async function setupPlugin(): Promise<PluginBench> {
     const dispose = ctx.effect(() => mount())
     return () => { void dispose() }
   })
+  if (catalog !== undefined) ctx.provide('remote.permissionPresets', { catalog } as never)
+  if (execute !== undefined) ctx.provide('remote.commands', { execute } as never)
   ctx.provide('remote', {
-    $on: (_event: string, callback: ApprovalListener) => {
-      listener = callback
-      return () => {}
+    $on: (event: string, callback: ApprovalListener) => {
+      if (event === 'approval/request') listener = callback
+      return () => { }
     },
   } as never)
-  ctx.provide('sessions', { scopeOf } as never)
+  ctx.provide('sessions', { scopeOf, binding } as never)
   ctx.provide('uiSession', { registerPendingInteraction } as never)
-  ctx.provide('slots', { inject: injectSlot, register, registerFactory: vi.fn() } as never)
-  const shortcuts = vi.fn((entry: { label: () => string }) => { entry.label(); return () => {} })
+  const registerFactory = vi.fn()
+  ctx.provide('slots', { inject: injectSlot, register, registerFactory } as never)
+  const shortcuts = vi.fn((entry: { label: () => string }) => { entry.label(); return () => { } })
   ctx.provide('shortcuts', { registerFixed: shortcuts } as never)
   ctx.provide('locale', {
     bind: () => (key: string) => key,
@@ -108,6 +114,7 @@ async function setupPlugin(): Promise<PluginBench> {
     disposeLocale,
     register,
     injectSlot,
+    registerFactory,
     shortcuts,
     async releasePending() {
       const delegates = [...pending.values()]
@@ -122,6 +129,18 @@ async function setupPlugin(): Promise<PluginBench> {
 }
 
 const id = (value: string): SessionId => value as SessionId
+
+it('registers the shared card for callers without a Session while preserving scoped tool detail', async () => {
+  const bench = await setupPlugin()
+  try {
+    expect(bench.registerFactory).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'conversation.approval.card', scope: 'session-maybe',
+      children: { 'conversation.approval.detail': { kind: 'single', scope: 'session' } },
+    }), ApprovalCard)
+  } finally {
+    await bench.ctx.fiber.dispose()
+  }
+})
 
 afterEach(() => {
   cleanup()
@@ -225,7 +244,7 @@ describe('approval Remote Event consumer', () => {
     expect(bench.shortcuts.mock.calls.map(([entry]) => entry.label())).toEqual(['allow', 'reject'])
   })
 
-  it('publishes one scoped takeover, returns the answer, and keeps stable registrations', async () => {
+  it('publishes one scoped approval, returns the answer, and keeps stable registrations', async () => {
     const bench = await setupPlugin()
     const scope = createScope(bench.ctx, id('s1'))
     await scope.fiber.await()
@@ -244,8 +263,6 @@ describe('approval Remote Event consumer', () => {
     expect(component).toBe(ApprovalPanel)
     expect(pending.displayReason).toEqual({ en: 'Display reason', zh: '展示原因' })
     expect(options.inject().resolveReason(pending.displayReason!)).toBe('Display reason')
-    expect(options.select({ pendingInteraction: undefined })).toBeNull()
-    expect(options.select({ pendingInteraction: pending })).toBe(pending)
     expect(pending).toMatchObject({
       kind: 'approval',
       sessionId: id('s1'),
@@ -327,6 +344,7 @@ describe('approval Remote Event consumer', () => {
 function panelProps(
   pending: PendingApproval,
   renderSlot: FactoryComponentPropsOf<'conversation.approval.card'>['renderSlot'] = vi.fn(() => null),
+  useAllowAll: ApprovalComposerProps['useAllowAll'] = () => undefined,
 ): ApprovalComposerProps {
   const messages: Record<string, string> = {
     waiting: 'Waiting',
@@ -335,12 +353,20 @@ function panelProps(
     reject: 'Reject',
     allowOnce: 'Allow once',
     allowAlways: 'Always allow',
+    allowAll: 'Allow all in this chat',
+    allowAllHint: 'Switches this chat to Full access',
   }
   return {
-    matched: pending,
-    renderFactorySlot: (_name: string, input: ApprovalCardInput) => <ApprovalCard {...{ ...input, renderSlot,
-      t: (key: string) => messages[key] ?? key } as FactoryComponentPropsOf<'conversation.approval.card'>} />,
+    sessionId: pending.sessionId,
+    useSessionStatus: selector => selector(new Map([[pending.sessionId, {
+      running: true, pendingInteraction: pending, completionUnread: false,
+    }]])),
+    renderFactorySlot: (_name: string, input: ApprovalCardInput) => <ApprovalCard {...{
+      ...input, renderSlot,
+      t: (key: string) => messages[key] ?? key,
+    } as FactoryComponentPropsOf<'conversation.approval.card'>} />,
     resolveReason: (reason: NonNullable<PendingApproval['displayReason']>) => reason.en,
+    useAllowAll,
     t: (key: string) => messages[key] ?? key,
   } as ApprovalComposerProps
 }
@@ -382,6 +408,67 @@ describe('ApprovalPanel', () => {
     expect(document.querySelector('[data-approval-key]')?.getAttribute('aria-busy')).toBe('true')
 
     await expect(pending.result).resolves.toBe('allowed-once')
+  })
+
+  it('switches the chat to Full access before granting, and stays answerable when the switch fails', async () => {
+    const pending = new PendingApproval(id('s1'), { toolName: 'desktop_act' })
+    let fail = true
+    const order: string[] = []
+    const switchAll = vi.fn(async () => {
+      order.push(`switch:${String(pending.answerable)}`)
+      if (fail) throw new Error('no preset')
+    })
+    const allowAll = vi.fn(() => switchAll)
+    render(<ApprovalPanel {...panelProps(pending, undefined, allowAll)} />)
+    expect(allowAll).toHaveBeenCalledWith(pending)
+    const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Allow all in this chat' })
+    expect(button.title).toBe('Switches this chat to Full access')
+
+    fireEvent.click(button)
+    await waitFor(() => { expect(button.disabled).toBe(false) })
+    expect(pending.answerable).toBe(true)
+
+    fail = false
+    fireEvent.click(button)
+    await expect(pending.result).resolves.toBe('allowed-once')
+    expect(order).toEqual(['switch:true', 'switch:true'])
+  })
+
+  it('offers no Allow all when the Session cannot switch presets', () => {
+    render(<ApprovalPanel {...panelProps(new PendingApproval(id('s1'), { toolName: 'bash' }))} />)
+    expect(screen.queryByRole('button', { name: 'Allow all in this chat' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Allow once' })).toBeTruthy()
+  })
+
+  it.each([false, true])('only offers a catalogued Full access preset (available: %s), and requires success', async (available) => {
+    const command = vi.fn(async () => ({ ok: true, value: { matched: true } }))
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ ok: true, value: { result: { kind: 'error', text: 'unknown preset' } } })
+      .mockResolvedValueOnce({ ok: true, value: { result: { kind: 'success' } } })
+    const catalog = vi.fn(async () => ({ ok: true, value: { options: available ? [{ value: 'danger-full-access' }] : [] } }))
+    const selection = { currentValue: 'default' }
+    const permissions = { getSnapshot: () => selection, subscribe: () => () => { } }
+    const session = { projections: { faceOf: () => permissions }, command }
+    const bench = await setupPlugin({ binding: () => ({ session }), catalog, execute })
+    const pending = new PendingApproval(id('s1'), { toolName: 'desktop_act' })
+    try {
+      render(<ApprovalPanel {...panelProps(pending)} {...bench.registration().options.inject()} />)
+      await waitFor(() => { expect(catalog).toHaveBeenCalledOnce() })
+      if (!available) {
+        expect(screen.queryByRole('button', { name: 'Allow all in this chat' })).toBeNull()
+        expect(screen.getByRole('button', { name: 'Allow once' })).toBeTruthy()
+        return
+      }
+      const button = await screen.findByRole<HTMLButtonElement>('button', { name: 'Allow all in this chat' })
+      fireEvent.click(button)
+      await waitFor(() => { expect(button.disabled).toBe(false) })
+      expect(pending.answerable).toBe(true)
+      expect(execute).toHaveBeenCalledWith(id('s1'), '/permission danger-full-access', [])
+      fireEvent.click(button)
+      await expect(pending.result).resolves.toBe('allowed-once')
+    } finally {
+      await bench.ctx.fiber.dispose()
+    }
   })
 
   it('keeps the audit reason intact and follows the UI language for presentation copy', () => {
@@ -468,7 +555,7 @@ describe('ApprovalPanel', () => {
     expect(answer).toHaveBeenCalledExactlyOnceWith('allowed-once')
     await act(async () => { gate.resolve(undefined); await gate.promise })
     pending.abort(new Error('test cleanup'))
-    await pending.result.catch(() => {})
+    await pending.result.catch(() => { })
   })
 
   it('does not settle an aborted request or let its late rejection unlock its replacement', async () => {
@@ -480,13 +567,13 @@ describe('ApprovalPanel', () => {
     group.focus()
     fireEvent.keyDown(group, { key: 'Enter', code: 'Enter' })
     first.abort(new Error('request withdrawn'))
-    await first.result.catch(() => {})
+    await first.result.catch(() => { })
     const second = new PendingApproval(id('s1'), { toolName: 'read' })
     view.rerender(<ApprovalPanel {...panelProps(second)} />)
-    await act(async () => { gate.reject(new Error('late transport failure')); await gate.promise.catch(() => {}) })
+    await act(async () => { gate.reject(new Error('late transport failure')); await gate.promise.catch(() => { }) })
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Reject' }).disabled).toBe(false)
     second.abort(new Error('request withdrawn'))
-    await second.result.catch(() => {})
+    await second.result.catch(() => { })
     const answer = vi.spyOn(second, 'answer')
     group = screen.getByRole('group', { name: 'Approval details' })
     group.focus()
@@ -507,7 +594,7 @@ describe('ApprovalPanel', () => {
     })
     expect(document.querySelector('[data-approval-key]')?.getAttribute('aria-busy')).toBe('false')
     pending.abort(new Error('test cleanup'))
-    await pending.result.catch(() => {})
+    await pending.result.catch(() => { })
   })
 })
 
@@ -519,7 +606,7 @@ describe('package entries', () => {
 })
 
 it.each(['allow', 'reject', 'always', 'keyboard'] as const)('settles a fixed application decision through %s without free text', async (choice) => {
-  const onAllow = vi.fn(async () => {}), onReject = vi.fn(async () => {}), onAlways = vi.fn(async () => {})
+  const onAllow = vi.fn(async () => { }), onReject = vi.fn(async () => { }), onAlways = vi.fn(async () => { })
   const actions = { allow: onAllow, reject: onReject, always: onAlways }
   render(<ApprovalCard {...{
     requestKey: 'app-approval', title: 'Control this app?', description: 'Only for this task.',
@@ -547,10 +634,10 @@ it.each(['allow', 'reject', 'always', 'keyboard'] as const)('settles a fixed app
 })
 
 it('opens and dismisses risk details without answering the approval', () => {
-  const onAllow = vi.fn(async () => {}), onReject = vi.fn(async () => {})
+  const onAllow = vi.fn(async () => { }), onReject = vi.fn(async () => { })
   const props = {
     requestKey: 'risk-approval', title: 'Control this app?',
-    warning: { label: 'Risks', title: 'Computer use risks', detail: 'Background control.\n\nAccount restrictions.\n\nStop in DSH.' },
+    warning: { label: 'Risks', title: 'Computer use risks', detail: 'Background control.\n\nAccount restrictions.\n\nStop in Jan.' },
     canAnswer: () => true, onAllow, onReject, renderSlot: () => null, t: (key: string) => key,
   } as FactoryComponentPropsOf<'conversation.approval.card'>
   const view = render(<ApprovalCard {...props} />)
@@ -580,7 +667,7 @@ it('opens and dismisses risk details without answering the approval', () => {
 
 it('keeps risk details readable across the pointer gap and after a touch tap', () => {
   vi.useFakeTimers()
-  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener() {}, removeEventListener() {} })))
+  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener() { }, removeEventListener() { } })))
   render(<ApprovalWarning warning={{ label: 'Risks', title: 'Computer use risks', detail: 'Background control.' }} />)
   const trigger = screen.getByRole('button', { name: 'Risks' })
   const pointer = (target: Element, type: string, pointerType = 'mouse') => {

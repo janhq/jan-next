@@ -19,7 +19,7 @@ it('keeps the view options menu anchored and dismissible through WebKit window r
   await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
   const anchor = page.getByRole('button', { name: 'View options', exact: true })
   await anchor.click()
-  const menu = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: 'Workspace Tree', exact: true }) })
+  const menu = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: 'Project tree', exact: true }) })
   await menu.waitFor()
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 1200, height: 700 }]) {
     await page.setViewportSize(viewport)
@@ -64,7 +64,7 @@ it('shares menu transparency and blur across palettes and follows native menu bo
   onTestFinished(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: 'en-US' })
   await page.addInitScript(() => {
-    Object.defineProperty(globalThis, 'dshDesktop', { value: { protocolVersion: 1 } })
+    Object.defineProperty(globalThis, 'janDesktop', { value: { protocolVersion: 1 } })
   })
   await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
   const account = page.getByRole('button', { name: 'Account menu', exact: true })

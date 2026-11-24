@@ -18,8 +18,13 @@ const uncoveredLocationsReporter = fileURLToPath(new URL('./scripts/coverage-unc
 // Resolution facade shared by every plugin instance below: tsconfig.base.json
 // has no include, which vite-tsconfig-paths treats as match-all, so its paths
 // map applies to every test file. paths must win over package exports so built
-// lib/ never loads a second module-singleton copy.
-const pathsPlugin = (): ReturnType<typeof tsconfigPaths> => tsconfigPaths({ projects: ['./tsconfig.base.json'] })
+// lib/ never loads a second module-singleton copy. The hand-written JavaScript
+// plugins under plugins/ are workspace source too, so their imports resolve the same way.
+const handWrittenPluginsDir = fileURLToPath(new URL('./plugins/', import.meta.url)).replaceAll('\\', '/')
+const pathsPlugin = (): ReturnType<typeof tsconfigPaths> => tsconfigPaths({
+  projects: ['./tsconfig.base.json'],
+  importerFilter: importer => /\.[mc]?tsx?$/.test(importer) || (importer.startsWith(handWrittenPluginsDir) && /\.m?js$/.test(importer)),
+})
 
 const windowsUnsupportedPackages = process.platform === 'win32'
   ? [
@@ -137,6 +142,7 @@ const pwshCoverageExclusions = spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProf
 const testIncludes = [
   'packages/*/*/tests/**/*.spec.{ts,tsx}',
   'apps/*/tests/**/*.spec.{ts,tsx}',
+  'plugins/*/tests/**/*.spec.{ts,tsx}',
   'scripts/**/*.spec.ts',
   'website/tests/**/*.spec.ts',
 ]
@@ -159,7 +165,7 @@ if (coveragePartitionRaw !== undefined && coveragePartitionRaw !== '' && coverag
 const coveragePartitionMode = coveragePartitionRaw === '1'
 
 // Lanes on shared hosts raise the per-test, hook, and expect.poll defaults
-// together through DSH_COVERAGE_TEST_TIMEOUT_MS; it lands in each inline
+// together through JAN_COVERAGE_TEST_TIMEOUT_MS; it lands in each inline
 // project below because CLI flags do not reach them (coverageTestTimeoutOptions
 // owns the rule and its reach).
 const laneTestBudget = coverageTestTimeoutOptions(process.env[COVERAGE_TEST_TIMEOUT_ENV])
@@ -187,13 +193,16 @@ const claudeCodeTestingAliases = {
   'claude-code': fileURLToPath(new URL('./packages/experimental/claude-code-mods/tests/support/claude-code.ts', import.meta.url)),
 }
 
-// The LiveShare client entry statically imports its generated `./remote` contribution, which exists
-// only in built `lib/` output. On a clean checkout Vite resolves that import while transforming the
-// entry, before `vi.mock` can answer it, so the jsdom assembly suites need a resolvable stand-in.
-const liveshareRemoteBuild = fileURLToPath(new URL('./packages/experimental/liveshare/lib/typert.remote-client.js', import.meta.url))
-const generatedRemoteAliases = existsSync(liveshareRemoteBuild) ? {} : {
-  '@deepseek-ai/dsh-experimental-liveshare/remote': fileURLToPath(new URL('./packages/experimental/liveshare/tests/generated-remote-stub.ts', import.meta.url)),
-}
+// These Client entries statically import a generated `./remote` contribution, which exists only in
+// built `lib/` output. On a clean checkout Vite resolves that import while transforming the entry,
+// before `vi.mock` can answer it, so the jsdom assembly suites need a resolvable stand-in.
+const generatedRemoteStubs = [
+  ['@janhq/jan-experimental-liveshare/remote', './packages/experimental/liveshare'],
+  ['@janhq/jan-api-llama-cpp-controller/remote', './packages/api/llama-cpp-controller'],
+] as const
+const generatedRemoteAliases = Object.fromEntries(generatedRemoteStubs
+  .filter(([, dir]) => !existsSync(fileURLToPath(new URL(`${dir}/lib/typert.remote-client.js`, import.meta.url))))
+  .map(([specifier, dir]) => [specifier, fileURLToPath(new URL(`${dir}/tests/generated-remote-stub.ts`, import.meta.url))]))
 const testingAliases = { ...claudeCodeTestingAliases, ...generatedRemoteAliases }
 
 export default defineConfig({
@@ -202,7 +211,7 @@ export default defineConfig({
   test: {
     ...localWorkerBudget,
     setupFiles: [
-      './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts', './scripts/test-official-listing-guard.ts',
+      './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts',
     ],
     // .tsx: client component specs (jsdom via per-file @vitest-environment pragma).
     include: testIncludes,
@@ -222,7 +231,7 @@ export default defineConfig({
           pool: 'forks',
           ...laneTestBudget,
           setupFiles: [
-            './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts', './scripts/test-official-listing-guard.ts',
+            './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts',
           ],
           include: testIncludes,
           exclude: [
@@ -242,7 +251,7 @@ export default defineConfig({
           pool: 'forks',
           ...laneTestBudget,
           setupFiles: [
-            './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts', './scripts/test-official-listing-guard.ts',
+            './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts',
           ],
           include: processBoundTests,
           exclude: [
@@ -397,7 +406,7 @@ export default defineConfig({
         'packages/client/ui-workspace/src/client/index.ts',
         'packages/test-support/client-runtime/src/translate.ts',
         'packages/client/ui-primitives/src/JsonTree.tsx',
-        'packages/client/ui-settings-models/src/client/DeepSeekOnboardingDialog.tsx',
+        'packages/client/ui-settings-models/src/client/GetStartedDialog.tsx',
         'packages/client/ui-settings-models/src/client/welcome-store.ts',
         'packages/extensions/*/src/**/*.ts',
         'packages/extensions/*/src/**/*.tsx',

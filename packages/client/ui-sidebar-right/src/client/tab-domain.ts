@@ -16,12 +16,12 @@
  * aborted on that commit. The slot framework binds the navigation sources for
  * each record's `useTabInfo` reader.
  */
-import type { Branded } from '@deepseek-ai/dsh-brand'
-import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
-import type { LayoutState, PaneId, TabId, TabRecord } from '@deepseek-ai/dsh-client-ui-dockkit'
-import { findTabPane } from '@deepseek-ai/dsh-client-ui-dockkit'
-import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { Branded } from '@janhq/jan-brand'
+import { randomUUID } from '@janhq/jan-util-crypto'
+import type { LayoutState, PaneId, TabId, TabRecord } from '@janhq/jan-client-ui-dockkit'
+import { findTabPane } from '@janhq/jan-client-ui-dockkit'
+import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
+import type { SessionId } from '@janhq/jan-session/types'
 import type { SidebarRightNavigationParams } from './contract/params.ts'
 import type { SidebarRightTabActions, SidebarRightTabCommands, SidebarRightTabNavigation, SidebarRightTabPlacement } from './contract/slots.ts'
 import type { SidebarRightOpenResourceOptions, SidebarRightOpenTabOptions, SidebarRightPlacement } from './service.ts'
@@ -140,6 +140,15 @@ export class TabDomain {
       return
     }
     existing.navigation.set({ ...target, revision: existing.navigation.getSnapshot().revision + 1 })
+  }
+
+  /**
+   * Drop one session's occurrences, aborting any it still holds.
+   * @param sessionId - the session leaving memory.
+   */
+  forget(sessionId: SessionId): void {
+    for (const occurrence of this.bySession.get(sessionId)?.values() ?? []) occurrence.controller.abort()
+    this.bySession.delete(sessionId)
   }
 
   /** Abort every occurrence of every session; the package is unloading. */

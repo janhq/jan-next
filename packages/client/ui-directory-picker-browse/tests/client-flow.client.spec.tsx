@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import type { DirectoryListing } from '@deepseek-ai/dsh-api-remotes/client'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
-import type { DirectoryFlowOwnerProps } from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { DirectoryListing } from '@janhq/jan-api-remotes/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { usePinnedBrowserLanguages } from '@janhq/jan-client-test-runtime'
+import { DirectoryBrowser, type DirectoryFlowOwnerProps } from '@janhq/jan-client-ui-workspace/client'
 import { apply, inject } from '../src/client/index.ts'
 import { BrowseDirectoryFlow } from '../src/client/flow.ts'
 import { apply as nodeApply } from '../src/index.ts'
@@ -34,7 +34,7 @@ async function bench() {
   ctx.provide('locale', new LocaleRuntime(ctx))
   const listDirectory = vi.fn(async (): Promise<DirectoryListing> => homeListing)
   const createDirectory = vi.fn(async (path: string, name: string) => `${path}/${name}`)
-  ctx.provide('uiWorkspace', { listDirectory, createDirectory } as never)
+  ctx.provide('uiWorkspace', { DirectoryBrowser, listDirectory, createDirectory } as never)
   const slots = ctx.get('slots') as SlotRegistry
   const declare = () => slots.register({
     name: 'root',
@@ -195,6 +195,7 @@ describe('directory-picker-browse client half', () => {
     render(
       <BrowseDirectoryFlow
         {...props}
+        Browser={DirectoryBrowser}
         listDirectory={listDirectory}
         createDirectory={vi.fn(async () => '')}
         t={t}
@@ -214,6 +215,7 @@ describe('directory-picker-browse client half', () => {
     const view = render(
       <BrowseDirectoryFlow
         {...owner({ open: false })}
+        Browser={DirectoryBrowser}
         listDirectory={vi.fn(async () => homeListing)}
         createDirectory={vi.fn(async () => '')}
         t={key => key}

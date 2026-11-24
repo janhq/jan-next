@@ -1,11 +1,11 @@
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import { createUserMessage } from '@janhq/jan-llm'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { Context } from '@deepseek-ai/cordis'
-import { codingHarness, TODO_SYSTEM_PROMPT, waitForIdle } from './harness.ts'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import type { Context } from '@janhq/cordis'
+import { codingHarness, E2E_MODEL, TODO_SYSTEM_PROMPT, waitForIdle } from './harness.ts'
+import { SessionId } from '@janhq/jan-session'
 
 /**
  * A REAL model drives the REAL todo_write tool: verify the WORLD (the session
@@ -23,11 +23,11 @@ afterEach(async () => {
   workdir = undefined
 })
 
-describe.skipIf(!process.env.DEEPSEEK_API_KEY)('todo_write: real model records a plan', () => {
+describe.skipIf(!process.env.TOKAMAK_API_KEY)('todo_write: real model records a plan', () => {
   it('appends a todo/write event with the model-produced task list', async () => {
-    workdir = await mkdtemp(join(tmpdir(), 'dsh-todo-write-e2e-'))
+    workdir = await mkdtemp(join(tmpdir(), 'jan-todo-write-e2e-'))
     ctx = await codingHarness(workdir, { personaPrefix: TODO_SYSTEM_PROMPT })
-    const agent = await ctx.agentLoop.create(SessionId('e2e-todo'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, { cwd: workdir })
+    const agent = await ctx.agentLoop.create(SessionId('e2e-todo'), E2E_MODEL, { cwd: workdir })
 
     agent.followup(createUserMessage({
       content: [{ type: 'text', text:

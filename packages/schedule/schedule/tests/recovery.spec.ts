@@ -2,10 +2,10 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { Context } from '@deepseek-ai/cordis'
-import type { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
-import { JsonStorageBackend } from '@deepseek-ai/dsh-storage-json'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import type { Context } from '@janhq/cordis'
+import type { DomainFacility } from '@janhq/jan-storage-domain'
+import { JsonStorageBackend } from '@janhq/jan-storage-json'
+import { SessionId } from '@janhq/jan-session'
 import { afterEach, beforeEach, expect, it, vi, type MockInstance } from 'vitest'
 import ScheduleService from '../src/index.ts'
 import { scheduleDomain, type ScheduleTask } from '../src/storage.ts'
@@ -31,7 +31,7 @@ afterEach(async () => {
 })
 /** Create a root whose earlier Host store, one whole-unit file, holds the given tasks or bytes. */
 async function rootWith(tasks: Record<string, unknown>, bytes?: string) {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-schedule-recovery-'))
+  const root = await mkdtemp(join(tmpdir(), 'jan-schedule-recovery-'))
   roots.push(root)
   const path = join(root, 'schedule.json')
   if (bytes !== undefined || Object.keys(tasks).length > 0) {
@@ -66,7 +66,7 @@ const repairedTask = {
 
 it.each([
   ['{broken json', 'malformed-medium'],
-  [encoded({ 'a-good': oldTask, 'z-broken': repairedTask }, 3), 'version-mismatch'],
+  [encoded({ 'a-good': oldTask, 'z-broken': repairedTask }, 4), 'version-mismatch'],
   [encoded({ 'a-good': oldTask, 'z-broken': { invalid: true } }), 'invalid-record'],
 ])('rejects startup on an invalid store without writes and reads it after repair %#', async (broken, code) => {
   const { root, path } = await rootWith({}, broken)
@@ -112,7 +112,7 @@ it.each([
 
 it.each([
   ['{broken json', 'malformed-medium'],
-  [3, 'version-mismatch'],
+  [4, 'version-mismatch'],
   [{ status: 'inactive' }, 'invalid-record'],
 ] as const)('rejects startup on an invalid task file without rewriting it and starts after repair %#', async (
   broken,

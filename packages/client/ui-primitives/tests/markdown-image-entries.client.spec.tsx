@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { fileMediaUrl } from '@deepseek-ai/dsh-util-workspace-path'
+import { fileMediaUrl } from '@janhq/jan-util-workspace-path'
 import { MarkdownDelegateProvider } from '../src/markdown/MarkdownDelegate.tsx'
 import { MarkdownText } from './markdown-test-components.tsx'
 import { parseGfm, parseGfmWithMath } from '../src/markdown/parse.ts'
@@ -10,6 +10,17 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks() })
 const fileDrag = { prepare: vi.fn(async () => ({ start: () => true, release: () => {} })), reportFailure: vi.fn() }
 const labels = { dragFailed: 'Image drag failed', open: 'View full image', dialog: 'Image preview', close: 'Close preview', loading: 'Loading image', failed: 'Image unavailable' }
 const fileImages = { fileDrag, resolve: (path: string) => `https://example.com/api/file?path=${encodeURIComponent('/workspace/' + path)}`, labels }
+
+it('gives a settled Markdown image its own action without nesting controls inside links', () => {
+  const imageActions = (getSurface: () => HTMLImageElement | null) => <button type="button"
+    onClick={() => { expect(getSurface()?.alt).toBe('Outside') }}>Image action</button>
+  render(<MarkdownDelegateProvider imageActions={imageActions}>
+    <MarkdownText text={'![Outside](https://example.com/a.png) [![Inside](https://example.com/b.png)](https://example.com)'} />
+  </MarkdownDelegateProvider>)
+  const action = screen.getByRole('button', { name: 'Image action' })
+  expect(action.closest('a')).toBeNull()
+  fireEvent.click(action)
+})
 function mount(text: string, streaming = false) {
   const openFile = vi.fn()
   const view = render(<MarkdownDelegateProvider openFile={openFile} fileImages={fileImages}>
@@ -21,8 +32,8 @@ function mount(text: string, streaming = false) {
 it('loads Desktop inline and hover previews through the file route after streaming settles', () => {
   vi.useFakeTimers()
   const path = '/work/测试 图片#100%.png'
-  const src = fileMediaUrl('dsh-app://app/', path)!
-  const images = { fileDrag, resolve: (value: string) => fileMediaUrl('dsh-app://app/', value), labels }
+  const src = fileMediaUrl('jan-app://app/', path)!
+  const images = { fileDrag, resolve: (value: string) => fileMediaUrl('jan-app://app/', value), labels }
   const text = `![图片](<${encodeURI(path).replace('#', '%23')}>)\n\n[打开图片](<${encodeURI(path).replace('#', '%23')}>)`
   const openFile = vi.fn()
   const content = (streaming: boolean) => <MarkdownDelegateProvider fileImages={images} openFile={openFile}>

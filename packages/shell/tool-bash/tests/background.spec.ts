@@ -1,29 +1,29 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session/types'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime, { TOOL_ABORTED } from '@deepseek-ai/dsh-tools'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import { unsupportedModel, provideWorkingDirectoryFixture, unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
-import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
-import type { JobId } from '@deepseek-ai/dsh-jobs'
-import * as ToolTasks from '@deepseek-ai/dsh-tool-jobs'
-import type { ShellExecution, ShellProcess } from '@deepseek-ai/dsh-shell'
-import { LocalBashExecutor } from '@deepseek-ai/dsh-bash-local'
-import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
-import * as ToolBash from '@deepseek-ai/dsh-tool-bash'
+import { Context } from '@janhq/cordis'
+import { ToolCallId } from '@janhq/jan-llm'
+import { Session, SessionId } from '@janhq/jan-session'
+import { SESSION_FORMAT_VERSION } from '@janhq/jan-session/types'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime, { TOOL_ABORTED } from '@janhq/jan-tools'
+import AgentRegistry from '@janhq/jan-agent'
+import type { Agent } from '@janhq/jan-agent'
+import { unsupportedModel, provideWorkingDirectoryFixture, unsupportedInbox } from '@janhq/jan-agent-loop-testkit'
+import LocalJobRegistry from '@janhq/jan-jobs-local'
+import type { JobId } from '@janhq/jan-jobs'
+import * as ToolTasks from '@janhq/jan-tool-jobs'
+import type { ShellExecution, ShellProcess } from '@janhq/jan-shell'
+import { LocalBashExecutor } from '@janhq/jan-bash-local'
+import LocalSubprocessRuntime from '@janhq/jan-subprocess-local'
+import * as ToolBash from '@janhq/jan-tool-bash'
 import { processSources, ringDelta } from '../src/background.ts'
 import { renderPromoted } from '../src/render.ts'
-import * as BashEnvPlugin from '@deepseek-ai/dsh-shell-env'
+import * as BashEnvPlugin from '@janhq/jan-shell-env'
 
 // Readiness polling stays on wall time while a test controls the execution deadline.
 const pollingTimeout = setTimeout
@@ -32,7 +32,7 @@ const pollingTimeout = setTimeout
 const silentReader = { readFrom: (fromByte: number) => ({ text: '', nextOffset: fromByte, lossy: false }) }
 
 const testToolSignal = new AbortController().signal
-const spillDir = mkdtempSync(join(tmpdir(), 'dsh-tool-bash-background-spec-'))
+const spillDir = mkdtempSync(join(tmpdir(), 'jan-tool-bash-background-spec-'))
 
 /** Job harness with a fast registry pump for tests. */
 async function setup() {
@@ -124,7 +124,7 @@ describe('background bash output', () => {
     const started = await call(ctx, {
       command: 'true',
       description: 'test command',
-      workdir: '/nonexistent-dsh',
+      workdir: '/nonexistent-jan',
       run_in_background: true,
     })
     expect(text(started)).toMatch(/^started background job bash-[0-9a-f]{16}$/)
@@ -423,6 +423,29 @@ describe('foreground commands as jobs', () => {
     expect(warn.mock.calls.map(args => String(args[0])).join('\n')).toContain('job registration refused')
     expect(ctx.jobs.list()).toHaveLength(limit)
     for (const settle of settlers) settle({ status: 'killed' })
+  })
+
+  it('returns at once when the owner yields, keeping the command as a background job', async () => {
+    const ctx = await setup()
+    const yielding = new AbortController()
+    const started = Date.now()
+    const pending = executeToolFixture(ctx, {
+      signal: testToolSignal,
+      yieldSignal: yielding.signal,
+      callId: ToolCallId('background-yield'),
+      name: 'bash',
+      arguments: { command: 'printf "before steer\\n"; sleep 30', description: 'test command', timeoutMs: 20_000 },
+    })
+    const job = await until(() => ctx.jobs.list()[0])
+    await until(() => retainedText(ctx, job.id).includes('before steer') ? true : undefined)
+    yielding.abort()
+    const result = await pending
+    expect(Date.now() - started).toBeLessThan(5_000)
+    expect(result.value).toMatchObject({ kind: 'promoted', jobId: job.id, steered: true })
+    expect(text(result)).toBe(`before steer\n[the user steered while this ran; still running as background job ${job.id}]`)
+    expect(ctx.jobs.get(job.id).status).toBe('running')
+    expect(ctx.jobs.kill(job.id, undefined, 'test cleanup')).toBe('requested')
+    await until(() => ctx.jobs.get(job.id).status === 'killed' ? true : undefined)
   })
 
   it('keeps the plain timeout kill when keeping timed-out commands is configured off', async () => {

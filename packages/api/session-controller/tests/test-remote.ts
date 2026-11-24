@@ -1,15 +1,15 @@
 /** Test-only direct Remote face over the Session Controller's internal controllers. */
 import type { SessionControllerInternals } from '../src/index.ts'
 
-import { SessionLogOffset } from '@deepseek-ai/dsh-session'
-import { Service, type Context } from '@deepseek-ai/cordis'
-import type { ModelSelection as AgentModelSelection } from '@deepseek-ai/dsh-agent'
+import { SessionLogOffset } from '@janhq/jan-session'
+import { Service, type Context } from '@janhq/cordis'
+import type { ModelSelection as AgentModelSelection } from '@janhq/jan-agent'
 import type {
   AdmittedPromptContentPart,
   AttachmentAdmissionPart,
   ImageAttachmentLimits,
-} from '@deepseek-ai/dsh-attachment'
-import type { SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
+} from '@janhq/jan-attachment'
+import type { SessionEvent, SessionHeader, SessionId } from '@janhq/jan-session'
 import type { SessionProjectionsValue } from '../src/types.ts'
 import {
   SessionPersistenceNotFoundError,
@@ -22,16 +22,16 @@ import {
   type SessionPersistenceOpenOptions,
   type SessionPersistenceSnapshot,
   type SessionPersistenceStatOptions,
-} from '@deepseek-ai/dsh-session-persistence'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import SessionQueryEngine from '@deepseek-ai/dsh-session-query'
+} from '@janhq/jan-session-persistence'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import SessionQueryEngine from '@janhq/jan-session-query'
 import { vi } from 'vitest'
 import {
   RemoteError,
   remoteErrorOf,
   type RemoteResult,
-} from '@deepseek-ai/dsh-typert-protocol'
-import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
+} from '@janhq/jan-typert-protocol'
+import RemoteAccessService from '@janhq/jan-api-remote-access'
 import SessionController from '../src/index.ts'
 import type {
   ModelCatalog,

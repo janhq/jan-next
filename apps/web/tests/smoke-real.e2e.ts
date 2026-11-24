@@ -1,6 +1,6 @@
-// Real-host smoke: spawn `dsh web` with a real key, walk the full flow
+// Real-host smoke: spawn `jan web` with a real key, walk the full flow
 // list in a real chromium, screenshot every screen into .artifacts/ for the
-// figma comparison pass. Self-skips without DEEPSEEK_API_KEY (repo e2e
+// figma comparison pass. Self-skips without TOKAMAK_API_KEY (repo e2e
 // convention); vitest.web.config.ts loads the repo-root .env before this file
 // runs (the CLI only auto-loads .env from its cwd — a temp dir here, so
 // sessions never land in the repo's .sessions).
@@ -56,7 +56,7 @@ function authenticatedWeb(launchUrl: string): Promise<{ origin: string; cookie: 
     const response = await fetch(launchUrl, { redirect: 'manual' })
     const setCookie = response.headers.get('set-cookie')
     if (response.status !== 303 || setCookie === null) {
-      throw new Error(`dsh web authentication returned HTTP ${String(response.status)}`)
+      throw new Error(`jan web authentication returned HTTP ${String(response.status)}`)
     }
     return {
       origin: new URL(launchUrl).origin,
@@ -72,10 +72,10 @@ const comboMapUrl = (url: string): string => url.replace(/\/client\.js(?=,|&rev=
 function waitForReadyLine(child: ChildProcess): Promise<string> {
   return new Promise((resolveReady, reject) => {
     let out = ''
-    const timer = setTimeout(() => { reject(new Error(`dsh web not ready in 90s; output:\n${out}`)) }, 90_000)
+    const timer = setTimeout(() => { reject(new Error(`jan web not ready in 90s; output:\n${out}`)) }, 90_000)
     const onData = (chunk: Buffer): void => {
       out += chunk.toString()
-      const match = /dsh web: (http:\/\/[^\s]+)/.exec(out)
+      const match = /jan web: (http:\/\/[^\s]+)/.exec(out)
       if (match?.[1] !== undefined) {
         clearTimeout(timer)
         resolveReady(match[1])
@@ -85,7 +85,7 @@ function waitForReadyLine(child: ChildProcess): Promise<string> {
     child.stderr?.on('data', onData)
     child.once('exit', (code) => {
       clearTimeout(timer)
-      reject(new Error(`dsh web exited early (code ${code}); output:\n${out}`))
+      reject(new Error(`jan web exited early (code ${code}); output:\n${out}`))
     })
   })
 }
@@ -295,7 +295,7 @@ async function detailsTrack(page: Page): Promise<number> {
   return Number(cols.split(' ').pop()!.replace('px', ''))
 }
 
-// Readiness gate: `dsh web` serves every production manifest plugin; until every UI
+// Readiness gate: `jan web` serves every production manifest plugin; until every UI
 // plugin's client bundle exists and exports apply, the loader fail-louds and
 // the frame never appears.
 const UI_PLUGIN_DIRS = [
@@ -310,10 +310,10 @@ const notReady = UI_PLUGIN_DIRS.filter((dir) => {
 })
 if (notReady.length > 0) console.warn(`[smoke-real] skipped — client bundles not ready: ${notReady.join(', ')}`)
 
-describe('dsh web keyless CLI smoke', () => {
+describe('jan web keyless CLI smoke', () => {
   it('serves a usable app from three immutable plugin batches', async () => {
     requireDist()
-    const sessionsDir = mkdtempSync(join(tmpdir(), 'dsh-web-keyless-'))
+    const sessionsDir = mkdtempSync(join(tmpdir(), 'jan-web-keyless-'))
     const tsxLoader = pathToFileURL(createRequire(join(REPO_ROOT, 'package.json')).resolve('tsx')).href
     const child = spawn(
       process.execPath,
@@ -322,9 +322,9 @@ describe('dsh web keyless CLI smoke', () => {
         cwd: sessionsDir,
         env: {
           ...process.env,
-          DEEPSEEK_API_KEY: 'keyless-web-no-call',
-          DSH_HOME: join(sessionsDir, '.dsh'),
-          DSH_AGENTS_HOME: join(sessionsDir, '.agents'),
+          TOKAMAK_API_KEY: 'keyless-web-no-call',
+          JAN_HOME: join(sessionsDir, '.jan'),
+          JAN_AGENTS_HOME: join(sessionsDir, '.agents'),
           TSX_TSCONFIG_PATH: join(REPO_ROOT, 'tsconfig.json'),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -366,7 +366,7 @@ describe('dsh web keyless CLI smoke', () => {
         /^\/plugins\/\?\?.+\/client\.js,.+\/client\.js&rev=[a-f\d]{12}$/.test(path)
       ))).toHaveLength(2)
       expect(batchPaths).toContainEqual(expect.stringMatching(
-        /^\/plugins\/\?\?@deepseek-ai\/dsh-client-modules\/client\.js&rev=[a-f\d]{12}$/,
+        /^\/plugins\/\?\?@janhq\/jan-client-modules\/client\.js&rev=[a-f\d]{12}$/,
       ))
       const readyOrigin = new URL(readyUrl).origin
       expect([...cacheHeaders.values()]).toEqual([
@@ -407,13 +407,13 @@ describe('dsh web keyless CLI smoke', () => {
 
   it('routes web runtime context and workspace instructions through the real CLI request', async () => {
     requireDist()
-    const workspace = mkdtempSync(join(tmpdir(), 'dsh-web-workspace-'))
+    const workspace = mkdtempSync(join(tmpdir(), 'jan-web-workspace-'))
     mkdirSync(join(workspace, '.git'))
     writeFileSync(join(workspace, 'AGENTS.md'), 'web-workspace-context-probe\n')
 
     interface NativeProviderRequest {
-      system?: string
-      messages?: { role?: string; content?: { type?: string; text?: string }[] }[]
+      system?: string | { text?: string }[]
+      messages?: { role?: string; content?: string | { type?: string; text?: string }[] }[]
       tools?: { name?: string }[]
     }
     let resolveProviderRequests!: (requests: NativeProviderRequest[]) => void
@@ -436,18 +436,27 @@ describe('dsh web keyless CLI smoke', () => {
     await new Promise<void>(resolve => provider.listen(0, '127.0.0.1', resolve))
     const address = provider.address()
     if (address === null || typeof address === 'string') throw new Error('mock provider did not bind a TCP port')
+    const modelPatch = join(workspace, 'workspace-model.patch.yml')
+    writeFileSync(modelPatch, JSON.stringify([
+      { id: 'agent-default-model', config: { provider: 'workspace-smoke', model: 'mock-model' } },
+      { id: 'llm-pi-ai', config: { providers: {
+        'workspace-smoke': {
+          api: 'anthropic-messages', baseURL: `http://127.0.0.1:${address.port}/v1`,
+          apiKeyEnv: 'TOKAMAK_API_KEY', models: [{ id: 'mock-model', contextWindow: 32_768, maxTokens: 4096 }],
+        },
+      } } },
+    ]))
     const tsxLoader = pathToFileURL(createRequire(join(REPO_ROOT, 'package.json')).resolve('tsx')).href
     const child = spawn(
       process.execPath,
-      ['--import', tsxLoader, join(REPO_ROOT, 'apps/cli/src/bin.ts'), 'web', '--no-open', '--port', '0'],
+      ['--import', tsxLoader, join(REPO_ROOT, 'apps/cli/src/bin.ts'), 'web', '--patch', modelPatch, '--no-open', '--port', '0'],
       {
         cwd: workspace,
         env: {
           ...process.env,
-          DEEPSEEK_API_KEY: 'keyless-web-workspace',
-          DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}`,
-          DSH_HOME: join(workspace, '.dsh'),
-          DSH_AGENTS_HOME: join(workspace, '.agents'),
+          TOKAMAK_API_KEY: 'keyless-web-workspace',
+          JAN_HOME: join(workspace, '.jan'),
+          JAN_AGENTS_HOME: join(workspace, '.agents'),
           TSX_TSCONFIG_PATH: join(REPO_ROOT, 'tsconfig.json'),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -455,7 +464,7 @@ describe('dsh web keyless CLI smoke', () => {
     )
     try {
       const baseUrl = await waitForReadyLine(child)
-      const created = await remoteRpc<{ sessionId: string }>(baseUrl, 'session/create', { request: {} })
+      const created = await remoteRpc<{ sessionId: string }>(baseUrl, 'session/create', { request: { cwd: workspace } })
       await remoteRpc<{ accepted: true }>(baseUrl, 'session/prompt', { request: {
         requestId: randomUUID(),
         sessionId: created.sessionId,
@@ -472,21 +481,18 @@ describe('dsh web keyless CLI smoke', () => {
       if (captured === undefined) {
         throw new Error('provider did not receive the workspace projection request')
       }
-      const workspaceMessage = captured.messages?.filter(message => message.role === 'user')
-        .flatMap(message => message.content ?? [])
-        .find(block => block.type === 'text' && block.text?.includes('web-workspace-context-probe'))
+      const userBlocks = captured.messages?.filter(message => message.role === 'user')
+        .flatMap(({ content }) => typeof content === 'string' ? [{ type: 'text', text: content }] : content ?? []) ?? []
+      const workspaceMessage = userBlocks.find(block => block.type === 'text' && block.text?.includes('web-workspace-context-probe'))
       const expectedWebSection = readFileSync(WEB_SURFACE_PROMPT, 'utf8').trimEnd()
-      expect(captured.system).toContain(expectedWebSection)
-      expect(captured.system).not.toContain(new URL(baseUrl).origin)
-      expect(captured.messages?.filter(message => message.role === 'user')
-        .flatMap(message => message.content ?? [])
-        .some(block => block.type === 'text'
-          && block.text?.includes(`Current DeepSeek Harness Web GUI URL: ${JSON.stringify(new URL(baseUrl).origin)}.`)))
-        .toBe(true)
+      const systemText = Array.isArray(captured.system) ? captured.system.map(block => block.text).join('\n') : captured.system
+      expect(systemText).toContain(expectedWebSection)
+      expect(systemText).not.toContain(new URL(baseUrl).origin)
+      expect(userBlocks.map(block => block.text).join('\n')).toContain(`Current Jan Web GUI URL: ${JSON.stringify(new URL(baseUrl).origin)}.`)
       expect(workspaceMessage).toMatchInlineSnapshot(`
         {
           "text": "<system-reminder>
-        The following workspace instructions may be relevant to your work. Use them as guidance when applicable. More specific instructions take precedence over broader ones. They do not override system, developer, or direct user instructions.
+        Follow applicable instructions. More specific files win: project > shared agents home > Jan home > Jan defaults. These instructions can replace Jan's default name, persona, tone, and working style, but not safety rules, tool contracts, or direct user messages.
 
         Instructions from: AGENTS.md
 
@@ -517,7 +523,7 @@ describe('dsh web keyless CLI smoke', () => {
 
   it('retries a partial transport failure through the shipped Web composition', async () => {
     requireDist()
-    const workspace = mkdtempSync(join(tmpdir(), 'dsh-web-retry-'))
+    const workspace = mkdtempSync(join(tmpdir(), 'jan-web-retry-'))
     const promptMarker = 'WEB_RETRY_REQUEST'
     const recoveredMarker = 'WEB_RETRY_RECOVERED'
     let mainAttempts = 0
@@ -557,9 +563,9 @@ describe('dsh web keyless CLI smoke', () => {
         cwd: workspace,
         env: {
           ...process.env,
-          DEEPSEEK_API_KEY: 'keyless-web-retry',
-          DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}`,
-          DSH_HOME: join(workspace, '.dsh'),
+          TOKAMAK_API_KEY: 'keyless-web-retry',
+          TOKAMAK_BASE_URL: `http://127.0.0.1:${address.port}`,
+          JAN_HOME: join(workspace, '.jan'),
           TSX_TSCONFIG_PATH: join(REPO_ROOT, 'tsconfig.json'),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -605,7 +611,7 @@ describe('dsh web keyless CLI smoke', () => {
 
   it.each(['native', 'ptc'] as const)('selects the %s executor through profile overlays and ignores the retired environment selector', async (mode) => {
     requireDist()
-    const workspace = mkdtempSync(join(tmpdir(), 'dsh-web-ptc-'))
+    const workspace = mkdtempSync(join(tmpdir(), 'jan-web-ptc-'))
     const promptMarker = `WEB_EXECUTOR_${mode}_${randomUUID()}`
 
     interface PtcModeProviderRequest {
@@ -645,11 +651,11 @@ describe('dsh web keyless CLI smoke', () => {
         cwd: workspace,
         env: {
           ...process.env,
-          DEEPSEEK_API_KEY: 'keyless-web-ptc',
-          DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}`,
-          DSH_TOOLS_MODE: mode === 'native' ? 'ptc' : 'native',
-          DSH_HOME: join(workspace, '.dsh'),
-          DSH_AGENTS_HOME: join(workspace, '.agents'),
+          TOKAMAK_API_KEY: 'keyless-web-ptc',
+          TOKAMAK_BASE_URL: `http://127.0.0.1:${address.port}`,
+          JAN_TOOLS_MODE: mode === 'native' ? 'ptc' : 'native',
+          JAN_HOME: join(workspace, '.jan'),
+          JAN_AGENTS_HOME: join(workspace, '.agents'),
           TSX_TSCONFIG_PATH: join(REPO_ROOT, 'tsconfig.json'),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -699,7 +705,7 @@ describe('dsh web keyless CLI smoke', () => {
   })
 })
 
-describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke (real host, real key)', () => {
+describe.skipIf(!process.env.TOKAMAK_API_KEY || notReady.length > 0)('web smoke (real host, real key)', () => {
   let child: ChildProcess
   let sessionsDir: string
   let baseUrl: string
@@ -711,9 +717,9 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke
 
   beforeAll(async () => {
     requireDist()
-    sessionsDir = mkdtempSync(join(tmpdir(), 'dsh-web-w5-'))
+    sessionsDir = mkdtempSync(join(tmpdir(), 'jan-web-w5-'))
     const port = await probeFreePort()
-    // tsx boot mirrors the runtime half of the root dsh script. Isolate
+    // tsx boot mirrors the runtime half of the root jan script. Isolate
     // the host-level Harness and shared-agent homes inside the temp world; tsx
     // also needs the repo's loader and tsconfig paths pointed at explicitly.
     const tsxLoader = pathToFileURL(createRequire(join(REPO_ROOT, 'package.json')).resolve('tsx')).href
@@ -733,8 +739,8 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke
         cwd: sessionsDir,
         env: {
           ...process.env,
-          DSH_HOME: join(sessionsDir, '.dsh'),
-          DSH_AGENTS_HOME: join(sessionsDir, '.agents'),
+          JAN_HOME: join(sessionsDir, '.jan'),
+          JAN_AGENTS_HOME: join(sessionsDir, '.agents'),
           TSX_TSCONFIG_PATH: join(REPO_ROOT, 'tsconfig.json'),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -773,8 +779,8 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke
 
   it('empty-state first send completes a real model round', async () => {
     onTestFailed(() => saveFailureShot(page, 'w5-first-round'))
-    // This scenario spawns its own server against a fresh $DSH_HOME with the
-    // DeepSeek credential inherited from the environment, so no onboarding
+    // This scenario spawns its own server against a fresh $JAN_HOME with the
+    // model credential inherited from the environment, so no onboarding
     // step mounts and the page is immediately interactive.
     // Fresh world: connect a Workspace so the composer starts live.
     await connectFreshWorkspace(page, sessionsDir)

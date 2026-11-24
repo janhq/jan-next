@@ -7,22 +7,22 @@
    mid-slide. */
 
 .root {
-  --dsh-sidebar-inline-padding: 8px;
-  --dsh-sidebar-row-padding: 12px;
-  --dsh-sidebar-label-gap: 6px;
-  --dsh-sidebar-paint-inset: 3px;
+  --jan-sidebar-inline-padding: 8px;
+  --jan-sidebar-row-padding: 12px;
+  --jan-sidebar-label-gap: 6px;
+  --jan-sidebar-paint-inset: 3px;
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 6px var(--dsh-sidebar-inline-padding);
+  padding: 6px var(--jan-sidebar-inline-padding);
   box-sizing: border-box;
   background: var(--dsw-specific-sidebar-fill);
   color: var(--dsw-alias-label-primary);
   font-size: 14px;
   /* The sidebar is elevated above the conversation surface, so a revealed
      scrollbar uses the l2 pair. .quietBars hides it without changing layout. */
-  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
-  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+  --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
 :global([data-animating]:not([data-dragging])) .root {
@@ -51,7 +51,7 @@
 
 :global([data-windows-titlebar]) .toggle {
   position: fixed;
-  top: calc((var(--dsh-windows-titlebar-height) - 28px) / 2);
+  top: calc((var(--jan-windows-titlebar-height) - 28px) / 2);
   left: 12px;
   z-index: 30;
   -webkit-app-region: no-drag;
@@ -91,19 +91,42 @@
   display: none;
 }
 
+/* Caption order: toggle (and New Session while collapsed), the Application and Edit menus, then Back and
+   Forward. The Desktop preload publishes --jan-windows-menu-end from the menus' measured width, which
+   changes with the language; 248px covers the English labels until it does. */
+:global(html[data-windows-titlebar]) {
+  --jan-windows-menu-start: 48px;
+}
+
 :global(html[data-windows-titlebar]:has([data-sidebar-collapsed='true'])) {
-  --dsh-windows-menu-start: 84px;
+  --jan-windows-menu-start: 156px;
 }
 
 :global([data-windows-titlebar]) .collapsed .newSession {
   position: fixed;
-  top: calc((var(--dsh-windows-titlebar-height) - 28px) / 2);
-  left: 48px;
+  top: calc((var(--jan-windows-titlebar-height) - 28px) / 2);
+  left: 120px;
   margin: 0;
   padding: 0;
   border: none;
   z-index: 30;
   -webkit-app-region: no-drag;
+}
+
+/* Back and Forward follow the caption menus, 8px after them and 8px apart (28px wide each). */
+:global([data-windows-titlebar]) .navButton {
+  position: fixed;
+  top: calc((var(--jan-windows-titlebar-height) - 28px) / 2);
+  z-index: 30;
+  -webkit-app-region: no-drag;
+}
+
+:global([data-windows-titlebar]) .navBack {
+  left: calc(var(--jan-windows-menu-end, 248px) + 8px);
+}
+
+:global([data-windows-titlebar]) .navForward {
+  left: calc(var(--jan-windows-menu-end, 248px) + 44px);
 }
 
 :global([data-windows-titlebar]) .railIn .iconButton,
@@ -112,6 +135,7 @@
 }
 
 :global([data-windows-titlebar]) .collapsed .toggle,
+:global([data-windows-titlebar]) .collapsed .navButton,
 :global([data-windows-titlebar]) .collapsed .newSession {
   width: 28px;
   height: 28px;
@@ -132,8 +156,8 @@
    revealing the thumb never reflows a row. Rebinding contract and the two
    rendering paths it reaches: ui-theme's README. */
 .root.quietBars {
-  --dsh-scrollbar-thumb: transparent;
-  --dsh-scrollbar-thumb-hover: transparent;
+  --jan-scrollbar-thumb: transparent;
+  --jan-scrollbar-thumb-hover: transparent;
 }
 
 /* Collapse phase 1: the whole frozen-width content fades out in place over
@@ -180,25 +204,30 @@
 }
 
 /* macOS hiddenInset titlebar: the strip spans the column's top edge (negative
-   margins cancel the root padding) so it clears the traffic lights at
-   (16, 18). The strip marks itself `data-window-drag` in markup (SidebarRoot), so
-   its own run is the column's draggable geometry and no frame band has to match
-   the strip's height; the toggle inside subtracts via the base.css rule. */
+   margins cancel the root padding) so it clears the traffic lights. The strip
+   marks itself `data-window-drag` in markup (SidebarRoot), so its own run is
+   the column's draggable geometry and no frame band has to match the strip's
+   height; the toggle inside subtracts via the base.css rule. */
 .topStrip {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  height: 52px;
+  /* 52px at the 10px title inset; grows by twice the inset's excess so the
+     toggle stays centred on the title row. */
+  height: calc(2 * var(--jan-frame-title-inset, 10px) + 32px);
   box-sizing: border-box;
-  margin: -6px calc(-1 * var(--dsh-sidebar-inline-padding)) 0;
-  /* The 2px foot centres the 28px toggle at y 25, level with the collapsed
-     seat (ui-layout .leadingSeat, top 11) and the conversation title row, so
+  margin: -6px calc(-1 * var(--jan-sidebar-inline-padding)) 0;
+  /* The 2px foot centres the 28px toggle on the title row (ui-layout
+     `--jan-frame-title-inset` + 15), level with the collapsed seat
+     (ui-layout .leadingSeat) and the conversation title row, so
      collapse/expand never shifts it vertically. */
   padding: 0 12px 2px;
+  gap: 4px;
 }
 
-:global(html[data-platform='darwin']:not([data-fullscreen])) .root:not(.collapsed) > .topStrip > .toggle {
+:global(html[data-platform='darwin']:not([data-fullscreen])) .root:not(.collapsed) > .topStrip > .toggle,
+:global(html[data-platform='darwin']:not([data-fullscreen])) .root:not(.collapsed) > .topStrip > .navButton {
   transform: translateX(4px);
 }
 
@@ -233,7 +262,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 4px;
   height: 60px;
   padding: 8px 0 8px 8px;
   margin-bottom: 0;
@@ -363,6 +392,34 @@
   outline-offset: -2px;
 }
 
+/* Back and Forward end the logo row, which clips its overflow, so their rings draw inside too. */
+.iconButton.navButton:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+
+/* An empty history dims the control but keeps it focusable and its tooltip. */
+.navButton[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .navButton[aria-disabled='true']:hover {
+    background-color: transparent;
+  }
+}
+
+/* The collapsed rail has no row beside the toggle, so Back and Forward stack under it. */
+.railNavigation {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
 .collapsed .iconButton {
   width: 36px;
   height: 36px;
@@ -427,7 +484,7 @@
   gap: 0;
   height: 38px;
   padding: 8px 12px;
-  margin: 0 calc(var(--dsh-sidebar-paint-inset) + 1px);
+  margin: 0 calc(var(--jan-sidebar-paint-inset) + 1px);
   box-sizing: border-box;
   border: 0.5px solid var(--dsw-alias-border-l3);
   border-radius: var(--dsw-radius-md);
@@ -551,11 +608,11 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 4px minmax(0, 1fr) calc(var(--dsh-sidebar-inline-padding) - 2px);
+  grid-template-columns: 4px minmax(0, 1fr) calc(var(--jan-sidebar-inline-padding) - 2px);
   grid-template-rows: 8px max-content 2px max-content;
   align-content: start;
   margin-left: -4px;
-  margin-right: calc(2px - var(--dsh-sidebar-inline-padding));
+  margin-right: calc(2px - var(--jan-sidebar-inline-padding));
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -616,7 +673,7 @@
 .panelEntry {
   position: relative;
   display: flex;
-  border-inline: var(--dsh-sidebar-paint-inset) solid transparent;
+  border-inline: var(--jan-sidebar-paint-inset) solid transparent;
   border-radius: var(--dsw-radius-md);
   background-clip: padding-box;
 }
@@ -685,13 +742,13 @@
 .panelRow {
   display: flex;
   align-items: center;
-  gap: var(--dsh-sidebar-label-gap);
+  gap: var(--jan-sidebar-label-gap);
   margin: 0;
   min-height: 32px;
-  padding: 5px calc(var(--dsh-sidebar-row-padding) - var(--dsh-sidebar-paint-inset));
+  padding: 5px calc(var(--jan-sidebar-row-padding) - var(--jan-sidebar-paint-inset));
   box-sizing: border-box;
   border: none;
-  border-inline: var(--dsh-sidebar-paint-inset) solid transparent;
+  border-inline: var(--jan-sidebar-paint-inset) solid transparent;
   border-radius: var(--dsw-radius-md);
   background: transparent;
   background-clip: padding-box;
@@ -721,6 +778,10 @@
 
 .panelRow[aria-expanded='true'] {
   background-color: var(--dsw-alias-interactive-bg-hover);
+}
+
+.panelRow:active {
+  background-color: var(--dsw-alias-interactive-bg-active);
 }
 
 .moreMenu {

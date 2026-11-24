@@ -2,18 +2,18 @@
  * Named one-shot subagent providers backed by OAR's default runtime registry.
  * OAR owns native processes; installation checks occur on delegation.
  *
- * @module @deepseek-ai/dsh-experimental-subagent-oar
+ * @module @janhq/jan-experimental-subagent-oar
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import type { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
 import { defaultRuntimes } from '@botiverse/oar'
 import {
   assertPositiveFinite,
   NO_START_CAPABILITIES,
   type SubagentProvider,
-} from '@deepseek-ai/dsh-subagent'
-import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
+} from '@janhq/jan-subagent'
+import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
 import { startOarRun, type OarRunSpec } from './run.ts'
 
 export const name = 'experimental-subagent-oar'

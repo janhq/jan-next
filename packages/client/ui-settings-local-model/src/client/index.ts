@@ -1,14 +1,15 @@
 /** Browser entry: mount the `llamaCpp` Remote, then the Models card and the first-run option. */
-import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
-import llamaCppRemote from '@deepseek-ai/dsh-api-llama-cpp-controller/remote'
+import type { Context } from '@janhq/cordis'
+import type {} from '@janhq/jan-api-remotes/client'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-settings-models/client'
+import llamaCppRemote from '@janhq/jan-api-llama-cpp-controller/remote'
 import { createActions, type LocalModelInjected } from './actions.ts'
 import { LocalModelCard } from './LocalModelCard.tsx'
 import { LocalSetup } from './LocalSetup.tsx'
 import { de, en, es, fr, ja, NS, pt, ru, zh } from './locales.ts'
+import { RunningDetail } from './RunningDetail.tsx'
 import { observeLocalModel } from './state.ts'
 
 export const inject = ['remote', 'slots', 'locale']
@@ -24,6 +25,9 @@ function registerUi(ctx: Context): void {
   ctx.slots.inject('settings.models.local-setup', () => ctx.slots.register({
     name: 'settings.models.local-setup', locale: NS, inject: injected,
   }, LocalSetup))
+  ctx.slots.inject('conversation.chat.running-detail', () => ctx.slots.register({
+    name: 'conversation.chat.running-detail', id: 'local-model', locale: NS, inject: injected,
+  }, RunningDetail))
 }
 
 /**

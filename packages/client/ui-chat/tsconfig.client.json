@@ -25,6 +25,9 @@
       "path": "../../api/remotes/tsconfig.client.json"
     },
     {
+      "path": "../../api/llama-cpp-controller"
+    },
+    {
       "path": "../../api/session-controller/tsconfig.client.json"
     },
     {
@@ -101,6 +104,9 @@
     },
     {
       "path": "../ui-settings/tsconfig.client.json"
+    },
+    {
+      "path": "../ui-settings-general/tsconfig.client.json"
     },
     {
       "path": "../ui-slots"

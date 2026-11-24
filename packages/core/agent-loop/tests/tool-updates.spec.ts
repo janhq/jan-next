@@ -1,17 +1,17 @@
 /** The loop logs tool changes as developer messages and carries session tool history to the runtime. */
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import LlmRuntime, { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import type { ResolvedToolSet } from '@deepseek-ai/dsh-tools'
-import { defineContentToolFixture } from '@deepseek-ai/dsh-tool-testkit'
+import { Context } from '@janhq/cordis'
+import AgentRegistry, { type Agent } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import LlmRuntime, { createUserMessage } from '@janhq/jan-llm'
+import type { GenerateOptions } from '@janhq/jan-llm'
+import SessionStore, { SessionId } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import type { ResolvedToolSet } from '@janhq/jan-tools'
+import { defineContentToolFixture } from '@janhq/jan-tool-testkit'
 import { MockAdapter, textResponse, toolCallResponse } from './mock-adapter.ts'
 
 const contexts: Context[] = []
@@ -169,7 +169,7 @@ describe('step-time tool activation', () => {
     expect(agent.session.snapshotEvents().filter(event => ['request/header', 'system/message', 'user/message'].includes(event.type))).toEqual([])
   })
 
-  it('keeps one model selection, tool set, and prompt across retries without admitting users again', async () => {
+  it('keeps one model selection, tool set, and prompt across a same-route retry without admitting users again', async () => {
     const adapter = new MockAdapter([
       [{ type: 'finish', reason: { kind: 'error', failure: { code: 'SERVER', message: 'retry', status: 503 } } }],
       textResponse('done'),
@@ -182,7 +182,6 @@ describe('step-time tool activation', () => {
     ctx.on('agent/request-error', async (_input, next) => {
       await next()
       retried = true
-      agent.model.select({ provider: 'mock', model: 'second' })
       return { kind: 'retry' }
     })
     ctx.tools.register(defineContentToolFixture({

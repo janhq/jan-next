@@ -1,13 +1,13 @@
 {
-  "name": "@deepseek-ai/dsh-package-manifest",
-  "description": "Shared type declarations for package.json.dsh configuration fields",
+  "name": "@janhq/jan-package-manifest",
+  "description": "Shared type declarations for package.json.jan configuration fields",
   "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/util/package-manifest"
   },
   "type": "module",
@@ -27,9 +27,9 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   }
 }

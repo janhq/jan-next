@@ -4,11 +4,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import type {
   AssistantMessageNode, ChatSnapshot, LegacyConversationSlice, ToolResultNode,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
-import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
-import { PartialArguments } from '@deepseek-ai/dsh-util-values'
+} from '@janhq/jan-client-ui-chat/client'
+import { bindSnapshotSelector, makeTranslate } from '@janhq/jan-client-test-runtime'
+import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
+import { PartialArguments } from '@janhq/jan-util-values'
 import { ActivityPill, UsagePill, deriveStats, formatDuration, type StatPillProps } from '../src/client/chat/StatsPills.tsx'
 import { formatTokens } from '../src/client/chat/token-format.ts'
 import { en, zh } from '../src/client/locale.ts'
@@ -32,8 +32,9 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** Each message carries enough characters for the few hundred tokens its usage reports. */
 const assistant = (seq: number, turn: number, usage?: unknown): AssistantMessageNode => ({
-  kind: 'assistant', seq, time: seq * 1_000, turn, step: seq, blocks: [{ kind: 'text', text: `t${seq}` }],
+  kind: 'assistant', seq, time: seq * 1_000, turn, step: seq, blocks: [{ kind: 'text', text: `t${seq}`.padEnd(1_000, '.') }],
   ...(usage === undefined ? {} : { usage }),
 })
 

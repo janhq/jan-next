@@ -1,10 +1,10 @@
 /** Test-owned Remote face: `$on` subscriptions with an explicit test event driver. */
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context } from '@janhq/cordis'
 
 // Value re-export for spec-side failure construction: the api-remotes facade
 // cannot carry it — its src top-level imports owner /remote lib artifacts, so a
 // value import from a spec would load the unbuilt assembly chain.
-export { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+export { RemoteError } from '@janhq/jan-typert-protocol'
 
 /**
  * Remote service test double for the forwarded-event path. Feature specs need
@@ -30,7 +30,9 @@ export class TestRemote {
    * Fixed Host facts mirrored from the production `ctx.remote.$host`. Plain
    * mutable field: a spec assigns it to script a non-loopback or homed Host.
    */
-  $host: { home: string | undefined; isLoopback: boolean } = { home: undefined, isLoopback: true }
+  $host: { home: string | undefined; name: string | undefined; remote: boolean; isLoopback: boolean } = {
+    home: undefined, name: undefined, remote: false, isLoopback: true,
+  }
 
   /**
    * Register the double as `ctx.remote`, plus one service per scripted

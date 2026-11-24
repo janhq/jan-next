@@ -1,85 +1,81 @@
 # Minimal keyless composition: real app, pwsh executor, and pwsh tool; replayed model.
-- id: llm-deepseek
-  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
-  disabled: true
-
 - insert:
     - id: llm-replay
-      name: '@deepseek-ai/dsh-llm-replay'
+      name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-v4-pro
+              - id: tokamak-1-pro
 
 - id: subprocess
-  name: '@deepseek-ai/dsh-subprocess-local'
+  name: '@janhq/jan-subprocess-local'
 
 - id: bash-sandbox
-  name: '@deepseek-ai/dsh-bash-sandbox'
+  name: '@janhq/jan-bash-sandbox'
   disabled: true
 
 - id: pwsh-sandbox
-  name: '@deepseek-ai/dsh-pwsh-sandbox'
+  name: '@janhq/jan-pwsh-sandbox'
   disabled: false
 
 - id: shell-env
-  name: '@deepseek-ai/dsh-shell-env'
+  name: '@janhq/jan-shell-env'
 
 - id: agent-default-model
-  name: '@deepseek-ai/dsh-agent-default-model'
+  name: '@janhq/jan-agent-default-model'
   config:
-    provider: deepseek-official
-    model: deepseek-v4-pro
+    provider: tokamak-official
+    model: tokamak-1-pro
 
 - id: session-persistence-jsonl
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@janhq/jan-session-persistence-jsonl'
   config:
-    root: !!js dshHomePath('sessions')
+    root: !!js janHomePath('sessions')
     compression: none
 
 - id: agent-instructions
-  name: '@deepseek-ai/dsh-agent-instructions'
+  name: '@janhq/jan-agent-instructions'
   disabled: true
 
 - id: system-prompt
-  name: '@deepseek-ai/dsh-system-prompt'
+  name: '@janhq/jan-system-prompt'
   config:
     personaPrefix: You are a concise snapshot agent.
 
 - id: goal
-  name: '@deepseek-ai/dsh-goal'
+  name: '@janhq/jan-goal'
   disabled: true
 
 - id: goal-round-driver
-  name: '@deepseek-ai/dsh-goal-round-driver'
+  name: '@janhq/jan-goal-round-driver'
   disabled: true
 
 - id: command-goal
-  name: '@deepseek-ai/dsh-command-goal'
+  name: '@janhq/jan-command-goal'
   disabled: true
 
 - id: tool-goal
-  name: '@deepseek-ai/dsh-tool-goal'
+  name: '@janhq/jan-tool-goal'
   disabled: true
 
 - id: skill
-  name: '@deepseek-ai/dsh-skill'
+  name: '@janhq/jan-skill'
   disabled: true
 
 - id: skill-filesystem
-  name: '@deepseek-ai/dsh-skill-filesystem'
+  name: '@janhq/jan-skill-filesystem'
   disabled: true
 
 - id: tool-skill
-  name: '@deepseek-ai/dsh-tool-skill'
+  name: '@janhq/jan-tool-skill'
   disabled: true
 
 - id: tool-bash
-  name: '@deepseek-ai/dsh-tool-bash'
+  name: '@janhq/jan-tool-bash'
   disabled: true
 
 - id: tool-pwsh
-  name: '@deepseek-ai/dsh-tool-pwsh'
+  name: '@janhq/jan-tool-pwsh'
   disabled: false

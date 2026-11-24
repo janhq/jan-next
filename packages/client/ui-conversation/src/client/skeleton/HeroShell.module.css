@@ -19,7 +19,7 @@
   /* figma 75:8208: 12 between title block / workspace / card. */
   gap: 12px;
   width: 100%;
-  max-width: var(--dsh-composer-card-max-width);
+  max-width: var(--jan-composer-card-max-width);
   overflow: visible;
 }
 
@@ -153,6 +153,9 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  /* Shrinks with a narrow row, so the name ellipsizes instead of pushing the
+     preset seat under the model picker. */
+  min-width: 0;
   max-width: min(100%, 360px);
   min-height: 28px;
   padding: 0 8px;
@@ -176,10 +179,16 @@
   }
 }
 
-/* Locked form (bound guidance state): a static echo — no hover feedback, no
-   pointer affordance; label keeps full contrast. */
+/* Locked once the chat has started: the chip still names the project in the
+   composer placeholder's caption grey, with no hover or pointer. */
 .workspace:disabled {
+  color: var(--dsw-alias-label-caption);
   cursor: default;
+}
+
+.workspace:disabled .folder,
+.workspace:disabled .chevron {
+  color: inherit;
 }
 
 .folder {

@@ -3,9 +3,7 @@ description: "The SQLite FTS5 full-text search backend for session history, for 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-session-query-sqlite
-
-English | [中文](README.zh.md)
+# @janhq/jan-session-query-sqlite
 
 ## Summary
 
@@ -29,13 +27,13 @@ Mount this package when a composition needs ranked full-text search over session
 
 ### When to choose it
 
-Choose it when you want full-text recall over prior sessions with ranking and paging. Choose it together with `dsh-session-query` and the session service; a persistence backend is optional but recommended so persisted history is searchable after restarts. Avoid pointing `path` at the session-persistence database — this package owns a separate derived index.
+Choose it when you want full-text recall over prior sessions with ranking and paging. Choose it together with `jan-session-query` and the session service; a persistence backend is optional but recommended so persisted history is searchable after restarts. Avoid pointing `path` at the session-persistence database — this package owns a separate derived index.
 
 ### Minimal configuration
 
 ```yaml
-- name: '@deepseek-ai/dsh-session'
-- name: '@deepseek-ai/dsh-session-query-sqlite'
+- name: '@janhq/jan-session'
+- name: '@janhq/jan-session-query-sqlite'
   config:
     path: /absolute/path/to/session-search.db
 ```
@@ -52,7 +50,7 @@ Choose it when you want full-text recall over prior sessions with ranking and pa
 | `persistedReadConcurrency` | `4` | Concurrent persisted-log reads for inherited batch reads |
 | `preparedSessionCacheSize` | `5` | Cold prepared-Session observations the inherited `observeSession` reader retains for reuse |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-session-query-sqlite) is the exhaustive source for every accepted field and its JSDoc.
+The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-session-query-sqlite) is the exhaustive source for every accepted field and its JSDoc.
 
 ### Search behavior
 
@@ -89,8 +87,6 @@ The backend is built on one separation and three commitments:
 - **Generation-bound cursors.** Every corpus change bumps a generation; cursors carry the generation they were created under and fail stale rather than returning a shifted page.
 - **Literal phrases as data.** Caller query text is quoted into one FTS5 phrase so query syntax stays inert, and reserved highlight markers are stripped from documents before indexing.
 
-The design history lives in the [SQLite FTS5 session search note](../../../.agents/notes/archived/feature/2026-07-10-sqlite-session-query-provider.md) and the [unified service decision](../../../.agents/notes/archived/architecture/2026-07-23-unified-session-query-service.md).
-
 ### Source map
 
 | File | Role |
@@ -114,12 +110,11 @@ The database carries an application id and schema version 8. Opening refuses a f
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the package-level contract is not enough. They move from the shared query service to the type-level contract and the design evidence.
+Read these pages when the package-level contract is not enough. They move from the shared query service to the type-level contract.
 
 - [Session Query subsystem reference](../../../docs/subsystems/session-query.md) — the full type-level contract this backend implements.
-- [dsh-session-query](../session-query/README.md) — the service definition: exact reads, filters, and traces this backend inherits.
-- [dsh-tool-session-query](../../experimental/tool-session-query/README.md) — the model-facing consumer that calls these search methods.
-- [SQLite FTS5 session search](../../../.agents/notes/archived/feature/2026-07-10-sqlite-session-query-provider.md) — search semantics, reconciliation, and the tokenizer decision.
+- [jan-session-query](../session-query/README.md) — the service definition: exact reads, filters, and traces this backend inherits.
+- [jan-tool-session-query](../../experimental/tool-session-query/README.md) — the model-facing consumer that calls these search methods.
 - [JSONL session persistence](../../session/session-persistence-jsonl/README.md) — the authoritative Session store this disposable index observes; keep its root separate from this package's database path.
 
 -----

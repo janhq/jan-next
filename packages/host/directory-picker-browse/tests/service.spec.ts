@@ -4,10 +4,10 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { DirectoryPickerError } from '@deepseek-ai/dsh-host-directory-picker'
-import type { DirectoryPickerBrowseCapability } from '@deepseek-ai/dsh-host-directory-picker'
-import BrowseDirectoryPicker, { boundedInsert, fullyQualified, raceAbort } from '../src/index.ts'
+import { Context } from '@janhq/cordis'
+import { DirectoryPickerError, fullyQualified } from '@janhq/jan-host-directory-picker'
+import type { DirectoryPickerBrowseCapability } from '@janhq/jan-host-directory-picker'
+import BrowseDirectoryPicker, { boundedInsert, raceAbort } from '../src/index.ts'
 import type { ListingCandidate } from '../src/index.ts'
 
 let root: string
@@ -15,7 +15,7 @@ let capability: DirectoryPickerBrowseCapability
 let dispose: () => Promise<void>
 
 beforeAll(async () => {
-  root = await mkdtemp(join(tmpdir(), 'dsh-browse-'))
+  root = await mkdtemp(join(tmpdir(), 'jan-browse-'))
   await mkdir(join(root, 'projects'))
   await mkdir(join(root, 'projects', 'harness'))
   await mkdir(join(root, '.hidden-dir'))

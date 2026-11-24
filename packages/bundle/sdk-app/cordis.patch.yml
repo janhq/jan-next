@@ -1,8 +1,8 @@
-# The SDK application over dsh-base. Stdout belongs exclusively to JSON-RPC.
+# The SDK application over jan-base. Stdout belongs exclusively to JSON-RPC.
 
 - id: system-prompt
   config:
-    # tokamak-harness: Jan replaces the fixed DeepSeek Harness identity sentence.
+    # tokamak-harness: the persona opener replaces the default harness identity sentence.
     includeHarnessIdentity: false
     personaPrefix: >-
       You are Jan, an AI agent. You are a coding agent powered by the {{model}} model.
@@ -12,15 +12,15 @@
 
 - insert:
     - id: sdk-app-startup
-      name: '@deepseek-ai/dsh-sdk-app'
+      name: '@janhq/jan-sdk-app'
       config:
         profile: sdk
 
     - id: sdk-jsonrpc-server
-      name: '@deepseek-ai/dsh-sdk-jsonrpc-server'
+      name: '@janhq/jan-sdk-jsonrpc-server'
       inject: [sdkAppStartup, loader]
       config:
-        maxTokensAsSuccess: !!js "process.env.DSH_MAX_TOKENS_AS_SUCCESS === undefined ? true : JSON.parse(process.env.DSH_MAX_TOKENS_AS_SUCCESS)"
+        maxTokensAsSuccess: !!js "process.env.JAN_MAX_TOKENS_AS_SUCCESS === undefined ? true : JSON.parse(process.env.JAN_MAX_TOKENS_AS_SUCCESS)"
 
 - id: hmr
   disabled: true
@@ -28,52 +28,52 @@
 - id: tool-plugin-manager
   disabled: false
 
-# The packaged carrier supplies a default; DSH_PRIMARY_RUNTIME overrides it,
+# The packaged carrier supplies a default; JAN_PRIMARY_RUNTIME overrides it,
 # including an empty-string opt-out. Each row can be patched independently.
 - insert:
     - id: workspace-dependencies
-      name: '@deepseek-ai/dsh-tool-workspace-dependencies'
-      disabled: !!js "!(process.env.DSH_PRIMARY_RUNTIME ?? process.env.DSH_BUNDLED_PRIMARY_RUNTIME)"
+      name: '@janhq/jan-tool-workspace-dependencies'
+      disabled: !!js "!(process.env.JAN_PRIMARY_RUNTIME ?? process.env.JAN_BUNDLED_PRIMARY_RUNTIME)"
       config:
-        source: !!js "process.getBuiltinModule('node:path').resolve(process.env.DSH_PRIMARY_RUNTIME ?? process.env.DSH_BUNDLED_PRIMARY_RUNTIME ?? '')"
+        source: !!js "process.getBuiltinModule('node:path').resolve(process.env.JAN_PRIMARY_RUNTIME ?? process.env.JAN_BUNDLED_PRIMARY_RUNTIME ?? '')"
 
     - id: skill-office
-      name: '@deepseek-ai/dsh-skill-office'
-      disabled: !!js "!(process.env.DSH_PRIMARY_RUNTIME ?? process.env.DSH_BUNDLED_PRIMARY_RUNTIME) && !process.env.DSH_BUNDLED_OFFICE_CLI"
+      name: '@janhq/jan-skill-office'
+      disabled: !!js "!(process.env.JAN_PRIMARY_RUNTIME ?? process.env.JAN_BUNDLED_PRIMARY_RUNTIME) && !process.env.JAN_BUNDLED_OFFICE_CLI"
       config:
-        assetRoot: !!js "process.env.DSH_BUNDLED_OFFICE_SKILLS ?? process.getBuiltinModule('node:path').resolve(process.env.DSH_PRIMARY_RUNTIME ?? process.env.DSH_BUNDLED_PRIMARY_RUNTIME ?? '', '..', 'office-skills')"
-        cli: !!js "process.env.DSH_BUNDLED_OFFICE_CLI === '' ? false : process.env.DSH_BUNDLED_OFFICE_CLI"
-        node: !!js "process.env.DSH_BUNDLED_OFFICE_NODE ?? process.getBuiltinModule('node:path').resolve(process.env.DSH_PRIMARY_RUNTIME ?? process.env.DSH_BUNDLED_PRIMARY_RUNTIME ?? '', 'dependencies', 'node', 'bin', process.platform === 'win32' ? 'node.exe' : 'node')"
+        assetRoot: !!js "process.env.JAN_BUNDLED_OFFICE_SKILLS ?? process.getBuiltinModule('node:path').resolve(process.env.JAN_PRIMARY_RUNTIME ?? process.env.JAN_BUNDLED_PRIMARY_RUNTIME ?? '', '..', 'office-skills')"
+        cli: !!js "process.env.JAN_BUNDLED_OFFICE_CLI === '' ? false : process.env.JAN_BUNDLED_OFFICE_CLI"
+        node: !!js "process.env.JAN_BUNDLED_OFFICE_NODE ?? process.getBuiltinModule('node:path').resolve(process.env.JAN_PRIMARY_RUNTIME ?? process.env.JAN_BUNDLED_PRIMARY_RUNTIME ?? '', 'dependencies', 'node', 'bin', process.platform === 'win32' ? 'node.exe' : 'node')"
 
 # Share native desktop tools and model context without starting a Web server.
 - insert:
     - id: connection
-      name: '@deepseek-ai/dsh-client-connection'
+      name: '@janhq/jan-client-connection'
 
     - id: file-upload
-      name: '@deepseek-ai/dsh-client-file-upload'
+      name: '@janhq/jan-client-file-upload'
 
     - id: workspace
-      name: '@deepseek-ai/dsh-workspace'
+      name: '@janhq/jan-workspace'
 
     - id: schedule
-      name: '@deepseek-ai/dsh-schedule'
+      name: '@janhq/jan-schedule'
       inject: [sdkSessionActivation]
 
     - id: time-context
-      name: '@deepseek-ai/dsh-time-context'
+      name: '@janhq/jan-time-context'
 
     - id: tool-schedule
-      name: '@deepseek-ai/dsh-tool-schedule'
+      name: '@janhq/jan-tool-schedule'
 
     - id: tool-ask-user
-      name: '@deepseek-ai/dsh-tool-ask-user'
+      name: '@janhq/jan-tool-ask-user'
 
     - id: present
-      name: '@deepseek-ai/dsh-tool-present'
+      name: '@janhq/jan-tool-present'
 
     - id: file-reference-local
-      name: '@deepseek-ai/dsh-file-reference-local'
+      name: '@janhq/jan-file-reference-local'
 
     - id: deliverable-file-references
-      name: '@deepseek-ai/dsh-deliverable-file-references'
+      name: '@janhq/jan-deliverable-file-references'

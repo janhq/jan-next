@@ -1,18 +1,11 @@
 /** Shared modal, focus, and pan/zoom controls for documentation images and diagrams. */
 import Panzoom from '@panzoom/panzoom'
 
-const messages = {
-  en: {
-    zoomIn: 'Zoom in', zoomOut: 'Zoom out', fit: 'Fit view', original: 'Original size (100%), currently {scale}',
-    close: 'Close', helpLabel: 'Viewer help',
-    help: 'Scroll or pinch to zoom · Drag or use arrow keys to pan · Esc to close',
-  },
-  zh: {
-    zoomIn: '放大', zoomOut: '缩小', fit: '适应窗口', original: '原始尺寸（100%），当前{scale}',
-    close: '关闭', helpLabel: '查看器帮助',
-    help: '滚轮或双指缩放 · 拖动或方向键平移 · Esc 关闭',
-  },
-} satisfies Record<string, Record<string, string>>
+const copy = {
+  zoomIn: 'Zoom in', zoomOut: 'Zoom out', fit: 'Fit view', original: 'Original size (100%), currently {scale}',
+  close: 'Close', helpLabel: 'Viewer help',
+  help: 'Scroll or pinch to zoom · Drag or use arrow keys to pan · Esc to close',
+}
 
 const icons = {
   open: 'M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7',
@@ -25,7 +18,7 @@ const icons = {
 /**
  * Set the accessible name and hover hint of a viewer control.
  * @param element Button to label.
- * @param label Localized control name.
+ * @param label Control name.
  */
 export function labelButton(element: HTMLButtonElement, label: string): void {
   element.setAttribute('aria-label', label)
@@ -35,7 +28,7 @@ export function labelButton(element: HTMLButtonElement, label: string): void {
 /**
  * Create a viewer control with a decorative SVG icon.
  * @param doc Document that owns the control.
- * @param label Localized control name.
+ * @param label Control name.
  * @param icon Viewer icon to display.
  * @returns A native button ready for its click handler.
  */
@@ -44,7 +37,7 @@ export function viewerButton(doc: Document, label: string, icon: keyof typeof ic
   element.type = 'button'
   labelButton(element, label)
   const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg')
-  svg.classList.add('dsh-media-icon')
+  svg.classList.add('jan-media-icon')
   svg.setAttribute('viewBox', '0 0 24 24')
   svg.setAttribute('aria-hidden', 'true')
   svg.setAttribute('focusable', 'false')
@@ -68,11 +61,8 @@ interface MediaContent {
 export class MediaViewer {
   #close: (() => void) | undefined
 
-  /**
-   * @param doc Browser document containing the viewer's triggers.
-   * @param language Current VitePress language, read when opening the modal.
-   */
-  constructor(private readonly doc: Document, private readonly language: () => string) {}
+  /** @param doc Browser document containing the viewer's triggers. */
+  constructor(private readonly doc: Document) {}
 
   /** Close the active modal and release its observers, listeners, and scroll lock. */
   close(): void {
@@ -89,41 +79,40 @@ export class MediaViewer {
   open(content: MediaContent, trigger: HTMLElement, onClose: () => void): () => void {
     this.close()
     const doc = this.doc
-    const copy = this.language().startsWith('zh') ? messages.zh : messages.en
     const dialog = doc.createElement('dialog')
-    dialog.className = 'dsh-media-viewer'
-    dialog.setAttribute('aria-labelledby', 'dsh-media-title')
+    dialog.className = 'jan-media-viewer'
+    dialog.setAttribute('aria-labelledby', 'jan-media-title')
     const toolbar = doc.createElement('div')
-    toolbar.className = 'dsh-media-toolbar'
+    toolbar.className = 'jan-media-toolbar'
     const title = doc.createElement('span')
-    title.className = 'dsh-media-title'
-    title.id = 'dsh-media-title'
+    title.className = 'jan-media-title'
+    title.id = 'jan-media-title'
     title.textContent = content.title
     const zoomOut = viewerButton(doc, copy.zoomOut, 'zoomOut')
     const zoomIn = viewerButton(doc, copy.zoomIn, 'zoomIn')
     const original = content.originalSize ? doc.createElement('button') : undefined
     if (original) original.type = 'button'
     const scaleLabel = original ?? doc.createElement('span')
-    scaleLabel.className = 'dsh-media-scale'
+    scaleLabel.className = 'jan-media-scale'
     const fit = viewerButton(doc, copy.fit, 'fit')
-    fit.className = 'dsh-media-fit'
+    fit.className = 'jan-media-fit'
     const close = viewerButton(doc, copy.close, 'close')
-    close.className = 'dsh-media-close'
+    close.className = 'jan-media-close'
     close.autofocus = true
     toolbar.append(zoomOut, scaleLabel, zoomIn, fit)
     const helpToggle = viewerButton(doc, copy.helpLabel, 'help')
-    helpToggle.className = 'dsh-media-help-toggle'
+    helpToggle.className = 'jan-media-help-toggle'
     helpToggle.setAttribute('aria-expanded', 'false')
-    helpToggle.setAttribute('aria-controls', 'dsh-media-help-text')
+    helpToggle.setAttribute('aria-controls', 'jan-media-help-text')
     const help = doc.createElement('p')
-    help.className = 'dsh-media-help'
-    help.id = 'dsh-media-help-text'
+    help.className = 'jan-media-help'
+    help.id = 'jan-media-help-text'
     help.hidden = true
     help.textContent = copy.help
     const viewport = doc.createElement('div')
-    viewport.className = 'dsh-media-viewport'
+    viewport.className = 'jan-media-viewport'
     const paper = doc.createElement('div')
-    paper.className = 'dsh-media-paper'
+    paper.className = 'jan-media-paper'
     // Shared content lives in a shadow root so Mermaid copies cannot resolve their
     // embedded styles and fragment IDs against the original diagram.
     const shadow = paper.attachShadow({ mode: 'open' })

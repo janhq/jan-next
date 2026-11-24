@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
+import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { AccountSnapshot } from '../src/client/AccountSection.tsx'
@@ -11,7 +11,7 @@ let appRoot: HTMLDivElement
 
 it.each([false, true])('resizes only after eligibility resolves (completed=%s)', (done) => {
   const setActive = vi.fn()
-  vi.stubGlobal('dshOnboarding', { setActive })
+  vi.stubGlobal('janOnboarding', { setActive })
   const view = mount(done, true)
   expect(setActive).not.toHaveBeenCalled()
   view.resolve()
@@ -55,6 +55,7 @@ function mount(initiallyDone = false, initiallyLoading = false) {
   const setVisible = vi.fn()
   const element = () => <DesktopOnboardingEntry {...globals}
     setVisible={setVisible} useOnboarding={select => select(state)} useAccount={select => select(account)}
+    useCustomFlow={select => select(false)} finishCustomFlow={async () => true} renderSlot={() => null}
     update={async () => true} complete={async () => true} retry={async () => true}
     t={key => key in zh ? zh[key as AccountKey] : key} />
   const view = render(element())

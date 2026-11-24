@@ -3,11 +3,11 @@ import { execFileSync } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { Context } from '@deepseek-ai/cordis'
-import { ToolCallId, createAssistantMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
-import type { Session } from '@deepseek-ai/dsh-session'
-import type {} from '@deepseek-ai/dsh-tools'
-import type {} from '@deepseek-ai/dsh-fs'
+import type { Context } from '@janhq/cordis'
+import { ToolCallId, createAssistantMessage, createToolResultMessage } from '@janhq/jan-llm'
+import type { Session } from '@janhq/jan-session'
+import type {} from '@janhq/jan-tools'
+import type {} from '@janhq/jan-fs'
 import type { WorkspaceChangesSummary } from '../src/types.ts'
 
 let callNumber = 0
@@ -40,7 +40,7 @@ export function toolCall(session: Session, turn: number, name: string, args: unk
     stream: [], turn, step: 1,
     message: createAssistantMessage({
       content: [{ type: 'tool-call', id: callId, name, arguments: serialized }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
   }, { surfaceOp: 'append' })
   const source = session.append('tool/call', { turn, step: 1, callId, name, arguments: serialized })
@@ -58,7 +58,7 @@ export async function mutate(
   ctx: Context, session: Session, turn: number, name: string, args: unknown, path: string, apply: () => Promise<void>,
   result: { meta?: unknown; isError?: boolean } = {},
 ) {
-  const actor = { agent: { session }, name, arguments: args }
+  const actor = { agent: { session }, name, arguments: args, signal: new AbortController().signal }
   await ctx.waterfall('tools/pre-execute', actor as never, () => Promise.resolve(undefined as never))
   const target = await ctx.fs.resolve(path, session.header.cwd === undefined ? {} : { cwd: session.header.cwd })
   const event = name === 'edit' ? 'fs/edit-intent' : 'fs/write-intent'
@@ -75,7 +75,7 @@ export function endTurn(session: Session, turn: number, reason: 'completed' | 'b
 
 /** Wait for the plugin's queued git work through the same waterfall tool execution uses. */
 export async function settle(ctx: Context, session: Session): Promise<void> {
-  await ctx.waterfall('tools/pre-execute', { agent: { session } } as never, () => Promise.resolve(undefined as never))
+  await ctx.waterfall('tools/pre-execute', { agent: { session }, signal: new AbortController().signal } as never, () => Promise.resolve(undefined as never))
 }
 
 /** The summaries the Host still serves for one session's `workspace/changes` events, in log order. */

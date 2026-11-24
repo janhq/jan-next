@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-11-13-bundled-llama-worker.zh.md)
-
 ## Problem
 
 The `llama-cpp` plugin downloaded a pinned prebuilt `llama-server` archive from GitHub on first use, unpacked it with `tar`, and ran it on the fixed port 39281 that the `llm-pi-ai` `local` route also hardcoded. That design had four costs. The first run depended on GitHub release availability, so the plugin carried mirror fallbacks and a shared engine-install state machine. Only the CPU and Vulkan builds llama.cpp publishes were available, so CUDA and HIP were out of reach. A second process on port 39281 blocked the start, which required a pre-spawn health probe and a key check. Switching models restarted the server, and a supervisor killed with SIGKILL left `llama-server` running.
@@ -22,7 +20,7 @@ The plugin writes a router preset with one section per installed model, named by
 
 **Download the worker on demand.** This trades installer size for the same network dependency, plus a release pipeline and integrity table for a second artifact; bundling ties the worker to the app version that speaks its protocol.
 
-**Write the live port into the `llm-pi-ai` settings section.** `syncRoute` already writes the model list there. That write lands in one profile's patch file, so `dsh acp` and SDK processes, which use other profiles, would not see the port; it would also rewrite the user's patch on every start. A credential is shared across profiles and is withdrawn together with the key.
+**Write the live port into the `llm-pi-ai` settings section.** `syncRoute` already writes the model list there. That write lands in one profile's patch file, so `jan acp` and SDK processes, which use other profiles, would not see the port; it would also rewrite the user's patch on every start. A credential is shared across profiles and is withdrawn together with the key.
 
 **Duplicate the default model under a `[local]` section.** It needs no worker change, but the worker treats the two sections as two models, so the default model's file loads twice whenever both ids are used.
 
@@ -32,7 +30,7 @@ The plugin writes a router preset with one section per installed model, named by
 
 ## Consequences
 
-The installer grows by the staged worker (78 MB uncompressed for a Linux build with the CPU and Vulkan backends). The worker must be built and staged before packaging; `DSH_DESKTOP_OMIT_LLAMA_WORKER=1` packages without it. A source launch other than the dev scripts must export `JAN_LLAMA_WORKER`.
+The installer grows by the staged worker (78 MB uncompressed for a Linux build with the CPU and Vulkan backends). The worker must be built and staged before packaging; `JAN_DESKTOP_OMIT_LLAMA_WORKER=1` packages without it. A source launch other than the dev scripts must export `JAN_LLAMA_WORKER`.
 
 The plugin no longer needs the engine artifact table, archive unpacking, the shared engine-install state, the mirror fallback, the pre-spawn port probe or the restart on model switch. `llm-pi-ai` gains a general `baseURLEnv` key that resolves a route's endpoint per request through the credential seam.
 

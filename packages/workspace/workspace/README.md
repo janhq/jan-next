@@ -3,9 +3,7 @@ description: "Workspace entity registry (ctx.workspaceRegistry) for hosts choosi
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-workspace
-
-English | [中文](README.zh.md)
+# @janhq/jan-workspace
 
 ## Summary
 
@@ -36,14 +34,14 @@ Use it when the product shows a persistent workspace surface — a sidebar, sess
 The package needs a session store, a session persistence backend, and the storage rows that keep its records. A minimal composition:
 
 ```yaml
-- name: '@deepseek-ai/dsh-session'
-- name: '@deepseek-ai/dsh-session-persistence-jsonl'
-- name: '@deepseek-ai/dsh-storage'
-- name: '@deepseek-ai/dsh-storage-json'
-- name: '@deepseek-ai/dsh-storage-domain'
+- name: '@janhq/jan-session'
+- name: '@janhq/jan-session-persistence-jsonl'
+- name: '@janhq/jan-storage'
+- name: '@janhq/jan-storage-json'
+- name: '@janhq/jan-storage-domain'
   config:
     backend: json
-- name: '@deepseek-ai/dsh-workspace'
+- name: '@janhq/jan-workspace'
 ```
 
 With these rows mounted, creating a project shows up in the list immediately and survives a restart; the first start also groups existing sessions by the directory they ran in. If a required peer is missing, the workspace feature stays unavailable until it is mounted.
@@ -51,6 +49,8 @@ With these rows mounted, creating a project shows up in the list immediately and
 ### Creating and ordering projects
 
 Create a project from any fully qualified directory that exists: filesystem roots such as `C:\` and ordinary directories are valid. Relative paths, Windows drive-relative paths such as `C:work`, missing paths, and files are rejected without creating a project; creating a project for a directory that already has one returns the existing project unchanged. Rename a project at any time, and move it to any position in the list:
+
+Use `workspaceRegistry.adopt(path, title?)` when the caller needs to know whether it created the registration or reused an existing one. The registry determines both the returned workspace and the `created` receipt in the same serialized operation.
 
 ```text
 // Host consumer code, after the composition above is loaded:
@@ -60,13 +60,15 @@ ctx.workspaceRegistry.list() // shows the project, newest first
 ```
 
 <a id="first-use-workspace"></a>
-### First-use Workspace
+### Default project
 
-`initializeDefault(resolveDirectory)` initializes the default Workspace without creating a Session. Initial creation requires an empty Workspace registry and no live, persisted, or archived Session, including Sessions without a working directory. The registry checks persistent history directly; an empty visible sidebar is insufficient.
+`ensureDefault(signal?)` ensures a registered default project through the embedding's directory policy. It works even with other projects, live or archived Sessions, and existing history. It neither creates nor moves a Session.
 
-The directory resolver runs inside the mutation queue only when creation is eligible. It returns an absolute path; the registry creates missing parent directories, canonicalizes the path, rechecks Session history, and commits the Workspace with its initialization marker, titled after the requested directory's final segment rather than the canonical one, so a symlink at that path does not retitle the Workspace after its target. An existing directory is reused; a file conflict or directory failure rejects initialization. The [Host controller](../../api/workspace-controller/README.md#first-use-workspace) supplies the Documents path policy.
+The resolver runs inside the mutation queue only when there is no active default. The registry creates missing parents, canonicalizes the path, and either designates its existing registration or creates one. A new title uses the requested directory's final segment, so a symlink does not retitle it after its target. A file conflict or directory failure rejects. The [Host controller](../../api/workspace-controller/README.md#first-use-workspace) supplies the Documents path policy.
 
-The first successful registration records its identity durably. Repeated calls return it without resolving a directory again; renaming keeps that identity, and deleting its registration does not permit another automatic creation. Directory or registration failure leaves initialization unset for retry. Directories created before a later failure remain on disk. Once directory resolution succeeds, caller cancellation does not roll back directory creation or registration. The [historical first-use decision](../../../.agents/notes/archived/feature/2026-09-20-default-workspace.md) explains this lifetime.
+Repeated calls reuse the active default without resolving Documents again. If its directory was removed, the registry restores the empty directory at the same stored path on demand. Rename keeps the same identity. Deleting the registration leaves the folder and Sessions intact; the next call creates a fresh registration unless that directory has since been registered explicitly. Older saved IDs whose rows no longer exist are treated as absent. Failure is retryable; caller cancellation after resolution does not roll back directory creation or registration.
+
+Read `ctx.workspaceRegistry.defaultWorkspace` to look up the active default without attempting initialization. It is absent when no default was initialized or its registration was deleted.
 
 ### Grouping sessions under a project
 
@@ -92,7 +94,7 @@ This section explains the design decisions behind the feature and points at the 
 
 - **One record per canonical path.** `fs.realpath` is the single uniqueness canon: paths are stored canonicalized, so a symlink to an owned directory collides, and uniqueness is string equality of canonical paths.
 - **Membership starts from the recorded account.** The header index validates ordered `sessionIds`; missing-directory candidates retain their account, while other invalid candidates are filtered on read and pruned by the next mutation. The strict canonical-path index used for history bootstrap includes existing directories only.
-- **Header-only reads.** Bootstrap and attach validation read `SessionHeader` fields only; event bodies are never loaded.
+- **Header-only reads.** Bootstrap lists Session headers once. Attaching a Session whose header is neither live nor cached reads only that Session's metadata, not the event body or the complete listing.
 - **Two-write mutations with an explicit marker.** Create and delete persist a `pendingMutation` marker before the record/order pair can diverge, so startup completes exactly the interrupted operation and unmarked divergence fails loud as corruption.
 - **Serialized writes.** Registry operations run on one operation chain; entity mutations go through `table.update` on the domain write chain, stamping `updatedAt` and deciding membership at their chain slot.
 
@@ -114,7 +116,9 @@ Archive admission is a capability seam over two Host events this package declare
 
 ### Durable shape
 
-The registry opens the `workspace` domain (version 2): a `workspaces` table keyed by `WorkspaceId` plus one global state holding `workspaceIds` (the authoritative display order), `archivedSessionIds`, `pinnedSessionIds`, the optional `defaultWorkspaceId` first-use identity, and the optional `pendingMutation` marker. Archive and pin sets contain Session id strings, default to empty, and carry no per-entry objects or timestamps; the pin array keeps the most recently pinned id first. Archiving clears the pin in the same global-state write without changing Workspace membership. Unarchive runs no session-existence probe, because dropping an id from the set cannot introduce an unknown one, while archive verifies the session before adding it.
+The registry opens the `workspace` domain (version 2): a `workspaces` table keyed by `WorkspaceId` plus one global state holding `workspaceIds` (the authoritative display order), `archivedSessionIds`, `pinnedSessionIds`, the optional active `defaultWorkspaceId`, and the optional `pendingMutation` marker. Archive and pin sets contain Session id strings, default to empty, and carry no per-entry objects or timestamps; the pin array keeps the most recently pinned id first. Archiving clears the pin in the same global-state write without changing Workspace membership. Unarchive runs no session-existence probe, because dropping an id from the set cannot introduce an unknown one, while archive verifies the session before adding it.
+
+Workspace records may also hold a named `color` and an `avatar`: a curated icon name, one Unicode emoji, an uploaded picture as a base64 PNG `data:` URL of at most 64 KiB, or a website host whose favicon the Client shows. Both fields are optional additions to the version 2 record; existing rows need no migration, and a record without an avatar keeps the automatic one. `workspaceRegistry.updateIdentity` applies the title and appearance together without replacing the registration or changing its membership.
 
 ### Lifecycle
 
@@ -131,13 +135,11 @@ A create or delete whose second write fails rolls the cache and the prior order 
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when this package's view is not enough: the subsystem reference is the authoritative feature contract, and the Agent Notes record why projects start from session history and why removal is non-destructive.
+Read these pages when this package's view is not enough: the subsystem reference is the authoritative feature contract.
 
 - [Workspace subsystem](../../../docs/subsystems/workspace.md) — the feature contract for projects and their sessions, and the generated API for the workspace service.
 - [Workspace package map](../README.md) — the group's single package and its repository position.
 - [domain KV storage Agent Note](../../../.agents/notes/proposed/architecture/2026-07-24-domain-kv-storage-and-workspace.md) — why project records use the domain data form.
-- [Workspace UI product-flow Agent Note](../../../.agents/notes/archived/feature/2026-07-25-workspace-ui-product-flow.md) — how the first start builds projects from session history and how the GUI orders them.
-- [historical Workspace registration deletion decision](../../../.agents/notes/archived/feature/2026-07-27-workspace-registration-deletion.md) — why removing a project never deletes its folder or sessions.
 
 -----
 
@@ -182,6 +184,6 @@ This Dev Note is working context for maintainers: open questions and directions 
 
 #### Open: the `create(path, title?)` title parameter
 
-The `title` parameter has no production caller since the gateway's create-by-name branch was removed; a code TODO proposes dropping the parameter and its `@param` clause together ([note](../../../.agents/notes/archived/simplification/2026-07-31-one-route-to-add-a-workspace.md)).
+The `title` parameter has no production caller since the gateway's create-by-name branch was removed; a code TODO proposes dropping the parameter and its `@param` clause together.
 
 </details>

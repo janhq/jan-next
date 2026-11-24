@@ -2,15 +2,13 @@
 
 Status: implemented
 
-English | [中文](2026-09-28-apply-patch-file-editing.zh.md)
-
 ## Problem
 
 A model editing several files or separated regions needs multiple literal-edit calls or a shell script. Shell and Python edits do not expose filesystem mutation intents, so a working directory without Git cannot reliably present those edits in the turn Review tab. A patch tool expresses related edits in one call while retaining guarded filesystem operations. #5121 asks for the capability and its effectiveness evaluation; #4556 supplies the broader motivation for efficient file editing.
 
 ## Decision
 
-`apply_patch` accepts one Codex-style patch for add, update, delete, and move operations, including multiple files and hunks. The pure [dsh-fs-patch library](../../../../packages/fs/fs-patch/README.md) follows Codex `rust-v0.158.0` parsing, sequential matching, whitespace tolerance, and `NormalizeToLf` reconstruction; the matcher receives LF text only, so Codex `PreserveLineEndings` is not implemented.
+`apply_patch` accepts one Codex-style patch for add, update, delete, and move operations, including multiple files and hunks. The pure [jan-fs-patch library](../../../../packages/fs/fs-patch/README.md) follows Codex `rust-v0.158.0` parsing, sequential matching, whitespace tolerance, and `NormalizeToLf` reconstruction; the matcher receives LF text only, so Codex `PreserveLineEndings` is not implemented.
 
 The [filesystem service](../../../../packages/fs/fs/README.md) exposes `patchText`, `deleteFile`, and `moveFile`; local, sandboxed, and SSH providers implement them. `fs/delete-intent` requires the same present observation as `fs/edit-intent`, while move destinations use `fs/write-intent`. Version guards and sandbox enforcement remain with the provider. A move publishes its destination before deleting its source, and `sourceDeleted` distinguishes a completed move from a published destination whose source could not be removed.
 

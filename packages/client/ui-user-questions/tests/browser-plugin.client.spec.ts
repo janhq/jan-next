@@ -1,13 +1,13 @@
 /** Scoped Remote Event wiring and projection publishing for the browser question consumer. */
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { describe, expect, it, vi } from 'vitest'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { InboxWireState } from '@deepseek-ai/dsh-agent/types'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { PendingUserQuestion, UserQuestionProjectionView } from '@deepseek-ai/dsh-user-questions/types'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { InboxWireState } from '@janhq/jan-agent/types'
+import type { SessionId } from '@janhq/jan-session/types'
+import { ToolCallId } from '@janhq/jan-llm'
+import type { PendingUserQuestion, UserQuestionProjectionView } from '@janhq/jan-user-questions/types'
 import { QuestionComposer } from '../src/client/QuestionComposer.tsx'
 import { PendingQuestion } from '../src/client/contract/slots.ts'
 import { createQuestionDraftStore } from '../src/client/draft-store.ts'
@@ -40,7 +40,7 @@ const queuedInbox = (callId: ToolCallId): InboxWireState => ({
 type QuestionRequest = {
   questions: PendingQuestion['questions']
   signal?: AbortSignal
-  wait?: { callId: ToolCallId; timed?: boolean }
+  wait?: { callId: ToolCallId; timed?: boolean; autoSubmit?: boolean }
 }
 type QuestionAnswer = typeof ANSWER
 type QuestionNext = () => Promise<QuestionAnswer>
@@ -476,6 +476,42 @@ describe('apply', () => {
       channel: 'none', closed: false,
     })
     await expect(pending.answer(ANSWER)).rejects.toThrow(/no channel/)
+  })
+
+  it('submits marked choices and skips unanswered questions at the deadline even without a mounted card', async () => {
+    vi.useFakeTimers()
+    const b = await bench(true, [], 30_000)
+    const lifetime = new AbortController()
+    try {
+      const result = b.invoke(b.agent, {
+        questions: [
+          { id: 'style', question: 'Choose a style', options: [{ label: 'Concise (Recommended)' }, { label: 'Detailed' }] },
+          { id: 'scope', question: 'Choose a scope', options: [{ label: 'Default' }] },
+          { id: 'notes', question: 'Anything else?' },
+        ],
+        wait: { callId: CALL, timed: true, autoSubmit: true },
+        signal: lifetime.signal,
+      }, async () => ANSWER)
+      void result.catch(() => {})
+      await vi.advanceTimersByTimeAsync(0)
+      const [pending] = b.pending.getSnapshot()
+      expect(pending?.snapshot().countdown).toEqual({ remainingMs: 30_000, running: true })
+      await pending?.dismiss()
+      expect(b.pending.getSnapshot()).toEqual([])
+      await vi.advanceTimersByTimeAsync(30_000)
+      await expect(result).resolves.toEqual({
+        autoSubmitted: true,
+        answers: [
+          { id: 'style', selected: ['Concise (Recommended)'] },
+          { id: 'scope', selected: [] },
+          { id: 'notes', selected: [] },
+        ],
+      })
+    } finally {
+      lifetime.abort()
+      await b.ctx.fiber.dispose()
+      vi.useRealTimers()
+    }
   })
 
   it('anchors a Host-measured remaining wait to the Client clock', async () => {

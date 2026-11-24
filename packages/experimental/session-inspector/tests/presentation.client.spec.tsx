@@ -3,9 +3,9 @@
 
 import { act, cleanup, fireEvent, render, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { bindSnapshotSelector, makeTranslate, sessionSnapshot } from '@deepseek-ai/dsh-client-test-runtime'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { bindSnapshotSelector, makeTranslate, sessionSnapshot } from '@janhq/jan-client-test-runtime'
+import type { SessionId } from '@janhq/jan-session/types'
 import { SessionInspectorView, type SessionInspectorProps } from '../src/client/views/View.tsx'
 import type { InspectorChatTarget, InspectorObjectReference } from '../src/client/views/objects.ts'
 import type { InspectorRecord, InspectorRow } from '../src/client/views/table-model.ts'

@@ -1,8 +1,8 @@
 /** Account authorization dialog; errors allow retry after cancelling any active attempt. */
 import { useEffect, useState } from 'react'
-import { Button, IconCloseOutlineRegular, IconLoadingOutlineRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconCloseOutlineRegular, IconLoadingOutlineRegular, IconWarningOutlineRegular, Modal } from '@janhq/jan-client-ui-primitives'
 import type { AccountSnapshot } from './AccountSection.tsx'
-import type { SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { SignInAttemptId, SignInErrorCode } from '@janhq/jan-tokamak-account/types'
 import type { AccountKey } from './locales.ts'
 import { authorizeUrlWithTheme } from './authorize-url.ts'
 import css from './SignInDialog.module.css'
@@ -34,8 +34,7 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
   const expired = phase === 'expired'
   const localFailure = failed || account.loginFailed || account.failed
   const error = localFailure || phase === 'failed'
-  const failureKey = !localFailure
-    && phase === 'failed' && attempt?.errorCode === 'no-response' ? 'noResponse' : 'failed'
+  const failureKey = failureKeyOf(localFailure ? undefined : attempt?.errorCode)
   const waiting = active && !error
   const committing = phase === 'committing'
   useEffect(() => { if (account.view?.status === 'credential-stored') close() }, [account.view?.status, close])
@@ -63,7 +62,10 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
   return <Modal open headless title={title} onClose={dismiss} className={css.dialog as string}>
     <div className={css.content}>
       <div className={css.header}>
-        <h2 className={css.title}>{title}</h2>
+        <h2 className={css.title}>
+          {error || expired ? <IconWarningOutlineRegular size={18} className={css.titleIcon} aria-hidden="true" /> : null}
+          {title}
+        </h2>
         <button type="button" className={css.close} aria-label={t('close')} onClick={dismiss}>
           <IconCloseOutlineRegular size={14} />
         </button>
@@ -89,4 +91,15 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
       </Button>
     </div>
   </Modal>
+}
+
+/** Name what went wrong when the Host reported a cause; a local action failure has none. */
+function failureKeyOf(code: SignInErrorCode | undefined): AccountKey {
+  switch (code) {
+    case 'no-response': return 'noResponse'
+    case 'network': return 'failureNetwork'
+    case 'storage': return 'failureStorage'
+    case 'protocol': return 'failureProtocol'
+    default: return 'failureGeneric'
+  }
 }

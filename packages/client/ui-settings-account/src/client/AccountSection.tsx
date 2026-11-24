@@ -1,10 +1,10 @@
 /** Account settings renders safe Host state and explicit login actions. */
 import { Big } from 'big.js'
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
-import { Button, IconRightUpOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { AccountDetails, AccountView, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
-import type { PropsRuntime, PropsLocale, InjectFace, HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
+import { Button, IconRightUpOutlineRegular } from '@janhq/jan-client-ui-primitives'
+import type { AccountDetails, AccountView, SignInAttemptId } from '@janhq/jan-tokamak-account/types'
+import type { PropsRuntime, PropsLocale, InjectFace, HostObservable } from '@janhq/jan-client-ui-slots'
+import type { ThemeSnapshot } from '@janhq/jan-client-ui-theme/client'
 import type { PlatformPage, PlatformPages } from './platform-pages.ts'
 import { formatBalance } from './formatBalance.ts'
 import { AccountAvatar } from './AccountAvatar.tsx'
@@ -69,6 +69,10 @@ export interface AccountSectionInjected {
   refreshAccount: () => Promise<void>
   /** Open the external support questionnaire with the account, build and environment sampled by this click. */
   contactUs: () => void
+  /** Open Settings at one registered section (`general` for Language, `models` for inference). */
+  openSettingsSection?: (section: string) => void
+  /** Open one of Jan's pages (changelog, docs): in the right-Sidebar Browser beside the chat on screen, otherwise in the system browser. */
+  openLink?: (url: string) => void
   /** Open or dismiss the login dialog. */
   showLogin: (visible: boolean) => void
   /** Claim dialog ownership for the onboarding step. */

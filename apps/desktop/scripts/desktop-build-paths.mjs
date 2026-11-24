@@ -10,43 +10,23 @@ const TARGET_PLATFORMS = /** @type {const} */ ({
   'win-x64': { platform: 'win32', arch: 'x64' },
   'linux-x64': { platform: 'linux', arch: 'x64' },
 })
-const RELEASE_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64'])
 
 function selectedTarget(env, hostPlatform, hostArch) {
-  const platform = env.DSH_DESKTOP_TARGET_PLATFORM ?? env.npm_config_platform ?? hostPlatform
-  const arch = env.DSH_DESKTOP_TARGET_ARCH ?? env.npm_config_arch
+  const platform = env.JAN_DESKTOP_TARGET_PLATFORM ?? env.npm_config_platform ?? hostPlatform
+  const arch = env.JAN_DESKTOP_TARGET_ARCH ?? env.npm_config_arch
     ?? (platform === 'win32' || platform === 'win' ? 'x64' : hostArch)
   const os = platform === 'darwin' ? 'mac' : platform === 'win32' || platform === 'win' ? 'win' : platform
   return `${os}-${arch}`
 }
 
 /**
- * Resolve the fixed release target selected by a packaging environment.
- * @param {NodeJS.ProcessEnv} env - Packaging environment.
+ * Resolve the target a packaging run or unpackaged development launch prepares.
+ * @param {NodeJS.ProcessEnv} env - Packaging or launch environment.
  * @param {NodeJS.Platform} hostPlatform - Build-host platform used when no target override exists.
  * @param {string} hostArch - Build-host architecture used when no target override exists.
- * @returns {'mac-arm64' | 'mac-x64' | 'win-x64'} Supported Desktop release target name.
+ * @returns {keyof typeof TARGET_PLATFORMS} Supported Desktop target name.
  */
 export function resolveDesktopBuildTarget(
-  env = process.env,
-  hostPlatform = process.platform,
-  hostArch = process.arch,
-) {
-  const target = selectedTarget(env, hostPlatform, hostArch)
-  if (!RELEASE_TARGETS.has(target)) {
-    throw new Error(`desktop build paths: unsupported release target ${target}; release targets are ${[...RELEASE_TARGETS].join(', ')}`)
-  }
-  return /** @type {'mac-arm64' | 'mac-x64' | 'win-x64'} */ (target)
-}
-
-/**
- * Resolve the target an unpackaged development launch prepares, which includes Linux.
- * @param {NodeJS.ProcessEnv} env - Launch environment.
- * @param {NodeJS.Platform} hostPlatform - Host platform used when no target override exists.
- * @param {string} hostArch - Host architecture used when no target override exists.
- * @returns {keyof typeof TARGET_PLATFORMS} Supported Desktop development target name.
- */
-export function resolveDesktopDevelopmentTarget(
   env = process.env,
   hostPlatform = process.platform,
   hostArch = process.arch,
@@ -64,15 +44,15 @@ function assertSupportedTarget(target) {
 
 /**
  * Return the mutable preparation and artifact directories owned by one target.
- * @param {keyof typeof TARGET_PLATFORMS} target - Supported Desktop release or development target name.
+ * @param {keyof typeof TARGET_PLATFORMS} target - Supported Desktop target name.
  * @param {NodeJS.ProcessEnv} environment - Packaging environment with an optional absolute cache directory.
- * @returns {{ root: string, artifacts: string, unsignedArtifacts: string, unnotarizedArtifacts: string, runtime: string, packageSet: string, dsh: string, dshPnpm: string, electron: string, packedDsh: string, packedVendor: string, packedLandlock: string, downloads: string, pnpmStore: string }} Target paths plus shared download and package caches.
+ * @returns {{ root: string, artifacts: string, unsignedArtifacts: string, unnotarizedArtifacts: string, runtime: string, packageSet: string, jan: string, janPnpm: string, electron: string, packedJan: string, packedVendor: string, packedLandlock: string, downloads: string, pnpmStore: string }} Target paths plus shared download and package caches.
  */
 export function desktopTargetBuildPaths(target, environment = process.env) {
   assertSupportedTarget(target)
-  const cacheRoot = environment.DSH_DESKTOP_PACKAGE_CACHE_DIR ?? BUILD_ROOT
+  const cacheRoot = environment.JAN_DESKTOP_PACKAGE_CACHE_DIR ?? BUILD_ROOT
   if (!cacheRoot.trim() || !isAbsolute(cacheRoot) || cacheRoot.includes('\0')) {
-    throw new Error('desktop package: DSH_DESKTOP_PACKAGE_CACHE_DIR must be a nonempty absolute directory')
+    throw new Error('desktop package: JAN_DESKTOP_PACKAGE_CACHE_DIR must be a nonempty absolute directory')
   }
   const root = join(BUILD_ROOT, 'targets', target)
   const packed = join(root, 'packed')
@@ -83,10 +63,10 @@ export function desktopTargetBuildPaths(target, environment = process.env) {
     unnotarizedArtifacts: join(root, 'unnotarized-artifacts'),
     runtime: join(root, 'runtime'),
     packageSet: join(root, 'package-set'),
-    dsh: join(root, 'dsh'),
-    dshPnpm: join(root, 'dsh-pnpm'),
+    jan: join(root, 'jan'),
+    janPnpm: join(root, 'jan-pnpm'),
     electron: join(root, 'electron'),
-    packedDsh: join(packed, 'dsh'),
+    packedJan: join(packed, 'jan'),
     packedVendor: join(packed, 'vendor'),
     packedLandlock: join(packed, 'landlock'),
     downloads: join(cacheRoot, 'downloads'),
@@ -97,7 +77,7 @@ export function desktopTargetBuildPaths(target, environment = process.env) {
 /**
  * Return the platform and architecture of the payload one target prepares.
  * Windows is prepared as x64 only, so this differs from the build host on an arm64 Windows machine.
- * @param {keyof typeof TARGET_PLATFORMS} target - Supported Desktop release or development target name.
+ * @param {keyof typeof TARGET_PLATFORMS} target - Supported Desktop target name.
  * @returns {{ platform: 'darwin' | 'win32' | 'linux', arch: 'arm64' | 'x64' }} Platform and architecture of the prepared payload.
  */
 export function desktopTargetPlatform(target) {
@@ -106,7 +86,19 @@ export function desktopTargetPlatform(target) {
 }
 
 /**
- * Resolve the paths owned by the release target selected in a packaging environment.
+ * Locate the executable inside an extracted Electron distribution.
+ * @param {string} electronDirectory - Extracted Electron archive root.
+ * @param {NodeJS.Platform} platform - Platform the distribution was built for.
+ * @returns {string} Electron executable path.
+ */
+export function desktopElectronExecutable(electronDirectory, platform) {
+  if (platform === 'win32') return join(electronDirectory, 'electron.exe')
+  if (platform === 'darwin') return join(electronDirectory, 'Electron.app', 'Contents', 'MacOS', 'Electron')
+  return join(electronDirectory, 'electron')
+}
+
+/**
+ * Resolve the paths owned by the target selected in a packaging environment.
  * @param {NodeJS.ProcessEnv} env - Packaging environment.
  * @param {NodeJS.Platform} hostPlatform - Build-host platform used when no target override exists.
  * @param {string} hostArch - Build-host architecture used when no target override exists.
@@ -134,7 +126,7 @@ export function developmentRuntimeDirectory(
   hostPlatform = process.platform,
   hostArch = process.arch,
 ) {
-  const target = resolveDesktopDevelopmentTarget(env, hostPlatform, hostArch)
+  const target = resolveDesktopBuildTarget(env, hostPlatform, hostArch)
   return join(desktopTargetBuildPaths(target, env).runtime, 'primary-runtime')
 }
 

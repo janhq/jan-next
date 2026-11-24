@@ -3,7 +3,7 @@
 import { valid } from 'semver'
 
 /** Environment variable that selects the Desktop update deployment. */
-export const DESKTOP_AUTO_UPDATE_ENV = 'DSH_DESKTOP_AUTO_UPDATE_ENV'
+export const DESKTOP_AUTO_UPDATE_ENV = 'JAN_DESKTOP_AUTO_UPDATE_ENV'
 
 /**
  * Resolve the channel embedded in the installer; omitted local settings retain nightly.
@@ -11,7 +11,7 @@ export const DESKTOP_AUTO_UPDATE_ENV = 'DSH_DESKTOP_AUTO_UPDATE_ENV'
  * @returns {'nightly' | 'stable'} Validated channel.
  */
 export function resolveDesktopUpdateChannel(env) {
-  const channel = env.DSH_DESKTOP_UPDATE_CHANNEL || 'nightly'
+  const channel = env.JAN_DESKTOP_UPDATE_CHANNEL || 'nightly'
   if (channel !== 'nightly' && channel !== 'stable') throw new Error('desktop auto-update: invalid update channel')
   return channel
 }
@@ -19,14 +19,12 @@ export function resolveDesktopUpdateChannel(env) {
 const UPDATE_ENVIRONMENTS = {
   test: {
     originEnvName: 'DOWNLOAD_TEST_ORIGIN',
-    fixedOrigin: undefined,
     bucketEnvName: 'DOWNLOAD_TEST_COS_BUCKET',
     secretIdEnvName: 'DOWNLOAD_TEST_COS_SECRET_ID',
     secretKeyEnvName: 'DOWNLOAD_TEST_COS_SECRET_KEY',
   },
   production: {
-    originEnvName: undefined,
-    fixedOrigin: 'https://download.deepseek.com',
+    originEnvName: 'DOWNLOAD_PROD_ORIGIN',
     bucketEnvName: 'DOWNLOAD_PROD_COS_BUCKET',
     secretIdEnvName: 'DOWNLOAD_PROD_COS_SECRET_ID',
     secretKeyEnvName: 'DOWNLOAD_PROD_COS_SECRET_KEY',
@@ -43,16 +41,17 @@ const UPDATE_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64'])
 export function desktopLatestInstallerFilename(target) {
   if (!UPDATE_TARGETS.has(target)) throw new Error(`desktop upload: unsupported target ${target}`)
   const windows = target === 'win-x64'
-  return `dsh-latest-${windows ? 'windows' : 'macos'}-${target === 'mac-arm64' ? 'arm64' : 'x64'}.${windows ? 'exe' : 'dmg'}`
+  return `jan-latest-${windows ? 'windows' : 'macos'}-${target === 'mac-arm64' ? 'arm64' : 'x64'}.${windows ? 'exe' : 'dmg'}`
 }
 
 /**
  * Resolve the production website installer URL shared by approval, upload and purge.
+ * @param {string} origin Production download HTTPS origin.
  * @param {'mac-arm64' | 'mac-x64' | 'win-x64'} target Supported Desktop target.
  * @returns {string} Fixed production download URL.
  */
-export function desktopWebsiteInstallerUrl(target) {
-  return `${UPDATE_ENVIRONMENTS.production.fixedOrigin}/desktop/${desktopLatestInstallerFilename(target)}`
+export function desktopWebsiteInstallerUrl(origin, target) {
+  return `${origin}/desktop/${desktopLatestInstallerFilename(target)}`
 }
 
 /**
@@ -109,7 +108,7 @@ export function desktopUpdateMetadataFilename(version, platform, channel = 'nigh
   if (platform !== 'darwin' && platform !== 'win32') {
     throw new Error(`desktop auto-update: unsupported metadata platform ${platform}`)
   }
-  resolveDesktopUpdateChannel({ DSH_DESKTOP_UPDATE_CHANNEL: channel })
+  resolveDesktopUpdateChannel({ JAN_DESKTOP_UPDATE_CHANNEL: channel })
   return `${channel}${platform === 'darwin' ? '-mac' : ''}.yml`
 }
 
@@ -158,20 +157,15 @@ function httpsOrigin(value, name) {
  * @param {NodeJS.Platform} platform - Target Node.js platform.
  * @param {string} arch - Target Node.js architecture.
  * @returns {{ environment: 'test' | 'production', channel: 'nightly' | 'stable', target: 'mac-arm64' | 'mac-x64' | 'win-x64', origin: string, publicUrl: string, keyPrefix: string, binaryKeyPrefix: string }} Resolved updater configuration.
- * @throws {Error} When the test deployment lacks a valid HTTPS origin or a 32-character lowercase hexadecimal release ID.
+ * @throws {Error} When the deployment lacks a valid HTTPS origin, or the test deployment lacks a 32-character lowercase hexadecimal release ID.
  */
 export function resolveDesktopAutoUpdateConfig(env, platform, arch) {
   const channel = resolveDesktopUpdateChannel(env)
   const environment = resolveDesktopAutoUpdateEnvironment(env)
   const target = resolveDesktopAutoUpdateTarget(platform, arch)
   const deployment = UPDATE_ENVIRONMENTS[environment]
-  let origin = deployment.fixedOrigin
-  if (origin === undefined) {
-    const { originEnvName } = deployment
-    if (originEnvName === undefined) throw new Error('desktop auto-update: selected deployment has no origin')
-    origin = httpsOrigin(requiredEnvironmentValue(env, originEnvName), originEnvName)
-  }
-  let releasePrefix = 'dsh-desk'
+  const origin = httpsOrigin(requiredEnvironmentValue(env, deployment.originEnvName), deployment.originEnvName)
+  let releasePrefix = 'jan-desk'
   if (environment === 'test') {
     const releaseId = requiredEnvironmentValue(env, 'DOWNLOAD_TEST_RELEASE_ID')
     if (!/^[a-f0-9]{32}$/u.test(releaseId)) {

@@ -1,7 +1,5 @@
 # Conversation and Session rules
 
-English | [中文](conversation-and-session.zh.md)
-
 Rules for reading a Session, holding one, computing conversation nodes, and rendering them. The data model and per-type semantics live in [session-projection.md](../subsystems/session-projection.md) and [conversation.md](../subsystems/conversation.md).
 
 ## Projection is the only read and compute path
@@ -207,7 +205,7 @@ A business package that declares its kind and registers its renderer leaves the 
 
 ```tsx
 // The business declares its kind and registers its renderer; the shared list is untouched.
-declare module '@deepseek-ai/dsh-client-ui-chat/client' {
+declare module '@janhq/jan-client-ui-chat/client' {
   interface ChatNodeDataMap { handoff: HandoffData }
 }
 
@@ -288,7 +286,7 @@ Every business special case lands in one shared pipeline, and Markdown rendering
 A producer that declares its own source kind keeps the business difference in the payload:
 
 ```ts ignore-check
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     handoff: { kind: 'handoff'; sessionId: SessionId }
   }

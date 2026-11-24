@@ -1,5 +1,5 @@
 /**
- * Profile machinery of `dsh-app-boot`: directory resolution and init,
+ * Profile machinery of `jan-app-boot`: directory resolution and init,
  * manifest round-trips, two-anchor bundle resolution, patch-layer loading,
  * empty-root composition, and runtime package resolution.
  */
@@ -15,10 +15,11 @@ import { afterAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import {
   composeEntries,
   createRuntimeResolution,
-  getDshRuntimeVersion,
+  getJanRuntimeVersion,
   initProfile,
   loadProfile,
   loadProfileDirectory,
+  normalizeShippedProfile,
   PROFILE_COMPATIBILITY_FILENAME,
   PROFILE_PATCH_FILENAME,
   readProfileManifest,
@@ -31,7 +32,7 @@ import {
   type Profile,
   type RuntimeResolution,
 } from '../src/index.ts'
-import { PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles'
+import { PROFILE_TEMPLATES } from '@janhq/jan-official-bundles'
 import { installRuntimeInterception } from '../src/profile-resolution/resolver.ts'
 
 const tempRoots: string[] = []
@@ -40,7 +41,7 @@ afterAll(() => {
 })
 
 const tmp = (): string => {
-  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'dsh-profile-')))
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'jan-profile-')))
   tempRoots.push(dir)
   return dir
 }
@@ -48,7 +49,7 @@ const tmp = (): string => {
 /** Stage a fake installed app: package.json with deps and a node_modules holding bundles. */
 function stageInstallation(
   bundles: Record<string, { patch?: string; deps?: Record<string, string>; platforms?: string[] }>,
-  appName = 'dsh-app',
+  appName = 'jan-app',
 ): string {
   const root = tmp()
   const appDir = join(root, 'app')
@@ -64,7 +65,7 @@ function stageInstallation(
       type: 'module',
       main: './index.js',
       dependencies: spec.deps ?? {},
-      ...spec.patch === undefined ? {} : { dsh: { bundle: { patch: './cordis.patch.yml', ...spec.platforms === undefined ? {} : { platforms: spec.platforms } } } },
+      ...spec.patch === undefined ? {} : { jan: { bundle: { patch: './cordis.patch.yml', ...spec.platforms === undefined ? {} : { platforms: spec.platforms } } } },
     }))
     writeFileSync(join(dir, 'index.js'), `export const packageName = ${JSON.stringify(name)}\n`)
     if (spec.patch !== undefined) writeFileSync(join(dir, 'cordis.patch.yml'), spec.patch)
@@ -75,6 +76,21 @@ function stageInstallation(
   writeFileSync(join(appDir, 'index.js'), `export const packageName = ${JSON.stringify(appName)}\n`)
   return join(appDir, 'package.json')
 }
+
+it('loads a DSH bundle declaration without rewriting its installed manifest', () => {
+  const anchor = stageInstallation({ 'dsh-ppt': { patch: '- insert:\n  - id: slides\n    name: dsh-ppt\n' } })
+  const bundleDir = join(dirname(anchor), 'node_modules', 'dsh-ppt')
+  const manifestPath = join(bundleDir, 'package.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
+  manifest.dsh = manifest.jan
+  delete manifest.jan
+  writeFileSync(manifestPath, JSON.stringify(manifest))
+  const profileDir = join(tmp(), 'profile')
+  initProfile(profileDir, ['dsh-ppt'])
+  expect(loadProfileDirectory('jan', profileDir, anchor).layers.map(layer => layer.packageName)).toEqual(['dsh-ppt'])
+  expect(readProfileManifest('jan', bundleDir).jan?.bundle?.patch).toBe('./cordis.patch.yml')
+  expect(JSON.parse(readFileSync(manifestPath, 'utf8'))).not.toHaveProperty('jan')
+})
 
 it('skips an unsupported saved bundle before composing any runtime overrides and retains the selection', () => {
   const unsupported = process.platform === 'darwin' ? 'win32' : 'darwin'
@@ -229,15 +245,15 @@ describe('initProfile', () => {
   it('creates manifest, user patch layer, and pnpm workspace once, never overwriting', () => {
     const home = tmp()
     const dir = resolveProfileDir('tui', home)
-    initProfile(dir, ['@deepseek-ai/dsh-base'])
+    initProfile(dir, ['@janhq/jan-base'])
     const manifest = readProfileManifest('t', dir)
-    expect(manifest.dsh?.profile?.bundles).toEqual(['@deepseek-ai/dsh-base'])
+    expect(manifest.jan?.profile?.bundles).toEqual(['@janhq/jan-base'])
     expect(readFileSync(join(dir, PROFILE_PATCH_FILENAME), 'utf8')).toContain('[]')
     expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toContain('nodeLinker: hoisted')
     // Re-init keeps user edits.
     writeFileSync(join(dir, PROFILE_PATCH_FILENAME), '- id: x\n  config: {}\n')
     initProfile(dir, ['other'])
-    expect(readProfileManifest('t', dir).dsh?.profile?.bundles).toEqual(['@deepseek-ai/dsh-base'])
+    expect(readProfileManifest('t', dir).jan?.profile?.bundles).toEqual(['@janhq/jan-base'])
     expect(readFileSync(join(dir, PROFILE_PATCH_FILENAME), 'utf8')).toContain('- id: x')
   })
 })
@@ -245,8 +261,8 @@ describe('initProfile', () => {
 describe('manifest round-trip', () => {
   it('writes and reads back, and fails loud on a broken manifest', () => {
     const dir = tmp()
-    writeProfileManifest(dir, { name: 'p', dsh: { profile: { bundles: ['a'] } } })
-    expect(readProfileManifest('t', dir).dsh?.profile?.bundles).toEqual(['a'])
+    writeProfileManifest(dir, { name: 'p', jan: { profile: { bundles: ['a'] } } })
+    expect(readProfileManifest('t', dir).jan?.profile?.bundles).toEqual(['a'])
     writeFileSync(join(dir, 'package.json'), '[]')
     expect(() => readProfileManifest('t', dir)).toThrow('must hold a JSON object')
     expect(() => readProfileManifest('t', join(dir, 'nope'))).toThrow('failed to read profile manifest')
@@ -279,7 +295,7 @@ describe('resolveBundleDir', () => {
       name: 'sealed-bundle',
       version: '0.0.0',
       exports: { '.': './index.js' },
-      dsh: { bundle: { patch: './cordis.patch.yml' } },
+      jan: { bundle: { patch: './cordis.patch.yml' } },
     }))
     writeFileSync(join(dir, 'index.js'), '')
     writeFileSync(join(dir, 'cordis.patch.yml'), '[]\n')
@@ -298,7 +314,7 @@ describe('loadProfile', () => {
     expect(profile.layers.map(layer => layer.packageName)).toEqual(['bundle-a'])
   })
 
-  it('resolves each dsh.profile.bundles entry to its patch layer in order, plus the user layer', () => {
+  it('resolves each jan.profile.bundles entry to its patch layer in order, plus the user layer', () => {
     const anchor = stageInstallation({
       'bundle-a': { patch: '- insert:\n    - id: a\n      name: pkg-a\n' },
       'bundle-b': { patch: '- id: a\n  config:\n    v: 2\n' },
@@ -315,7 +331,7 @@ describe('loadProfile', () => {
       profile.patches,
     ])
     expect(entries).toEqual([{ id: 'a', name: 'pkg-a', config: { v: 3 } }])
-    // A hand-made profile without the user layer file or dsh section: empty layers, no throw.
+    // A hand-made profile without the user layer file or jan section: empty layers, no throw.
     rmSync(join(dir, PROFILE_PATCH_FILENAME))
     expect(loadProfile('t', 'demo', anchor, home).patches).toEqual([])
     writeProfileManifest(dir, { name: 'bare' })
@@ -323,18 +339,18 @@ describe('loadProfile', () => {
     expect(bare.layers).toEqual([])
   })
 
-  it('applies a dsh.bundle.patch list in order, anchoring inserted paths beside each file', () => {
+  it('applies a jan.bundle.patch list in order, anchoring inserted paths beside each file', () => {
     const anchor = stageInstallation({ 'multi': { patch: '[]\n' }, 'broken': { patch: '[]\n' } })
     const bundleDir = join(anchor, '..', 'node_modules', 'multi')
     mkdirSync(join(bundleDir, 'layers'), { recursive: true })
     writeFileSync(join(bundleDir, 'package.json'), JSON.stringify({
       name: 'multi', version: '0.0.0', type: 'module', main: './index.js',
-      dsh: { bundle: { patch: ['./first.patch.yml', './layers/second.patch.yml'] } },
+      jan: { bundle: { patch: ['./first.patch.yml', './layers/second.patch.yml'] } },
     }))
     writeFileSync(join(bundleDir, 'first.patch.yml'), '- insert:\n    - id: a\n      name: ./local.js\n      config: { v: 1 }\n')
     writeFileSync(join(bundleDir, 'layers', 'second.patch.yml'), '- id: a\n  config: { v: 2 }\n- insert:\n    - id: b\n      name: ./local.js\n')
     const brokenManifest = join(anchor, '..', 'node_modules', 'broken', 'package.json')
-    writeFileSync(brokenManifest, JSON.stringify({ name: 'broken', version: '0.0.0', dsh: { bundle: { patch: [1] } } }))
+    writeFileSync(brokenManifest, JSON.stringify({ name: 'broken', version: '0.0.0', jan: { bundle: { patch: [1] } } }))
     const home = tmp()
     const dir = resolveProfileDir('demo', home)
     initProfile(dir, ['multi', 'broken'])
@@ -350,7 +366,7 @@ describe('loadProfile', () => {
       { id: 'b', name: pathToFileURL(join(bundleDir, 'layers', 'local.js')).href },
     ])
     expect(profile.skippedBundles).toEqual([
-      { packageName: 'broken', reason: 'Error: dsh.bundle.patch must be a file path or a list of file paths' },
+      { packageName: 'broken', reason: 'Error: jan.bundle.patch must be a file path or a list of file paths' },
     ])
   })
 
@@ -360,54 +376,84 @@ describe('loadProfile', () => {
     expect(() => loadProfile('t', 'custom', anchor, home))
       .toThrow('profile "custom" does not exist')
     loadProfile('t', 'web', anchor, home)
-    expect(readProfileManifest('t', resolveProfileDir('web', home)).dsh?.profile?.bundles)
+    expect(readProfileManifest('t', resolveProfileDir('web', home)).jan?.profile?.bundles)
       .toEqual([...PROFILE_TEMPLATES.web?.bundles ?? []])
   })
 
   it('normalizes only the exact installation-owned headless bundle tuple', () => {
     const anchor = stageInstallation({
-      '@deepseek-ai/dsh-base': { patch: '[]\n' },
-      '@deepseek-ai/dsh-web-app': { patch: '[]\n' },
-      '@deepseek-ai/dsh-headless': { patch: '[]\n' },
+      '@janhq/jan-base': { patch: '[]\n' },
+      '@janhq/jan-web-app': { patch: '[]\n' },
+      '@janhq/jan-headless': { patch: '[]\n' },
       'custom-bundle': { patch: '[]\n' },
     })
     const home = tmp()
     const stock = resolveProfileDir('headless', home)
     initProfile(stock, [
-      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless',
+      '@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-headless',
     ])
     const retiredManifest = readProfileManifest('t', stock)
     writeProfileManifest(stock, retiredManifest)
     loadProfile('t', 'headless', anchor, home)
-    expect(readProfileManifest('t', stock).dsh?.profile).toEqual({
-      bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'],
+    expect(readProfileManifest('t', stock).jan?.profile).toEqual({
+      bundles: ['@janhq/jan-base', '@janhq/jan-headless'],
     })
 
     const customHome = tmp()
     const custom = resolveProfileDir('headless', customHome)
     initProfile(custom, [
-      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless', 'custom-bundle',
+      '@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-headless', 'custom-bundle',
     ])
     loadProfile('t', 'headless', anchor, customHome)
-    expect(readProfileManifest('t', custom).dsh?.profile?.bundles).toEqual([
-      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless', 'custom-bundle',
+    expect(readProfileManifest('t', custom).jan?.profile?.bundles).toEqual([
+      '@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-headless', 'custom-bundle',
     ])
   })
 
-  it.each(['@deepseek-ai/dsh-experimental-schedule-bundle', '@deepseek-ai/dsh-experimental-agent-team-profile'])('removes retired %s and keeps the rest of an application-owned manifest', (retired) => {
+  const webBundles = ['@janhq/jan-base', '@janhq/jan-web-app']
+  const desktopBundles = [...webBundles, '@janhq/jan-desktop-app']
+  const customBundles = [...webBundles, 'custom-bundle']
+  it.each([
+    { profile: 'legacy', initial: webBundles, expected: desktopBundles },
+    { profile: 'current', initial: desktopBundles, expected: desktopBundles },
+    { profile: 'custom', initial: customBundles, expected: customBundles },
+  ])('preserves a desktop bundle opt-out after first opening a $profile profile', ({ initial, expected }) => {
     const anchor = stageInstallation({
-      '@deepseek-ai/dsh-base': { patch: '[]\n' },
+      '@janhq/jan-base': { patch: '[]\n' },
+      '@janhq/jan-web-app': { patch: '[]\n' },
+      '@janhq/jan-desktop-app': { patch: '[]\n' },
+    })
+    const home = tmp()
+    const dir = resolveProfileDir('desktop', home)
+    initProfile(dir, initial)
+
+    // Desktop runs this normalizer before starting its Host.
+    normalizeShippedProfile('desktop', dir, readProfileManifest('t', dir))
+    const manifest = readProfileManifest('t', dir)
+    expect(manifest.jan?.profile?.bundles).toEqual(expected)
+
+    writeProfileManifest(dir, {
+      ...manifest, jan: { ...manifest.jan, profile: { ...manifest.jan?.profile, bundles: webBundles } },
+    })
+    normalizeShippedProfile('desktop', dir, readProfileManifest('t', dir))
+    expect(readProfileManifest('t', dir).jan?.profile?.bundles).toEqual(webBundles)
+    expect(loadProfile('t', 'desktop', anchor, home).layers.map(layer => layer.packageName)).toEqual(webBundles)
+  })
+
+  it.each(['@janhq/jan-experimental-schedule-bundle', '@janhq/jan-experimental-agent-team-profile'])('removes retired %s and keeps the rest of an application-owned manifest', (retired) => {
+    const anchor = stageInstallation({
+      '@janhq/jan-base': { patch: '[]\n' },
       'custom-bundle': { patch: '[]\n' },
     })
     const dir = join(tmp(), 'app-profile')
-    initProfile(dir, ['@deepseek-ai/dsh-base', retired, 'custom-bundle'])
+    initProfile(dir, ['@janhq/jan-base', retired, 'custom-bundle'])
     writeProfileManifest(dir, { ...readProfileManifest('t', dir), dependencies: { 'custom-bundle': '^1.0.0' } })
     const profile = loadProfileDirectory('t', dir, anchor)
     expect(profile.skippedBundles).toEqual([])
-    expect(profile.layers.map(layer => layer.packageName)).toEqual(['@deepseek-ai/dsh-base', 'custom-bundle'])
+    expect(profile.layers.map(layer => layer.packageName)).toEqual(['@janhq/jan-base', 'custom-bundle'])
     expect(readProfileManifest('t', dir)).toMatchObject({
       dependencies: { 'custom-bundle': '^1.0.0' },
-      dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', 'custom-bundle'] } },
+      jan: { profile: { bundles: ['@janhq/jan-base', 'custom-bundle'] } },
     })
   })
 
@@ -447,7 +493,7 @@ describe('loadProfile', () => {
       const resolution = await createRuntimeResolution({ installAnchor: anchor, profile, home })
       const unavailable = failure === 'missing package' || failure === 'invalid manifest'
       expect(resolution.entries.map(entry => entry.name))
-        .toEqual(['dsh-app', 'before', ...unavailable ? [] : ['broken'], 'after'])
+        .toEqual(['jan-app', 'before', ...unavailable ? [] : ['broken'], 'after'])
       mkdirSync(bundleDir, { recursive: true })
       writeFileSync(manifestPath, original)
       writeFileSync(patchPath, '[]\n')
@@ -456,24 +502,24 @@ describe('loadProfile', () => {
     },
   )
 
-  it('skips a bundle whose own dsh peers are incompatible until the profile exempts that exact pair', () => {
+  it('skips a bundle whose own jan peers are incompatible until the profile exempts that exact pair', () => {
     const anchor = stageInstallation({
       guarded: { patch: '- insert: [{ id: a, name: pkg-a }]\n' },
       kept: { patch: '- insert: [{ id: b, name: pkg-b }]\n' },
     })
     const manifestPath = join(anchor, '..', 'node_modules', 'guarded', 'package.json')
     writeFileSync(manifestPath, JSON.stringify({
-      ...JSON.parse(readFileSync(manifestPath, 'utf8')) as object, peerDependencies: { '@deepseek-ai/dsh': '999.0.0' },
+      ...JSON.parse(readFileSync(manifestPath, 'utf8')) as object, peerDependencies: { '@janhq/jan': '999.0.0' },
     }))
     const dir = resolveProfileDir('demo', tmp())
     initProfile(dir, ['guarded', 'kept'])
-    const denied = loadProfileDirectory('dsh', dir, anchor)
+    const denied = loadProfileDirectory('jan', dir, anchor)
     expect(denied.layers.map(layer => layer.packageName)).toEqual(['kept'])
     expect(denied.skippedBundles).toEqual([{ packageName: 'guarded', reason: expect.stringContaining(
-      `Error: Plugin guarded@0.0.0 is incompatible with dsh ${getDshRuntimeVersion()}`,
+      `Error: Plugin guarded@0.0.0 is incompatible with jan ${getJanRuntimeVersion()}`,
     ) as string }])
-    writeFileSync(join(dir, PROFILE_COMPATIBILITY_FILENAME), JSON.stringify({ 'guarded@0.0.0': [getDshRuntimeVersion()] }))
-    expect(loadProfileDirectory('dsh', dir, anchor).layers.map(layer => layer.packageName)).toEqual(['guarded', 'kept'])
+    writeFileSync(join(dir, PROFILE_COMPATIBILITY_FILENAME), JSON.stringify({ 'guarded@0.0.0': [getJanRuntimeVersion()] }))
+    expect(loadProfileDirectory('jan', dir, anchor).layers.map(layer => layer.packageName)).toEqual(['guarded', 'kept'])
   })
 
   it('still rejects invalid profile manifests and user patches', () => {
@@ -518,7 +564,7 @@ describe('createRuntimeResolution', () => {
     writeFileSync(join(modules, 'dep-of-a', 'package.json'), JSON.stringify({ name: 'dep-of-a', version: '0.0.0' }))
     const home = tmp()
     const resolution = await createRuntimeResolution({ installAnchor: anchor, home })
-    expect(resolution.entries.map(entry => entry.name)).toEqual(['dsh-app', 'bundle-a', 'plain-lib', 'dep-of-a'])
+    expect(resolution.entries.map(entry => entry.name)).toEqual(['jan-app', 'bundle-a', 'plain-lib', 'dep-of-a'])
     expect(resolution.entries.find(entry => entry.name === 'dep-of-a')?.packageDir).toBe(join(modules, 'dep-of-a'))
     expect(existsSync(join(home, 'profiles', 'node_modules'))).toBe(false)
     await expect(createRuntimeResolution({ installAnchor: anchor, home })).resolves.toEqual(resolution)
@@ -765,11 +811,11 @@ describe('removeLinkProjections', () => {
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ name, version }))
   }
 
-  it('removes only the symlinks that point into .dsh-module-fallback and the directory itself', () => {
+  it('removes only the symlinks that point into .jan-module-fallback and the directory itself', () => {
     const home = tmp()
     const profile = join(home, 'profiles', 'web')
     const modules = join(profile, 'node_modules')
-    const owned = join(profile, '.dsh-module-fallback', 'node_modules')
+    const owned = join(profile, '.jan-module-fallback', 'node_modules')
     packageAt(join(modules, 'my-bundle'), 'my-bundle', '1.0.0')
     packageAt(join(modules, 'my-bundle', 'node_modules', 'bridge'), 'bridge', '1.0.0')
     packageAt(join(modules, '@scope', 'helper'), '@scope/helper', '1.0.0')
@@ -784,7 +830,7 @@ describe('removeLinkProjections', () => {
 
     removeLinkProjections(profile)
 
-    expect(existsSync(join(profile, '.dsh-module-fallback'))).toBe(false)
+    expect(existsSync(join(profile, '.jan-module-fallback'))).toBe(false)
     expect(lstatSync(join(modules, 'bridge'), { throwIfNoEntry: false })).toBeUndefined()
     expect(lstatSync(join(modules, '@scope', 'tool'), { throwIfNoEntry: false })).toBeUndefined()
     expect(lstatSync(join(modules, 'my-bundle')).isDirectory()).toBe(true)
@@ -799,15 +845,15 @@ describe('removeLinkProjections', () => {
   it('removes the directory when the profile has no node_modules and keeps links whose target parent is gone', () => {
     const home = tmp()
     const profile = join(home, 'profiles', 'web')
-    mkdirSync(join(profile, '.dsh-module-fallback', 'node_modules'), { recursive: true })
+    mkdirSync(join(profile, '.jan-module-fallback', 'node_modules'), { recursive: true })
     removeLinkProjections(profile)
-    expect(existsSync(join(profile, '.dsh-module-fallback'))).toBe(false)
+    expect(existsSync(join(profile, '.jan-module-fallback'))).toBe(false)
 
     const other = join(home, 'profiles', 'other')
-    mkdirSync(join(other, '.dsh-module-fallback', 'node_modules'), { recursive: true })
+    mkdirSync(join(other, '.jan-module-fallback', 'node_modules'), { recursive: true })
     link(join(home, 'missing-parent', 'pkg'), join(other, 'node_modules', 'orphan'))
     removeLinkProjections(other)
-    expect(existsSync(join(other, '.dsh-module-fallback'))).toBe(false)
+    expect(existsSync(join(other, '.jan-module-fallback'))).toBe(false)
     expect(lstatSync(join(other, 'node_modules', 'orphan')).isSymbolicLink()).toBe(true)
   })
 

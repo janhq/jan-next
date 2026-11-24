@@ -1,14 +1,12 @@
 # System Prompt Assembly
 
-English | [中文](system-prompt.zh.md)
-
 The [system-prompt package](../../packages/core/system-prompt) owns the data exchanged between prompt contributors and one assembly call. The package [README](../../packages/core/system-prompt/README.md) documents registration, ordering, scoping, and rendering behavior; this page records the exact cross-package types that plugins implement or pass.
 
 Source: [`packages/core/system-prompt/src/index.ts`](../../packages/core/system-prompt/src/index.ts).
 
 ## Assembly context
 
-`AssembleContext` identifies the scope layer one assembly resolves and may carry the explicit control signal for that request. It is merge-extensible: `dsh-agent` adds optional `agent` and `modelSelection` fields. `assembleContextFor(agent, signal)` sets the agent, scope, and signal; the loop supplies the model selection captured for the step and retained across retries, with omitted reasoning effort using adapter defaults. A bare assembly has neither scope nor signal.
+`AssembleContext` identifies the scope layer one assembly resolves and may carry the explicit control signal for that request. It is merge-extensible: `jan-agent` adds optional `agent` and `modelSelection` fields. `assembleContextFor(agent, signal)` sets the agent, scope, and signal; the loop supplies the model selection captured for the step and retained across retries, with omitted reasoning effort using adapter defaults. A bare assembly has neither scope nor signal.
 
 ```ts type-equiv
 /** Merge-extensible context for one prompt assembly. */
@@ -43,7 +41,7 @@ interface ToolProviderResult {
 
 The exported `PERSONA_PREFIX_SECTION` (`deployment:persona-prefix`) and `PERSONA_SUFFIX_SECTION` (`deployment:persona-suffix`) name the slots shared by global configuration and scoped contributions. Their `PromptSectionOrderName` entries are `DEPLOYMENT_PERSONA_PREFIX` and `DEPLOYMENT_PERSONA_SUFFIX`; the [package README](../../packages/core/system-prompt/README.md#configure-the-prompt) owns their placement and template configuration.
 
-`PromptSection` is a readonly same-process registration contract. Its text may be static or resolved from the current assembly context. Sections sort by ascending order and then code-unit name; repository contributors resolve the service-owned named allocation through `getSectionOrder()`. Runtime-context contributors resolve their independent allocation through `getContextOrder()`. One effective `complete` section becomes the sole prompt section after cooperative assembly. agent-loop renders the assembled sections with `renderPrompt` and commits the text as a `system/message` surface node — appended as surface node 0 on the first step, then replaced in place when the rendered text changes or, when the prepared call declares `systemPromptUpdate: 'in-history'`, appended after the cached history for non-empty updates in a continuing series — so the prompt reaches the model as a message of derived history rather than as a request field ([decision](../../.agents/notes/implemented/architecture/2026-09-02-system-prompt-as-surface-node.md); [decision rule](../../packages/core/agent-loop/README.md#understand-the-implementation)).
+`PromptSection` is a readonly same-process registration contract. Its text may be static or resolved from the current assembly context. Sections sort by ascending order and then code-unit name; repository contributors resolve the service-owned named allocation through `getSectionOrder()`. Runtime-context contributors resolve their independent allocation through `getContextOrder()`. After cooperative assembly, one effective `complete` section replaces other prompt sections except those it names in `keep`. agent-loop renders the assembled sections with `renderPrompt` and commits the text as a `system/message` surface node — appended as surface node 0 on the first step, then replaced in place when the rendered text changes or, when the prepared call declares `systemPromptUpdate: 'in-history'`, appended after the cached history for non-empty updates in a continuing series — so the prompt reaches the model as a message of derived history rather than as a request field ([decision](../../.agents/notes/implemented/architecture/2026-09-02-system-prompt-as-surface-node.md); [decision rule](../../packages/core/agent-loop/README.md#understand-the-implementation)).
 
 ```ts type-equiv
 /** One contributed section of the system prompt (registry input). */
@@ -66,10 +64,16 @@ interface PromptSection {
   /**
    * Treat this contribution as the complete system prompt. Assembly still
    * runs the cooperative waterfall so tools, contexts, and variables can be
-   * resolved, then restores this exact section as the sole prompt section.
+   * resolved, then restores this exact section as the sole prompt section,
+   * followed only by the sections named in {@link keep}.
    * More than one effective complete section makes assembly fail.
    */
   readonly complete?: boolean
+  /**
+   * With {@link complete}, names of other sections kept after it when they are
+   * registered, in their own order. An absent name contributes nothing.
+   */
+  readonly keep?: readonly string[]
 }
 ```
 
@@ -113,7 +117,7 @@ interface AssembledContext {
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxsystemprompt--systemprompt"></a>
 
@@ -198,7 +202,7 @@ refreshContext(assembly: PromptAssembly, context: AssembleContext = {}): PromptA
  * canonical ordering, then run the presentation waterfall. Scoped sections
  * and variables shadow globals. The waterfall's text is authoritative except
  * that an effective complete section is restored afterwards as the sole
- * prompt section; tool declarations stay provider-owned.
+ * prompt section, plus the registered sections it keeps; tool declarations stay provider-owned.
  * @param context - the optional scope, step tool set, and plugin-defined assembly fields.
  * @returns the post-waterfall assembly with ordered tool declarations and any complete prompt enforced.
  */
@@ -215,12 +219,12 @@ Source: [`packages/core/system-prompt/src/index.ts`](../../packages/core/system-
 
 #### `system-prompt/assemble` — waterfall
 
-Presentation waterfall over assembled sections, contexts, and variables. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): scoped listeners receive only that scope's assemblies. The returned text is authoritative; tool declarations remain provider-owned. A supplied signal controls only this explicit assembly request and must not be retained to control later turns. A registered complete section is restored after this waterfall, so listeners cannot add to or replace that scope's system prompt.
+Presentation waterfall over assembled sections, contexts, and variables. Scope-filtered dispatch (`@janhq/jan-scope`): scoped listeners receive only that scope's assemblies. The returned text is authoritative; tool declarations remain provider-owned. A supplied signal controls only this explicit assembly request and must not be retained to control later turns. A registered complete section is restored after this waterfall, so listeners cannot add to or replace that scope's system prompt.
 
 ```ts cordis-catalog
 /**
  * Presentation waterfall over assembled sections, contexts, and variables.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): scoped listeners
+ * Scope-filtered dispatch (`@janhq/jan-scope`): scoped listeners
  * receive only that scope's assemblies. The returned text is authoritative; tool declarations remain provider-owned.
  * A supplied signal controls only this explicit assembly request and must not
  * be retained to control later turns. A registered complete section is

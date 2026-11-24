@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
+import { RemoteError } from '@janhq/jan-typert-protocol'
+import type { ConnectionHandle } from '@janhq/jan-api-remotes/client'
 import {
   RemoteStreamCarrierError,
   RemoteStream,
 } from '../src/client/index.ts'
 
-const GENERATION = { id: 1, host: { home: '/home/fixture' } }
+const GENERATION = { id: 1, host: { home: '/home/fixture', name: 'fixture-host', remote: false } }
 
 function hostSource(initiallyAvailable: boolean): {
   connection: Pick<ConnectionHandle, 'generation'>
@@ -108,7 +108,7 @@ describe('RemoteStream', () => {
     ], carrierFailed)
 
     await expect(stream[Symbol.asyncIterator]().next()).rejects.toMatchObject({
-      isDSHRemoteError: true,
+      isJanRemoteError: true,
       code: 'gateway/internal',
       message: 'isolated retry failed',
       details: {},
@@ -130,7 +130,7 @@ describe('RemoteStream', () => {
     })
 
     await expect(stream[Symbol.asyncIterator]().next()).rejects.toMatchObject({
-      isDSHRemoteError: true,
+      isJanRemoteError: true,
       code: 'gateway/internal',
       message: 'generation exploded',
     })

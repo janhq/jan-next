@@ -1,19 +1,17 @@
-import { MESSAGES_RESPONSE } from './messages-response.ts'
 import { mountWorkingDirectoryFixture } from '../../../subagent/subagent/tests/working-directory-fixture.ts'
-import { createServer } from 'node:http'
-import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { PassThrough, Writable } from 'node:stream'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { LlmAdapter } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import { describe, expect, it } from 'vitest'
+import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { LlmAdapter } from '@janhq/jan-llm'
+import type { GenerateOptions, StreamChunk } from '@janhq/jan-llm'
+import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
 import * as jsonrpc from '../src/index.ts'
 
 /**
@@ -143,45 +141,20 @@ async function mountPlugin(
   }
 }
 
-const servers: Server[] = []
-
-afterEach(async () => {
-  await Promise.all(servers.splice(0).map(server => new Promise(resolve => server.close(resolve))))
-  vi.unstubAllEnvs()
-})
-
-/** Keyless SSE endpoint for completing a prompt turn. */
-async function mockCompletionServer(): Promise<{ url: string; requests: unknown[] }> {
-  const requests: unknown[] = []
-  const server = createServer((request: IncomingMessage, response: ServerResponse) => {
-    let body = ''
-    request.on('data', (chunk: Buffer) => { body += chunk.toString('utf8') })
-    request.on('end', () => {
-      requests.push(JSON.parse(body))
-      response.writeHead(200, { 'content-type': 'text/event-stream' })
-      response.end(MESSAGES_RESPONSE)
-    })
-  })
-  servers.push(server)
-  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
-  const address = server.address()
-  if (address === null || typeof address === 'string') throw new Error('no port')
-  return { url: `http://127.0.0.1:${address.port}`, requests }
-}
-
-describe('dsh-sdk-jsonrpc-server plugin apply', () => {
+describe('jan-sdk-jsonrpc-server plugin apply', () => {
   it('serves initialize over the injected stdio pair', async () => {
-    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-init-'))
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
-    const harness = await mountPlugin(storageDir)
+    const storageDir = await mkdtemp(join(tmpdir(), 'jan-jsonrpc-apply-init-'))
+    const harness = await mountPlugin(storageDir, {
+      beforeServer: (ctx) => { ctx.llm.registerAdapter(['mock'], new MockAdapter([])) },
+    })
     try {
-      harness.send({ jsonrpc: '2.0', id: 'init-1', method: 'initialize', params: { cwd: storageDir, provider: 'deepseek-official', model: 'apply-model' } })
+      harness.send({ jsonrpc: '2.0', id: 'init-1', method: 'initialize', params: { cwd: storageDir, provider: 'mock', model: 'apply-model' } })
 
       const response = await harness.waitForFrame(frame => frame.id === 'init-1', 'initialize response')
       expect(response).toEqual({
         jsonrpc: '2.0',
         id: 'init-1',
-        result: { serverInfo: { name: 'deepseek-harness-sdk-runtime', version: '0.0.1' } },
+        result: { serverInfo: { name: 'jan-sdk-runtime', version: '0.0.1' } },
       })
       expect(harness.exits()).toEqual([])
     } finally {
@@ -191,8 +164,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
   })
 
   it('waits for Loader-owned adapter registration before initialize', async () => {
-    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-readiness-'))
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    const storageDir = await mkdtemp(join(tmpdir(), 'jan-jsonrpc-apply-readiness-'))
     let markStarted!: () => void
     let release!: () => void
     const started = new Promise<void>((resolve) => { markStarted = resolve })
@@ -234,7 +206,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
       const response = await harness.waitForFrame(frame => frame.id === 'init-delayed', 'initialize response after Loader settlement')
       expect(response).toMatchObject({
         id: 'init-delayed',
-        result: { serverInfo: { name: 'deepseek-harness-sdk-runtime' } },
+        result: { serverInfo: { name: 'jan-sdk-runtime' } },
       })
       expect(harness.ctx.llm.listProviders()).toContainEqual({ id: 'delayed-private', name: 'delayed-private' })
     } finally {
@@ -246,13 +218,13 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
   })
 
   it('drives a session/prompt turn end-to-end and forwards session notifications as output frames', async () => {
-    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-prompt-'))
-    const llmServer = await mockCompletionServer()
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
-    vi.stubEnv('DEEPSEEK_BASE_URL', llmServer.url)
-    const harness = await mountPlugin(storageDir)
+    const storageDir = await mkdtemp(join(tmpdir(), 'jan-jsonrpc-apply-prompt-'))
+    const adapter = new MockAdapter([textResponse('done')])
+    const harness = await mountPlugin(storageDir, {
+      beforeServer: (ctx) => { ctx.llm.registerAdapter(['mock'], adapter) },
+    })
     try {
-      harness.send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { cwd: storageDir, provider: 'deepseek-official', model: 'dsagent-model' } })
+      harness.send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { cwd: storageDir, provider: 'mock', model: 'dsagent-model' } })
       await harness.waitForFrame(frame => frame.id === 1, 'initialize response')
 
       harness.send({
@@ -269,10 +241,9 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
         'idle session status',
       )
 
-      expect(llmServer.requests).toHaveLength(1)
-      const body = llmServer.requests[0] as { model: string; messages: { role: string }[] }
-      expect(body.model).toBe('dsagent-model')
-      expect(body.messages.at(-1)?.role).toBe('user')
+      expect(adapter.requests).toHaveLength(1)
+      expect(adapter.requests[0]?.model).toBe('dsagent-model')
+      expect(adapter.requests[0]?.messages.at(-1)?.role).toBe('user')
 
       // Notifications use the same transport and arrive as id-less frames.
       const notifications = harness.frames().filter(frame => frame.id === undefined)
@@ -288,7 +259,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
   })
 
   it('answers shutdown before exiting 0 exactly once, even against a racing second shutdown', async () => {
-    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-shutdown-'))
+    const storageDir = await mkdtemp(join(tmpdir(), 'jan-jsonrpc-apply-shutdown-'))
     const harness = await mountPlugin(storageDir, { writeDelayMs: 10 })
     try {
       // One chunk makes the two deferred exit callbacks race.
@@ -321,7 +292,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
       expect(harness.events.filter(event => event.kind === 'root-disposed')).toHaveLength(1)
 
       const before = harness.frames().length
-      harness.send({ jsonrpc: '2.0', id: 'after-exit', method: 'initialize', params: { cwd: storageDir, provider: 'deepseek-official', model: 'x' } })
+      harness.send({ jsonrpc: '2.0', id: 'after-exit', method: 'initialize', params: { cwd: storageDir, provider: 'mock', model: 'x' } })
       await settle()
       expect(harness.frames().length).toBe(before)
     } finally {
@@ -331,7 +302,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
   })
 
   it('still disposes and exits once when the flush callback fails', async () => {
-    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-flush-failure-'))
+    const storageDir = await mkdtemp(join(tmpdir(), 'jan-jsonrpc-apply-flush-failure-'))
     const harness = await mountPlugin(storageDir, { failFlush: true })
     try {
       harness.send({ jsonrpc: '2.0', id: 'sd-fail', method: 'shutdown' })
@@ -343,7 +314,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
       expect(harness.outputErrors.map(error => error.message)).toEqual(['flush callback failed'])
 
       const before = harness.frames().length
-      harness.send({ jsonrpc: '2.0', id: 'after-flush-failure', method: 'initialize', params: { cwd: storageDir, provider: 'deepseek-official', model: 'x' } })
+      harness.send({ jsonrpc: '2.0', id: 'after-flush-failure', method: 'initialize', params: { cwd: storageDir, provider: 'mock', model: 'x' } })
       await settle()
       expect(harness.frames().length).toBe(before)
     } finally {
@@ -353,7 +324,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
   })
 
   it('stops serving on a bare fiber dispose (HMR-style unload) without calling exit', async () => {
-    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-dispose-'))
+    const storageDir = await mkdtemp(join(tmpdir(), 'jan-jsonrpc-apply-dispose-'))
     const harness = await mountPlugin(storageDir)
     try {
       // Prove the handler-rejection path is live before disposal.
@@ -361,14 +332,14 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
       const error = await harness.waitForFrame(frame => frame.id === 'probe-1', 'error response for unknown method')
       expect(error.error).toMatchObject({
         code: -32603,
-        message: 'unknown DeepSeek Harness SDK runtime method: nope/unknown',
+        message: 'unknown Jan SDK runtime method: nope/unknown',
       })
 
       await harness.fiber.dispose()
       expect(harness.events.some(event => event.kind === 'root-disposed')).toBe(false)
 
       const before = harness.frames().length
-      harness.send({ jsonrpc: '2.0', id: 'probe-2', method: 'initialize', params: { cwd: storageDir, provider: 'deepseek-official', model: 'x' } })
+      harness.send({ jsonrpc: '2.0', id: 'probe-2', method: 'initialize', params: { cwd: storageDir, provider: 'mock', model: 'x' } })
       await settle()
       expect(harness.frames().length).toBe(before)
       expect(harness.exits()).toEqual([])

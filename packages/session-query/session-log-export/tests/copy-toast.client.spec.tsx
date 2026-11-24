@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useSyncExternalStore } from 'react'
-import { createSnapshotStore, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
+import { createSnapshotStore, type ObservableSnapshot } from '@janhq/jan-client-store'
+import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
 import type { SessionMarkdownCopyState } from '../src/client/copy-controller.ts'
 import { SessionMarkdownCopyToast } from '../src/client/CopyToast.tsx'
 import type { SessionMarkdownCopyToastProps } from '../src/client/CopyToast.tsx'

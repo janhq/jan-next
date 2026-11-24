@@ -4,14 +4,14 @@
  * actions and their notices, the changes view, and unload.
  */
 import assert from 'node:assert/strict'
-import { Context, Service } from '@deepseek-ai/cordis'
-import type { RemoteHostFacts } from '@deepseek-ai/dsh-api-remotes/client'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type { SidebarRightTabDefinition, TabId } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type { ChangeRequestSnapshot, ForgeReviewRequest, ForgeReviewResult } from '@deepseek-ai/dsh-experimental-forge/types'
-import { SessionId } from '@deepseek-ai/dsh-session/types'
-import { RemoteError, type RemoteResult, type TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
+import { Context, Service } from '@janhq/cordis'
+import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import type { SidebarRightTabDefinition, TabId } from '@janhq/jan-client-ui-sidebar-right/client'
+import type { ChangeRequestSnapshot, ForgeReviewRequest, ForgeReviewResult } from '@janhq/jan-experimental-forge/types'
+import { SessionId } from '@janhq/jan-session/types'
+import { RemoteError, type RemoteResult, type TypertRemoteContribution } from '@janhq/jan-typert-protocol'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ActionToast } from '../src/client/ActionToast.tsx'
 import { CHANGES_ID, CHANGES_KIND } from '../src/client/changes-address.ts'
@@ -34,7 +34,7 @@ import type {
 } from '../src/types.ts'
 import { entry, listState, ready, snapshot, unserved } from './client-fixtures.client.ts'
 
-const REMOTE: TypertRemoteContribution = { package: '@deepseek-ai/dsh-experimental-client-ui-forge', descriptors: [] }
+const REMOTE: TypertRemoteContribution = { package: '@janhq/jan-experimental-client-ui-forge', descriptors: [] }
 const S1 = SessionId('s1')
 const S2 = SessionId('s2')
 const BRANCHES: ForgeBranches = { current: 'main', branches: ['main', 'release'] }
@@ -79,7 +79,7 @@ const REFUSED = {
   started: { ok: false, error: new RemoteError('forgePanel/session-started', 'started', {}) },
   unavailable: { ok: false, error: new RemoteError('forgePanel/worktrees-unavailable', 'unavailable', {}) },
   busy: { ok: false, error: new RemoteError('forgePanel/session-busy', 'busy', {}) },
-  restore: { ok: false, error: new RemoteError('forgePanel/restore-failed', 'fatal: \'/work/repo-dsh\' already exists', {}) },
+  restore: { ok: false, error: new RemoteError('forgePanel/restore-failed', 'fatal: \'/work/repo-jan\' already exists', {}) },
   failed: { ok: false, error: new RemoteError('gateway/bad-request', 'failed', {}) },
   stale: { ok: false, error: new RemoteError('forgePanel/stale-head', 'Head branch was modified', {}) },
   refused: { ok: false, error: new RemoteError('forgePanel/action-failed', 'Pull Request is not mergeable', {}) },
@@ -123,7 +123,7 @@ async function base() {
   const ctx = new Context()
   const unmount = vi.fn(async () => {})
   class Remote extends Service {
-    $host: RemoteHostFacts = { home: '/home/octo', isLoopback: true }
+    $host: RemoteHostFacts = { home: '/home/octo', name: 'fixture-host', remote: false, isLoopback: true }
     constructor() { super(ctx, 'remote') }
     async $mount(contribution: TypertRemoteContribution) {
       expect(contribution).toBe(REMOTE)
@@ -397,14 +397,14 @@ describe('mountForgePanel Session stores', () => {
     const f = await fixture()
     const host = f.tab(S1).hooks.host
     expect(f.tab(S2).hooks.host).toBe(host)
-    expect(host.getSnapshot()).toEqual({ home: '/home/octo', isLoopback: true })
+    expect(host.getSnapshot()).toEqual({ home: '/home/octo', name: 'fixture-host', remote: false, isLoopback: true })
     const listener = vi.fn()
     const unsubscribe = host.subscribe(listener)
 
-    f.remote.$host = { home: '/home/other', isLoopback: false }
+    f.remote.$host = { home: '/home/other', name: 'fixture-host', remote: false, isLoopback: false }
     f.ctx.emit('connection/reset')
     expect(listener).toHaveBeenCalledOnce()
-    expect(host.getSnapshot()).toEqual({ home: '/home/other', isLoopback: false })
+    expect(host.getSnapshot()).toEqual({ home: '/home/other', name: 'fixture-host', remote: false, isLoopback: false })
     unsubscribe()
     f.ctx.emit('connection/reset')
     expect(listener).toHaveBeenCalledOnce()
@@ -506,10 +506,10 @@ describe('mountForgePanel tab actions', () => {
     const writeText = vi.fn(async (_text: string) => {})
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
 
-    f.tab(S1).copyPath('/work/repo-dsh')
+    f.tab(S1).copyPath('/work/repo-jan')
     await settle()
 
-    expect(writeText).toHaveBeenCalledWith('/work/repo-dsh')
+    expect(writeText).toHaveBeenCalledWith('/work/repo-jan')
     expect(f.notice()).toMatchObject({ key: 'toast.pathCopied', tone: 'success', params: {}, undo: undefined })
     await f.dispose()
   })
@@ -537,7 +537,7 @@ describe('mountForgePanel tab actions', () => {
     f.tab(S1).restore()
     await settle()
     expect(f.notice()).toMatchObject({
-      key: 'toast.restoreFailed', tone: 'failure', seq: 2, params: { message: 'fatal: \'/work/repo-dsh\' already exists' },
+      key: 'toast.restoreFailed', tone: 'failure', seq: 2, params: { message: 'fatal: \'/work/repo-jan\' already exists' },
     })
     f.toast().dismiss()
     expect(f.notice()).toBeNull()
@@ -689,7 +689,7 @@ describe('mountForgePanel worktree card actions', () => {
   it('returns why a restore failed for the card to show, without a notice', async () => {
     const f = await fixture()
     f.forgePanel.restoreWorktree.mockResolvedValueOnce(REFUSED.restore)
-    expect(await f.progress(S1).restore()).toBe('fatal: \'/work/repo-dsh\' already exists')
+    expect(await f.progress(S1).restore()).toBe('fatal: \'/work/repo-jan\' already exists')
     expect(f.notice()).toBeNull()
     await f.dispose()
   })

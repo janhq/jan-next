@@ -1,6 +1,6 @@
 /** Stream scripts, live stream control, cancellation, and the built-in `$events` opening. */
 import { describe, expect, it } from 'vitest'
-import type { RemoteStreamHandle } from '@deepseek-ai/dsh-typert-protocol'
+import type { RemoteStreamHandle } from '@janhq/jan-typert-protocol'
 import { RemoteMock, frames, openStream, streamHandle, streamMethod } from '../src/index.ts'
 
 const idle = (): AbortSignal => new AbortController().signal
@@ -204,14 +204,14 @@ describe('RemoteMock streams', () => {
   })
 
   it('waits for opens with opened(), and answers $events with one ready frame per generation', async () => {
-    const mock = RemoteMock.create({ host: { home: '/home/me' } })
+    const mock = RemoteMock.create({ host: { home: '/home/me', name: 'fixture-host', remote: false } })
     const second = mock.streams.opened('$events', 2)
     const first = mock.open('$events', [{}], idle())
-    await expect(take(first, 1)).resolves.toEqual([{ type: 'ready', clientId: 'mock-client-1', host: { home: '/home/me' } }])
+    await expect(take(first, 1)).resolves.toEqual([{ type: 'ready', clientId: 'mock-client-1', host: { home: '/home/me', name: 'fixture-host', remote: false } }])
     const again = mock.open('$events', [{}], idle())
     await expect(second).resolves.toBeUndefined()
     await expect(mock.streams.opened('$events', 1)).resolves.toBeUndefined()
-    await expect(take(again, 1)).resolves.toEqual([{ type: 'ready', clientId: 'mock-client-2', host: { home: '/home/me' } }])
+    await expect(take(again, 1)).resolves.toEqual([{ type: 'ready', clientId: 'mock-client-2', host: { home: '/home/me', name: 'fixture-host', remote: false } }])
     expect(RemoteMock.create().modeOf('$events')).toBe('stream')
   })
 })

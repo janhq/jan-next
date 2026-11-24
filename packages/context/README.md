@@ -5,11 +5,9 @@ kind: "package-group"
 
 # context/ — Request-context plugins
 
-English | [中文](README.zh.md)
-
 ## Summary
 
-The context group provides plugins that add model-visible context to each request without defining any tool: workspace instruction files become guidance, `@file` mentions offer path completion, other sessions can be referenced as bounded snapshots, and the model can see the current time and the agent's tmux location. Only `agent-instructions` (`dsh-base`) ships mounted by default; the rest are opt-in. Context is durable: injected instructions and references enter session history as user-role messages, so they persist, replay, and compact like other conversation content. This page maps the group; each package README owns the per-package contract.
+The context group provides plugins that add model-visible context to each request without defining any tool: workspace instruction files become guidance, `@file` mentions offer path completion, other sessions can be referenced as bounded snapshots, and the model can see the current time and the agent's tmux location. Only `agent-instructions` (`jan-base`) ships mounted by default; the rest are opt-in. Context is durable: injected instructions and references enter session history as user-role messages, so they persist, replay, and compact like other conversation content. This page maps the group; each package README owns the per-package contract.
 
 ## Table of Contents
 
@@ -38,7 +36,6 @@ The context group provides plugins that add model-visible context to each reques
 ## Related documentation
 
 - [Session-reference subsystem](../../docs/subsystems/session-reference.md) — canonical mention URIs, snapshot semantics, and the stable error taxonomy.
-- [Workspace-context decision record](../../.agents/notes/archived/feature/2026-06-24-workspace-context.md) — why instruction context is per-agent/per-session and durably logged.
 - [Generated configuration catalog](../../docs/config-catalog.md) — every config field the group's packages accept.
 
 -----

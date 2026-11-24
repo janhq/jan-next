@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
-import { prepareSessionSnapshotFixtureForComparison } from '@deepseek-ai/dsh-llm-replay'
 import {
   type NormalizeContext,
   extractSnapshotSpillPaths,
@@ -406,13 +404,13 @@ describe('normalizeSessionLog', () => {
       data: {
         content: [{
           type: 'text',
-          text: 'Full formatted result stored at: /tmp/dsh-acp-snapshot-spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.',
+          text: 'Full formatted result stored at: /tmp/jan-acp-snapshot-spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.',
         }],
       },
     })
     const out = normalizeSessionLog(`${header({ cwd: ctx.cwd })}\n${ev}\n`, ctx)
     expect(out).toContain('{{spillLocator:bash.txt}}')
-    expect(out).not.toContain('/tmp/dsh-acp-snapshot-spill')
+    expect(out).not.toContain('/tmp/jan-acp-snapshot-spill')
   })
 
   it('scrubs scenario-owned snapshot spill paths', () => {
@@ -421,13 +419,13 @@ describe('normalizeSessionLog', () => {
       data: {
         content: [{
           type: 'text',
-          text: 'Full formatted result stored at: /tmp/dsh-acp-snap-012345678/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.',
+          text: 'Full formatted result stored at: /tmp/jan-acp-snap-012345678/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.',
         }],
       },
     })
     const out = normalizeSessionLog(`${header({ cwd: ctx.cwd })}\n${ev}\n`, ctx)
     expect(out).toContain('{{spillLocator:bash.txt}}')
-    expect(out).not.toContain('/tmp/dsh-acp-snap-012345678')
+    expect(out).not.toContain('/tmp/jan-acp-snap-012345678')
   })
 
   it('scrubs scenario-owned snapshot spill paths with Windows drive and separators', () => {
@@ -436,13 +434,13 @@ describe('normalizeSessionLog', () => {
       data: {
         content: [{
           type: 'text',
-          text: String.raw`Full formatted result stored at: C:\t\dsh-acp-snap-012345678\session-c22bc3f1d2af\8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.`,
+          text: String.raw`Full formatted result stored at: C:\t\jan-acp-snap-012345678\session-c22bc3f1d2af\8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.`,
         }],
       },
     })
     const out = normalizeSessionLog(`${header({ cwd: ctx.cwd })}\n${ev}\n`, ctx)
     expect(out).toContain('{{spillLocator:bash.txt}}')
-    expect(out).not.toContain('C:\\t\\dsh-acp-snap-012345678')
+    expect(out).not.toContain('C:\\t\\jan-acp-snap-012345678')
   })
 
   it('shares cwd-rooted path handling with stdout normalization', () => {
@@ -802,82 +800,6 @@ describe('normalizeSessionSnapshot', () => {
       .toThrow('session snapshot must start with a session header')
   })
 
-  function deliveryLog(version: number, deliveryVersion = version, id = 'delivery'): string {
-    return [
-      { type: 'session', version, id, createdAt: 1, isSeeded: false, delegationDepth: 0 },
-      { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
-      {
-        type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 2,
-        data: { sessionId: id, throughSeq: 0, sessionFormatVersion: deliveryVersion },
-      },
-    ].map(record => JSON.stringify(record)).join('\n') + '\n'
-  }
-
-  it('compares each strictly restored input using its own native delivery generation', () => {
-    const [historical, current] = normalizeSessionSnapshots(
-      [deliveryLog(3), deliveryLog(SESSION_FORMAT_VERSION)], ctx, { nativeWriterOutput: true },
-    )
-    expect(historical).toBe(current)
-    expect(current).toContain('"sessionFormatVersion":"{{sourceSessionFormatVersion}}"')
-    expect(normalizeSessionSnapshot(deliveryLog(SESSION_FORMAT_VERSION), ctx))
-      .toContain(`"sessionFormatVersion":${SESSION_FORMAT_VERSION}`)
-  })
-
-  it('keeps source-versus-migrated-artifact delivery comparison generation-exact by default', () => {
-    const source = deliveryLog(3)
-    const target = prepareSessionSnapshotFixtureForComparison(source)
-    const [historical, migrated] = normalizeSessionSnapshots([source, target], ctx)
-    expect(historical).toBe(migrated)
-    expect(migrated).toContain('"sessionFormatVersion":3')
-  })
-
-  it('keeps a wrong native delivery generation distinguishable from historical writer output', () => {
-    const [historical, staleCurrent] = normalizeSessionSnapshots(
-      [deliveryLog(3), deliveryLog(SESSION_FORMAT_VERSION, 3)], ctx, { nativeWriterOutput: true },
-    )
-    expect(staleCurrent).not.toBe(historical)
-    expect(staleCurrent).toContain('"sessionFormatVersion":3')
-  })
-
-  it('refuses source delivery claiming V4 before creating comparison tokens', () => {
-    expect(() => normalizeSessionSnapshots([deliveryLog(3, 4)], ctx, { nativeWriterOutput: true }))
-      .toThrow('format v3 delivery marker claims target format v4')
-  })
-
-  it('retains future delivery generations without renaming their event identity', () => {
-    const source = deliveryLog(3, 99, 'recorded-session')
-    const target = prepareSessionSnapshotFixtureForComparison(source)
-    const marker = JSON.parse(target.trimEnd().split('\n').at(-1)!) as unknown
-    expect(marker).toEqual({
-      type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 2,
-      data: { sessionId: 'recorded-session', throughSeq: 0, sessionFormatVersion: 99 },
-    })
-    const [historical, migrated] = normalizeSessionSnapshots([source, target], ctx, { nativeWriterOutput: true })
-    expect(historical).toBe(migrated)
-    expect(historical).toContain('"sessionFormatVersion":99')
-    expect(historical).not.toContain('{{sourceSessionFormatVersion}}')
-  })
-
-  it('keeps captured generations and delivery lookalikes numeric in versioned inputs', () => {
-    const log = deliveryLog(SESSION_FORMAT_VERSION) + JSON.stringify({
-      type: 'custom/event', seq: 2, time: 3, ignorable: true,
-      data: { capturedFormatVersion: SESSION_FORMAT_VERSION, sessionFormatVersion: SESSION_FORMAT_VERSION },
-    }) + '\n'
-    const [normalized] = normalizeSessionSnapshots([log], ctx, { nativeWriterOutput: true })
-    expect(normalized).toContain(JSON.stringify({
-      capturedFormatVersion: SESSION_FORMAT_VERSION, sessionFormatVersion: SESSION_FORMAT_VERSION,
-    }))
-  })
-
-  it('preserves delivery and captured-source generations without a validated source generation', () => {
-    const event = (version: number): string => JSON.stringify({
-      type: 'session-log-deepseek/delivery-accepted',
-      data: { sessionId: 's', throughSeq: 4, sessionFormatVersion: version },
-    })
-    expect(normalizeSessionFormatMetadata(event(0))).toBe(event(0))
-    expect(normalizeSessionFormatMetadata(event(3))).not.toBe(normalizeSessionFormatMetadata(event(0)))
-  })
-
   it('preserves opaque generation qualifiers and their lookalikes', () => {
     const raw = [
       JSON.stringify({
@@ -886,8 +808,9 @@ describe('normalizeSessionSnapshot', () => {
         createdAt: 0,
       }),
       JSON.stringify({
-        type: 'session-log-deepseek/delivery-accepted',
+        type: 'custom/qualifier',
         data: { sessionFormatVersion: 1, throughSeq: 21, otherVersion: 8 },
+        ignorable: true,
       }),
       JSON.stringify({
         type: 'user/message',
@@ -926,12 +849,12 @@ describe('normalizeSessionSnapshot', () => {
     ].join('\n')
 
     const [normalized] = normalizeSessionSnapshots([raw], { sessionIds: [], cwd: '/unused' })
-    const [, delivery, captured, sourceLookalike, opaqueEvent] = normalized
+    const [, qualifier, captured, sourceLookalike, opaqueEvent] = normalized
       ?.trimEnd()
       .split('\n')
       .map(line => JSON.parse(line) as Record<string, unknown>) ?? []
 
-    expect(delivery?.data).toEqual({ sessionFormatVersion: 1, throughSeq: 21, otherVersion: 8 })
+    expect(qualifier?.data).toEqual({ sessionFormatVersion: 1, throughSeq: 21, otherVersion: 8 })
     expect(captured?.data).toMatchObject({
       source: {
         references: [
@@ -1094,7 +1017,7 @@ describe('extractSnapshotSpillPaths', () => {
     ['/tmp', String.fromCharCode(92)],
     ['C:/t', String.fromCharCode(92)],
   ])('recognizes %s locators with %s separators in nested JSON omissions without scrubbing byte counts', (root, separator) => {
-    const locator = `${root}/dsh-acp-snap-123456789/session-123456abcdef/abcdef123456-session-reference-1.txt`.replaceAll('/', separator)
+    const locator = `${root}/jan-acp-snap-123456789/session-123456abcdef/abcdef123456-session-reference-1.txt`.replaceAll('/', separator)
     const notice = { sessionId: 'source', omittedBytes: 42, fullSnapshot: { status: 'saved', locator, bytes: 1234 } }
     const log = JSON.stringify({ type: 'user/message', data: { content: [{ type: 'text', text: JSON.stringify([notice]) }] } })
     const encodedLocator = JSON.stringify(JSON.stringify(locator).slice(1, -1)).slice(1, -1)
@@ -1121,13 +1044,13 @@ describe('extractSnapshotSpillPaths', () => {
 
   it('maps each spill filename to its full matched path, last match wins per name', () => {
     const log = [
-      'Full formatted result stored at: /tmp/dsh-acp-snapshot-spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.',
-      'stale copy at /tmp/dsh-acp-snap-012345678/session-aaaaaaaaaaaa/bbbbbbbbbbbb-grep.txt then',
-      'fresh copy at /tmp/dsh-acp-snap-012345678/session-cccccccccccc/dddddddddddd-grep.txt then',
+      'Full formatted result stored at: /tmp/jan-acp-snapshot-spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.',
+      'stale copy at /tmp/jan-acp-snap-012345678/session-aaaaaaaaaaaa/bbbbbbbbbbbb-grep.txt then',
+      'fresh copy at /tmp/jan-acp-snap-012345678/session-cccccccccccc/dddddddddddd-grep.txt then',
     ].join('\n')
     expect(extractSnapshotSpillPaths(log)).toEqual(new Map([
-      ['bash.txt', '/tmp/dsh-acp-snapshot-spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt'],
-      ['grep.txt', '/tmp/dsh-acp-snap-012345678/session-cccccccccccc/dddddddddddd-grep.txt'],
+      ['bash.txt', '/tmp/jan-acp-snapshot-spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt'],
+      ['grep.txt', '/tmp/jan-acp-snap-012345678/session-cccccccccccc/dddddddddddd-grep.txt'],
     ]))
   })
 
@@ -1149,7 +1072,7 @@ function systemMessageEvent(text: string, seq = 2): string {
         id: '11111111-1111-4111-8111-111111111111',
         role: 'system',
         content: text.length === 0 ? [] : [{ type: 'text', text }],
-        source: { kind: 'plugin', plugin: '@deepseek-ai/dsh-system-prompt' },
+        source: { kind: 'plugin', plugin: '@janhq/jan-system-prompt' },
       },
     },
   })
@@ -1241,7 +1164,7 @@ describe('scrubSessionSnapshot', () => {
 
     expect(scrubSessionSnapshot(`${header}\n${system}\n${request}\n${event}\n`)).toBe([
       header,
-      '{"type":"system/message","data":{"turn":1,"step":1,"message":{"id":"11111111-1111-4111-8111-111111111111","role":"system","content":[{"type":"text","text":"{{system}}"}],"source":{"kind":"plugin","plugin":"@deepseek-ai/dsh-system-prompt"}}}}',
+      '{"type":"system/message","data":{"turn":1,"step":1,"message":{"id":"11111111-1111-4111-8111-111111111111","role":"system","content":[{"type":"text","text":"{{system}}"}],"source":{"kind":"plugin","plugin":"@janhq/jan-system-prompt"}}}}',
       '{"type":"request/header","data":{"header":{"tools":"{{tools}}"},"reason":"initial"}}',
       '{"type":"turn/start","data":{"turn":1,"seq":41,"time":42}}',
       '',

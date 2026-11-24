@@ -4,22 +4,23 @@
  * The comment above each row names the plugin that calls it; endpoints boot
  * never touches stay absent so a new call fails loud. `$events` is built into
  * `RemoteMock`.
- * @module @deepseek-ai/dsh-client-test-runtime/src/assembly/remote-default-responses
+ * @module @janhq/jan-client-test-runtime/src/assembly/remote-default-responses
  */
-import { ok, openStream, type RemoteTable } from '@deepseek-ai/dsh-remote-mock'
+import { ok, openStream, type RemoteTable } from '@janhq/jan-remote-mock'
+import { defaultWorkspaceFixture } from '../fixtures.ts'
 
 /** Default responses of the boot-time Remote endpoints; a spec loads it first and layers its own table on top. */
 export const remoteDefaultResponses: RemoteTable = {
   unary: {
     // api-session-controller `sessions.handleConnected()` on `connection/reset`.
     'session/list': ok({ items: [] }),
-    // ui-workspace startup with no entries; first-use initialization is ineligible.
-    'workspace/initializeDefault': ok(undefined),
+    // ui-workspace requests a default on demand while creating a Session.
+    'workspace/initializeDefault': ok({ workspace: defaultWorkspaceFixture }),
     // ui-settings `mirror.ensure()` at apply and again on `connection/reset`.
     'settings/describe': ok({ writable: true, hasDocument: false, namespaces: [] }),
     // ui-model-selection `ModelDirectoryResolver` constructor.
     'session/modelCatalog': ok({
-      default: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      default: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
       routableProviders: [],
       groups: [],
       failures: [],
@@ -42,6 +43,13 @@ export const remoteDefaultResponses: RemoteTable = {
     // ui-settings-account bonus notice read and acknowledgement at signing in.
     'account/getUnnotifiedBonuses': ok(null),
     'account/ackBonusNotified': ok(true),
+    // ui-plugin-i18n `PluginI18nClient.read()` at access and on `connection/reset`: nothing stored, nothing consented.
+    'pluginI18n/statuses': ok([]),
+    'pluginI18n/consent': ok({ global: false, packages: [] }),
+    'pluginI18n/route': ok({ provider: 'tokamak-official', model: 'tokamak-1-preview', source: 'default' }),
+    'pluginI18n/tables': ok({ locale: 'en', packages: {}, strings: {}, runtime: {} }),
+    // ui-plugin-i18n lists installed bundles at access and on `plugin-manager/changed`: none installed.
+    'pluginManager/listBundles': ok([]),
   },
   // Stream endpoints the roster opens later than boot; declared so a spec that forgets the script gets a stream miss.
   streams: [
@@ -52,7 +60,7 @@ export const remoteDefaultResponses: RemoteTable = {
     // api-session-controller client `apply`: the control stream's opening baseline, then open.
     'session/control': openStream([{ type: 'baseline', value: { projections: {} } }]),
     // ui-settings-account shares the account snapshot across settings and the sidebar menu.
-    'account/watch': openStream([{ status: 'signed-out', attempt: null, links: { usageUrl: 'https://platform.deepseek.com/usage', topUpUrl: 'https://platform.deepseek.com/top_up' } }]),
+    'account/watch': openStream([{ status: 'signed-out', attempt: null, links: { usageUrl: 'https://tokamak.sh/usage', topUpUrl: 'https://tokamak.sh/top_up' } }]),
     // api-workspace-controller client `apply`: the follow stream's opening baseline, then open.
     'workspace/follow': openStream([{ type: 'baseline', value: { items: [], archivedSessionIds: [], pinnedSessionIds: [] } }]),
     // api-remote-access client `mountAccess`: the owner's access snapshot, then open.

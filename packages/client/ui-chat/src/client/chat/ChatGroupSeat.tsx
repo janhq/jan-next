@@ -5,8 +5,9 @@ import {
   IconChevronUpOutlineRegular, IconCodeOutlineRegular, IconContextInjectionOutlineRegular, IconEditOutlineRegular,
   IconGlobeOutlineRegular, IconPlanOutlineRegular, IconQuestionOutlineRegular, IconSearchOutlineRegular, IconSparkleRegular,
   IconThinkOutlineRegular, TextShimmer,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { GroupKey, NodeReference } from '@deepseek-ai/dsh-client-ui-conversation/client'
+  Button,
+} from '@janhq/jan-client-ui-primitives'
+import type { GroupKey, NodeReference } from '@janhq/jan-client-ui-conversation/client'
 import type { ProcessActivity, RunningProcessActivity } from '../contract/process-groups.ts'
 import type { ChatStoreState } from '../contract/store.ts'
 import type { ChatFlowSlotProps } from '../contract/slots.ts'
@@ -15,8 +16,12 @@ import { ChatNodeSeat } from './ChatNodeSeat.tsx'
 import { hiddenOrCollapsing } from './flow-motion.ts'
 import { chatRenderKey } from './render-entry.ts'
 import { processTitle } from './step-process.ts'
+import { formatSettledDuration } from './message-chrome.ts'
+import { useRunDurationLabel } from './run-clock.ts'
+import { RunningWhaleTail } from './RunningWhaleTail.tsx'
 import { useDisclosure } from './use-disclosure.ts'
 import { useProcessScroll } from './use-process-scroll.ts'
+import { formatExactTokens, formatTokens } from './token-format.ts'
 import css from './ChatGroupSeat.module.css'
 
 type SeatProps = Omit<ComponentProps<typeof ChatNodeSeat>, 'nodeKey' | 'groupPart'>
@@ -24,6 +29,8 @@ type ChatGroupSeatProps = SeatProps & {
   readonly groupKey: GroupKey
   readonly useChatGroup: ChatFlowSlotProps['useChatGroup']
   readonly useGroupHeaderAction: ChatFlowSlotProps['useGroupHeaderAction']
+  /** Freeze a live header's Turn clock while the Client cannot observe the Session. */
+  readonly paused: boolean
 }
 const PROCESS_TITLE_MINIMUM_MS = 150
 
@@ -55,6 +62,26 @@ const PROCESS_ICONS: Record<ProcessTitleActivity, ReactNode> = {
 
 function sameLiveProcessTitle(left: LiveProcessTitle, right: LiveProcessTitle): boolean {
   return left.activity === right.activity && left.detail === right.detail && left.preparing === right.preparing
+}
+
+/**
+ * A live header's label rolls like a ticker: each new text rises into a
+ * one-line window from below. Settled headers render the label as is. The
+ * label stays a plain string for TextShimmer, which copies non-string
+ * children into its highlight layer.
+ * @param props.text - the current label.
+ * @param props.live - whether the group is still running.
+ * @returns the label shimmer, in a one-line clipped box while live.
+ */
+function ProcessTicker({ text, live }: { readonly text: string; readonly live: boolean }) {
+  const first = useRef(text)
+  const label = <TextShimmer className={css.label}>{text}</TextShimmer>
+  if (!live) return label
+  return (
+    <span className={css.ticker}>
+      <span key={text} className={text === first.current ? css.tickerLine : `${css.tickerLine} ${css.tickerIn}`}>{label}</span>
+    </span>
+  )
 }
 
 function useStableLiveProcessTitle(desired: LiveProcessTitle, active: boolean): LiveProcessTitle {
@@ -90,7 +117,11 @@ const GroupMembers = memo(function GroupMembers({ members, ...props }: SeatProps
     {...member.groupPart === undefined ? {} : { groupPart: member.groupPart }} />)
 })
 
-const ProcessGroupHeader = memo(function ProcessGroupHeader({ groupKey, useChatGroup, usePresentation, t, open, bodyId, toggle }: {
+/** The header of a live group is the Turn's one running indicator: the hand mark and the Turn clock sit
+ * here, and the running status below it keeps only its announcement and feature detail. */
+const ProcessGroupHeader = memo(function ProcessGroupHeader({
+  groupKey, useChatGroup, usePresentation, t, open, bodyId, toggle, startTime, paused,
+}: {
   readonly groupKey: GroupKey
   readonly useChatGroup: ChatFlowSlotProps['useChatGroup']
   readonly usePresentation: ChatFlowSlotProps['usePresentation']
@@ -98,6 +129,8 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({ groupKey, useChatG
   readonly open: boolean
   readonly bodyId: string
   readonly toggle: () => void
+  readonly startTime: number | undefined
+  readonly paused: boolean
 }) {
   const data = useChatGroup(groupKey, group => group?.data)
   const detailed = usePresentation(policy => data?.closed === false && policy.liveProcessDetail)
@@ -106,6 +139,7 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({ groupKey, useChatG
     detail: data?.summary.runningDetail ?? '',
     preparing: data?.summary.preparing === true,
   }, data !== undefined && !data.closed)
+  const duration = useRunDurationLabel(data?.closed === false ? startTime : undefined, paused, t)
   if (data === undefined) return null
   const label = data.closed ? processTitle(data.summary, t)
     : live.preparing ? t(`message.stepProcess.prepare.${live.activity === 'thinking' ? 'tools' : live.activity}`)
@@ -117,25 +151,46 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({ groupKey, useChatG
     <button type="button" className={css.title} aria-expanded={open} aria-controls={bodyId}
       data-process-activity={activity} onClick={(event) => { event.currentTarget.focus(); toggle() }}>
       <span className={css.leading} aria-hidden="true">
-        <span className={css.activityIcon} data-step-process-icon>{PROCESS_ICONS[activity]}</span>
+        <span className={css.activityIcon} data-step-process-icon>{data.closed ? PROCESS_ICONS[activity] : <RunningWhaleTail />}</span>
         <span className={css.chevron} data-step-process-chevron>
           {open ? <IconChevronUpOutlineRegular /> : <IconChevronDownOutlineRegular />}
         </span>
       </span>
       <TextShimmer active={!data.closed}>
-        <TextShimmer className={css.label}>{title}</TextShimmer>
+        <ProcessTicker text={title} live={!data.closed} />
+        {!data.closed && duration !== null && (
+          // The clock ticks every second; kept out of the button's name like the running status's.
+          <span className={css.duration} aria-hidden><TextShimmer>{duration}</TextShimmer></span>
+        )}
       </TextShimmer>
+      {/* Supplementary figures, kept out of the button's name: a closed step's wall-clock span,
+          or a context-only step's estimated cost, summed as each row prices it. */}
+      {data.closed && data.summary.contextTokens !== undefined && (
+        <span className={css.meta} aria-hidden data-step-context-tokens
+          title={t('message.contextTokensTitle', { count: formatExactTokens(data.summary.contextTokens, t) })}>
+          {t('message.contextTokens', { count: formatTokens(data.summary.contextTokens, t) })}
+        </span>
+      )}
+      {data.closed && data.summary.durationMs !== undefined && (
+        <span className={css.meta} aria-hidden data-step-duration>
+          {formatSettledDuration(data.summary.durationMs, t).map(part => part.text).join('')}
+        </span>
+      )}
     </button>
   )
 })
 
 /** Render a process group with local disclosure and the existing outer-Turn visibility. */
-export const ChatGroupSeat = memo(function ChatGroupSeat({ groupKey, useChatGroup, useGroupHeaderAction, ...props }: ChatGroupSeatProps) {
+export const ChatGroupSeat = memo(function ChatGroupSeat({
+  groupKey, useChatGroup, useGroupHeaderAction, paused, ...props
+}: ChatGroupSeatProps) {
   const members = useChatGroup(groupKey, group => group?.members)
   const turn = useChatGroup(groupKey, group => group?.data.turn)
   const closed = useChatGroup(groupKey, group => group?.data.closed)
   const foldCompleted = props.usePresentation(policy => policy.foldCompletedTurns)
   const { expanded: open, setExpanded: setOpen } = useDisclosure()
+  const [fullTrace, setFullTrace] = useState(false)
+  const cappedPosition = useRef<'bottom' | number>(0)
   const firstKey = members?.[0]?.key ?? ''
   const bottom = props.useChatNodeBottom(firstKey)
   const deferCollapse = bottom === true && props.deferCollapse
@@ -168,39 +223,58 @@ export const ChatGroupSeat = memo(function ChatGroupSeat({ groupKey, useChatGrou
   useEffect(() => {
     if (outerHidden && rootRef.current !== null && hiddenOrCollapsing(rootRef.current)) setOpen(false)
   }, [outerHidden, rootRef, setOpen])
-  const reveal = useCallback(() => { setOpen(true) }, [setOpen])
-  const bodyRef = props.useGroupAction(grouped && !open, reveal)
+  const reveal = useCallback(() => { setFullTrace(false); setOpen(true) }, [setOpen])
+  // A live group the reader has not opened peeks at its latest rows, so the current tool call and its
+  // output stream under the header; opening it shows the whole capped body.
+  const peeking = grouped && !open && closed === false
+  const bodyRef = props.useGroupAction(grouped && !open && !peeking, reveal)
   const contentRef = useRef<HTMLDivElement>(null)
   const bodyId = useId()
-  const { edges, events, initialize } = useProcessScroll(bodyRef, contentRef, open, grouped)
+  const { edges, events, initialize } = useProcessScroll(bodyRef, contentRef, open, grouped && !fullTrace && !outerHidden, fullTrace)
   const toggle = useCallback(() => {
     if (!open) initialize(closed === false ? 'bottom' : 'top')
+    if (!open) setFullTrace(false)
     setOpen(!open)
   }, [closed, initialize, open, setOpen])
   // With next-input timing the height cap applies only to a group the reader opened. A closing body keeps
   // the cap it was last shown with, so the transition starts from what is on screen: a reader-opened group
   // closes from its cap, and a flat latest Turn becoming historical closes from its flat height.
-  const shownCap = !grouped ? false : open ? true : undefined
+  const shownCap = !grouped ? false : open ? !fullTrace : undefined
   const [closingCap, setClosingCap] = useState(shownCap ?? true)
   if (shownCap !== undefined && shownCap !== closingCap) setClosingCap(shownCap)
   if (members === undefined) return null
-  const capped = grouped && (!deferCompletedTurns || (shownCap ?? closingCap))
-  const classes = [css.body, !capped ? css.expandedBody : '',
+  const capped = grouped && (shownCap ?? (!deferCompletedTurns || closingCap))
+  const classes = peeking ? [css.body, css.peekBody] : [css.body, !capped ? css.expandedBody : '',
     capped && edges.canScrollUp ? css.fadeTop : '', capped && edges.canScrollDown ? css.fadeBottom : '']
   return (
     <div ref={rootRef} className={css.root} data-chat-group-key={groupKey}
       data-chat-flow-key={groupKey} data-chat-anchor-key={`group:${groupKey}`} data-chat-turn={turn}
       data-chat-paging-anchor={grouped && !open || undefined}
-      data-step-process data-group-expanded-mode={!grouped || undefined}>
-      <div ref={headerRef}>
+      data-step-process data-group-expanded-mode={!grouped || undefined}
+      data-process-live={closed === false || undefined}>
+      <div ref={headerRef} className={css.header} data-process-header>
         <ProcessGroupHeader groupKey={groupKey} useChatGroup={useChatGroup}
-          usePresentation={props.usePresentation} t={props.t} open={open} bodyId={bodyId} toggle={toggle} />
+          usePresentation={props.usePresentation} t={props.t} open={open} bodyId={bodyId} toggle={toggle}
+          startTime={turnLocation?.status === 'open' ? turnLocation.start?.time : undefined} paused={paused} />
+        {grouped && open && !outerHidden && (fullTrace || edges.canScrollUp || edges.canScrollDown) && (
+          <Button variant="ghost" size="sm" className={css.heightToggle} aria-controls={bodyId}
+            onClick={() => {
+              if (fullTrace) initialize(cappedPosition.current)
+              else cappedPosition.current = closed === false && !edges.canScrollDown ? 'bottom' : bodyRef.current?.scrollTop ?? 0
+              setFullTrace(!fullTrace)
+            }}>
+            {props.t(fullTrace ? 'message.stepProcess.limitHeight' : 'message.stepProcess.showFull')}
+          </Button>
+        )}
       </div>
       <div ref={bodyRef} id={bodyId} className={classes.join(' ')} data-step-process-body
+        tabIndex={grouped && open && capped && (edges.canScrollUp || edges.canScrollDown) ? 0 : undefined}
         data-scroll-up={edges.canScrollUp || undefined} data-scroll-down={edges.canScrollDown || undefined}
-        {...events}>
+        {...events} onClick={peeking ? toggle : undefined} data-process-peek={peeking || undefined}
+        // The preview is visual only: assistive technology and focus treat the group as closed until opened.
+        aria-hidden={peeking || undefined} {...peeking ? { inert: '' } : {}}>
         <div ref={contentRef} className={css.content} data-step-process-content data-chat-flow="">
-          <GroupMembers {...props} members={members} />
+          <GroupMembers {...props} traceDetailsVisible={!outerHidden && (!grouped || open)} members={members} />
         </div>
       </div>
     </div>

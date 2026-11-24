@@ -15,6 +15,17 @@ export interface LlamaCppProgress {
   bytesPerSecond: number
 }
 
+/** How far the worker got reading the prompt of the request in flight, in tokens. */
+export interface LlamaCppPrefill {
+  /** Session the request belongs to, when the caller named one. */
+  sessionId?: string
+  /** Prompt tokens read so far, including {@link cache}. */
+  processed: number
+  total: number
+  /** Prompt tokens reused from the worker's cache. */
+  cache: number
+}
+
 /** Facts about the default model, or the model the first-run offer installs when none is installed. */
 export interface LlamaCppModelInfo {
   /** Installed or catalog model id. */
@@ -66,6 +77,8 @@ export interface LocalModelEntry {
   /** Bytes of the model file plus its vision projector, if any. */
   bytes: number
   source: LocalModelSource
+  /** Hugging Face repository the file came from; absent for an imported file. With `name`, the file's identity. */
+  repo?: string
   /** It has a vision projector that encodes images, so the route accepts image input for it. */
   vision: boolean
   /** The default model, which the route's alias id also serves and which loads when the worker starts. */
@@ -73,6 +86,10 @@ export interface LocalModelEntry {
   status: LocalModelStatus
   /** Context the worker settled on the last time it loaded this model. */
   contextSize?: number
+  /** Saved context requested for this model, or the plugin default. */
+  configuredContextSize: number
+  /** Automatically fit GPU offload and (when context is zero) context to memory. */
+  autoFit: boolean
   /** `general.architecture` of the GGUF file. */
   architecture: string
   /** Context the model was trained with, when its file declares it. */
@@ -97,15 +114,32 @@ export interface CatalogModelInfo {
   fit?: ModelFit
 }
 
-/** One model download, in progress or failed. */
+/** One model download, in progress, paused or failed. */
 export interface LlamaCppDownload {
   /** Model id the download installs as. */
   id: string
   name: string
-  /** Present once bytes flow; absent while queued. */
+  /** Hugging Face repository the file comes from. With `name`, the file's identity. */
+  repo: string
+  /** Present once bytes flow; absent while queued. A paused download keeps the bytes it reached. */
   progress?: LlamaCppProgress
   /** Present when the download failed; retrying starts it again from its partial file. */
   error?: string
+  /** Present when the user paused it; its partial file is kept and retrying resumes it. */
+  paused?: true
+}
+
+/** One Jan-owned download on disk. A model includes its downloaded vision projector, if any. */
+export interface StoredDownload {
+  readonly name: string
+  readonly kind: 'model' | 'partial' | 'cache'
+  readonly bytes: number
+  /** File or cache path relative to the Jan home, with forward separators on every platform. */
+  readonly path: string
+  /** Epoch milliseconds, for caches that explicitly track use. */
+  readonly lastUsed?: number
+  /** Why this item is temporarily unavailable for deletion. */
+  readonly inUse?: string
 }
 
 /** One GGUF file of a looked-up Hugging Face repository. */
@@ -149,17 +183,19 @@ export interface LlamaCppState {
   model: LlamaCppModelInfo
   /** Model provider route that serves every installed model. */
   provider: string
-  /** Progress of the first download in {@link downloads} that is running (not failed or queued); present while bytes flow. */
+  /** Progress of the first download in {@link downloads} that is running (not failed, paused or queued); present while bytes flow. */
   progress?: LlamaCppProgress
   /** Human-readable failure, present in `failed`. */
   error?: string
   /** Context size the default model settled on (after `fit`), present while running. */
   contextSize?: number
+  /** Prompt reading of the request in flight, present from its first report until the prompt is read. */
+  prefill?: LlamaCppPrefill
   /** Last worker log lines, present when the worker failed. */
   logTail?: string
   /** Installed models; exactly one is active (the default) when any is installed. */
   models: LocalModelEntry[]
-  /** Downloads in progress, queued or failed, in start order. */
+  /** Downloads in progress, queued, paused or failed, in start order. */
   downloads: LlamaCppDownload[]
   /** Curated models the manager offers. */
   catalog: CatalogModelInfo[]

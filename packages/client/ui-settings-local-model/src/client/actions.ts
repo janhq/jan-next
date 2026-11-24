@@ -3,10 +3,10 @@
  * failures surface through the Host state; per-model operations, lookups and imports answer the
  * caller directly.
  */
-import type { Context } from '@deepseek-ai/cordis'
-import type { HuggingFaceRepoInfo } from '@deepseek-ai/dsh-api-llama-cpp-controller'
-import type {} from '@deepseek-ai/dsh-api-llama-cpp-controller/remote'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { Context } from '@janhq/cordis'
+import type { HuggingFaceRepoInfo } from '@janhq/jan-api-llama-cpp-controller'
+import type {} from '@janhq/jan-api-llama-cpp-controller/remote'
+import type { SnapshotStore } from '@janhq/jan-client-store'
 import type { LocalModelMirror } from './state.ts'
 
 /** Outcome of a call whose failure the calling view shows itself. */
@@ -21,12 +21,18 @@ export interface LocalModelActions {
   uninstall: () => void
   /** Download a curated model by catalog id. */
   downloadModel: (id: string) => void
-  /** Stop a download, or dismiss a failed one. */
+  /** Stop a download and discard its files, or dismiss a failed one. */
   cancelDownload: (id: string) => void
-  /** Start a failed download again. */
+  /** Start a failed or paused download again, from its partial file. */
   retryDownload: (id: string) => void
+  /** Pause a running or queued download, keeping its partial file. */
+  pauseDownload: (id: string) => void
   /** Make an installed model the default and load it. */
   setDefaultModel: (id: string) => Promise<Outcome<void>>
+  /** Change the model's persisted context length and wait for worker reload. */
+  setModelContext: (id: string, contextSize: number) => Promise<Outcome<void>>
+  /** Change automatic GPU offload fit for one model. */
+  setModelFit: (id: string, fit: boolean) => Promise<Outcome<void>>
   /** Load an installed model now. */
   loadModel: (id: string) => Promise<Outcome<void>>
   /** Free a loaded model's memory. */
@@ -76,7 +82,10 @@ export function createActions(ctx: Context): LocalModelActions {
     downloadModel: (id) => { run(() => ctx.remote.llamaCpp.downloadModel(id)) },
     cancelDownload: (id) => { run(() => ctx.remote.llamaCpp.cancelDownload(id)) },
     retryDownload: (id) => { run(() => ctx.remote.llamaCpp.retryDownload(id)) },
+    pauseDownload: (id) => { run(() => ctx.remote.llamaCpp.pauseDownload(id)) },
     setDefaultModel: id => answer(() => ctx.remote.llamaCpp.setDefaultModel(id)),
+    setModelContext: (id, contextSize) => answer(() => ctx.remote.llamaCpp.setModelContext(id, contextSize)),
+    setModelFit: (id, fit) => answer(() => ctx.remote.llamaCpp.setModelFit(id, fit)),
     loadModel: id => answer(() => ctx.remote.llamaCpp.loadModel(id)),
     unloadModel: id => answer(() => ctx.remote.llamaCpp.unloadModel(id)),
     deleteModel: id => answer(() => ctx.remote.llamaCpp.deleteModel(id)),

@@ -1,28 +1,28 @@
 /** Chat-owned Slot declarations and composed component props. */
 import type { RefObject } from 'react'
-import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
-import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
-import type { PendingSubmission } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { FileAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type { InboxState } from '@deepseek-ai/dsh-agent/types'
+import type { MessageId } from '@janhq/jan-llm/brand'
+import type { SessionId, SessionSeq } from '@janhq/jan-session/types'
+import type { PendingSubmission } from '@janhq/jan-api-session-controller/client'
+import type { FileAttachmentRef } from '@janhq/jan-attachment'
+import type { InboxState } from '@janhq/jan-agent/types'
 import type {
   CommandNode, CompactionSummaryNode, ConversationLocationDataStore, ConversationTurnDataMap,
   TextInteractionGesture, TextInteractionSurface,
   ConversationGroupData, GroupSnapshot,
   MessageImageLoader, MessageImageSource, MessageImagesOwnerProps, RenderEntry, TurnLocation, UserTextFacts, UserTextInput,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+} from '@janhq/jan-client-ui-conversation/client'
 import type {
   HostObservable, InjectFace, KeyedSnapshotSelectorHook, PropsLocale, PropsRenderSlots, PropsRuntime,
   PropsRenderFactories, PropsStore, SlotHookFactory, SnapshotSelectorHook,
-} from '@deepseek-ai/dsh-client-ui-slots'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { ConnectionStateSource } from '@deepseek-ai/dsh-client-connection/client'
-import type { FileDragActions, MarkdownFileMentions, MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ContextMenuTriggerProps } from '@deepseek-ai/dsh-client-ui-context-menu/client'
+} from '@janhq/jan-client-ui-slots'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
+import type { ConnectionStateSource } from '@janhq/jan-client-connection/client'
+import type { FileDragActions, MarkdownFileMentions, MarkdownLabels } from '@janhq/jan-client-ui-primitives'
+import type { ContextMenuTriggerProps } from '@janhq/jan-client-ui-context-menu/client'
 import type { ChatKey } from '../locale.ts'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+import type {} from '@janhq/jan-client-ui-layout/client'
 // Type-only: the Session-scope access Hook (`useAccess`) the Chat entries read.
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@janhq/jan-client-ui-session/client'
 import type { createChatStore } from '../stores.ts'
 import type { ChatPresentationPolicy } from '../presentation-policy.ts'
 import type { FlowMotionRows } from '../chat/flow-motion.ts'
@@ -54,18 +54,56 @@ export type UsePresentation = SnapshotSelectorHook<ChatPresentationPolicy>
 export interface OpenFileOptions {
   /** 1-based line to reveal; absent = the file's beginning. */
   readonly line?: number
+  /** Hide the column instead when this file is already the visible tab, so a second click closes the preview. */
+  readonly toggle?: boolean
 }
 
 /** Owner currency of the completed-Turn extension chain. */
 export interface TurnTailOwnerProps {
   turn: TurnLocation
   seq: number
-  openFile: (path: string) => void
+  openFile: (path: string, options?: OpenFileOptions) => void
+}
+
+/** Owner share of running-status details: entries read their state from the Session. */
+export interface RunningDetailOwnerProps {
+  /** Marker field: the running status passes nothing. */
+  children?: never
+}
+
+/** Owner currency of the running-Turn extension chain. */
+export interface RunningTailOwnerProps {
+  /** The open latest Turn; its data grows as the Turn's events arrive. */
+  turn: TurnLocation
+}
+
+/** Owner currency of contributions after a closed Turn's duration header. */
+export interface TurnProcessTrailingOwnerProps {
+  /** The closed Turn the header belongs to. */
+  readonly turn: TurnLocation
 }
 
 /** Owner currency of finalized-assistant actions. */
 export interface AssistantActionOwnerProps {
   messageId: MessageId
+  /** Plain text of the finalized reply, as Copy takes it; empty for a reply with no text. */
+  text: string
+  /**
+   * The reply's last embedded live surface: an element that whatever rendered it into the reply
+   * marked `data-chat-embed` (a generated widget, say). Read live; null while there is none.
+   */
+  getEmbed: () => HTMLElement | null
+}
+
+/** Owner currency of actions on a terminal turn failure. */
+export interface TurnErrorActionOwnerProps {
+  /** Seq of the failed turn's `turn/end` event. */
+  seq: number
+  turn: number
+  /** Stable failure code, or the Client display code (`ACCOUNT_SIGNED_OUT`, `INTERRUPTED`), when one is known. */
+  code?: string
+  /** Sanitized failure message; empty when a known code owns localized copy. */
+  message: string
 }
 
 /** Stable quota failure codes retained in the Session log; both raise the frame-wide notice. */
@@ -152,7 +190,7 @@ export interface ChatFileMentions {
   ): MarkdownFileMentions | undefined
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Optional prose file-mention provider. */
     chatFileMentions: ChatFileMentions
@@ -244,6 +282,8 @@ export interface ChatNodeOwnerProps {
   forkAt: (seq: number) => void
   /** Session-authorized image loader supplied by the Chat view. */
   loadImage: MessageImageLoader
+  /** False in a closed process group or its live text-only peek. */
+  traceDetailsVisible?: boolean | undefined
   /** Turn-process state when this Node belongs to a projected Turn. */
   turnProcess?: TurnProcessOwnerProps | undefined
 }
@@ -378,7 +418,7 @@ export interface ChatFlowOwnerProps extends Pick<ChatNodeOwnerProps,
 /** Full props of the Chat-owned flow renderer. */
 export type ChatFlowSlotProps =
   PropsRuntime<'conversation.chat.flow'>
-  & PropsRenderSlots<'conversation.chat.node'>
+  & PropsRenderSlots<'conversation.chat.node' | 'conversation.chat.running-detail' | 'conversation.chat.running-tail'>
   & PropsRenderFactories
   & PropsStore<ChatStore>
   & InjectFace<ChatFlowDataInjected>
@@ -387,7 +427,7 @@ export type ChatFlowSlotProps =
 /** Full Chat view props. */
 export type ChatViewSlotProps =
   PropsRuntime<'conversation.view'>
-  & PropsRenderSlots<'conversation.chat.flow' | 'conversation.chat.text-interaction'>
+  & PropsRenderSlots<'conversation.chat.flow' | 'conversation.chat.text-interaction' | 'conversation.chat.image.actions'>
   & PropsStore<ChatStore>
   & InjectFace<ChatViewInjected>
   & PropsLocale<'chat'>
@@ -396,7 +436,7 @@ export type ChatViewSlotProps =
 export type MessageImagesProps =
   PropsRuntime<'conversation.chat.user.images' | 'conversation.chat.message.images'> & PropsRenderFactories
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface SessionStandardProps {
     /** Selector hook over the current Conversation binding's Chat target. */
     useChat: UseChat
@@ -426,6 +466,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     /** Area-local text gestures and surfaces; each consumer registers its own synchronous admission. */
     'conversation.chat.text-interaction': { kind: 'keyed'; scope: 'session'; owner: TextInteractionSurface }
+
+    /** Controls next to a standalone image displayed by conversation Markdown. */
+    'conversation.chat.image.actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: { readonly getSurface: () => HTMLImageElement | null }
+    }
 
     /** Ordered Chat rows and local echoes with viewport-bound visibility hooks. */
     'conversation.chat.flow': {
@@ -486,11 +533,37 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      */
     'conversation.chat.turnTail': { kind: 'list'; scope: 'session'; owner: TurnTailOwnerProps }
     /**
+     * Ordered contributions after a closed Turn's duration header, on the same line;
+     * an entry that opens a panel gives it `flex-basis: 100%` to drop below the line.
+     * Entries return null with nothing to show.
+     */
+    'conversation.chat.turn-process.trailing': { kind: 'list'; scope: 'session'; owner: TurnProcessTrailingOwnerProps }
+    /**
+     * Ordered details beside the running status of a Session, e.g. how far a local model got
+     * reading the prompt. Each entry reads its own state and returns null when it has nothing
+     * to say; the status renders none while it holds its slot hidden.
+     */
+    'conversation.chat.running-detail': { kind: 'list'; scope: 'session'; owner: RunningDetailOwnerProps }
+    /**
+     * Ordered feature contributions below the running status of an open Turn,
+     * e.g. a live view of what the Turn is building. Each entry receives the
+     * open Turn and returns null when it has nothing to show; the Turn's
+     * `conversation.chat.turnTail` takes over once it ends.
+     */
+    'conversation.chat.running-tail': { kind: 'list'; scope: 'session'; owner: RunningTailOwnerProps }
+    /**
      * Ordered actions for one finalized assistant message. Each entry receives
      * the durable message id; a fresh `id` adds an action and reusing one replaces
      * that entry. With no entries, the standard action row remains unchanged.
      */
     'conversation.chat.assistant-actions': { kind: 'list'; scope: 'session'; owner: AssistantActionOwnerProps }
+    /**
+     * Ordered actions on a terminal turn failure, after the card's own recovery
+     * actions. Each entry receives the failed turn and its failure; a fresh `id`
+     * adds an action, and an entry with nothing to offer returns null. With no
+     * entries, the failure card is unchanged.
+     */
+    'conversation.chat.turn-error-actions': { kind: 'list'; scope: 'session'; owner: TurnErrorActionOwnerProps }
     /**
      * Frame-wide quota notice chain. The Chat-owned host in `shell.overlay`
      * offers the one live notice; the first entry whose selector claims its

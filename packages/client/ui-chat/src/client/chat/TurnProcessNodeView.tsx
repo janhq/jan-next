@@ -1,15 +1,16 @@
 import { memo } from 'react'
-import { IconChevronDownOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutlineRegular } from '@janhq/jan-client-ui-primitives'
+import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { ChatNodeViewProps } from '../contract/slots.ts'
 import { turnProcessAlwaysOpen } from '../contract/turn-process.ts'
-import { formatRunDuration } from './message-chrome.ts'
+import { formatSettledDuration } from './message-chrome.ts'
 import a11yCss from './accessibility.module.css'
 import css from './TurnProcessNodeView.module.css'
 
-/** Settled Turn duration and process disclosure above its content. */
+/** Settled Turn duration and process disclosure above its content, followed by feature contributions on the same line. */
 export const TurnProcessNodeView = memo(function TurnProcessNodeView({
-  node, turnProcess, t,
-}: ChatNodeViewProps<'turn-process'>) {
+  node, turnProcess, renderSlot, t,
+}: ChatNodeViewProps<'turn-process'> & PropsRenderSlots<'conversation.chat.turn-process.trailing'>) {
   if (turnProcess === undefined) throw new Error('turn-process node requires Turn process owner state')
   const open = !turnProcess.foldable || turnProcess.open
   const turn = node.location.kind === 'turn' || node.location.kind === 'step'
@@ -20,9 +21,9 @@ export const TurnProcessNodeView = memo(function TurnProcessNodeView({
   const reason = turn.end?.data.reason.kind
   const stopped = reason === 'aborted' || reason === 'interrupted'
   const elapsedMs = turn.start === undefined || turn.end === undefined ? undefined
-    : Math.max(1000, turn.end.time - turn.start.time)
+    : turn.end.time - turn.start.time
   const duration = elapsedMs === undefined || stopped || reason === 'error' ? undefined
-    : formatRunDuration(elapsedMs, t)
+    : formatSettledDuration(elapsedMs, t)
   // Other end reasons retain elapsed time; only stops and failure replace it.
   const label = stopped ? t('message.stopped')
     : reason === 'error' ? t('message.turnProcess.failed')
@@ -32,7 +33,7 @@ export const TurnProcessNodeView = memo(function TurnProcessNodeView({
     : reason === 'error' ? t('message.turnProcess.failed')
       : t('message.turnProcess.worked')
   return (
-    <>
+    <div className={css.row}>
       <span className={a11yCss.visuallyHidden} role="status" aria-live="polite" aria-atomic="true">{announcement}</span>
       <button
         type="button"
@@ -57,6 +58,7 @@ export const TurnProcessNodeView = memo(function TurnProcessNodeView({
         </span>
         {canCollapse && <IconChevronDownOutlineRegular className={css.chevron} />}
       </button>
-    </>
+      {renderSlot('conversation.chat.turn-process.trailing', { turn })}
+    </div>
   )
 })

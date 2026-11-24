@@ -6,8 +6,8 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { SessionId } from '@deepseek-ai/dsh-session'
-import type { DailyScheduleRecord, ScheduleCatalogEntry, ScheduleTask } from '@deepseek-ai/dsh-schedule'
+import type { SessionId } from '@janhq/jan-session'
+import type { DailyScheduleRecord, ScheduleCatalogEntry, ScheduleTask } from '@janhq/jan-schedule'
 import { expect, it } from 'vitest'
 import { withDefaultWeb, webGet, webRequest } from './default-web-process.ts'
 
@@ -87,7 +87,7 @@ it('edits an existing task through built Remote bindings and keeps its identity 
     renamed = (edited as { value: ScheduleCatalogEntry }).value
     persisted = await readStore(root)
     const document = storedUnit(persisted)
-    expect(document.unit).toEqual({ name: 'schedule', version: 2 })
+    expect(document.unit).toEqual({ name: 'schedule', version: 3 })
     expect(document.global).toBeNull()
     expect(document.tables.tasks[id]!).toMatchObject({ record: { ...record, title: 'Renamed instruction' },
       target: { kind: 'session', sessionId }, status: 'active', updatedAt: renamed.updatedAt, lastDelivery: receipt })

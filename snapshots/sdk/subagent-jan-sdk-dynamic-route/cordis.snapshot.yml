@@ -1,0 +1,22 @@
+# Keyless replay layer for the Jan SDK dynamic-route snapshot.
+
+- insert:
+    - id: llm-replay
+      name: '@janhq/jan-llm-replay'
+      config:
+        providers:
+          - id: tokamak-official
+            name: Tokamak
+            models:
+              - id: mock-delegate
+          - id: mock
+            name: Mock
+            models:
+              - id: mock-routed
+                reasoningEfforts: [max]
+
+    - id: sdk-jsonrpc-server-dynamic-replay
+      name: '@janhq/jan-sdk-jsonrpc-server'
+      inject: [sdkAppStartup, loader]
+      config:
+        maxTokensAsSuccess: true

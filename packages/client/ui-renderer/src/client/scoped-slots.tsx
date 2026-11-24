@@ -13,7 +13,7 @@ import {
   type ScopedStandardSourceBinding, type SessionAreaProps, type SessionProviderComponent, type SlotRenderer,
   type SlotEntryDef, type SlotRendererHost, type SlotScope, type SlotScopeAdapter, type SlotSpec, type StandardSourceBinding,
   type StoredEntry, type StoredFactory, type Translate,
-} from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-slots'
 import {
   HostContext, RootStandardProvider, ScopeBindingProvider, ScopeProvider,
   keyedObservableHook, maybeObservableHook, observableHook, useHost, useRootBinding,
@@ -1225,6 +1225,9 @@ function HocOutlet({ slotKey, spec, ownerProps, children }: {
  */
 const ANCHOR_STYLE = { display: 'contents' } as const
 
+/** npm scope of the plugins Jan ships; entries of any other package render inside an owner marker. */
+const FIRST_PARTY_SCOPE = '@janhq/'
+
 function SlotOutlet({ slotKey, ownerProps, opts, declaredInline }: {
   slotKey: string
   ownerProps: object
@@ -1283,7 +1286,7 @@ function renderOutletContent(
   // The boundary must wrap the Entry ELEMENT, not live inside it: inject
   // factories and kit synthesis run in the Entry body and must land in the
   // per-entry fallback rather than escaping to the tree above.
-  const guarded = (entry: StoredEntry, key?: string | number, owner: object = ownerProps) => {
+  const guardedEntry = (entry: StoredEntry, key?: string | number, owner: object = ownerProps) => {
     const hasHookContext = opts !== undefined && Object.hasOwn(opts, 'hookContext')
     const hookContext = opts?.hookContext
     // Shadowing kinds abdicate on crash (the cell falls to its next
@@ -1332,6 +1335,13 @@ function renderOutletContent(
             )}
         </SlotErrorBoundary>
       )
+  }
+  // An entry of a third-party plugin renders inside an addressable owner marker, so DOM observers can tell whose
+  // text a node holds. First-party entries and entries without a Loader owner render unwrapped.
+  const guarded = (entry: StoredEntry, key?: string | number, owner: object = ownerProps) => {
+    const body = guardedEntry(entry, key, owner)
+    if (entry.owner === undefined || entry.owner.startsWith(FIRST_PARTY_SCOPE)) return body
+    return <Anchor data-plugin-owner={entry.owner} style={ANCHOR_STYLE} key={key}>{body}</Anchor>
   }
   // A cell whose every registration abdicated keeps the crash face: the
   // shadowing collapse ran out of survivors, which is a failure state, not

@@ -1,11 +1,11 @@
 import { join, resolve, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  desktopElectronExecutable,
   desktopTargetBuildPaths,
   desktopTargetPlatform,
   developmentRuntimeDirectory,
   resolveDesktopBuildTarget,
-  resolveDesktopDevelopmentTarget,
   resolveDesktopTargetBuildPaths,
 } from '../scripts/desktop-build-paths.mjs'
 
@@ -22,10 +22,10 @@ describe('desktop build paths', () => {
       'unnotarizedArtifacts',
       'runtime',
       'packageSet',
-      'dsh',
-      'dshPnpm',
+      'jan',
+      'janPnpm',
       'electron',
-      'packedDsh',
+      'packedJan',
       'packedVendor',
       'packedLandlock',
     ] as const
@@ -34,7 +34,7 @@ describe('desktop build paths', () => {
       expect(new Set([arm64[key], x64[key], windows[key], linux[key]]).size).toBe(4)
     }
     expect(arm64.artifacts).toContain(join('targets', 'mac-arm64', 'artifacts'))
-    expect(x64.dsh).toContain(join('targets', 'mac-x64', 'dsh'))
+    expect(x64.jan).toContain(join('targets', 'mac-x64', 'jan'))
     expect(windows.runtime).toContain(join('targets', 'win-x64', 'runtime'))
   })
 
@@ -49,7 +49,7 @@ describe('desktop build paths', () => {
 
   it('retains target outputs while relocating caches through the supplied environment', () => {
     const cache = resolve('external-package-cache')
-    const environment = { DSH_DESKTOP_PACKAGE_CACHE_DIR: cache }
+    const environment = { JAN_DESKTOP_PACKAGE_CACHE_DIR: cache }
     const defaults = desktopTargetBuildPaths('win-x64', {})
     const paths = resolveDesktopTargetBuildPaths(environment, 'win32', 'x64')
     expect(paths).toEqual({ ...defaults, downloads: join(cache, 'downloads'), pnpmStore: join(cache, 'pnpm-store') })
@@ -64,8 +64,8 @@ describe('desktop build paths', () => {
   })
 
   it.each(['', ' ', 'relative/cache', './cache', 'cache\0invalid'])('rejects invalid cache directory %j', (directory) => {
-    expect(() => desktopTargetBuildPaths('win-x64', { DSH_DESKTOP_PACKAGE_CACHE_DIR: directory }))
-      .toThrow('DSH_DESKTOP_PACKAGE_CACHE_DIR')
+    expect(() => desktopTargetBuildPaths('win-x64', { JAN_DESKTOP_PACKAGE_CACHE_DIR: directory }))
+      .toThrow('JAN_DESKTOP_PACKAGE_CACHE_DIR')
   })
 
   it('resolves the development primary runtime from the build target rather than the host architecture', () => {
@@ -87,23 +87,25 @@ describe('desktop build paths', () => {
     expect(() => desktopTargetPlatform('linux-arm64' as 'linux-x64')).toThrow(/unsupported target linux-arm64/u)
   })
 
-  it('resolves environment overrides and rejects Linux as a release target', () => {
+  it('resolves environment overrides and every packaging or development target', () => {
     expect(resolveDesktopBuildTarget({
-      DSH_DESKTOP_TARGET_PLATFORM: 'darwin',
-      DSH_DESKTOP_TARGET_ARCH: 'x64',
+      JAN_DESKTOP_TARGET_PLATFORM: 'darwin',
+      JAN_DESKTOP_TARGET_ARCH: 'x64',
     }, 'darwin', 'arm64')).toBe('mac-x64')
     expect(resolveDesktopBuildTarget({}, 'win32', 'x64')).toBe('win-x64')
-    expect(() => resolveDesktopBuildTarget({}, 'linux', 'x64')).toThrow(/unsupported release target linux-x64/u)
-    expect(() => resolveDesktopTargetBuildPaths({}, 'linux', 'x64')).toThrow(/unsupported release target linux-x64/u)
+    expect(resolveDesktopBuildTarget({}, 'linux', 'x64')).toBe('linux-x64')
+    expect(resolveDesktopBuildTarget({}, 'darwin', 'arm64')).toBe('mac-arm64')
+    expect(resolveDesktopBuildTarget({}, 'win32', 'arm64')).toBe('win-x64')
+    expect(resolveDesktopBuildTarget({ JAN_DESKTOP_TARGET_PLATFORM: 'linux' }, 'darwin', 'x64')).toBe('linux-x64')
+    expect(resolveDesktopTargetBuildPaths({}, 'linux', 'x64').root).toContain(join('targets', 'linux-x64'))
+    expect(() => resolveDesktopBuildTarget({}, 'linux', 'arm64')).toThrow(/unsupported target linux-arm64/u)
+    expect(() => resolveDesktopBuildTarget({}, 'freebsd', 'x64')).toThrow(/unsupported target freebsd-x64/u)
     expect(() => desktopTargetBuildPaths('linux-arm64' as 'linux-x64')).toThrow(/unsupported target/u)
   })
 
-  it('accepts Linux x64 only as a development target', () => {
-    expect(resolveDesktopDevelopmentTarget({}, 'linux', 'x64')).toBe('linux-x64')
-    expect(resolveDesktopDevelopmentTarget({}, 'darwin', 'arm64')).toBe('mac-arm64')
-    expect(resolveDesktopDevelopmentTarget({}, 'win32', 'arm64')).toBe('win-x64')
-    expect(resolveDesktopDevelopmentTarget({ DSH_DESKTOP_TARGET_PLATFORM: 'linux' }, 'darwin', 'x64')).toBe('linux-x64')
-    expect(() => resolveDesktopDevelopmentTarget({}, 'linux', 'arm64')).toThrow(/unsupported target linux-arm64/u)
-    expect(() => resolveDesktopDevelopmentTarget({}, 'freebsd', 'x64')).toThrow(/unsupported target freebsd-x64/u)
+  it('locates the Electron executable of each platform distribution', () => {
+    expect(desktopElectronExecutable('/electron', 'win32')).toBe(join('/electron', 'electron.exe'))
+    expect(desktopElectronExecutable('/electron', 'darwin')).toBe(join('/electron', 'Electron.app', 'Contents', 'MacOS', 'Electron'))
+    expect(desktopElectronExecutable('/electron', 'linux')).toBe(join('/electron', 'electron'))
   })
 })

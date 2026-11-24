@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-creation-recommendations",
+  "name": "@janhq/jan-creation-recommendations",
   "description": "Create persistent removable interface plugins from explicit conversation needs",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/experimental/creation-recommendations"
   },
   "type": "module",
@@ -30,34 +30,34 @@
   },
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-skill": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-skill": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-plugin-manager": "workspace:*",
-    "@deepseek-ai/dsh-api-remote-access": "workspace:*",
-    "@deepseek-ai/dsh-subagent": "workspace:*",
-    "@deepseek-ai/dsh-app-boot": "workspace:*",
-    "@deepseek-ai/dsh-skill": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-policy": "workspace:*",
-    "@deepseek-ai/dsh-tool-testkit": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-plugin-manager": "workspace:*",
+    "@janhq/jan-api-remote-access": "workspace:*",
+    "@janhq/jan-subagent": "workspace:*",
+    "@janhq/jan-app-boot": "workspace:*",
+    "@janhq/jan-skill": "workspace:*",
+    "@janhq/jan-sandbox-policy": "workspace:*",
+    "@janhq/jan-tool-testkit": "workspace:*"
   },
   "dependencies": {
     "yaml": "^2.9.0",
     "resolve.exports": "^2.0.3",
-    "zod": "4.4.3",
-    "@deepseek-ai/dsh-client-ui-creation-recommendations": "workspace:*",
-    "@deepseek-ai/dsh-action-cards": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-action-cards": "workspace:*"
+    "zod": "4.6.6",
+    "@janhq/jan-client-ui-creation-recommendations": "workspace:*",
+    "@janhq/jan-action-cards": "workspace:*",
+    "@janhq/jan-client-ui-action-cards": "workspace:*"
   },
   "files": [
     "icon.svg",

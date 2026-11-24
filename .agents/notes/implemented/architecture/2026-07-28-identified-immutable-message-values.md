@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-07-28-identified-immutable-message-values.zh.md)
-
 ## Problem
 
 The harness had several message-shaped representations with different identity rules. Agent input acquired an inbox correlation id only when the loop accepted it, while durable user messages, assistant messages, tool results, and model-request messages could have no identity. Prompt admission therefore sat between creation and identity, and equivalent content was copied across live events, durable events, and model requests without one value that named the message throughout its lifetime.
@@ -12,11 +10,11 @@ This made identity a routing side effect rather than a message invariant. Produc
 
 ## Decision
 
-`@deepseek-ai/dsh-llm` owns one `Message` value with required `id`, `role`, `content`, and `source`. `MessageId` is opaque and shared by user, assistant, and tool-result messages. A message receives its id at creation, before inbox routing, claim, pre-step rewriting, durable append, or request projection. The same id survives every representation boundary.
+`@janhq/jan-llm` owns one `Message` value with required `id`, `role`, `content`, and `source`. `MessageId` is opaque and shared by user, assistant, and tool-result messages. A message receives its id at creation, before inbox routing, claim, pre-step rewriting, durable append, or request projection. The same id survives every representation boundary.
 
 `createMessage(input)` is the canonical role-generic creation boundary. It mints a `MessageId`, detaches the supplied role, content, and source, and deep-freezes the complete value before returning it. `createUserMessage({ content, source })` fixes the user role for prompt and context producers. `createAssistantMessage({ content, source })` fixes both the assistant role and the model source kind, so model-output producers supply only content plus provider, model, and optional replay state. All creation helpers exclude an input id so callers cannot accidentally present creation as import. `freezeMessage(message)` is the separate import or transformation boundary: it detaches and deep-freezes a message whose identity already exists, without minting a replacement.
 
-The message helpers live in `dsh-llm` beside the base message vocabulary because their complete contracts depend only on that vocabulary. They use `dsh-brand`'s stateless `brandString()` constructor for `MessageId` and `dsh-util-values`'s shared `deepFreeze()` implementation after detaching input with `structuredClone()`. `createToolResultMessage()` belongs with the other creation helpers: it couples a tool call id to a tool-role message carrying the result content, error state, and source without depending on session state or events. `dsh-session` consumes complete messages rather than owning their construction.
+The message helpers live in `jan-llm` beside the base message vocabulary because their complete contracts depend only on that vocabulary. They use `jan-brand`'s stateless `brandString()` constructor for `MessageId` and `jan-util-values`'s shared `deepFreeze()` implementation after detaching input with `structuredClone()`. `createToolResultMessage()` belongs with the other creation helpers: it couples a tool call id to a tool-role message carrying the result content, error state, and source without depending on session state or events. `jan-session` consumes complete messages rather than owning their construction.
 
 The `Agent` interface accepts a complete `UserMessage` through `followup`, `steer`, and `inject`. These operations never allocate or return identity; they freeze an imported value whose id the caller already holds. Inbox claims and `agent/pre-step` receive that message directly. A content rewrite creates a frozen replacement with the same id, while an additional context is a separately created `UserMessage` with its own id.
 
@@ -46,5 +44,4 @@ The message and helper unit tests pin immediate identity, detachment, deep immut
 
 ## Related
 
-- [Unified agent delivery routing and coalesced injected context](../../archived/architecture/2026-07-22-unified-send-and-coalesced-user-messages.md) — this note supersedes its input-representation and agent-assigned-id details while retaining its routing decision.
 - [Reconstructable requests](2026-07-05-reconstructable-requests.md) — the session log remains the authority for every model-visible input.

@@ -1,4 +1,4 @@
-import { AttachmentId } from '@deepseek-ai/dsh-attachment'
+import { AttachmentId } from '@janhq/jan-attachment'
 // @vitest-environment jsdom
 /**
  * SlotTestRuntime behavior: root declaration + rendering, session
@@ -8,20 +8,20 @@ import { AttachmentId } from '@deepseek-ai/dsh-attachment'
  * stack — this suite is the fixture the migrated feature specs rely on.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { stubConfigForm } from '../src/config-form.ts'
 import { act, cleanup } from '@testing-library/react'
 import { useSyncExternalStore } from 'react'
-import { createSnapshotStore, defineStore } from '@deepseek-ai/dsh-client-store'
-import { createScope, type SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { createSnapshotStore, defineStore } from '@janhq/jan-client-store'
+import { createScope, type SessionReference } from '@janhq/jan-api-session-controller/client'
+import type { WorkspaceId } from '@janhq/jan-api-workspace-controller/client'
+import type { SessionId } from '@janhq/jan-session/types'
 import type {
   PropsRenderSlots, SessionStandardProps, SlotRendererHost,
-} from '@deepseek-ai/dsh-client-ui-slots'
-import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
+} from '@janhq/jan-client-ui-slots'
+import { SlotTestRuntime } from '@janhq/jan-client-test-runtime'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     'trt.panel': { kind: 'single'; scope: 'root'; owner: { label?: string } }
     'trt.chat': { kind: 'single'; scope: 'session' }
@@ -560,11 +560,11 @@ describe('workspaces', () => {
     expect(view.container.textContent).toContain('ws:pending')
     await runtime.dispose()
   })
-  it('skips default initialization without a fixture and forwards the caller lifetime', async () => {
+  it('returns a default project and forwards the caller lifetime to a fixture override', async () => {
     const runtime = await SlotTestRuntime.create()
     try {
       const signal = new AbortController().signal
-      await expect(runtime.workspaces.initializeDefault(signal)).resolves.toBeUndefined()
+      await expect(runtime.workspaces.initializeDefault(signal)).resolves.toMatchObject({ isDefault: true })
       const workspace = {
         workspaceId: 'default' as WorkspaceId, title: 'default-workspace', path: '/default', sessionIds: [],
         createdAt: '2026-09-20T00:00:00Z', updatedAt: '2026-09-20T00:00:00Z',

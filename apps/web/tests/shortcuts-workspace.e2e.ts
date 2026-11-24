@@ -4,9 +4,9 @@ import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import { createLaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import { SessionId } from '@janhq/jan-session'
+import { createLaunchEnvironmentSnapshot } from '@janhq/jan-launch-environment'
+import { createUserMessage } from '@janhq/jan-llm'
 import {
   captureStableAria, compareOrRefreshGolden, launchWebScaffold, readPersistedEvents,
   seedSession, watchConsole, webSnapshotMode, type WebScaffold,
@@ -32,7 +32,7 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 1000 } })
     await context.addInitScript(() => {
       Object.defineProperty(navigator, 'platform', { value: 'MacIntel' })
-      localStorage.setItem('dsh.open-in-app.choice', JSON.stringify('vscode'))
+      localStorage.setItem('jan.open-in-app.choice', JSON.stringify('vscode'))
     })
     page = await context.newPage()
     // OS application discovery and launch are the external boundary; the command and HTTP carrier stay real.
@@ -128,7 +128,7 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     expect(scaffold.ctx.workspaceRegistry.archivedSessionIds).not.toContain(sourceId)
     expect((await readPersistedEvents(scaffold, sourceId)).length).toBeGreaterThan(0)
 
-    await bind('Add workspace')
+    await bind('Add project')
     await page.keyboard.press('Meta+Shift+Comma')
     const picker = page.getByRole('dialog', { name: 'Select Workspace Directory', exact: true })
     await picker.waitFor()

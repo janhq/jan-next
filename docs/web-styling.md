@@ -1,7 +1,5 @@
 # Web UI style reference
 
-English | [中文](web-styling.zh.md)
-
 This reference defines styling ownership and component rules for browser client packages. The current token values live in [`packages/client/ui-theme/src/styles/`](../packages/client/ui-theme/src/styles/); this document does not duplicate that generated-by-source inventory.
 
 ## Ownership
@@ -25,7 +23,7 @@ Global style sheets belong in `ui-theme/src/styles/`. Component styles live besi
 - Rounded corners inherit the global superellipse smoothing from ui-theme's `corner-shape.css` on supporting engines. Pair `corner-shape: round` with every full-round `border-radius` (`50%`, `100%`, or a pill radius) so circles and capsules keep circular arcs; the ui-theme corner-shape spec enforces the pairing.
 - Elevated surfaces (menus, popovers, modals, panels, floating buttons, the composer) set `border: 0` and take `box-shadow: var(--dsw-elevation-panel)`, `var(--dsw-elevation-prominent)`, or the composer's `var(--dsw-elevation-soft)` (larger blur at lower alpha): the 0.5px hairline stroke is the first shadow layer, and `--dsw-elevation-stroke-color` rebinds or suppresses it per surface or state. Never pair a `--dsw-alias-border-*` border with an lv/elevation shadow — the ui-theme elevation spec rejects the pairing; state-colored borders (warn panels) stay real borders.
 - Existing and new dropdown, context, submenu, and selection menus use `Menu` or wrap custom content in `MenuSurface`. The material is the theme-owned `--dsw-menu-surface-fill` plus `--dsw-menu-backdrop-filter`; feature and platform CSS must not override either. The ui-theme menu spec rejects unwrapped menu/listbox renderers, material overrides, and token redefinitions. The schedule-owned `TaskMenu` and `ClockPicker` retain their existing containers and material as explicit exceptions ([owner](../packages/client/ui-schedule/README.md)).
-- Modal backdrops, including settings and confirmation dialogs, retain their translucent dark mask without blur. The theme sets `--dsw-mask-blur` to `none`; Desktop-owned modal overlays also leave the parent page unfiltered.
+- Modal backdrops, including settings and confirmation dialogs, lay a translucent dark mask over the page and soften it with `--dsw-mask-blur`, which the theme sets to `blur(4px)`. Masks and Desktop-owned overlays read that token instead of their own filter, so the blur stays lighter than the menu material.
 - Floating panels preserve horizontal anchor alignment when neither vertical side fits. Try vertical window bounds before a fallback that also clears horizontal anchoring; every candidate reserves the window edge and frame margins.
 
 - Menu background filtering stays on an isolated layer so nested menus and fixed overlays retain their positioning and backdrop. On macOS, `MenuSurface` adds an opaque backing behind page content only within each menu’s bounds, allowing Chromium to blur content over native vibrancy; CSS anchors follow placement and size, and unmounting removes the backing. Overlays without this backing use `--dsw-specific-menu`, whose theme-owned macOS fill is 94% opaque to keep underlying text from bleeding through. Other elevated surfaces using that fill pair it with the same filter on their own isolated background when they contain fixed overlays.
@@ -46,7 +44,7 @@ On a mixed-input device, a mouse preview can appear while the primary-pointer CS
 <a id="corner-radii-and-settings-cards"></a>
 ## Corner radii and settings cards
 
-The [DSH unified corner-radius standard](ui-radius.md) defines the radius scale, component size mapping, circle and capsule exceptions, nested hover geometry, and settings-card fills and strokes.
+The [Jan unified corner-radius standard](ui-radius.md) defines the radius scale, component size mapping, circle and capsule exceptions, nested hover geometry, and settings-card fills and strokes.
 
 ## Review the assembled design
 
@@ -54,4 +52,4 @@ Use the [UI review baseline](ui-design-review-cases.md#review-baseline) to combi
 
 ## Changing the system
 
-Add or change a shared token in the owning `ui-theme` sheet, then consume its semantic alias from feature packages. Update the owning package reference when a public styling contract changes. Visual behavior follows the [testing policy](testing.md); the [archived styling-system Agent Note](../.agents/notes/archived/process/2026-07-19-web-styling-system.md) records framework rationale.
+Add or change a shared token in the owning `ui-theme` sheet, then consume its semantic alias from feature packages. Update the owning package reference when a public styling contract changes. Visual behavior follows the [testing policy](testing.md).

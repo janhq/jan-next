@@ -3,9 +3,7 @@ description: "Workspace-directory picking seam for the web GUI host: the service
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-host-directory-picker
-
-English | [中文](README.zh.md)
+# @janhq/jan-host-directory-picker
 
 ## Summary
 
@@ -33,7 +31,7 @@ The [native backend](../directory-picker-native/README.md) is the right choice w
 
 ### The capability contract
 
-`capability()` returns a discriminated union describing how an operator selects a directory: `{ kind: 'native', pick(signal) }` for the OS chooser, or `{ kind: 'browse', list(path?), createDirectory(path, name) }` for the in-app browser. Consumers switch on `kind`; a capability kind no composition implements means the UI hides the picking affordance rather than failing. Browse failures throw the typed `DirectoryPickerError` with a closed code set — `directory-unreadable`, `directory-exists`, or `directory-create-failed` — each carrying the subject path, which the picking Remote controller maps 1:1 onto wire failure codes.
+`capability()` returns a discriminated union describing how an operator selects a directory: `{ kind: 'native', pick(signal), createDirectory(path, name) }` for the OS chooser, or `{ kind: 'browse', list(path?), createDirectory(path, name) }` for the in-app browser. Both kinds create folders through the shared `createChildDirectory`, so a New folder action works whichever backend the Host composes. Consumers switch on `kind`; a capability kind no composition implements means the UI hides the picking affordance rather than failing. Failures throw the typed `DirectoryPickerError` with a closed code set — `directory-unreadable`, `directory-exists`, or `directory-create-failed` — each carrying the subject path, which the picking Remote controller maps 1:1 onto wire failure codes.
 
 ### What rows carry
 
@@ -59,7 +57,9 @@ The seam is built on one separation: the interaction shape a backend provides is
 
 | File | Role |
 |---|---|
-| [`src/index.ts`](src/index.ts) | Service Definition: abstract `DirectoryPicker`, capability vocabulary, typed error, Context merge |
+| [`src/index.ts`](src/index.ts) | Service Definition: abstract `DirectoryPicker`, capability vocabulary, Context merge |
+| [`src/error.ts`](src/error.ts) | Typed `DirectoryPickerError` and its closed code set |
+| [`src/create-directory.ts`](src/create-directory.ts) | `fullyQualified` path fence and `createChildDirectory`, shared by every backend |
 
 ### Failure vocabulary
 
@@ -72,9 +72,8 @@ The seam is built on one separation: the interaction shape a backend provides is
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these when the seam contract is not enough: the decision record first, then the two backends and the adaptive chooser that compose it.
+Read these when the seam contract is not enough: the two backends and the adaptive chooser that compose it.
 
-- [Directory-picker capability seam decision](../../../.agents/notes/archived/architecture/2026-07-28-directory-picker-capability-seam.md) — design rationale, the `ctx.fs` separation, and the policy decisions.
 - [Native backend](../directory-picker-native/README.md) — the OS-chooser interaction and its platform tooling.
 - [Browse backend](../directory-picker-browse/README.md) — the in-app listing and creation interaction for remote clients.
 - [Adaptive chooser](../directory-picker-auto/README.md) — boot-time resolution between the two backends.

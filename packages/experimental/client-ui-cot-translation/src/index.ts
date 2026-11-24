@@ -1,12 +1,12 @@
 /** Host access to machine translation of displayed reasoning. */
 import { addAbortListener } from 'node:events'
-import { Context, type Volatile } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import type {} from '@deepseek-ai/dsh-settings'
-import type {} from '@deepseek-ai/dsh-api-session-controller'
-import { TranslationError } from '@deepseek-ai/dsh-experimental-translator'
-import type { TranslationRequest, TranslationSpec } from '@deepseek-ai/dsh-experimental-translator/types'
+import { Context, type Volatile } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
+import type {} from '@janhq/jan-settings'
+import type {} from '@janhq/jan-api-session-controller'
+import { TranslationError } from '@janhq/jan-experimental-translator'
+import type { TranslationRequest, TranslationSpec } from '@janhq/jan-experimental-translator/types'
 import { LANGUAGE_PREFERENCE_PATTERN, PROVIDER_PREFERENCES } from './preferences.ts'
 import type { CotTranslationPreferences, CotTranslationSnapshot } from './types.ts'
 
@@ -18,7 +18,7 @@ export interface Config {
   targetLanguage: Volatile<string>
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Remote consumer of the experimental translation service. */
     cotTranslation: CotTranslationController
@@ -79,7 +79,6 @@ export default class CotTranslationController extends TypertRemoteService {
       })
       const cancelled = Promise.withResolvers<never>()
       using _listener = addAbortListener(signal, () => {
-        // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- Preserve the caller's arbitrary cancellation reason.
         cancelled.reject(signal.reason)
       })
       await Promise.race([activation, cancelled.promise])

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Account surfaces follow `account/watch` access: a revocation withdraws them and a later grant restores them. */
 import { afterEach, expect, it, vi } from 'vitest'
-import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { AccountView } from '@janhq/jan-tokamak-account/types'
 import { apply, type AccountSectionInjected } from '../src/client/index.ts'
 
 afterEach(() => { vi.unstubAllEnvs() })
@@ -38,7 +38,7 @@ function revoke(guards: readonly Guard[]): void {
 }
 
 it('withdraws every account surface and the account stream on revocation, and restores them on the next grant', async () => {
-  vi.stubEnv('DSH_CLIENT_VERSION', '0.0.0-test')
+  vi.stubEnv('JAN_CLIENT_VERSION', '0.0.0-test')
   const links = { usageUrl: 'https://example.test/usage', topUpUrl: 'https://example.test/top_up' }
   const signedIn: AccountView = { status: 'credential-stored', links, attempt: null }
   const guards: Guard[] = []
@@ -46,6 +46,7 @@ it('withdraws every account surface and the account stream on revocation, and re
   const streams: { readonly signal: AbortSignal; readonly accepted: Promise<undefined> }[] = []
   const lifetime: (() => void)[] = []
   const ctx = {
+    provide: () => {},
     effect: (install: () => (() => void) | undefined) => { const dispose = install(); if (dispose) lifetime.push(dispose) },
     locale: { register: () => () => {}, bind: () => (key: string) => key, getSnapshot: () => ({ active: 'en' }) },
     configForms: {
@@ -70,7 +71,6 @@ it('withdraws every account surface and the account stream on revocation, and re
     },
     remote: {
       $on: () => () => {},
-      session: { initializeDefaultModel: async () => ({ ok: true, value: undefined }) },
       account: { getProfile: async () => ({ ok: true, value: null }), getBalance: async () => ({ ok: true, value: null }) },
       $stream: () => {
         const abort = new AbortController()
@@ -111,7 +111,7 @@ it('withdraws every account surface and the account stream on revocation, and re
 })
 
 it('drops reads a revoked grant started, and the next grant shows no account section before its first frame', async () => {
-  vi.stubEnv('DSH_CLIENT_VERSION', '0.0.0-test')
+  vi.stubEnv('JAN_CLIENT_VERSION', '0.0.0-test')
   const links = { usageUrl: 'https://example.test/usage', topUpUrl: 'https://example.test/top_up' }
   const signedIn: AccountView = { status: 'credential-stored', links, attempt: null }
   const guards: Guard[] = []
@@ -121,6 +121,7 @@ it('drops reads a revoked grant started, and the next grant shows no account sec
   const firstFrames: { release: () => void; accepted: Promise<undefined> }[] = []
   const lifetime: (() => void)[] = []
   const ctx = {
+    provide: () => {},
     effect: (install: () => (() => void) | undefined) => { const dispose = install(); if (dispose) lifetime.push(dispose) },
     locale: { register: () => () => {}, bind: () => (key: string) => key, getSnapshot: () => ({ active: 'en' }) },
     configForms: {
@@ -146,7 +147,6 @@ it('drops reads a revoked grant started, and the next grant shows no account sec
     },
     remote: {
       $on: () => () => {},
-      session: { initializeDefaultModel: async () => ({ ok: true, value: undefined }) },
       account: { getProfile: async () => await profile.promise, getBalance: async () => ({ ok: true, value: null }) },
       $stream: () => {
         const abort = new AbortController()
@@ -210,6 +210,7 @@ function revocationHarness(scripts: StreamScript[]) {
   const getUnnotifiedBonuses = vi.fn(async () => ({ ok: true, value: null }))
   const startSignIn = vi.fn<() => Promise<{ ok: false }>>()
   const ctx = {
+    provide: () => {},
     effect: (install: () => (() => void) | undefined) => { const dispose = install(); if (dispose) lifetime.push(dispose) },
     locale: { register: () => () => {}, bind: () => (key: string) => key, getSnapshot: () => ({ active: 'en' }) },
     configForms: {
@@ -236,7 +237,6 @@ function revocationHarness(scripts: StreamScript[]) {
     },
     remote: {
       $on: () => () => {},
-      session: { initializeDefaultModel: async () => ({ ok: true, value: undefined }) },
       account: {
         getProfile, getBalance: async () => ({ ok: true, value: null }), getUnnotifiedBonuses, startSignIn,
       },
@@ -267,7 +267,7 @@ function revocationHarness(scripts: StreamScript[]) {
 }
 
 it('ignores a frame the stream delivered just before the revocation', async () => {
-  vi.stubEnv('DSH_CLIENT_VERSION', '0.0.0-test')
+  vi.stubEnv('JAN_CLIENT_VERSION', '0.0.0-test')
   // The stream hands out its first frame after access is already withdrawn.
   const b = revocationHarness([() => { revoke(b.guards) }])
   try {
@@ -283,7 +283,7 @@ it('ignores a frame the stream delivered just before the revocation', async () =
 })
 
 it('closes the sign-in dialog, its failure, and the pending authorization tab on revocation', async () => {
-  vi.stubEnv('DSH_CLIENT_VERSION', '0.0.0-test')
+  vi.stubEnv('JAN_CLIENT_VERSION', '0.0.0-test')
   const popup = { opener: null, closed: false, close: vi.fn(), location: { replace: vi.fn() } }
   const open = vi.spyOn(window, 'open').mockReturnValue(popup as never)
   const b = revocationHarness([() => {}, () => {}])

@@ -3,13 +3,11 @@ description: "Host Office conversion with the independently published LibreOffic
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-office-to-pdf
-
-English | [中文](README.zh.md)
+# @janhq/jan-office-to-pdf
 
 ## Summary
 
-Convert Office documents to PDFs on the Host computer. Targets with a declared native LibreOffice engine use it; other targets use Node WASM. The provider accepts DOC, DOCX, XLS, XLSX, PPT, and PPTX. OOXML conversion returns missing-font names; binary Office conversion returns an empty list.
+Convert Office documents to PDFs on the Host computer. Targets with a declared native LibreOffice engine use it; other targets use Node WASM. The provider accepts DOC, DOCX, ODT, XLS, XLSX, ODS, PPT, PPTX, and ODP. OOXML conversion returns missing-font names; binary Office conversion returns an empty list.
 
 ## Table of Contents
 
@@ -25,7 +23,7 @@ Convert Office documents to PDFs on the Host computer. Targets with a declared n
 <a id="use-this-package"></a>
 ## Use this package
 
-The [Web bundle](../../bundle/web-app/README.md) mounts this provider as `office-to-pdf`. Independent compositions mount `@deepseek-ai/dsh-office-to-pdf` as a `cordis.yml` row.
+The [Web bundle](../../bundle/web-app/README.md) mounts this provider as `office-to-pdf`. Independent compositions mount `@janhq/jan-office-to-pdf` as a `cordis.yml` row.
 
 Callers submit authorized source identity, version, optional byte size, a deferred bounded read, Office extension, and scheduling priority through `ctx.officeToPdf.convert()`. A changed source version rejects conversion. Results contain caller-owned PDF bytes, missing fonts, a cache key, and a conversion generation that changes on configuration replacement. Cancellation rejects with its reason; conversion failures use `OfficeToPdfError`.
 
@@ -42,7 +40,7 @@ Browsers request PDFs through the `officeToPdf.render` Remote method with a Sess
 | `maxImageResolution` | `192` | Maximum raster-image DPI; overrides the kit default of `144`. |
 | `fontFallbacks` | Kit defaults | Ordered font-family preference groups; each group requires at least two names containing non-whitespace characters. |
 
-The [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-office-to-pdf) owns the full font, archive, and image settings. `fontDirectories` accepts absolute directories; omission uses the kit platform defaults. Explicit `fontFallbacks` replaces the kit's default groups. Installed requested fonts retain precedence, and other system fonts remain eligible for uncovered glyphs. Native engines can select installed metric-compatible fonts before these preferences.
+The [configuration catalog](../../../docs/config-catalog.md#janhqjan-office-to-pdf) owns the full font, archive, and image settings. `fontDirectories` accepts absolute directories; omission uses the kit platform defaults. Explicit `fontFallbacks` replaces the kit's default groups. Installed requested fonts retain precedence, and other system fonts remain eligible for uncovered glyphs. Native engines can select installed metric-compatible fonts before these preferences.
 
 The [bounded conversion decision](../../../.agents/notes/implemented/architecture/2026-09-15-bounded-office-conversion.md) explains queue admission, cache limits, and shared cancellation.
 

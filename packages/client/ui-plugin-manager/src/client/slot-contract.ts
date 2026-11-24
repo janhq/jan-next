@@ -18,9 +18,9 @@
  * all. The page draws the title, icon, and crumb itself.
  */
 
-import type {} from '@deepseek-ai/dsh-client-ui-slots'
-import type { BundleInfo } from '@deepseek-ai/dsh-api-remotes/client'
-import type { ConfigForm, ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@janhq/jan-client-ui-slots'
+import type { BundleInfo } from '@janhq/jan-api-remotes/client'
+import type { ConfigForm, ConfigFormSnapshot } from '@janhq/jan-client-ui-settings/client'
 
 /** The view the page asks a configuration entry for. */
 export interface PluginConfigViewProps {
@@ -106,22 +106,44 @@ export interface PluginTabProps {
   readonly openPackage: (packageName: string) => void
 }
 
+/** Owner props of a replacement artwork, rendered inside the page's own icon frame. */
+export interface PluginArtworkProps {
+  /** The pixel size the stock artwork would use at this position. */
+  readonly size: number
+}
+
+/** Owner props of a tab's count, keyed by the tab's `plugins.tab` id. */
+export interface PluginTabCountProps {
+  /** The tab id the count belongs to. */
+  readonly tab: string
+}
+
 /** Add-plugin menu actions, independent of any selected bundle or Session. */
 export interface PluginAddActionsProps {
   /** Close the add-plugin menu before starting the contributed action. */
   readonly onDismiss: () => void
 }
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     /** Additional MenuItemButton rows after installation: 72px high, with a title and a description capped at two lines. */
     'plugins.add.actions': { kind: 'list'; scope: 'root'; owner: PluginAddActionsProps }
+    /**
+     * Artwork for one bundle or official plugin, keyed by the bundle's package name or the `plugins.item` id, so a
+     * theme can draw every card in one icon style. Absent keys keep the manifest image or the stock artwork.
+     */
+    'plugins.artwork': { kind: 'keyed'; scope: 'root'; owner: PluginArtworkProps }
     /**
      * Tabs after the page's own Installed tab, such as Discover: `label` names the tab and `order` places it. The
      * page renders the selected entry under its header and tabs; the entry draws its own content and installs
      * through the owner's `install`.
      */
     'plugins.tab': { kind: 'list'; scope: 'root'; owner: PluginTabProps }
+    /**
+     * A live count beside a `plugins.tab` label, keyed by the tab's id: the entry renders the number as text (or
+     * null while it is unknown) and the page draws it in secondary ink after the label.
+     */
+    'plugins.tab.count': { kind: 'keyed'; scope: 'root'; owner: PluginTabCountProps }
     /** Optional guidance after the user enables a bundle from the list, keyed by npm package name. */
     'plugins.bundle.activation': { kind: 'keyed'; scope: 'root'; owner: PluginActivationOwnerProps }
     /**

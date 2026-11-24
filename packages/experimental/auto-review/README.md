@@ -3,13 +3,11 @@ description: "Add experimental per-call Auto review to a Web or headless profile
 kind: "package-bundle"
 ---
 
-# @deepseek-ai/dsh-experimental-auto-review
-
-English | [中文](README.zh.md)
+# @janhq/jan-experimental-auto-review
 
 ## Summary
 
-Add Auto review to a Web or headless profile. Web exposes it through the current-session permission pickers; headless selects it explicitly per invocation. Before each native or PTC inner tool call, the current agent's provider and model assess the pending action; an allowed call executes with Full access, and a denied call asks the user. The dsh installation ships this layer switched off; default Web keeps its three permission modes until it is switched on from the Web sidebar's Plugins page or installed explicitly. Auto review is experimental: it can allow unsafe actions, deny useful work, and spend additional tokens.
+Add Auto review to a Web or headless profile. Web exposes it through the current-session permission pickers; headless selects it explicitly per invocation. Before each native or PTC inner tool call, the current agent's provider and model assess the pending action; an allowed call executes with Full access, and a denied call asks the user. The jan installation ships this layer switched off; default Web keeps its three permission modes until it is switched on from the Web sidebar's Plugins page or installed explicitly. Auto review is experimental: it can allow unsafe actions, deny useful work, and spend additional tokens.
 
 ## Table of Contents
 
@@ -32,15 +30,15 @@ The review environment records the Session's current working directory for the p
 From this source checkout, install the package into the Web profile through the existing CLI:
 
 ```sh
-pnpm dsh plugin --profile web add ./packages/experimental/auto-review
+pnpm jan plugin --profile web add ./packages/experimental/auto-review
 ```
 
-The CLI initializes the profile when needed and appends this package's declared patch after the base and Web layers. Reconciliation activates the patch as a profile layer; a package without `dsh.bundle.patch` is only an installed dependency. Select `Auto review` with its `EXP` badge in the composer menu or `/permission` picker and confirm the current-session risk dialog. An explicit `/permission auto` command switches directly. General settings and future-session defaults do not offer Auto.
+The CLI initializes the profile when needed and appends this package's declared patch after the base and Web layers. Reconciliation activates the patch as a profile layer; a package without `jan.bundle.patch` is only an installed dependency. Select `Auto review` with its `EXP` badge in the composer menu or `/permission` picker and confirm the current-session risk dialog. An explicit `/permission auto` command switches directly. General settings and future-session defaults do not offer Auto.
 
 Remove the layer through the same CLI:
 
 ```sh
-pnpm dsh plugin --profile web remove @deepseek-ai/dsh-experimental-auto-review
+pnpm jan plugin --profile web remove @janhq/jan-experimental-auto-review
 ```
 
 <a id="headless-supervision"></a>
@@ -49,8 +47,8 @@ pnpm dsh plugin --profile web remove @deepseek-ai/dsh-experimental-auto-review
 Enable the experimental layer explicitly for the headless profile:
 
 ```sh
-dsh plugin --profile headless add @deepseek-ai/dsh-experimental-auto-review
-dsh headless --permission-mode auto --approval-policy never --json - < task.txt > run.jsonl
+jan plugin --profile headless add @janhq/jan-experimental-auto-review
+jan headless --permission-mode auto --approval-policy never --json - < task.txt > run.jsonl
 ```
 
 For a one-off run from this checkout, pass `--patch /absolute/path/to/packages/experimental/auto-review/cordis.patch.yml` instead of installing a profile layer. An unavailable Auto integration fails preset selection before reading stdin or starting model work. Auto uses full host access; `--add-dir` is unnecessary in this mode. Native tools keep every tool body on the review path; direct Node effects in PTC remain outside it.
@@ -110,7 +108,7 @@ One additional model request per supported call, without caching, retries, trunc
 
 #### KV Cache effect
 
-Each review's messages begin with all messages of the previous review, including its pending call, so routes that cache by prompt prefix, at message ends, or at a final marker with lookback reuse the policy and earlier history. Compaction, a cwd change, an earlier item leaving the surface, and the first review after a restart end that reuse once. Auto adds no dedicated runtime context or mode-switch prompt to the main agent. Each review request carries the reviewed Session's `sessionId` and `purpose: 'auto-review'` as model-hidden transport metadata. Routes that key prompt caching or request routing by Session, such as OpenAI `prompt_cache_key` and the `x-opencode-session` header that OpenCode requires, send reviews under that Session's key; [the DeepSeek Session-log upload](../../session/session-log-deepseek/README.md#request-field) contributes the canonical Session log when enabled and no registered exclusion matches.
+Each review's messages begin with all messages of the previous review, including its pending call, so routes that cache by prompt prefix, at message ends, or at a final marker with lookback reuse the policy and earlier history. Compaction, a cwd change, an earlier item leaving the surface, and the first review after a restart end that reuse once. Auto adds no dedicated runtime context or mode-switch prompt to the main agent. Each review request carries the reviewed Session's `sessionId` and `purpose: 'auto-review'` as model-hidden transport metadata. Routes that key prompt caching or request routing by Session, such as OpenAI `prompt_cache_key` and the `x-opencode-session` header that OpenCode requires, send reviews under that Session's key.
 
 ### Tool denial
 

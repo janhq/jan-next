@@ -7,6 +7,10 @@ export type { ConnectionRecoveryConfig } from '../recovery-config.ts'
 export interface ConnectionHostInfo {
   /** Host account home used only to abbreviate displayed filesystem paths. */
   readonly home: string
+  /** Name of the computer the Host runs on. */
+  readonly name: string
+  /** Whether the Host was started over SSH, on another computer than the person's own. */
+  readonly remote: boolean
 }
 
 /** One successfully established Host generation. */

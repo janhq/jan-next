@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
 import { en } from '../src/client/locales.ts'
 import { apply, inject } from '../src/client/index.ts'
 import { OfficialBrandMark, OfficialBrandName } from '../src/client/Brand.tsx'
@@ -50,14 +50,14 @@ describe('official browser-brand plugin', () => {
   })
 
   it('names the product in local builds too, replacing the build-number label', async () => {
-    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'local')
+    vi.stubEnv('JAN_CLIENT_BUILD_PROFILE', 'local')
     const subject = await bench()
     await subject.ctx.plugin({ inject: [...inject], apply }).await()
     for (const hole of HOLES) expect(subject.slots.entries(hole)).toHaveLength(1)
   })
 
   it('fills declarations before or after apply and removes every occupant on teardown', async () => {
-    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'official')
+    vi.stubEnv('JAN_CLIENT_BUILD_PROFILE', 'official')
     const before = await bench()
     const fiber = before.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
@@ -81,7 +81,7 @@ describe('official browser-brand plugin', () => {
   })
 
   it('no longer frames the home with the whale decoration', async () => {
-    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'official')
+    vi.stubEnv('JAN_CLIENT_BUILD_PROFILE', 'official')
     const subject = await bench()
     await subject.ctx.plugin({ inject: [...inject], apply }).await()
     expect(subject.slots.entries(FRAME_HOLE)).toHaveLength(0)
@@ -89,7 +89,7 @@ describe('official browser-brand plugin', () => {
 
   it('renders the Jan name with its stage, and the logo at each requested size', () => {
     const name = render(<OfficialBrandName t={((key: keyof typeof en) => en[key]) as never} />)
-    expect(name.container.textContent).toBe('JanAlpha')
+    expect(name.container.textContent).toBe('JanNext')
     name.unmount()
 
     const mark = render(<OfficialBrandMark size={34} className="hero" />)

@@ -1,16 +1,12 @@
-- id: llm-deepseek
-  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
-  disabled: true
-
 - insert:
     - id: llm-replay
-      name: '@deepseek-ai/dsh-llm-replay'
+      name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-flash
+              - id: tokamak-flash
                 inputModalities: [text, image]
                 contextWindow: 1000000
 

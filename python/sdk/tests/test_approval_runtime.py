@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
-from deepseek_harness import ApprovalRequestParams, HarnessClient, HarnessConfig
+from jan import ApprovalRequestParams, HarnessClient, HarnessConfig
 
 
 class EmptyResponse(BaseModel):
@@ -22,7 +22,7 @@ def test_python_approval_controls_runtime_operation(tmp_path: Path, outcome: str
     node = shutil.which("node")
     binary = repo / "apps/cli/lib/bin.js"
     if node is None or not binary.exists():
-        pytest.skip("requires Node and built dsh CLI")
+        pytest.skip("requires Node and built jan CLI")
     fixture = repo / "packages/sdk/server/tests/fixtures/approval.mjs"
     marker = tmp_path / "approved.txt"
     patch = tmp_path / "approval.patch.yml"
@@ -33,11 +33,11 @@ def test_python_approval_controls_runtime_operation(tmp_path: Path, outcome: str
     with ThreadPoolExecutor(max_workers=1) as worker:
         with HarnessClient(
             HarnessConfig(cwd=str(repo), request_timeout_seconds=20, shutdown_timeout_seconds=20,
-                          env={"DSH_HOME": str(tmp_path / "home"), "DSH_PERMISSION_MODE": "workspace-write",
-                               "DSH_TELEMETRY_DISABLED": "1", "DEEPSEEK_API_KEY": "keyless-no-model-call"}),
+                          env={"JAN_HOME": str(tmp_path / "home"), "JAN_PERMISSION_MODE": "workspace-write",
+                               "JAN_TELEMETRY_DISABLED": "1", "TOKAMAK_API_KEY": "keyless-no-model-call"}),
             _launch_args=(node, str(binary), "--profile", "sdk", "--patch", str(patch)),
         ) as client:
-            client.initialize(cwd=str(tmp_path), provider="deepseek-official", model="deepseek-v4-flash",
+            client.initialize(cwd=str(tmp_path), provider="tokamak", model="tokamak/auto",
                               approval_requests=True)
             client.session_prompt("main", [{"type": "text", "text": "Request the marker write."}])
             request = worker.submit(client.next_request).result(timeout=20)

@@ -1,21 +1,21 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
-import type { GlobalStandardProps, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
+import type { GlobalStandardProps, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createContext, useContext, type ReactNode } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import type { Context } from '@deepseek-ai/cordis'
-import type { SessionListState, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { WorkspaceSnapshot, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { Context } from '@janhq/cordis'
+import type { SessionListState, SessionSnapshot } from '@janhq/jan-api-session-controller/client'
+import type { WorkspaceSnapshot, WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import {
   allowAllAccess, bindSnapshotSelector, makeTranslate, RemoteError, sessionSnapshot as sessionFixture,
-} from '@deepseek-ai/dsh-client-test-runtime'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
-import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+} from '@janhq/jan-client-test-runtime'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { SessionStatusSnapshot } from '@janhq/jan-client-ui-session/client'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
+import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import { EMPTY_CONVERSATION_SNAPSHOT } from '../src/client/contract/snapshot.ts'
 import type { ConversationSnapshot } from '../src/client/contract/snapshot.ts'
 import { createConversationStore } from '../src/client/stores.ts'
@@ -57,7 +57,7 @@ Range.prototype.getBoundingClientRect = () => ({
 
 function fakeWiring() {
   const sink = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
-  const shell = new SessionInputShell({ actx: {} as Context, defaultSink: sink, commandAttachments: { serialize: () => Promise.resolve([]), release: () => {}, unsupportedNotice: (token: string) => `${token.trim()} attachments-unsupported` } })
+  const shell = new SessionInputShell({ actx: {} as Context, defaultSink: sink, commandAttachments: { serialize: () => Promise.resolve([]), release: () => { }, unsupportedNotice: (token: string) => `${token.trim()} attachments-unsupported` } })
   return { wiring: shell, sink, shell }
 }
 
@@ -72,7 +72,7 @@ class ResizeObserverStub {
   }
 
   observe(target: Element): void { this.targets.push(target) }
-  unobserve(): void {}
+  unobserve(): void { }
   disconnect(): void { this.targets.length = 0 }
 }
 
@@ -123,7 +123,7 @@ function sessionSnapshotOf(overrides: Partial<SessionSnapshot> = {}): SessionSna
 function mount(
   snapshot: SessionSnapshot,
   workspaceRows: WorkspaceView[] = [{ ...workspace('one'), sessionIds: [SID] }],
-  retargetWorkspace = vi.fn(async (_workspaceId: WorkspaceId) => {}),
+  retargetWorkspace = vi.fn(async (_workspaceId: WorkspaceId) => { }),
   options: {
     /** Explicit undefined exercises the shell before a Session is selected. */
     sessionId?: SessionId | undefined
@@ -210,6 +210,8 @@ function mount(
       seatOwners.push({ key, owner })
     }
     if (key === 'conversation.hero.workspace') { pickerOwner = owner; return null }
+    // An unoccupied headline seat renders the built-in headline.
+    if (key === 'conversation.hero.headline' || key === 'conversation.hero.brand.mark') return opts?.fallback ?? null
     if (key === 'conversation.hero.frame') {
       // A hoc slot with no layers renders its content unchanged.
       frameOwners.push(owner as HeroFrameOwnerProps)
@@ -224,7 +226,7 @@ function mount(
       return opts?.fallback ?? null
     }
     if (key === 'conversation.header') {
-      return <ConversationHeader {...runtimeProps} renderSlot={renderSlot as never} />
+      return <ConversationHeader {...runtimeProps} renderSlot={renderSlot as never} t={t} />
     }
     if (key === 'conversation.session.header') {
       return (
@@ -313,15 +315,17 @@ function mount(
           addFiles={() => null}
           useFileUploads={bindSnapshotSelector(createSnapshotStore({}))}
           retryFileUpload={undefined}
-          removeAttachment={() => {}}
+          removeAttachment={() => { }}
           resolveDraftAttachments={() => []}
           toggleCommandMenu={vi.fn()}
           useBusyEnter={bindSnapshotSelector(createSnapshotStore<'queue' | 'steer'>('queue'))}
           retry={undefined}
+          previewContext={undefined}
           useStopShortcut={bindSnapshotSelector(createSnapshotStore<readonly string[]>([]))}
           useNotices={bindSnapshotSelector(wiring.notices)}
           useLexicon={bindSnapshotSelector(wiring.lexicon)}
           useMenuLauncher={bindSnapshotSelector(createSnapshotStore<string | null>(null))}
+          useContextWindow={bindSnapshotSelector(createSnapshotStore<number | undefined>(undefined))}
           stop={stop}
           t={t}
           renderSlot={((key: string, seatOwner: object) => {
@@ -370,12 +374,14 @@ function mount(
       ...allowAllAccess,
       useProjection: (() => undefined),
       useComposerBlock: select => select(options.composerBlock),
+      useHeroPlaceholder: select => select(undefined),
       useInput,
       inputActions,
       renderSlot,
       renderSlotChain,
       renderFactorySlot,
       selectWorkspace: retargetWorkspace,
+      pickSuggestion: vi.fn(),
       t,
     }
     const useFactorySlot = ((name: string, fallback: (props: never) => ReactNode) => (
@@ -421,19 +427,19 @@ function mount(
 
 describe('Hero chrome', () => {
   it('renders the English preview badge through the hero locale seat', () => {
-    const renderSlot = vi.fn<(key: string, owner: object, opts?: { fallback?: ReactNode }) => ReactNode>(() => null)
+    const renderSlot = vi.fn((_name: string, _owner: object, options?: { fallback?: ReactNode }) => options?.fallback ?? null)
     const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot as never} />)
     expect(view.getByText('Into the Unknown')).toBeTruthy()
     expect(view.getByText('Preview')).toBeTruthy()
-    expect(renderSlot).toHaveBeenCalledOnce()
-    expect(renderSlot.mock.calls[0]?.[0]).toBe('conversation.hero.brand.mark')
-    const brandMarkOwner = renderSlot.mock.calls[0]?.[1]
+    const brandMarkCall = renderSlot.mock.calls.find(([name]) => name === 'conversation.hero.brand.mark')
+    expect(brandMarkCall).toBeDefined()
+    const brandMarkOwner = brandMarkCall?.[1]
     if (brandMarkOwner === undefined || !('size' in brandMarkOwner) || !('className' in brandMarkOwner)) {
       throw new Error('hero brand-mark owner must provide size and className')
     }
     expect(brandMarkOwner.size).toBe(34)
     expect(brandMarkOwner.className).toBeTypeOf('string')
-    expect(renderSlot.mock.calls[0]?.[2]?.fallback).toBeTruthy()
+    expect(brandMarkCall?.[2]?.fallback).toBeTruthy()
   })
 })
 
@@ -907,6 +913,15 @@ describe('ConversationRoot resident composer', () => {
     expect(b.view.getByText('one')).toBeTruthy()
   })
 
+  it.each([
+    { project: { ...workspace('default'), title: 'default-workspace', isDefault: true as const }, label: '默认工作区' },
+    { project: { ...workspace('manual'), title: 'default-workspace' }, label: 'default-workspace' },
+    { project: { ...workspace('renamed'), isDefault: true as const }, label: 'renamed' },
+  ])('shows $label for the selected project', ({ project, label }) => {
+    const b = mount(sessionSnapshotOf({ blank: true }), [{ ...project, sessionIds: [SID] }])
+    expect(b.view.getByRole('button', { name: '选择工作区' }).textContent).toContain(label)
+  })
+
   it('blank session keeps the interactive picker chip (workspace switchable until the first message)', () => {
     const b = mount(sessionSnapshotOf({ blank: true }))
     const chip = b.view.getByRole('button', { name: '选择工作区' })
@@ -945,10 +960,10 @@ describe('ConversationRoot resident composer', () => {
     // layout reports, and the CSS clamp() floors the axis at 680px either way.
     Object.defineProperty(content, 'offsetWidth', { value: 1200, configurable: true })
     act(() => { fireResize(content) })
-    expect(root.style.getPropertyValue('--dsh-conversation-column-width')).toBe('1200px')
+    expect(root.style.getPropertyValue('--jan-conversation-column-width')).toBe('1200px')
     // No dragged preference: the user-width override stays absent so the
     // adaptive clamp term applies.
-    expect(root.style.getPropertyValue('--dsh-chat-user-width')).toBe('')
+    expect(root.style.getPropertyValue('--jan-chat-user-width')).toBe('')
   })
 
   it('drag → persist → window clamp round-trip on a width handle', () => {
@@ -966,36 +981,36 @@ describe('ConversationRoot resident composer', () => {
     const originals = names.map(name =>
       [name, Object.getOwnPropertyDescriptor(Element.prototype, name)] as const)
     const captured = new Set<Element>()
-    Element.prototype.setPointerCapture = function () { captured.add(this) }
-    Element.prototype.releasePointerCapture = function () { captured.delete(this) }
-    Element.prototype.hasPointerCapture = function () { return captured.has(this) }
+    Element.prototype.setPointerCapture = function() { captured.add(this) }
+    Element.prototype.releasePointerCapture = function() { captured.delete(this) }
+    Element.prototype.hasPointerCapture = function() { return captured.has(this) }
     try {
       // Base resolves from the adaptive clamp: min(1600*0.64, 920) = 920.
       // Dragging the right handle outward by 25px widens by 2×25 = 50 → 970,
       // inside both bounds (max = 1600 − 176 = 1424 keeps the handles on-column).
       fireEvent.pointerDown(handle, { pointerId: 1, clientX: 800, clientY: 300 })
       fireEvent.pointerMove(handle, { pointerId: 1, clientX: 825, clientY: 300 })
-      expect(handle.style.getPropertyValue('--dsh-width-handle-pointer-y')).toBe('300px')
+      expect(handle.style.getPropertyValue('--jan-width-handle-pointer-y')).toBe('300px')
       fireEvent.pointerUp(handle, { pointerId: 1, clientX: 825, clientY: 300 })
       expect(handle.hasAttribute('data-dragging')).toBe(false)
-      expect(root.style.getPropertyValue('--dsh-chat-user-width')).toBe('970px')
-      expect(localStorage.getItem('dsh.conversation.contentWidth')).toBe('970')
+      expect(root.style.getPropertyValue('--jan-chat-user-width')).toBe('970px')
+      expect(localStorage.getItem('jan.conversation.contentWidth')).toBe('970')
       // Window shrinks: the displayed width re-clamps (900 − 176 = 724) but the
       // preference stays.
       Object.defineProperty(content, 'offsetWidth', { value: 900, configurable: true })
       act(() => { fireResize(content) })
-      expect(root.style.getPropertyValue('--dsh-chat-user-width')).toBe('724px')
-      expect(localStorage.getItem('dsh.conversation.contentWidth')).toBe('970')
+      expect(root.style.getPropertyValue('--jan-chat-user-width')).toBe('724px')
+      expect(localStorage.getItem('jan.conversation.contentWidth')).toBe('970')
       // A press without travel (a real double-click delivers two such
       // press/release rounds) must not commit the clamped display value over
       // the stored preference.
       fireEvent.pointerDown(handle, { pointerId: 1, clientX: 800, clientY: 300 })
       fireEvent.pointerUp(handle, { pointerId: 1, clientX: 800, clientY: 300 })
-      expect(localStorage.getItem('dsh.conversation.contentWidth')).toBe('970')
-      expect(root.style.getPropertyValue('--dsh-chat-user-width')).toBe('724px')
+      expect(localStorage.getItem('jan.conversation.contentWidth')).toBe('970')
+      expect(root.style.getPropertyValue('--jan-chat-user-width')).toBe('724px')
       // No reset affordance on the handle: double-click leaves the preference alone.
       fireEvent.doubleClick(handle)
-      expect(localStorage.getItem('dsh.conversation.contentWidth')).toBe('970')
+      expect(localStorage.getItem('jan.conversation.contentWidth')).toBe('970')
     } finally {
       for (const [name, descriptor] of originals) {
         if (descriptor === undefined) Reflect.deleteProperty(Element.prototype, name)
@@ -1067,7 +1082,7 @@ describe('ConversationRoot resident composer', () => {
     fireEvent.pointerCancel(handle, { pointerId: 2 })
     expect(handle.hasAttribute('data-dragging')).toBe(false)
     fireEvent.pointerMove(handle, { pointerId: 2, clientX: 825, clientY: 300 })
-    expect(handle.style.getPropertyValue('--dsh-width-handle-pointer-y')).toBe('')
+    expect(handle.style.getPropertyValue('--jan-width-handle-pointer-y')).toBe('')
   })
 
   it('hero phase renders no width handles (no transcript to size)', () => {

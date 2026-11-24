@@ -11,12 +11,12 @@ import {
   normalizeStdout,
   scrubModelRequestBulk,
   type NormalizeContext,
-} from '@deepseek-ai/dsh-session-snapshot'
-import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
+} from '@janhq/jan-session-snapshot'
+import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@janhq/jan-loader-smoke'
 import {
   decompressZstdFrame,
   scanZstdFrames,
-} from '@deepseek-ai/dsh-session-persistence-jsonl/src/zstd.ts'
+} from '@janhq/jan-session-persistence-jsonl/src/zstd.ts'
 import { describe, expect, it } from 'vitest'
 
 const goldensDir = fileURLToPath(new URL('./expected/', import.meta.url))
@@ -37,10 +37,9 @@ const startupFailureConfigPath = fileURLToPath(new URL('./fixtures/startup-activ
 const startupFailurePluginUrl = new URL('./fixtures/startup-activation-error/activation-error.mjs', import.meta.url).href
 const startupFailureExpected = join(goldensDir, 'startup-activation-error', 'stderr.expected.txt')
 const binScript = fileURLToPath(new URL('../../../../../../packages/test-support/loader-smoke/tests/fixtures/headless-driver.ts', import.meta.url))
-const dshBinScript = fileURLToPath(new URL('../../../../src/bin.ts', import.meta.url))
+const janBinScript = fileURLToPath(new URL('../../../../src/bin.ts', import.meta.url))
 const tsconfigPath = fileURLToPath(new URL('../../../../../../tsconfig.json', import.meta.url))
 const reasoningConfigPath = fileURLToPath(new URL('./fixtures/cli.patch.yml', import.meta.url))
-const deepseekDefaultsConfigPath = fileURLToPath(new URL('./fixtures/deepseek-defaults.patch.yml', import.meta.url))
 const piAiDefaultsConfigPath = fileURLToPath(new URL('./fixtures/pi-ai-defaults.patch.yml', import.meta.url))
 const piAiConversationUpdatesConfigPath = fileURLToPath(new URL('./fixtures/pi-ai-conversation-updates.patch.yml', import.meta.url))
 const headlessOverlayPath = fileURLToPath(new URL('./fixtures/headless-profile.patch.yml', import.meta.url))
@@ -50,7 +49,7 @@ const autoIntegrationPath = fileURLToPath(new URL('../../../../../../packages/ex
 const headlessSessionExpected = join(goldensDir, 'headless-profile', 'session.expected.jsonl')
 const headlessReasoningExpected = join(goldensDir, 'headless-profile', 'reasoning.stderr.expected.txt')
 const headlessFailureExpected = join(goldensDir, 'headless-profile', 'stderr.expected.txt')
-const refreshing = process.env.DSH_SNAPSHOT === 'refresh'
+const refreshing = process.env.JAN_SNAPSHOT === 'refresh'
 /** The shipped base bundle's title output cap, which marks a title request's `max_tokens`. */
 const TITLE_MAX_TOKENS = 4096
 
@@ -71,10 +70,9 @@ interface PersistedLog {
   readonly header: JsonObject
 }
 
-interface DeepSeekDefaultsServer {
+interface SnapshotServer {
   readonly url: string
   readonly requests: JsonObject[]
-  readonly paths: string[]
   close(): Promise<void>
 }
 
@@ -96,19 +94,17 @@ async function expectHeadlessStream(normalized: string, expectedPath: string): P
   expect(parseJsonl(normalized)).toEqual(parseJsonl(expected))
 }
 
-/** Serve one deterministic DeepSeek-compatible response while retaining its request body. */
-async function deepseekDefaultsServer(
-  options: { waitForTitleRequest?: boolean; piAiCompatibility?: true } = {},
-): Promise<DeepSeekDefaultsServer> {
+/** Serve one deterministic Chat Completions response while retaining its request body. */
+async function piAiDefaultsServer(
+  options: { waitForTitleRequest?: boolean } = {},
+): Promise<SnapshotServer> {
   const requests: JsonObject[] = []
-  const paths: string[] = []
   const server = createServer((request: IncomingMessage, response: ServerResponse) => {
     let body = ''
     request.setEncoding('utf8')
     request.on('data', (chunk: string) => { body += chunk })
     request.on('end', () => {
       requests.push(JSON.parse(body) as JsonObject)
-      paths.push(request.url ?? '')
       response.writeHead(200, { 'content-type': 'text/event-stream' })
       let keepAlives = 3
       const write = (): void => {
@@ -117,17 +113,6 @@ async function deepseekDefaultsServer(
           || (options.waitForTitleRequest === true && !requests.some(isTitleRequest))) {
           response.write(': keep-alive\n\n')
           timer = setTimeout(write, 60)
-          return
-        }
-        if (options.piAiCompatibility !== true) {
-          response.end([
-            { type: 'message_start', message: { id: 'defaults-response', model: 'deepseek-v4-flash', usage: { input_tokens: 3, output_tokens: 0 } } },
-            { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
-            { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'DEFAULTS_OK' } },
-            { type: 'content_block_stop', index: 0 },
-            { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 1 } },
-            { type: 'message_stop' },
-          ].map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(''))
           return
         }
         response.end([
@@ -143,17 +128,16 @@ async function deepseekDefaultsServer(
   })
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
-  if (address === null || typeof address === 'string') throw new Error('DeepSeek defaults snapshot server has no port')
+  if (address === null || typeof address === 'string') throw new Error('pi-ai defaults snapshot server has no port')
   return {
     url: `http://127.0.0.1:${address.port}`,
     requests,
-    paths,
     close: () => new Promise(resolve => server.close(() => { resolve() })),
   }
 }
 
 /** Script Chat Completions responses in request order: `read`, then `snapshot_ping`, then text. */
-async function piAiConversationServer(): Promise<DeepSeekDefaultsServer> {
+async function piAiConversationServer(): Promise<SnapshotServer> {
   const requests: JsonObject[] = []
   const agentReplies = [
     { tool_calls: [{ index: 0, id: 'call_read', type: 'function', function: { name: 'read', arguments: '{"file_path":"task.txt"}' } }] },
@@ -183,7 +167,6 @@ async function piAiConversationServer(): Promise<DeepSeekDefaultsServer> {
   return {
     url: `http://127.0.0.1:${address.port}`,
     requests,
-    paths: [],
     close: () => new Promise(resolve => server.close(() => { resolve() })),
   }
 }
@@ -306,10 +289,10 @@ describe('headless stream-json snapshots', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'headless-auto-shutdown-'))
     const options = {
       cwd,
-      binScript: dshBinScript,
+      binScript: janBinScript,
       configPath: autoShutdownOverlayPath,
       tsconfigPath,
-      env: { DSH_TELEMETRY_DISABLED: '1' },
+      env: { JAN_TELEMETRY_DISABLED: '1' },
     }
     const args = ['headless', '--patch', autoShutdownOverlayPath]
     let sessionId = ''
@@ -324,7 +307,7 @@ describe('headless stream-json snapshots', () => {
             'Record this wake without calling tools.',
           ],
           inspect: async () => {
-            const logs = await persistedLogs(cwd, join(cwd, '.dsh', 'sessions'))
+            const logs = await persistedLogs(cwd, join(cwd, '.jan', 'sessions'))
             expect(logs).toHaveLength(1)
             const log = logs[0]!
             expect(typeof log.header.id).toBe('string')
@@ -341,7 +324,7 @@ describe('headless stream-json snapshots', () => {
           type: 'final', sessionId, reason: { kind: 'completed' }, text: 'AUTO_SHUTDOWN_OK',
         })
       }
-      const beforeRejectedRestore = (await persistedLogs(cwd, join(cwd, '.dsh', 'sessions')))[0]!.content
+      const beforeRejectedRestore = (await persistedLogs(cwd, join(cwd, '.jan', 'sessions')))[0]!.content
       const unavailable = await runLoaderSmoke({
         ...options,
         label: 'Auto restore without its integration',
@@ -350,7 +333,7 @@ describe('headless stream-json snapshots', () => {
       })
       expect(unavailable.stderr).toContain('cannot restore preset "auto" without its active integration')
       expect(parseJsonl(unavailable.stdout).some(event => event.type === 'final')).toBe(false)
-      const afterRejectedRestore = (await persistedLogs(cwd, join(cwd, '.dsh', 'sessions')))[0]!.content
+      const afterRejectedRestore = (await persistedLogs(cwd, join(cwd, '.jan', 'sessions')))[0]!.content
       expect(afterRejectedRestore.startsWith(beforeRejectedRestore)).toBe(true)
       // Restore records its seed boundary before live publication validates the saved permission.
       const appended = parseJsonl(afterRejectedRestore.slice(beforeRejectedRestore.length))
@@ -370,7 +353,7 @@ describe('headless stream-json snapshots', () => {
           '--session-id', sessionId, '--permission-mode', 'read-only', 'Continue.',
         ],
         inspect: async () => {
-          const log = (await persistedLogs(cwd, join(cwd, '.dsh', 'sessions')))[0]!
+          const log = (await persistedLogs(cwd, join(cwd, '.jan', 'sessions')))[0]!
           const restored = parseJsonl(log.content)
           expect(restored.filter(event => event.type === 'permission/preset').at(-1)?.data)
             .toEqual({ preset: 'read-only' })
@@ -389,17 +372,17 @@ describe('headless stream-json snapshots', () => {
       mode,
       sourceImport: 'tsx/esm',
       tempDirPrefix: 'headless-snapshot-profile-',
-      binScript: dshBinScript,
+      binScript: janBinScript,
       configPath: headlessOverlayPath,
       binArgs: ['headless', '--patch', headlessOverlayPath, task],
       tsconfigPath,
       env: {
-        DSH_PERMISSION_MODE: 'danger-full-access',
-        DSH_TELEMETRY_DISABLED: '1',
+        JAN_PERMISSION_MODE: 'danger-full-access',
+        JAN_TELEMETRY_DISABLED: '1',
         NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
       },
       inspect: async (cwd) => {
-        const logs = await persistedLogs(cwd, join(cwd, '.dsh', 'sessions'))
+        const logs = await persistedLogs(cwd, join(cwd, '.jan', 'sessions'))
         expect(logs).toHaveLength(1)
         const actual = logs[0]
         if (actual === undefined) throw new Error('the headless profile did not persist its session')
@@ -424,7 +407,7 @@ describe('headless stream-json snapshots', () => {
     const result = await runLoaderSmoke({
       label: 'product headless profile json snapshot',
       tempDirPrefix: 'headless-snapshot-profile-json-',
-      binScript: dshBinScript,
+      binScript: janBinScript,
       configPath: headlessOverlayPath,
       binArgs: [
         '--profile', 'headless', '--patch', headlessOverlayPath,
@@ -434,12 +417,12 @@ describe('headless stream-json snapshots', () => {
       ],
       tsconfigPath,
       env: {
-        DSH_PERMISSION_MODE: 'danger-full-access',
-        DSH_TELEMETRY_DISABLED: '1',
+        JAN_PERMISSION_MODE: 'danger-full-access',
+        JAN_TELEMETRY_DISABLED: '1',
         NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
       },
       inspect: async (cwd) => {
-        const logs = await persistedLogs(cwd, join(cwd, '.dsh', 'sessions'))
+        const logs = await persistedLogs(cwd, join(cwd, '.jan', 'sessions'))
         const content = logs[0]?.content ?? ''
         const modes = parseJsonl(content).filter(event => event.type === 'sandbox/mode')
         expect(modes.at(-1)?.data).toEqual({ mode: 'workspace-write' })
@@ -464,7 +447,7 @@ describe('headless stream-json snapshots', () => {
     const result = await runLoaderSmoke({
       label: 'product headless profile unknown session',
       tempDirPrefix: 'headless-snapshot-profile-unknown-session-',
-      binScript: dshBinScript,
+      binScript: janBinScript,
       configPath: headlessOverlayPath,
       binArgs: [
         '--profile', 'headless', '--patch', headlessOverlayPath,
@@ -473,7 +456,7 @@ describe('headless stream-json snapshots', () => {
       tsconfigPath,
       expectedExitCode: 1,
       env: {
-        DSH_TELEMETRY_DISABLED: '1',
+        JAN_TELEMETRY_DISABLED: '1',
         NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
       },
     })
@@ -490,8 +473,8 @@ describe('headless stream-json snapshots', () => {
     const firstTask = 'Record the first wake of the resume proof.'
     const secondTask = 'Continue from the first wake of the resume proof.'
     const env = {
-      DSH_PERMISSION_MODE: 'danger-full-access',
-      DSH_TELEMETRY_DISABLED: '1',
+      JAN_PERMISSION_MODE: 'danger-full-access',
+      JAN_TELEMETRY_DISABLED: '1',
       NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
     }
     const cwd = await mkdtemp(join(tmpdir(), 'headless-session-resume-'))
@@ -499,7 +482,7 @@ describe('headless stream-json snapshots', () => {
       const first = await runLoaderSmoke({
         label: 'product headless profile resume first wake',
         cwd,
-        binScript: dshBinScript,
+        binScript: janBinScript,
         configPath: headlessOverlayPath,
         binArgs: ['--profile', 'headless', '--patch', headlessOverlayPath, '--json', firstTask],
         tsconfigPath,
@@ -513,7 +496,7 @@ describe('headless stream-json snapshots', () => {
       const second = await runLoaderSmoke({
         label: 'product headless profile resume second wake',
         cwd,
-        binScript: dshBinScript,
+        binScript: janBinScript,
         configPath: headlessOverlayPath,
         binArgs: [
           '--profile', 'headless', '--patch', headlessOverlayPath,
@@ -522,7 +505,7 @@ describe('headless stream-json snapshots', () => {
         tsconfigPath,
         env,
         inspect: async (inspected) => {
-          const logs = await persistedLogs(inspected, join(inspected, '.dsh', 'sessions'))
+          const logs = await persistedLogs(inspected, join(inspected, '.jan', 'sessions'))
           expect(logs).toHaveLength(1)
           const content = logs[0]?.content ?? ''
           expect(content).toContain(firstTask)
@@ -548,21 +531,21 @@ describe('headless stream-json snapshots', () => {
     const result = await runLoaderSmoke({
       label: `headless Auto review ${mode}`,
       tempDirPrefix: 'headless-auto-',
-      binScript: dshBinScript,
+      binScript: janBinScript,
       configPath: autoReviewOverlayPath,
       binArgs: [
         '--profile', 'headless', '--patch', headlessOverlayPath, '--patch', autoReviewOverlayPath,
         '--permission-mode', 'auto', '--approval-policy', 'never', '--json', 'Run the CLI probe.',
       ],
       tsconfigPath,
-      env: { DSH_AUTO_REVIEW_TEST_MODE: mode, DSH_TELEMETRY_DISABLED: '1' },
+      env: { JAN_AUTO_REVIEW_TEST_MODE: mode, JAN_TELEMETRY_DISABLED: '1' },
       inspect: async (cwd) => {
-        const logs = await persistedLogs(cwd, join(cwd, '.dsh', 'sessions'))
+        const logs = await persistedLogs(cwd, join(cwd, '.jan', 'sessions'))
         expect(logs).toHaveLength(1)
         const events = parseJsonl(logs[0]!.content)
-        expect(events.find(event => event.type === 'user/message')?.data).toMatchObject({
-          source: { kind: 'user' },
-        })
+        // The runtime-context snapshot precedes the person's message, so look the prompt up by its text.
+        const prompt = events.find(event => event.type === 'user/message' && JSON.stringify(event.data).includes('Run the CLI probe.'))
+        expect(prompt?.data).toMatchObject({ source: { kind: 'user' } })
         expect(events.some(event => event.type === 'approval/asked')).toBe(false)
         expect(events.filter(event => event.type === 'approval/policy').at(-1)?.data).toEqual({ policy: 'never' })
       },
@@ -588,9 +571,9 @@ describe('headless stream-json snapshots', () => {
   it('rejects Auto selection without the experimental integration', async () => {
     const result = await runLoaderSmoke({
       label: 'headless absent Auto integration', tempDirPrefix: 'headless-auto-absent-',
-      binScript: dshBinScript, configPath: headlessOverlayPath,
+      binScript: janBinScript, configPath: headlessOverlayPath,
       binArgs: ['--profile', 'headless', '--patch', headlessOverlayPath, '--permission-mode', 'auto', '--json', 'Do it.'],
-      tsconfigPath, expectedExitCode: 1, env: { DSH_TELEMETRY_DISABLED: '1' },
+      tsconfigPath, expectedExitCode: 1, env: { JAN_TELEMETRY_DISABLED: '1' },
     })
     const events = parseJsonl(result.stdout)
     expect(events).toHaveLength(1)
@@ -603,9 +586,9 @@ describe('headless stream-json snapshots', () => {
     const args = ['--profile', 'headless', '--patch', headlessOverlayPath, '--patch', autoReviewOverlayPath, '--json']
     try {
       const first = await runLoaderSmoke({
-        label: 'headless Auto denied wake', cwd, binScript: dshBinScript, configPath: autoReviewOverlayPath,
+        label: 'headless Auto denied wake', cwd, binScript: janBinScript, configPath: autoReviewOverlayPath,
         binArgs: [...args, '--permission-mode', 'auto', '--approval-policy', 'never', 'Run the CLI probe.'], tsconfigPath,
-        env: { DSH_AUTO_REVIEW_TEST_MODE: 'deny', DSH_TELEMETRY_DISABLED: '1' },
+        env: { JAN_AUTO_REVIEW_TEST_MODE: 'deny', JAN_TELEMETRY_DISABLED: '1' },
       })
       const sessionId = parseJsonl(first.stdout)[0]?.sessionId
       if (typeof sessionId !== 'string') throw new Error('missing Auto Session identity')
@@ -613,11 +596,11 @@ describe('headless stream-json snapshots', () => {
         error: { code: 'AUTO_REVIEW_DENIED' },
       })
       const second = await runLoaderSmoke({
-        label: 'headless Auto authorized wake', cwd, binScript: dshBinScript, configPath: autoReviewOverlayPath,
+        label: 'headless Auto authorized wake', cwd, binScript: janBinScript, configPath: autoReviewOverlayPath,
         binArgs: [...args, '--session-id', sessionId, 'I authorize the exact CLI probe. Retry it.'], tsconfigPath,
-        env: { DSH_AUTO_REVIEW_TEST_MODE: 'allow', DSH_TELEMETRY_DISABLED: '1' },
+        env: { JAN_AUTO_REVIEW_TEST_MODE: 'allow', JAN_TELEMETRY_DISABLED: '1' },
         inspect: async (directory) => {
-          const logs = await persistedLogs(directory, join(directory, '.dsh', 'sessions'))
+          const logs = await persistedLogs(directory, join(directory, '.jan', 'sessions'))
           expect(logs).toHaveLength(1)
           const events = parseJsonl(logs[0]!.content)
           const sources = events.filter(event => event.type === 'user/message')
@@ -639,14 +622,14 @@ describe('headless stream-json snapshots', () => {
     const result = await runLoaderSmoke({
       label: 'product headless profile model failure snapshot',
       tempDirPrefix: 'headless-snapshot-profile-failure-',
-      binScript: dshBinScript,
+      binScript: janBinScript,
       configPath: headlessOverlayPath,
       binArgs: ['--profile', 'headless', '--patch', headlessOverlayPath, 'Trigger the keyless model failure.'],
       tsconfigPath,
       expectedExitCode: 1,
       env: {
-        DSH_CLI_MOCK_FAILURE: '1',
-        DSH_TELEMETRY_DISABLED: '1',
+        JAN_CLI_MOCK_FAILURE: '1',
+        JAN_TELEMETRY_DISABLED: '1',
         NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
       },
     })
@@ -659,7 +642,7 @@ describe('headless stream-json snapshots', () => {
     const result = await runLoaderSmoke({
       label: 'headless best-effort startup snapshot',
       tempDirPrefix: 'headless-snapshot-startup-error-',
-      binScript: dshBinScript,
+      binScript: janBinScript,
       configPath: startupFailureConfigPath,
       binArgs: [
         '--profile', 'headless',
@@ -669,8 +652,8 @@ describe('headless stream-json snapshots', () => {
       ],
       tsconfigPath,
       env: {
-        DSH_PERMISSION_MODE: 'danger-full-access',
-        DSH_TELEMETRY_DISABLED: '1',
+        JAN_PERMISSION_MODE: 'danger-full-access',
+        JAN_TELEMETRY_DISABLED: '1',
         NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
       },
     })
@@ -692,7 +675,7 @@ describe('headless stream-json snapshots', () => {
       binArgs: [retryConfigPath, prompt],
       tsconfigPath,
       env: {
-        DSH_SNAPSHOT: 'replay',
+        JAN_SNAPSHOT: 'replay',
         NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
       },
       prepare: (cwd) => { runCwd = cwd },
@@ -703,7 +686,7 @@ describe('headless stream-json snapshots', () => {
         const retries = records.filter(record => record.type === 'llm/retry')
         expect(retries).toHaveLength(1)
         expect(retries[0]?.data).toMatchObject({
-          provider: 'deepseek-official',
+          provider: 'tokamak-official',
           mode: 'normal',
           policyKey: '["normal",1,["RATE_LIMIT"],1,1,0]',
           retry: 1,
@@ -732,9 +715,9 @@ describe('headless stream-json snapshots', () => {
       binArgs: [credentialsConfigPath, 'say pong'],
       tsconfigPath,
       env: {
-        // First-run posture: no key in the environment, none under ./.dsh.
-        DEEPSEEK_API_KEY: '',
-        DEEPSEEK_BASE_URL: '',
+        // First-run posture: no key in the environment, none under ./.jan.
+        TOKAMAK_API_KEY: '',
+        TOKAMAK_BASE_URL: '',
         NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
       },
       prepare: (cwd) => { runCwd = cwd },
@@ -752,9 +735,8 @@ describe('headless stream-json snapshots', () => {
     // environment, and stops there: configuration carries the reference, so
     // there is no literal-key escape hatch left to offer.
     expect(normalized).toContain(
-      'store DEEPSEEK_API_KEY through the credentials service (the web Models page writes it),',
+      'store TOKAMAK_API_KEY through the credentials service (the web Models page writes it) or export it,',
     )
-    expect(normalized).toContain('or export DEEPSEEK_API_KEY in the launching environment')
     expect(normalized).not.toContain('as a last resort')
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)
 
@@ -773,8 +755,8 @@ describe('headless stream-json snapshots', () => {
         // A key that exists but no HTTP header can carry — the paste the
         // credential guard exists for: without it, `fetch` refuses to build
         // the header and the turn ends on a retried ByteString TypeError.
-        DEEPSEEK_API_KEY: 'sk-\u{1F600}pasted-from-a-chat-window',
-        DEEPSEEK_BASE_URL: '',
+        TOKAMAK_API_KEY: 'sk-\u{1F600}pasted-from-a-chat-window',
+        TOKAMAK_BASE_URL: '',
         NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
       },
       prepare: (cwd) => { runCwd = cwd },
@@ -787,7 +769,7 @@ describe('headless stream-json snapshots', () => {
     // The durable failure names the reference to correct and the writer that
     // usually owns it, and stays true in a composition that mounts no Models
     // page at all.
-    expect(normalized).toContain('the API key resolved from DEEPSEEK_API_KEY contains characters')
+    expect(normalized).toContain('the API key resolved from TOKAMAK_API_KEY contains characters')
     expect(normalized).toContain('the web Models page writes it')
     // Neither the key nor its transport-level symptom (the ByteString error)
     // may reach the user: the code point of one character is still the key.
@@ -836,65 +818,8 @@ describe('headless stream-json snapshots', () => {
     `)
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)
 
-  it('keeps provider comments alive and sends DeepSeek defaults through the one-shot app', async () => {
-    const server = await deepseekDefaultsServer()
-    try {
-      const result = await runLoaderSmoke({
-        label: 'DeepSeek adapter defaults headless stream-json snapshot',
-        tempDirPrefix: 'headless-snapshot-deepseek-defaults-',
-        binScript,
-        libBinScript: binScript,
-        configPath: deepseekDefaultsConfigPath,
-        binArgs: [
-          deepseekDefaultsConfigPath,
-          'return the deterministic response',
-        ],
-        tsconfigPath,
-        env: {
-          // Configuration carries only the reference; the key rides the
-          // launching environment, which is the whole credential plane here.
-          DEEPSEEK_API_KEY: 'snapshot-key',
-          DSH_SNAPSHOT_BASE_URL: server.url,
-          NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
-        },
-      })
-
-      expect(result.stderr).toBe('')
-      expect(server.requests).toHaveLength(2)
-      expect(server.paths).toEqual(['/v1/messages', '/v1/messages'])
-      const agentRequest = server.requests.find(request => request.max_tokens === 256_000)
-      const titleRequest = server.requests.find(isTitleRequest)
-      expect(titleRequest?.max_tokens).toBe(TITLE_MAX_TOKENS)
-      expect(agentRequest?.output_config).toEqual({ effort: 'low' })
-      expect(titleRequest).toBeDefined()
-      const header = (parseJsonl(result.stdout)
-        .map(record => record.event)
-        .find((event): event is JsonObject => (
-          event !== null
-          && typeof event === 'object'
-          && !Array.isArray(event)
-          && 'type' in event
-          && event.type === 'request/header'
-        ))?.data as JsonObject | undefined)?.header as JsonObject | undefined
-      expect(header?.config).toMatchInlineSnapshot(`
-        {
-          "maxTokens": 256000,
-          "model": "deepseek-v4-flash",
-          "provider": "deepseek-official",
-          "reasoningEffort": "low",
-        }
-      `)
-      expect(header?.adapterDefaults).toEqual({
-        maxTokens: true,
-        reasoningEffort: true,
-      })
-    } finally {
-      await server.close()
-    }
-  }, LOADER_SMOKE_TEST_TIMEOUT_MS)
-
   it('keeps the compatibility stream open until the title request arrives', async () => {
-    const server = await deepseekDefaultsServer({ waitForTitleRequest: true, piAiCompatibility: true })
+    const server = await piAiDefaultsServer({ waitForTitleRequest: true })
     try {
       const response = await fetch(server.url, {
         method: 'POST',
@@ -934,7 +859,7 @@ describe('headless stream-json snapshots', () => {
   })
 
   it('sends pi-ai DeepSeek compatibility through the one-shot app', async () => {
-    const server = await deepseekDefaultsServer({ waitForTitleRequest: true, piAiCompatibility: true })
+    const server = await piAiDefaultsServer({ waitForTitleRequest: true })
     try {
       const result = await runLoaderSmoke({
         label: 'pi-ai DeepSeek compatibility headless stream-json snapshot',
@@ -949,7 +874,7 @@ describe('headless stream-json snapshots', () => {
         tsconfigPath,
         env: {
           DEEPSEEK_API_KEY: 'snapshot-key',
-          DSH_SNAPSHOT_BASE_URL: server.url,
+          JAN_SNAPSHOT_BASE_URL: server.url,
           NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
         },
       })
@@ -1003,7 +928,7 @@ describe('headless stream-json snapshots', () => {
         prepare: cwd => writeFile(join(cwd, 'task.txt'), 'Call snapshot_ping once.\n'),
         env: {
           MOONSHOT_API_KEY: 'snapshot-key',
-          DSH_SNAPSHOT_BASE_URL: server.url,
+          JAN_SNAPSHOT_BASE_URL: server.url,
           NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
         },
       })
@@ -1108,7 +1033,7 @@ describe('headless stream-json snapshots', () => {
       tsconfigPath,
       processTimeoutMs: 60_000,
       env: {
-        DSH_SNAPSHOT: 'team',
+        JAN_SNAPSHOT: 'team',
         NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
       },
       inspect: async (cwd) => {
@@ -1310,9 +1235,9 @@ describe('headless stream-json snapshots', () => {
       binArgs: [goalConfigPath, prompt],
       tsconfigPath,
       env: {
-        DSH_SNAPSHOT: 'replay',
-        DSH_SNAPSHOT_FILE: join(goalScenarioDir, 'session.jsonl'),
-        DSH_SNAPSHOT_OVERRIDE: join(goalScenarioDir, 'replay.override.json'),
+        JAN_SNAPSHOT: 'replay',
+        JAN_SNAPSHOT_FILE: join(goalScenarioDir, 'session.jsonl'),
+        JAN_SNAPSHOT_OVERRIDE: join(goalScenarioDir, 'replay.override.json'),
         NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
       },
       prepare: (cwd) => { runCwd = cwd },
@@ -1372,9 +1297,9 @@ describe('headless stream-json snapshots', () => {
       env: {
         // The override fully supplies the parent script; the child fixture
         // remains separate so replay binds it to the fresh child Session.
-        DSH_SNAPSHOT_FILE: parentReplay,
-        DSH_SNAPSHOT_OVERRIDE: parentOverride,
-        DSH_SNAPSHOT_CHILD_FILES: childReplay,
+        JAN_SNAPSHOT_FILE: parentReplay,
+        JAN_SNAPSHOT_OVERRIDE: parentOverride,
+        JAN_SNAPSHOT_CHILD_FILES: childReplay,
         NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
       },
       prepare: (cwd) => { runCwd = cwd },

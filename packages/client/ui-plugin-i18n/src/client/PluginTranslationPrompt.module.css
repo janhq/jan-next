@@ -1,0 +1,69 @@
+.prompt {
+  position: fixed;
+  inset-block-start: var(--jan-frame-overlay-top, 52px);
+  inset-inline-end: 16px;
+  width: min(390px, calc(100vw - 32px));
+  box-sizing: border-box;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+  padding: 12px;
+  border-radius: var(--dsw-radius-lg);
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-base);
+  box-shadow: var(--dsw-shadow-lv3);
+}
+
+/* The install dialog owns the decision while its modal is open. */
+body:has([role='dialog'][aria-modal='true']) .prompt {
+  display: none;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.icon,
+.spinner {
+  display: flex;
+  flex: none;
+  margin-block-start: 2px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+.message {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  margin-block-start: 12px;
+}
+
+.never {
+  margin-inline-end: auto;
+  color: var(--dsw-alias-label-secondary);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+}

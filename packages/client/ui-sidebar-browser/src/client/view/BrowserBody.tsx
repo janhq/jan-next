@@ -1,5 +1,5 @@
 /** Common browser chrome; a presentation adapter attaches the page inside its content container. */
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
   Button,
@@ -10,8 +10,8 @@ import {
   IconRightUpOutlineRegular,
   SHIELD_OUTLINE_PATH,
   ICON_REGULAR_STROKE,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-primitives'
+import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore } from '@janhq/jan-client-ui-slots'
 import type { BrowserInjected } from '../browser/BrowserController.ts'
 import { emptyBrowserFrame } from '../browser/BrowserFrame.ts'
 import { currentBrowserTarget } from '../browser/BrowserPersistence.ts'
@@ -36,6 +36,7 @@ export type BrowserBodyProps = PropsRuntime<'sidebar.right.pane.tab'>
   & PropsStore<BrowserStore>
   & PropsLocale<'sidebarBrowser'>
   & InjectFace<BrowserInjected>
+  & PropsRenderSlots<'sidebar.right.tab.browser.actions'>
 
 function useBrowserDraft(url: string | undefined, revision: number): readonly [string, (value: string) => void] {
   const [edit, setEdit] = useState<{ readonly revision: number; readonly value: string }>()
@@ -52,6 +53,8 @@ export function BrowserBody(props: BrowserBodyProps): ReactNode {
   const initial = useRef(saved)
   const initialUrl = useRef(tab.navigation.params?.url)
   const viewportId = useId()
+  const viewport = useRef<HTMLDivElement>(null)
+  const getSurface = useCallback(() => viewport.current?.firstElementChild ?? null, [])
   const [mountEpoch, setMountEpoch] = useState(0)
   const state = useBrowserState(tab.id)
   const frame = state?.frame ?? EMPTY_FRAME
@@ -107,6 +110,8 @@ export function BrowserBody(props: BrowserBodyProps): ReactNode {
           aria-pressed={!sandboxed}
           onClick={() => { setSandbox(tab.id, !sandboxed) }}
         ><SandboxPolicyIcon sandboxed={sandboxed} /></button>}
+        {tab.visible && !frame.loading && error === undefined && restoreTarget === undefined && target !== undefined
+          && props.renderSlot('sidebar.right.tab.browser.actions', { getSurface })}
       </form>
       {sandboxed === false && <div className={css.sandboxWarning} role="status">{t('sandbox.warning')}</div>}
       {error !== undefined && <div className={css.failure} role="status">{error.code !== undefined && error.description !== undefined
@@ -114,7 +119,7 @@ export function BrowserBody(props: BrowserBodyProps): ReactNode {
         : t('load.failed')}</div>}
       {failure !== undefined && <div className={css.failure} role="alert">{t(`error.${failure}`)}</div>}
       <div className={css.content} aria-busy={frame.loading}>
-        <div id={viewportId} className={css.viewport} aria-label={t('type.label')} />
+        <div ref={viewport} id={viewportId} className={css.viewport} aria-label={t('type.label')} />
         {restoreTarget !== undefined && <section className={css.restore} aria-label={t('restore.previous')}>
           <p className={css.restoreLabel}>{t('restore.previous')}</p>
           <p className={css.restoreTitle}>{restoreTarget.title}</p>

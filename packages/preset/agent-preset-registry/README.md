@@ -3,9 +3,7 @@ description: "Choose an Agent’s tools, prompt sections and skills through decl
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-agent-preset-registry
-
-English | [中文](README.zh.md)
+# @janhq/jan-agent-preset-registry
 
 ## Summary
 
@@ -29,11 +27,11 @@ Choose an Agent’s tools, prompt sections and skills through declarative preset
 
 ```yaml
 - id: agent-preset-registry
-  name: '@deepseek-ai/dsh-agent-preset-registry'
+  name: '@janhq/jan-agent-preset-registry'
   config:
     default: standard
 - id: preset-standard
-  name: '@deepseek-ai/dsh-agent-preset'
+  name: '@janhq/jan-agent-preset'
   config:
     id: standard
     plugins: []
@@ -42,10 +40,11 @@ Choose an Agent’s tools, prompt sections and skills through declarative preset
 | Field | Default | Meaning |
 |---|---|---|
 | `default` | required | Preset ID used when none is requested |
+| `routeDefaults` | `{}` | Preset ID by provider route, for a new Session whose model runs on that route |
 
-The Web definitions come from the `dsh-web-app` bundle. Definitions are ordinary plugin rows; the registry neither scans directories nor accepts preset paths. The `selectedDefault` volatile field of the `agent-preset-registry` entry retains the user default, which new sessions resolve over the deployment `default`. A profile patch may still carry the retired `modeSelectionEnabled` field; the registry declares no such field and neither reads nor rewrites it.
+The Web definitions come from the `jan-web-app` bundle. Definitions are ordinary plugin rows; the registry neither scans directories nor accepts preset paths. The `selectedDefault` volatile field of the `agent-preset-registry` entry retains the user default, which new sessions resolve over the deployment `default`. Without a user default, `defaultFor(provider)` answers the `routeDefaults` entry for the route of the new Session's model (the Web bundle starts the managed `local` route on `minimal`), and the session controller moves a blank Session that still runs one route's default to the other route's default when its model changes route. A profile patch may still carry the retired `modeSelectionEnabled` field; the registry declares no such field and neither reads nor rewrites it.
 
-The registry writes no declarations. The `read` Remote renders one declaration’s child list back as entry-list YAML (`!!js` conditions included) so a client can show what a preset composes; nothing accepts YAML back. A new preset or an override of a shipped one is a bundle patch: an `insert` of a `@deepseek-ai/dsh-agent-preset` row, or a patch keyed by that row’s id, installed into the profile with `plugin_manager`; Creator mode authors such bundles in conversation.
+The registry writes no declarations. The `read` Remote renders one declaration’s child list back as entry-list YAML (`!!js` conditions included) so a client can show what a preset composes; nothing accepts YAML back. A new preset or an override of a shipped one is a bundle patch: an `insert` of a `@janhq/jan-agent-preset` row, or a patch keyed by that row’s id, installed into the profile with `plugin_manager`; Creator mode authors such bundles in conversation.
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
@@ -57,7 +56,7 @@ Each declaration eagerly creates a registry-owned scope and an in-memory Loader 
 
 A preset service provider and its consumers must share one `cordis:group` isolation realm. Entry-local isolation does not propagate through the Agent registration scope: ordinary Context lookup outside the group, including `agent.ctx`, still selects the Host realm. `agentPresets.serviceFor()` explicitly inspects the retained composition; it does not change ordinary service lookup.
 
-Activation auditing checks imports, missing services and globally leaked services. Import failures, activation failures and leaks reject the mount. A row waiting for a Host service stays mounted, and every read and binding re-audits it after the Host Loader tree settles, so startup order does not decide the outcome. Failure prevents new bindings to that definition. `presetForSession(session)` synchronously reads the latest recorded preset ID, or null when none is recorded. Session logs retain the preset ID and blank-session selections; recovery after restart uses the current definition of that ID and rejects a missing definition. `select` leaves a blank Session that records the requested preset and already runs its current revision unchanged, without another selection record or `tools/change`.
+Activation auditing checks imports, missing services and globally leaked services. Import failures, activation failures and leaks reject the mount. A row waiting for a Host service stays mounted, and every read and binding re-audits it after the Host Loader tree settles, so startup order does not decide the outcome. Failure prevents new bindings to that definition. `presetForSession(session)` synchronously reads the latest recorded preset ID, or null when none is recorded. Session logs retain the preset ID and every selection; an `agent/created` listener that awaits `select` switches inside the creation it delays, a started Session may switch once no turn is open, and the conversation above the switch stays untouched. Recovery after restart uses the current definition of that ID and rejects a missing definition. An automatic assignment records `source: 'route-default'`; older unmarked selections are treated as pinned. Explicitly selecting the current route default pins it without replacing its composition. Repeating an already pinned selection of the same revision appends no record and emits no `tools/change`.
 
 `inspectCompositions()` reads all revisions retained by this registry; passing an Agent context selects its exact revision, or returns an empty list when it has no binding here. Each `AgentPresetInspection` contains a preset ID, detached active-module references with their resolution bases, and leaked-service names. Inspectors query the runtime service rather than a module-local mount table; the results contain no Loader trees or fibers. [composition-inventory.ts](src/composition-inventory.ts) defines these records.
 

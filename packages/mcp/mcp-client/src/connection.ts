@@ -16,10 +16,10 @@
  */
 
 import { Client } from '@modelcontextprotocol/client'
-import type { Context } from '@deepseek-ai/cordis'
-import { assertNever, deepEqualJson, type JsonValue } from '@deepseek-ai/dsh-util-values'
+import type { Context } from '@janhq/cordis'
+import { assertNever, deepEqualJson, type JsonValue } from '@janhq/jan-util-values'
 import type { ServerContext } from './server-context.ts'
-import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
+import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
 import { withDeadline } from './deadline.ts'
 import { McpLocalError } from './diagnostic.ts'
 import type { McpStatusCell } from './status.ts'
@@ -281,7 +281,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
 
   async function connectGeneration(): Promise<void> {
     if (isStopped()) return
-    const client = new Client({ name: 'dsh-mcp-client', version: '0.0.1' }, {
+    const client = new Client({ name: 'jan-mcp-client', version: '0.0.1' }, {
       capabilities: {}, versionNegotiation: { mode: 'auto' },
       listChanged: { tools: { autoRefresh: false, debounceMs: 0, onChanged: () => { void refreshTools() } } },
     })

@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
 /** Original-byte actions and feedback survive the menu that initiated them. */
 import { Blob as NodeBlob } from 'node:buffer'
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import { MenuRegistry } from '@deepseek-ai/dsh-client-ui-context-menu/src/client/registry.ts'
-import type { ContextMenus, ContextMenuTarget } from '@deepseek-ai/dsh-client-ui-context-menu/client'
-import type { FileActionSource, FileSaveResult } from '@deepseek-ai/dsh-client-ui-file-actions/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { SessionId } from '@janhq/jan-session'
+import { MenuRegistry } from '@janhq/jan-client-ui-context-menu/src/client/registry.ts'
+import type { ContextMenus, ContextMenuTarget } from '@janhq/jan-client-ui-context-menu/client'
+import type { FileActionSource, FileSaveResult } from '@janhq/jan-client-ui-file-actions/client'
 import { OpenInAppPathController } from '../src/client/open-path.ts'
 import { OpenInAppController } from '../src/client/controller.ts'
-import { registerFileMenus } from '@deepseek-ai/dsh-client-ui-file-actions/src/client/context-menus.tsx'
+import { registerFileMenus } from '@janhq/jan-client-ui-file-actions/src/client/context-menus.tsx'
 import { registerContextMenus } from '../src/client/context-menus.tsx'
 import type { OpenInAppToastSource } from '../src/client/open-toast.tsx'
 

@@ -7,9 +7,10 @@ import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
 import type { DesktopRelease } from '../src/release.ts'
-import { developmentRuntimeDirectory, resolveDesktopDevelopmentTarget } from './desktop-build-paths.mjs'
+import { developmentRuntimeDirectory, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
 import { prepareDevelopmentProject } from './development-project.ts'
 import { prepareDevelopmentApp } from './development-app.ts'
+import { prepareDevelopmentWindowsApp } from './development-windows.ts'
 import { preparePrimaryRuntime } from './prepare-primary-runtime.ts'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
@@ -60,31 +61,37 @@ async function launchElectron(): Promise<void> {
   const require = createRequire(import.meta.url)
   const electron: unknown = require('electron')
   if (typeof electron !== 'string') throw new Error('desktop development: electron executable is unavailable')
-  const mainPort = debugPort('DSH_DESKTOP_MAIN_INSPECT_PORT', 9229)
-  const rendererPort = debugPort('DSH_DESKTOP_RENDERER_DEBUG_PORT', 9222)
-  const hostPort = debugPort('DSH_DESKTOP_HOST_INSPECT_PORT', 9230)
-  const home = resolve(process.env.DSH_HOME ?? join(DEVELOPMENT_ROOT, 'home'))
-  const userData = resolve(process.env.DSH_DESKTOP_USER_DATA_DIR ?? join(DEVELOPMENT_ROOT, 'electron-user-data'))
+  const mainPort = debugPort('JAN_DESKTOP_MAIN_INSPECT_PORT', 9229)
+  const rendererPort = debugPort('JAN_DESKTOP_RENDERER_DEBUG_PORT', 9222)
+  const hostPort = debugPort('JAN_DESKTOP_HOST_INSPECT_PORT', 9230)
+  const home = resolve(process.env.JAN_HOME ?? join(DEVELOPMENT_ROOT, 'home'))
+  const userData = resolve(process.env.JAN_DESKTOP_USER_DATA_DIR ?? join(DEVELOPMENT_ROOT, 'electron-user-data'))
   const environment: NodeJS.ProcessEnv = {
     ...process.env,
-    DSH_HOME: home,
-    DSH_DESKTOP_PRIMARY_RUNTIME_DIR: process.env.DSH_DESKTOP_PRIMARY_RUNTIME_DIR ?? developmentRuntimeDirectory(),
-    DSH_DESKTOP_HOST_INSPECT_PORT: String(hostPort),
-    DSH_DESKTOP_OPEN_DEVTOOLS: process.env.DSH_DESKTOP_OPEN_DEVTOOLS ?? '1',
+    JAN_HOME: home,
+    JAN_DESKTOP_PRIMARY_RUNTIME_DIR: process.env.JAN_DESKTOP_PRIMARY_RUNTIME_DIR ?? developmentRuntimeDirectory(),
+    JAN_DESKTOP_HOST_INSPECT_PORT: String(hostPort),
+    JAN_DESKTOP_OPEN_DEVTOOLS: process.env.JAN_DESKTOP_OPEN_DEVTOOLS ?? '1',
     ELECTRON_ENABLE_LOGGING: process.env.ELECTRON_ENABLE_LOGGING ?? '1',
     JAN_LLAMA_WORKER: process.env.JAN_LLAMA_WORKER
       ?? join(REPOSITORY_ROOT, 'native', 'llama-worker', 'dist', process.platform === 'win32' ? 'jan-llama-worker.exe' : 'jan-llama-worker'),
+    // `scripts/build-host-runtime.ts` writes here; Hosts reports none shipped when it is empty.
+    JAN_HOST_RUNTIME_DIR: process.env.JAN_HOST_RUNTIME_DIR ?? join(REPOSITORY_ROOT, 'dist-host-runtime'),
   }
-  console.log(`desktop development: DSH_HOME=${home}`)
+  console.log(`desktop development: JAN_HOME=${home}`)
   console.log(`desktop development: userData=${userData}`)
   console.log(`desktop development: inspectors main=${String(mainPort)}, renderer=${String(rendererPort)}, host=${String(hostPort)}`)
   if (process.platform === 'darwin') {
-    const executable = prepareDevelopmentApp({ electron, appRoot: APP_ROOT, directory: DEVELOPMENT_ROOT, home, userData,
-      mainPort, rendererPort, hostPort, openDevtools: environment.DSH_DESKTOP_OPEN_DEVTOOLS! })
+    const executable = prepareDevelopmentApp({
+      electron, appRoot: APP_ROOT, directory: DEVELOPMENT_ROOT, home, userData,
+      mainPort, rendererPort, hostPort, openDevtools: environment.JAN_DESKTOP_OPEN_DEVTOOLS!,
+    })
     await run(executable, [], APP_ROOT, environment)
     return
   }
-  await run(electron, [
+  // Windows names the app in the firewall prompt, taskbar and Task Manager from the executable's own resources.
+  const executable = process.platform === 'win32' ? await prepareDevelopmentWindowsApp(electron, DEVELOPMENT_ROOT) : electron
+  await run(executable, [
     `--inspect=127.0.0.1:${String(mainPort)}`,
     `--remote-debugging-port=${String(rendererPort)}`,
     `--user-data-dir=${userData}`,
@@ -104,7 +111,7 @@ async function main(): Promise<void> {
   ]) {
     if (!existsSync(path)) throw new Error(`desktop development: missing built artifact ${path}`)
   }
-  const target = resolveDesktopDevelopmentTarget()
+  const target = resolveDesktopBuildTarget()
   const version = packageVersion(join(APP_ROOT, 'package.json'), 'desktop package')
   const pnpmVersion = packageVersion(join(APP_ROOT, 'node_modules', 'pnpm', 'package.json'), 'pnpm package')
   const release: DesktopRelease = {

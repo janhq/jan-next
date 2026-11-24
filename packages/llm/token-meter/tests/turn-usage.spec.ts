@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import type { StreamChunk, TokenUsage } from '@janhq/jan-llm'
+import type { SessionEvent } from '@janhq/jan-session'
 import { deriveTurnTokenUsage } from '../src/turn-usage.ts'
 
 function event(seq: number, type: string, data: unknown): SessionEvent {
@@ -294,6 +294,22 @@ describe('deriveTurnTokenUsage', () => {
         { type: 'finish', reason: { kind: 'aborted', failure: { message: 'aborted', code: 'ABORTED' } } },
       ]),
     ))).toMatchObject({ totalTokens: 170 })
+  })
+
+  it('keeps exact prompt counts and estimates output for a reply cut before its final usage', () => {
+    const cut = message(3, usage({ inputTokens: 4, outputTokens: 1, totalTokens: 3005, cacheReadTokens: 3000 }))
+    const text = 'x'.repeat(400)
+    const data = cut.data as { message: { content: unknown[] }; interrupted?: true }
+    data.message.content = [{ type: 'text', text }]
+    data.interrupted = true
+    expect(deriveTurnTokenUsage(completeAttempt(cut))).toEqual({
+      uncachedInputTokens: 4,
+      outputTokens: 104,
+      totalTokens: 3108,
+      cacheReadTokens: 3000,
+      routes: [{ provider: 'deepseek', model: 'deepseek-chat' }],
+      outputEstimated: true,
+    })
   })
 
   it.each([

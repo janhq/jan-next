@@ -1,10 +1,10 @@
 /** React-free Client Workspace service and command facade. */
 
-import { Service, type Context } from '@deepseek-ai/cordis'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { RemoteFailure } from '@deepseek-ai/dsh-typert-protocol'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
-import type { WorkspaceView } from '../types.ts'
+import { Service, type Context } from '@janhq/cordis'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { RemoteFailure } from '@janhq/jan-typert-protocol'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
+import type { WorkspaceCreateRequest, WorkspaceUpdateRequest, WorkspaceView } from '../types.ts'
 import type { ClientWorkspaceModel, WorkspaceSnapshot } from './model.ts'
 
 /** Structured create failure for callers that distinguish Host business errors. */
@@ -52,13 +52,13 @@ export interface IWorkspaces {
    * @param input - Host create payload.
    * @returns the created or idempotently resolved Workspace.
    */
-  create(input: { path: string }): Promise<WorkspaceView>
+  create(input: WorkspaceCreateRequest): Promise<WorkspaceView>
   /**
    * Initialize or reuse the default Workspace.
    * @param signal - caller lifetime.
-   * @returns the prepared Workspace, or undefined when first-use initialization is ineligible; rejects on preparation failure.
+   * @returns the prepared Workspace; rejects on preparation failure.
    */
-  initializeDefault(signal?: AbortSignal): Promise<WorkspaceView | undefined>
+  initializeDefault(signal?: AbortSignal): Promise<WorkspaceView>
   /**
    * Rename a Workspace.
    * @param workspaceId - target Workspace.
@@ -66,6 +66,12 @@ export interface IWorkspaces {
    * @returns the renamed Workspace.
    */
   rename(workspaceId: WorkspaceId, title: string): Promise<WorkspaceView>
+  /**
+   * Save changed project identity fields; null clears an appearance field.
+   * @param request - target Workspace and fields to change.
+   * @returns the updated Workspace; throws the Remote failure if the edit is refused.
+   */
+  updateIdentity(request: WorkspaceUpdateRequest): Promise<WorkspaceView>
   /**
    * Delete a Workspace registration without deleting Sessions or files.
    * @param workspaceId - target Workspace.
@@ -127,21 +133,27 @@ export class WorkspaceController extends Service implements IWorkspaces {
     this.list = model
   }
 
-  async create(input: { path: string }): Promise<WorkspaceView> {
+  async create(input: WorkspaceCreateRequest): Promise<WorkspaceView> {
     const result = await this.model.create(input)
     if (!result.ok) throw new WorkspaceCreateError(result.error)
     return result.value.workspace
   }
 
-  async initializeDefault(signal?: AbortSignal): Promise<WorkspaceView | undefined> {
+  async initializeDefault(signal?: AbortSignal): Promise<WorkspaceView> {
     const result = await this.model.initializeDefault(signal)
     if (!result.ok) throw new WorkspaceCreateError(result.error)
-    return result.value?.workspace
+    return result.value.workspace
   }
 
   async rename(workspaceId: WorkspaceId, title: string): Promise<WorkspaceView> {
     const result = await this.model.rename(workspaceId, title)
     if (!result.ok) throw commandError('rename', result.error)
+    return result.value.workspace
+  }
+
+  async updateIdentity(request: WorkspaceUpdateRequest): Promise<WorkspaceView> {
+    const result = await this.model.update(request)
+    if (!result.ok) throw result.error
     return result.value.workspace
   }
 

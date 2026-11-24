@@ -5,12 +5,10 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { collectConfigCatalog, render, type CatalogEntry } from './gen-config-catalog.ts'
-import { computeTranslationPairingRecord, translationPairPaths } from './translation-pairing-record.ts'
-import { generatedRegions } from './translation-pairing.ts'
 
 const roots: string[] = []
 const sharedSchema = `
-import Schema from '@deepseek-ai/schemastery'
+import Schema from '@janhq/schemastery'
 export interface LaunchConfig {
   /** Browser ownership mode. */
   mode: 'launch'
@@ -31,7 +29,7 @@ export const Shared = Schema.union([
 `
 
 function fixture(schema = sharedSchema) {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-config-catalog-'))
+  const root = mkdtempSync(join(tmpdir(), 'jan-config-catalog-'))
   roots.push(root)
   const write = (path: string, value: string): void => {
     const file = join(root, path)
@@ -88,7 +86,7 @@ export function apply(ctx: unknown, config: Config): void {}
 
   it.each([false, true])('checks fields spread from an imported object schema (undeclared field: %s)', (invalid) => {
     const { root, write } = fixture(`
-import Schema from '@deepseek-ai/schemastery'
+import Schema from '@janhq/schemastery'
 export interface SharedOptions {
   /** Maximum result count. */
   limit: number
@@ -96,7 +94,7 @@ export interface SharedOptions {
 export const Shared = Schema.object({ limit: Schema.number(), ${invalid ? 'hidden: Schema.string(),' : ''} })
 `)
     write('packages/test/provider/src/index.ts', `
-import Schema from '@deepseek-ai/schemastery'
+import Schema from '@janhq/schemastery'
 import { Shared as SharedConfig, type SharedOptions } from '@test/runtime/config'
 export interface Config extends SharedOptions {
   /** Signature selected for a source build. */
@@ -113,7 +111,7 @@ export function apply(ctx: unknown, config: Config): void {}
   it.each(['SharedConfig.dict', 'unknownFields'])('rejects a spread without an object schema: %s', (spread) => {
     const { root, write } = fixture()
     write('packages/test/provider/src/index.ts', `
-import Schema from '@deepseek-ai/schemastery'
+import Schema from '@janhq/schemastery'
 import { Shared as SharedConfig, type BrowserConfig } from '@test/runtime/config'
 export type Config = BrowserConfig
 export const Config = Schema.object({ ...${spread} })
@@ -124,7 +122,7 @@ export function apply(ctx: unknown, config: Config): void {}
 
   it('rejects a recursive object-schema dict spread', () => {
     const { root } = fixture(`
-import Schema from '@deepseek-ai/schemastery'
+import Schema from '@janhq/schemastery'
 export interface BrowserConfig { mode: string }
 export const Shared = Schema.object({ ...Shared.dict, mode: Schema.string() })
 `)
@@ -145,7 +143,7 @@ export const Shared = Schema.object({ ...Shared.dict, mode: Schema.string() })
   it.each([false, true])('checks a class Config imported from a sibling module (invalid field: %s)', (invalid) => {
     const { root, write } = fixture()
     write('packages/test/provider/src/config.ts', `
-import Schema from '@deepseek-ai/schemastery'
+import Schema from '@janhq/schemastery'
 export interface Config {
   /** Maximum result count. */
   limit: number
@@ -227,39 +225,24 @@ export const Shared = Schema.union([MissingSchema])
 })
 
 describe('config catalog rendering', () => {
-  const entries = (inject: string[]): CatalogEntry[] => [
+  const inject = ['jobs']
+  const entries: CatalogEntry[] = [
     {
-      pkg: '@deepseek-ai/dsh-demo',
+      pkg: '@janhq/jan-demo',
       dir: 'packages/demo/demo',
       entry: 'packages/demo/demo/src/index.ts',
       kind: 'config',
       inject,
       pastes: [{ text: 'export interface DemoConfig {}', source: 'packages/demo/demo/src/index.ts:3' }],
     },
-    { pkg: '@deepseek-ai/dsh-plain', dir: 'packages/demo/plain', entry: 'packages/demo/plain/src/index.ts', kind: 'no-config', inject },
+    { pkg: '@janhq/jan-plain', dir: 'packages/demo/plain', entry: 'packages/demo/plain/src/index.ts', kind: 'no-config', inject },
   ]
-  const paths = translationPairPaths('docs/config-catalog.md')
-  const record = (inject: string[]) => computeTranslationPairingRecord(
-    paths,
-    render(entries(inject), 'en'),
-    render(entries(inject), 'zh'),
-    { repoRoot: process.cwd(), isTranslationPairSource: () => false },
-  )
 
-  it('keeps package data in generated regions shared by both languages', () => {
-    const en = generatedRegions(render(entries(['jobs']), 'en')).map(region => region.text)
-    expect(en.map(region => region.split('\n')[0])).toEqual([
-      '<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-demo -->',
-      '<!-- BEGIN GENERATED config-catalog:no-config -->',
-      '<!-- BEGIN GENERATED config-catalog:seam -->',
-      '<!-- BEGIN GENERATED config-catalog:library -->',
-    ])
-    expect(generatedRegions(render(entries(['jobs']), 'zh')).map(region => region.text)).toEqual(en)
-    expect(en[0]).toContain('- `inject`: `jobs`')
-  })
-
-  it('leaves the consistency record unchanged when only package data changes', () => {
-    expect(record(['jobs', 'typert'])).toEqual(record(['jobs']))
-    expect([...record(['jobs']).keys()].some(key => key.includes('dsh-demo'))).toBe(false)
+  it('renders each configurable plugin section and each package table', () => {
+    const page = render(entries)
+    expect(page).toContain('## `@janhq/jan-demo`\n\n- `inject`: `jobs`\n- `source`: [`packages/demo/demo/src/index.ts:3`](../packages/demo/demo/src/index.ts)')
+    expect(page).toContain('```ts config-catalog\nexport interface DemoConfig {}\n```')
+    expect(page).toContain('## Loadable plugins with no config\n\nThese load')
+    expect(page).toContain('| `@janhq/jan-plain` | `jobs` | [`packages/demo/plain/src/index.ts`](../packages/demo/plain/src/index.ts) |')
   })
 })

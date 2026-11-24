@@ -11,41 +11,50 @@
  * workspace is not the current one. A session is dated from the Host session
  * list, so the `@` menu and the session list never disagree about its age.
  *
- * @module @deepseek-ai/dsh-client-ui-reference/client
+ * Projects come from the Client Workspace list, matched locally by title or
+ * folder, and settle as folder references to their absolute path: the agent
+ * gets a pointer and lists or reads the folder only when it matters. A
+ * session in another project names that project by title, falling back to
+ * its folder when no registered project owns it.
+ *
+ * @module @janhq/jan-client-ui-reference/client
  */
 // Type-only: pulls the generated Remote API and ctx.remote merge through the Client assembly boundary.
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type {} from '@janhq/jan-api-remotes/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
-import { relativeTime } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { UserTextNodeProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-sidebar-right/client'
+// Type-only: pulls the Workspace Client merge (ctx.workspaces).
+import type { WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
+import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type { Context as ClientContext } from '@janhq/cordis'
+import type { ISessions } from '@janhq/jan-api-session-controller/client'
+import { relativeTime } from '@janhq/jan-client-ui-primitives'
+import type { UserTextNodeProps } from '@janhq/jan-client-ui-conversation/client'
 import { FileReference, FolderReference, type FileReferenceInjected } from './FileReference.tsx'
 import { fileReferenceRule, folderReferenceRule } from './user-text-rules.ts'
 export type {} from './user-text-rules.ts'
 import type {
   ClientSessionContext, InputTriggerCrumb, InputTriggerServiceContract, InputTriggerSource,
-} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
-import { formatFileMention } from '@deepseek-ai/dsh-file-reference/grammar'
-import type { FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference/types'
-import type { SessionReferenceMentionCandidate } from '@deepseek-ai/dsh-session-reference/types'
-import { abbreviateHomePath, fileAddressFor, resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
+} from '@janhq/jan-client-ui-input-trigger/client'
+import { formatFileMention } from '@janhq/jan-file-reference/grammar'
+import type { FileReferenceCandidate } from '@janhq/jan-file-reference/types'
+import type { SessionReferenceMentionCandidate } from '@janhq/jan-session-reference/types'
+import { abbreviateHomePath, fileAddressFor, resolveWorkspacePath } from '@janhq/jan-util-workspace-path'
 import { en, ja, es, fr, de, ru, pt, NS, zh, type ReferenceKey } from './locales.ts'
 
-declare module '@deepseek-ai/dsh-api-session-controller/client' {
+declare module '@janhq/jan-api-session-controller/client' {
   interface SessionReferenceSourceMap {
     /** File and Session candidates waiting for initial history and their RPC results. */
     referenceCandidates: unknown
   }
 }
 
-/** Required services: the trigger registry, the Remote namespaces, and the copy. */
+/** Required services: the trigger registry, the Remote namespaces, the project list, and the copy. */
 export const inject = [
   'inputTriggers', 'locale', 'sessions', 'remote', 'remote.fileReferences',
-  'remote.sessionReferenceResolver', 'sidebarRight', 'slots', 'uiConversation',
+  'remote.sessionReferenceResolver', 'sidebarRight', 'slots', 'uiConversation', 'workspaces',
 ]
 
 /**
@@ -104,9 +113,12 @@ export function apply(ctx: ClientContext): void {
       const now = Date.now()
       const home = ctx.remote.$host.home
       const listed = sessions.list.getSnapshot().byId
+      const projects = ctx.workspaces.list.getSnapshot().items
+      const projectTitle = (project: WorkspaceView): string => workspaceDisplayTitle(project, t('project.default'))
       const sessionRows = sessionItems.map((candidate) => {
         const summary = listed[candidate.sessionId]
         const child = summary?.origin === 'subagent' && summary.parentId === session.sessionId
+        const project = candidate.cwd === undefined ? undefined : projects.find(item => item.path === candidate.cwd)
         return {
           child,
           row: sessionCandidate(
@@ -114,16 +126,22 @@ export function apply(ctx: ClientContext): void {
             candidate.displayTitle ?? candidate.label,
             summary?.updatedAt ?? candidate.createdAt,
             now,
+            project === undefined ? undefined : projectTitle(project),
             home,
             t(child ? 'section.subagents' : 'section.sessions'),
             t,
           ),
         }
       })
+      // A typed path or an open quote is file navigation, not a project search.
+      const projectRows = quoted === true || query.includes('/')
+        ? []
+        : projects.flatMap(project => projectCandidate(project, projectTitle(project), query, home, t))
       return [
         ...fileItems.flatMap(candidate => fileCandidate(candidate, quoted === true, withLocation, t)),
         ...sessionRows.filter(item => item.child).map(item => item.row),
         ...sessionRows.filter(item => !item.child).map(item => item.row),
+        ...projectRows,
       ]
     },
     header(_session: ClientSessionContext, req) {
@@ -267,6 +285,7 @@ function sessionCandidate(
   label: string,
   updatedAt: number,
   now: number,
+  project: string | undefined,
   home: string | undefined,
   section: string,
   t: Translate,
@@ -274,10 +293,11 @@ function sessionCandidate(
   const { unit, n } = relativeTime(updatedAt, now)
   const age = unit === 'now' ? t('time.now') : t(`time.${unit}`, { n })
   // Candidates are ranked by workspace affinity, so the location only tells
-  // the user something when it is not the workspace they are already in.
+  // the user something when it is not the workspace they are already in. A
+  // registered project is named by its title; any other folder by its path.
   const location = candidate.sameWorkspace
     ? undefined
-    : candidate.cwd === undefined ? t('candidate.noCwd') : abbreviateHomePath(candidate.cwd, home)
+    : candidate.cwd === undefined ? t('candidate.noCwd') : project ?? abbreviateHomePath(candidate.cwd, home)
   const value: ReferenceCandidateValue = {
     kind: 'session',
     label,
@@ -290,6 +310,38 @@ function sessionCandidate(
     section,
     value: JSON.stringify(value),
   }
+}
+
+/**
+ * One project row: the project settles as a folder reference to its absolute
+ * path, the same pointer a folder row inserts, so nothing is read until the
+ * agent decides the folder matters.
+ * @param project - a registered project.
+ * @param title - its display title.
+ * @param query - the live query; an empty one lists every project.
+ * @param home - the Host home, abbreviated in the row's folder.
+ * @param t - the reference dictionary.
+ * @returns the row, or none when it does not match or cannot be mentioned.
+ */
+function projectCandidate(
+  project: WorkspaceView,
+  title: string,
+  query: string,
+  home: string | undefined,
+  t: Translate,
+) {
+  const needle = query.trim().toLowerCase()
+  if (needle !== '' && !title.toLowerCase().includes(needle) && !project.path.toLowerCase().includes(needle)) return []
+  const mention = formatFileMention({ path: project.path, kind: 'directory' }, false)
+  if (mention === undefined) return []
+  const value: ReferenceCandidateValue = { kind: 'file', fileKind: 'directory', label: title, mention }
+  return [{
+    name: title,
+    description: abbreviateHomePath(project.path, home),
+    icon: 'folder' as const,
+    section: t('section.projects'),
+    value: JSON.stringify(value),
+  }]
 }
 
 function parseCandidate(value: string | undefined): ReferenceCandidateValue | undefined {

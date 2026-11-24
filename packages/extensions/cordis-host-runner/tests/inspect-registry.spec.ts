@@ -1,9 +1,9 @@
-import { Context } from '@deepseek-ai/cordis'
-import type { Fiber } from '@deepseek-ai/cordis'
-import TypertGateway from '@deepseek-ai/dsh-api-gateway'
-import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
-import type { PeerId, PeerScope } from '@deepseek-ai/dsh-typert-protocol'
-import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
+import { Context } from '@janhq/cordis'
+import type { Fiber } from '@janhq/cordis'
+import TypertGateway from '@janhq/jan-api-gateway'
+import RemoteAccessService from '@janhq/jan-api-remote-access'
+import type { PeerId, PeerScope } from '@janhq/jan-typert-protocol'
+import TypertRegistry from '@janhq/jan-typert-registry'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import DynamicCordisRunnerService from '../src/index.ts'
 import { CordisInspectRegistryService } from '../src/inspect-registry.ts'
@@ -83,7 +83,7 @@ async function connectGatewayClient(): Promise<AbortController> {
   await ctx.plugin(TypertGateway)
   ctx.effect(() => ctx.typertGateway.registerRemoteEvents(async function* (signal) {
     await new Promise<void>((resolve) => { signal.addEventListener('abort', () => { resolve() }, { once: true }) })
-  }, { home: '/fixture' }))
+  }, { home: '/fixture', name: 'fixture-host', remote: false }))
   const connection = new AbortController()
   const peer: PeerScope = { id: 'inspect-registry-owner' as PeerId, ctx, principal: { kind: 'owner' }, interactions: 'answer', signal: connection.signal, dispose: () => Promise.resolve() }
   const stream = await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), peer, connection.signal)

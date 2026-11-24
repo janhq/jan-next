@@ -18,13 +18,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRenderSlots, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
+import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRenderSlots, PropsRuntime, PropsStore } from '@janhq/jan-client-ui-slots'
 import {
   FileTypeIcon, IconNowrapFillRegular, IconPauseOutlineRegular, IconPlayOutlineRegular,
   IconRefreshOutlineRegular, IconWrapFillRegular, Menu, Tooltip, classifyFileType,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import { pathPartsOf } from '@deepseek-ai/dsh-util-workspace-path'
+} from '@janhq/jan-client-ui-primitives'
+import { pathPartsOf } from '@janhq/jan-util-workspace-path'
 import type { TextInjected } from './face.ts'
 import { emptyFailureRecourse, failureLine } from './failure-line.ts'
 import { LoadingIndicator } from './LoadingIndicator.tsx'
@@ -52,6 +52,7 @@ export type TextPreviewProps =
   & PropsRuntime<'sidebar.right.pane.tab'>
   & PropsRenderSlots<
     | 'sidebar.right.tab.document' | 'sidebar.right.tab.document.action' | 'sidebar.right.tab.document.actions'
+    | 'sidebar.right.tab.document.view-actions'
     | 'sidebar.right.tab.document.unpreviewable'
   >
   & PropsRenderFactories
@@ -99,6 +100,7 @@ export function TextPreview({
     set([])
   }, [set, selected?.id])
   const bodyRef = useRef<HTMLDivElement | null>(null)
+  const getSurface = useCallback(() => bodyRef.current, [])
   const scrollportRef = useRef<HTMLElement | null>(null)
   const storedScrollTopRef = useRef(0)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -338,6 +340,8 @@ export function TextPreview({
             </Tooltip>
           )}
           {content !== undefined && renderSlot('sidebar.right.tab.document.action', { content }, { entryKey: selected.id, hookContext: useTabInfo })}
+          {tab.visible && content !== undefined && hasContent
+            && renderSlot('sidebar.right.tab.document.view-actions', { getSurface })}
           <span hidden>
             <Tooltip label={t(state.autoRefresh ? 'autoRefresh.disable' : 'autoRefresh.enable')} side="bottom" delayMs={500}>
               <button type="button" className={css.tool} aria-label={t('autoRefresh')}

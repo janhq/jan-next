@@ -2,15 +2,37 @@
  * Public session-reference request, candidate, and preparation records.
  * Imports stay on type-only subpaths so generated Remote clients can consume
  * this module without Host runtime code.
- * @module @deepseek-ai/dsh-session-reference/types
+ * @module @janhq/jan-session-reference/types
  */
 
-import type { UserMessage } from '@deepseek-ai/dsh-llm/message'
-import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
-import type { OptionalSessionSeq, SessionId } from '@deepseek-ai/dsh-session/types'
+import type { UserMessage } from '@janhq/jan-llm/message'
+import type { ContentBlock } from '@janhq/jan-llm/types'
+import type { OptionalSessionSeq, SessionId } from '@janhq/jan-session/types'
 
-/** Durable source session, cited event seqs, and snapshot facts for prepared cross-session context. */
-export interface SessionReferenceSource {
+/**
+ * The chats one direct message pointed at. Their content is not loaded: the
+ * model reads a mentioned chat on demand with `read_chat`.
+ */
+export interface SessionReferencePointerSource {
+  kind: 'session-reference'
+  /** Material about another session's log (`recall` context form). */
+  form: 'recall'
+  version: 2
+  references: {
+    sessionId: string
+    label: string
+    /** The mentioned chat's project folder; null when it has none or no longer exists. */
+    cwd: string | null
+    inputIndex: number
+  }[]
+}
+
+/**
+ * Durable source session, cited event seqs, and snapshot facts recorded by
+ * Hosts that loaded a bounded preview of each mentioned chat. No longer
+ * written; logs that hold it stay readable.
+ */
+export interface SessionReferenceSnapshotSource {
   kind: 'session-reference'
   /** Material lifted out of another session's log (`recall` context form). */
   form: 'recall'
@@ -31,7 +53,10 @@ export interface SessionReferenceSource {
   }[]
 }
 
-declare module '@deepseek-ai/dsh-llm' {
+/** Session-reference context in a log: a pointer, or a preview from older Hosts. */
+export type SessionReferenceSource = SessionReferencePointerSource | SessionReferenceSnapshotSource
+
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'session-reference': SessionReferenceSource
   }
@@ -67,7 +92,7 @@ export interface SessionReferenceCandidate {
 
 /** One discovery candidate carrying its canonical prompt mention. */
 export interface SessionReferenceMentionCandidate extends SessionReferenceCandidate {
-  /** Canonical `@[label](dsh-session:…)` mention serialized into the prompt draft. */
+  /** Canonical `@[label](jan-session:…)` mention serialized into the prompt draft. */
   mention: string
 }
 
@@ -75,14 +100,14 @@ export interface SessionReferenceMentionCandidate extends SessionReferenceCandid
 export interface PreparedReferencedMessage {
   /** Readable message content after host mention tokens are removed. */
   content: ContentBlock[]
-  /** Aggregated untrusted snapshot, absent when the message has no references. */
+  /** The pointer naming each mentioned chat, absent when the message has no references. */
   additionalContext?: UserMessage
 }
 
-/** Text-only projected conversation item. */
+/** One message of a mentioned chat as `read_chat` reads it. */
 export interface ReferencedConversationItem {
   /** Original message role. */
   role: 'user' | 'assistant'
-  /** Visible text retained from that message. */
+  /** Visible text of that message. */
   text: string
 }

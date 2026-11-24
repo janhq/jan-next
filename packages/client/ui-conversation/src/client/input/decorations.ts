@@ -1,6 +1,5 @@
 /**
- * Plain-text reference scan (the plain-text-reference decision;
- * see .agents/notes/archived/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md):
+ * Plain-text reference scan (the plain-text-reference decision):
  * a `/name` or `@name` token whose name is on the trigger's lexicon, and
  * syntax-recognizable `@path` file and folder tokens. Pure derivation — the editor's
  * text-ref entity transform consumes these ranges; editing the text out of
@@ -8,8 +7,7 @@
  */
 
 /**
- * One plain-text reference range (the plain-text-reference decision;
- * see .agents/notes/archived/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md):
+ * One plain-text reference range (the plain-text-reference decision):
  * a `/name` or `@name` token whose name is on the trigger's lexicon, or an
  * `@path` file or folder token. Pure derivation — editing the text out of
  * match shape simply drops the range next scan.
@@ -60,7 +58,7 @@ function pathEnd(draft: string, start: number, token: string): number | undefine
 }
 /**
  * What may follow a `/name` token: whitespace or the draft end, the boundary
- * the host skill gesture (`dsh-tool-skill`) requires, so `/nfs-hg/xxx`,
+ * the host skill gesture (`jan-tool-skill`) requires, so `/nfs-hg/xxx`,
  * `/plan.md`, and `/plan。` are prose, never a reference.
  */
 const SLASH_TOKEN_END_RE = /^(?:\s|$)/

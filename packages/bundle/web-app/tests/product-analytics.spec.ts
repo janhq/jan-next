@@ -1,13 +1,13 @@
-import OTel from '@deepseek-ai/dsh-otel'
+import OTel from '@janhq/jan-otel'
 /** tokamak-harness: product telemetry, analytics, and message ratings stay unmounted on every profile. */
 import { createServer } from 'node:http'
 import { once } from 'node:events'
 import { fileURLToPath } from 'node:url'
-import { Context } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import { loadOverlayPatches } from '@deepseek-ai/dsh-app-boot'
-import * as Telemetry from '@deepseek-ai/dsh-host-product-telemetry-otel'
-import Analytics from '@deepseek-ai/dsh-client-product-analytics'
+import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import { loadOverlayPatches } from '@janhq/jan-app-boot'
+import * as Telemetry from '@janhq/jan-host-product-telemetry-otel'
+import Analytics from '@janhq/jan-client-product-analytics'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 
 afterEach(() => { vi.unstubAllEnvs() })
@@ -20,8 +20,8 @@ it.each(['desktop', 'web'])('never mounts product telemetry or analytics: %s', a
   onTestFinished(async () => { const closed = once(server, 'close'); server.close(); server.closeAllConnections(); await closed })
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('missing collector address')
-  vi.stubEnv('DSH_CLIENT_VERSION', 'test-version')
-  vi.stubEnv('DSH_PRODUCT_ANALYTICS_OTLP_URL', `http://127.0.0.1:${address.port}/logs`)
+  vi.stubEnv('JAN_CLIENT_VERSION', 'test-version')
+  vi.stubEnv('JAN_PRODUCT_ANALYTICS_OTLP_URL', `http://127.0.0.1:${address.port}/logs`)
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
   ctx.provide('profileContext', {
@@ -29,7 +29,7 @@ it.each(['desktop', 'web'])('never mounts product telemetry or analytics: %s', a
     cwd: '/workspace', home: '/home', startedBundles: [], overlays: [], telemetryDisabledEnv: undefined,
   })
   const identity = vi.fn().mockResolvedValue(undefined)
-  ctx.provide('deepseekAccount', { getDeviceIdentity: identity } as never)
+  ctx.provide('tokamakAccount', { getDeviceIdentity: identity } as never)
   await ctx.plugin(OTel)
   ctx.baseUrl = 'file:///'
   await ctx.plugin(Loader).await()
@@ -57,6 +57,6 @@ it('does not mount the message rating surface', () => {
   const rows = loadOverlayPatches('ratings', fileURLToPath(new URL('../cordis.patch.yml', import.meta.url)))
     .flatMap(patch => patch.insert ?? [])
   expect(rows.find(row => row.id === 'ui-message-feedback')).toMatchObject({
-    name: '@deepseek-ai/dsh-client-ui-message-feedback', disabled: true,
+    name: '@janhq/jan-client-ui-message-feedback', disabled: true,
   })
 })

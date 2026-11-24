@@ -1,9 +1,9 @@
 /** Browser conversation preferences. */
-import type {} from '@deepseek-ai/dsh-settings'
+import type {} from '@janhq/jan-settings'
 
-import type { Volatile, Context } from '@deepseek-ai/cordis'
+import type { Volatile, Context } from '@janhq/cordis'
 import type { BusyEnterBehavior } from './submission-settings.ts'
-import z from '@deepseek-ai/schemastery'
+import z from '@janhq/schemastery'
 import { BUSY_ENTER_FIELD } from './submission-settings.ts'
 
 import { ConversationSettingsFields } from './submission-settings.ts'
@@ -17,10 +17,13 @@ export {
 export interface Config {
   /** Enter key behavior while a turn is running. */
   busyEnter: Volatile<BusyEnterBehavior>
+  /** Product copy for the empty-conversation composer; the dictionary text when unset. */
+  heroPlaceholder?: Volatile<string>
 }
 
 /** Live preferences projected to the browser. */
 export const Config = z.object({
+  heroPlaceholder: z.string().volatile(),
   [BUSY_ENTER_FIELD]: ConversationSettingsFields[BUSY_ENTER_FIELD].volatile(),
 })
 

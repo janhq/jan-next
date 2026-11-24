@@ -5,7 +5,10 @@ packages:
   # its native build and publication scripts under native/system.
   - native/system
   - native/system/packages/*
-  # Product assemblies over the package tier; apps/cli owns the `dsh` bin.
+  # Hand-written JavaScript plugins and the desktop bundle that mounts them;
+  # they ship their sources as-is, outside the TypeScript build of packages/*/*.
+  - plugins/*
+  # Product assemblies over the package tier; apps/cli owns the `jan` bin.
   - apps/*
   # Private package owning repository-level benchmark dependencies.
   - benchmarks
@@ -16,8 +19,20 @@ packages:
 
 overrides:
   'extract-zip>yauzl': '3.4.0'
-  '@deepseek-ai/cosmokit': 'link:vendor/cosmokit'
-  '@deepseek-ai/schemastery': 'link:vendor/schemastery'
+  'selfsigned>node-forge': '1.4.3'
+  '@modelcontextprotocol/sdk': '1.32.0'
+  'express@5>body-parser': '2.4.0'
+  'node-gyp>undici': '6.29.1'
+  '@electron/get>undici': '7.30.1'
+  '@yao-pkg/pkg-fetch>undici': '7.30.1'
+  'jsdom>undici': '7.30.1'
+  '@botiverse/oar>undici': '8.12.2'
+  '@earendil-works/pi-coding-agent>undici': '8.12.2'
+  'http-proxy>follow-redirects': '1.16.2'
+  happy-dom: '21.0.4'
+  'zod@>=4 <4.6.6': '4.6.6'
+  '@janhq/cosmokit': 'link:vendor/cosmokit'
+  '@janhq/schemastery': 'link:vendor/schemastery'
 
 peerDependencyRules:
   allowedVersions:
@@ -46,13 +61,16 @@ allowBuilds:
   koffi: true
   # The Python runtime deploy includes the reviewed workspace postinstall that
   # restores the executable bit on node-pty's macOS spawn helper.
-  '@deepseek-ai/dsh-subprocess-local@file:packages/subprocess/subprocess-local': true
+  '@janhq/jan-subprocess-local@file:packages/subprocess/subprocess-local': true
   # electron-builder pulls in the optional Squirrel.Windows helper, whose
   # install script only selects its bundled 7-Zip executable. Desktop ships
   # Windows through NSIS, so that mutation is not part of our build.
   electron-winstaller: false
   # Store-index rewriting only needs msgpackr's portable JavaScript codec.
   msgpackr-extract: false
+  # Desktop packaging copies agent-desktop's prebuilt, checksummed executables
+  # from the tarball; its postinstall would only download the same files again.
+  agent-desktop: false
 
 minimumReleaseAgeExclude:
   # Native Codex and Claude tests qualify this exact release with its local patches.

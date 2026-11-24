@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { gatesForMode } from '../run-gates.ts'
 
 const root = resolve(import.meta.dirname, '../..')
-const masterPush = "github.event_name == 'push' && github.ref == 'refs/heads/master'"
+const masterPush = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
 const runtimeBuilder = './.github/workflows/build-exe-for-python-sdk.yml'
 
 interface Job {
@@ -99,14 +99,14 @@ describe('master-only platform scheduling', () => {
 
   it('runs all three deferred carriers on master pushes with fail-loud API credentials', () => {
     const master = workflow('ci-master.yml')
-    expect(master.on.push).toEqual({ branches: ['master'] })
+    expect(master.on.push).toEqual({ branches: ['main'] })
     expect(Object.keys(master.on).sort()).toEqual(['push', 'workflow_dispatch'])
     const runtime = master.jobs['python-runtime']!
     expect(runtime).toMatchObject({
       if: masterPush,
       uses: runtimeBuilder,
       with: { ci: true, targets: 'node24-linux-arm64,node24-macos-arm64,node24-macos-x64' },
-      secrets: { DEEPSEEK_API_KEY_EXTERNAL: '${{ secrets.DEEPSEEK_API_KEY_EXTERNAL }}' },
+      secrets: { TOKAMAK_API_KEY: '${{ secrets.TOKAMAK_API_KEY }}' },
     })
     expect(runtime.needs).toBeUndefined()
     expect(runtime['continue-on-error']).toBeUndefined()
@@ -120,14 +120,18 @@ describe('master-only platform scheduling', () => {
     expect(preflight.if).toContain("github.event_name != 'pull_request'")
     expect(preflight.if).toContain('github.event.pull_request.head.repo.fork')
     expect(preflight.if).toContain("github.event.pull_request.user.login == 'dependabot[bot]'")
-    expect(preflight.run).toContain('exit 1')
+    // An unconfigured secret disables the real-API test with a notice instead of failing the run.
+    expect(preflight.run).toContain('::notice')
+    expect(preflight.run).toContain('configured=false')
+    const live = build.steps!.find(step => step.name === 'Run installed-wheel real API black-box test (POSIX)')!
+    expect(live.if).toContain("steps.live-preflight-posix.outputs.configured == 'true'")
   })
 
   it('runs Wine once on hosted master CI and seeds its own apt cache', () => {
     const master = workflow('ci-master.yml')
     const wine = master.jobs.windows!
     expect(wine).toMatchObject({
-      if: "(github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && inputs.suite == 'wine')",
+      if: "(github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.suite == 'wine')",
       'runs-on': 'ubuntu-latest',
     })
     expect(wine.needs).toBeUndefined()

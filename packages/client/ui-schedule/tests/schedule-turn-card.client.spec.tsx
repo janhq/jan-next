@@ -6,18 +6,18 @@
  */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import { makeTranslate } from '@janhq/jan-client-test-runtime'
 import {
   ConversationNodeAssembler, type ConversationLocationDataSource, type ConversationLocationDataStore,
   type ConversationMatch, type ConversationNodeDefinition, type ConversationStartMatch,
   type ConversationTimelineSnapshot, type ConversationTurnDataMap,
   type ConversationViewDefinition, type ConversationViewNode, type ToolResultNode, type TurnLocation,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { SessionLiveEventEntry } from '@deepseek-ai/dsh-api-session-controller/client'
-import { createToolResultMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
-import type { ScheduleId, ScheduleCatalogEntry } from '@deepseek-ai/dsh-schedule/client'
-import { PartialArguments } from '@deepseek-ai/dsh-util-values'
+} from '@janhq/jan-client-ui-conversation/client'
+import type { SessionLiveEventEntry } from '@janhq/jan-api-session-controller/client'
+import { createToolResultMessage, ToolCallId } from '@janhq/jan-llm'
+import type { SessionEvent, SessionId } from '@janhq/jan-session/types'
+import type { ScheduleId, ScheduleCatalogEntry } from '@janhq/jan-schedule/client'
+import { PartialArguments } from '@janhq/jan-util-values'
 import type { CatalogSnapshot } from '../src/client/catalog-source.ts'
 import { ScheduleTurnCard, type ScheduleTurnCardProps } from '../src/client/ScheduleTurnCard.tsx'
 import { zoneLabel } from '../src/client/schedule-format.ts'

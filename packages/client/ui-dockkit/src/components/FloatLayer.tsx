@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import clsx from 'clsx'
-import { IconCloseOutlineRegular, IconPanelLeftOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseOutlineRegular, IconPanelLeftOutlineRegular, Tooltip } from '@janhq/jan-client-ui-primitives'
 import type { DockIntents, DockLabels, TabRenderer } from '../contract/adapter.ts'
 import type { FloatRect, LayoutState, PaneId, TabId, TabRecord } from '../contract/types.ts'
 import { FLOAT_MIN_SIZE } from '../engine/constraints.ts'
@@ -82,7 +82,7 @@ function floatBounds(): FloatBounds {
   // Desktop publishes the caption height in pixels on the root's inline style;
   // a root without it keeps the 20px floor.
   const caption = windows && !root.hasAttribute('data-fullscreen')
-    ? Number.parseFloat(root.style.getPropertyValue('--dsh-windows-titlebar-height')) : 0
+    ? Number.parseFloat(root.style.getPropertyValue('--jan-windows-titlebar-height')) : 0
   return { top: windows ? (Number.isFinite(caption) ? caption : 0) + 20 : 0, width: window.innerWidth, height: window.innerHeight }
 }
 
@@ -144,10 +144,10 @@ interface Settling {
 export function floatStyle(rect: FloatRect, lifted: boolean): CSSProperties {
   if (lifted) return { left: rect.x, top: rect.y, width: rect.width, height: rect.height }
   return {
-    '--dsh-dockkit-float-x': `${rect.x}px`,
-    '--dsh-dockkit-float-y': `${rect.y}px`,
-    '--dsh-dockkit-float-width': `${rect.width}px`,
-    '--dsh-dockkit-float-height': `${rect.height}px`,
+    '--jan-dockkit-float-x': `${rect.x}px`,
+    '--jan-dockkit-float-y': `${rect.y}px`,
+    '--jan-dockkit-float-width': `${rect.width}px`,
+    '--jan-dockkit-float-height': `${rect.height}px`,
   } as CSSProperties
 }
 
@@ -311,12 +311,13 @@ export function useFloatGestures(state: LayoutState, intents: DockIntents) {
  * @param props - owning pane/tab, localized labels and gesture callbacks.
  * @returns the float header without a content container.
  */
-export function FloatHeader({ paneId, tab, labels, intents, renderTabTitle, canCloseTab, drag }: {
+export function FloatHeader({ paneId, tab, labels, intents, renderTabTitle, renderTabActions, canCloseTab, drag }: {
   readonly paneId: PaneId
   readonly tab: TabRecord
   readonly labels: DockLabels
   readonly intents: DockIntents
   readonly renderTabTitle: TabRenderer | undefined
+  readonly renderTabActions?: TabRenderer | undefined
   readonly canCloseTab: ((id: TabId) => boolean) | undefined
   readonly drag: ReturnType<typeof useFloatGestures>['drag']
 }): ReactNode {
@@ -327,6 +328,11 @@ export function FloatHeader({ paneId, tab, labels, intents, renderTabTitle, canC
         <TabTitle>{renderTabTitle?.(tab) ?? tab.title}</TabTitle>
       </div>
       <div className={css.stripFill} />
+      {renderTabActions !== undefined && (
+        <div className={css.stripChrome} data-dockkit-tab-actions={tab.id} onPointerDown={(event) => { event.stopPropagation() }}>
+          {renderTabActions(tab)}
+        </div>
+      )}
       <Tooltip label={labels.dockFloat} side="bottom" delayMs={500}>
         <button type="button" className={css.iconButton} aria-label={labels.dockFloat}
           data-dockkit-float-dock={paneId} onPointerDown={(event) => { event.stopPropagation() }}

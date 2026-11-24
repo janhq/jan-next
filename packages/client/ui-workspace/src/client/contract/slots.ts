@@ -11,13 +11,13 @@
  * Both registrations declare a **directory-flow hole** (`single` kind): the
  * slot a composed picker package's client half fills with its
  * picking interaction — a renderless native-chooser driver or an in-app
- * browsing dialog. ui-workspace owns the trigger (the "Add workspace…"
- * entry, present only while the hole is occupied) and the adoption
- * semantics (`createWorkspace({ path })`, the retryable error dialog,
- * Choose again); the occupant owns everything between `open` and the picked path,
- * including creating a new directory to hand back. That occupant-owned
- * creation is why adding a workspace has a single route: an unoccupied hole
- * leaves the surface with no add affordance at all.
+ * browsing dialog. ui-workspace owns the trigger (the new-project menu's
+ * Use existing folder and Browse folders rows, present only while the hole
+ * is occupied) and the adoption semantics (`createWorkspace({ path })`, the
+ * retryable error dialog, Choose again); the occupant owns everything
+ * between `open` and the picked path. The menu's New folder action creates
+ * the folder through `createDirectory` and uses the flow only to choose its
+ * parent.
  * Two holes exist because the two menu surfaces are independent slot entries
  * and a hole has exactly one declaring entry — they carry the same owner
  * contract and the same occupant.
@@ -34,35 +34,82 @@
  * the row's Session identity; a Session binding would activate and retain
  * every listed Session.
  */
-import type { ContextMenuTarget } from '@deepseek-ai/dsh-client-ui-context-menu/client'
+import type { ReactNode, RefObject } from 'react'
+import type { ContextMenuTarget } from '@janhq/jan-client-ui-context-menu/client'
 import type {
   HostObservable, InjectFace, PropsHooks, PropsLocale, PropsRenderFactories, PropsRenderSlots, PropsRuntime, PropsStore, SlotHookFactory,
-} from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-slots'
 // Type-only: pull the owner SlotMap merges into programs that resolve the
 // runtime shares below.
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type { SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { RemoteHostFacts } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SessionActivity, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
+import type { } from '@janhq/jan-client-ui-sidebar/client'
+import type { } from '@janhq/jan-client-ui-conversation/client'
+import type { } from '@janhq/jan-client-ui-layout/client'
+import type { SessionSearchResultItem } from '@janhq/jan-api-session-controller/client'
+import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
+import type { SessionActivity, WorkspaceId, WorkspaceUpdateRequest, WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { ShortcutCatalogEntry, ShortcutPlatform } from '@janhq/jan-client-shortcuts/client'
 import type { WorkspaceShortcutState } from '../shortcuts.ts'
 import type { StartSessionOptions } from '../navigation.ts'
-import type {} from './toast.ts'
+import type { } from './toast.ts'
 import type { createWorkspaceViewStore } from '../stores.ts'
+import type { RemoteMachineSource } from '../remote-machines.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-context-menu/client' {
+/** Primary actions retain the browser's shared picker anchor and shortcuts. */
+export interface WorkspaceActionsOwnerProps {
+  wide: boolean
+  canAddWorkspace: boolean
+  onSearch: () => void
+  onAddWorkspace: () => void
+  addWorkspaceButtonRef: RefObject<HTMLButtonElement>
+  searchLabel: string
+  addWorkspaceLabel: string
+  searchShortcut: ShortcutCatalogEntry | undefined
+  addWorkspaceShortcut: ShortcutCatalogEntry | undefined
+}
+
+/** Keep search mounted while wide; it contains the browser-owned input and refs. */
+export interface WorkspaceHeaderOwnerProps {
+  wide: boolean
+  heading: string
+  canAddWorkspace: boolean
+  onSearch: () => void
+  onAddWorkspace: () => void
+  addWorkspaceButtonRef: RefObject<HTMLButtonElement>
+  searchExpanded: boolean
+  search: ReactNode
+  viewOptions: ReactNode
+  primaryActions: boolean
+}
+
+declare module '@janhq/jan-client-ui-slots' {
+  interface SlotMap {
+    /**
+     * Replaces the sidebar's primary actions (search and add workspace). The component receives the
+     * handlers, labels, shortcuts, and the add button ref the folder picker anchors to; keep that ref on
+     * the rendered button. Absent, the built-in action row renders.
+     */
+    'sidebar.workspaces.actions': { kind: 'single'; scope: 'root'; owner: WorkspaceActionsOwnerProps }
+    /**
+     * Replaces the session list header. The component receives the heading, the browser-owned `search`
+     * and `viewOptions` nodes, and whether search is expanded; render both nodes so their state survives.
+     */
+    'sidebar.workspaces.header': { kind: 'single'; scope: 'root'; owner: WorkspaceHeaderOwnerProps }
+    /** First rows beneath each expanded, registered Workspace, before ordinary Sessions. */
+    'sidebar.workspaces.group.leading': { kind: 'list'; scope: 'root'; owner: { readonly workspaceId: WorkspaceId } }
+  }
+}
+
+declare module '@janhq/jan-client-ui-context-menu/client' {
   interface ContextMenuTargetMap {
     /** Registered Workspace header; path and title belong to the clicked row. */
     workspace: { readonly workspaceId: WorkspaceId; readonly path: string; readonly displayTitle: string }
   }
 }
 
-/** One request for the existing Workspace rename or delete dialog. */
+/** One captured request for a Workspace management dialog. */
 export type WorkspaceActionRequest = {
-  readonly action: 'rename' | 'delete'
+  readonly action: 'rename' | 'update' | 'delete'
   readonly workspaceId: WorkspaceId
   readonly displayTitle: string
   readonly storedTitle: string
@@ -131,7 +178,7 @@ export interface SessionRowTrailingOwnerProps {
   readonly sessionId: SessionId
 }
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     /** Directory-flow hole under the conversation empty-state picker (declared by the WorkspacePicker entry). */
     'conversation.hero.workspace.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
@@ -195,10 +242,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
       scope: 'root'
       owner: SessionRowOwnerProps
       hookContext: MenuOpenState
-      inject: { hooks: {
-        menuOpenState: SlotHookFactory<'sidebar.workspaces.session.menu.item', UseMenuOpenState>
-        shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
-      } }
+      inject: {
+        hooks: {
+          menuOpenState: SlotHookFactory<'sidebar.workspaces.session.menu.item', UseMenuOpenState>
+          shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
+        }
+      }
     }
     /**
      * The hover buttons at the end of one Session row, in ascending `order`,
@@ -229,7 +278,16 @@ export type DirectoryPickingInjected = {
   hooks: {
     /** True while this surface's directory-flow hole is occupied. */
     directoryFlow: HostObservable<boolean>
+    /** The registered remote computer source; undefined hides the menu's Remote row. */
+    remoteMachines: HostObservable<RemoteMachineSource | undefined>
   }
+  /**
+   * Create a folder on this Host for the menu's New folder action.
+   * @param parent - existing parent directory.
+   * @param name - new folder name.
+   * @returns the created absolute path.
+   */
+  createDirectory: (parent: string, name: string) => Promise<string>
 }
 
 /** Component-side view of the picking share: the bound occupancy selector hook. */
@@ -240,10 +298,12 @@ export type DirectoryPickingHooks = PropsHooks<DirectoryPickingInjected['hooks']
  * Data reads use the global framework hooks; these are the Host actions the
  * browsing region drives.
  */
-export type WorkspaceBrowserInjected = {
+export type WorkspaceBrowserInjected = Pick<DirectoryPickingInjected, 'createDirectory'> & {
+  addWorkspaceButtonRef: RefObject<HTMLButtonElement>
   /** Dismiss the settled Workspace dialog. */
   settleWorkspaceAction: () => void
   hooks: DirectoryPickingInjected['hooks'] & {
+    primaryActions: HostObservable<boolean>
     workspaceActionRequest: HostObservable<WorkspaceActionRequest | null>
     contextMenuTarget: HostObservable<ContextMenuTarget | null>
     /**
@@ -255,7 +315,16 @@ export type WorkspaceBrowserInjected = {
     hostInfo: HostObservable<RemoteHostFacts>
     workspaceShortcuts: HostObservable<WorkspaceShortcutState>
     shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
+    /** Whether a project surface takes Workspace row clicks; the chevron then owns expand and collapse. */
+    projectSurface: HostObservable<boolean>
+    /** Active Sessions whose sidebar presentation is supplied by a plugin. */
+    hiddenSessions: HostObservable<ReadonlySet<SessionId>>
   }
+  /**
+   * Open the registered project surface for a Workspace row.
+   * @param workspaceId - the clicked Workspace.
+   */
+  openProject: (workspaceId: WorkspaceId) => void
   /** Open the browser search and focus its input. */
   requestSearch: () => void
   /** Request the existing directory picker. */
@@ -266,12 +335,12 @@ export type WorkspaceBrowserInjected = {
   setDirectoryBusy: (busy: boolean) => void
   /**
    * Create a fresh Session, or preserve a reusable blank with explicit draft options.
-   * Without an explicit Workspace, inherit the current Session Workspace,
-   * then the recent Workspace, or clear into the New Session view.
+   * Without an explicit Workspace, use the open project, current Session's
+   * Workspace, or most recent Workspace, or clear into the New Session view.
    */
   startSession: (workspaceId?: WorkspaceId, options?: StartSessionOptions) => void
-  /** Open a real Session. */
-  open: (sessionId: SessionId) => void
+  /** Open a real Session. Pointer modifiers apply the platform's new-tab gesture. */
+  open: (sessionId: SessionId, modifiers?: { readonly meta: boolean; readonly control: boolean }) => void
   /**
    * Search current visible conversation messages. The Host fixes the result
    * bound; `hasMore` means the query needs narrowing.
@@ -288,6 +357,10 @@ export type WorkspaceBrowserInjected = {
   notifyArchivedNotOpenable: () => void
   /** Rename a Host Workspace (rejects on name conflict; resolves on durability). */
   renameWorkspace: (workspaceId: WorkspaceId, title: string) => Promise<void>
+  /** Save only the changed project identity fields. */
+  updateWorkspaceIdentity: (request: WorkspaceUpdateRequest) => Promise<void>
+  /** Window platform for the system emoji-picker hint. */
+  shortcutPlatform: ShortcutPlatform
   /** Delete only a Host Workspace registration; directory and Session logs remain. */
   deleteWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /**
@@ -298,7 +371,9 @@ export type WorkspaceBrowserInjected = {
   /** Remove a Session from the registry-global archived set (the search results' restore button). */
   unarchiveSession: (sessionId: SessionId) => Promise<void>
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
-  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  createWorkspace: (input: { path: string; hostId?: string }) => Promise<WorkspaceView>
+  /** Raise the outcome notice of a folder dropped on the Sidebar. */
+  notifyFolderDrop: (notice: FolderDropNotice) => void
 }
 
 /** The browser's declared viewing store handle, shared with the row actions that write view state. */
@@ -326,6 +401,12 @@ export type RowToast =
   | { kind: 'unpinFailed' }
   | { kind: 'archivedNotOpenable' }
   | { kind: 'defaultWorkspaceFailed' }
+  /** A folder dropped on the sidebar was adopted (or was already) a Workspace. */
+  | { kind: 'folderAdded'; title: string }
+  /** A sidebar drop held no directory with a host path. */
+  | { kind: 'folderDropNotFolder' }
+  /** Adopting a dropped folder failed; `message` is untranslated. */
+  | { kind: 'folderDropFailed'; message: string }
   | { kind: 'forkRequiresOpen'; sessionId: SessionId }
   | { kind: 'shortcutForkFailed'; reason: 'unavailable' | 'failed' }
   /**
@@ -334,6 +415,9 @@ export type RowToast =
    * a report can be searched by it — and any other failure's own message.
    */
   | { kind: 'createFailed'; message: string }
+
+/** Notices a folder dropped on the Sidebar can raise. */
+export type FolderDropNotice = Extract<RowToast, { kind: 'folderAdded' | 'folderDropNotFolder' | 'folderDropFailed' }>
 
 /** The notice on display; `seq` keys remounts so a repeated notice restarts its hold. */
 export type RowToastState = RowToast & { seq: number }
@@ -496,7 +580,9 @@ export type WorkspaceBrowserProps =
   PropsRuntime<'sidebar.workspaces'>
   & PropsRenderFactories
   & PropsRenderSlots<
+    | 'sidebar.workspaces.header'
     | 'sidebar.workspaces.directoryFlow'
+    | 'sidebar.workspaces.group.leading'
     | 'sidebar.workspaces.session.row.action'
     | 'sidebar.session.row.trailing'
     | 'sidebar.session.row.leading'
@@ -514,7 +600,11 @@ export type WorkspaceBrowserProps =
  */
 export type WorkspacePickerInjected = DirectoryPickingInjected & {
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
-  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  createWorkspace: (input: { path: string; hostId?: string }) => Promise<WorkspaceView>
+  hooks: {
+    /** Fixed Host facts; the picker heads its menu with the Host's computer name. */
+    hostInfo: HostObservable<RemoteHostFacts>
+  }
 }
 
 /**

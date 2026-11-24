@@ -8,11 +8,11 @@
  * capability kind. The dialog's copy is locale-registered here — the flow
  * package owns its own strings.
  */
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { Context as ClientContext } from '@janhq/cordis'
 // Type-only: pulls the SlotMap merge declaring the directory-flow holes.
-import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type {} from '@janhq/jan-client-ui-workspace/client'
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
 import type { BrowseFlowInjected } from './flow.ts'
 import { BrowseDirectoryFlow } from './flow.ts'
 
@@ -166,6 +166,7 @@ export function apply(ctx: ClientContext): void {
   }, 'directory-picker-browse: dialog dictionaries')
 
   const injected = (): BrowseFlowInjected => ({
+    Browser: ctx.uiWorkspace.DirectoryBrowser,
     listDirectory: (path, signal) => ctx.uiWorkspace.listDirectory(path, signal),
     createDirectory: (path, name) => ctx.uiWorkspace.createDirectory(path, name),
     t: ctx.locale.bind(LOCALE_NS),

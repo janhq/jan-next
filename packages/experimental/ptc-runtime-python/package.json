@@ -1,10 +1,10 @@
 {
-  "name": "@deepseek-ai/dsh-experimental-ptc-runtime-python",
+  "name": "@janhq/jan-experimental-ptc-runtime-python",
   "description": "CPython subprocess implementation of the Jan PTC execution seam",
   "version": "0.2.2-rc.1",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/experimental/ptc-runtime-python"
   },
   "type": "module",
@@ -26,26 +26,26 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/dsh-ptc-runtime": "workspace:*",
-    "@deepseek-ai/dsh-timeout": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/dsh-sandbox": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-policy": "workspace:*"
+    "@janhq/jan-ptc-runtime": "workspace:*",
+    "@janhq/jan-timeout": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/jan-sandbox": "workspace:*",
+    "@janhq/jan-sandbox-policy": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-ptc-runtime": "workspace:*",
-    "@deepseek-ai/dsh-timeout": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/dsh-sandbox": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-policy": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-local": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*"
+    "@janhq/jan-ptc-runtime": "workspace:*",
+    "@janhq/jan-timeout": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/jan-sandbox": "workspace:*",
+    "@janhq/jan-sandbox-policy": "workspace:*",
+    "@janhq/jan-sandbox-local": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-session": "workspace:*"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "workspace:~"
+    "@janhq/schemastery": "workspace:~"
   },
   "publishConfig": {
     "access": "public"

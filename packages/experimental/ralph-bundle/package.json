@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-experimental-ralph-bundle",
+  "name": "@janhq/jan-experimental-ralph-bundle",
   "description": "Run explicitly requested repeated work with fresh agents.",
   "version": "0.2.2-rc.1",
   "icon": "./icon.svg",
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/experimental/ralph-bundle"
   },
   "type": "module",
@@ -33,20 +33,20 @@
     "lib/types/**/*.d.ts"
   ],
   "license": "MIT",
-  "dsh": {
+  "jan": {
     "bundle": {
       "patch": "./cordis.patch.yml",
       "listedByDefault": false
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh-tool-ralph": "workspace:*",
-    "@deepseek-ai/dsh-workflow-ptc": "workspace:*"
+    "@janhq/jan-tool-ralph": "workspace:*",
+    "@janhq/jan-workflow-ptc": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   }
 }

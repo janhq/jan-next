@@ -3,15 +3,15 @@
 // TestSessions mints tagged scopes through the production createScope, so the
 // service's scopeOf/binding path runs against production resolution (no local
 // tag probe).
-import type { UserMessage } from '@deepseek-ai/dsh-llm/types'
-import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
-import { Context } from '@deepseek-ai/cordis'
+import type { UserMessage } from '@janhq/jan-llm/types'
+import type { MessageId } from '@janhq/jan-llm/brand'
+import { Context } from '@janhq/cordis'
 import { describe, expect, it, vi } from 'vitest'
-import { makeTranslate, RemoteError, SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
+import { makeTranslate, RemoteError, SlotTestRuntime } from '@janhq/jan-client-test-runtime'
 import type {
   BeginSubmissionInput, PendingSubmissionRetirement,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+} from '@janhq/jan-api-session-controller/client'
+import type { SessionId } from '@janhq/jan-session/types'
 import { ComposerBlockRegistry } from '../src/client/input/blocks.ts'
 import { InputHub } from '../src/client/input/hub.ts'
 import { reportMessageSubmission } from '../src/client/input/submission-analytics.ts'
@@ -75,6 +75,28 @@ async function bench(maxConcurrentFileUploads = 2) {
 }
 
 describe('ConversationController', () => {
+  it('appends an external capture to its owning draft without submitting', async () => {
+    const b = await bench()
+    const created = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:capture')
+    const revoked = vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined)
+    try {
+      const file = new File([Uint8Array.of(1)], 'capture.png', { type: 'image/png' })
+      b.shell.setDraft('Keep this draft')
+      expect(b.root.appendDraft('missing' as SessionId, 'Wrong session', [file])).toBe('unavailable')
+      expect(b.root.appendDraft('s1' as SessionId, 'Inspect this element', [file])).toBe('added')
+      expect(b.shell.snapshot.draft).toBe('Keep this draft\nInspect this element')
+      expect(b.root.resolveDraftAttachments(b.shell.snapshot.attachmentIds)).toMatchObject([{ kind: 'image', file }])
+      expect(b.prompt).not.toHaveBeenCalled()
+      b.shell.submit()
+      expect(b.root.appendDraft('s1' as SessionId, 'Busy', [file])).toBe('blocked')
+      expect(created).toHaveBeenCalledOnce()
+    } finally {
+      await b.runtime.dispose()
+      created.mockRestore()
+      revoked.mockRestore()
+    }
+  })
+
   it('does not revive a withdrawn generation when an old input submits before scoped cleanup', async () => {
     const b = await bench()
     try {

@@ -1,20 +1,23 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { allowAllAccess, makeTranslate, RemoteError, sessionSnapshot } from '@deepseek-ai/dsh-client-test-runtime'
+import { allowAllAccess, makeTranslate, RemoteError, sessionSnapshot } from '@janhq/jan-client-test-runtime'
 import type {
   SessionListState, SessionSummary, SessionSnapshot,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SubagentAddress, SubagentCatalogEntry } from '@deepseek-ai/dsh-subagent/client'
-import type { TeamProjection, TeamTaskId, TeamTaskView } from '@deepseek-ai/dsh-agent-team/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
+} from '@janhq/jan-api-session-controller/client'
+import type { SubagentAddress, SubagentCatalogEntry } from '@janhq/jan-subagent/client'
+import type { TeamProjection, TeamTaskId, TeamTaskView } from '@janhq/jan-agent-team/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { SessionStatusSnapshot } from '@janhq/jan-client-ui-session/client'
 import {
-  SubagentCatalogAction, SubagentHeaderLineage,
+  CatalogDropdown, SubagentCatalogAction, SubagentHeaderLineage,
   type SubagentCatalogActionProps, type SubagentHeaderLineageProps,
 } from '../src/client/SubagentHeaderLineage.tsx'
 import { SubagentReadOnlyComposer } from '../src/client/SubagentReadOnlyComposer.tsx'
+import { SubagentRoster } from '../src/client/SubagentRoster.tsx'
+import { TurnSubagents, type TurnSubagentsProps } from '../src/client/TurnSubagents.tsx'
+import type { TurnLocation } from '@janhq/jan-client-ui-conversation/client'
 import { en, zh } from '../src/client/locales.ts'
 
 afterEach(() => {
@@ -33,7 +36,7 @@ type HeaderCatalogProps = SubagentHeaderLineageProps
   & Pick<SubagentCatalogActionProps, 'useFooterAvailable' | 'renderSlot'>
 
 type CatalogFixtureEntry<Entry = SubagentCatalogEntry> = Entry extends SubagentCatalogEntry
-  ? Omit<Entry, 'createdAt'> & { activity: 'running' | 'inactive' }
+  ? Omit<Entry, 'createdAt'> & { activity: 'running' | 'inactive'; createdAt?: number }
   : never
 
 type CatalogFixture = {
@@ -96,7 +99,7 @@ function props(
       state: catalog.state, error: catalog.error,
       values: {
         ...catalog.team === undefined ? {} : { agentTeam: catalog.team },
-        subagentCatalog: catalog.entries.map(({ activity: _activity, ...entry }) => ({ ...entry, createdAt: 1 })),
+        subagentCatalog: catalog.entries.map(({ activity: _activity, createdAt = 1, ...entry }) => ({ ...entry, createdAt })),
       },
     }])) ,
   } satisfies SessionListState
@@ -160,6 +163,167 @@ function summary(id: SessionId, updatedAt: number): SessionSummary {
   }
 }
 
+function rosterProps(input: ReturnType<typeof props>, over: Partial<Parameters<typeof SubagentRoster>[0]> = {}) {
+  return {
+    sessionId: PARENT, hasSharedTasks: false, hasBoardContent: false, renderFooter: () => null,
+    useSessions: input.useSessions, useSessionStatus: input.useSessionStatus,
+    openChild: input.openChild, openChildAside: input.openChildAside, refreshProjection: input.refreshProjection,
+    t: makeTranslate(en), ...over,
+  }
+}
+
+describe('composer subagent roster', () => {
+  it('opens in place, shows each child with its usage, and expands one into its activity trail', () => {
+    const now = Date.now()
+    const waiting = { kind: 'waiting-inbox', at: now, seq: 3 } as const
+    const second = 'child-2' as SessionId
+    const input = props(catalog({ entries: [
+      { id: CHILD, mode: 'continuable', name: 'reader', label: 'Read the spec', activity: 'running' },
+      { id: second, mode: 'one-shot', label: 'Review', activity: 'inactive' },
+    ] }), {}, {
+      [CHILD]: {
+        ...summary(CHILD, now), running: true,
+        projectionValues: {
+          subagentActivity: { current: waiting, recent: [{ kind: 'calling-tool', tool: 'read', at: now - 500, seq: 2 }, waiting] },
+          modelSelection: { lastUsed: { provider: 'test', model: 'claude-haiku' }, next: { provider: 'test', model: 'unrequested' } },
+          subagentTiming: { settledMs: 0, active: { since: now - 20_000, through: now } },
+          tokenUsage: { uncachedInputTokens: 1_000, outputTokens: 30, cacheReadTokens: 100, cacheWriteTokens: 70 },
+        },
+      },
+      [second]: { ...summary(second, now), projectionValues: { subagentTiming: { settledMs: 0, lastTurnCompleted: true } } },
+    })
+    render(<SubagentRoster {...rosterProps(input)} />)
+    const header = screen.getByRole('button', { name: /^2 subagents/ })
+    expect(header.textContent).toBe('2 subagents1 completed\u2002·\u20021 in progress')
+    expect(document.getElementById(header.getAttribute('aria-describedby')!)?.textContent).toBe('1 subagent running')
+    expect(screen.queryByText('Read the spec')).toBeNull()
+    fireEvent.click(header)
+    expect(header.getAttribute('aria-expanded')).toBe('true')
+    const row = screen.getByRole('button', { name: /^Running.*Read the spec$/i })
+    expect(row.textContent).toContain('running')
+    expect(screen.getByText('1.2K tok')).toBeTruthy()
+    expect(screen.getByText('20s')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^Completed.*Review$/i })).toBeTruthy()
+    expect(screen.queryByText('Calling read')).toBeNull()
+    fireEvent.click(row)
+    expect(row.getAttribute('aria-expanded')).toBe('true')
+    expect(input.refreshProjection).toHaveBeenCalledWith(CHILD)
+    expect(screen.getByText('Calling read')).toBeTruthy()
+    expect(screen.getByText('Waiting for inbox input')).toBeTruthy()
+    expect(screen.getByText('reader')).toBeTruthy()
+    expect(screen.getByText('claude-haiku')).toBeTruthy()
+    expect(screen.queryByText('unrequested')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Open chat' }))
+    expect(input.openChild).toHaveBeenCalledWith({ parentSessionId: PARENT, childSessionId: CHILD, mode: 'continuable' })
+    fireEvent.click(screen.getByRole('button', { name: 'Open Read the spec in sidebar' }))
+    expect(input.openChildAside).toHaveBeenCalledWith({ parentSessionId: PARENT, childSessionId: CHILD, mode: 'continuable' })
+    fireEvent.click(row)
+    expect(screen.queryByText('Calling read')).toBeNull()
+    fireEvent.click(header)
+    expect(screen.queryByText('Read the spec')).toBeNull()
+  })
+
+  it('nests a child\'s own subagents under its open row', () => {
+    const input = props(catalog({ entries: [{ id: CHILD, mode: 'continuable', label: 'worker', activity: 'running' }] }), {
+      [CHILD]: catalog({ entries: [{ id: GRANDCHILD, mode: 'continuable', label: 'nested', activity: 'inactive' }] }),
+    })
+    render(<SubagentRoster {...rosterProps(input)} />)
+    fireEvent.click(screen.getByRole('button', { name: /^1 subagent/ }))
+    expect(screen.queryByText('nested')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^Running.*worker$/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open nested in sidebar' }))
+    expect(input.openChildAside).toHaveBeenCalledWith({ parentSessionId: CHILD, childSessionId: GRANDCHILD, mode: 'continuable' })
+  })
+
+  it('shows external members without navigation', () => {
+    const external = 'external' as SessionId
+    const input = props(catalog({ entries: [{ id: external, mode: 'external', label: 'Remote task', activity: 'running' }] }))
+    render(<SubagentRoster {...rosterProps(input)} />)
+    fireEvent.click(screen.getByRole('button', { name: /^1 subagent/ }))
+    expect(screen.getByText('Remote task')).toBeTruthy()
+    expect(screen.getByText('External task')).toBeTruthy()
+    expect(screen.queryAllByRole('button', { name: /Remote task/ })).toHaveLength(0)
+  })
+
+  it('stays hidden while empty unless shared tasks or a load error need it', () => {
+    const empty = props(catalog({ entries: [] }))
+    const view = render(<SubagentRoster {...rosterProps(empty)} />)
+    expect(screen.queryByRole('button')).toBeNull()
+    view.rerender(<SubagentRoster {...rosterProps(empty, {
+      hasSharedTasks: true, hasBoardContent: true, renderFooter: () => <section aria-label="Shared tasks">Tasks</section>,
+    })} />)
+    fireEvent.click(screen.getByRole('button', { name: /^0 subagents/ }))
+    expect(screen.getByText('No subagents')).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Shared tasks' })).toBeTruthy()
+    view.rerender(<SubagentRoster {...rosterProps(empty, { hasBoardContent: true, renderFooter: () => <div role="alert">Invalid</div> })} />)
+    expect(screen.queryByText('No subagents')).toBeNull()
+    expect(screen.getByRole('alert')).toBeTruthy()
+    const failed = props(catalog({ entries: [], state: 'error', error: new RemoteError('gateway/internal', 'catalog failed', {}) }))
+    view.rerender(<SubagentRoster {...rosterProps(failed)} />)
+    expect(screen.getByText('catalog failed')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(failed.refreshProjection).toHaveBeenCalledWith(PARENT)
+  })
+
+  it('steps aside once nothing runs, so finished subagents live on their turn header', () => {
+    const idle = props(catalog({ entries: [{ id: CHILD, mode: 'continuable', label: 'worker', activity: 'inactive' }] }))
+    const view = render(<SubagentRoster {...rosterProps(idle)} />)
+    expect(screen.queryByRole('button')).toBeNull()
+    const rootRunning: SessionStatusSnapshot = new Map([
+      [PARENT, { running: true, completionUnread: false, pendingInteraction: undefined }],
+    ])
+    view.rerender(<SubagentRoster {...rosterProps(idle, {
+      useSessionStatus: <T,>(select: (snapshot: SessionStatusSnapshot) => T): T => select(rootRunning),
+    })} />)
+    expect(screen.getByRole('button', { name: /^1 subagent/ })).toBeTruthy()
+  })
+
+  it('renders for root Sessions only and binds the task board there', () => {
+    const input = props(catalog({ team: sharedTeam }))
+    const useProjection = ((_key: 'agentTeam', selector: (value: TeamProjection | undefined) => boolean) =>
+      selector(sharedTeam)) as SubagentCatalogActionProps['useProjection']
+    const renderSlot = vi.fn(() => <section aria-label="Shared tasks">Tasks</section>)
+    const view = render(<SubagentCatalogAction {...input} useProjection={useProjection} renderSlot={renderSlot} t={makeTranslate(en)} />)
+    fireEvent.click(screen.getByRole('button', { name: /^2 subagents/ }))
+    expect(screen.getByRole('region', { name: 'Shared tasks' })).toBeTruthy()
+    expect(renderSlot).toHaveBeenCalledWith('conversation.session.header.actions.subagent.footer', {})
+    view.rerender(<SubagentCatalogAction {...props(catalog(), {}, undefined, { parentSessionId: PARENT, childSessionId: CHILD, mode: 'continuable' })}
+      useProjection={useProjection} renderSlot={renderSlot} />)
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+})
+
+describe('turn header subagents', () => {
+  const turn = (status: TurnLocation['status']): TurnLocation => ({ status, start: { time: 10 }, end: { time: 20 } }) as never
+  const turnProps = (input: ReturnType<typeof props>, location: TurnLocation): TurnSubagentsProps => ({
+    ...input, turn: location, t: makeTranslate(en),
+  }) as never
+  const spawned = props(catalog({ entries: [
+    { id: 'before' as SessionId, mode: 'continuable', label: 'Earlier turn', activity: 'inactive', createdAt: 5 },
+    { id: CHILD, mode: 'continuable', label: 'This turn', activity: 'inactive', createdAt: 15 },
+    { id: 'after' as SessionId, mode: 'continuable', label: 'Later turn', activity: 'inactive', createdAt: 25 },
+  ] }))
+
+  it('lists only the children created inside a closed turn, opening their rows below the line', () => {
+    render(<TurnSubagents {...turnProps(spawned, turn('closed'))} />)
+    const chip = screen.getByRole('button', { name: /^1 subagent/ })
+    expect(screen.queryByText('This turn')).toBeNull()
+    fireEvent.click(chip)
+    expect(chip.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('This turn')).toBeTruthy()
+    expect(screen.queryByText('Earlier turn')).toBeNull()
+    expect(screen.queryByText('Later turn')).toBeNull()
+  })
+
+  it('shows nothing on an open turn or a turn that spawned none', () => {
+    const view = render(<TurnSubagents {...turnProps(spawned, turn('open'))} />)
+    expect(screen.queryByRole('button')).toBeNull()
+    const none = props(catalog({ entries: [{ id: CHILD, mode: 'continuable', label: 'worker', activity: 'inactive', createdAt: 30 }] }))
+    view.rerender(<TurnSubagents {...turnProps(none, turn('closed'))} />)
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+})
+
 function hoverCatalog(trigger: HTMLElement): void {
   vi.useFakeTimers()
   fireEvent.pointerEnter(trigger)
@@ -183,22 +347,20 @@ function enableTooltips(): void {
 }
 
 /**
- * Both header seats as the real header composes them: the breadcrumb switcher
- * (child sessions, lineage slot) and the actions-band catalog entry (root
- * sessions) — exactly one renders per form. The actions seat sees the same
- * session the lineage renders.
+ * The header as a child Session composes it: the breadcrumb switcher plus a
+ * count of the Session's own subagents. A root lineage has no switcher, so
+ * only that count dropdown renders, rooted at the lineage Session.
  */
 function HeaderCatalog(props: HeaderCatalogProps) {
-  const actionProps: SubagentCatalogActionProps = {
-    ...props, sessionId: props.lineageSessionId,
-    useProjection: ((_key: 'agentTeam', selector: (value: TeamProjection | undefined) => boolean) =>
-      props.useSessions(state => selector(state.projectionsBySession[props.lineageSessionId]?.values.agentTeam))) as SubagentCatalogActionProps['useProjection'],
-  }
+  const bound = props.useSession(snapshot => snapshot.subagent !== null)
+  const listed = props.useSessions(state => state.byId[props.lineageSessionId]?.origin === 'subagent'
+    || Object.values(state.projectionsBySession).some(snapshot =>
+      snapshot.values.subagentCatalog?.some(entry => entry.id === props.lineageSessionId)))
+  if (bound || listed) return <SubagentHeaderLineage {...props} />
   return (
-    <>
-      <SubagentHeaderLineage {...props} />
-      <SubagentCatalogAction {...actionProps} />
-    </>
+    <CatalogDropdown key={`children:${props.lineageSessionId}`} rootSessionId={props.lineageSessionId} variant="count"
+      useSessions={props.useSessions} useSessionStatus={props.useSessionStatus} openChild={props.openChild}
+      openChildAside={props.openChildAside} refreshProjection={props.refreshProjection} t={props.t} />
   )
 }
 
@@ -218,71 +380,6 @@ describe('SubagentHeaderLineage', () => {
     ] }))} t={makeTranslate(dictionary)} />)
     expect(screen.getByRole('button', { name: total }).getAttribute('aria-describedby')).toBeNull()
   })
-
-  it('shows a non-collapsible heading with direct-member progress beside shared tasks', () => {
-    const finished = 'finished' as SessionId
-    const paused = 'paused' as SessionId
-    const external = 'external' as SessionId
-    const entries: CatalogFixture['entries'] = [
-      { id: CHILD, mode: 'continuable', label: 'worker', activity: 'running' },
-      { id: finished, mode: 'continuable', label: 'finished', activity: 'inactive' },
-      { id: paused, mode: 'continuable', label: 'paused', activity: 'inactive' },
-      { id: external, mode: 'external', label: 'external', activity: 'running' },
-    ]
-    const summaries: Record<SessionId, SessionSummary> = {
-      [CHILD]: { ...summary(CHILD, 1), running: true, projectionValues: { subagentTiming: { settledMs: 0, lastTurnCompleted: true } } },
-      [finished]: { ...summary(finished, 1), projectionValues: { subagentTiming: { settledMs: 0, lastTurnCompleted: true } } },
-      [paused]: { ...summary(paused, 1), projectionValues: { subagentTiming: { settledMs: 0, lastTurnCompleted: false } } },
-      [external]: {
-        ...summary(external, 1), running: true, projectionValues: { subagentTiming: { settledMs: 0, lastTurnCompleted: true } },
-      },
-    }
-    const input = props(catalog({ entries, team: sharedTeam }), {
-      [CHILD]: catalog({ entries: [{ id: GRANDCHILD, mode: 'continuable', label: 'nested', activity: 'running' }] }),
-    }, summaries)
-    const view = render(<HeaderCatalog {...input} />)
-    fireEvent.click(screen.getByRole('button', { name: '4 个子智能体' }))
-    const header = view.container.ownerDocument.querySelector<HTMLElement>('[data-subagent-section-header]')!
-    expect(within(header).getByRole('heading', { name: '子智能体' })).toBeTruthy()
-    expect(within(header).queryByRole('button')).toBeNull()
-    expect(header.textContent).toBe('子智能体1 已完成\u2002·\u20021 进行中\u2002·\u20021 未运行\u2002·\u20021 外部任务')
-    fireEvent.click(screen.getByRole('button', { name: '展开 worker 的下级子智能体' }))
-    expect(header.textContent).toContain('1 进行中')
-    expect(header.textContent).not.toContain('2 进行中')
-    view.rerender(<HeaderCatalog {...input} t={makeTranslate(en)} />)
-    expect(header.textContent).toBe('Subagents1 completed\u2002·\u20021 in progress\u2002·\u20021 not running\u2002·\u20021 external')
-  })
-
-  it('omits zero progress counts from a completed-only catalog header', () => {
-    const input = props(catalog({
-      team: sharedTeam, entries: [{ id: CHILD, mode: 'continuable', label: 'finished', activity: 'inactive' }],
-    }), {}, {
-      [CHILD]: { ...summary(CHILD, 1), projectionValues: { subagentTiming: { settledMs: 0, lastTurnCompleted: true } } },
-    })
-    render(<HeaderCatalog {...input} />)
-    fireEvent.click(screen.getByRole('button', { name: '1 个子智能体' }))
-    const header = document.querySelector('[data-subagent-section-header]')!
-    expect(header.textContent).toBe('子智能体1 已完成')
-  })
-
-  it.each([
-    { name: 'absent Team projection', team: undefined, footer: true },
-    { name: 'disabled Team mode', team: { ...sharedTeam, enabled: false }, footer: true },
-    { name: 'empty tasks', team: { enabled: true, tasks: [] }, footer: true },
-    { name: 'deleted-only tasks', team: { enabled: true, tasks: [{ ...sharedTask, status: 'deleted' }] }, footer: true },
-    { name: 'failure without tasks', team: { enabled: true, tasks: [], failure: 'Invalid task record' }, footer: true },
-    { name: 'unavailable task footer', team: sharedTeam, footer: false },
-  ] satisfies { name: string; team: TeamProjection | undefined; footer: boolean }[])(
-    'omits section headings from a members-only catalog with $name', ({ team, footer }) => {
-      const input = props(catalog({ ...team === undefined ? {} : { team } }))
-      render(<HeaderCatalog {...input} useFooterAvailable={select => select(footer)} />)
-      fireEvent.click(screen.getByRole('button', { name: /\d+ 个子智能体$/ }))
-      expect(screen.getByRole('tree')).toBeTruthy()
-      expect(screen.queryByRole('heading')).toBeNull()
-      expect(document.querySelector('[data-subagent-section-header]')).toBeNull()
-      expect(screen.queryByText(zh['section.empty'])).toBeNull()
-    },
-  )
 
   it('shows the description above the Session id and opens the row without a description toggle', () => {
     const description = 'Check the construction and all bounds. '.repeat(20).trim()
@@ -339,55 +436,37 @@ describe('SubagentHeaderLineage', () => {
     expect(input.openChild).toHaveBeenCalledExactlyOnceWith({ parentSessionId: PARENT, childSessionId: CHILD, mode: 'continuable' })
   })
 
-  it('hides an empty Team entry but keeps shared tasks and errors reachable without children', () => {
+  it('hides an empty roster but keeps shared tasks and task errors reachable without children', () => {
     const input = props(catalog({ entries: [] }))
-    const initial = input.useSessions(state => state)
     const mode: { enabled: boolean; tasks: TeamTaskView[]; failure?: string } = { enabled: true, tasks: [] }
-    const values = { ...initial.projectionsBySession[PARENT]!.values, agentTeam: mode }
     const current = {
       ...input,
-      useSessions: <T,>(select: (snapshot: SessionListState) => T): T => select({
-        ...initial, projectionsBySession: { [PARENT]: { state: 'ready', error: null, values } },
-      }),
+      useProjection: ((_key: 'agentTeam', selector: (value: TeamProjection | undefined) => boolean) =>
+        selector(mode)) as SubagentCatalogActionProps['useProjection'],
       renderSlot: () => mode.tasks.some(task => task.status !== 'deleted')
         ? <section aria-label="Shared tasks">Tasks</section>
         : mode.failure === undefined ? null : <div role="alert">{mode.failure}</div>,
     }
-    const view = render(<HeaderCatalog {...current} />)
+    const view = render(<SubagentCatalogAction {...current} />)
     expect(screen.queryByRole('button')).toBeNull()
-    mode.tasks = [{
-      id: 'task-1' as TeamTaskId, revision: 1, subject: 'Plan work', description: 'Prepare tasks before spawning workers',
-      status: 'pending', blockedBy: [], writeScopes: [], ready: true, writeScopeWarnings: [],
-    }]
-    view.rerender(<HeaderCatalog {...current} />)
-    fireEvent.click(screen.getByRole('button', { name: '0 个子智能体' }))
-    const tree = screen.getByRole('tree')
-    const board = screen.getByRole('region', { name: 'Shared tasks' })
-    expect(tree.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.getByRole('heading', { name: zh['section.title'] })).toBeTruthy()
+    mode.tasks = [{ ...sharedTask }]
+    view.rerender(<SubagentCatalogAction {...current} />)
+    fireEvent.click(screen.getByRole('button', { name: /^0 个子智能体/ }))
+    expect(screen.getByRole('region', { name: 'Shared tasks' })).toBeTruthy()
     expect(screen.getByText(zh['section.empty'])).toBeTruthy()
-    expect(screen.getAllByRole('dialog')).toHaveLength(1)
-    mode.tasks = []
-    view.rerender(<HeaderCatalog {...current} />)
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.queryByRole('button')).toBeNull()
     mode.tasks = [{ ...sharedTask, status: 'deleted' }]
-    view.rerender(<HeaderCatalog {...current} />)
+    view.rerender(<SubagentCatalogAction {...current} />)
     expect(screen.queryByRole('button')).toBeNull()
-    expect(screen.queryByText(zh['section.empty'])).toBeNull()
     mode.tasks = []
     mode.failure = 'Invalid task record'
-    view.rerender(<HeaderCatalog {...current} />)
-    fireEvent.click(screen.getByRole('button', { name: '0 个子智能体' }))
-    expect(screen.getByRole('dialog')).toBeTruthy()
-    expect(screen.queryByRole('heading')).toBeNull()
+    view.rerender(<SubagentCatalogAction {...current} />)
+    fireEvent.click(screen.getByRole('button', { name: /^0 个子智能体/ }))
+    expect(screen.getByRole('alert').textContent).toBe('Invalid task record')
     expect(screen.queryByText(zh['section.empty'])).toBeNull()
-    expect(document.querySelector('[data-subagent-section-header]')).toBeNull()
-    view.rerender(<HeaderCatalog {...current} useFooterAvailable={select => select(false)} />)
+    view.rerender(<SubagentCatalogAction {...current} useFooterAvailable={select => select(false)} />)
     expect(screen.queryByRole('button')).toBeNull()
     mode.enabled = false
-    view.rerender(<HeaderCatalog {...current} />)
-    expect(screen.queryByRole('dialog')).toBeNull()
+    view.rerender(<SubagentCatalogAction {...current} />)
     expect(screen.queryByRole('button')).toBeNull()
   })
 
@@ -412,23 +491,6 @@ describe('SubagentHeaderLineage', () => {
     expect(readProjection).not.toHaveBeenCalled()
     expect(readFooter).not.toHaveBeenCalled()
     expect(renderFooter).not.toHaveBeenCalled()
-  })
-
-  it('leaves task-board keys alone and dismisses the shared panel from outside focus', () => {
-    const input = props(catalog())
-    render(<><textarea aria-label="Composer" /><HeaderCatalog {...input}
-      renderSlot={() => <button type="button">Expand task</button>}
-    /></>)
-    fireEvent.click(screen.getByRole('button', { name: /\d+ 个子智能体$/ }))
-    const expand = screen.getByRole('button', { name: 'Expand task' })
-    expand.focus()
-    fireEvent.keyDown(expand, { key: 'ArrowDown' })
-    expect(document.activeElement).toBe(expand)
-    const composer = screen.getByRole('textbox')
-    composer.focus()
-    fireEvent.keyDown(composer, { key: 'Escape' })
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(document.activeElement).toBe(composer)
   })
 
   it('shows current catalog-only child status before Host list discovery', () => {
@@ -926,8 +988,8 @@ describe('SubagentHeaderLineage', () => {
     expect(menu.style.positionAnchor).toBe(placement)
     expect(menu.style.left).toBe('')
     expect(menu.style.top).toBe('')
-    expect(menu.style.getPropertyValue('--dsh-anchored-max-width')).toBe('')
-    expect(menu.style.getPropertyValue('--dsh-anchored-max-height')).toBe('')
+    expect(menu.style.getPropertyValue('--jan-anchored-max-width')).toBe('')
+    expect(menu.style.getPropertyValue('--jan-anchored-max-height')).toBe('')
     expect(listen).not.toHaveBeenCalled()
   })
 
@@ -987,6 +1049,24 @@ describe('SubagentHeaderLineage', () => {
     expect(row.getAttribute('aria-label')).toContain('模式未知')
     fireEvent.keyDown(row, { key: 'Enter' })
     expect(input.openChild).toHaveBeenCalledWith({ parentSessionId: PARENT, childSessionId: CHILD, mode: 'unknown' })
+  })
+
+  it('shows the last requested model without presenting a pending choice as the model used', () => {
+    const next = { provider: 'test', model: 'pending-model' }
+    const input = props(catalog(), {}, {
+      [CHILD]: {
+        ...summary(CHILD, 1), running: true,
+        projectionValues: { modelSelection: { lastUsed: { provider: 'test', model: 'used-model' }, next } },
+      },
+      ['child-2' as SessionId]: {
+        ...summary('child-2' as SessionId, 1),
+        projectionValues: { modelSelection: { lastUsed: null, next } },
+      },
+    })
+    render(<HeaderCatalog {...input} />)
+    hoverCatalog(screen.getByRole('button', { name: /子智能体/ }))
+    expect(within(screen.getByRole('treeitem', { name: /worker.*used-model/ })).getByText('used-model')).toBeTruthy()
+    expect(screen.queryByText('pending-model')).toBeNull()
   })
 
   it('shows durable completion and token totals, ticks active duration, and freezes inactive rows', async () => {

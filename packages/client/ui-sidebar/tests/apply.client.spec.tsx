@@ -1,14 +1,14 @@
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 /** Sidebar shell slot registration and its Session/layout callbacks. */
-import { Context, type Fiber } from '@deepseek-ai/cordis'
+import { Context, type Fiber } from '@janhq/cordis'
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { apply, inject } from '@deepseek-ai/dsh-client-ui-sidebar/client'
-import type { SidebarRootInjected, SidebarSectionInjected, UseSectionScroller } from '@deepseek-ai/dsh-client-ui-sidebar/client'
-import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
-import type { TrackProductEvent } from '@deepseek-ai/dsh-client-product-analytics/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { apply, inject } from '@janhq/jan-client-ui-sidebar/client'
+import type { SidebarRootInjected, SidebarSectionInjected, UseSectionScroller } from '@janhq/jan-client-ui-sidebar/client'
+import type { MainPanelId } from '@janhq/jan-client-ui-layout/client'
+import type { TrackProductEvent } from '@janhq/jan-client-product-analytics/client'
 import { HeaderLeadingControls } from '../src/client/HeaderLeadingControls.tsx'
 import { apply as hostApply } from '../src/index.ts'
 
@@ -34,7 +34,10 @@ async function bench(declare = true) {
   if (ctx === undefined) throw new Error('the sidebar fixture owner did not activate')
   await ctx.plugin(SlotRegistry).await()
   const layout = { toggleSidebar: vi.fn(), selectPanel: vi.fn() }
-  const uiWorkspace = { startSession: vi.fn() }
+  const uiWorkspace = {
+    startSession: vi.fn(), goBack: vi.fn(), goForward: vi.fn(),
+    navigationHistory: createSnapshotStore({ canGoBack: false, canGoForward: false }),
+  }
   ctx.provide('shortcuts', { catalog: createSnapshotStore([]) } as never)
   ctx.provide('layout', layout)
   ctx.provide('uiWorkspace', uiWorkspace as never)
@@ -85,7 +88,8 @@ describe('ui-sidebar apply', () => {
     expect(leading[0]!.locale).toBe('sidebar')
     expect(leading[0]!.inject).toBe(b.slots.entries('sidebar')[0]!.inject)
     const injected = (b.slots.entries('sidebar')[0]!.inject as () => SidebarRootInjected)()
-    expect(Object.keys(injected)).toEqual(['startSession', 'toggleSidebar', 'selectPanel', 'setPinned', 'trackEntryClick', 'hooks'])
+    expect(Object.keys(injected)).toEqual(['startSession', 'toggleSidebar', 'goBack', 'goForward', 'selectPanel', 'setPinned', 'trackEntryClick', 'hooks'])
+    expect(injected.hooks.navigationHistory).toBe(b.uiWorkspace.navigationHistory)
     expect(injected.hooks.panels.getSnapshot()).toEqual([])
     expect(injected.hooks.entryPins.getSnapshot()).toEqual([])
     expect(injected.hooks.entryActions.getSnapshot()).toBe(false)
@@ -95,6 +99,10 @@ describe('ui-sidebar apply', () => {
     expect(b.uiWorkspace.startSession).toHaveBeenCalledWith('workspace')
     injected.startSession()
     expect(b.uiWorkspace.startSession).toHaveBeenLastCalledWith(undefined)
+    injected.goBack()
+    expect(b.uiWorkspace.goBack).toHaveBeenCalledOnce()
+    injected.goForward()
+    expect(b.uiWorkspace.goForward).toHaveBeenCalledOnce()
     injected.toggleSidebar()
     expect(b.layout.toggleSidebar).toHaveBeenCalledOnce()
     const panelId = 'custom-panel' as MainPanelId

@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-app-boot",
+  "name": "@janhq/jan-app-boot",
   "description": "Shared boot glue for the app bins: .env loading, fail-loud Loader guards, snapshot-aware config resolution, and the Loader boot sequence",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/boot/app-boot"
   },
   "type": "module",
@@ -32,9 +32,9 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/dsh-atomic-write": "workspace:*",
-    "@deepseek-ai/dsh-official-bundles": "workspace:*",
-    "@deepseek-ai/dsh-package-manifest": "workspace:*",
+    "@janhq/jan-atomic-write": "workspace:*",
+    "@janhq/jan-official-bundles": "workspace:*",
+    "@janhq/jan-package-manifest": "workspace:*",
     "@eslint-community/regexpp": "^4.12.2",
     "ajv": "^8.20.0",
     "js-yaml": "^4.3.2",
@@ -43,24 +43,24 @@
     "semver": "^7.8.5"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis-plugin-group": "workspace:~",
-    "@deepseek-ai/cordis-plugin-include": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-launch-environment": "workspace:*",
-    "@deepseek-ai/dsh-home-paths": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis-plugin-group": "workspace:~",
+    "@janhq/cordis-plugin-include": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-launch-environment": "workspace:*",
+    "@janhq/jan-home-paths": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/schemastery": "workspace:~",
-    "@deepseek-ai/cordis-plugin-group": "workspace:~",
-    "@deepseek-ai/cordis-plugin-include": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/cordis-plugin-timer": "workspace:~",
-    "@deepseek-ai/dsh-launch-environment": "workspace:*",
-    "@deepseek-ai/dsh-home-paths": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
+    "@janhq/cordis-plugin-group": "workspace:~",
+    "@janhq/cordis-plugin-include": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/cordis-plugin-timer": "workspace:~",
+    "@janhq/jan-launch-environment": "workspace:*",
+    "@janhq/jan-home-paths": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
     "@types/js-yaml": "^4.0.9",
     "@types/semver": "^7.8.0",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   }
 }

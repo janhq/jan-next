@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 /**
  * Pointer-revealed scrollbars, the shell's half: which class state the column
  * carries as the pointer crosses it. The stylesheet rule that state drives is
  * asserted in scrollbar-quiet-styles.spec.ts (node environment — a jsdom spec
  * has no file: module URL to read the sheet through).
  */
-import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
+import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
-import { allowAllAccess } from '@deepseek-ai/dsh-client-test-runtime'
+import { allowAllAccess } from '@janhq/jan-client-test-runtime'
 import type { SidebarRootComponentProps, SidebarSectionOwnerProps } from '../src/client/contract/slots.ts'
 import { SidebarRoot } from '../src/client/SidebarRoot.tsx'
 import { en } from '../src/client/locales.ts'
@@ -45,14 +45,16 @@ function mountColumn(): { column: HTMLElement; quiet: () => boolean } {
       collapsed={false} width={300}
       useSessions={neverHook} useSessionStatus={useSessionStatus} useSessionRetainInfo={neverHook}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])} useEntryPins={selector => selector([])}
-      useEntryActions={selector => selector(false)} setPinned={vi.fn()}
+      useEntryActions={selector => selector(false)} setPinned={vi.fn()} goBack={vi.fn()} goForward={vi.fn()}
+      useNavigationHistory={selector => selector({ canGoBack: false, canGoForward: false })}
       useShortcuts={selector => selector([])}
       useContextMenu={contextMenuHook()} useResource={useResource} useWorkspaces={neverHook}
       {...allowAllAccess}
       startSession={vi.fn()} toggleSidebar={vi.fn()} trackEntryClick={vi.fn()} t={t}
       renderFactorySlot={() => null}
-      renderSlot={((_key: string, owner: SidebarSectionOwnerProps) =>
-        <div data-testid="region" data-wide={owner.wide} />) as SidebarRootComponentProps['renderSlot']}
+      renderSlot={((key: string, owner: SidebarSectionOwnerProps) => key === 'sidebar.session.new' || key === 'sidebar.workspaces.primary' || key === 'sidebar.toggle.actions'
+        ? null
+        : <div data-testid="region" data-wide={owner.wide} />) as SidebarRootComponentProps['renderSlot']}
     />,
   )
   const column = view.container.firstElementChild

@@ -1,6 +1,6 @@
 /** Deterministic keyless Agent Teams adapter shared by profile snapshot and CLI e2e. */
 
-import { ToolCallId, LlmAdapter } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, LlmAdapter } from '@janhq/jan-llm'
 
 let nextCall = 0
 
@@ -217,7 +217,7 @@ export const name = 'team-fixture-llm'
 /** LLM registry dependency. */
 export const inject = ['llm', 'tools', 'agentTeams']
 
-/** Register the keyless adapter on the shipped default provider route. */
+/** Register the keyless adapter on the route the team scenarios select. */
 export function apply(ctx) {
   ctx.on('agent/created', async ({ agent }) => {
     if (agent.session.header.parentSession === undefined) await ctx.agentTeams.setEnabled(agent, true)
@@ -240,5 +240,5 @@ export function apply(ctx) {
     }
     return result
   })
-  ctx.llm.registerAdapter(['deepseek-official'], new TeamFixtureAdapter())
+  ctx.llm.registerAdapter(['tokamak-official'], new TeamFixtureAdapter())
 }

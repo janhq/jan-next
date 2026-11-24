@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-mcp-manager",
+  "name": "@janhq/jan-mcp-manager",
   "description": "MCP server manager: a settings-driven fleet of mcp-client instances with runtime status, restart, and probe",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/mcp/mcp-manager"
   },
   "type": "module",
@@ -46,32 +46,32 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/dsh-mcp-client": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*"
+    "@janhq/jan-mcp-client": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-typert-protocol": "workspace:*"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-timeout": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~",
-    "zod": "^4.4.3"
+    "@janhq/jan-timeout": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.2.0",
-    "@deepseek-ai/dsh-credentials": "workspace:*",
-    "@deepseek-ai/dsh-mcp-client": "workspace:*",
-    "@deepseek-ai/dsh-settings": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-app-boot": "workspace:*",
-    "@deepseek-ai/dsh-config-editor": "workspace:*",
-    "@deepseek-ai/dsh-hmr": "workspace:*",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/cordis-plugin-timer": "workspace:~",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*"
+    "@janhq/jan-credentials": "workspace:*",
+    "@janhq/jan-mcp-client": "workspace:*",
+    "@janhq/jan-settings": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-app-boot": "workspace:*",
+    "@janhq/jan-config-editor": "workspace:*",
+    "@janhq/jan-hmr": "workspace:*",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/cordis-plugin-timer": "workspace:~",
+    "@janhq/jan-typert-protocol": "workspace:*"
   }
 }

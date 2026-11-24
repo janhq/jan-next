@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
 /** Account operations in the shipped client composition, in Desktop and in a plain browser. */
 import { afterEach, beforeEach, expect, vi } from 'vitest'
-import { ok } from '@deepseek-ai/dsh-remote-mock'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import { createClientTest, type TestClient, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
+import { ok } from '@janhq/jan-remote-mock'
+import { RemoteError } from '@janhq/jan-typert-protocol'
+import { createClientTest, type TestClient, webApp } from '@janhq/jan-client-test-runtime/src/assembly/index.ts'
 import type {
   AccountBonusBatch, AccountBonusOrderId, AccountDetails, AccountUserId, AccountView, SignInAttemptId,
-} from '@deepseek-ai/dsh-deepseek-account/types'
-import type { QuotaNoticeOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
-import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+} from '@janhq/jan-tokamak-account/types'
+import type { QuotaNoticeOwnerProps } from '@janhq/jan-client-ui-chat/client'
+import type { ThemeRuntime } from '@janhq/jan-client-ui-theme/client'
+import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
+import type { JsonValue } from '@janhq/jan-util-values'
 import { Config as OnboardingConfig } from '../src/index.ts'
 import { ChatSettingsSchema as ChatConfig } from '../../ui-chat/src/chat-settings.ts'
 import { DeveloperToolsSettingsSchema as SettingsConfig } from '../../ui-settings/src/developer-tools-settings.ts'
@@ -24,10 +24,10 @@ import type { AccountQuotaNoticeInjected } from '../src/client/AccountQuotaNotic
 
 const it = createClientTest({ roster: webApp })
 const withoutAccountAccess = createClientTest({ roster: webApp }, { access: action => action !== 'account/watch' })
-const SELF = '@deepseek-ai/dsh-client-ui-settings-account'
+const SELF = '@janhq/jan-client-ui-settings-account'
 const view: AccountView = {
   status: 'signed-out', attempt: null,
-  links: { usageUrl: 'https://platform.deepseek.com/usage', topUpUrl: 'https://platform.deepseek.com/top_up' },
+  links: { usageUrl: 'https://tokamak.sh/usage', topUpUrl: 'https://tokamak.sh/top_up' },
 }
 const stored: AccountView = { ...view, status: 'credential-stored' }
 const profile: AccountDetails['profile'] = { status: 'ready', value: { id: 'account-user' as AccountUserId, name: 'User', contact: null } }
@@ -58,7 +58,7 @@ function injectedOf(entry: { inject?: (() => object) | undefined }): object {
   return injected
 }
 beforeEach(() => {
-  vi.stubEnv('DSH_CLIENT_VERSION', '0.0.0-test')
+  vi.stubEnv('JAN_CLIENT_VERSION', '0.0.0-test')
   vi.stubGlobal('screen', { width: 1512, height: 982 })
   vi.stubGlobal('devicePixelRatio', 2)
 })
@@ -88,7 +88,7 @@ withoutAccountAccess('opens no account stream and registers no account surface w
 }, 60_000)
 
 it('claims account balance notices from the frame-wide quota chain and declines generic quota', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   const entry = quotaNoticeEntry(c)
   expect(entry).toBeDefined()
@@ -103,7 +103,7 @@ it('claims account balance notices from the frame-wide quota chain and declines 
 it('shares account actions across seats, publishes dialog ownership, and opens contextual support', async ({ start }) => {
   vi.stubGlobal(CONTACT_CONFIG_GLOBAL, { contactFormUrl: 'https://example.test/form/?prefill_device_model=old&hide_device_model=1', contactSource: 'harness' })
   const open = vi.spyOn(window, 'open').mockReturnValue(null)
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   const actions = operations(c)
   expect(c.ctx.slots.entries('settings.models.sign-in')[0]!.inject!()).toBe(actions)
@@ -166,7 +166,7 @@ it('shares account actions across seats, publishes dialog ownership, and opens c
 it('prefills the native device description from the Desktop bridge on every click', async ({ start }) => {
   const open = vi.spyOn(window, 'open').mockReturnValue(null)
   const deviceInfo = vi.fn(async () => 'platform=darwin; os=15.0; app_arch=arm64; cpu=Apple M3; memory_gib=16.0')
-  vi.stubGlobal('dshDesktop', { deviceInfo })
+  vi.stubGlobal('janDesktop', { deviceInfo })
   const c = await start()
   const actions = operations(c)
   actions.contactUs()
@@ -188,7 +188,7 @@ it('prefills the native device description from the Desktop bridge on every clic
 it('opens the questionnaire with screen resolution when the native read fails', async ({ start }) => {
   const open = vi.spyOn(window, 'open').mockReturnValue(null)
   const deviceInfo = vi.fn(async (): Promise<string> => { throw new Error('platform ipc unavailable') })
-  vi.stubGlobal('dshDesktop', { deviceInfo })
+  vi.stubGlobal('janDesktop', { deviceInfo })
   const c = await start()
   operations(c).contactUs()
   await vi.waitFor(() => { expect(open).toHaveBeenCalledOnce() })
@@ -202,7 +202,7 @@ it('opens the questionnaire with screen resolution when the native read fails', 
 it('reports the account sampled by the click when a native read outlasts a sign-out', async ({ start }) => {
   const open = vi.spyOn(window, 'open').mockReturnValue(null)
   const device = Promise.withResolvers<string>()
-  vi.stubGlobal('dshDesktop', { deviceInfo: vi.fn(() => device.promise) })
+  vi.stubGlobal('janDesktop', { deviceInfo: vi.fn(() => device.promise) })
   const c = await start()
   const actions = operations(c)
   c.mock.remote.account.getProfile.mockResolvedValue(ok(profile))
@@ -259,7 +259,7 @@ it('publishes one avatar load and retries it through the shared Settings refresh
 }, 60_000)
 
 it('keeps successful account refreshes silent and reports only failed reads', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const output = vi.spyOn(console, 'error').mockImplementation(() => undefined)
   const info = vi.spyOn(console, 'info').mockImplementation(() => undefined)
   const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
@@ -272,28 +272,28 @@ it('keeps successful account refreshes silent and reports only failed reads', as
   await vi.waitFor(() => { expect(actions.hooks.account.getSnapshot().details?.profile).toEqual(profile) })
   await actions.refreshAccount()
   for (const spy of [output, info, log]) {
-    expect(spy.mock.calls.filter(call => String(call[0]).startsWith('[deepseek-account]'))).toEqual([])
+    expect(spy.mock.calls.filter(call => String(call[0]).startsWith('[tokamak-account]'))).toEqual([])
   }
   c.mock.remote.account.getProfile.mockResolvedValueOnce(ok({ status: 'failed' }))
   c.mock.remote.account.getBalance.mockRejectedValueOnce(new Error('private-transport-detail'))
   await actions.refreshAccount()
-  expect(output).toHaveBeenCalledWith('[deepseek-account] account read failed', expect.objectContaining({
+  expect(output).toHaveBeenCalledWith('[tokamak-account] account read failed', expect.objectContaining({
     field: 'profile',
   }))
-  expect(output).toHaveBeenCalledWith('[deepseek-account] account read failed', expect.objectContaining({
+  expect(output).toHaveBeenCalledWith('[tokamak-account] account read failed', expect.objectContaining({
     field: 'balance',
   }))
   expect(JSON.stringify(output.mock.calls)).not.toContain('private-transport-detail')
   c.mock.remote.account.getBalance.mockResolvedValueOnce({ ok: false, error: new RemoteError('gateway/internal', 'private-rpc-detail', {}) })
   await actions.refreshAccount()
-  expect(output).toHaveBeenCalledWith('[deepseek-account] account read failed', expect.objectContaining({
+  expect(output).toHaveBeenCalledWith('[tokamak-account] account read failed', expect.objectContaining({
     field: 'balance',
   }))
   expect(JSON.stringify(output.mock.calls)).not.toContain('private-rpc-detail')
 }, 60_000)
 
 it('coalesces refreshes, publishes independent failures, and rejects stale responses after sign-out or unload', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   const actions = operations(c)
   const pending = Promise.withResolvers<ReturnType<typeof ok<AccountDetails['profile'] | null>>>()
@@ -328,7 +328,7 @@ it('coalesces refreshes, publishes independent failures, and rejects stale respo
 
 for (const desktop of [false, true]) it(`uses the browser or Desktop login carrier (Desktop: ${desktop}) and exposes operation errors`, async ({ start, mock }) => {
   const open = vi.spyOn(window, 'open').mockReturnValue(null)
-  if (desktop) vi.stubGlobal('dshDesktop', {})
+  if (desktop) vi.stubGlobal('janDesktop', {})
   const c = await start()
   const actions = operations(c)
   mock.remote.account.startSignIn.mockResolvedValue(ok(view))
@@ -358,7 +358,7 @@ it('navigates the preopened browser tab to the themed authorization page', async
   vi.spyOn(window, 'open').mockReturnValue(popup as Window)
   const c = await start()
   const actions = operations(c)
-  const attempt = { id: 'attempt' as SignInAttemptId, phase: 'waiting-browser' as const, authorizeUrl: 'https://platform.deepseek.com/dsh/authorize' }
+  const attempt = { id: 'attempt' as SignInAttemptId, phase: 'waiting-browser' as const, authorizeUrl: 'https://tokamak.sh/cli/authorize' }
   mock.remote.account.startSignIn.mockResolvedValue(ok({ ...view, attempt: { id: attempt.id, phase: 'initializing' } }))
   await actions.start()
   c.mock.streams.push('account/watch', { ...view, attempt })
@@ -367,11 +367,11 @@ it('navigates the preopened browser tab to the themed authorization page', async
 }, 60_000)
 
 it('uses the Desktop stream origin and exposes the native platform bridge', async ({ start, mock }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
-  vi.stubGlobal('__DSH_TRANSPORT__', { streamBaseUrl: 'http://localhost:9876/stream' })
+  vi.stubGlobal('__JAN_TRANSPORT__', { streamBaseUrl: 'http://localhost:9876/stream' })
   const platform = { open: vi.fn(), setBounds: vi.fn(), close: vi.fn() }
-  vi.stubGlobal('dshPlatform', platform)
+  vi.stubGlobal('janPlatform', platform)
   await c.reload(SELF)
   const actions = operations(c)
   // The native commands reach the one shared host through the account page channel.
@@ -402,9 +402,9 @@ it('uses the Desktop stream origin and exposes the native platform bridge', asyn
 
 
 it('re-reads the account when the shared host returns from top-up, and not from usage or an absent page', async ({ start, mock }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
-  vi.stubGlobal('dshPlatform', { open: vi.fn(), setBounds: vi.fn(), close: vi.fn() })
+  vi.stubGlobal('janPlatform', { open: vi.fn(), setBounds: vi.fn(), close: vi.fn() })
   await c.reload(SELF)
   const actions = operations(c)
   const host = injectedOf(platformHostEntry(c)!) as AccountPlatformHostInjected
@@ -440,9 +440,9 @@ it('re-reads the account when the shared host returns from top-up, and not from 
 }, 60_000)
 
 it('re-reads profile and balance but no bonus for the onboarding recharge return, and nothing on supersede or release', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
-  vi.stubGlobal('dshPlatform', { open: vi.fn(), setBounds: vi.fn(), close: vi.fn() })
+  vi.stubGlobal('janPlatform', { open: vi.fn(), setBounds: vi.fn(), close: vi.fn() })
   await c.reload(SELF)
   const actions = operations(c)
   const track = vi.fn()
@@ -489,9 +489,9 @@ it('re-reads profile and balance but no bonus for the onboarding recharge return
 }, 60_000)
 
 it('waits for an in-flight pre-return read before the post-top-up read', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
-  vi.stubGlobal('dshPlatform', { open: vi.fn(), setBounds: vi.fn(), close: vi.fn() })
+  vi.stubGlobal('janPlatform', { open: vi.fn(), setBounds: vi.fn(), close: vi.fn() })
   await c.reload(SELF)
   const actions = operations(c)
   const host = injectedOf(platformHostEntry(c)!) as AccountPlatformHostInjected
@@ -528,7 +528,7 @@ it('waits for an in-flight pre-return read before the post-top-up read', async (
 }, 60_000)
 
 it('reads the unnotified bonus in the active locale and acknowledges only after the card renders', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   const actions = operations(c)
   const orderId = '4c1b0000-0000-4000-8000-000000000000'
@@ -550,7 +550,7 @@ it('reads the unnotified bonus in the active locale and acknowledges only after 
 }, 60_000)
 
 it('keeps the notice and its acknowledgement retry across repeated signed-in frames', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   vi.stubGlobal(CONTACT_CONFIG_GLOBAL, { bonusAckRetryDelayMs: 1, bonusAckRetryMaxDelayMs: 4 })
   const c = await start()
   const actions = operations(c)
@@ -574,7 +574,7 @@ it('keeps the notice and its acknowledgement retry across repeated signed-in fra
 }, 60_000)
 
 it('keeps the notice absent when the bonus read is refused, then shows the next read', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   const actions = operations(c)
   const orderId = '4c1b0000-0000-4000-8000-000000000000'
@@ -593,7 +593,7 @@ it('keeps the notice absent when the bonus read is refused, then shows the next 
 }, 60_000)
 
 it('drops the previous account notice and stops reading after sign-out', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   const actions = operations(c)
   c.mock.remote.account.getUnnotifiedBonuses.mockResolvedValue(ok(bonus('4c1b0000-0000-4000-8000-000000000001')))
@@ -611,7 +611,7 @@ it('drops the previous account notice and stops reading after sign-out', async (
 }, 60_000)
 
 it('refreshes balances and the bonus read on one Settings entry, without polling', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   const actions = operations(c)
   const balance: AccountDetails['balance'] = {
@@ -634,7 +634,7 @@ it('refreshes balances and the bonus read on one Settings entry, without polling
 }, 60_000)
 
 it('publishes a failed balance from a Settings entry without dropping the bonus read', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   const actions = operations(c)
   c.mock.remote.account.getBalance.mockResolvedValueOnce({ ok: false, error: new RemoteError('gateway/internal', 'offline', {}) })
@@ -648,7 +648,7 @@ it('publishes a failed balance from a Settings entry without dropping the bonus 
 }, 60_000)
 
 it('publishes a terminal state-stream failure without mistaking it for plugin disposal', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   const actions = operations(c)
   await c.mock.streams.opened('account/watch', 1)
@@ -657,7 +657,7 @@ it('publishes a terminal state-stream failure without mistaking it for plugin di
 }, 60_000)
 
 it('ignores a terminal stream error when plugin disposal already owns teardown', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   let disposal: Promise<void> | undefined
   const original = c.ctx.remote.$stream.bind(c.ctx.remote)
@@ -677,7 +677,7 @@ it('ignores a terminal stream error when plugin disposal already owns teardown',
 }, 60_000)
 
 it('samples the build version, language, and UTC offset for every account call', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   const actions = operations(c)
   const offset = vi.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(480)
@@ -696,7 +696,7 @@ it('samples the build version, language, and UTC offset for every account call',
 }, 60_000)
 
 it('reads the account task impact and reports a refused query', async ({ start, mock }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   const actions = operations(c)
   mock.remote.account.hasRunningAccountTasks.mockResolvedValueOnce(ok(true))
@@ -707,14 +707,14 @@ it('reads the account task impact and reports a refused query', async ({ start, 
 
 
 it('forwards live account notices and removes their subscriptions', async ({ start }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const c = await start()
   const actions = operations(c)
   const expired = vi.fn()
   const unavailable = vi.fn()
   const offExpired = actions.subscribeSessionExpired!(expired)
   const offUnavailable = actions.subscribeModelSignInRequired!(unavailable)
-  for (const event of ['deepseek-account/session-expired', 'deepseek-account/model-sign-in-required']) {
+  for (const event of ['tokamak-account/session-expired', 'tokamak-account/model-sign-in-required']) {
     c.mock.streams.push('$events', { type: 'emit', event, args: [] })
   }
   await c.flush()
@@ -722,7 +722,7 @@ it('forwards live account notices and removes their subscriptions', async ({ sta
   expect(unavailable).toHaveBeenCalledOnce()
   offExpired()
   offUnavailable()
-  for (const event of ['deepseek-account/session-expired', 'deepseek-account/model-sign-in-required']) {
+  for (const event of ['tokamak-account/session-expired', 'tokamak-account/model-sign-in-required']) {
     c.mock.streams.push('$events', { type: 'emit', event, args: [] })
   }
   await c.flush()
@@ -730,9 +730,9 @@ it('forwards live account notices and removes their subscriptions', async ({ sta
   expect(unavailable).toHaveBeenCalledOnce()
 })
 for (const native of [false, true]) it(`exposes desktop progress actions and disposes its subscriptions (native platform: ${native})`, async ({ start, mock }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const platform = { open: vi.fn(), setBounds: vi.fn(), close: vi.fn() }
-  if (native) vi.stubGlobal('dshPlatform', platform)
+  if (native) vi.stubGlobal('janPlatform', platform)
   const c = await start()
   const entry = c.ctx.slots.entries('shell.overlay').find(entry => entry.options.id === 'desktop-onboarding')!
   const injected = (entry.inject!() as object) as DesktopOnboardingInjected
@@ -756,11 +756,11 @@ for (const native of [false, true]) it(`exposes desktop progress actions and dis
 }, 60_000)
 
 it('applies API-key defaults through the desktop slot and shared configuration owners', async ({ start, mock }) => {
-  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal('janDesktop', {})
   const values: Record<string, object> = {
     'ui-settings-account': { version: 1, step: 'welcome', purpose: null, process: null, completion: null, usage: 'compact', developerTools: false },
     'ui-chat': { transcriptView: 'compact', performanceUsage: 'detailed', linkOpening: 'sidebar' },
-    'ui-settings': { enabled: false },
+    'ui-settings': { enabled: true },
   }
   const schemas = { 'ui-settings-account': OnboardingConfig, 'ui-chat': ChatConfig, 'ui-settings': SettingsConfig }
   const namespace = (ns: keyof typeof schemas) => ({ ns, autoGenerate: false, schema: JSON.parse(JSON.stringify(schemas[ns].toJSON())) as JsonValue, value: values[ns] as JsonValue, applies: 'live' as const, secrets: [], revision: 0 })
@@ -768,7 +768,7 @@ it('applies API-key defaults through the desktop slot and shared configuration o
     writable: true, hasDocument: true, namespaces: Object.keys(schemas).map(ns => namespace(ns as keyof typeof schemas)),
   }))
   const hasApiKey = vi.fn(async () => true)
-  vi.stubGlobal('dshOnboarding', { hasApiKey })
+  vi.stubGlobal('janOnboarding', { hasApiKey })
   mock.remote.settings.mutate.mockImplementation(async (ns, ops) => {
     const key = ns as keyof typeof schemas
     const value: Record<string, unknown> = { ...values[key] }
@@ -780,6 +780,6 @@ it('applies API-key defaults through the desktop slot and shared configuration o
   const injected = c.ctx.slots.entries('shell.overlay').find(entry => entry.options.id === 'desktop-onboarding')!.inject!() as object as DesktopOnboardingInjected
   await vi.waitFor(() => { expect(injected.hooks.onboarding.getSnapshot().progress.step).toBe('done') })
   expect(hasApiKey).toHaveBeenCalled()
-  expect(values['ui-settings']).toEqual({ enabled: true })
+  expect(values['ui-settings']).toEqual({ enabled: false })
   expect(values['ui-chat']).toMatchObject({ transcriptView: 'standard' })
 }, 60_000)

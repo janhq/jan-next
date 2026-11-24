@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-api-job-controller",
+  "name": "@janhq/jan-api-job-controller",
   "description": "Job Remote observation stream and the reference-counted client job-output service",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/api/job-controller"
   },
   "type": "module",
@@ -38,14 +38,14 @@
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json"
   },
-  "dsh": {
+  "jan": {
     "client": {
       "external": [
-        "@deepseek-ai/dsh-api-gateway/client"
+        "@janhq/jan-api-gateway/client"
       ],
       "inject": [
-        "@deepseek-ai/dsh-api-gateway",
-        "@deepseek-ai/dsh-client-connection"
+        "@janhq/jan-api-gateway",
+        "@janhq/jan-client-connection"
       ],
       "platform": "web"
     }
@@ -67,22 +67,22 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~",
-    "zod": "4.4.3"
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
+    "zod": "4.6.6"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-api-gateway": "workspace:*",
-    "@deepseek-ai/dsh-client-connection": "workspace:*",
-    "@deepseek-ai/dsh-client-store": "workspace:*",
-    "@deepseek-ai/dsh-jobs": "workspace:*",
-    "@deepseek-ai/dsh-jobs-local": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-typert-registry": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-api-gateway": "workspace:*",
+    "@janhq/jan-client-connection": "workspace:*",
+    "@janhq/jan-client-store": "workspace:*",
+    "@janhq/jan-jobs": "workspace:*",
+    "@janhq/jan-jobs-local": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-typert-registry": "workspace:*"
   }
 }

@@ -1,6 +1,6 @@
 /**
- * Resolve the public SDK launch configuration to one dsh subprocess.
- * @module @deepseek-ai/dsh-sdk-client/launch
+ * Resolve the public SDK launch configuration to one jan subprocess.
+ * @module @janhq/jan-sdk-client/launch
  */
 
 import { existsSync, readFileSync } from 'node:fs'
@@ -26,8 +26,8 @@ export interface RuntimeProcessOptions {
   disposeGraceMs?: number
 }
 
-/** Node argv plus internal profile patches required by one resolved dsh entry. */
-export interface DshNodeLaunch {
+/** Node argv plus internal profile patches required by one resolved jan entry. */
+export interface JanNodeLaunch {
   /** Arguments before the profile selector. */
   nodeArgs: string[]
   /** Internal patches applied below caller-supplied patches. */
@@ -47,57 +47,57 @@ function manifest(url: string): PackageManifest {
 }
 
 /**
- * Resolve and version-check a dsh executable from package manifests.
- * @param dshManifestUrl - resolved URL of the dsh package manifest.
+ * Resolve and version-check a jan executable from package manifests.
+ * @param janManifestUrl - resolved URL of the jan package manifest.
  * @param clientManifestUrl - resolved URL of the SDK client manifest.
- * @returns the absolute dsh executable path.
+ * @returns the absolute jan executable path.
  */
-export function resolveDshBinFromManifests(dshManifestUrl: string, clientManifestUrl: string): string {
-  const dshManifest = manifest(dshManifestUrl)
+export function resolveJanBinFromManifests(janManifestUrl: string, clientManifestUrl: string): string {
+  const janManifest = manifest(janManifestUrl)
   const clientManifest = manifest(clientManifestUrl)
-  if (typeof dshManifest.version !== 'string' || dshManifest.version !== clientManifest.version) {
-    throw new Error(`dsh SDK client ${String(clientManifest.version)} requires the same dsh version, got ${String(dshManifest.version)}`)
+  if (typeof janManifest.version !== 'string' || janManifest.version !== clientManifest.version) {
+    throw new Error(`jan SDK client ${String(clientManifest.version)} requires the same jan version, got ${String(janManifest.version)}`)
   }
-  const bin = typeof dshManifest.bin === 'object' && dshManifest.bin !== null
-    ? (dshManifest.bin as Record<string, unknown>).dsh
-    : dshManifest.bin
-  if (typeof bin !== 'string' || bin === '') throw new Error('@deepseek-ai/dsh declares no dsh executable')
-  return resolve(dirname(fileURLToPath(dshManifestUrl)), bin)
+  const bin = typeof janManifest.bin === 'object' && janManifest.bin !== null
+    ? (janManifest.bin as Record<string, unknown>).jan
+    : janManifest.bin
+  if (typeof bin !== 'string' || bin === '') throw new Error('@janhq/jan declares no jan executable')
+  return resolve(dirname(fileURLToPath(janManifestUrl)), bin)
 }
 
 /**
- * Resolve and version-check the built dsh executable installed with this SDK.
+ * Resolve and version-check the built jan executable installed with this SDK.
  * @returns the absolute built executable path, whether or not it exists in a source checkout.
  */
-export function installedDshBin(): string {
-  return resolveDshBinFromManifests(
-    import.meta.resolve('@deepseek-ai/dsh/package.json'),
+export function installedJanBin(): string {
+  return resolveJanBinFromManifests(
+    import.meta.resolve('@janhq/jan/package.json'),
     new URL('../package.json', import.meta.url).href,
   )
 }
 
 /**
- * Resolve the Node launch for one same-version dsh package.
- * @param dshManifestUrl - resolved URL of the dsh package manifest.
+ * Resolve the Node launch for one same-version jan package.
+ * @param janManifestUrl - resolved URL of the jan package manifest.
  * @param clientManifestUrl - resolved URL of the SDK client manifest.
  * @param sourceLoaderUrl - optional absolute tsx loader URL for deterministic tests.
  * @returns built output, or the source entry plus its compatibility patch and tsx environment.
  */
-export function resolveDshNodeLaunchFromManifests(
-  dshManifestUrl: string,
+export function resolveJanNodeLaunchFromManifests(
+  janManifestUrl: string,
   clientManifestUrl: string,
   sourceLoaderUrl?: string,
-): DshNodeLaunch {
-  const bin = resolveDshBinFromManifests(dshManifestUrl, clientManifestUrl)
+): JanNodeLaunch {
+  const bin = resolveJanBinFromManifests(janManifestUrl, clientManifestUrl)
   if (existsSync(bin)) return { nodeArgs: [bin], patches: [], environment: {} }
 
-  const packageDir = dirname(fileURLToPath(dshManifestUrl))
+  const packageDir = dirname(fileURLToPath(janManifestUrl))
   const sourceBin = resolve(packageDir, 'src/bin.ts')
   const sourcePatch = resolve(packageDir, 'src/sdk-source.cordis.patch.yml')
   const sourceTsconfig = resolve(packageDir, 'tsconfig.json')
   if (!existsSync(sourceBin) || !existsSync(sourcePatch) || !existsSync(sourceTsconfig)) {
     throw new Error(
-      `@deepseek-ai/dsh is missing its built executable ${bin} and complete source launch files ${sourceBin}, ${sourcePatch}, ${sourceTsconfig}`,
+      `@janhq/jan is missing its built executable ${bin} and complete source launch files ${sourceBin}, ${sourcePatch}, ${sourceTsconfig}`,
     )
   }
   const loader = sourceLoaderUrl ?? import.meta.resolve('tsx/esm')
@@ -109,45 +109,45 @@ export function resolveDshNodeLaunchFromManifests(
 }
 
 /**
- * Resolve the installed dsh package to a built or source Node launch.
+ * Resolve the installed jan package to a built or source Node launch.
  * @returns the launch descriptor for the current checkout or installed package.
  */
-function installedDshNodeLaunch(): DshNodeLaunch {
-  return resolveDshNodeLaunchFromManifests(
-    import.meta.resolve('@deepseek-ai/dsh/package.json'),
+function installedJanNodeLaunch(): JanNodeLaunch {
+  return resolveJanNodeLaunchFromManifests(
+    import.meta.resolve('@janhq/jan/package.json'),
     new URL('../package.json', import.meta.url).href,
   )
 }
 
 /**
- * Resolve caller-relative filesystem inputs and construct canonical dsh argv.
+ * Resolve caller-relative filesystem inputs and construct canonical jan argv.
  * @param options - public SDK launch options.
  * @param callerCwd - parent-process directory used for lexical resolution.
  * @returns one generic subprocess spec for the JSON-RPC transport.
  */
-export function resolveDshLaunch(
+export function resolveJanLaunch(
   options: HarnessClientOptions = {},
   callerCwd: string = process.cwd(),
 ): RuntimeProcessOptions {
   const profile = options.profile ?? 'sdk'
-  const dshLaunch = options.dshBin === undefined
-    ? installedDshNodeLaunch()
-    : { nodeArgs: [resolve(callerCwd, options.dshBin)], patches: [], environment: {} }
+  const janLaunch = options.janBin === undefined
+    ? installedJanNodeLaunch()
+    : { nodeArgs: [resolve(callerCwd, options.janBin)], patches: [], environment: {} }
   const patches = [
-    ...dshLaunch.patches,
+    ...janLaunch.patches,
     ...(options.patches ?? []).map(path => resolve(callerCwd, path)),
   ]
-  const dshHome = options.dshHome === undefined ? undefined : resolve(callerCwd, options.dshHome)
+  const janHome = options.janHome === undefined ? undefined : resolve(callerCwd, options.janHome)
   return {
     command: process.execPath,
-    args: [...dshLaunch.nodeArgs, '--profile', profile, ...patches.flatMap(path => ['--patch', path])],
+    args: [...janLaunch.nodeArgs, '--profile', profile, ...patches.flatMap(path => ['--patch', path])],
     ...options.processCwd === undefined ? {} : { cwd: resolve(callerCwd, options.processCwd) },
     environment: () => ({
       ...(options.env ?? process.env),
-      ...dshLaunch.environment,
-      ...dshHome === undefined ? {} : { DSH_HOME: dshHome },
+      ...janLaunch.environment,
+      ...janHome === undefined ? {} : { JAN_HOME: janHome },
     }),
-    description: `dsh profile ${JSON.stringify(profile)}`,
+    description: `jan profile ${JSON.stringify(profile)}`,
     initializeTimeoutMs: options.initializeTimeoutMs ?? DEFAULT_INITIALIZE_TIMEOUT_MS,
     ...options.requestTimeoutMs === undefined ? {} : { requestTimeoutMs: options.requestTimeoutMs },
     ...options.shutdownTimeoutMs === undefined ? {} : { shutdownTimeoutMs: options.shutdownTimeoutMs },

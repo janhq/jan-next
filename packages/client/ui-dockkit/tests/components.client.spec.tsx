@@ -55,7 +55,7 @@ function renderSurface(
   intents: DockIntents,
   canSplit = true,
   renderTabMenuItems?: TabMenuExtras,
-  options: Pick<DockSurfaceProps, 'dropZones' | 'minPaneFraction' | 'canCloseTab'> = {},
+  options: Pick<DockSurfaceProps, 'dropZones' | 'minPaneFraction' | 'canCloseTab' | 'onTabReleasedOutsideViewport'> = {},
 ) {
   const snapshot = controller.getSnapshot()
   return render(
@@ -121,7 +121,7 @@ function drag(element: Element, from: readonly [number, number], to: readonly [n
 function twoPanes(
   paneWidth = 420,
   canSplit = true,
-  options: Pick<DockSurfaceProps, 'dropZones' | 'minPaneFraction'> = {},
+  options: Pick<DockSurfaceProps, 'dropZones' | 'minPaneFraction' | 'onTabReleasedOutsideViewport'> = {},
 ): {
   intents: ReturnType<typeof spyIntents>
   first: PaneId
@@ -137,7 +137,7 @@ function twoPanes(
   const [first, second] = dockPaneIds(controller.getSnapshot().state)
   if (first === undefined || second === undefined) throw new Error('expected two docked panes')
   const fileTabId = controller.openContent({
-    contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file', paneId: first,
+    contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file', paneId: first,
   })
   const seedTabId = getPane(controller.getSnapshot().state, first).tabs[0]
   if (seedTabId === undefined) throw new Error('expected the seeded tab')
@@ -163,12 +163,12 @@ function gestureIntents(intents: ReturnType<typeof spyIntents>): string[] {
 describe('DockSurface', () => {
   it('renders each pane with its tabs and the active tab body', () => {
     const controller = seededController()
-    controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
+    controller.openContent({ contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
     renderSurface(controller, spyIntents())
 
     // The chip's text is its title alone: the close control is an icon.
     expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Start', 'a.txt'])
-    expect(screen.getByTestId('body').textContent).toBe('dsh-resource://file/session/s/a.txt')
+    expect(screen.getByTestId('body').textContent).toBe('jan-resource://file/session/s/a.txt')
     expect(screen.getByRole('tab', { name: /a\.txt/u }).getAttribute('aria-selected')).toBe('true')
   })
 
@@ -202,7 +202,7 @@ describe('DockSurface', () => {
 
   it('reports one focus intent when a tab is clicked, not when it is pressed, and none for the pane', () => {
     const controller = seededController()
-    controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
+    controller.openContent({ contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
     const intents = spyIntents()
     renderSurface(controller, intents)
     const tab = screen.getByRole('tab', { name: /Start/u })
@@ -557,7 +557,7 @@ describe('DockSurface', () => {
       const { rerender } = render(surface(controller))
       // The seeded chip is in view: nothing moves.
       expect(scrollLeft).toBe(0)
-      openedTab = controller.openContent({ contentId: 'dsh-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
+      openedTab = controller.openContent({ contentId: 'jan-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
       rerender(surface(controller))
       // Past the right edge by 140, plus the 24px fade.
       expect(scrollLeft).toBe(164)
@@ -630,6 +630,41 @@ describe('DockSurface', () => {
     expect(intents.focusPane).not.toHaveBeenCalled()
   })
 
+  it('opens the embedder\'s add menu from the `+` instead of adding, and the same `+` closes it again', () => {
+    const controller = seededController()
+    const snapshot = controller.getSnapshot()
+    const intents = spyIntents()
+    const picked = vi.fn()
+    render(
+      <DockSurface
+        state={snapshot.state}
+        canSplit
+        intents={intents}
+        labels={TEST_LABELS}
+        renderTab={tab => <p>{tab.contentId}</p>}
+        renderAddTabMenu={(paneId, dismiss) => (
+          <button type="button" role="menuitem" onClick={() => { picked(paneId); dismiss() }}>Terminal</button>
+        )}
+      />,
+    )
+    const add = screen.getByRole('button', { name: TEST_LABELS.addTab })
+    expect(add.getAttribute('aria-haspopup')).toBe('menu')
+    // A real press dispatches pointerdown before click; the menu must not treat it as an outside press.
+    fireEvent.pointerDown(add)
+    fireEvent.click(add)
+    expect(intents.addTab).not.toHaveBeenCalled()
+    expect(intents.focusPane).toHaveBeenCalledWith(snapshot.state.rootId)
+    expect(add.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.pointerDown(add)
+    fireEvent.click(add)
+    expect(screen.queryByRole('menuitem', { name: 'Terminal' })).toBeNull()
+    fireEvent.pointerDown(add)
+    fireEvent.click(add)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Terminal' }))
+    expect(picked).toHaveBeenCalledWith(snapshot.state.rootId)
+    expect(screen.queryByRole('menuitem', { name: 'Terminal' })).toBeNull()
+  })
+
   it('draws the add control only where the embedder\'s canAddTab allows, pane by pane', () => {
     const controller = seededController()
     controller.setExpanded(true)
@@ -658,7 +693,7 @@ describe('DockSurface', () => {
 
   it('withholds a tab\'s close control and menu close item where the embedder\'s canCloseTab denies, tab by tab', () => {
     const controller = seededController()
-    controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
+    controller.openContent({ contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
     const snapshot = controller.getSnapshot()
     const seedTabId = getPane(snapshot.state, snapshot.state.activePaneId).tabs[0]
     if (seedTabId === undefined) throw new Error('expected seeded tab')
@@ -711,7 +746,7 @@ describe('DockSurface', () => {
 
   it('lets the embedder render a chip\'s title, and shows the record\'s text when it does not', () => {
     const controller = seededController()
-    controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
+    controller.openContent({ contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
     const snapshot = controller.getSnapshot()
     render(
       <DockSurface
@@ -1084,6 +1119,16 @@ describe('tab drags', () => {
     expect(gestureIntents(intents)).toEqual(['floatTab'])
   })
 
+  it('distinguishes a tab released outside the viewport from a release over adjacent UI', () => {
+    const onTabReleasedOutsideViewport = vi.fn()
+    const { intents, fileTabId, chip } = twoPanes(420, true, { onTabReleasedOutsideViewport })
+    drag(chip(fileTabId), FILE_CHIP, [850, 300])
+    expect(onTabReleasedOutsideViewport).not.toHaveBeenCalled()
+    drag(chip(fileTabId), FILE_CHIP, [window.innerWidth + 30, 300])
+    expect(onTabReleasedOutsideViewport).toHaveBeenCalledExactlyOnceWith(fileTabId)
+    expect(intents.floatTab).toHaveBeenCalledTimes(1)
+  })
+
   it('treats a press that never travels the threshold as no drag at all', () => {
     const { intents, fileTabId, chip } = twoPanes()
     drag(chip(fileTabId), FILE_CHIP, [FILE_CHIP[0] + 2, FILE_CHIP[1] + 1], false)
@@ -1207,8 +1252,8 @@ describe('keyboard tabs', () => {
   /** One pane holding the seed and two files, the last opened selected, with the chips by title. */
   function threeChips(): { intents: ReturnType<typeof spyIntents>; chip: (title: string) => HTMLElement; ids: Record<string, TabId> } {
     const controller = seededController()
-    const a = controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
-    const b = controller.openContent({ contentId: 'dsh-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
+    const a = controller.openContent({ contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
+    const b = controller.openContent({ contentId: 'jan-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
     const seed = getPane(controller.getSnapshot().state, controller.getSnapshot().state.rootId).tabs[0]
     if (seed === undefined) throw new Error('expected the seeded tab')
     const intents = spyIntents()
@@ -1280,6 +1325,22 @@ describe('keyboard tabs', () => {
 })
 
 describe('divider drags', () => {
+  it('can omit tab strips while keeping arrow-key divider resizing', () => {
+    const controller = seededController()
+    controller.splitPane()
+    const state = controller.getSnapshot().state
+    const resizeSplit = vi.fn()
+    render(<DockSurface state={state} canSplit={false} tabStrips={false} dividerLabel="Resize panes"
+      labels={TEST_LABELS} renderTab={tab => <p>{tab.contentId}</p>} intents={{ resizeSplit, focusPane: vi.fn() }} />)
+    expect(screen.queryByRole('tablist')).toBeNull()
+    const divider = screen.getByRole('separator', { name: 'Resize panes' })
+    expect(divider.tabIndex).toBe(0)
+    fireEvent.keyDown(divider, { key: 'ArrowDown' })
+    expect(resizeSplit).not.toHaveBeenCalled()
+    fireEvent.keyDown(divider, { key: 'ArrowRight' })
+    expect(resizeSplit).toHaveBeenCalledWith(state.rootId, [0.55, 0.45])
+  })
+
   /** A row split whose second pane is itself split into a column: the column split's id and a spied intent set. */
   function withColumn(columnBox: DOMRect): { intents: ReturnType<typeof spyIntents>; columnId: string } {
     const controller = seededController()
@@ -1287,7 +1348,7 @@ describe('divider drags', () => {
     controller.splitPane()
     const [first, second] = dockPaneIds(controller.getSnapshot().state)
     if (first === undefined || second === undefined) throw new Error('expected two docked panes')
-    const opened = controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file', paneId: second })
+    const opened = controller.openContent({ contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file', paneId: second })
     controller.dropTab(opened, second, 'bottom')
     const state = controller.getSnapshot().state
     const root = state.nodes[state.rootId]
@@ -1403,7 +1464,7 @@ describe('FloatLayer', () => {
     })
     root.setAttribute('data-windows-titlebar', '')
     root.toggleAttribute('data-fullscreen', fullscreen)
-    root.style.setProperty('--dsh-windows-titlebar-height', '40px')
+    root.style.setProperty('--jan-windows-titlebar-height', '40px')
     const { intents, paneId, panel } = floating(undefined, savedY)
     const measure = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
     const computedStyle = vi.spyOn(window, 'getComputedStyle')
@@ -1424,8 +1485,8 @@ describe('FloatLayer', () => {
     part: (attribute: string, paneId: PaneId) => Element
   } {
     const controller = seededController()
-    const first = controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
-    const second = controller.openContent({ contentId: 'dsh-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
+    const first = controller.openContent({ contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
+    const second = controller.openContent({ contentId: 'jan-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
     const lower = controller.floatTab(first, { x: 100, y: 80, width: 300, height: 200 })
     const upper = controller.floatTab(second, { x: 500, y: 80, width: 300, height: 200 })
     const intents = spyIntents()
@@ -1451,7 +1512,7 @@ describe('FloatLayer', () => {
     panel: HTMLElement
   } {
     const controller = seededController()
-    const tabId = controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
+    const tabId = controller.openContent({ contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
     const paneId = controller.floatTab(tabId, { x: 100, y, width: 300, height: 200 })
     const intents = spyIntents()
     render(
@@ -1517,8 +1578,8 @@ describe('FloatLayer', () => {
 
   it('raises the active panel when another has been drawn over it', () => {
     const controller = seededController()
-    const first = controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
-    const second = controller.openContent({ contentId: 'dsh-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
+    const first = controller.openContent({ contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
+    const second = controller.openContent({ contentId: 'jan-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
     const lower = controller.floatTab(first, { x: 100, y: 80, width: 300, height: 200 })
     const upper = controller.floatTab(second, { x: 500, y: 80, width: 300, height: 200 })
     // Focus on the lower panel while the upper stays on top: only a recorded
@@ -1536,8 +1597,8 @@ describe('FloatLayer', () => {
 
   it('moves a panel by its grip as one intent, previewing the position and the panel on top', () => {
     const controller = seededController()
-    const first = controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
-    const second = controller.openContent({ contentId: 'dsh-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
+    const first = controller.openContent({ contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
+    const second = controller.openContent({ contentId: 'jan-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
     const lower = controller.floatTab(first, { x: 100, y: 80, width: 300, height: 200 })
     controller.floatTab(second, { x: 500, y: 80, width: 300, height: 200 })
     const intents = spyIntents()
@@ -1558,7 +1619,7 @@ describe('FloatLayer', () => {
     expect(intents.focusPane).not.toHaveBeenCalled()
     // The recorded rectangle and depth are drawn again once the preview clears.
     expect(panel.style.left).toBe('')
-    expect(panel.style.getPropertyValue('--dsh-dockkit-float-x')).toBe('100px')
+    expect(panel.style.getPropertyValue('--jan-dockkit-float-x')).toBe('100px')
     expect(panel.style.zIndex).toBe('1')
   })
 
@@ -1589,8 +1650,8 @@ describe('FloatLayer', () => {
 
   it('stacks panels in the model z order', () => {
     const controller = seededController()
-    const first = controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
-    const second = controller.openContent({ contentId: 'dsh-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
+    const first = controller.openContent({ contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
+    const second = controller.openContent({ contentId: 'jan-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
     controller.floatTab(first)
     controller.floatTab(second)
     render(
@@ -1619,7 +1680,7 @@ describe('surface chrome', () => {
     if (rightPaneId === undefined) throw new Error('expected a row split')
     const seeded = controller.getSnapshot().state.nodes[rightPaneId]
     if (seeded === undefined || seeded.kind !== 'pane' || seeded.tabs[0] === undefined) throw new Error('expected a seeded pane')
-    const opened = controller.openContent({ contentId: 'dsh-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file', paneId: seeded.id })
+    const opened = controller.openContent({ contentId: 'jan-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file', paneId: seeded.id })
     controller.dropTab(opened, seeded.id, 'bottom')
 
     const snapshot = controller.getSnapshot()
@@ -1672,7 +1733,7 @@ describe('surface chrome', () => {
   // controls after it are the strip's own children, in this order.
   it('keeps the chips in their own box ahead of the add, split, and chrome controls', () => {
     const controller = seededController()
-    controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
+    controller.openContent({ contentId: 'jan-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
     const snapshot = controller.getSnapshot()
     render(
       <DockSurface
@@ -1712,6 +1773,6 @@ describe('a controller satisfies the intent contract', () => {
 
 describe('fileTab', () => {
   it('builds a content tab the kit treats as opaque', () => {
-    expect(fileTab(asTab('t1'), 'dsh-resource://file/session/s/x', 'x').kind).toBe('file')
+    expect(fileTab(asTab('t1'), 'jan-resource://file/session/s/x', 'x').kind).toBe('file')
   })
 })

@@ -2,13 +2,11 @@
  * Generate the per-subsystem Cordis service/event reference regions from the
  * Typert catalog projection. Every harness `ctx.<key>` service and event scope
  * maps to exactly one `docs/subsystems/` page through the curated tables below;
- * the generator injects each page's Cordis API reference between its GENERATED markers —
- * into both language sides of the pair, localizing paired document paths for
- * the Chinese side while retaining every other byte — and re-records a pair's
- * `.i18n.yaml` only when nothing outside the region changed. The
- * projection enforces event modes, JSDoc parameter/return completeness, and
- * signature type-link coverage; the inherited (vendor) tier renders to
- * `docs/cordis-api/inherited.md`. `--check` verifies every generated artifact.
+ * the generator injects each page's Cordis API reference between its GENERATED
+ * markers, retaining every other byte. The projection enforces event modes,
+ * JSDoc parameter/return completeness, and signature type-link coverage; the
+ * inherited (vendor) tier renders to `docs/cordis-api/inherited.md`. `--check`
+ * verifies every generated artifact.
  *
  * Generated regions embed `file:line` source pointers, so inserting lines ABOVE a
  * recorded symbol makes the committed output stale even though nothing about the
@@ -26,15 +24,10 @@ import {
   renderPageRegion,
   REGION_BEGIN,
   REGION_END,
-} from '@deepseek-ai/dsh-typert-generator'
-import type { CordisCatalogPolicy } from '@deepseek-ai/dsh-typert-generator'
+} from '@janhq/jan-typert-generator'
+import type { CordisCatalogPolicy } from '@janhq/jan-typert-generator'
 import { renderCordisCoreApiPages } from './cordis-core-api.ts'
 import { contextKeyMap, contextMergeFiles, eventNameList } from './cordis-walk.ts'
-import {
-  parseTranslationPairingManifest,
-  translationPairSourcePredicate,
-} from './translation-pairing.ts'
-import { rewriteTranslationLinkLocales } from './translation-links.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const SUBSYSTEMS_DIR = 'docs/subsystems'
@@ -64,6 +57,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   pluginManager: 'boot.md',
   actionCards: 'boot.md',
   pluginRecommendations: 'boot.md',
+  pluginI18n: 'boot.md',
   pluginMarket: 'boot.md',
   pluginRegistryProbe: 'boot.md',
   configEditor: 'boot.md',
@@ -87,14 +81,14 @@ export const SERVICE_PAGE: Record<string, string> = {
   cuaAccess: 'computer-use.md',
   commands: 'commands.md',
   compaction: 'compaction.md',
+  compactionSettings: 'compaction.md',
   cordisInspect: 'extensions.md',
   authorization: 'credentials.md',
-  deepseekAccount: 'credentials.md',
+  tokamakAccount: 'credentials.md',
   credentials: 'credentials.md',
   credentialsController: 'credentials.md',
   settingsController: 'settings.md',
   directoryPicker: 'workspace.md',
-  deepseekLlmApiExtensions: 'llm-streaming.md',
   dynamicCordisRunner: 'extensions.md',
   fileUploads: 'attachment.md',
   fileReferences: 'session-reference.md',
@@ -128,7 +122,6 @@ export const SERVICE_PAGE: Record<string, string> = {
   sessionController: 'session.md',
   sessionSkillCatalog: 'skills.md',
   sessions: 'session.md',
-  sessionLogDeepSeek: 'session.md',
   settings: 'settings.md',
   sessionTitle: 'session-title.md',
   skills: 'skills.md',
@@ -148,10 +141,12 @@ export const SERVICE_PAGE: Record<string, string> = {
   tokenMeter: 'token-meter.md',
   toolResultPruner: 'compaction.md',
   tools: 'tools.md',
+  mediaCapture: 'tools.md',
   typert: 'typert.md',
   typertGateway: 'typert.md',
   remoteAccess: 'typert.md',
   userQuestions: 'user-questions.md',
+  userQuestionSettings: 'user-questions.md',
   web: 'web.md',
   workflowEngine: 'workflow.md',
   webhookRuntime: 'webhook.md',
@@ -166,7 +161,7 @@ export const SERVICE_PAGE: Record<string, string> = {
 /**
  * Context keys declared in `interface Context` merges that the rendering
  * projection cannot see, each with the reason and its documentation owner.
- * The scan that enforces this list reads EVERY `declare module '@deepseek-ai/cordis'`
+ * The scan that enforces this list reads EVERY `declare module '@janhq/cordis'`
  * Context merge under `packages/x/x/src/**` — any depth, not only root
  * `index.ts` files with a same-named service class — so a new service can
  * never silently join this blind spot: it either enters {@link SERVICE_PAGE}
@@ -186,12 +181,13 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   fileActions: 'client-side interface-typed file actions — packages/client/ui-file-actions/README.md owns the API',
   invocation: 'not a service: per-call accessor (RemoteInvocation | undefined) the Gateway derives for each Remote call — packages/api/gateway/README.md owns the contract',
   webTerminals: 'client-side terminal view models — packages/api/terminal-controller/README.md owns the API',
+  accountSignIn: 'client-side interface-typed sign-in starter — packages/client/ui-settings-account/README.md owns the API',
   appReady: 'not a service: launcher-provided successful-startup signal — packages/boot/cmdline/README.md owns the launcher contract',
   appExit: 'not a service: launcher-provided bounded process-exit callback — packages/boot/cmdline/README.md owns the launcher contract',
   cmdlineArgs: 'not a service: launcher-provided immutable app argument accessor — packages/boot/cmdline/README.md owns the launcher contract',
   configuredAgentIdentities: 'not a service: launcher-provided boot-context value (ConfiguredAgentIdentities | undefined) — packages/core/agent-loop/README.md owns this launcher contract',
   launcherSessionQueryPath: 'not a service: launcher-provided boot-context value (string | undefined) — packages/session-query/session-query-sqlite/README.md owns this launcher contract',
-  dshHomePath: 'not a service: boot-provided root accessor function (typeof dshHomePath | undefined) for Loader !!js config expressions — packages/boot/app-boot/README.md owns the boot contract',
+  janHomePath: 'not a service: boot-provided root accessor function (typeof janHomePath | undefined) for Loader !!js config expressions — packages/boot/app-boot/README.md owns the boot contract',
   launchEnvironment: 'not a service: launcher-provided root accessor value (LaunchEnvironmentSnapshot | undefined) — packages/util/launch-environment/README.md owns this launcher contract',
   pluginPackages: 'profile-boot-owned package resolver service used by optional consumers — packages/boot/app-boot/README.md owns this internal API',
   fileUpload: 'client-side browser upload service — packages/client/file-upload/README.md owns the API',
@@ -199,13 +195,18 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   uiSession: 'client-side Session source adapter — packages/client/ui-session/README.md owns the API',
   uiConversation: 'client-side Conversation registries and assembler — packages/client/ui-conversation/README.md owns the API',
   uiWorkspace: 'client-side Workspace navigation adapter — packages/client/ui-workspace/README.md owns the API',
+  hostTaskCatalog: 'client-side shared task catalog - packages/client/ui-schedule/README.md owns the API',
   settingsSchema: 'client-side schema introspection service — packages/client/ui-settings/README.md owns the API',
   configForms: 'client-side shared entry forms — packages/client/ui-settings/README.md owns the API',
+  settingsNavigation: 'client-side Settings section navigation — packages/client/ui-settings-general/README.md owns the API',
+  uiGuidance: 'client-side guided tours and seen state - packages/client/ui-guidance/README.md owns the API',
+  senseVoiceWorker: 'experimental speech-to-text provider handle read by the Downloads page - packages/experimental/speech-to-text-sensevoice/README.md owns the API',
   chatFileMentions: 'client-side slot-contract accessor (ChatFileMentions) — packages/client/ui-chat/README.md owns the API',
   shortcuts: 'client-side interface-typed keyboard service — packages/client/shortcuts/README.md owns the API',
   userQuestionPanels: 'client-side slot-contract accessor (UserQuestionPanels) — packages/client/ui-tool/README.md owns the API',
   commandUi: 'client-side interface-typed browser service — packages/client/ui-commands/README.md owns the API',
   fileDrag: 'client-side file preparation and transfer service — packages/client/ui-file-drag/README.md owns the API',
+  uiAgentPreset: 'client-side mode action registry - packages/client/ui-agent-preset/README.md owns the API',
   feedbackUi: 'client-side feedback dialog service — packages/client/ui-message-feedback/README.md owns the API',
   conversation: 'client-side interface-typed browser service — packages/client/ui-conversation/README.md owns the API',
   layout: 'client-side interface-typed browser service — packages/client/ui-layout/README.md owns the API',
@@ -238,6 +239,7 @@ export const EVENT_SCOPE_PAGE: Record<string, string> = {
   hmr: 'boot.md',
   'plugin-manager': 'boot.md',
   'plugin-market': 'boot.md',
+  'plugin-i18n': 'boot.md',
   'agent': 'core.md',
   'agent-loop': 'core.md',
   'agent-preset': 'core.md',
@@ -249,7 +251,7 @@ export const EVENT_SCOPE_PAGE: Record<string, string> = {
   'cordis': 'extensions.md',
   'authorization': 'credentials.md',
   'credentials': 'credentials.md',
-  'deepseek-account': 'credentials.md',
+  'tokamak-account': 'credentials.md',
   'domain': 'storage.md',
   'forge': 'forge.md',
   'fs': 'filesystem.md',
@@ -278,7 +280,7 @@ export const EVENT_SCOPE_PAGE: Record<string, string> = {
  * Event names declared in `interface Events` merges that the rendering
  * projection cannot see, each with the reason and its documentation owner.
  * The mirror of {@link SERVICE_WALK_EXEMPTIONS} for events: an independent
- * scan reads EVERY `declare module '@deepseek-ai/cordis'` Events merge under
+ * scan reads EVERY `declare module '@janhq/cordis'` Events merge under
  * `packages/x/x/src/**`, so a declared event either renders onto a subsystems
  * page (via {@link EVENT_SCOPE_PAGE}) or names itself here — never vanishes
  * silently. Keys are full event names rather than scopes, so a scope-level
@@ -433,11 +435,9 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   SettleReason: 'core.md',
   AdapterRegistrationHandle: 'llm-streaming.md',
   DirectoryRegistrationHandle: 'llm-streaming.md',
-  DeepSeekLlmApiExtensionMap: 'llm-streaming.md',
-  DeepSeekLlmApiExtensionProvider: 'llm-streaming.md',
-  DeepSeekLlmApiExtensionRequest: 'llm-streaming.md',
   LlmCallConfig: 'llm-streaming.md',
   PiAiRequestHeaderContext: 'llm-streaming.md',
+  PiAiPromptProgress: 'llm-streaming.md',
   ConfigureCall: 'llm-streaming.md',
   LlmModelContext: 'llm-streaming.md',
   LlmModelReasoningInfo: 'llm-streaming.md',
@@ -522,6 +522,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   SessionWaitRequest: 'session.md',
   SessionWaitValue: 'session.md',
   PendingRemoteEventInfo: 'typert.md',
+  TypertGatewayForwarder: 'typert.md',
   SessionPromptRequest: 'session.md',
   SessionPromptValue: 'session.md',
   SessionRenameRequest: 'session.md',
@@ -531,6 +532,8 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   SessionSearchValue: 'session.md',
   SessionSelectModelRequest: 'session.md',
   SessionSelectModelValue: 'session.md',
+  SessionContextPreviewRequest: 'session.md',
+  SessionContextPreviewValue: 'session.md',
   SessionSummary: 'session.md',
   SessionMessageProjection: 'session.md',
   SessionUpdateQueueRequest: 'session.md',
@@ -574,7 +577,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   ShellProcess: 'shell.md',
   ShellPromotionOffer: 'shell.md',
   ShellRunResult: 'shell.md',
-  DshEnvironment: 'subprocess.md',
+  JanEnvironment: 'subprocess.md',
   SubprocessHandle: 'subprocess.md',
   SubprocessOutcome: 'subprocess.md',
   SubprocessOutputRead: 'subprocess.md',
@@ -588,6 +591,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   PtcRunSandbox: 'ptc-runtime.md',
   PtcRunResult: 'ptc-runtime.md',
   CompactionResult: 'compaction.md',
+  CompactionPreferences: 'compaction.md',
   CompactionTrigger: 'compaction.md',
   PruneResult: 'compaction.md',
   FileReadOutcome: 'filesystem.md',
@@ -635,6 +639,11 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   ScheduleSessionCreateSpec: 'schedule.md',
   ScheduleTarget: 'schedule.md',
   ScheduleTargetRequest: 'schedule.md',
+  ScheduleReceiptIdentity: 'schedule.md',
+  SchedulePluginHandler: 'schedule.md',
+  SchedulePluginDelivery: 'schedule.md',
+  ScheduleWakeSource: 'schedule.md',
+  ScheduleWakeRegistration: 'schedule.md',
   DailyInput: 'schedule.md',
   DailyScheduleRecord: 'schedule.md',
   RecurringScheduleRecord: 'schedule.md',
@@ -652,7 +661,6 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   LspQueryResult: 'lsp.md',
   LlmAdapter: 'llm-streaming.md',
   PreparedLlmCall: 'llm-streaming.md',
-  PreparedDeepSeekLlmApiExtensions: 'llm-streaming.md',
   LlmRuntime: 'llm-streaming.md',
   StreamChunk: 'llm-streaming.md',
   SkillProviderControl: 'skills.md',
@@ -736,8 +744,6 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   AgentMessageSource: 'subagent.md',
   SubagentCatalogEntry: 'subagent.md',
   SubagentCatalogState: 'subagent.md',
-  SessionLogUploadRequest: 'session.md',
-  SessionLogUploadExclusion: 'session.md',
   SessionProjectionsRequest: 'session.md',
   SessionProjectionsValue: 'session.md',
   SubagentDescendantListEntry: 'subagent.md',
@@ -830,6 +836,9 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   ToolExecutionMode: 'tools.md',
   ToolExecutionResult: 'tools.md',
   ToolExecutionToken: 'tools.md',
+  CaptureRequest: 'tools.md',
+  CaptureResult: 'tools.md',
+  CaptureRequester: 'tools.md',
   ToolGuard: 'tools.md',
   ToolRuntime: 'tools.md',
   ToolsService: 'tools.md',
@@ -868,7 +877,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   AccountBonusBatch: 'credentials.md',
   AccountBonusOrderId: 'credentials.md',
   AccountUserId: 'credentials.md',
-  PlatformSession: 'credentials.md',
+  TokamakPlatformSession: 'credentials.md',
   SignInAttemptId: 'credentials.md',
   AuthorizationPrompt: 'credentials.md',
   AuthorizationRequest: 'credentials.md',
@@ -921,6 +930,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   WorkspaceDeleteValue: 'workspace.md',
   WorkspaceFollowFrame: 'workspace.md',
   WorkspaceId: 'workspace.md',
+  WorkspaceAdoption: 'workspace.md',
   WorkspaceInsertBeforeRequest: 'workspace.md',
   WorkspaceInsertSessionBeforeRequest: 'workspace.md',
   WorkspaceOrderValue: 'workspace.md',
@@ -929,6 +939,8 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   WorkspaceRenameRequest: 'workspace.md',
   WorkspaceUnarchiveSessionRequest: 'workspace.md',
   WorkspaceUnpinSessionRequest: 'workspace.md',
+  WorkspaceUpdateRequest: 'workspace.md',
+  WorkspaceIdentityPatch: 'workspace.md',
   WorkspaceValue: 'workspace.md',
   ClientArtifactBaseline: 'client-modules.md',
   WebBootGraph: 'client-modules.md',
@@ -990,8 +1002,19 @@ export const FOUNDATION_TYPE_NAMES: ReadonlySet<string> = new Set([
 /** Project types deliberately documented outside the subsystems catalog. */
 export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   LlamaCppState: 'tokamak-harness local model state is owned by packages/llm/llama-cpp/src/types.ts and README-tokamak.md',
-  HuggingFaceRepoInfo: 'tokamak-harness Hugging Face lookup result is owned by packages/llm/llama-cpp/src/types.ts and README-tokamak.md',
-  ImportModelOptions: 'tokamak-harness local model import options are owned by packages/llm/llama-cpp/src/types.ts and README-tokamak.md',
+  HuggingFaceRepoInfo: 'Hugging Face repository lookup results are owned by packages/llm/llama-cpp/src/types.ts',
+  ImportModelOptions: 'local model import options are owned by packages/llm/llama-cpp/src/types.ts',
+  StoredDownload: 'Downloads-page items are owned by packages/llm/llama-cpp/src/types.ts and packages/api/llama-cpp-controller/README.md',
+  PluginI18nChange: 'plugin translation changes are owned by packages/host/plugin-i18n/README.md and src/types.ts',
+  PluginI18nConsent: 'plugin translation consent is owned by packages/host/plugin-i18n/README.md and src/types.ts',
+  PluginI18nConsentChange: 'plugin translation consent changes are owned by packages/host/plugin-i18n/README.md and src/types.ts',
+  PluginI18nJob: 'plugin translation jobs are owned by packages/host/plugin-i18n/README.md and src/types.ts',
+  PluginI18nRoute: 'the translation model route is owned by packages/host/plugin-i18n/README.md and src/types.ts',
+  PluginI18nRouteChoices: 'translation model choices are owned by packages/host/plugin-i18n/README.md and src/types.ts',
+  PluginI18nRouteRef: 'the translation model reference is owned by packages/host/plugin-i18n/README.md and src/types.ts',
+  PluginI18nStatus: 'plugin translation status is owned by packages/host/plugin-i18n/README.md and src/types.ts',
+  PluginI18nTables: 'generated translation tables are owned by packages/host/plugin-i18n/README.md and src/types.ts',
+  PluginI18nTranslateRequest: 'translation requests are owned by packages/host/plugin-i18n/README.md and src/types.ts',
   ActionCardDecision: 'packages/experimental/action-cards/README.md',
   ActionCardKind: 'packages/experimental/action-cards/README.md',
   ActionCardResult: 'packages/experimental/action-cards/README.md',
@@ -1194,9 +1217,8 @@ export const CORDIS_CATALOG_POLICY: CordisCatalogPolicy = {
  * The page must contain exactly one `cordis-surface` marker region (the markers are
  * part of the hand-owned page skeleton once, then owned by the generator);
  * zero or several is a partition error the caller reports with the page path.
- * The match is on THIS generator's exact markers, not the generic region
- * grammar, so a page carrying only some other generator's region fails loud
- * instead of having that region overwritten.
+ * The match is on this generator's exact markers, so a page without them fails
+ * loud instead of having another region overwritten.
  * @param content - the page's current full Markdown text.
  * @param region - the freshly rendered marker-delimited region.
  * @returns the page text with the region replaced.
@@ -1234,19 +1256,6 @@ export interface WalkPartitionMaps {
   readonly serviceWalkExemptions: Readonly<Record<string, string>>
   readonly eventScopePage: Readonly<Record<string, string>>
   readonly eventWalkExemptions: Readonly<Record<string, string>>
-}
-
-/** Project paired Markdown destinations in one generated region to the page's locale. */
-export function localizePageRegion(region: string, pageRel: string, scanRoot: string = root): string {
-  if (!pageRel.endsWith('.zh.md')) return region
-  const manifest = parseTranslationPairingManifest(
-    readFileSync(resolve(scanRoot, 'scripts/translation-pairing.manifest.json'), 'utf8'),
-  )
-  return rewriteTranslationLinkLocales(region, {
-    repoRoot: scanRoot,
-    sourcePath: pageRel,
-    isTranslationPairSource: translationPairSourcePredicate(manifest),
-  }).content
 }
 
 /**
@@ -1321,12 +1330,12 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
 
 /**
  * Compute every generated artifact: the inherited-tier page, the model-facing
- * runtime API module, plus, per mapped subsystems page, the pair's two updated
- * documents with the injected region. Fail-loud partition checks live here: an
- * unmapped service/event scope, a mapping whose page file does not exist, a
- * curated entry whose key/scope the projection no longer discovers, a declared
- * Context key or Events member the projection cannot see without a named walk
- * exemption, and a mapped page missing its markers are all aggregated errors.
+ * runtime API module, plus each mapped subsystems page with its injected
+ * region. Fail-loud partition checks live here: an unmapped service/event
+ * scope, a mapping whose page file does not exist, a curated entry whose
+ * key/scope the projection no longer discovers, a declared Context key or
+ * Events member the projection cannot see without a named walk exemption, and
+ * a mapped page missing its markers are all aggregated errors.
  * @returns `[repo-relative path, exact content]` for every generated artifact.
  */
 export function computeOutputs(): [string, string][] {
@@ -1370,23 +1379,19 @@ export function computeOutputs(): [string, string][] {
       events.filter(e => EVENT_SCOPE_PAGE[e.scope] === page),
       CORDIS_CATALOG_POLICY,
     )
-    for (const side of [page, page.replace(/\.md$/, '.zh.md')]) {
-      const rel = `${SUBSYSTEMS_DIR}/${side}`
-      const localizedRegion = localizePageRegion(region, rel)
-      let current: string
-      try {
-        current = readFileSync(resolve(root, rel), 'utf8')
-      } catch {
-        // Both pair sides must exist before a region can be injected; the
-        // pairing gate owns pair completeness, this generator names the miss.
-        problems.push(`${rel}: mapped subsystems page does not exist.`)
-        continue
-      }
-      try {
-        outputs.push([rel, spliceRegion(current, localizedRegion)])
-      } catch (error) {
-        problems.push(`${rel}: ${error instanceof Error ? error.message : String(error)}`)
-      }
+    const rel = `${SUBSYSTEMS_DIR}/${page}`
+    let current: string
+    try {
+      current = readFileSync(resolve(root, rel), 'utf8')
+    } catch {
+      // The page must exist before a region can be injected; this generator names the miss.
+      problems.push(`${rel}: mapped subsystems page does not exist.`)
+      continue
+    }
+    try {
+      outputs.push([rel, spliceRegion(current, region)])
+    } catch (error) {
+      problems.push(`${rel}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
   if (problems.length > 0) throw new Error(`gen-cordis-catalog: ${problems.length} page violation(s):\n${problems.map(p => `  ${p}`).join('\n')}`)

@@ -20,12 +20,12 @@ Function un.CleanData
   ${IfNot} ${Errors}
     Return
   ${EndIf}
-  ; Only a DSH_HOME published as a Windows environment variable is visible here.
-  ReadEnvStr $UnHome DSH_HOME
+  ; Only a JAN_HOME published as a Windows environment variable is visible here.
+  ReadEnvStr $UnHome JAN_HOME
   ClearErrors
   ; tokamak-harness: the product is named Jan, and %APPDATA%\Jan belongs to the Jan desktop app
   ; (janhq), so only the folder earlier builds of this app used is removed here.
-  StrCpy $UnTarget "$APPDATA\DeepSeek Harness"
+  StrCpy $UnTarget "$APPDATA\Jan"
   Call un.RemoveData
   !ifdef APP_PACKAGE_NAME
     ; Electron derives user data from the package name; a scoped name nests it one directory deeper.
@@ -33,6 +33,6 @@ Function un.CleanData
     Call un.RemoveData
     System::Call '$PLUGINSDIR\window-frame.dll::UninstallRemoveEmptyParents(w "$UnTarget", w "$APPDATA") ?c'
   !endif
-  StrCpy $UnTarget "$LOCALAPPDATA\${DSH_UPDATER_CACHE_NAME}"
+  StrCpy $UnTarget "$LOCALAPPDATA\${JAN_UPDATER_CACHE_NAME}"
   Call un.RemoveData
 FunctionEnd

@@ -1,0 +1,42 @@
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.step {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-bg-base);
+  color: inherit;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .step:hover:enabled {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.step:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 3px;
+}
+
+.step:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.label {
+  min-width: 0;
+}

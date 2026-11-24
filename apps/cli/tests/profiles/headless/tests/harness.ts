@@ -1,24 +1,24 @@
-import { Context } from '@deepseek-ai/cordis'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { LocalBashExecutor } from '@deepseek-ai/dsh-bash-local'
-import * as BashEnvPlugin from '@deepseek-ai/dsh-shell-env'
-import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
-import * as ToolBash from '@deepseek-ai/dsh-tool-bash'
-import * as ToolTodo from '@deepseek-ai/dsh-tool-todo'
-import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek-api-key'
-import TokenMeter from '@deepseek-ai/dsh-token-meter'
-import ToolResultPruner from '@deepseek-ai/dsh-compaction-tool-result-pruner'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import * as SessionCheckpointPolicy from '@deepseek-ai/dsh-session-checkpoint-policy'
-import { BasicCompactionEngine } from '@deepseek-ai/dsh-compaction-basic'
-import type { BasicCompactionConfig } from '@deepseek-ai/dsh-compaction-basic'
+import { Context } from '@janhq/cordis'
+import type { SessionEvent } from '@janhq/jan-session'
+import type { Agent } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { LocalBashExecutor } from '@janhq/jan-bash-local'
+import * as BashEnvPlugin from '@janhq/jan-shell-env'
+import LocalSubprocessRuntime from '@janhq/jan-subprocess-local'
+import * as ToolBash from '@janhq/jan-tool-bash'
+import * as ToolTodo from '@janhq/jan-tool-todo'
+import * as LlmPiAi from '@janhq/jan-llm-pi-ai'
+import TokenMeter from '@janhq/jan-token-meter'
+import ToolResultPruner from '@janhq/jan-compaction-tool-result-pruner'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
+import * as SessionCheckpointPolicy from '@janhq/jan-session-checkpoint-policy'
+import { BasicCompactionEngine } from '@janhq/jan-compaction-basic'
+import type { BasicCompactionConfig } from '@janhq/jan-compaction-basic'
 
 /**
  * Shared harness for the headless-agent e2e suites: the full plugin stack
- * with the real DeepSeek adapter and the real bash + todo_write tools. Lives
+ * with the real pi-ai `tokamak` route and the real bash + todo_write tools. Lives
  * outside the *.e2e.ts pattern so importing it never re-registers another
  * file's tests.
  */
@@ -33,6 +33,9 @@ export const TODO_SYSTEM_PROMPT = 'You are a coding agent. For multi-step work, 
   + 'mark every task being actively worked on in_progress (several at once when '
   + 'work runs in parallel, at least one while work remains), and mark a task '
   + 'completed as soon as it is done.'
+
+/** The key-gated pi-ai route every headless e2e Agent uses. */
+export const E2E_MODEL = { provider: 'tokamak', model: 'tokamak/auto' } as const
 
 /** Options for {@link codingHarness}. */
 export interface CodingHarnessOptions {
@@ -50,14 +53,14 @@ export interface CodingHarnessOptions {
    */
   compact?: BasicCompactionConfig
   /**
-   * Test-only context capacity advertised for `deepseek-v4-flash`. Automatic
+   * Test-only context capacity advertised for {@link E2E_MODEL}. Automatic
    * pressure scales the message budget left after the request's reserved
    * output tokens, so this capacity must exceed the advertised output cap.
    */
   modelContextWindow?: number
   /**
-   * Test-only per-request output cap advertised for `deepseek-v4-flash`, which
-   * the adapter forwards as `max_tokens` and pressure excludes from the
+   * Test-only per-request output cap advertised for {@link E2E_MODEL}, which
+   * the adapter forwards as its output cap and pressure excludes from the
    * capacity above.
    */
   modelMaxTokens?: number
@@ -70,13 +73,18 @@ export async function codingHarness(workdir: string, options: CodingHarnessOptio
     systemPrompt: { personaPrefix: options.personaPrefix ?? '' },
   })
   await ctx.plugin(AgentLoop, { agents: [] })
-  await ctx.plugin(LlmDeepSeek, {
-    ...options.modelContextWindow === undefined && options.modelMaxTokens === undefined ? {} : {
-      models: [{
-        id: 'deepseek-v4-flash',
-        ...options.modelContextWindow === undefined ? {} : { contextWindow: options.modelContextWindow },
-        ...options.modelMaxTokens === undefined ? {} : { maxTokens: options.modelMaxTokens },
-      }],
+  await ctx.plugin(LlmPiAi, {
+    providers: {
+      [E2E_MODEL.provider]: {
+        api: 'openai-completions',
+        baseURL: process.env.TOKAMAK_BASE_URL ?? 'https://api.tokamak.sh/v1',
+        apiKeyEnv: 'TOKAMAK_API_KEY',
+        models: [{
+          id: E2E_MODEL.model,
+          ...options.modelContextWindow === undefined ? {} : { contextWindow: options.modelContextWindow },
+          ...options.modelMaxTokens === undefined ? {} : { maxTokens: options.modelMaxTokens },
+        }],
+      },
     },
   })
   await ctx.plugin(LocalSubprocessRuntime)

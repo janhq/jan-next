@@ -14,18 +14,18 @@
  * holds this package's 'root' row in this compilation unit, but consumers
  * merge keys in; the rule fires on the narrow-map view, not on real
  * redundancy. */
-import { Service } from '@deepseek-ai/cordis'
-import type { Context } from '@deepseek-ai/cordis'
-import { SlotCore, StaleAuthorizationError, standardHookPropName } from '@deepseek-ai/dsh-client-ui-slots'
+import { Service } from '@janhq/cordis'
+import type { Context } from '@janhq/cordis'
+import { SlotCore, StaleAuthorizationError, standardHookPropName } from '@janhq/jan-client-ui-slots'
 import type {
   HostObservable, LiveCompositionNode, LocaleFace, OwnerOf, RegisterFactory, SlotEntryDef, SlotMap, SlotRenderer, SlotRendererHost,
   RootStandardSourceContribution, ScopedStandardSourceBinding, SlotScope, SlotScopeAdapter, SlotSpec,
   StandardSourceBinding, StoredFactory,
   StoreDecl, StoreFactory, StoredEntry, StoreInstanceLike,
-} from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-slots'
 import { SlotAssemblyError } from './errors.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     /**
      * The built-in render-tree root hole (seeded by SlotCore): the one slot the
@@ -97,6 +97,36 @@ interface ErasedRegisterOptions {
   /** Declared dictionary namespace (the renderer synthesizes the `t` seat from it). */
   locale?: string
   registrant?: string
+  /** npm package of the registering plugin; stamped from the caller's Loader entry. */
+  owner?: string
+}
+
+/** The part of a Cordis fiber that names the Loader entry it runs; the Loader merges `entry` onto `Fiber`. */
+interface EntryFiber {
+  readonly entry?: { readonly options: { readonly name: string } } | undefined
+  readonly parent?: { readonly fiber?: EntryFiber | undefined } | undefined
+}
+
+/**
+ * Name the npm package of the plugin a fiber belongs to: the module specifier of its Loader entry, which the
+ * entry's root fiber and its children share.
+ * @param fiber - the registering caller's fiber.
+ * @returns the package name, or undefined for a fiber outside any Loader entry or a relative or builtin specifier.
+ */
+function owningPackage(fiber: unknown): string | undefined {
+  let current = fiber as EntryFiber | undefined
+  while (current !== undefined) {
+    const name = current.entry?.options.name
+    if (name !== undefined) {
+      if (/^(?:\.|\/|[a-z]+:)/i.test(name)) return undefined
+      const parts = name.split('/')
+      return name.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0]
+    }
+    // The root fiber is its own parent.
+    const parent = current.parent?.fiber
+    current = parent === current ? undefined : parent
+  }
+  return undefined
 }
 
 interface ErasedFactoryOptions {
@@ -479,10 +509,12 @@ export class SlotRegistry extends Service {
     // core's shared-handle scope pinning applies to it harmlessly).
     const store = typeof options.store === 'function' ? options.store() : options.store
     const registrant = options.registrant ?? (this.ctx.fiber as { name?: string } | undefined)?.name
+    const owner = owningPackage(this.ctx.fiber)
     const erased: ErasedRegisterOptions = {
       ...options,
       ...(store !== undefined ? { store } : {}),
       ...(registrant !== undefined ? { registrant } : {}),
+      ...(owner !== undefined ? { owner } : {}),
     }
     // Core write first: all load-time validation (undeclared target,
     // duplicate declaration, kind conflicts, cross-scope handle) throws
@@ -571,7 +603,7 @@ export class SlotRegistry extends Service {
   /** Validate and atomically publish the current root contribution roster. */
   private rebuildRootBinding(): void {
     const hooks: Record<string, HostObservable<unknown>> = {}
-    const keyedHooks: Record<string, import('@deepseek-ai/dsh-client-ui-slots').KeyedStandardSource> = {}
+    const keyedHooks: Record<string, import('@janhq/jan-client-ui-slots').KeyedStandardSource> = {}
     const props: Record<string, unknown> = {}
     const finalProps = new Set<string>()
     for (const contribution of this._rootContributions) {
@@ -681,14 +713,19 @@ export class SlotRegistry extends Service {
     }
   }
 
-  /** Drop every materialized non-root Store instance for one ended Context generation. */
+  /** Drop every materialized non-root Store instance for one ended Context generation, telling each instance it was dropped. */
   private releaseStoreScope(key: string): void {
+    const drop = (instances: Map<string, EngineStoreInstance>): void => {
+      const instance = instances.get(key)
+      if (instance === undefined) return
+      instances.delete(key)
+      instance.dispose?.()
+    }
     for (const record of this._stores.values()) {
-      if (record.scope === 'root') continue
-      record.instances.delete(key)
+      if (record.scope !== 'root') drop(record.instances)
     }
     for (const axis of this._factoryStores.values()) {
-      for (const record of axis.mounted.values()) record.instances.delete(key)
+      for (const record of axis.mounted.values()) drop(record.instances)
     }
   }
 

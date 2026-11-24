@@ -3,13 +3,11 @@ description: "Local model card on the Settings Models page and the local option 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-settings-local-model
-
-English | [中文](README.zh.md)
+# @janhq/jan-client-ui-settings-local-model
 
 ## Summary
 
-Users run models on their own computer from Settings → Models and from first-run setup. The Local model card starts, stops, and removes the local worker, lists installed models with fit, context, and residency, and adds models from the curated list, a Hugging Face repository, or a `.gguf` path. First-run setup offers the recommended model as the primary choice and shows its download. The [dsh-llama-cpp](../../llm/llama-cpp/README.md) service on the Host does the work.
+Users run models on their own computer from Settings → Models and from first-run setup. The Local model card starts, stops, and removes the local worker, lists installed models with fit, context, and residency, and adds models from the curated list, a Hugging Face repository, or a `.gguf` path. First-run setup offers the recommended model as the primary choice and shows its download. The [jan-llama-cpp](../../llm/llama-cpp/README.md) service on the Host does the work.
 
 ## Table of Contents
 
@@ -29,7 +27,7 @@ Mount the row with [ui-settings-models](../ui-settings-models/README.md) and the
 
 ```yaml
 - id: ui-settings-local-model
-  name: '@deepseek-ai/dsh-client-ui-settings-local-model'
+  name: '@janhq/jan-client-ui-settings-local-model'
 ```
 
 ### Local model card
@@ -40,7 +38,9 @@ The card renders in the `settings.models.footer` slot. Its header shows the defa
 
 The manager inside the card lists installed models. Each row shows a **Default** tag on the default model, a **Vision** tag on a model whose projector reads images, a fit badge (**Fits**, **Tight fit**, or **Too large**, with a hover hint), size, architecture, context, and source. While the worker runs, each row also shows **Loaded**, **Loading…**, or **Not loaded**. Rows offer **Load**, **Unload**, **Make default**, and **Delete**; deleting asks for confirmation, and an imported file is only removed from the list. A failed action shows its error on the row until the next attempt.
 
-Below the list, **Downloads** shows progress, speed, and time left per download, with retry and cancel. **Add a model** searches the curated models; text shaped like `owner/name` or a link instead looks up that Hugging Face repository and lists its files. Curated entries and repository files carry fit badges, and curated entries with a projector carry the **Vision** tag. When the repository has a vision projector, a note above its files names the projector and its size, because each download includes it. **Import a .gguf file** adds a file by its full path on the Host, with an optional second path for the model's vision projector (`mmproj`) file; the example path follows the Host platform, not the browser's.
+Each installed row also has a **Context length** number field and an **Auto-fit** checkbox. The field shows the saved per-model request (32768 by default) and the GGUF-trained maximum when known; committing a valid value reloads the model in the running worker. Auto-fit lets llama.cpp choose GPU offload for the current machine's memory, independently for each model. Changes persist with that installed model.
+
+Below the list, **Downloads** shows progress, speed, and time left per download, with pause, resume, retry and cancel. A paused download keeps its partial file and shows how far it got; Resume continues from that byte, Cancel discards it. **Add a model** searches the curated models; text shaped like `owner/name` or a link instead looks up that Hugging Face repository and lists its files. Curated entries and repository files carry fit badges, and curated entries with a projector carry the **Vision** tag. When the repository has a vision projector, a note above its files names the projector and its size, because each download includes it. **Import a .gguf file** adds a file by its full path on the Host, with an optional second path for the model's vision projector (`mmproj`) file; the example path follows the Host platform, not the browser's.
 
 ### First-run option
 
@@ -74,7 +74,7 @@ The browser entry mounts the `llamaCpp` Remote unless the host already provides 
 <a id="further-exploration"></a>
 ## Further Exploration
 
-- [dsh-llama-cpp](../../llm/llama-cpp/README.md) — models, the worker, and fit.
+- [jan-llama-cpp](../../llm/llama-cpp/README.md) — models, the worker, and fit.
 - [llama-cpp-controller](../../api/llama-cpp-controller/README.md) — the Remote operations this UI calls.
 - [ui-settings-models](../ui-settings-models/README.md) — the Models page and the first-run dialog that host both slots.
 
@@ -87,7 +87,7 @@ The browser entry mounts the `llamaCpp` Remote unless the host already provides 
 
 #### What the model sees
 
-The plugin adds no model-visible text. Its actions change which models the `local` route serves and which one `local/local` selects; [dsh-llama-cpp](../../llm/llama-cpp/README.md#model-experience) owns that effect.
+The plugin adds no model-visible text. Its actions change which models the `local` route serves and which one `local/local` selects; [jan-llama-cpp](../../llm/llama-cpp/README.md#model-experience) owns that effect.
 
 #### Token effect
 

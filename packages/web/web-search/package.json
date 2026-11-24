@@ -1,0 +1,65 @@
+{
+  "name": "@janhq/jan-web-search",
+  "description": "Tokamak, Exa, Tavily, SearXNG, and You.com web search and fetch providers for the ctx.web capability seam, ported from Jan's web search plugin",
+  "version": "0.2.2-rc.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/janhq/jan-next.git",
+    "directory": "packages/web/web-search"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "locale/*.json",
+    "lib/index.js",
+    "lib/types/**/*.d.ts"
+  ],
+  "license": "Apache-2.0",
+  "peerDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-credentials": "workspace:*",
+    "@janhq/jan-launch-environment": "workspace:*",
+    "@janhq/jan-tokamak-account": "workspace:*",
+    "@janhq/jan-web": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@janhq/jan-tokamak-account": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-include": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-credentials": "workspace:*",
+    "@janhq/jan-launch-environment": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tokamak-account": "workspace:*",
+    "@janhq/jan-tool-executor-native": "workspace:*",
+    "@janhq/jan-tool-testkit": "workspace:*",
+    "@janhq/jan-tool-web": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-web": "workspace:*"
+  },
+  "dependencies": {
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/schemastery": "workspace:~"
+  }
+}

@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 /** Activation guidance waits for cache inspection and leaves installation to the detail page. */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SpeechPreparationState, SpeechProviderId } from '@deepseek-ai/dsh-experimental-speech-to-text/types'
+import { bindSnapshotSelector, makeTranslate } from '@janhq/jan-client-test-runtime'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { SpeechPreparationState, SpeechProviderId } from '@janhq/jan-experimental-speech-to-text/types'
 import { afterEach, expect, it, vi } from 'vitest'
 import { VoiceSetupPrompt, type VoiceSetupPromptProps } from '../src/client/VoiceSetupPrompt.tsx'
 import type { SpeechReadiness } from '../src/client/readiness.ts'
@@ -15,7 +15,7 @@ function fixture() {
   const state = createSnapshotStore<SpeechReadiness>({ catalog: null, connected: false, error: null })
   const onDismiss = vi.fn(), onOpenDetails = vi.fn(), providerId = 'local' as SpeechProviderId
   const props = { packageName: 'voice-bundle', t: makeTranslate(zh), onDismiss, onOpenDetails,
-    useSpeechReadiness: bindSnapshotSelector(state) } as VoiceSetupPromptProps
+    useSpeechReadiness: bindSnapshotSelector(state), connectReadiness: vi.fn() } as VoiceSetupPromptProps
   render(<VoiceSetupPrompt {...props} />)
   return { onDismiss, onOpenDetails, publish(preparation: SpeechPreparationState, location: 'host-local' | 'cloud' = 'host-local') {
     act(() => { state.set({ connected: true, error: null, catalog: {

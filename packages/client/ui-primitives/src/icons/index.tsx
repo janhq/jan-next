@@ -36,6 +36,12 @@ export const IconNewChatOutlineRegular = productIcon('new-chat-outline', 'regula
 /** Medium IconNewChatOutline artwork with a 1.3px stroke. */
 export const IconNewChatOutlineMedium = productIcon('new-chat-outline', 'medium')
 
+/** Regular one-pixel IconChatOutline artwork. */
+export const IconChatOutlineRegular = productIcon('chat-outline', 'regular')
+
+/** Medium IconChatOutline artwork with a 1.3px stroke. */
+export const IconChatOutlineMedium = productIcon('chat-outline', 'medium')
+
 /** Regular one-pixel IconSearchOutline artwork. */
 export const IconSearchOutlineRegular = productIcon('search-outline', 'regular')
 
@@ -330,6 +336,18 @@ export const IconApiOutlineRegular = productIcon('api-outline', 'regular')
 /** Medium IconApiOutline artwork with a 1.3px stroke. */
 export const IconApiOutlineMedium = productIcon('api-outline', 'medium')
 
+/** Regular one-pixel IconArrowDownOutline artwork. */
+export const IconArrowDownOutlineRegular = productIcon('arrow-down-outline', 'regular')
+
+/** Medium IconArrowDownOutline artwork with a 1.3px stroke. */
+export const IconArrowDownOutlineMedium = productIcon('arrow-down-outline', 'medium')
+
+/** Regular one-pixel IconArrowUpOutline artwork. */
+export const IconArrowUpOutlineRegular = productIcon('arrow-up-outline', 'regular')
+
+/** Medium IconArrowUpOutline artwork with a 1.3px stroke. */
+export const IconArrowUpOutlineMedium = productIcon('arrow-up-outline', 'medium')
+
 /** Regular one-pixel IconPersonalizationOutline artwork. */
 export const IconPersonalizationOutlineRegular = productIcon('personalization-outline', 'regular')
 
@@ -474,6 +492,24 @@ export const IconPluginPinwheelOutlineRegular = productIcon('plugin-pinwheel-out
 /** Medium plugin pinwheel artwork with a 1.3px stroke. */
 export const IconPluginPinwheelOutlineMedium = productIcon('plugin-pinwheel-outline', 'medium')
 
+/** Regular one-pixel stacked plugin index artwork. */
+export const IconPluginIndexOutlineRegular = productIcon('plugin-index-outline', 'regular')
+
+/** Medium stacked plugin index artwork with a 1.3px stroke. */
+export const IconPluginIndexOutlineMedium = productIcon('plugin-index-outline', 'medium')
+
+/** Regular one-pixel document-and-clock artwork for scheduled tasks. */
+export const IconScheduledTaskOutlineRegular = productIcon('scheduled-task-outline', 'regular')
+
+/** Medium document-and-clock artwork for scheduled tasks with a 1.3px stroke. */
+export const IconScheduledTaskOutlineMedium = productIcon('scheduled-task-outline', 'medium')
+
+/** Regular one-pixel wrench artwork for tools and MCP servers. */
+export const IconToolOutlineRegular = productIcon('tool-outline', 'regular')
+
+/** Medium wrench artwork for tools and MCP servers with a 1.3px stroke. */
+export const IconToolOutlineMedium = productIcon('tool-outline', 'medium')
+
 /** Regular one-pixel IconAlarmClockOutline artwork. */
 export const IconAlarmClockOutlineRegular = productIcon('alarm-clock-outline', 'regular')
 
@@ -552,6 +588,18 @@ export const IconPinFillRegular = productIcon('pin-fill', 'regular')
 /** Medium IconPinFill artwork with a 1.3px stroke. */
 export const IconPinFillMedium = productIcon('pin-fill', 'medium')
 
+/** Regular one-pixel IconStarOutline artwork. */
+export const IconStarOutlineRegular = productIcon('star-outline', 'regular')
+
+/** Medium IconStarOutline artwork with a 1.3px stroke. */
+export const IconStarOutlineMedium = productIcon('star-outline', 'medium')
+
+/** Regular one-pixel IconStarFill artwork. */
+export const IconStarFillRegular = productIcon('star-fill', 'regular')
+
+/** Medium IconStarFill artwork with a 1.3px stroke. */
+export const IconStarFillMedium = productIcon('star-fill', 'medium')
+
 /** Regular one-pixel IconFlatListOutline artwork. */
 export const IconFlatListOutlineRegular = productIcon('flat-list-outline', 'regular')
 
@@ -620,3 +668,81 @@ export const IconSaveOutlineRegular = productIcon('save-outline', 'regular')
 
 /** Medium floppy-disk save action. */
 export const IconSaveOutlineMedium = productIcon('save-outline', 'medium')
+
+/** Regular freehand pen drawing tool. */
+export const IconPenOutlineRegular = productIcon('pen-outline', 'regular')
+
+/** Medium freehand pen drawing tool. */
+export const IconPenOutlineMedium = productIcon('pen-outline', 'medium')
+
+/** Regular rectangle shape tool. */
+export const IconRectangleOutlineRegular = productIcon('rectangle-outline', 'regular')
+
+/** Medium rectangle shape tool. */
+export const IconRectangleOutlineMedium = productIcon('rectangle-outline', 'medium')
+
+/** Regular ellipse shape tool. */
+export const IconEllipseOutlineRegular = productIcon('ellipse-outline', 'regular')
+
+/** Medium ellipse shape tool. */
+export const IconEllipseOutlineMedium = productIcon('ellipse-outline', 'medium')
+
+/** Regular arrow shape tool. */
+export const IconArrowOutlineRegular = productIcon('arrow-outline', 'regular')
+
+/** Medium arrow shape tool. */
+export const IconArrowOutlineMedium = productIcon('arrow-outline', 'medium')
+
+/** Regular eraser tool. */
+export const IconEraserOutlineRegular = productIcon('eraser-outline', 'regular')
+
+/** Medium eraser tool. */
+export const IconEraserOutlineMedium = productIcon('eraser-outline', 'medium')
+
+/** Regular text tool. */
+export const IconTextOutlineRegular = productIcon('text-outline', 'regular')
+
+/** Medium text tool. */
+export const IconTextOutlineMedium = productIcon('text-outline', 'medium')
+
+/** Regular layout guides: rulers with a dashed guide line. */
+export const IconGuidesOutlineRegular = productIcon('guides-outline', 'regular')
+
+/** Medium layout guides. */
+export const IconGuidesOutlineMedium = productIcon('guides-outline', 'medium')
+
+/** Regular grid view: four tiles. */
+export const IconGridViewOutlineRegular = productIcon('grid-view-outline', 'regular')
+
+/** Medium grid view. */
+export const IconGridViewOutlineMedium = productIcon('grid-view-outline', 'medium')
+
+/** Regular list view: two full-width rows. */
+export const IconListViewOutlineRegular = productIcon('list-view-outline', 'regular')
+
+/** Medium list view. */
+export const IconListViewOutlineMedium = productIcon('list-view-outline', 'medium')
+
+/** Regular one-pixel IconImageOutline artwork. */
+export const IconImageOutlineRegular = productIcon('image-outline', 'regular')
+
+/** Medium IconImageOutline artwork with a 1.3px stroke. */
+export const IconImageOutlineMedium = productIcon('image-outline', 'medium')
+
+/** Regular undo action. */
+export const IconUndoOutlineRegular = productIcon('undo-outline', 'regular')
+
+/** Medium undo action. */
+export const IconUndoOutlineMedium = productIcon('undo-outline', 'medium')
+
+/** Regular redo action. */
+export const IconRedoOutlineRegular = productIcon('redo-outline', 'regular')
+
+/** Medium redo action. */
+export const IconRedoOutlineMedium = productIcon('redo-outline', 'medium')
+
+/** Regular selection pointer. */
+export const IconCursorOutlineRegular = productIcon('cursor-outline', 'regular')
+
+/** Medium selection pointer. */
+export const IconCursorOutlineMedium = productIcon('cursor-outline', 'medium')

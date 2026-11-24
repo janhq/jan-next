@@ -14,8 +14,8 @@ import { join } from 'node:path'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium, devices, webkit } from 'playwright'
 import { afterEach, describe, expect, it, onTestFailed, onTestFinished, vi } from 'vitest'
-import type { ReplayOverrideDoc } from '@deepseek-ai/dsh-llm-replay'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import type { ReplayOverrideDoc } from '@janhq/jan-llm-replay'
+import type { SessionEvent } from '@janhq/jan-session'
 import {
   acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
@@ -97,7 +97,7 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
     }
     let overridePath: string | undefined
     if (buildOverride !== undefined) {
-      sidecarDir = await mkdtemp(join(tmpdir(), 'dsh-web-e2e-sidecar-'))
+      sidecarDir = await mkdtemp(join(tmpdir(), 'jan-web-e2e-sidecar-'))
       overridePath = join(sidecarDir, 'replay.override.json')
       await writeFile(overridePath, JSON.stringify(buildOverride(sidecarDir)))
     }
@@ -202,20 +202,36 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
     const { settled } = await sendPrompt(120_000)
     await settled
 
-    const trigger = page.getByRole('button', { name: /Usage 15\.8K tok/ })
+    const trigger = page.getByRole('button', { name: 'Turn usage' })
     await expect.poll(() => trigger.count(), { timeout: 10_000 }).toBe(1)
     expect(await trigger.getAttribute('aria-expanded')).toBe('false')
-    expect(await trigger.textContent()).toBe('Usage 15.8K tok')
+    // Token figures are exact; first-token time and speed vary with the run.
+    // Hovering each figure names it with its exact value.
+    const stats = trigger.locator('[data-turn-usage-stat]')
+    const figures: [string, string][] = []
+    for (let index = 0; index < await stats.count(); index++) {
+      await page.mouse.move(0, 0)
+      await stats.nth(index).hover()
+      const tooltip = page.getByRole('tooltip')
+      await tooltip.waitFor({ timeout: 5_000 })
+      figures.push([(await stats.nth(index).textContent()) ?? '', (await tooltip.textContent()) ?? ''])
+    }
+    await page.mouse.move(0, 0)
+    expect(figures.slice(0, 3)).toEqual([
+      ['↓7.9K', 'Uncached input · 7,891 tok'],
+      ['↑112', 'Output · 112 tok'],
+      ['7.8K', 'Cached input · 7,808 tok'],
+    ])
+    expect(figures.slice(3).map(([, hint]) => hint.split(' · ')[0])).toEqual(['Time to first token', 'Output speed'])
     const timeTrigger = page.getByRole('button', { name: /^Ran for \S+$/ })
     expect(await timeTrigger.count()).toBe(0)
-    expect(await page.locator('[data-turn-tail]').getByText(/tok\/s|TTFT/).count()).toBe(0)
     expect(await page.getByRole('dialog').count()).toBe(0)
 
     await trigger.click()
     expect(await trigger.getAttribute('aria-expanded')).toBe('true')
     const dialog = page.getByRole('dialog', { name: 'Turn usage' })
     expect(await dialog.count()).toBe(1)
-    expect(await dialog.getByText('deepseek-official/deepseek-v4-flash', { exact: true }).count()).toBe(1)
+    expect(await dialog.getByText('tokamak-official/tokamak-1-preview', { exact: true }).count()).toBe(1)
     expect(await dialog.getByText('49.7%', { exact: true }).count()).toBe(1)
     expect(await dialog.getByText('7,891 tok', { exact: true }).count()).toBe(1)
     expect(await dialog.getByText('7,808 tok', { exact: true }).count()).toBe(1)

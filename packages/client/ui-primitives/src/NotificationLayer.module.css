@@ -1,0 +1,75 @@
+/* Bottom-right stack shared by every in-app notification. Items share one grid
+   cell, so a later notice lands on top of an earlier one; each earlier notice
+   steps up and to the left and shrinks slightly, which reads as a diagonal pile.
+   `translate` and `scale` are separate properties so they never fight the
+   notices' own `transform` entrance animations. */
+.layer {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  /* Above the 1000 the image lightbox backdrop uses: a failure reported while
+     a preview is open must stay readable. */
+  z-index: 1100;
+  display: grid;
+  justify-items: end;
+  align-items: end;
+  max-width: calc(100vw - 40px);
+  pointer-events: none;
+}
+
+.layer:empty {
+  display: none;
+}
+
+.item {
+  grid-area: 1 / 1;
+  z-index: 4;
+  max-width: 100%;
+  /* The item box takes the pointer so hovering any notice fans the pile out. */
+  pointer-events: auto;
+  transform-origin: bottom right;
+  transition: translate 220ms ease-out, scale 220ms ease-out, opacity 220ms ease-out;
+}
+
+.item:nth-last-child(2) { translate: -10px -10px; scale: 0.97; z-index: 3; }
+.item:nth-last-child(3) { translate: -20px -20px; scale: 0.94; z-index: 2; opacity: 0.85; }
+.item:nth-last-child(n + 4) { translate: -28px -28px; scale: 0.91; z-index: 1; opacity: 0; }
+
+/* Only the front notice takes input until the reader fans the stack out. */
+.item:not(:last-child) * { pointer-events: none; }
+
+/* Hovering the pile, or moving keyboard focus into it, lays every notice out
+   in a column, newest at the bottom. */
+.layer:has(.item + .item):focus-within {
+  grid-auto-flow: row;
+  gap: 8px;
+}
+
+.layer:has(.item + .item):focus-within > .item {
+  grid-area: auto;
+  translate: none;
+  scale: none;
+  opacity: 1;
+}
+
+.layer:focus-within > .item * { pointer-events: auto; }
+
+@media (hover: hover) {
+  .layer:has(.item + .item):hover {
+    grid-auto-flow: row;
+    gap: 8px;
+  }
+
+  .layer:has(.item + .item):hover > .item {
+    grid-area: auto;
+    translate: none;
+    scale: none;
+    opacity: 1;
+  }
+
+  .layer:hover > .item * { pointer-events: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item { transition: none; }
+}

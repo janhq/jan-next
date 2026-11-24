@@ -3,13 +3,13 @@ import { afterEach, expect, it } from 'vitest'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import WebServer from '@deepseek-ai/dsh-host-webserver'
-import AuthorizationService from '@deepseek-ai/dsh-authorization'
-import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
-import { credentialKey, credentialRef } from '@deepseek-ai/dsh-credentials'
-import type { AccountClientMetadata, AccountView } from '@deepseek-ai/dsh-deepseek-account'
-import { TokamakAccount } from '../src/index.ts'
+import { Context } from '@janhq/cordis'
+import WebServer from '@janhq/jan-host-webserver'
+import AuthorizationService from '@janhq/jan-authorization'
+import { LocalCredentialProvider } from '@janhq/jan-credentials-local'
+import { credentialKey, credentialRef } from '@janhq/jan-credentials'
+import type { AccountClientMetadata, AccountView } from '../src/account.ts'
+import { TokamakAccountProvider } from '../src/index.ts'
 import { startMockTokamak, type MockTokamak } from './mock-tokamak.ts'
 
 const cleanups: Array<() => Promise<unknown>> = []
@@ -32,10 +32,12 @@ async function fixture(configure?: (mock: MockTokamak) => void, config: Record<s
   const authorization = ctx.plugin(AuthorizationService)
   await authorization
   await seed?.(ctx, mock)
-  const provider = ctx.plugin(TokamakAccount, { apiBaseURL: mock.origin, allowLoopbackHttp: true, attemptTimeoutMs: 20_000, ...config })
+  const provider = ctx.plugin(TokamakAccountProvider, {
+    apiBaseURL: mock.origin, allowLoopbackHttp: true, attemptTimeoutMs: 20_000, ...config,
+  })
   await provider
   cleanups.push(async () => { await provider.dispose(); await authorization.dispose(); await credentials.dispose(); await web.dispose() })
-  const account = ctx.deepseekAccount as TokamakAccount
+  const account = ctx.tokamakAccount as TokamakAccountProvider
   const states = new AbortController()
   cleanups.push(async () => { states.abort() })
   const until = async (predicate: (state: AccountView) => boolean): Promise<AccountView> => {
@@ -73,7 +75,7 @@ it('signs in through the device flow, woken by the loopback redirect, and stores
   expect(done.attempt?.userCode).toBeUndefined()
   expect((await f.ctx.credentials.resolve(credentialRef('TOKAMAK_API_KEY')))?.value).toBe(f.mock.key)
   expect(await f.account.resolveToken(`${f.mock.origin}/v1/chat/completions`)).toBe(f.mock.key)
-  expect(await f.account.resolveToken('https://api.deepseek.com/anthropic')).toBeUndefined()
+  expect(await f.account.resolveToken('https://api.other.example/v1')).toBeUndefined()
   const profile = await f.account.getProfile(client)
   expect(profile).toEqual({ status: 'ready', value: { id: null, name: 'dev@example.invalid', contact: 'dev@example.invalid' } })
   expect(await readFile(join(f.home, 'credentials.yaml'), 'utf8')).toContain('tokamak-account/default')
@@ -130,7 +132,7 @@ it('drops credentials when inference rejects the token', async () => {
   await f.account.startSignIn(client, f.callbackOrigin, 'web')
   await f.until(s => s.status === 'credential-stored')
   let expired = false
-  f.ctx.on('deepseek-account/session-expired', () => { expired = true })
+  f.ctx.on('tokamak-account/session-expired', () => { expired = true })
   await f.account.rejectToken('some-other-token')
   expect((await f.account.getState()).status).toBe('credential-stored')
   await f.account.rejectToken(f.mock.key)
@@ -216,7 +218,7 @@ it('notices a key revoked on tokamak.sh when the account page reads the profile'
   await f.account.startSignIn(client, f.callbackOrigin, 'web')
   await f.until(s => s.attempt?.phase === 'succeeded')
   let expired = false
-  f.ctx.on('deepseek-account/session-expired', () => { expired = true })
+  f.ctx.on('tokamak-account/session-expired', () => { expired = true })
   f.mock.revokeKey(f.mock.key)
   expect(await f.account.getProfile(client)).toBeNull()
   expect((await f.account.getState()).status).toBe('signed-out')

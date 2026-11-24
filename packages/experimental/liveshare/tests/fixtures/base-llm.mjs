@@ -1,7 +1,7 @@
 /** Deterministic keyless LLM for the real-profile acceptance base: one file write, then text. */
 
 import { existsSync, writeFileSync } from 'node:fs'
-import { ToolCallId, LlmAdapter } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, LlmAdapter } from '@janhq/jan-llm'
 
 let nextCall = 0
 let callCount = 0
@@ -193,5 +193,5 @@ export function apply(ctx) {
   if (process.env.BASE_LLM_LOADED) {
     try { writeFileSync(process.env.BASE_LLM_LOADED, 'loaded\n') } catch {}
   }
-  ctx.llm.registerAdapter(['deepseek-official'], new BaseFixtureAdapter())
+  ctx.llm.registerAdapter(['tokamak'], new BaseFixtureAdapter())
 }

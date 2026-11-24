@@ -3,13 +3,11 @@ description: "The background-job registry contract for users and maintainers com
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-jobs
-
-English | [中文](README.zh.md)
+# @janhq/jan-jobs
 
 ## Summary
 
-`dsh-jobs` lets tools keep long-running work active while an agent continues. Each job receives a stable `<kind>-<short-uuid>` id, and its owning agent can read output, wait with a timeout, or request cancellation. Ownership is scoped to the agent session, so other agents cannot inspect or stop the job; completion arrives as an in-session notice without polling. Users can watch retained live output without consuming what the agent can read. Background jobs can start only when the deployment supplies job execution.
+`jan-jobs` lets tools keep long-running work active while an agent continues. Each job receives a stable `<kind>-<short-uuid>` id, and its owning agent can read output, wait with a timeout, or request cancellation. Ownership is scoped to the agent session, so other agents cannot inspect or stop the job; completion arrives as an in-session notice without polling. Users can watch retained live output without consuming what the agent can read. Background jobs can start only when the deployment supplies job execution.
 
 ## Table of Contents
 
@@ -25,13 +23,13 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
-Use this package when you are composing a background-job capability or writing a producer that registers long work. The package itself defines the contract; a composition gets the feature by loading an implementation such as `dsh-jobs-local` and, for the model side, `dsh-tool-jobs`.
+Use this package when you are composing a background-job capability or writing a producer that registers long work. The package itself defines the contract; a composition gets the feature by loading an implementation such as `jan-jobs-local` and, for the model side, `jan-tool-jobs`.
 
 ### What a background job gives you
 
-A producer registers work with a kind and a one-line label; the registry returns a `<kind>-<short-uuid>` id such as `bash-<short-uuid>`, where the suffix is 16 lowercase UUID hex characters. Anyone who owns the job can read output, list jobs, wait up to a timeout for settlement, and request cancellation — each call returns a fresh projection of the job's status, from `running` and `stopping` to the terminal `completed`, `killed`, or `failed`. When a job settles, the registry's event stream announces it and `dsh-tool-jobs` turns the settlement into an in-session notice, so no polling is needed. A producer may attach an optional byte cap so each complete model-facing read or notice stays bounded.
+A producer registers work with a kind and a one-line label; the registry returns a `<kind>-<short-uuid>` id such as `bash-<short-uuid>`, where the suffix is 16 lowercase UUID hex characters. Anyone who owns the job can read output, list jobs, wait up to a timeout for settlement, and request cancellation — each call returns a fresh projection of the job's status, from `running` and `stopping` to the terminal `completed`, `killed`, or `failed`. When a job settles, the registry's event stream announces it and `jan-tool-jobs` turns the settlement into an in-session notice, so no polling is needed. A producer may attach an optional byte cap so each complete model-facing read or notice stays bounded.
 
-A producer streams output by naming pull sources on its spec — non-consuming offset readers the registry pumps at its own cadence — or by pushing chunks through the `JobHandle` its starter receives; both land in the job's bounded ring, where `stdout` and `stderr` chunks reach the model and `log` chunks reach observers only. Observers read retained chunks at absolute byte offsets and are signaled on advancement; the settlement that ends the job also ends the stream, and `updateProgress` publishes a live progress line into every projection until then. Observation is invisible to the model: `readAt` consumes nothing and never touches notice state.
+A producer streams output by supplying pull sources or pushing chunks through its `JobHandle`. Both paths land in the bounded ring. Consuming model reads omit `log` narration; observers such as [`job_watch`](../tool-jobs/README.md#background-job-tools) can use every channel. Observers receive advancement signals and use absolute offsets to read retained chunks without moving the model cursor. Settlement ends the stream, and `updateProgress` publishes a live progress line until then.
 
 The shipped provider also records owned-job lifecycle metadata in the Session. Producers attach `JobSpec.toolCall` when a tool creates the job, preserving nested and root call identity. See the [durable event fields](../../../docs/subsystems/jobs.md#session-lifecycle-records) for timing and restart semantics.
 
@@ -41,16 +39,16 @@ A job belongs to the agent session that started it: another agent cannot read or
 
 ### Starting background work needs a controller
 
-A producer can start work only while a controller that serves the owner is attached — loading `dsh-tool-jobs` attaches one. An agent whose composition loads no controller cannot start background work; `start()` fails with a message that names the missing controller rather than starting work the agent could never collect or stop.
+A producer can start work only while a controller that serves the owner is attached — loading `jan-tool-jobs` attaches one. An agent whose composition loads no controller cannot start background work; `start()` fails with a message that names the missing controller rather than starting work the agent could never collect or stop.
 
 ### Smallest working composition
 
 ```yaml
-- name: '@deepseek-ai/dsh-jobs-local'
-- name: '@deepseek-ai/dsh-tool-jobs'
+- name: '@janhq/jan-jobs-local'
+- name: '@janhq/jan-tool-jobs'
 ```
 
-Loading these two plugins on a harness base that already provides the agent, tools, and system-prompt services gives the full feature: `dsh-jobs-local` provides the in-process background-job registry, and `dsh-tool-jobs` provides the `job_output`, `job_list`, and `job_kill` tools plus completion-notice delivery.
+Load these plugins on a harness that provides the agent, tools, and system-prompt services. `jan-jobs-local` provides the process-local registry; `jan-tool-jobs` provides model-facing controls, output watches, timer jobs, and completion notices.
 
 ### What can go wrong
 
@@ -71,7 +69,7 @@ This section explains the design decisions behind the contract and points at the
 - **Contract and implementation are separate packages.** `JobRegistry` is an abstract Cordis service; loading the class directly throws, so a misconfigured composition fails at load instead of registering an empty `ctx.jobs`.
 - **One registry per process, owner-relative answers.** One instance serves every composition in the process, so registrations and deliveries are relative to the registering scope: a controller or listener registered from an unscoped context serves every owner; one registered under an agent composition's scope serves exactly the agents composed under it.
 - **Access is fenced by the owner's session id.** Ids are predictable, so authorization — not secrecy — is the boundary.
-- **Settlement is first-wins, and its event follows every released waiter.** One terminal record, released waiters, then one round of contained event delivery; the `settled` event reports whether it released a live `wait` (`awaited`), so `dsh-tool-jobs` never announces a completion a waiting caller already collected, whichever plugin was waiting.
+- **Settlement is first-wins, and its event follows every released waiter.** One terminal record, released waiters, then one round of contained event delivery; the `settled` event reports whether it released a live `wait` (`awaited`), so `jan-tool-jobs` never announces a completion a waiting caller already collected, whichever plugin was waiting.
 - **Registrations outlive producer and controller fibers.** Owner and service disposal cancel live work and await compliant producers; a throwing teardown cancel force-fails only the record.
 
 ### Source map
@@ -102,9 +100,8 @@ Read these pages when the package-level contract is not enough. They move from t
 - [Background task runtime subsystem](../../../docs/subsystems/jobs.md) — the job types, projection fields, and `ctx.jobs` Cordis surface.
 - [jobs group map](../README.md) — the sibling group page and its package table.
 - [Process-local registry](../jobs-local/README.md) — the shipped implementation that runs jobs in this process.
-- [Model-facing job controls](../tool-jobs/README.md) — the `job_output`, `job_list`, and `job_kill` tools and completion notices.
+- [Model-facing job controls](../tool-jobs/README.md) - tools, watches, and completion notices.
 - [Jobs lifecycle and output ownership](../../../.agents/notes/implemented/architecture/2026-09-03-jobs-seam-consolidation.md) — one lifecycle, output ring, and observation stream.
-- [job-registry seam Agent Note](../../../.agents/notes/archived/architecture/2026-07-26-job-registry-seam.md) — the owner-fenced registry contract and its rationale.
 - [Jobs seam consolidation Agent Note](../../../.agents/notes/implemented/architecture/2026-09-03-jobs-seam-consolidation.md) — one output ring, one projection, one event stream.
 
 -----

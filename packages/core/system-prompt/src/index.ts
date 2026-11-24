@@ -1,16 +1,16 @@
 /**
  * Registry for ordered system sections, dynamic context, tool schemas, and prompt variables.
  *
- * @module @deepseek-ai/dsh-system-prompt
+ * @module @janhq/jan-system-prompt
  */
 
-import { Context, Service } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import { AnonymousEntries, NamedEntries, ScopedLayers, scopeTarget } from '@deepseek-ai/dsh-scope'
-import type { ScopeKey, ScopeLayer, Scoped } from '@deepseek-ai/dsh-scope'
-import type { ContextSnapshotSection, ToolSchema } from '@deepseek-ai/dsh-llm'
+import { Context, Service } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import { AnonymousEntries, NamedEntries, ScopedLayers, scopeTarget } from '@janhq/jan-scope'
+import type { ScopeKey, ScopeLayer, Scoped } from '@janhq/jan-scope'
+import type { ContextSnapshotSection, ToolSchema } from '@janhq/jan-llm'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     systemPrompt: SystemPrompt
   }
@@ -18,7 +18,7 @@ declare module '@deepseek-ai/cordis' {
   interface Events {
     /**
      * Presentation waterfall over assembled sections, contexts, and variables.
-     * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): scoped listeners
+     * Scope-filtered dispatch (`@janhq/jan-scope`): scoped listeners
      * receive only that scope's assemblies. The returned text is authoritative; tool declarations remain provider-owned.
      * A supplied signal controls only this explicit assembly request and must not
      * be retained to control later turns. A registered complete section is
@@ -69,10 +69,16 @@ export interface PromptSection {
   /**
    * Treat this contribution as the complete system prompt. Assembly still
    * runs the cooperative waterfall so tools, contexts, and variables can be
-   * resolved, then restores this exact section as the sole prompt section.
+   * resolved, then restores this exact section as the sole prompt section,
+   * followed only by the sections named in {@link keep}.
    * More than one effective complete section makes assembly fail.
    */
   readonly complete?: boolean
+  /**
+   * With {@link complete}, names of other sections kept after it when they are
+   * registered, in their own order. An absent name contributes nothing.
+   */
+  readonly keep?: readonly string[]
 }
 
 /** Dynamic model context materialized as a durable user-role snapshot. */
@@ -262,7 +268,7 @@ function compareToolNames(a: ToolSchema, b: ToolSchema): number {
 
 /** Plugin config: the deployment-authored fragment of the system prompt (see {@link Config.personaPrefix} for its contract). */
 export interface Config {
-  /** Include the fixed DeepSeek Harness identity before the deployment persona (default true). */
+  /** Include the fixed Jan identity before the deployment persona (default true). */
   includeHarnessIdentity?: boolean
   /** Include optional runtime-context snapshots in model history (default true); required context remains. */
   includeRuntimeContext?: boolean
@@ -456,7 +462,7 @@ export class SystemPrompt extends Service {
       this.section({
         name: 'harness:identity',
         order: this.getSectionOrder('HARNESS_IDENTITY'),
-        text: 'You are an AI agent powered by DeepSeek Harness.',
+        text: 'You are an AI agent powered by Jan.',
       })
     }
     this.section({
@@ -612,7 +618,7 @@ export class SystemPrompt extends Service {
    * canonical ordering, then run the presentation waterfall. Scoped sections
    * and variables shadow globals. The waterfall's text is authoritative except
    * that an effective complete section is restored afterwards as the sole
-   * prompt section; tool declarations stay provider-owned.
+   * prompt section, plus the registered sections it keeps; tool declarations stay provider-owned.
    * @param context - the optional scope, step tool set, and plugin-defined assembly fields.
    * @returns the post-waterfall assembly with ordered tool declarations and any complete prompt enforced.
    */
@@ -661,6 +667,8 @@ export class SystemPrompt extends Service {
       throw new Error(`multiple complete prompt sections are active: ${completeSections.map(section => JSON.stringify(section.name)).join(', ')}`)
     }
     let completeSection: AssembledSection | undefined
+    const keep = new Set(completeSections[0]?.keep)
+    const kept: AssembledSection[] = []
     const sections = sectionDefinitions
       .map((section) => {
         const assembled = {
@@ -669,6 +677,7 @@ export class SystemPrompt extends Service {
           ...section.interpolate !== undefined ? { interpolate: section.interpolate } : {},
         }
         if (section.complete === true) completeSection = { ...assembled }
+        else if (keep.has(section.name)) kept.push({ ...assembled })
         return assembled
       })
     const tools = orderTools(collected, this.toolOrder, knownNames)
@@ -689,7 +698,7 @@ export class SystemPrompt extends Service {
     return {
       ...transformed,
       tools,
-      sections: completeSection === undefined ? transformed.sections : [completeSection],
+      sections: completeSection === undefined ? transformed.sections : [completeSection, ...kept],
       contexts: runtimeContextSuppressed ? transformed.contexts.filter(entry => requiredContexts.has(entry.name)) : transformed.contexts,
     }
   }

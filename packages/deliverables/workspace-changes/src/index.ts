@@ -9,13 +9,13 @@
  * git, the summary lists file-tool edits only.
  */
 import { homedir, tmpdir } from 'node:os'
-import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import type {} from '@deepseek-ai/dsh-agent'
-import type { Session, SessionId } from '@deepseek-ai/dsh-session'
-import type {} from '@deepseek-ai/dsh-subprocess'
-import type {} from '@deepseek-ai/dsh-tools'
-import type { FsTarget } from '@deepseek-ai/dsh-fs'
+import type { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import type {} from '@janhq/jan-agent'
+import type { Session, SessionId } from '@janhq/jan-session'
+import type {} from '@janhq/jan-subprocess'
+import type {} from '@janhq/jan-tools'
+import type { FsTarget } from '@janhq/jan-fs'
 import { GitRunner } from './git.ts'
 import { TurnRecorder } from './recorder.ts'
 import type { WorkspaceChanges } from './types.ts'
@@ -180,8 +180,8 @@ export function apply(ctx: Context, config: Config): void {
     const session = exec.agent?.session
     const recorder = session === undefined ? undefined : recorders.get(session)
     if (recorder !== undefined) {
+      if (!await recorder.waitForTool(exec.signal, exec.yieldSignal)) return { kind: 'cancel' }
       mutations.set(exec, recorder)
-      await recorder.settled()
     }
     return next()
   })

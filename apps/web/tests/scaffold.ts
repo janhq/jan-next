@@ -1,17 +1,17 @@
 // Shared scaffold for the keyless browser e2e lane (Agent Note:
 // .agents/notes/implemented/testing/2026-07-24-web-gui-browser-e2e-lane.md).
-// Boots the REAL web composition — the dsh-base and dsh-web-app bundle
+// Boots the REAL web composition — the jan-base and jan-web-app bundle
 // patches over the empty profile root through the vendored Loader (the same
 // layer stack the profile boot composes), patched the
 // snapshot way — so a real chromium exercises the real HTTP uplink/WebSocket
-// downlink, api-gateway, agent loop, tools, and persistence. Modes ride $DSH_SNAPSHOT:
-// replay (default, keyless: normally disables the direct DeepSeek rows and
-// inserts dsh-llm-replay in providers mode), record (real adapter + key,
+// downlink, api-gateway, agent loop, tools, and persistence. Modes ride $JAN_SNAPSHOT:
+// replay (default, keyless: normally disables the direct model rows and
+// inserts jan-llm-replay in providers mode), record (real adapter + key,
 // harvests fixtures from live session memory), refresh (keyless replay that
 // rewrites goldens). A first-run option keeps the real adapter mounted while
 // masking its credential, without making a model call.
 //
-// Composition divergences from `dsh web`, all deliberate, all via include
+// Composition divergences from `jan web`, all deliberate, all via include
 // patches after the shipped bundle layers, over the SAME tree (never a
 // second yml): temp persistenceRoot; host-level skill roots confined to the
 // temp workspace while project skill discovery remains real; agent-instructions
@@ -30,10 +30,10 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { Page } from 'playwright'
 import { expect } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { DSH_LAUNCH_ENVIRONMENT_KEY, type LaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import { entryListSchema, type PatchOptions } from '@deepseek-ai/cordis-plugin-include'
+import { Context } from '@janhq/cordis'
+import { JAN_LAUNCH_ENVIRONMENT_KEY, type LaunchEnvironmentSnapshot } from '@janhq/jan-launch-environment'
+import Loader from '@janhq/cordis-plugin-loader'
+import { entryListSchema, type PatchOptions } from '@janhq/cordis-plugin-include'
 import yaml from 'js-yaml'
 import {
   captureExpectedWorkspaceSnapshot,
@@ -57,38 +57,38 @@ import {
   stabilizeRefreshLog,
   writesCurrentSessionFixtures,
   type NormalizeContext,
-} from '@deepseek-ai/dsh-session-snapshot'
-import type { Profile, ProfileContext } from '@deepseek-ai/dsh-app-boot'
-import type { PresetDefinition } from '@deepseek-ai/dsh-agent-preset-registry'
-import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
-import { LlmAdapter } from '@deepseek-ai/dsh-llm'
+} from '@janhq/jan-session-snapshot'
+import type { Profile, ProfileContext } from '@janhq/jan-app-boot'
+import type { PresetDefinition } from '@janhq/jan-agent-preset-registry'
+import { janHomePath } from '@janhq/jan-home-paths'
+import { LlmAdapter } from '@janhq/jan-llm'
 import type {
   LlmModelInfo, LlmProviderInfo, LlmResolvedModelInfo, RetryPolicyConfig, StreamChunk,
-} from '@deepseek-ai/dsh-llm'
-import type { ReplayHandle, ReplayProviderConfig } from '@deepseek-ai/dsh-llm-replay'
+} from '@janhq/jan-llm'
+import type { ReplayHandle, ReplayProviderConfig } from '@janhq/jan-llm-replay'
 import {
   installLlmReplay,
   parseSessionLog,
   prepareSessionSnapshotFixtureForComparison,
-} from '@deepseek-ai/dsh-llm-replay'
-import type { SessionFormatEvent } from '@deepseek-ai/dsh-session-format'
-import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
+} from '@janhq/jan-llm-replay'
+import type { SessionFormatEvent } from '@janhq/jan-session-format'
+import { sessionFormatCatalog } from '@janhq/jan-session-format-catalog'
 import {
   SESSION_FORMAT_VERSION,
   SessionId,
   type Session,
   type SessionEvent,
   type SessionHeader,
-} from '@deepseek-ai/dsh-session'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+} from '@janhq/jan-session'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
 // Empty type imports carry the webServer/agents/sessionPersistence Context merges.
-import type {} from '@deepseek-ai/dsh-host-webserver'
-import type {} from '@deepseek-ai/dsh-agent'
-import { provideCmdline } from '@deepseek-ai/dsh-cmdline'
+import type {} from '@janhq/jan-host-webserver'
+import type {} from '@janhq/jan-agent'
+import { provideCmdline } from '@janhq/jan-cmdline'
 import { startPrefixProxy, type PrefixProxy } from './prefix-proxy.ts'
 import { REPO_ROOT, requireBuilt, requireDist } from './support.ts'
 
-type AppBoot = typeof import('@deepseek-ai/dsh-app-boot')
+type AppBoot = typeof import('@janhq/jan-app-boot')
 let builtAppBoot: AppBoot | undefined
 
 /**
@@ -99,7 +99,7 @@ let builtAppBoot: AppBoot | undefined
  * helpers this module also exports load without one.
  */
 function appBoot(): AppBoot {
-  builtAppBoot ??= requireBuilt('@deepseek-ai/dsh-app-boot') as AppBoot
+  builtAppBoot ??= requireBuilt('@janhq/jan-app-boot') as AppBoot
   return builtAppBoot
 }
 
@@ -110,21 +110,21 @@ function appBoot(): AppBoot {
 // import {
 //   WELCOME_NOTICE_ACK_FIELD, WELCOME_NOTICE_SETTINGS_NAMESPACE,
 //   WELCOME_NOTICE_VERSION, WELCOME_NOTICE_COPY,
-// } from '@deepseek-ai/dsh-client-ui-settings-models'
+// } from '@janhq/jan-client-ui-settings-models'
 export const WELCOME_NOTICE_SETTINGS_NAMESPACE = 'ui-settings-general'
 /** The installed bundle carrying the scaffold's deployment defaults; the plugin manager lists it beside fixture bundles. */
-export const SCAFFOLD_DEFAULTS_BUNDLE = 'dsh-web-scaffold-defaults'
+export const SCAFFOLD_DEFAULTS_BUNDLE = 'jan-web-scaffold-defaults'
 export const WELCOME_NOTICE_ACK_FIELD = 'welcomeNoticeVersion'
 export const WELCOME_NOTICE_VERSION = '2026-09-28.1'
 export const WELCOME_NOTICE_COPY = {
   zh: {
     title: '预览版说明',
-    body: 'DeepSeek Harness 目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 DeepSeek Harness 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。\n\n我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之上，共同探索智能上限。欢迎大家用 DeepSeek Harness 将想法变成现实，与社区一起丰富插件生态。',
+    body: 'Jan 目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 Jan 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。\n\n我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之上，共同探索智能上限。欢迎大家用 Jan 将想法变成现实，与社区一起丰富插件生态。',
     continueLabel: '继续',
   },
 } as const
 
-/** Snapshot mode for the lane, from $DSH_SNAPSHOT (same vocabulary as the other snapshot suites). */
+/** Snapshot mode for the lane, from $JAN_SNAPSHOT (same vocabulary as the other snapshot suites). */
 export type WebSnapshotMode = 'replay' | 'record' | 'refresh'
 
 /**
@@ -132,10 +132,10 @@ export type WebSnapshotMode = 'replay' | 'record' | 'refresh'
  * @returns the active mode; unset/empty selects replay.
  */
 export function webSnapshotMode(): WebSnapshotMode {
-  const value = process.env.DSH_SNAPSHOT
+  const value = process.env.JAN_SNAPSHOT
   if (value === undefined || value === '' || value === 'replay') return 'replay'
   if (value === 'record' || value === 'refresh') return value
-  throw new Error(`DSH_SNAPSHOT must be replay, record, or refresh; got ${JSON.stringify(value)}`)
+  throw new Error(`JAN_SNAPSHOT must be replay, record, or refresh; got ${JSON.stringify(value)}`)
 }
 
 /**
@@ -197,10 +197,10 @@ export function recordedSessionFixturePath(path: string, version: number): strin
   return join(dirname(path), sessionFixtureName(fixture.index, version))
 }
 
-/** The shipped composition under test: the dsh-base and dsh-web-app bundle patches over the empty profile root. */
+/** The shipped composition under test: the jan-base and jan-web-app bundle patches over the empty profile root. */
 const BASE_PATCH_PATH = join(REPO_ROOT, 'packages/bundle/base/cordis.patch.yml')
 const WEB_BUNDLE_DIR = join(REPO_ROOT, 'packages/bundle/web-app')
-const WEB_BUNDLE_PATCH = (JSON.parse(readFileSync(join(WEB_BUNDLE_DIR, 'package.json'), 'utf8')) as { dsh: { bundle: { patch: string[] } } }).dsh.bundle
+const WEB_BUNDLE_PATCH = (JSON.parse(readFileSync(join(WEB_BUNDLE_DIR, 'package.json'), 'utf8')) as { jan: { bundle: { patch: string[] } } }).jan.bundle
 /** The installation anchor whose dependency surface the runtime resolution mirrors. */
 const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
 
@@ -210,13 +210,13 @@ const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
 // post-step pressure check would warn every step). The published
 // contextWindow keeps that pressure path provably inert for small fixtures.
 const REPLAY_PROVIDERS = [{
-  id: 'deepseek-official',
-  name: 'DeepSeek',
+  id: 'tokamak-official',
+  name: 'Tokamak',
   models: [
-    { id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash', contextWindow: 128_000 },
+    { id: 'tokamak-1-preview', name: 'Tokamak 1 Preview', contextWindow: 128_000 },
     {
-      id: 'deepseek-v4-flash-vision-exp',
-      name: 'DeepSeek-V4-Flash-Vision-Exp',
+      id: 'tokamak-1-vision',
+      name: 'Tokamak 1 Vision Experimental',
       contextWindow: 1_000_000,
       inputModalities: ['text', 'image'] as const,
       defaultMaxTokens: 256_000,
@@ -290,7 +290,7 @@ export interface WebScaffold {
   workspaceCwd: string
   /** Temp persistence root (seeded sessions land here through the real API). */
   persistenceRoot: string
-  /** Isolated harness home the settings/credentials rows write ($DSH_HOME double). */
+  /** Isolated harness home the settings/credentials rows write ($JAN_HOME double). */
   harnessHome: string
   /** Send a browser-equivalent Host request with this scaffold's authenticated cookie. */
   hostFetch(path: string, init?: RequestInit): Promise<Response>
@@ -330,7 +330,7 @@ export interface LaunchOptions {
    * over the profile directory, whose manifest lists the shipped web bundles
    * and each package directory here as an installed dependency (`file:` in the
    * manifest, a symlink under the profile's `node_modules`); `enabled` also
-   * lists a bundle in `dsh.profile.bundles`. The plugin manager mounts on such
+   * lists a bundle in `jan.profile.bundles`. The plugin manager mounts on such
    * a profile, and the root Include is mounted from the profile's own layers.
    * The base bundle's `hmr` row turns on with the profile context, so
    * configuration changes apply live; `hmr: false` disables that row through
@@ -345,7 +345,7 @@ export interface LaunchOptions {
     bundles?: readonly string[]
   }
   /**
-   * Replay fixture (session.jsonl) served by the inserted dsh-llm-replay row
+   * Replay fixture (session.jsonl) served by the inserted jan-llm-replay row
    * in replay/refresh modes; ignored in record mode (the real adapter
    * answers). Omit for scenarios issuing no model calls — a stray stream then
    * fails loud with NO_ADAPTER (both direct adapters are disabled and no replay row
@@ -387,39 +387,18 @@ export interface LaunchOptions {
   /** Synthetic model capacity for UI scenarios whose seeded history must remain uncompacted. */
   replayContextWindow?: number
   /**
-   * Keep the shipped DeepSeek adapter mounted while masking the process
-   * environment's DEEPSEEK_API_KEY for this scaffold lifetime. This is the
-   * keyless first-run configuration lane; the default disables the adapter.
+   * Boot only the shipped model routes and default model, with no replay or route-only adapter,
+   * while masking the process environment's TOKAMAK_API_KEY. This is the keyless first-run lane.
    */
-  deepSeekMissingCredential?: boolean
+  missingModelCredential?: boolean
   /** Leave the current welcome notice pending; ordinary scenarios pre-acknowledge it before browser boot. */
   welcomeNoticePending?: boolean
   /** Leave first-use Workspace initialization eligible; ordinary scenarios start after the default was removed. */
   firstUse?: boolean
-  /** Pin the legacy Messages search endpoint and credential reference. */
-  deepSeekSearch?: {
-    /** Anthropic-compatible base URL; `/messages` is appended. */
-    baseURL?: string
-    /** Credential reference read for each search. */
-    apiKeyEnv: string
-  }
-  /**
-   * Give both sections of the shipped DeepSeek Search and Fetch API row their
-   * own credential reference and, when given, endpoint, so neither follows the
-   * conversation's DeepSeek credential. Browser search scenarios keep the real
-   * providers and credentials seam while avoiding external search traffic and
-   * ambient keys.
-   */
-  deepSeekWebApi?: {
-    /** Base URL of both sections; omitted uses the official base. The providers append `/search` or `/fetch`. */
-    baseURL?: string
-    /** Credential reference of both sections. */
-    apiKeyEnv: string
-  }
   /** Preset selection default and additional declarative definitions for this scenario. */
   agentPresets?: {
     default: string
-    definitions?: import('@deepseek-ai/dsh-agent-preset-registry').PresetDefinition[]
+    definitions?: import('@janhq/jan-agent-preset-registry').PresetDefinition[]
   }
   /**
    * Patch the telemetry exporter URL while preserving the shipped enabled
@@ -443,7 +422,7 @@ export interface LaunchOptions {
    * composition grants no trust. The listen socket is unaffected.
    */
   publicMount?: {
-    /** Canonical mount prefix (default `tools/dsh/`, normalized to lead and end in `/`). */
+    /** Canonical mount prefix (default `tools/jan/`, normalized to lead and end in `/`). */
     prefix?: string
   }
   /** Reuse an existing harness home so a second Host can verify user settings across origins. */
@@ -484,37 +463,30 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   const publicHost = publicMount === undefined ? undefined : 'public.localhost'
   const publicPrefix = publicMount === undefined
     ? undefined
-    : `/${(publicMount.prefix ?? 'tools/dsh/').replace(/^\/+|\/+$/gu, '')}/`
+    : `/${(publicMount.prefix ?? 'tools/jan/').replace(/^\/+|\/+$/gu, '')}/`
   const browserHost = options.remoteAuthority ?? '127.0.0.1'
   if (mode === 'record') {
-    // Both owning vitest configs (web unconditionally, snapshot in record
-    // mode) load the repo-root .env before this file runs.
-    if (process.env.DEEPSEEK_API_KEY === undefined || process.env.DEEPSEEK_API_KEY.length === 0) {
-      throw new Error('web e2e record mode needs DEEPSEEK_API_KEY (env or repo-root .env)')
-    }
+    // Recorded fixtures route through `tokamak-official`, which no shipped adapter serves.
+    throw new Error('web e2e record mode needs a live adapter for the tokamak-official replay route; none is composed')
   }
-  if (mode === 'record' && options.deepSeekMissingCredential === true) {
-    throw new Error('deepSeekMissingCredential is a keyless replay/refresh option')
-  }
-  const maskDeepSeekCredential = mode !== 'record' && options.deepSeekMissingCredential === true
-  // A keyless run that replays recorded model calls pins the snapshot replay placeholder: shipped
-  // compositions offer web_search only while a DeepSeek search key is configured, and recordings
-  // ran with a real key. Other runs keep the launching environment, as their goldens do.
-  const pinDeepSeekCredential = mode !== 'record' && !maskDeepSeekCredential
+  const maskModelCredential = options.missingModelCredential === true
+  // A keyless run that replays recorded model calls pins the snapshot replay placeholder because
+  // recordings ran with a real key. Other runs keep the launching environment, as their goldens do.
+  const pinModelCredential = !maskModelCredential
     && options.replayFixture !== undefined && options.replayProvidersOnly !== true
-  const originalDeepSeekCredential = process.env.DEEPSEEK_API_KEY
+  const originalModelCredential = process.env.TOKAMAK_API_KEY
   let credentialEnvironmentRestored = false
   const restoreCredentialEnvironment = (): void => {
-    if (credentialEnvironmentRestored || (!maskDeepSeekCredential && !pinDeepSeekCredential)) return
+    if (credentialEnvironmentRestored || (!maskModelCredential && !pinModelCredential)) return
     credentialEnvironmentRestored = true
-    if (originalDeepSeekCredential === undefined) {
-      Reflect.deleteProperty(process.env, 'DEEPSEEK_API_KEY')
+    if (originalModelCredential === undefined) {
+      Reflect.deleteProperty(process.env, 'TOKAMAK_API_KEY')
     } else {
-      process.env.DEEPSEEK_API_KEY = originalDeepSeekCredential
+      process.env.TOKAMAK_API_KEY = originalModelCredential
     }
   }
   const workspaceParent = await realpath(tmpdir())
-  let workspacePrefix = 'dsh-web-e2e-ws-'
+  let workspacePrefix = 'jan-web-e2e-ws-'
   if (options.workspacePathLength !== undefined) {
     // mkdtemp appends six characters; JSON quoting is part of the runtime-context text.
     const paddingLength = options.workspacePathLength - JSON.stringify(join(workspaceParent, `${workspacePrefix}XXXXXX`)).length
@@ -522,24 +494,24 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     workspacePrefix += '-'.repeat(paddingLength)
   }
   const workspaceCwd = await realpath(await mkdtemp(join(workspaceParent, workspacePrefix)))
-  // Isolated harness home: the settings/credentials rows resolve $DSH_HOME
+  // Isolated harness home: the settings/credentials rows resolve $JAN_HOME
   // paths at load, and an in-process boot must NEVER touch the developer's
-  // real ~/.dsh document or credential file.
-  const harnessHome = options.harnessHome ?? join(workspaceCwd, '.dsh-home')
+  // real ~/.config/jan-alpha document or credential file.
+  const harnessHome = options.harnessHome ?? join(workspaceCwd, '.jan-home')
   // Skill discovery is model-visible input, and its roots now resolve inside a
   // PRESET — a subtree this lane's include patches cannot reach, because the
   // roster mounts it directly per session rather than as a row of the booted
   // tree. The row's documented fallback is the environment, so pin that: the
   // whole scaffold lifetime, not just the boot, since presets mount when a
-  // session is created. Without this a developer's real ~/.dsh/skills silently
-  // enters replay requests and goldens while CI sees none. `DSH_HOME` follows
+  // session is created. Without this a developer's real ~/.config/jan-alpha/skills silently
+  // enters replay requests and goldens while CI sees none. `JAN_HOME` follows
   // the resolved harness home so a scaffold sharing another's home — the
   // cross-port persistence scenario — pins the same roots the settings and
   // credentials rows were configured with.
   const skillRootEnvironment = {
-    DSH_HOME: harnessHome,
-    DSH_AGENTS_HOME: join(workspaceCwd, '.agents-home'),
-    DSH_BUNDLED_SKILL_DIR: join(workspaceCwd, '.bundled-skills'),
+    JAN_HOME: harnessHome,
+    JAN_AGENTS_HOME: join(workspaceCwd, '.agents-home'),
+    JAN_BUNDLED_SKILL_DIR: join(workspaceCwd, '.bundled-skills'),
   }
   const originalSkillRootEnvironment = Object.fromEntries(
     Object.keys(skillRootEnvironment).map(key => [key, process.env[key]]),
@@ -556,7 +528,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   Object.assign(process.env, skillRootEnvironment)
   let persistenceRoot: string
   try {
-    persistenceRoot = await mkdtemp(join(tmpdir(), 'dsh-web-e2e-sessions-'))
+    persistenceRoot = await mkdtemp(join(tmpdir(), 'jan-web-e2e-sessions-'))
   } catch (error) {
     const failures: unknown[] = [error]
     await rm(workspaceCwd, { recursive: true, force: true }).catch((cleanupError: unknown) => failures.push(cleanupError))
@@ -564,11 +536,11 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     if (failures.length > 1) throw new AggregateError(failures, 'web scaffold temp-root setup failed')
     throw error
   }
-  if (maskDeepSeekCredential) Reflect.deleteProperty(process.env, 'DEEPSEEK_API_KEY')
-  if (pinDeepSeekCredential) Object.assign(process.env, REPLAY_CREDENTIAL_ENV)
+  if (maskModelCredential) Reflect.deleteProperty(process.env, 'TOKAMAK_API_KEY')
+  if (pinModelCredential) Object.assign(process.env, REPLAY_CREDENTIAL_ENV)
 
   // The include patch set — the same layer stack the profile boot composes
-  // (bundle patches in dsh.profile.bundles order), applied over the SAME empty root (a
+  // (bundle patches in jan.profile.bundles order), applied over the SAME empty root (a
   // patch id that stops matching a row fails the boot sweep loudly instead of
   // drifting).
   const basePatches = loadOverlayPatches('web e2e scaffold', BASE_PATCH_PATH)
@@ -586,11 +558,10 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   const overlayPatches: PatchOptions[] = [
     // Without HMR the profile applies configuration changes at its next start.
     ...options.profile?.hmr === false ? [{ id: 'hmr', disabled: true }] : [],
-    { id: 'session-log-deepseek', config: { enabled: false } },
     { id: 'ui-plugin-manager', config: { registryProbeEnabled: false } },
-    ...mode === 'record' || options.deepSeekMissingCredential === true
+    ...options.missingModelCredential === true
       ? []
-      : [{ id: 'agent-default-model', config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' } }],
+      : [{ id: 'agent-default-model', config: { provider: 'tokamak-official', model: 'tokamak-1-preview' } }],
     ...extraOverlayPatches,
     { id: 'agent-preset-registry', config: { default: 'standard' } },
     { id: 'session-persistence-jsonl', config: { root: persistenceRoot } },
@@ -599,20 +570,20 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // the seeded-session scenarios navigate by content search, and these e2e
     // runs are the assembled coverage for the opt-in search path.
     { id: 'session-query-sqlite', config: { path: ':memory:', openAt: 'first-search' } },
-    // storage-json's yml root is anchored to the real $DSH_HOME; pin the row
+    // storage-json's yml root is anchored to the real $JAN_HOME; pin the row
     // to an absolute temp root (removed with the workspace at close) so tests
     // never write the user's harness home.
-    { id: 'storage-json', config: { root: join(workspaceCwd, '.dsh-storages') } },
+    { id: 'storage-json', config: { root: join(workspaceCwd, '.jan-storages') } },
     // First-use initialization must create directories only inside this scaffold's temporary world.
     { id: 'workspace-controller', config: { documentsDirectory: join(workspaceCwd, 'Documents') } },
     // Skill discovery is model-visible input. Pin every host-level root inside
-    // the owned temp world so ~/.dsh, ~/.agents, and a bundled-root env setting
+    // the owned temp world so ~/.config/jan-alpha, ~/.agents, and a bundled-root env setting
     // cannot change replay requests or conversation goldens. Project roots stay
     // enabled against the same empty temp workspace, preserving the real seam.
     {
       id: 'skill-filesystem',
       config: {
-        dshHome: join(workspaceCwd, '.dsh-home'),
+        janHome: join(workspaceCwd, '.jan-home'),
         agentsHome: join(workspaceCwd, '.agents-home'),
         bundledSkillDir: join(workspaceCwd, '.bundled-skills'),
         watch: false,
@@ -624,7 +595,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     { id: 'agent-instructions', disabled: true },
     { id: 'session-title-llm', disabled: true },
     // Fixture sessions must never leave the process: the shipped row defaults
-    // to the production OTLP endpoint (or whatever DSH_TELEMETRY_OTLP_URL
+    // to the production OTLP endpoint (or whatever JAN_TELEMETRY_OTLP_URL
     // names in the ambient environment). A scenario with a local collector
     // preserves the shipped disabled setting instead of overriding it.
     options.telemetryUrl === undefined
@@ -650,7 +621,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
       },
     },
     // The bundle's web-runtime row resolves the same built dist under test
-    // (apps/web IS @deepseek-ai/dsh-web-frontend); native browser opening and the
+    // (apps/web IS @janhq/jan-web-frontend); native browser opening and the
     // URL line are disabled because this scaffold owns its Playwright browser.
     // Preserve the composed surface-context choice because a patch replaces
     // the row's complete config.
@@ -666,7 +637,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
           ],
         },
       }],
-    { id: 'credentials', config: { dshHome: harnessHome } },
+    { id: 'credentials', config: { janHome: harnessHome } },
     // The shipped directory-picker row is the -auto chooser, which resolves
     // the interaction from the RUNNING host (display, SSH launch, bind). The
     // lane's goldens are interaction-specific (workspace-management drives
@@ -675,8 +646,8 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // disable+insert pair.
     { id: 'directory-picker', disabled: true },
     { insert: [
-      { id: 'directory-picker-browse', name: '@deepseek-ai/dsh-host-directory-picker-browse' },
-      { id: 'ui-directory-picker-browse', name: '@deepseek-ai/dsh-client-ui-directory-picker-browse' },
+      { id: 'directory-picker-browse', name: '@janhq/jan-host-directory-picker-browse' },
+      { id: 'ui-directory-picker-browse', name: '@janhq/jan-client-ui-directory-picker-browse' },
     ] },
     // Ordinary scenarios exclude host-dependent application discovery. The
     // Open In scenario supplies launch facts that suppress every native probe.
@@ -684,28 +655,8 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     { id: 'ui-open-in-app', disabled: options.openInAppEnvironment === undefined },
     ...options.agentPresets === undefined ? [] : [
       { id: 'agent-preset-registry', config: { default: options.agentPresets.default } },
-      { insert: (options.agentPresets.definitions ?? []).map(config => ({ id: `preset-${config.id}`, name: '@deepseek-ai/dsh-agent-preset', config })) },
+      { insert: (options.agentPresets.definitions ?? []).map(config => ({ id: `preset-${config.id}`, name: '@janhq/jan-agent-preset', config })) },
     ],
-    ...options.deepSeekWebApi === undefined ? [] : [
-      {
-        id: 'web-deepseek-api',
-        config: {
-          searchApiKeyEnv: options.deepSeekWebApi.apiKeyEnv,
-          fetchApiKeyEnv: options.deepSeekWebApi.apiKeyEnv,
-          ...options.deepSeekWebApi.baseURL === undefined ? {} : {
-            searchBaseURL: options.deepSeekWebApi.baseURL, fetchBaseURL: options.deepSeekWebApi.baseURL,
-          },
-        },
-      },
-    ],
-    ...options.deepSeekSearch === undefined ? [] : [{
-      id: 'web-search-deepseek',
-      config: {
-        apiKeyEnv: options.deepSeekSearch.apiKeyEnv,
-        ...options.deepSeekSearch.baseURL === undefined ? {} : { baseURL: options.deepSeekSearch.baseURL },
-      },
-    }],
-    { id: 'llm-deepseek', disabled: mode !== 'record' && !maskDeepSeekCredential },
   ]
 
   // Recorded standard sessions pin the optional patch tool in their request headers.
@@ -723,9 +674,9 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   }
 
   // Live fields use a shared deployment layer; process-specific ports and roots stay in CLI overlays.
-  const formEntries = new Set(['agent-default-model', 'agent-preset-registry', 'llm-deepseek', 'llm-pi-ai',
-    'web', 'web-search-deepseek', 'web-deepseek-api', 'agent-loop', 'subagent', 'bash-sandbox', 'pwsh-sandbox',
-    'session-log-deepseek', 'ui-theme', 'locale', 'ui-chat', 'ui-conversation', 'ui-settings', 'ui-settings-general', 'permission'])
+  const formEntries = new Set(['agent-default-model', 'agent-preset-registry', 'llm-pi-ai',
+    'web', 'agent-loop', 'subagent', 'bash-sandbox', 'pwsh-sandbox',
+    'ui-theme', 'locale', 'ui-chat', 'ui-conversation', 'ui-settings', 'ui-settings-general', 'permission'])
   const formDefaults: PatchOptions[] = []
   const processOverlays = overlayPatches.map((patch) => {
     if (patch.id === undefined || !formEntries.has(patch.id) || patch.config === undefined) return patch
@@ -740,7 +691,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   // the temp workspace so tool cwd, session cwd, and fixtures agree.
   const originalCwd = process.cwd()
   const ctx = new Context()
-  if (options.openInAppEnvironment !== undefined) ctx.provide(DSH_LAUNCH_ENVIRONMENT_KEY, options.openInAppEnvironment)
+  if (options.openInAppEnvironment !== undefined) ctx.provide(JAN_LAUNCH_ENVIRONMENT_KEY, options.openInAppEnvironment)
   const observedSessions = new Map<SessionId, Session>()
   const stopObservingSessions = ctx.on('session/created', (session) => {
     observedSessions.set(session.id, session)
@@ -765,7 +716,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         throw new Error(`web scaffold extra install anchor has no package name: ${anchor}`)
       }
       const packageDir = dirname(anchor)
-      // A real profile already has each bundle installed by `dsh plugin add`.
+      // A real profile already has each bundle installed by `jan plugin add`.
       // Reproduce that link so a private bundle can import its own plugin.
       const installedLink = join(profileDir, 'node_modules', manifest.name)
       await mkdir(dirname(installedLink), { recursive: true })
@@ -792,9 +743,9 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     let profileContext: ProfileContext
     {
       // A real profile: the shipped web bundles plus each fixture package,
-      // installed the way `dsh plugin add` leaves them.
+      // installed the way `jan plugin add` leaves them.
       const dependencies: Record<string, string> = {}
-      const bundles = ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', ...options.profile?.bundles ?? []]
+      const bundles = ['@janhq/jan-base', '@janhq/jan-web-app', ...options.profile?.bundles ?? []]
       for (const entry of options.profile?.packages ?? []) {
         const manifest = JSON.parse(await readFile(join(entry.dir, 'package.json'), 'utf8')) as { name: string }
         dependencies[manifest.name] = `file:${entry.dir}`
@@ -806,19 +757,19 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
       // Fixture deployment defaults remain below editable profile values.
       const fixtureDir = join(profileDir, 'node_modules', SCAFFOLD_DEFAULTS_BUNDLE)
       await mkdir(fixtureDir, { recursive: true })
-      await writeFile(join(fixtureDir, 'package.json'), JSON.stringify({ name: SCAFFOLD_DEFAULTS_BUNDLE, version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' } } }))
+      await writeFile(join(fixtureDir, 'package.json'), JSON.stringify({ name: SCAFFOLD_DEFAULTS_BUNDLE, version: '1.0.0', jan: { bundle: { patch: 'cordis.patch.yml' } } }))
       await writeFile(join(fixtureDir, 'cordis.patch.yml'), yaml.dump(formDefaults, { schema: entryListSchema }))
       bundles.push(SCAFFOLD_DEFAULTS_BUNDLE)
       dependencies[SCAFFOLD_DEFAULTS_BUNDLE] = `file:${fixtureDir}`
       initProfile(profileDir, bundles)
-      const manifest = readProfileManifest('dsh', profileDir)
+      const manifest = readProfileManifest('jan', profileDir)
       manifest.dependencies = dependencies
       await writeFile(join(profileDir, 'package.json'), JSON.stringify(manifest, null, 2) + '\n')
       profileContext = {
         name: 'scaffold', dir: profileDir, patchPath: profile.patchPath, installAnchor: INSTALL_ANCHOR,
         ...options.profile?.packageManager === undefined ? {} : { packageManager: options.profile.packageManager },
         cwd: workspaceCwd, home: harnessHome,
-        startedBundles: loadProfileDirectory('dsh', profileDir, INSTALL_ANCHOR).layers.map(layer => layer.packageName),
+        startedBundles: loadProfileDirectory('jan', profileDir, INSTALL_ANCHOR).layers.map(layer => layer.packageName),
         overlays: processOverlays, telemetryDisabledEnv: undefined,
       }
       // HMR gates file-driven reloads on application readiness, which the
@@ -827,7 +778,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
       ctx.provide('profileContext', profileContext)
     }
     // This direct Loader harness supplies the same root-path capability as app-boot.
-    ctx.provide('dshHomePath', dshHomePath)
+    ctx.provide('janHomePath', janHomePath)
     // A host with no command line still provides one: the web bundle's startup
     // row releases the rows waiting on it, and with no arguments each starts on
     // the values this scaffold composed above. An exit request can only come
@@ -843,7 +794,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
       resolution,
     })
     await ctx.plugin(Loader)
-    await mountRootInclude(ctx, rootConfig, readProfilePatches('dsh', profileContext))
+    await mountRootInclude(ctx, rootConfig, readProfilePatches('jan', profileContext))
     await ctx.loader.await()
     await auditStartupEntries(ctx, 'web e2e scaffold')
     if (options.developerTools !== undefined) {
@@ -899,7 +850,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         throw new Error('replayProvidersOnly fixture must record no model calls')
       }
     }
-    if (mode !== 'record' && replayFixture !== undefined) {
+    if (replayFixture !== undefined) {
       replayHandle = installLlmReplay(ctx, {
         file: replayFixture,
         providers: (options.replayProviders ?? replayProviders(options.replayContextWindow)).map(provider => ({
@@ -910,7 +861,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         ...(replayChildFixtures === undefined ? {} : { childFiles: replayChildFixtures }),
         ...(options.paceMs === undefined ? {} : { paceMs: options.paceMs }),
       })
-    } else if (mode !== 'record' && options.deepSeekMissingCredential !== true) {
+    } else if (options.missingModelCredential !== true) {
       // No fixture and no shipped adapter would leave the tree with ZERO
       // provider routes — a state no product composition has, and one the
       // composer refuses to type into. Register the same routes
@@ -975,7 +926,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // Barrier stack: the in-process turn/end identifies the session, its
     // explicit flush makes the transcript durable, and the caller's browser
     // settled-poll comes last because host completion strictly precedes render.
-    whenTurnSettled(timeoutMs = mode === 'record' ? 180_000 : 30_000): Promise<SessionId> {
+    whenTurnSettled(timeoutMs = 30_000): Promise<SessionId> {
       return new Promise<SessionId>((resolveSettled, reject) => {
         const timer = setTimeout(() => {
           off()
@@ -992,8 +943,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     },
     async close(): Promise<void> {
       const failures: unknown[] = []
-      if (mode !== 'record'
-        && replayFixture !== undefined
+      if (replayFixture !== undefined
         && options.replayProvidersOnly !== true
         && compareReplaySession) {
         try {
@@ -1172,16 +1122,13 @@ export function normalizeWebSessionVolatiles(log: string, workspaceCwd?: string)
       let normalized = value
         .replace(/Anonymous user: [0-9a-f-]{36}(?=\.$)/gi, 'Anonymous user: {{anonymousUserId}}')
         // The checkout path and listener port differ per machine and run.
-        .replace(/Current DeepSeek Harness implementation checkout: "(?:[^"\\]|\\.)*"\./g, 'Current DeepSeek Harness implementation checkout: "{{sourceRoot}}".')
-        .replace(/Current DeepSeek Harness Web GUI URL: "(?:[^"\\]|\\.)*"\./g, 'Current DeepSeek Harness Web GUI URL: "{{webUrl}}".')
+        .replace(/Current Jan implementation checkout: "(?:[^"\\]|\\.)*"\./g, 'Current Jan implementation checkout: "{{sourceRoot}}".')
+        .replace(/Current Jan Web GUI URL: "(?:[^"\\]|\\.)*"\./g, 'Current Jan Web GUI URL: "{{webUrl}}".')
       for (const cwd of cwdSpellings) normalized = replaceWebCwd(normalized, cwd)
       return normalized
-    })) as { type?: unknown; data?: { endpoint?: unknown } }
-    if (record.type === 'web/deepseek-search-llm-request' && typeof record.data?.endpoint === 'string') {
-      record.data.endpoint = '{{webSearchEndpoint}}'
-    }
+    }))
     if (isTimeContextReading(record)) {
-      record = mapJsonStringValues(record, tokenizeTimeContextReading) as typeof record
+      record = mapJsonStringValues(record, tokenizeTimeContextReading)
     }
     return JSON.stringify(record)
   }).join('\n')
@@ -1728,7 +1675,7 @@ export async function compareOrRefreshGolden(goldenPath: string, actual: string,
     return
   }
   if (!existsSync(goldenPath)) {
-    throw new Error(`missing golden ${goldenPath} — run DSH_SNAPSHOT=refresh pnpm run test:web to generate it`)
+    throw new Error(`missing golden ${goldenPath} — run JAN_SNAPSHOT=refresh pnpm run test:web to generate it`)
   }
   expect(payload).toBe(await readFile(goldenPath, 'utf8'))
 }

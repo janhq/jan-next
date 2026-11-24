@@ -1,20 +1,21 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 import assert from 'node:assert/strict'
-import { Context, Service } from '@deepseek-ai/cordis'
+import { Context, Service } from '@janhq/cordis'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { ILayout, PanelInfo } from '@deepseek-ai/dsh-client-ui-layout/client'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import { allowAllAccess, StaticRemoteAccess, TestRemote, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
-import * as settings from '@deepseek-ai/dsh-client-ui-settings/client'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { ILayout, PanelInfo } from '@janhq/jan-client-ui-layout/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
+import { allowAllAccess, StaticRemoteAccess, TestRemote, usePinnedBrowserLanguages } from '@janhq/jan-client-test-runtime'
+import * as settings from '@janhq/jan-client-ui-settings/client'
 import { apply, inject, NS, PANEL_ID } from '../src/client/index.ts'
 import { PluginManagerPage } from '../src/client/PluginManagerPage.tsx'
 import { PluginRefreshToast, type PluginRefreshToastFace } from '../src/client/PluginRefreshToast.tsx'
 import { PluginsPanelIcon } from '../src/client/PluginsPanelIcon.tsx'
+import type { PluginTranslationFace } from '../src/client/PackageTranslation.tsx'
 import type { PluginManagerFace } from '../src/client/manager-store.ts'
 import type { createNavigationStore } from '../src/client/navigation-store.ts'
 
@@ -104,11 +105,38 @@ function declare(slots: SlotRegistry): () => void {
       'main': { kind: 'keyed', scope: 'root' },
       'shell.overlay': { kind: 'list', scope: 'root' },
       'sidebar.panellist': { kind: 'list', scope: 'root' },
+      'settings.plugins.tab': { kind: 'list', scope: 'root' },
     },
   } as never, () => null)
 }
 
 describe('ui-plugin-manager browser plugin', () => {
+  it('offers a Settings link when the Translations tab becomes available and opens Built-in plugins', async () => {
+    const b = await bench()
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const injected: object = b.slots.entries('main')[0]!.inject!()
+    const face = injected as PluginTranslationFace
+    const settings = face.hooks.translationSettings
+    const listener = vi.fn(() => settings.getSnapshot())
+    const off = settings.subscribe(listener)
+    onTestFinished(off)
+    expect(settings.getSnapshot()).toBe(false)
+
+    const available = createSnapshotStore(false)
+    const open = vi.fn(() => true)
+    await b.ctx.plugin((ctx) => { ctx.provide('settingsNavigation', { availability: available, open }) }).await()
+    const removeTab = b.slots.register({ name: 'settings.plugins.tab', id: 'translations' }, () => null)
+    expect(settings.getSnapshot()).toBe(false)
+    available.set(true)
+    expect(listener).toHaveLastReturnedWith(true)
+    face.openTranslationSettings()
+    expect(open).toHaveBeenCalledExactlyOnceWith('plugins')
+
+    removeTab()
+    await vi.waitFor(() => { expect(listener).toHaveLastReturnedWith(false) })
+  })
+
   it('resets bundle selection when leaving Plugins and releases its panel observer with the registration', async () => {
     const b = await bench()
     const removeRoot = declare(b.slots)
@@ -117,9 +145,9 @@ describe('ui-plugin-manager browser plugin', () => {
     assert(entry.store && 'create' in entry.store)
     const navigation = entry.store.create()
     expect(navigation.getSnapshot()).toEqual({ tab: 'installed', view: { kind: 'list' } })
-    b.ctx.pluginNavigation.openBundle('dsh-navigation-test')
+    b.ctx.pluginNavigation.openBundle('jan-navigation-test')
     expect(b.panelInfo.getSnapshot().activePanelId).toBe(PANEL_ID)
-    expect(navigation.getSnapshot()).toEqual({ tab: 'installed', view: { kind: 'package', name: 'dsh-navigation-test' } })
+    expect(navigation.getSnapshot()).toEqual({ tab: 'installed', view: { kind: 'package', name: 'jan-navigation-test' } })
     b.selectPanel(null)
     expect(navigation.getSnapshot()).toEqual({ tab: 'installed', view: { kind: 'list' } })
     b.selectPanel(PANEL_ID)
@@ -128,10 +156,10 @@ describe('ui-plugin-manager browser plugin', () => {
     navigation.actions.setView({ kind: 'more' })
     b.selectPanel(null)
     expect(navigation.getSnapshot()).toEqual({ tab: 'installed', view: { kind: 'list' } })
-    b.ctx.pluginNavigation.openBundle('dsh-navigation-test')
+    b.ctx.pluginNavigation.openBundle('jan-navigation-test')
     removeRoot()
     b.selectPanel(null)
-    expect(navigation.getSnapshot()).toEqual({ tab: 'installed', view: { kind: 'package', name: 'dsh-navigation-test' } })
+    expect(navigation.getSnapshot()).toEqual({ tab: 'installed', view: { kind: 'package', name: 'jan-navigation-test' } })
   })
 
   it('opens the Plugins list from another panel and resets bundle details without opening installation', async () => {
@@ -150,8 +178,8 @@ describe('ui-plugin-manager browser plugin', () => {
     expect(navigation.getSnapshot()).toEqual({ tab: 'installed', view: { kind: 'list' } })
     expect(face.hooks.pluginManager.getSnapshot().install.open).toBe(false)
 
-    b.ctx.pluginNavigation.openBundle('dsh-navigation-test')
-    expect(navigation.getSnapshot()).toEqual({ tab: 'installed', view: { kind: 'package', name: 'dsh-navigation-test' } })
+    b.ctx.pluginNavigation.openBundle('jan-navigation-test')
+    expect(navigation.getSnapshot()).toEqual({ tab: 'installed', view: { kind: 'package', name: 'jan-navigation-test' } })
     navigation.actions.setTab('fixture-discover')
     b.ctx.pluginNavigation.openList()
     expect(b.panelInfo.getSnapshot().activePanelId).toBe(PANEL_ID)
@@ -230,7 +258,7 @@ describe('ui-plugin-manager browser plugin', () => {
     expect(allows).toHaveBeenCalledWith('pluginManager/listBundles')
     for (const name of ['main', 'shell.overlay', 'sidebar.panellist'] as const) expect(b.slots.entries(name)).toEqual([])
     expect(b.ctx.get('pluginNavigation')).toBeUndefined()
-    expect(b.ctx.get('pluginChanges')?.bundle('dsh-any').getSnapshot()).toBe(false)
+    expect(b.ctx.get('pluginChanges')?.bundle('jan-any').getSnapshot()).toBe(false)
     await fiber.dispose()
   })
 
@@ -240,11 +268,11 @@ describe('ui-plugin-manager browser plugin', () => {
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
 
-    b.ctx.pluginNavigation.openBundle('dsh-navigation-test')
+    b.ctx.pluginNavigation.openBundle('jan-navigation-test')
     expect(b.selectPanel).toHaveBeenCalledWith(PANEL_ID)
     const entry = b.slots.entries('main')[0]!
     assert(entry.store && 'create' in entry.store)
-    expect(entry.store.create().getSnapshot()).toEqual({ tab: 'installed', view: { kind: 'package', name: 'dsh-navigation-test' } })
+    expect(entry.store.create().getSnapshot()).toEqual({ tab: 'installed', view: { kind: 'package', name: 'jan-navigation-test' } })
     expect(entry.component).toBe(PluginManagerPage)
     expect(entry.options).toMatchObject({ key: PANEL_ID })
     expect(entry.locale).toBe(NS)
@@ -294,11 +322,11 @@ describe('ui-plugin-manager browser plugin', () => {
     await vi.waitFor(() => { expect(face.hooks.pluginManager.getSnapshot().status).toBe('ready') })
     expect(b.list).toHaveBeenCalledTimes(1)
     // A profile change invalidates reads without withdrawing the displayed document.
-    face.loadDetail('dsh-a', '1.0.0', 'en', false)
+    face.loadDetail('jan-a', '1.0.0', 'en', false)
     await vi.waitFor(() => { expect(Object.values(face.hooks.bundleDetails.getSnapshot())[0]?.status).toBe('ready') })
     const loadedDetails = face.hooks.bundleDetails.getSnapshot()
-    face.retryDetail('dsh-a', '1.0.0', 'en', false)
-    expect(face.detailImage('dsh-a', 'README.md', 'a.png', false)).toContain('api/plugin-manager/detail-file?bundle=dsh-a')
+    face.retryDetail('jan-a', '1.0.0', 'en', false)
+    expect(face.detailImage('jan-a', 'README.md', 'a.png', false)).toContain('api/plugin-manager/detail-file?bundle=jan-a')
     expect(face.hooks.locale.getSnapshot().active).toBe('zh')
     b.remote.emit('plugin-manager/changed', [{ reason: 'bundle' }])
     await vi.waitFor(() => { expect(b.list).toHaveBeenCalledTimes(2) })

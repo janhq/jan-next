@@ -1,9 +1,8 @@
 /*
  * Web search and fetch page: two provider sections, each a title and a menu
- * with its hints. Under Search, the DeepSeek Search API shows its result count,
- * and the legacy DeepSeek search its API key, base URL, and searches per
- * request, in a gray panel. The sections are told apart by spacing and the
- * panel; the only hairlines are the settings fields' dividers inside the panel.
+ * with its hints. A provider's settings fields appear in a gray panel. The
+ * sections are told apart by spacing and the panel; the only hairlines are the
+ * settings fields' dividers inside the panel.
  */
 
 .section {
@@ -77,15 +76,6 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* The gray panel holding a section's settings below its provider menu. */
-.panel {
-  display: flex;
-  flex-direction: column;
-  padding: 0 16px;
-  border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-bg-module-platform);
-}
-
 .hint {
   margin: 0;
   font-size: 12px;
@@ -101,15 +91,4 @@
   font-size: 12px;
   line-height: 1.5;
   color: var(--dsw-alias-state-error-primary);
-}
-
-.link {
-  color: var(--dsw-alias-link);
-  text-decoration: none;
-}
-
-@media (hover: hover) {
-  .link:hover {
-    text-decoration: underline;
-  }
 }

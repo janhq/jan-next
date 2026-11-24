@@ -1,25 +1,25 @@
-# The dsh-headless bundle patch: one-shot task mode directly over dsh-base.
+# The jan-headless bundle patch: one-shot task mode directly over jan-base.
 # It mounts no Host, HTTP server, Web runtime, or browser plugin. An ordinary
 # provider plugin injects `cmdlineArgs`, parses the task positional
-# (`dsh --profile headless "<task>"`), Session identity, permission and output
+# (`jan --profile headless "<task>"`), Session identity, permission and output
 # options, and this app's --help, then the direct driver creates a fresh Agent, or adopts
 # the exact Session the flag names, through the core registry and prints its
 # durable result.
 
 - id: system-prompt
   config:
-    # tokamak-harness: Jan replaces the fixed DeepSeek Harness identity sentence.
+    # tokamak-harness: the persona opener replaces the default harness identity sentence.
     includeHarnessIdentity: false
     personaPrefix: >-
       You are Jan, an AI agent. You are a coding agent powered by the {{model}} model.
 
 - insert:
     - id: headless-startup
-      name: '@deepseek-ai/dsh-headless/startup'
+      name: '@janhq/jan-headless/startup'
 
     # Reads its task and run options from the ordinary headlessStartup provider.
     - id: headless-runner
-      name: '@deepseek-ai/dsh-headless'
+      name: '@janhq/jan-headless'
       inject: [headlessStartup]
       config:
         task: !!js ctx.headlessStartup.task
@@ -30,7 +30,7 @@
 - id: sandbox-policy
   inject: [headlessStartup]
   config:
-    mode: !!js process.env.DSH_PERMISSION_MODE ?? 'workspace-write'
+    mode: !!js process.env.JAN_PERMISSION_MODE ?? 'workspace-write'
     workspaceRoot: !!js process.cwd()
     additionalWritableRoots: !!js ctx.headlessStartup.additionalWritableRoots
 
@@ -44,5 +44,5 @@
 - id: authorization
   disabled: true
 
-- id: deepseek-account
+- id: tokamak-account
   disabled: true

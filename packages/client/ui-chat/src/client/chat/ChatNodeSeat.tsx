@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { ConversationLocationDataStore, ConversationTurnDataMap } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { JsonBlock } from '@janhq/jan-client-ui-primitives'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { ConversationLocationDataStore, ConversationTurnDataMap } from '@janhq/jan-client-ui-conversation/client'
 import type { ChatNodeHookContext, ChatNodeOwnerProps, ChatFlowSlotProps, UsePresentation } from '../contract/slots.ts'
 import { hasAssistantReplyContent } from '../contract/assistant-content.ts'
 import type { ChatNode } from '../contract/chat-nodes.ts'
@@ -50,7 +50,7 @@ function turnOf(node: ChatNode | undefined): number | undefined {
 export const ChatNodeSeat = memo(function ChatNodeSeat({
   nodeKey, groupPart, useChatNode, useChatNodeProcess, usePresentation,
   cwd, openFile, inspectCall, forkAt,
-  loadImage, useStore, actions, renderSlot, t, useChatNodeBottom, deferCollapse, useGroupAction,
+  loadImage, traceDetailsVisible, useStore, actions, renderSlot, t, useChatNodeBottom, deferCollapse, useGroupAction,
 }: ChatNodeSeatProps) {
   const bottom = useChatNodeBottom(nodeKey)
   const node = useChatNode(nodeKey)
@@ -138,10 +138,11 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
       inspectCall,
       forkAt,
       loadImage,
+      traceDetailsVisible: traceDetailsVisible !== false && !processHidden && routedNode?.visibility !== 'hidden',
       turnProcess,
     }, [
     node, groupPart, cwd, openFile, inspectCall, forkAt,
-    loadImage, turnProcess,
+    loadImage, processHidden, routedNode?.visibility, traceDetailsVisible, turnProcess,
   ])
   if (routedNode === undefined || owner === null) return null
   // Runtime dispatch owns the correlation: every Node's discriminant is the

@@ -1,29 +1,30 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import { afterEach, describe, expect, it } from 'vitest'
-import { unsupportedModel, provideWorkingDirectoryFixture, unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
+import { unsupportedModel, provideWorkingDirectoryFixture, unsupportedInbox } from '@janhq/jan-agent-loop-testkit'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { Context } from '@deepseek-ai/cordis'
-import { createUserMessage, ToolCallId, type Message } from '@deepseek-ai/dsh-llm'
-import type { ContextFormed, MessageSource } from '@deepseek-ai/dsh-llm'
-import { createScope, type Scope } from '@deepseek-ai/dsh-scope'
+import { Context } from '@janhq/cordis'
+import { createUserMessage, ToolCallId, type Message } from '@janhq/jan-llm'
+import type { ContextFormed, MessageSource } from '@janhq/jan-llm'
+import { createScope, type Scope } from '@janhq/jan-scope'
 import {
   SESSION_FORMAT_VERSION, Session, SessionId, type SessionEvent, type UserMessage,
-} from '@deepseek-ai/dsh-session'
-import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { defineContentToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import AgentRegistry, { agentEvents, type Agent, type PreStepDecision } from '@deepseek-ai/dsh-agent'
-import SkillRegistry from '@deepseek-ai/dsh-skill'
-import * as SkillFileSystem from '@deepseek-ai/dsh-skill-filesystem'
-import * as toolSkill from '@deepseek-ai/dsh-tool-skill'
+} from '@janhq/jan-session'
+import SystemPrompt, { renderPrompt } from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import { defineContentToolFixture } from '@janhq/jan-tool-testkit'
+import AgentRegistry, { agentEvents, type Agent, type PreStepDecision } from '@janhq/jan-agent'
+import SkillRegistry from '@janhq/jan-skill'
+import * as SkillFileSystem from '@janhq/jan-skill-filesystem'
+import * as toolSkill from '@janhq/jan-tool-skill'
+import CommandRuntime from '@janhq/jan-commands'
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
-    'dsh-tool-skill': { kind: 'dsh-tool-skill' } & ContextFormed
+    'jan-tool-skill': { kind: 'jan-tool-skill' } & ContextFormed
     'later-contribution': { kind: 'later-contribution' } & ContextFormed
   }
 }
@@ -44,7 +45,7 @@ afterEach(async () => {
 })
 
 async function tempDir(name: string): Promise<string> {
-  const dir = await import('node:fs/promises').then(fs => fs.mkdtemp(join(tmpdir(), `dsh-${name}-`)))
+  const dir = await import('node:fs/promises').then(fs => fs.mkdtemp(join(tmpdir(), `jan-${name}-`)))
   tempDirs.push(dir)
   return dir
 }
@@ -64,7 +65,7 @@ async function setup(home: string, config: toolSkill.Config = {}): Promise<Conte
   await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(SkillRegistry)
-  await ctx.plugin(SkillFileSystem, { dshHome: join(home, '.dsh'), agentsHome: join(home, '.agents'), watch: false })
+  await ctx.plugin(SkillFileSystem, { janHome: join(home, '.jan'), agentsHome: join(home, '.agents'), watch: false })
   await ctx.plugin(toolSkill, config)
   return ctx
 }
@@ -82,11 +83,11 @@ function agentForCwd(cwd: string): Agent {
     model: unsupportedModel(),
     inbox: unsupportedInbox(),
     status: 'idle',
-    send: () => {},
-    followup: () => {},
-    steer: () => {},
+    send: () => { },
+    followup: () => { },
+    steer: () => { },
     inject: () => { throw new Error('step-boundary catalog must not use agent.inject()') },
-    cancel() {},
+    cancel() { },
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
   }
@@ -101,11 +102,11 @@ function sessionAgent(session: Session, id = 'tool-skill-agent'): Agent {
     inbox: unsupportedInbox(),
     status: 'running',
     ctx: new Context(),
-    send: () => {},
-    followup: () => {},
-    steer: () => {},
+    send: () => { },
+    followup: () => { },
+    steer: () => { },
     inject: () => { throw new Error('step-boundary catalog must not use agent.inject()') },
-    cancel() {},
+    cancel() { },
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
   }
@@ -194,7 +195,7 @@ async function mintAgentScope(ctx: Context, subject: string | Agent): Promise<{ 
   return { agent, scope }
 }
 
-describe('dsh-tool-skill', () => {
+describe('jan-tool-skill', () => {
   it('registers the skill tool schema and removes it on dispose', async () => {
     const ctx = new Context()
     provideWorkingDirectoryFixture(ctx)
@@ -205,7 +206,7 @@ describe('dsh-tool-skill', () => {
     await ctx.plugin(AgentRegistry)
     const home = await tempDir('tool-schema')
     await ctx.plugin(SkillRegistry)
-    await ctx.plugin(SkillFileSystem, { dshHome: join(home, '.dsh'), agentsHome: join(home, '.agents'), watch: false })
+    await ctx.plugin(SkillFileSystem, { janHome: join(home, '.jan'), agentsHome: join(home, '.agents'), watch: false })
     ctx.skills.register({ name: 'lifecycle-skill', description: 'Lifecycle', source: 'runtime', content: 'body' })
 
     const fiber = await ctx.plugin(toolSkill)
@@ -373,7 +374,7 @@ describe('dsh-tool-skill', () => {
         return undefined
       },
     }
-    let invalidate = (): void => {}
+    let invalidate = (): void => { }
     ctx.skills.registerProvider((control) => {
       invalidate = control.invalidate
       return provider
@@ -608,7 +609,7 @@ describe('dsh-tool-skill', () => {
     }), { surfaceOp: 'append' })
     session.append('user/message', createUserMessage({
       content: catalogContent(['- `resumed-skill`: Resumed skill']),
-      source: { kind: 'dsh-tool-skill' },
+      source: { kind: 'jan-tool-skill' },
     }), { surfaceOp: 'append' })
 
     await fireStep(ctx, agent, 1, 1)
@@ -716,7 +717,7 @@ describe('dsh-tool-skill', () => {
 
   it('keeps body-only edits out of the catalog and loads the latest body on demand', async () => {
     const home = await tempDir('tool-body-refresh')
-    const root = join(home, '.dsh/skills')
+    const root = join(home, '.jan/skills')
     await writeSkill(root, 'body-skill', 'Stable description', 'First body.')
     const ctx = await setup(home)
     const session = Session.create(SessionId('body-refresh'))
@@ -898,7 +899,7 @@ describe('dsh-tool-skill', () => {
     await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(SkillRegistry)
-    await ctx.plugin(SkillFileSystem, { dshHome: join(home, '.dsh'), agentsHome: join(home, '.agents'), watch: false })
+    await ctx.plugin(SkillFileSystem, { janHome: join(home, '.jan'), agentsHome: join(home, '.agents'), watch: false })
 
     await expect(ctx.plugin(toolSkill, { catalogDescriptionMaxLength: 2 })).rejects.toThrow('greater than or equal to 3')
   })
@@ -907,7 +908,7 @@ describe('dsh-tool-skill', () => {
     const home = await tempDir('tool-load')
     const project = await tempDir('tool-project')
     await mkdir(join(project, '.git'), { recursive: true })
-    await writeSkill(join(project, '.dsh/skills'), 'project-skill', 'Project skill', 'Project instructions.')
+    await writeSkill(join(project, '.jan/skills'), 'project-skill', 'Project skill', 'Project instructions.')
     const ctx = await setup(home)
 
     const result = await executeToolFixture(ctx, {
@@ -923,7 +924,7 @@ describe('dsh-tool-skill', () => {
     expect(result.value).toEqual({
       name: 'project-skill',
       provider: 'filesystem',
-      resourceBase: { kind: 'directory', path: join(project, '.dsh/skills/project-skill') },
+      resourceBase: { kind: 'directory', path: join(project, '.jan/skills/project-skill') },
       content: 'Project instructions.',
     })
     const block = result.content[0]
@@ -932,7 +933,7 @@ describe('dsh-tool-skill', () => {
     expect(block.text).toBe([
       '<skill_content name="project-skill">',
       '<skill_resources>',
-      `Base directory for this skill: ${join(project, '.dsh/skills/project-skill')}`,
+      `Base directory for this skill: ${join(project, '.jan/skills/project-skill')}`,
       'Resolve relative paths mentioned by this skill against the base directory before using them. Load referenced resources only as needed.',
       '</skill_resources>',
       '',
@@ -1004,10 +1005,35 @@ describe('dsh-tool-skill', () => {
     expect(block.text).toContain('value.resourceBase')
   })
 
+  it('/reload picks up a skill added outside Jan as an appended replacement catalog', async () => {
+    const home = await tempDir('tool-reload')
+    await writeSkill(join(home, '.jan/skills'), 'first-skill', 'First skill', 'First.')
+    const ctx = await setup(home)
+    await ctx.plugin(CommandRuntime)
+    const agent = sessionAgent(Session.create(SessionId('tool-reload'), [], {
+      version: SESSION_FORMAT_VERSION, id: SessionId('tool-reload'), createdAt: 0, cwd: home, isSeeded: false,
+    }))
+    await fireStep(ctx, agent, 1, 1)
+    const sent = structuredClone(agent.session.deriveMessages())
+    // Discovery is cached and the watcher is off, so without /reload the new skill stays unseen.
+    await writeSkill(join(home, '.jan/skills'), 'second-skill', 'Second skill', 'Second.')
+
+    const result = (await ctx.commands.execute(agent, '/reload', [], testToolSignal))?.result
+    await fireStep(ctx, agent, 2, 1)
+
+    expect(result).toEqual({ kind: 'success', text: 'Skills: 2 found. Changes reach the model with your next message; earlier messages are not resent.' })
+    const messages = agent.session.deriveMessages()
+    expect(messages.slice(0, sent.length)).toEqual(sent)
+    const update = messages.at(-1)
+    expect(update?.role === 'user' ? update.source : undefined).toMatchObject({
+      kind: 'skill-catalog', update: true, entries: [{ name: 'first-skill' }, { name: 'second-skill' }],
+    })
+  })
+
   it('returns isError for unknown, invalid, and model-disabled skills', async () => {
     const home = await tempDir('tool-errors')
-    await writeSkill(join(home, '.dsh/skills'), 'hidden-skill', 'Hidden skill', 'Hidden instructions.')
-    await writeFile(join(home, '.dsh/skills/hidden-skill/SKILL.md'), '---\nname: hidden-skill\ndescription: Hidden skill\ndisable-model-invocation: true\n---\n\nHidden instructions.\n')
+    await writeSkill(join(home, '.jan/skills'), 'hidden-skill', 'Hidden skill', 'Hidden instructions.')
+    await writeFile(join(home, '.jan/skills/hidden-skill/SKILL.md'), '---\nname: hidden-skill\ndescription: Hidden skill\ndisable-model-invocation: true\n---\n\nHidden instructions.\n')
     const ctx = await setup(home)
     ctx.skills.register({
       name: 'model-only-skill',

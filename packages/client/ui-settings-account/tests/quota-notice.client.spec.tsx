@@ -2,9 +2,9 @@
 /** Account take-over of the frame-wide quota notice, and its generic fallback. */
 import { act, cleanup, render, fireEvent, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi, type Mock } from 'vitest'
-import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import type { QuotaNoticeOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
+import type { QuotaNoticeOwnerProps } from '@janhq/jan-client-ui-chat/client'
+import type { AccountView } from '@janhq/jan-tokamak-account/types'
 import type { AccountSnapshot } from '../src/client/AccountSection.tsx'
 import type {} from '../src/client/index.ts'
 import { AccountQuotaNotice } from '../src/client/AccountQuotaNotice.tsx'
@@ -181,7 +181,7 @@ it.each(['signed-out', 'unloaded'] as const)('uses a timed Toast without the sha
   vi.useFakeTimers()
   const { dismiss } = mount({ account })
   expect(screen.getByRole('alert').textContent).toBe(noticeMessage)
-  expect(screen.queryByRole('button')).toBeNull()
+  expect(screen.getAllByRole('button').map(button => button.getAttribute('aria-label'))).toEqual(['Dismiss'])
   act(() => { vi.runAllTimers() })
   expect(dismiss).toHaveBeenCalledOnce()
   expect(screen.queryByRole('alert')).toBeNull()

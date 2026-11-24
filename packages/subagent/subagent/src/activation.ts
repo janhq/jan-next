@@ -1,10 +1,10 @@
 /** Execution-period records, capacity slots, child serialization, and local output capture.
- * @module @deepseek-ai/dsh-subagent/activation
+ * @module @janhq/jan-subagent/activation
  */
 
-import type { Agent, AgentHandle } from '@deepseek-ai/dsh-agent'
-import type { SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
-import { assertNever } from '@deepseek-ai/dsh-util-values'
+import type { Agent, AgentHandle } from '@janhq/jan-agent'
+import type { SessionId, SessionLogOffset } from '@janhq/jan-session'
+import { assertNever } from '@janhq/jan-util-values'
 import { finalAssistantOutput } from './assistant-output.ts'
 import { epochStopReason } from './lifecycle.ts'
 import { SubagentError } from './error.ts'
@@ -76,12 +76,6 @@ export type ActivationResource =
     failureAt: SessionLogOffset | undefined
     /** Renewed when local settlement must recheck input. */
     poke: PromiseWithResolvers<void>
-    /**
-     * Whether this child's settlement notice omits its closing text: true while
-     * the child's last logged tool call was a message to its direct parent and
-     * no input was claimed since.
-     */
-    omitClosingText: boolean
   }
   | {
     readonly kind: 'external'

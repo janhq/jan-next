@@ -50,6 +50,9 @@
       "path": "../../feedback/message-feedback"
     },
     {
+      "path": "../../host/plugin-i18n"
+    },
+    {
       "path": "../../host/plugin-inventory"
     },
     {
@@ -116,7 +119,7 @@
       "path": "../account-controller"
     },
     {
-      "path": "../../credentials/deepseek-account"
+      "path": "../../credentials/tokamak-account"
     },
     {
       "path": "../../web/web"

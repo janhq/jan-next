@@ -1,6 +1,6 @@
 /** Bind generated Remote descriptors to the source-tested browser lifecycle. */
-import type { Context } from '@deepseek-ai/cordis'
-import remote from '@deepseek-ai/dsh-action-cards/remote'
+import type { Context } from '@janhq/cordis'
+import remote from '@janhq/jan-action-cards/remote'
 import { mountActionCards } from './mount.ts'
 export { inject } from './mount.ts'
 export type { ActionCardBodyProps, ActionCardDescriptor, ActionCardRegistry, FoldedTextProps } from './registry.ts'

@@ -4,11 +4,10 @@ import {
   CodeBlock, DiffBlock, DisclosureRow, IconInspectOutlineRegular, ReadBlock, SearchBlock,
   TerminalBlock, TextShimmer, WebBlock,
   diffTotals,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ContextMenuTriggerProps } from '@deepseek-ai/dsh-client-ui-context-menu/client'
-import type { PropsRenderSlots, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import type { OpenFileOptions, UseDisclosure } from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { MessageImageLoader } from '@deepseek-ai/dsh-client-ui-conversation/client'
+} from '@janhq/jan-client-ui-primitives'
+import type { ContextMenuTriggerProps } from '@janhq/jan-client-ui-context-menu/client'
+import type { TranslateNS } from '@janhq/jan-client-ui-slots'
+import type { OpenFileOptions, UseDisclosure } from '@janhq/jan-client-ui-chat/client'
 import { CHAT_DIFF_MAX_LINES, type DiffCardModel } from '../models/diff-card-model.ts'
 import { CHAT_READ_MAX_LINES, type ReadCardModel } from '../models/read-card-model.ts'
 import type { ImageCardModel } from '../models/image-card-model.ts'
@@ -26,6 +25,7 @@ import {
 import type { WebCardModelProps } from '../models/web-card-model.ts'
 import { AskQuestionCard } from './AskQuestionCard.tsx'
 import { ToolDetails, type ToolDetailsModel } from './ToolDetails.tsx'
+import type { ToolTitles } from '../title-source.ts'
 import { ExitCodeBadge } from './ExitCodeBadge.tsx'
 import css from './ToolRow.module.css'
 
@@ -62,25 +62,14 @@ export interface ToolRowProps {
   /** Diff card with inline totals colored on header hover and while expanded. */
   diff?: DiffCardModel | null | undefined
   read?: ReadCardModel | null | undefined
-  /**
-   * Image-card material for a call whose result is an image (derived by
-   * `imageCardModel`). Rendered through the `tool.call.images` slot, so the
-   * tool layer never imports an attachment implementation nor handles URL
-   * authorization.
-   */
+  /** File path and size metadata for an image read; the call tree renders the thumbnails. */
   image?: ImageCardModel | null | undefined
-  /**
-   * Dispatch the image gallery through the tool-owned `tool.call.images`
-   * slot, supplied by the toolview that owns this row together with the
-   * Gateway-authorized loader.
-   */
-  renderSlot?: PropsRenderSlots<'tool.call.images'>['renderSlot'] | undefined
-  /** Gateway-authorized image URL loader for the gallery slot. */
-  loadImage?: MessageImageLoader | undefined
   search?: SearchCardModel | null | undefined
   web?: WebCardModelProps | null | undefined
   /** Read-only fields/list card derived from a successful recorded result. */
   details?: ToolDetailsModel | null | undefined
+  /** Display and request of titles a plugin wrote in another language, applied to the details body. */
+  titles?: ToolTitles | undefined
   state: ToolRowState
   /**
    * Recorded file target or a supported argument fallback. With onOpenFile,
@@ -179,11 +168,10 @@ export const ToolRow = memo(function ToolRow({
   diff,
   read,
   image,
-  renderSlot,
-  loadImage,
   search,
   web,
   details,
+  titles,
   state,
   filePath,
   filePathLine,
@@ -204,9 +192,7 @@ export const ToolRow = memo(function ToolRow({
     : localizeTerminalCardModel(terminal, t), [terminal, t])
   const diffBody = diff ?? null
   const readBody = read ?? null
-  const imageBody = image !== undefined && image !== null && renderSlot !== undefined && loadImage !== undefined
-    ? image
-    : null
+  const imageBody = image ?? null
   const searchBody = search ?? null
   const webBody = web ?? null
   const askQuestionBody = askQuestion ?? null
@@ -360,16 +346,7 @@ export const ToolRow = memo(function ToolRow({
               ? <ReadBlock {...readBody} labels={readLabels} maxLines={CHAT_READ_MAX_LINES} className={css.readBody} />
               : imageBody !== null
                 ? (
-                  /* Gallery, then the full path and each attached image's size.
-                     These come from the image card model, never from the row's
-                     flattened output, which JSON.stringifies the image block. They
-                     stay visible when the attachment slot renders nothing. */
                   <div className={css.imageBody}>
-                    {renderSlot !== undefined && loadImage !== undefined && renderSlot('tool.call.images', {
-                      images: imageBody.images,
-                      loadImage,
-                      align: 'start',
-                    })}
                     <div className={css.imageMeta}>
                       <div>{imageBody.path}</div>
                       {imageBody.images.map(({ attachment }, index) => (
@@ -408,7 +385,7 @@ export const ToolRow = memo(function ToolRow({
                   : webBody !== null
                     ? <WebBlock {...webBody} labels={webLabels} className={css.webBody} />
                     : detailsBody !== null
-                      ? <ToolDetails model={detailsBody} hasInspect={inspect !== undefined} t={t} onOpenFile={onOpenFile} />
+                      ? <ToolDetails model={detailsBody} hasInspect={inspect !== undefined} t={t} onOpenFile={onOpenFile} titles={titles} />
                       : (
                         <>
                           {variant === 'code' && bodyText !== null && (
@@ -453,8 +430,8 @@ export const ToolRow = memo(function ToolRow({
     </div>
   ) : undefined, [
     open, detailsBody, askQuestionBody, terminalBody, terminalLabels, diffBody, diffLabels, readBody, readLabels,
-    imageBody, renderSlot, loadImage, searchBody, searchLabels, webBody, webLabels, inspect, t, onOpenFile,
-    variant, bodyText, cardBody, outputText, state,
+    imageBody, searchBody, searchLabels, webBody, webLabels, inspect, t, onOpenFile,
+    variant, bodyText, cardBody, outputText, state, titles,
   ])
   return (
     <div className={css.root} data-variant={variant} data-tool={toolName} data-state={state}>

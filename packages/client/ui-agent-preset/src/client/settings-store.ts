@@ -6,11 +6,11 @@
  * the surface that writes them.
  */
 
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { Context as ClientContext } from '@janhq/cordis'
 // Type-only: pulls the ctx.remote merge into this program.
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { AgentPresetRoster } from '@deepseek-ai/dsh-agent-preset-registry/types'
+import type {} from '@janhq/jan-api-remotes/client'
+import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
+import type { AgentPresetRoster } from '@janhq/jan-agent-preset-registry/types'
 import { isBuiltInPreset } from './locales.ts'
 
 /** The agent-preset settings namespace on the host wire. */
@@ -44,6 +44,8 @@ export interface AgentPresetOption {
   name?: string
   /** One sentence on what the preset is for. */
   description?: string
+  /** Declared menu icon: a product glyph name or one emoji. */
+  icon?: string
 }
 
 /** Whether a shipped preset requires the Coding Tools preference.
@@ -117,12 +119,13 @@ export async function beginRosterRead<S extends { status: string; error: string 
  * @returns one option per selectable preset, in roster order.
  */
 export function presetOptions(
-  presets: readonly { id: string; name?: string; description?: string; broken?: string }[],
+  presets: readonly { id: string; name?: string; description?: string; icon?: string; broken?: string }[],
 ): AgentPresetOption[] {
   return presets.filter(preset => preset.broken === undefined).map(preset => ({
     id: preset.id,
     ...preset.name === undefined ? {} : { name: preset.name },
     ...preset.description === undefined ? {} : { description: preset.description },
+    ...preset.icon === undefined ? {} : { icon: preset.icon },
   }))
 }
 

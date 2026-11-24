@@ -5,31 +5,45 @@
  * restated: a browser consumer reads the very declaration the backend answers.
  */
 
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SessionActivity, WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { SessionActivity, WorkspaceAvatar, WorkspaceColor, WorkspaceId, WorkspaceIdentityPatch } from '@janhq/jan-workspace/types'
 
-export type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+export type { WorkspaceAvatar, WorkspaceColor, WorkspaceIcon, WorkspaceId, WorkspaceIdentityPatch } from '@janhq/jan-workspace/types'
 export type {
   SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap,
-} from '@deepseek-ai/dsh-workspace/types'
-export type { DirectoryEntry, DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
+} from '@janhq/jan-workspace/types'
+export type { DirectoryEntry, DirectoryListing } from '@janhq/jan-host-directory-picker/types'
 
 /** One durable Workspace projected for browser consumers. */
 export interface WorkspaceView {
   readonly workspaceId: WorkspaceId
+  /** Present only on the registered default Workspace. */
+  readonly isDefault?: true
   /** Canonical host directory path. */
   readonly path: string
   /** User-visible title. */
   readonly title: string
+  /** Saved accent; absent for the stock appearance. */
+  readonly color?: WorkspaceColor
+  /** Saved avatar; absent for the automatic one. */
+  readonly avatar?: WorkspaceAvatar
+  /** GitHub login behind the folder's `origin` remote; the Client shows its picture while no avatar is saved. */
+  readonly githubOwner?: string
   /** Sessions accounted to this Workspace in manual order. */
   readonly sessionIds: readonly SessionId[]
   /** ISO-8601 creation instant. */
   readonly createdAt: string
   /** ISO-8601 last-mutation instant. */
   readonly updatedAt: string
+  /** Set when the Workspace lives on a connected remote Host; absent for this computer. */
+  readonly hostId?: string
+  /** That remote Host's display name, shown as the row's computer tag. */
+  readonly hostName?: string
+  /** `lost` while the link to that remote Host is down; its last known rows stay listed. */
+  readonly hostState?: 'live' | 'lost'
 }
 
-declare module '@deepseek-ai/dsh-typert-protocol' {
+declare module '@janhq/jan-typert-protocol' {
   interface RemoteErrorDetailsMap {
     /** The requested directory cannot back a Workspace. */
     'workspace/invalid-path': { readonly path: string }
@@ -64,6 +78,11 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 /** Existing directory requested for Workspace adoption. */
 export interface WorkspaceCreateRequest {
   readonly path: string
+  /**
+   * Connected remote Host that owns `path`; absent creates on this Host. A
+   * Host without federation refuses a request that names one.
+   */
+  readonly hostId?: string
 }
 
 /** Created or previously registered Workspace. */
@@ -76,6 +95,11 @@ export interface WorkspaceCreateValue {
 export interface WorkspaceRenameRequest {
   readonly workspaceId: WorkspaceId
   readonly title: string
+}
+
+/** Partial project identity edit, applied atomically. */
+export interface WorkspaceUpdateRequest extends WorkspaceIdentityPatch {
+  readonly workspaceId: WorkspaceId
 }
 
 /** Workspace mutation returning the complete changed row. */
@@ -117,9 +141,8 @@ export interface WorkspaceArchiveSessionRequest {
   /**
    * Stop the Session's running work — its turn, subagent descendants, owned
    * background jobs, and active schedules — instead of refusing the archive
-   * as `workspace/session-active`. The stops are requested before the
-   * archive write and are not awaited; the response arrives once the archive
-   * set is durable.
+   * as `workspace/session-active`. The archive set is durable when the stops
+   * are requested; the response does not wait for running work to settle.
    */
   readonly stopActivity?: boolean
 }

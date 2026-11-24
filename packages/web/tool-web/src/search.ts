@@ -5,12 +5,12 @@
  * never provider selection or network access.
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import { defineTool } from '@deepseek-ai/dsh-tools'
-import type { GenericCallView, ToolResult, WebSearchResultView, WebSource } from '@deepseek-ai/dsh-tools'
-import { truncateWithoutSplittingSurrogatePair } from '@deepseek-ai/dsh-output-retention'
-import type { JsonValue } from '@deepseek-ai/dsh-util-values'
-import type { WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
+import type { Context } from '@janhq/cordis'
+import { defineTool } from '@janhq/jan-tools'
+import type { GenericCallView, ToolResult, WebSearchResultView, WebSource } from '@janhq/jan-tools'
+import { truncateWithoutSplittingSurrogatePair } from '@janhq/jan-output-retention'
+import type { JsonValue } from '@janhq/jan-util-values'
+import type { WebSearchResult, WebSearchSource } from '@janhq/jan-web'
 import { EXTERNAL_WEB_CONTENT_NOTICE } from './trust.ts'
 
 /**
@@ -24,8 +24,7 @@ export const WEB_SEARCH_MAX_QUERIES = 10
 
 /**
  * Default cap on one source summary, in characters: the upper end of the
- * 600–800 character range the DeepSeek Search guide gives for summaries meant
- * for model reading. One call's summaries total at most this cap times the
+ * 600–800 character range suited to summaries meant for model reading. One call's summaries total at most this cap times the
  * source cap.
  */
 export const WEB_SEARCH_SUMMARY_MAX_CHARS = 800
@@ -337,7 +336,7 @@ function mergeSearchResults(
  * @param maxQueries - the deployment's query cap enforced before provider calls.
  * @param summaryMaxChars - the deployment's per-source summary cap in the output value.
  * @param timeoutMs - the cooperative tool-call budget (ms) attached as the tool's
- *   `ToolDefinition.timeoutMs` for `@deepseek-ai/dsh-tool-call-timeout-policy` to enforce.
+ *   `ToolDefinition.timeoutMs` for `@janhq/jan-tool-call-timeout-policy` to enforce.
  * @param fetchEnabled - whether the same composition exposes `web_fetch`, which
  *   permits recommending that follow-up tool when it is also visible at assembly.
  */

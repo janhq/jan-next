@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
-import { workspaceDisplayTitle } from '@deepseek-ai/dsh-api-workspace-controller/default-workspace'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
+import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
 import type { ConversationContentProps, ConversationViewsProps, InputZone } from '../contract/slots.ts'
 import { HeroShell, WorkspaceChip, workspaceLabel } from './EmptyHero.tsx'
 import css from './ConversationRoot.module.css'
@@ -22,8 +22,8 @@ function NoConversationWidthControls() {
 export function ConversationContent(props: ConversationContentProps) {
   const {
     sessionId, phase, hero, useSession, useSessions, useSessionStatus,
-    useWorkspaces, useInput, useComposerBlock, renderSlot, renderSlotChain,
-    selectWorkspace, t, useFactorySlot,
+    useWorkspaces, useInput, useAccess, useComposerBlock, renderSlot, renderSlotChain,
+    selectWorkspace, openDefaultDraft, pickSuggestion, t, useFactorySlot, useHeroPlaceholder,
   } = props
   const session = useSession(snapshot => snapshot)
   const Views = useFactorySlot('views', ConversationSessionView)
@@ -37,15 +37,17 @@ export function ConversationContent(props: ConversationContentProps) {
   // A plugin this package cannot import (ui-model-selection) says this session cannot
   // send; its reason is already localized by whoever raised it.
   const composerBlock = useComposerBlock(block => block)
+  const heroPlaceholder = useHeroPlaceholder(text => text)
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pendingWorkspaceId, setPendingWorkspaceId] = useState<WorkspaceId | undefined>()
   const pickerAnchor = useRef<HTMLButtonElement>(null)
+  const composerStack = useRef<HTMLDivElement>(null)
 
   // Publishes the two live measurements floating View chrome reads off the
-  // scroll body: the seat's height as --dsh-composer-height, so controls clear
+  // scroll body: the seat's height as --jan-composer-height, so controls clear
   // the composer as it grows, and the scrollport's own height as
-  // --dsh-conversation-viewport-height, so a control can sit in the band the
+  // --jan-conversation-viewport-height, so a control can sit in the band the
   // seat leaves visible. Callback ref, not an effect; stable identity prevents
   // observer churn while the first blank session fills the resident body
   // outlet.
@@ -56,9 +58,9 @@ export function ConversationContent(props: ConversationContentProps) {
     const scroller = seat?.parentElement ?? null
     if (seat === null || scroller === null) return
     seatObserver.current = new ResizeObserver(() => {
-      scroller.style.setProperty('--dsh-composer-height', `${seat.offsetHeight}px`)
+      scroller.style.setProperty('--jan-composer-height', `${seat.offsetHeight}px`)
       scroller.style.setProperty(
-        '--dsh-conversation-viewport-height',
+        '--jan-conversation-viewport-height',
         `${scroller.clientHeight}px`,
       )
     })
@@ -96,77 +98,93 @@ export function ConversationContent(props: ConversationContentProps) {
   //      placeholder, never the deleted folder's name via cwd.
   // A title still automatic reads in the reader's language, matching the
   // sidebar row the same Workspace has there.
-  const storedChipTitle = pendingWorkspace?.title
-    ?? (sessionId === undefined
-      ? undefined
-      : sessionWorkspace?.title
-        ?? (workspaces.phase === 'ready' || cwd === undefined || cwd === ''
-          ? undefined
-          : workspaceLabel(cwd)))
-  const chipTitle = storedChipTitle === undefined
-    ? undefined
-    : workspaceDisplayTitle(storedChipTitle, t('workspace.defaultName'))
+  const chipWorkspace = pendingWorkspace ?? (sessionId === undefined ? undefined : sessionWorkspace)
+  const chipTitle = chipWorkspace === undefined
+    ? sessionId === undefined || workspaces.phase === 'ready' || cwd === undefined || cwd === '' ? undefined : workspaceLabel(cwd)
+    : workspaceDisplayTitle(chipWorkspace, t('workspace.defaultName'))
 
-  const heroWorkspaceRow = (
+  // The project and preset row: the Hero's New Session pickers, and under a
+  // started Session's composer the same project chip beside its preset control.
+  // Once the chat leaves the Hero (its first turn has begun) it belongs to its
+  // project, so the chip stays as a dimmed label instead of a picker that would navigate away.
+  const workspaceLocked = phase === 'active'
+  const workspaceRow = (
     <div className={css.heroWorkspaceRow}>
       <WorkspaceChip
         buttonRef={pickerAnchor}
         label={chipTitle}
-        menuOpen={pickerOpen}
+        menuOpen={pickerOpen && !workspaceLocked}
+        locked={workspaceLocked}
         onClick={() => { setPickerOpen(open => !open) }}
         t={t}
       />
       {renderSlot('conversation.hero.workspace', {
-        open: pickerOpen,
+        open: pickerOpen && !workspaceLocked,
         anchorRef: pickerAnchor,
         selectedId: pendingWorkspaceId ?? sessionWorkspace?.workspaceId,
         onPick: (workspaceId) => {
           setPickerOpen(false)
           setPendingWorkspaceId(workspaceId)
-          void selectWorkspace(workspaceId).catch(() => {
+          const readText = sessionId === undefined ? () => {
+            const input = composerStack.current?.querySelector<HTMLDivElement>('[data-composer-input]')
+            return input?.innerText ?? input?.textContent ?? ''
+          } : undefined
+          void (readText === undefined ? selectWorkspace(workspaceId) : selectWorkspace(workspaceId, readText)).catch(() => {
             setPendingWorkspaceId(current => current === workspaceId ? undefined : current)
           })
         },
         onClose: () => { setPickerOpen(false) },
       })}
-      {renderSlot('conversation.hero.agentPreset', {})}
-      {sessionId === undefined ? null : <div className={css.heroOptions}>{renderSlot('conversation.hero.options', {})}</div>}
+      {hero
+        ? renderSlot('conversation.hero.agentPreset', {})
+        : sessionId === undefined ? null : renderSlot('conversation.composer.agentPreset', {})}
+      {hero && sessionId !== undefined ? <div className={css.heroOptions}>{renderSlot('conversation.hero.options', {})}</div> : null}
     </div>
   )
 
-  // The placeholder chip ("Choose workspace") and the Workspace-trigger input travel
-  // together: no workspace picked yet (cold start, no session at all), or a
-  // blank session whose workspace vanished (deleted from the sidebar). The
-  // bar is ONE session-maybe slot rendered unconditionally — inert is a prop,
-  // not a different tree, so the textarea DOM survives the transition.
+  // A sessionless home opens the default draft on interaction, never on render.
+  const activateDraft = sessionId === undefined && hero && props.variant !== 'embedded' ? openDefaultDraft : undefined
   const inert = sessionId === undefined || (hero && chipTitle === undefined)
   // A raised block is the same inert posture with the blocker's own reason:
   // one disabled textarea, never a second tree. The no-workspace state wins
   // when both hold — picking a workspace is the earlier prerequisite.
   const blocked = !inert && composerBlock !== undefined
+  const promptDenied = useAccess('session/prompt') === false
+  const suggestionsDisabled = inert || blocked || promptDenied || session === undefined || session.removed
+    || session.subagent !== null || inputState === undefined
+    || (inputState.phase !== 'plain' && inputState.phase !== 'claimed')
   const inputBar = renderSlot('conversation.composer.bar', {
     variant: hero ? 'hero' : 'composer',
-    ...(inert
-      ? {
-        disabled: true,
-        placeholder: t('placeholder.workspace'),
-        workspacePickerOpen: pickerOpen,
-        onRequestWorkspace: () => { setPickerOpen(true) },
-      }
-      : blocked
+    // Embedded panes and subagent transcripts have no project or preset of their own to change.
+    ...(hero || (sessionId !== undefined && props.variant !== 'embedded' && (session === undefined || session.subagent === null))
+      ? { dockStart: workspaceRow }
+      : {}),
+    ...(activateDraft !== undefined
+      ? { onActivateDraft: activateDraft, placeholder: heroPlaceholder ?? t('placeholder.hero') }
+      : inert
+        ? {
+          disabled: true,
+          placeholder: t('placeholder.workspace'),
+          workspacePickerOpen: pickerOpen,
+          onRequestWorkspace: () => { setPickerOpen(true) },
+        }
+        : blocked
         // `blocked`, not `disabled`: the bar refuses input either way, but a
         // block keeps the model seat live because choosing a model is how the
         // user clears it.
-        ? { blocked: composerBlock, placeholder: composerBlock.reason }
-        : hero ? { placeholder: t('placeholder.hero') } : {}),
+          ? { blocked: composerBlock, placeholder: composerBlock.reason }
+          : hero ? { placeholder: heroPlaceholder ?? t('placeholder.hero') } : {}),
   })
 
   const composerBar = (
-    <div className={clsx(css.composerStack, hero && css.composerHero)}>
+    <div ref={composerStack} className={clsx(css.composerStack, hero && css.composerHero)}>
       {hero && <HeroShell t={t} renderSlot={renderSlot} />}
-      {hero && heroWorkspaceRow}
       {zone !== undefined && renderSlot('conversation.input.dock', zone)}
       {inputBar}
+      {hero && renderSlot('conversation.hero.suggestions', {
+        disabled: suggestionsDisabled,
+        onPick: (text) => { if (!suggestionsDisabled) pickSuggestion(text) },
+      })}
     </div>
   )
 

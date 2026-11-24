@@ -3,13 +3,11 @@ description: "The subagent delegation seam for users and maintainers choosing a 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-subagent
-
-English | [中文](README.zh.md)
+# @janhq/jan-subagent
 
 ## Summary
 
-Use `dsh-subagent` to delegate work through named providers and collect managed activation results. Local spawn and fork children retain durable sessions for later messages; ACP, DSH SDK, Codex, and Claude Code execute once. Every child shares admission, cancellation, ownership, and discovery. Compose the service with a provider and a delegation tool.
+Use `jan-subagent` to delegate work through named providers and collect managed activation results. Local spawn and fork children retain durable sessions for later messages; ACP, Jan SDK, Codex, and Claude Code execute once. Every child shares admission, cancellation, ownership, and discovery. Compose the service with a provider and a delegation tool.
 
 ## Table of Contents
 
@@ -31,12 +29,12 @@ This package is the contract every delegation setup shares. You enable it by mou
 
 ### Enabling delegation
 
-Mount the service with `@deepseek-ai/dsh-session-projection`, a provider, and the delegation tool; the service waits for the projection registry before initializing. The provider registers under its configured name; each tool row selects one provider. A minimal setup:
+Mount the service with `@janhq/jan-session-projection`, a provider, and the delegation tool; the service waits for the projection registry before initializing. The provider registers under its configured name; each tool row selects one provider. A minimal setup:
 
 ```yaml
-- name: '@deepseek-ai/dsh-subagent'
-- name: '@deepseek-ai/dsh-subagent-spawn-in-process'
-- name: '@deepseek-ai/dsh-tool-subagent'
+- name: '@janhq/jan-subagent'
+- name: '@janhq/jan-subagent-spawn-in-process'
+- name: '@janhq/jan-tool-subagent'
   config:
     provider: spawn
     toolName: subagent
@@ -71,7 +69,7 @@ The root is always `lead`. A descendant's full name is the slash-separated path 
 
 ### Child presets
 
-In-process spawn accepts an independent `agentPreset`; fork and external backends reject this option. Without a selection, a local child joins the parent's current preset revision. An explicit id mounts the currently available revision, even when that id matches the parent's. Configure model choices through [`dsh-tool-subagent`](../tool-subagent/README.md#selecting-a-child-preset) and persona and tools in the [preset composition](../../preset/agent-preset-registry/README.md). Cold resume preserves persona and tool restrictions recorded in historical child descriptors.
+In-process spawn accepts an independent `agentPreset`; fork and external backends reject this option. Without a selection, a local child joins the parent's current preset revision. An explicit id mounts the currently available revision, even when that id matches the parent's. Configure model choices through [`jan-tool-subagent`](../tool-subagent/README.md#selecting-a-child-preset) and persona and tools in the [preset composition](../../preset/agent-preset-registry/README.md). Cold resume preserves persona and tool restrictions recorded in historical child descriptors.
 
 ### Messaging, interrupting, and discovering
 
@@ -132,6 +130,8 @@ A local Agent failure without a subsequently committed `turn/end` settles as `er
 
 Successful local creation appends a `subagent/catalog` fact to the parent Session regardless of result delivery. External creation appends a catalog fact only with `delivery: 'parent'`; caller-owned external executions retain their caller's membership records. External entries use `mode: 'external'` to identify children without a local Session. Catalog entries record membership once at creation and carry no execution status. Complete results go to the caller or the parent completion notice. Projections exclude inherited facts. Direct lists read one parent projection, so completed local workflow children remain discoverable and can be opened or continued. Catalog payload v0 records local modes; v1 also accepts unknown mode; v2 records external executions; v3 adds the child's name to continuable and external entries. Local and parent-delivered external creation write v3, and readers support all four versions. The `subagentCatalog` projection state version remains 6: unnamed checkpoints are reused, and suffix replay appends named facts without replaying the checkpoint prefix or backfilling historical names. Historical migration appends a v1 `subagent/catalog` from a readable child header when its descriptor is unavailable. Its `mode: 'unknown'` projection keeps the child visible without claiming continuation support; an existing complete entry remains authoritative.
 
+The `subagentActivity` Session summary carries the current stage and up to six recent timestamped observations for each local child. Step, dispatched tool and turn events report activity without opening the child conversation. The snapshot contains only stage codes, timestamps, sequence numbers and safe tool identifiers, never prompts, tool arguments or results, relay text, or model output. It identifies inbox waits separately from messaging the direct parent; neither indicates what dependencies the parent is waiting on.
+
 <a id="restoring-child-composition"></a>
 ### Restoring child composition
 
@@ -157,12 +157,10 @@ Targets without a saved preset use the host composition and retain their histori
 Read these pages when the package-level contract is not enough. They move from the shared seam to the backends, the model-facing tools, and the design decisions.
 
 - [Subagent subsystem](../../../docs/subsystems/subagent.md) — the service contract, provider contract, and terminal result semantics.
-- [historical Subagent capability seam](../../../.agents/notes/archived/feature/2026-06-21-subagent-capability-seam.md) — the design record for the delegation capability family.
 - [Continuable subagents](../../../.agents/notes/implemented/feature/2026-07-28-continuable-subagent-conversations.md) — durable children that accept follow-up turns.
 - [In-process spawn backend](../subagent-spawn-in-process/README.md) — the simplest provider to compose.
-- [Auto review](../../experimental/auto-review/README.md) — the current-session authorization mode inherited only by in-process DSH children.
+- [Auto review](../../experimental/auto-review/README.md) — the current-session authorization mode inherited only by in-process Jan children.
 - [Out-of-process ACP backend](../subagent-acp/README.md) — children with their own runtime over the Agent Client Protocol.
-- [DeepSeek input conversion](../../llm/llm-deepseek/README.md#model-experience) — provider replay rules for saved settlement notices.
 - [tool-subagent-control README](../tool-subagent-control/README.md) — the follow-up, interrupt, and listing surface.
 
 -----
@@ -174,7 +172,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 #### What the model sees
 
-Parent delivery sends a user-role status notice to the resident direct parent in the same tree, including an idle parent. It does not restore an offline parent. Its opening line names the child by its full name, such as `Background subagent reviewer finished and will do no further work unless you send it more.` The notice contains the child’s nonempty final text blocks. When the child's last action before that text was a message to its parent, with no input claimed and no tool call logged after it, the notice replaces them with `It sent you a message just before finishing, so its closing message is omitted.`; the parent recovers omitted closing text only by messaging the child again. External notices also state that further messages are unsupported. Reasoning and other nontext blocks are excluded. Every parent notice includes available structured output as `Structured result: <JSON>` and the provider’s safe diagnostic as a separate text block. Empty closing text is reported as `It left no closing message.` Caller delivery emits no notice; SDK lifecycle notifications retain complete child output when cleanup succeeds.
+Parent delivery sends a user-role status notice to the resident direct parent in the same tree, including an idle parent. It does not restore an offline parent. Its opening line names the child by its full name, such as `Background subagent reviewer finished and will do no further work unless you send it more.` The notice then lists the runtime terminal status, Summary, Evidence, Blockers, and Changed files, filled from an available structured result or the child's labeled report, with unreported fields explicitly marked; provider failure diagnostics appear under Blockers. The notice includes the child’s nonempty final text, even if it already sent an interim message. External notices state that further messages are unsupported. Reasoning and other nontext blocks are excluded. Every parent notice includes available structured output as `Structured result: <JSON>` and the provider’s safe diagnostic as a separate text block. Empty closing text is reported as `It left no closing message.` Caller delivery emits no notice; SDK lifecycle notifications retain complete child output when cleanup succeeds.
 
 #### Token effect
 
@@ -193,7 +191,7 @@ Local children using `delivery: 'parent'` receive the result-delivery guidance b
 ##### Return guidance
 
 ```markdown
-Your final answer is delivered automatically if your parent is still online. Include the result and relevant evidence in that answer; the parent does not receive your full transcript, tool output, or reasoning. If your last action is a message to your parent, the completion notice omits your final answer; include the result and relevant evidence in that message.
+Your final answer is delivered automatically if your parent is still online. Follow the requested format. Otherwise use Summary:, Evidence:, Blockers:, and Changed files: in your final answer. Report only checks you ran and files you changed; omit unknown details. Your parent does not receive your transcript. Use messages for interim updates, not as a substitute for your final answer.
 ```
 
 #### Token effect
@@ -233,7 +231,7 @@ These limits define when the seam is a poor fit or needs special operational car
 
 - **Descendant reads are sequential** — each reachable catalog, including one-shot children, takes one observation. A cold Session without a valid prepared observation requires a full-log read; large cold trees can accumulate storage latency.
 - **Names are permanent** — a name stays taken among its creator's children for as long as the catalog entry exists; names cannot be changed or reused, and no migration names children whose catalog entries predate names.
-- **External children execute once** — ACP, DSH SDK, Codex, and Claude Code have no local child Session and accept no follow-up input. Their parent-owned records remain discoverable after disposal.
+- **External children execute once** — ACP, Jan SDK, Codex, and Claude Code have no local child Session and accept no follow-up input. Their parent-owned records remain discoverable after disposal.
 - **Messaging stays within one tree** — targets must be the root or continuable members. Only the restored target consumes activation capacity. Browser prompts retain their separate human Queue-or-Steer control path.
 - **Wake gap during cancellation convergence** — a follow-up accepted after an interrupt signal but before the Agent becomes idle stays queued until another waking send.
 - **Pending injected context retains an Activation** — settlement conservatively treats every Inbox occurrence as unfinished. Context parked after the Agent becomes idle keeps the child and its live ancestors resident until a waking delivery claims it, a queue mutation removes it, or manager teardown discards it. Host completion joins active work, pending child creation, and resource cleanup, but does not wait for a subtree containing only idle parked inboxes; it neither completes those activation results nor discards their messages.

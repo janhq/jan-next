@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-07-22-slot-type-chain-implementation.zh.md)
-
 > Scope: the definitive slot-system design for the web client — how UI plugins compose the page, where render authority lives, how component props are typed, and where business live-data goes. The [Web Client reference](../../../../docs/subsystems/web-client.md) documents the surrounding loading chain, object layer, and services.
 
 ## Problem
@@ -38,7 +36,7 @@ There is no separate slot-definition API. The `children` object both **declares 
 
 Parity rule: **the declaring entry holds the exclusive right to render its child slots**, settled entirely at register time (misconfiguration fails loud at load; the render hot path carries no checks). Loud-at-load cases: a second entry declaring an already-declared slot; registering into an undeclared slot; one store handle mounted under two scopes; a chain registration missing its `select`.
 
-A contributor whose activation order is independent from the declaring entry uses `ctx.slots.inject(key, callback)` and keeps direct `register()` fail-loud. The declaration, contributor, replacement, and failure lifetimes are specified by the [slot declaration injection decision](../../archived/architecture/2026-08-05-slot-declaration-injection.md).
+A contributor whose activation order is independent from the declaring entry uses `ctx.slots.inject(key, callback)` and keeps direct `register()` fail-loud.
 
 `SlotMap` declaration merging remains the type authority, and an entry declares only its own axes plus the **owner share** — the registrant's injected props never enter the global table ("whoever injects it, owns its type").
 
@@ -70,7 +68,7 @@ The framework owns exactly one subscription machine: the snapshot store engine (
 export function createChatStore() {
   return defineStore({
     init: () => ({ selection: null as SelectionTarget | null, draft: '' }),
-    persist: 'dsh.conversation.chat',
+    persist: 'jan.conversation.chat',
     actions: {
       select:    (d, t: SelectionTarget) => { d.selection = t },
       clearDraft:(d) => { d.draft = '' },

@@ -1,5 +1,5 @@
 /** Client-safe payloads and event declarations owned by the agent-preset domain. */
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionId } from '@janhq/jan-session/types'
 
 
 /**
@@ -14,6 +14,8 @@ export interface AgentPresetRow {
   readonly name?: string
   /** One sentence on what this preset is for. */
   readonly description?: string
+  /** Menu icon: a product glyph name such as `code-outline`, or one emoji. */
+  readonly icon?: string
   /** Why this preset cannot compose a session; absent when it can. */
   readonly broken?: string
 }
@@ -36,25 +38,25 @@ export interface AgentPresetDocument {
   readonly description?: string
 }
 
-declare module '@deepseek-ai/dsh-typert-protocol' {
+declare module '@janhq/jan-typert-protocol' {
   interface RemoteErrorDetailsMap {
     /** No declaration supplies the requested identity. */
     'agent-preset/not-found': { readonly agentPreset: string; readonly available: readonly string[] }
     /** The id is unusable, already taken, or its composition cannot be installed. */
     'agent-preset/invalid': { readonly agentPreset: string; readonly reason: string }
-    /** The session's conversation has started, so its composition is fixed. */
+    /** A turn is open, so the composition cannot be swapped yet. */
     'agent-preset/locked': { readonly sessionId: SessionId; readonly agentPreset: string }
   }
 }
 
-declare module '@deepseek-ai/dsh-session-projection/types' {
+declare module '@janhq/jan-session-projection/types' {
   interface SessionProjectionMap {
     /** Preset the Session runs, or null when the deployment composes none. */
     agentPreset: string | null
   }
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Events {
     /**
      * One session committed a different agent preset to its durable log.

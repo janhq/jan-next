@@ -1,11 +1,11 @@
 /** Browser view ownership across slow RPCs, remounts and transport generations. */
 import { afterEach, expect, it, vi } from 'vitest'
-import { RemoteStream, RemoteStreamCarrierError, type ClientRemote, type RemoteStreamOptions } from '@deepseek-ai/dsh-api-gateway/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { RemoteError, type RemoteResult, type RemoteUplinkWindow } from '@deepseek-ai/dsh-typert-protocol'
-import { RemoteMock, streamMethod, type StreamHandle } from '@deepseek-ai/dsh-remote-mock'
-import type {} from '@deepseek-ai/dsh-api-terminal-controller/remote'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { RemoteStream, RemoteStreamCarrierError, type ClientRemote, type RemoteStreamOptions } from '@janhq/jan-api-gateway/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { RemoteError, type RemoteResult, type RemoteUplinkWindow } from '@janhq/jan-typert-protocol'
+import { RemoteMock, streamMethod, type StreamHandle } from '@janhq/jan-remote-mock'
+import type {} from '@janhq/jan-api-terminal-controller/remote'
+import type { SessionId } from '@janhq/jan-session/types'
 import { TerminalView, type TerminalRemote } from '../src/client/model.ts'
 import { TerminalInventory } from '../src/client/inventory.ts'
 import type { TerminalInput, TerminalEnvironment, TerminalFrame, WebTerminalId, WebTerminalInfo } from '../src/types.ts'
@@ -400,7 +400,7 @@ it('keeps output attached after an input refusal and stops further input', async
 
 it('discards the old generation budget and never replays unacknowledged input after reconnect', async () => {
   const h = fixture()
-  h.generation.set({ id: 1, host: { home: '/home/fixture' } })
+  h.generation.set({ id: 1, host: { home: '/home/fixture', name: 'fixture-host', remote: false } })
   await connected(h.model)
   h.model.write('unconfirmed')
   await expect.poll(() => h.sent[0]?.length).toBe(1)
@@ -408,7 +408,7 @@ it('discards the old generation budget and never replays unacknowledged input af
   h.attachments[0]!.fail(new RemoteStreamCarrierError('connection lost'))
   await expect.poll(() => h.model.state.getSnapshot().phase).toBe('disconnected')
   h.model.write('offline')
-  h.generation.set({ id: 2, host: { home: '/home/fixture' } })
+  h.generation.set({ id: 2, host: { home: '/home/fixture', name: 'fixture-host', remote: false } })
   await expect.poll(() => h.attachments.length).toBe(2)
   await expect.poll(() => h.model.state.getSnapshot().writable).toBe(true)
   acknowledge(h.model)

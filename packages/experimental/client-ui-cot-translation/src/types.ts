@@ -1,6 +1,6 @@
 /** Browser-safe translation preferences and Remote metadata. */
-import type {} from '@deepseek-ai/dsh-typert-protocol'
-import type { TranslationProvider } from '@deepseek-ai/dsh-experimental-translator/types'
+import type {} from '@janhq/jan-typert-protocol'
+import type { TranslationProvider } from '@janhq/jan-experimental-translator/types'
 
 /** Translation choices; auto targets the active browser UI language. */
 export interface CotTranslationPreferences {
@@ -16,11 +16,11 @@ export interface CotTranslationSnapshot {
   maxTextChars: number
   /** Current accepted provider and target-language preferences. */
   preferences: CotTranslationPreferences
-  /** Anonymous endpoints and native paid routes currently eligible for translation. */
+  /** Endpoints currently selectable for translation. */
   availableProviders: readonly TranslationProvider[]
 }
 
-declare module '@deepseek-ai/dsh-typert-protocol' {
+declare module '@janhq/jan-typert-protocol' {
   interface RemoteErrorDetailsMap {
     /** Provider or input failure, without original text or response details. */
     'cotTranslation/failed': Record<string, never>

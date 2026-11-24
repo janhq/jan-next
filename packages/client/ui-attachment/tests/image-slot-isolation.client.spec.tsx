@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
 /** Independent domain image positions with one shared official gallery Factory. */
-import * as fileDragPlugin from '@deepseek-ai/dsh-client-ui-file-drag/client'
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import * as fileDragPlugin from '@janhq/jan-client-ui-file-drag/client'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 import { act, cleanup, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { AttachmentId } from '@deepseek-ai/dsh-attachment'
-import { SessionId } from '@deepseek-ai/dsh-session/types'
-import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { UiConversation } from '@deepseek-ai/dsh-client-ui-conversation/src/client/conversation/assembly.ts'
-import { en, zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
-import type { MessageImagesOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { AttachmentId } from '@janhq/jan-attachment'
+import { SessionId } from '@janhq/jan-session/types'
+import { SlotTestRuntime } from '@janhq/jan-client-test-runtime'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { UiConversation } from '@janhq/jan-client-ui-conversation/src/client/conversation/assembly.ts'
+import { en, zh } from '@janhq/jan-client-ui-conversation/src/client/locales.ts'
+import type { MessageImagesOwnerProps } from '@janhq/jan-client-ui-conversation/client'
 import * as attachmentPlugin from '../src/client/index.ts'
 
 afterEach(cleanup)
@@ -56,6 +56,20 @@ async function bench() {
 }
 
 describe('domain image Slots', () => {
+  it('gives inline actions the image and its owning Session', async () => {
+    const { runtime, view } = await bench()
+    await act(async () => { await runtime.mount({ inject: ['slots'], apply(ctx) {
+      ctx.slots.inject('conversation.image.preview.actions', () => ctx.slots.register({
+        name: 'conversation.image.preview.actions', id: 'inspect',
+      }, ({ getSurface, sessionId }) => <button type="button" onClick={() => {
+        getSurface()?.setAttribute('data-inspected', sessionId ?? '')
+      }}>Inspect image</button>))
+    } }) })
+    const gallery = within(view.getByTestId('conversation.chat.user.images'))
+    await act(async () => { (await gallery.findByRole('button', { name: 'Inspect image' })).click() })
+    expect(gallery.getByAltText('shared.png').getAttribute('data-inspected')).toBe('image-domains')
+  })
+
   it.each(SLOTS)('replaces only %s and restores the shared gallery on disposal', async (name) => {
     const { runtime, view } = await bench()
     expect(runtime.factoryOf('conversation.images.content').scope).toBe('root')

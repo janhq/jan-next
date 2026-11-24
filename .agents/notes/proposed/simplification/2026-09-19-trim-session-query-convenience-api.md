@@ -2,8 +2,6 @@
 
 Status: proposed
 
-English | [中文](2026-09-19-trim-session-query-convenience-api.zh.md)
-
 ## Problem
 
 [`SessionQueryEngine`](../../../../packages/session-query/session-query/src/index.ts) maintains `readSession`, `readTitle`, `readTitleSnapshot`, and `listEvents` without executing first-party product callers. Exact-name and call-site searches find internal delegation, tests, and generated discovery metadata. Current consumers use retained observations, batch titles, surface reads, and traces. The generated catalog exposes these methods to plugin authors but does not execute the advertised operations.
@@ -16,7 +14,7 @@ Remove the four methods, the unreferenced [`SessionLogSnapshot`](../../../../pac
 
 Retain `filterEvents` and `_filterEvents`, together with their semantic extraction and filtering helpers. Retain `observeSession`, `readTitleSnapshots`, `readSurface`, `readEvent`, listing, search, and tracing. Preserve shared corpus resolution and its existing ownership and failure behavior.
 
-The [historical unified-query decision](../../archived/architecture/2026-07-23-unified-session-query-service.md) explains the retained single-service topology. This proposal removes selected convenience operations, not that topology. No active note is fully superseded; keep archived records frozen and link this narrower decision from affected current documentation.
+This proposal removes selected convenience operations, not the retained single-service topology. No active note is fully superseded; link this narrower decision from affected current documentation.
 
 ## Alternatives considered
 

@@ -1,20 +1,20 @@
 !include "LogicLib.nsh"
 
-Var dshFinalDirectory
-Var dshNewDirectory
-Var dshOldDirectory
-Var dshOldMoved
-Var dshNewMoved
-Var dshDirectoryError
-Var dshDirectorySource
-Var dshDirectoryDestination
-Var dshRestoreError
-Var dshDirectoryLogDirectory
-Var dshRecoveryStopped
+Var janFinalDirectory
+Var janNewDirectory
+Var janOldDirectory
+Var janOldMoved
+Var janNewMoved
+Var janDirectoryError
+Var janDirectorySource
+Var janDirectoryDestination
+Var janRestoreError
+Var janDirectoryLogDirectory
+Var janRecoveryStopped
 
 ; MoveFileEx preserves the destination and exposes the Windows error before rollback changes it.
 ; Open files inside a directory can make its rename return access denied (5).
-!macro dshDirectoryOperation SOURCE DESTINATION RESULT PHASE
+!macro janDirectoryOperation SOURCE DESTINATION RESULT PHASE
   Push $0
   Push $1
   Push $2
@@ -60,28 +60,28 @@ Var dshRecoveryStopped
   Pop $0
 !macroend
 
-!macro dshReportDirectoryFailure
-  ${If} $dshRestoreError != 0
-    StrCpy $dshRecoveryStopped "1"
+!macro janReportDirectoryFailure
+  ${If} $janRestoreError != 0
+    StrCpy $janRecoveryStopped "1"
   ${EndIf}
   !ifmacrodef customInstallerDirectoryFailed
     !insertmacro customInstallerDirectoryFailed
   !else
-    DetailPrint "Directory operation failed ($dshDirectoryError): $dshDirectorySource -> $dshDirectoryDestination; restore error: $dshRestoreError"
+    DetailPrint "Directory operation failed ($janDirectoryError): $janDirectorySource -> $janDirectoryDestination; restore error: $janRestoreError"
   !endif
 !macroend
 
-!macro dshExtractPayload FILE
+!macro janExtractPayload FILE
   !ifmacrodef customInstallerExtract
     !insertmacro customInstallerExtract "${FILE}"
   !else
-    nsExec::ExecToStack '"$PLUGINSDIR\dsh-7za.exe" x -y -bd -bb0 "-o$INSTDIR" "${FILE}"'
+    nsExec::ExecToStack '"$PLUGINSDIR\jan-7za.exe" x -y -bd -bb0 "-o$INSTDIR" "${FILE}"'
     Pop $R0
     Pop $R1
   !endif
   ${If} $R0 != 0
     DetailPrint $R1
-    Call dshRollbackDirectories
+    Call janRollbackDirectories
     !ifmacrodef customInstallerExtractFailed
       !insertmacro customInstallerExtractFailed "${FILE}"
     !else
@@ -92,133 +92,133 @@ Var dshRecoveryStopped
   ${EndIf}
 !macroend
 
-!macro dshStageApplication
-  !ifdef DSH_INSTALLER_LOG_DIR
+!macro janStageApplication
+  !ifdef JAN_INSTALLER_LOG_DIR
     ; electron-builder defines the cache name after including our function bodies, before this section expands.
-    StrCpy $dshDirectoryLogDirectory "${DSH_INSTALLER_LOG_DIR}"
+    StrCpy $janDirectoryLogDirectory "${JAN_INSTALLER_LOG_DIR}"
   !endif
-  StrCpy $dshFinalDirectory $INSTDIR
+  StrCpy $janFinalDirectory $INSTDIR
   System::Call 'ole32::CoCreateGuid(g .r0) i .r1'
   ${If} $1 != 0
     SetErrorLevel 2
     Quit
   ${EndIf}
-  StrCpy $dshNewDirectory "$INSTDIR.new-$0"
-  StrCpy $dshOldDirectory "$INSTDIR.old-$0"
-  StrCpy $dshOldMoved ""
-  StrCpy $dshNewMoved ""
-  StrCpy $dshDirectoryError 0
-  StrCpy $dshRestoreError 0
-  StrCpy $dshRecoveryStopped ""
+  StrCpy $janNewDirectory "$INSTDIR.new-$0"
+  StrCpy $janOldDirectory "$INSTDIR.old-$0"
+  StrCpy $janOldMoved ""
+  StrCpy $janNewMoved ""
+  StrCpy $janDirectoryError 0
+  StrCpy $janRestoreError 0
+  StrCpy $janRecoveryStopped ""
   ClearErrors
-  CreateDirectory $dshNewDirectory
+  CreateDirectory $janNewDirectory
   ${If} ${Errors}
     SetErrorLevel 2
     Quit
   ${EndIf}
-  File /oname=$PLUGINSDIR\dsh-7za.exe "${DSH_SEVENZIP_PATH}"
-  StrCpy $INSTDIR $dshNewDirectory
+  File /oname=$PLUGINSDIR\jan-7za.exe "${JAN_SEVENZIP_PATH}"
+  StrCpy $INSTDIR $janNewDirectory
   SetOutPath $INSTDIR
   !insertmacro installApplicationFiles
-  !ifdef DSH_SEVENZIP_LICENSE_DIR
-    File /oname=7zip-installer-LICENSE.txt "${DSH_SEVENZIP_LICENSE_DIR}\LICENSE.txt"
-    File /oname=7zip-installer-COPYING.txt "${DSH_SEVENZIP_LICENSE_DIR}\COPYING"
+  !ifdef JAN_SEVENZIP_LICENSE_DIR
+    File /oname=7zip-installer-LICENSE.txt "${JAN_SEVENZIP_LICENSE_DIR}\LICENSE.txt"
+    File /oname=7zip-installer-COPYING.txt "${JAN_SEVENZIP_LICENSE_DIR}\COPYING"
   !endif
   !ifdef UNINSTALLER_ICON
     File /oname=uninstallerIcon.ico "${UNINSTALLER_ICON}"
   !endif
-  StrCpy $INSTDIR $dshFinalDirectory
+  StrCpy $INSTDIR $janFinalDirectory
   SetOutPath $PLUGINSDIR
 !macroend
 
 Function .onGUIEnd
-  Call dshCleanupDirectories
+  Call janCleanupDirectories
 FunctionEnd
 
-Function dshCleanupDirectories
-  ${If} $dshRecoveryStopped == "1"
+Function janCleanupDirectories
+  ${If} $janRecoveryStopped == "1"
     Return
   ${EndIf}
-  ${If} $dshFinalDirectory != ""
-    Call dshRollbackDirectories
+  ${If} $janFinalDirectory != ""
+    Call janRollbackDirectories
   ${EndIf}
 FunctionEnd
 
 ; Only directories created or renamed by this installer are removed during rollback.
-Function dshRollbackDirectories
+Function janRollbackDirectories
   SetOutPath $PLUGINSDIR
-  ${If} $dshNewMoved == "1"
-    RMDir /r "\\?\$dshFinalDirectory"
-    StrCpy $dshNewMoved ""
+  ${If} $janNewMoved == "1"
+    RMDir /r "\\?\$janFinalDirectory"
+    StrCpy $janNewMoved ""
   ${EndIf}
-  ${If} $dshOldMoved == "1"
-    !insertmacro dshDirectoryOperation "$dshOldDirectory" "$dshFinalDirectory" $dshRestoreError "restore"
-    ${If} $dshRestoreError != 0
+  ${If} $janOldMoved == "1"
+    !insertmacro janDirectoryOperation "$janOldDirectory" "$janFinalDirectory" $janRestoreError "restore"
+    ${If} $janRestoreError != 0
       ; Leave the complete backup in place if another process prevents restoration.
-      DetailPrint $dshOldDirectory
-      RMDir /r "\\?\$dshNewDirectory"
+      DetailPrint $janOldDirectory
+      RMDir /r "\\?\$janNewDirectory"
       Return
     ${EndIf}
-    StrCpy $dshOldMoved ""
+    StrCpy $janOldMoved ""
   ${EndIf}
-  ${If} $dshNewDirectory != ""
-    RMDir /r "\\?\$dshNewDirectory"
+  ${If} $janNewDirectory != ""
+    RMDir /r "\\?\$janNewDirectory"
   ${EndIf}
-  StrCpy $INSTDIR $dshFinalDirectory
+  StrCpy $INSTDIR $janFinalDirectory
 FunctionEnd
 
-Function dshPromoteDirectories
+Function janPromoteDirectories
   !ifmacrodef InstallerPublishStage
     !insertmacro InstallerPublishStage 2
   !endif
   ; SetOutPath opens a directory handle; release it before either rename.
   SetOutPath $PLUGINSDIR
   ClearErrors
-  ${If} ${FileExists} "$dshFinalDirectory\*.*"
-    StrCpy $dshDirectorySource $dshFinalDirectory
-    StrCpy $dshDirectoryDestination $dshOldDirectory
-    !insertmacro dshDirectoryOperation "$dshDirectorySource" "$dshDirectoryDestination" $dshDirectoryError "backup"
-    ${If} $dshDirectoryError != 0
-      Call dshRollbackDirectories
-      !insertmacro dshReportDirectoryFailure
+  ${If} ${FileExists} "$janFinalDirectory\*.*"
+    StrCpy $janDirectorySource $janFinalDirectory
+    StrCpy $janDirectoryDestination $janOldDirectory
+    !insertmacro janDirectoryOperation "$janDirectorySource" "$janDirectoryDestination" $janDirectoryError "backup"
+    ${If} $janDirectoryError != 0
+      Call janRollbackDirectories
+      !insertmacro janReportDirectoryFailure
       SetErrors
       Return
     ${EndIf}
-    StrCpy $dshOldMoved "1"
+    StrCpy $janOldMoved "1"
   ${Else}
     ; NSIS can create the destination before the install section starts.
-    StrCpy $dshDirectorySource $dshFinalDirectory
-    StrCpy $dshDirectoryDestination ""
-    !insertmacro dshDirectoryOperation "$dshDirectorySource" "" $dshDirectoryError "remove-empty"
-    ${If} $dshDirectoryError != 0
-      Call dshRollbackDirectories
-      !insertmacro dshReportDirectoryFailure
+    StrCpy $janDirectorySource $janFinalDirectory
+    StrCpy $janDirectoryDestination ""
+    !insertmacro janDirectoryOperation "$janDirectorySource" "" $janDirectoryError "remove-empty"
+    ${If} $janDirectoryError != 0
+      Call janRollbackDirectories
+      !insertmacro janReportDirectoryFailure
       SetErrors
       Return
     ${EndIf}
   ${EndIf}
   ClearErrors
-  StrCpy $dshDirectorySource $dshNewDirectory
-  StrCpy $dshDirectoryDestination $dshFinalDirectory
-  !insertmacro dshDirectoryOperation "$dshDirectorySource" "$dshDirectoryDestination" $dshDirectoryError "promote"
-  ${If} $dshDirectoryError != 0
-    Call dshRollbackDirectories
-    !insertmacro dshReportDirectoryFailure
+  StrCpy $janDirectorySource $janNewDirectory
+  StrCpy $janDirectoryDestination $janFinalDirectory
+  !insertmacro janDirectoryOperation "$janDirectorySource" "$janDirectoryDestination" $janDirectoryError "promote"
+  ${If} $janDirectoryError != 0
+    Call janRollbackDirectories
+    !insertmacro janReportDirectoryFailure
     SetErrors
     Return
   ${EndIf}
-  StrCpy $dshNewMoved "1"
-  SetOutPath $dshFinalDirectory
+  StrCpy $janNewMoved "1"
+  SetOutPath $janFinalDirectory
   !ifmacrodef InstallerPublishStage
     !insertmacro InstallerPublishStage 3
   !endif
   ClearErrors
 FunctionEnd
 
-!macro dshFinishDirectories
-  StrCpy $dshNewMoved ""
-  ${If} $dshOldMoved == "1"
-    RMDir /r "\\?\$dshOldDirectory"
-    StrCpy $dshOldMoved ""
+!macro janFinishDirectories
+  StrCpy $janNewMoved ""
+  ${If} $janOldMoved == "1"
+    RMDir /r "\\?\$janOldDirectory"
+    StrCpy $janOldMoved ""
   ${EndIf}
 !macroend

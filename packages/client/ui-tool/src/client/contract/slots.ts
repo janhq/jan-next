@@ -1,43 +1,30 @@
 /** Tool UI slot declarations and their composed component props. */
 import type {
   HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, SessionIdOf,
-} from '@deepseek-ai/dsh-client-ui-slots'
-import type { RemoteHostFacts } from '@deepseek-ai/dsh-api-remotes/client'
+} from '@janhq/jan-client-ui-slots'
+import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
 import type {
   OpenFileOptions, PreparingToolCall, StartedToolCall,
   ToolResultNode, UseDisclosure,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { MessageImageLoader, MessageImageSource } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { AskUserQuestionAnswerItem, AskUserQuestionItem } from '@deepseek-ai/dsh-user-questions/types'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
+} from '@janhq/jan-client-ui-chat/client'
+import type { MessageImageLoader, MessageImageSource } from '@janhq/jan-client-ui-conversation/client'
+import type { AskUserQuestionAnswerItem, AskUserQuestionItem } from '@janhq/jan-user-questions/types'
+import type {} from '@janhq/jan-client-locale/client'
 import type { ToolFileInjected } from '../tool/file-menu.ts'
+import type { ToolTitles } from '../tool/title-source.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     /**
-     * Keyed Tool view dispatched by wire name, including custom tools.
-     * Register with `key: '<tool name>'`; a typo never renders.
-     * Occupied keys replace the view; unclaimed keys use the generic row. Owner
-     * phase data includes `name` and lazy `args`; preparing arguments may be incomplete.
+     * Keyed Tool view by wire name, custom tools included; register `key: '<tool name>'` (a typo never renders).
+     * Occupied keys replace the generic row. Owner data has `name` and lazy `args`, incomplete while preparing.
      */
     'tool.call.toolview': {
       kind: 'keyed'
       scope: 'session'
       owner: ToolCallOwnerProps
     }
-    /**
-     * Durable images of a settled image-bearing Tool call, rendered through
-     * the attachment presentation plugin. The Tool layer never imports an
-     * attachment implementation: a toolview declares this slot as a child and
-     * renders it with the image card's references plus the Gateway-authorized
-     * loader it received in its owner, and the attachment plugin fills the
-     * gallery. Composing no attachment presentation plugin renders nothing,
-     * which is why the image card keeps its own envelope text beside the
-     * gallery. A child slot is declared by exactly one entry: registering a
-     * second toolview that declares the same child throws at load, so a
-     * future image-bearing tool must reuse this entry or own a distinct
-     * slot.
-     */
+    /** Compact thumbnails of a settled tool result, owned by the common call tree. */
     'tool.call.images': { kind: 'single'; scope: 'session'; owner: ToolImagesOwnerProps }
   }
 }
@@ -50,6 +37,9 @@ export interface ToolImagesOwnerProps {
   loadImage: MessageImageLoader
   /** Horizontal placement inside the owning record. */
   align: 'start' | 'end'
+  /** Request the compact, uncropped gallery layout and viewport-triggered loading. */
+  thumbnail?: boolean
+  lazy?: boolean
 }
 
 /** Standard owner currency supplied to every atomic Tool view. */
@@ -66,6 +56,8 @@ export interface ToolCallCommonProps {
   home?: string | undefined
   /** Open an argument path at its optional requested line. */
   openFile: (path: string, options?: OpenFileOptions) => void
+  /** Display and request of titles a plugin wrote in another language; absent shows every title as written. */
+  titles?: ToolTitles | undefined
   /** Chat-supplied, Gateway-authorized loader for durable images; Tool views do not manage attachment URLs. */
   loadImage: MessageImageLoader
   /** Inspect this call in the trajectory view when available. */
@@ -127,7 +119,7 @@ export interface UserQuestionPanels {
   review(sessionId: SessionIdOf, callId: string, record: UserQuestionRecord): boolean
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Optional user-question answer-panel provider. */
     userQuestionPanels: UserQuestionPanels
@@ -144,11 +136,13 @@ export type ToolHostInfoInjected = {
      * saw. Select the field the view needs (`info => info.home`).
      */
     hostInfo: HostObservable<RemoteHostFacts>
+    /** Translated display of titles written in another language, from the optional translation service. */
+    titles: HostObservable<ToolTitles>
   }
 }
 
 /** Full props of the Tool call-tree renderer registered as a tool-call Chat Node. */
 export type ToolTreeProps = PropsRuntime<'conversation.chat.node', 'tool-call'>
-  & PropsRenderSlots<'tool.call.toolview'>
+  & PropsRenderSlots<'tool.call.toolview' | 'tool.call.images'>
   & PropsLocale<'conversation'>
   & InjectFace<ToolHostInfoInjected & ToolFileInjected>

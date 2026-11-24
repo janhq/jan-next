@@ -2,15 +2,15 @@
 /** Recorded detail cards, conservative fallback, and standard row interactions. */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
-import { IconUsersOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { en } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
-import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
+import type { ToolResultNode } from '@janhq/jan-client-ui-chat/client'
+import { IconUsersOutlineRegular } from '@janhq/jan-client-ui-primitives'
+import { makeTranslate } from '@janhq/jan-client-test-runtime'
+import { en } from '@janhq/jan-client-ui-conversation/src/client/locales.ts'
+import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
 import { detailsCardModel, todosDetail } from '../src/client/tool/models/details-card-model.ts'
 import { DetailsRow, detailsToolview } from '../src/client/tool/toolviews/details-row.tsx'
-import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
-import { PartialArguments } from '@deepseek-ai/dsh-util-values'
+import { useDisclosure } from '@janhq/jan-client-ui-chat/src/client/chat/use-disclosure.ts'
+import { PartialArguments } from '@janhq/jan-util-values'
 import { ToolDetails } from '../src/client/tool/components/ToolDetails.tsx'
 
 const t = makeTranslate(en, commonEn)
@@ -218,6 +218,17 @@ describe('DetailsRow', () => {
     render(<DetailsRow {...{ useDisclosure, toolName: 'wait_agent', block, t } as Parameters<typeof DetailsRow>[0]} />)
     const header = screen.getByRole('button', { expanded: false })
     expect(header.textContent).toBe('Waiting for messages…')
+  })
+
+  it.each([
+    [true, 'Waiting for job'],
+    [false, 'Read job output'],
+    [undefined, 'Read job output'],
+  ] as const)('distinguishes a running job-output wait (%s) from a read', (wait, title) => {
+    const argsRaw = JSON.stringify({ job_id: 'bash-build', wait })
+    const block = { phase: 'start' as const, args: PartialArguments.fromText(argsRaw), callId: 'job', name: 'job_output', argsRaw, turn: 1, step: 1, time: 1000, subCalls: [] }
+    render(<DetailsRow {...{ useDisclosure, toolName: 'job_output', block, t } as Parameters<typeof DetailsRow>[0]} />)
+    expect(screen.getByRole('button').textContent).toBe(`${title}bash-build`)
   })
 
   it('registers the supported tool names through the scoped keyed slot', () => {

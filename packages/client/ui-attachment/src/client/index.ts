@@ -1,13 +1,13 @@
-import type {} from '@deepseek-ai/dsh-client-ui-context-menu/client'
+import type {} from '@janhq/jan-client-ui-context-menu/client'
 /** Browser attachment plugin: composer entries and independently replaceable image galleries. */
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { SlotFactoryMap } from '@deepseek-ai/dsh-client-ui-slots'
-import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-tool/client'
-import type {} from '@deepseek-ai/dsh-client-ui-trajectory/client'
-import type {} from '@deepseek-ai/dsh-client-ui-file-drag/client'
+import type { Context as ClientContext } from '@janhq/cordis'
+import type { SlotFactoryMap } from '@janhq/jan-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-chat/client'
+import type {} from '@janhq/jan-client-ui-conversation/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-tool/client'
+import type {} from '@janhq/jan-client-ui-trajectory/client'
+import type {} from '@janhq/jan-client-ui-file-drag/client'
 import { ComposerAttachments, type ComposerAttachmentsInjected } from './ComposerAttachments.tsx'
 import { MessageImages, MessageImagesContent } from './MessageImages.tsx'
 
@@ -23,6 +23,7 @@ export const inject = ['slots', 'fileDrag']
 export function apply(ctx: ClientContext): void {
   ctx.slots.registerFactory({
     name: 'conversation.images.content', scope: 'root', locale: 'conversation',
+    children: { 'conversation.image.preview.actions': { kind: 'list', scope: 'session-maybe' } },
     inject: (): MessageImagesInjected => ({
       fileDrag: ctx.fileDrag.actions,
     }),
@@ -30,6 +31,7 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('conversation.input.attachments', () => ctx.slots.register({
     name: 'conversation.input.attachments',
     inject: (): ComposerAttachmentsInjected => ({ readFileDrag: ctx.fileDrag.read }),
+    children: { 'conversation.input.attachment.actions': { kind: 'list', scope: 'session-maybe' } },
     locale: 'conversation',
   }, ComposerAttachments))
   ctx.slots.inject('conversation.chat.message.images', () => ctx.slots.register({

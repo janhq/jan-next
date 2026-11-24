@@ -2,28 +2,30 @@
  * The agent-preset chip on the new-session screen, beside the workspace
  * picker.
  *
- * It lives here rather than in the composer because the choice is only
- * available before a conversation starts: once a turn has run, the session's
- * history was produced under that preset's tools and the host refuses to swap
- * them. A control that spends most of its life disabled belongs on the screen
- * where it still works.
+ * It lives here rather than in the composer because the new-session screen is
+ * where the choice is staged before any Session exists. A conversation that
+ * already has turns keeps them and switches from the header control at a turn
+ * boundary; this chip stages the next Session's composition.
  *
  * The menu opens on the staged choice, which starts as the deployment default.
  * Picking stages; the choice reaches a session when one becomes current.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
-  IconAgentPresetOutlineRegular, IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+  IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
+} from '@janhq/jan-client-ui-primitives'
 // Type-only: pulls the ui-conversation SlotMap merge (the hero seat).
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { } from '@janhq/jan-client-ui-conversation/client'
 import type { AgentPresetSeatState } from './seat-store.ts'
 import { presetDisplayText } from './locales.ts'
 import { requiresCodingTools } from './settings-store.ts'
 import css from './AgentPresetSeat.module.css'
+import { modeActionItems, runModeAction } from './mode-actions.tsx'
+import type { AgentPresetModeAction } from './index.ts'
+import { PresetIcon } from './PresetIcon.tsx'
 
 /** Registration-side business face for the hero chip. */
 export interface AgentPresetSeatInjected {
@@ -32,6 +34,8 @@ export interface AgentPresetSeatInjected {
     developerTools: ObservableSnapshot<boolean>
     /** Seat snapshot bound by the renderer as useAgentPresetSeat. */
     agentPresetSeat: SnapshotStore<AgentPresetSeatState>
+    /** Additional mode entries with their own start flow. */
+    modeActions: ObservableSnapshot<readonly AgentPresetModeAction[]>
   }
   /** Read the roster when the chip first renders. */
   load: () => Promise<void>
@@ -79,10 +83,11 @@ export type AgentPresetSeatProps =
  * @returns The chip and any pending selection refusal, or null outside the main view.
  */
 export function AgentPresetSeat({
-  sessionId, useSessionRetainInfo, load, select, dismissRefusal, introduced, useAgentPresetSeat, useDeveloperTools, t,
+  sessionId, useSessionRetainInfo, load, select, dismissRefusal, introduced, useAgentPresetSeat, useDeveloperTools, useModeActions, t,
 }: AgentPresetSeatProps) {
   const developerTools = useDeveloperTools(value => value)
   const state = useAgentPresetSeat(snapshot => snapshot)
+  const modeActions = useModeActions(value => value)
   const main = useSessionRetainInfo(info => sessionId === undefined
     || (info?.retainedBy.mainView ?? 0) > 0)
   const [open, setOpen] = useState(false)
@@ -106,10 +111,11 @@ export function AgentPresetSeat({
     () => state.options.filter(option => developerTools || !requiresCodingTools(option)),
     [state.options, developerTools],
   )
+  const hasItems = options.length > 0 || modeActions.length > 0
 
   useEffect(() => {
     setOpen(false)
-  }, [developerTools, options.length])
+  }, [developerTools, options.length, modeActions.length])
 
   const chosen = state.options.find(option => option.id === state.current)
   const chosenText = chosen === undefined ? undefined : presetDisplayText(chosen, t)
@@ -162,12 +168,13 @@ export function AgentPresetSeat({
   return (
     <>
       {ready && <Menu
-        open={open && options.length > 0}
+        open={open && hasItems}
         onClose={() => { setOpen(false) }}
-        items={options.map((option) => {
+        items={[...options.map((option) => {
           const text = presetDisplayText(option, t)
           return {
             id: option.id,
+            icon: <PresetIcon icon={option.icon} size={14} />,
             // Name and description together: the id alone never says what a
             // preset does, which is why the roster carries display copy.
             label: (
@@ -177,11 +184,11 @@ export function AgentPresetSeat({
               </span>
             ),
           }
-        })}
+        }), ...modeActionItems(modeActions)]}
         selectedId={state.current}
         onSelect={(id) => {
           setOpen(false)
-          void select(id)
+          if (!runModeAction(modeActions, id, sessionId)) void select(id)
         }}
         align="start"
         portal
@@ -191,12 +198,12 @@ export function AgentPresetSeat({
             type="button"
             className={css.seat}
             aria-haspopup="menu"
-            aria-expanded={open && options.length > 0}
+            aria-expanded={open && hasItems}
             title={(typeof state.error === 'object' ? state.error?.reason : state.error) ?? t('seatHint')}
-            disabled={state.busy || options.length === 0}
+            disabled={state.busy || !hasItems}
             onClick={() => { setOpen(value => !value) }}
           >
-            <IconAgentPresetOutlineRegular className={introducing ? `${css.seatIcon} ${css.introIcon}` : css.seatIcon} />
+            <PresetIcon icon={chosen?.icon} className={introducing ? `${css.seatIcon} ${css.introIcon}` : css.seatIcon} />
             <span className={css.seatLabel}>{shownLabel}</span>
             <IconChevronDownOutlineRegular className={css.chevron} />
           </button>
@@ -208,11 +215,6 @@ export function AgentPresetSeat({
           text={t('switchRefused', { name: presetDisplayText(toast.error.preset, t).name, reason: toast.error.reason })}
           icon={<IconWarningOutlineRegular />}
           holdMs={REFUSAL_HOLD_MS}
-          // The composer card, which is the content column this chip sits
-          // above rather than inside — hence a page query, not `closest`.
-          // Absent, the banner centers on the window, which is off-center
-          // whenever the sidebar is open.
-          anchor={document.querySelector<HTMLElement>('[data-composer-card]')}
           onDone={() => { dismissRefusal(toast.error) }}
         />
       )}

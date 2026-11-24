@@ -1,21 +1,15 @@
-/** Generate paired CLI references by invoking the shipped launcher and profile help. */
+/** Generate the CLI reference by invoking the shipped launcher and profile help. */
 
 import { execFile } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles'
-import {
-  computeTranslationPairingRecord,
-  renderTranslationPairingRecord,
-  translationPairPaths,
-} from './translation-pairing-record.ts'
-import { parseTranslationPairingManifest, translationPairSourcePredicate } from './translation-pairing.ts'
+import { PROFILE_TEMPLATES } from '@janhq/jan-official-bundles'
 import { defaultParallelism } from './parallelism.ts'
 
 const root = resolve(import.meta.dirname, '..')
-const paths = translationPairPaths('docs/cli-help.md')
+const OUTPUT = 'docs/cli-help.md'
 const execFileAsync = promisify(execFile)
 
 /** Complete help text and the immediate subcommands it advertises. */
@@ -68,7 +62,7 @@ export function topLevelHelpArgs(profiles: readonly string[]): string[][] {
 
 /**
  * Resolve the child-process allowance before any help invocation starts.
- * @param raw - optional DSH_CLI_HELP_CONCURRENCY override.
+ * @param raw - optional JAN_CLI_HELP_CONCURRENCY override.
  * @param fallback - worker budget for an invocation without an explicit allowance.
  * @returns the maximum number of help children in flight.
  * @throws when a supplied override is not a positive decimal integer.
@@ -77,7 +71,7 @@ export function cliHelpConcurrency(raw: string | undefined, fallback: number): n
   if (raw === undefined || raw === '') return fallback
   const parsed = Number.parseInt(raw, 10)
   if (!Number.isSafeInteger(parsed) || parsed < 1 || String(parsed) !== raw) {
-    throw new Error(`gen-cli-help: DSH_CLI_HELP_CONCURRENCY must be a positive integer, got ${JSON.stringify(raw)}.`)
+    throw new Error(`gen-cli-help: JAN_CLI_HELP_CONCURRENCY must be a positive integer, got ${JSON.stringify(raw)}.`)
   }
   return parsed
 }
@@ -174,7 +168,7 @@ export async function collectCliHelp(
 ): Promise<HelpPage[]> {
   const pages = new Map<string, HelpPage>()
   const visit = async (args: string[], path: ReadonlySet<HelpPage>): Promise<HelpPage> => {
-    const invocation = ['dsh', ...args].join(' ')
+    const invocation = ['jan', ...args].join(' ')
     const help = parseCliHelp(await readHelp(args))
     const existing = pages.get(help.output)
     if (existing !== undefined) {
@@ -193,18 +187,19 @@ export async function collectCliHelp(
 }
 
 async function collectHelp(): Promise<HelpPage[]> {
-  const concurrency = cliHelpConcurrency(process.env.DSH_CLI_HELP_CONCURRENCY, defaultParallelism())
-  const directory = mkdtempSync(join(tmpdir(), 'dsh-cli-help-'))
-  const profiles = Object.keys(PROFILE_TEMPLATES)
+  const concurrency = cliHelpConcurrency(process.env.JAN_CLI_HELP_CONCURRENCY, defaultParallelism())
+  const directory = mkdtempSync(join(tmpdir(), 'jan-cli-help-'))
+  // The Electron app owns the desktop profile; the CLI refuses `jan desktop --help`, so it has no CLI page.
+  const profiles = Object.keys(PROFILE_TEMPLATES).filter(name => name !== 'desktop')
   // Aggregate callers allocate this leaf's children separately from the other running gates.
   const reader = prefetchHelp(async (args, signal) => {
     // Each invocation boots against its own empty Harness and agents homes.
     const home = mkdtempSync(join(directory, 'invocation-'))
     const environment = {
       ...process.env,
-      DSH_HOME: join(home, 'harness'),
-      DSH_AGENTS_HOME: join(home, 'agents'),
-      DSH_TELEMETRY_DISABLED: '1',
+      JAN_HOME: join(home, 'harness'),
+      JAN_AGENTS_HOME: join(home, 'agents'),
+      JAN_TELEMETRY_DISABLED: '1',
       NO_COLOR: '1',
     }
     for (const name of ['NODE_OPTIONS', 'FORCE_COLOR']) Reflect.deleteProperty(environment, name)
@@ -219,7 +214,7 @@ async function collectHelp(): Promise<HelpPage[]> {
     signal.addEventListener('abort', abort, { once: true })
     try {
       const { stdout, stderr } = await help
-      if (stderr !== '') throw new Error(`${['dsh', ...args].join(' ')} --help wrote diagnostics: ${stderr}`)
+      if (stderr !== '') throw new Error(`${['jan', ...args].join(' ')} --help wrote diagnostics: ${stderr}`)
       return stdout
     } finally {
       signal.removeEventListener('abort', abort)
@@ -240,23 +235,18 @@ function anchor(page: HelpPage): string {
   return page.invocations[0].replaceAll(/[^a-zA-Z0-9]+/gu, '-').replace(/-$/u, '').toLowerCase()
 }
 
-function renderHelp(pages: readonly HelpPage[], chinese: boolean): string {
+function renderHelp(pages: readonly HelpPage[]): string {
   const lines = [
     '<!-- Generated by scripts/gen-cli-help.ts — do not edit by hand.',
     '     Run `pnpm run gen-cli-help` to regenerate. -->',
     '',
-    chinese ? '# dsh 命令行帮助' : '# dsh CLI help',
+    '# jan CLI help',
     '',
-    ...(chinese ? ['[English](cli-help.md) | 中文', ''] : []),
-    chinese
-      ? '此参考收录启动器、子命令和随附 profile 的完整帮助。同一份帮助只展示一次，并列出所有调用方式。帮助输出保留原文。'
-      : 'This reference contains complete help for the launcher, subcommands, and shipped profiles. Identical help appears once with every invocation listed. Help output retains its original language.',
+    'This reference contains complete help for the launcher, subcommands, and shipped profiles. Identical help appears once with every invocation listed. Help output retains its original language.',
     '',
-    chinese
-      ? '运行 `pnpm run gen-cli-help` 重新生成；运行 `pnpm run verify-cli-help` 检查是否与当前命令一致。'
-      : 'Run `pnpm run gen-cli-help` to regenerate; run `pnpm run verify-cli-help` to check freshness.',
+    'Run `pnpm run gen-cli-help` to regenerate; run `pnpm run verify-cli-help` to check freshness.',
     '',
-    chinese ? '## 目录' : '## Contents',
+    '## Contents',
     '',
     ...pages.map(page => `- [\`${page.invocations[0]}\`](#${anchor(page)})`),
     '',
@@ -266,7 +256,7 @@ function renderHelp(pages: readonly HelpPage[], chinese: boolean): string {
       `<a id="${anchor(page)}"></a>`,
       `## \`${page.invocations[0]}\``,
       '',
-      `${chinese ? '调用方式' : 'Invocations'}: ${page.invocations.map(invocation => `\`${invocation} --help\``).join(', ')}`,
+      `Invocations: ${page.invocations.map(invocation => `\`${invocation} --help\``).join(', ')}`,
       '',
       `\`\`\`text\n${page.help.output}${page.help.output.endsWith('\n') ? '' : '\n'}\`\`\``,
       '',
@@ -275,40 +265,19 @@ function renderHelp(pages: readonly HelpPage[], chinese: boolean): string {
   return lines.join('\n')
 }
 
-/** Regenerate both CLI reference pages, or check their bytes with --check. @returns Nothing. */
+/** Regenerate the CLI reference page, or check its bytes with --check. @returns Nothing. */
 export async function main(): Promise<void> {
   const check = process.argv.includes('--check')
   const pages = await collectHelp()
-  const source = renderHelp(pages, false)
-  const zh = renderHelp(pages, true)
-  const written = new Set([paths.source, paths.zh])
-  const context = {
-    repoRoot: root,
-    isTranslationPairSource: translationPairSourcePredicate(parseTranslationPairingManifest(
-      readFileSync(resolve(root, 'scripts/translation-pairing.manifest.json'), 'utf8'),
-    )),
-    // Resolve links between the two pages as this run writes them, so a first run
-    // records the same hashes that verify-translation-pairing computes afterward.
-    repositoryFileExists: (path: string) => written.has(path)
-      || existsSync(resolve(root, path)) && statSync(resolve(root, path)).isFile(),
-  }
-  const outputs = new Map([
-    [paths.source, source],
-    [paths.zh, zh],
-    [paths.meta, renderTranslationPairingRecord(paths, computeTranslationPairingRecord(paths, source, zh, context))],
-  ])
-  const changed: string[] = []
-  for (const [path, content] of outputs) {
-    const destination = resolve(root, path)
-    if (existsSync(destination) && readFileSync(destination, 'utf8') === content) continue
-    changed.push(path)
-    if (!check) writeFileSync(destination, content)
-  }
-  if (check && changed.length > 0) {
-    console.error(`gen-cli-help: stale — ${changed.join(', ')}. Run pnpm run gen-cli-help.`)
+  const content = renderHelp(pages)
+  const destination = resolve(root, OUTPUT)
+  const stale = !existsSync(destination) || readFileSync(destination, 'utf8') !== content
+  if (stale && !check) writeFileSync(destination, content)
+  if (check && stale) {
+    console.error(`gen-cli-help: stale — ${OUTPUT}. Run pnpm run gen-cli-help.`)
     process.exitCode = 1
   } else {
-    console.log(`gen-cli-help: ${pages.length} help pages; ${check ? 'all outputs are current' : `${changed.length} files written`}.`)
+    console.log(`gen-cli-help: ${pages.length} help pages; ${check ? 'output is current' : `${OUTPUT} ${stale ? 'written' : 'unchanged'}`}.`)
   }
 }
 

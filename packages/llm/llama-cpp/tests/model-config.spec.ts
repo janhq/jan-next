@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  accelerators, assessFit, backendOf, CATALOG, Config, estimateKvBytes, modelFacts, NotAProjectorError, parseDeviceList, plannedContext,
+  accelerators, assessFit, backendOf, CATALOG, Config, estimateKvBytes, modelFacts, nextContextSize,
+  NotAProjectorError, parseDeviceList, plannedContext,
   projectorFacts, readModelFacts, readProjectorFacts, renderPreset, resolvePresetSettings, UnsupportedModelError, WorkerProtocolError,
   type ModelFacts,
 } from '../src/index.ts'
@@ -13,11 +14,18 @@ const cleanups: Array<() => Promise<unknown>> = []
 afterEach(async () => { while (cleanups.length) await cleanups.pop()!() })
 
 describe('GGUF facts', () => {
-  it('records architecture, trained context, chat template, quantization and KV dimensions', () => {
+  it('records architecture, trained context, chat template, tool support, quantization and KV dimensions', () => {
     expect(modelFacts(chatModel(40960))).toEqual({
-      architecture: 'qwen3', contextLength: 40960, hasChatTemplate: true, expertCount: 0, fileType: 'Q4_K_M',
+      architecture: 'qwen3', contextLength: 40960, hasChatTemplate: true, toolCalls: true, expertCount: 0, fileType: 'Q4_K_M',
       kvElementsPerToken: 28 * 8 * (128 + 128),
     })
+  })
+
+  it('records no tool support for a template that never reads tools, or no template at all', () => {
+    // The worker cannot declare tools to such a model; the route reports `toolUse: false` for it.
+    expect(modelFacts({ ...chatModel(4096), 'tokenizer.chat_template': '{% for m in messages %}{{ m.content }}{% endfor %}' }).toolCalls).toBe(false)
+    const { 'tokenizer.chat_template': _template, ...bare } = chatModel(4096)
+    expect(modelFacts(bare)).toMatchObject({ hasChatTemplate: false, toolCalls: false })
   })
 
   it('derives head dimensions from the embedding length when the file omits them, and reads per-layer arrays', () => {
@@ -143,10 +151,18 @@ describe('preset', () => {
   const settings = resolvePresetSettings(config, 'linux', '/data/slots')
   const model = { id: 'local', path: '/m/a.gguf', facts }
 
+  it('steps context from 8k to 32k, then 1.5x, capped at the trained maximum', () => {
+    expect(nextContextSize(4096, 131072)).toBe(8192)
+    expect(nextContextSize(8192, 131072)).toBe(32768)
+    expect(nextContextSize(32768, 131072)).toBe(49152)
+    expect(nextContextSize(49152, 60000)).toBe(60000)
+    expect(nextContextSize(60000, 60000)).toBeNull()
+  })
+
   it('writes the configured sizing and runtime options, and omits what llama.cpp decides', () => {
     expect(renderPreset(settings, [model], {})).toBe([
       '[*]', 'fit = on', 'fit-target = 1024', 'ctx-size = 32768', 'flash-attn = on', 'cache-type-k = q8_0', 'cache-type-v = q8_0',
-      'slot-save-path = /data/slots', '', '[local]', 'model = /m/a.gguf', '',
+      'cache-idle-slots = false', 'slot-save-path = /data/slots', '', '[local]', 'model = /m/a.gguf', '',
     ].join('\n'))
   })
 
@@ -154,6 +170,18 @@ describe('preset', () => {
     const second = { ...model, id: 'other', path: '/m/b.gguf' }
     expect(renderPreset(settings, [model, second], { default: 'other' }))
       .toContain('[local]\nmodel = /m/a.gguf\n\n[other]\nmodel = /m/b.gguf\n\n[default]\nalias-of = other\n')
+  })
+
+  it('writes context length and auto-fit independently for each model', () => {
+    const other = { ...model, id: 'other', path: '/m/b.gguf', ctxSize: 8192, fit: false }
+    const preset = renderPreset(settings, [{ ...model, ctxSize: 40960, fit: true }, other], {})
+    expect(preset).toContain('[local]\nmodel = /m/a.gguf\nctx-size = 40960\nfit = on\n')
+    expect(preset).toContain('[other]\nmodel = /m/b.gguf\nctx-size = 8192\nfit = off\nn-gpu-layers = 999\n')
+  })
+
+  it('lets a model enable auto-fit even when the shared macOS default pins GPU layers', () => {
+    const preset = renderPreset({ ...settings, fit: false }, [{ ...model, fit: true }], {})
+    expect(preset).toContain('[local]\nmodel = /m/a.gguf\nfit = on\nn-gpu-layers = -1\n')
   })
 
   it('lets fit choose the context when ctxSize is 0, and pins context and layers with fit off', () => {

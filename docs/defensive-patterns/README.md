@@ -1,7 +1,5 @@
 # Defensive patterns
 
-English | [中文](README.zh.md)
-
 Hard-won rules: each pattern in this directory is a requirement this repository enforces in review, stated as the rule and the defect it prevents. Every rule states what must hold, the condition a reviewer judges it by, its boundary and who approves an exception, and a correct and a wrong example. Read the page for the artifact you are about to change, before you change it.
 
 ## Why these rules
@@ -22,4 +20,4 @@ Five habits cover most of what follows, and each page is their application to on
 | Session reads, retention, conversation nodes, renderers | [conversation-and-session.md](conversation-and-session.md) |
 | Timing, state representation, shared ownership, decentralization, refactors, migrations, performance evidence, disposal, callbacks, subprocesses | [general.md](general.md) |
 
-Type definitions and per-subsystem semantics live in [subsystems/](../subsystems/README.md); this directory carries the rules, and the semantics pages carry what the types mean. [dsh-code-review](../../.agents/skills/dsh-code-review/SKILL.md) reads this directory when judging a pull request, and Development routes through the same table from [AGENTS.md](../../AGENTS.md).
+Type definitions and per-subsystem semantics live in [subsystems/](../subsystems/README.md); this directory carries the rules, and the semantics pages carry what the types mean. [jan-code-review](../../.agents/skills/jan-code-review/SKILL.md) reads this directory when judging a pull request, and Development routes through the same table from [AGENTS.md](../../AGENTS.md).

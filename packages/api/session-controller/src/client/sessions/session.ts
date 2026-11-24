@@ -1,13 +1,13 @@
 // Sessions remain resident after creation so their open Remote sources keep running off-screen.
 
-import type { Context } from '@deepseek-ai/cordis'
-import type { InboxState, InboxTarget } from '@deepseek-ai/dsh-agent/types'
-import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
-import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
-import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
-import type { UserMessage } from '@deepseek-ai/dsh-llm/types'
-import { SessionLogOffset, SessionSeq, type SessionId } from '@deepseek-ai/dsh-session/types'
+import type { Context } from '@janhq/cordis'
+import type { InboxState, InboxTarget } from '@janhq/jan-agent/types'
+import { randomUUID } from '@janhq/jan-util-crypto'
+import type { FileAttachmentRef, ImageAttachmentRef } from '@janhq/jan-attachment'
+import type { SubagentAddress } from '@janhq/jan-subagent/client'
+import type { MessageId } from '@janhq/jan-llm/brand'
+import type { UserMessage } from '@janhq/jan-llm/types'
+import { SessionLogOffset, SessionSeq, type SessionId } from '@janhq/jan-session/types'
 import { SessionEventStream } from '../transport.ts'
 import type { SessionJournalChange } from '../transport.ts'
 import type {
@@ -15,6 +15,7 @@ import type {
   QueueAction,
   SessionAddress,
   SessionAssistantStreamBaseline,
+  SessionContextPreviewValue,
   SessionProjectionBaseline,
   SessionRequestId,
 } from '../../types.ts'
@@ -29,9 +30,9 @@ import type {
   SessionEventLike, SessionEventLikeEntry, SessionLiveEventEntry,
 } from '../contract/events.ts'
 import { Notifier } from './notifier.ts'
-import { isRemoteFailure } from '@deepseek-ai/dsh-api-gateway/client'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import { isRemoteFailure } from '@janhq/jan-api-gateway/client'
+import { RemoteError } from '@janhq/jan-typert-protocol'
+import type { RemoteFailure, RemoteResult } from '@janhq/jan-typert-protocol'
 import type { SessionRemotes } from './remotes.ts'
 import { ProjectionValueStore } from './projection-store.ts'
 import type { ProjectionsBaseline } from './projection-store.ts'
@@ -388,6 +389,14 @@ export class Session implements SessionFace {
     const seq = SessionSeq(result.value.seq)
     this.projections.apply('title', result.value.title, seq)
     return { ok: true, value: { title: result.value.title, seq } }
+  }
+
+  /**
+   * Price what this Session's next request would inject: contract session.contextPreview 1:1.
+   * @returns heuristic token prices, null while no model is selected, or the business error.
+   */
+  contextPreview(): Promise<RemoteResult<SessionContextPreviewValue | null>> {
+    return this.remote.session.contextPreview({ sessionId: this.sessionId })
   }
 
   /**

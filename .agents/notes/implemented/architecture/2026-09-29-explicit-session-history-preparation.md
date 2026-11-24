@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-09-29-explicit-session-history-preparation.zh.md)
-
 ## Problem
 
 Expanding a subagent catalog or forking from the sidebar can trigger an old Session's format migration.
@@ -22,7 +20,7 @@ When migration is required and `subagentCatalog` is absent, Web marks the Sessio
 
 Create/adopt, full-text search, and ordinary history opening allow automatic migration.
 
-This decision adds a migration exception to [catalog projection reads](../../archived/simplification/2026-09-08-web-subagent-catalog-projections.md). Exact reads and leases in [Session observations](2026-08-25-session-observations-and-projection-owned-client-state.md), and identity checks and cached/sequenced ordering in [projection-cache reads](2026-09-19-projection-cache-listing-identity-and-cached-rows.md), still apply.
+This decision adds a migration exception to catalog projection reads. Exact reads and leases in [Session observations](2026-08-25-session-observations-and-projection-owned-client-state.md), and identity checks and cached/sequenced ordering in [projection-cache reads](2026-09-19-projection-cache-listing-identity-and-cached-rows.md), still apply.
 
 ## Alternatives considered
 

@@ -2,13 +2,11 @@
 description: "Observable browser state stores with explicit snapshots, subscriptions, and lifecycle ownership."
 kind: "package-library"
 ---
-# @deepseek-ai/dsh-client-store
-
-English | [中文](README.zh.md)
+# @janhq/jan-client-store
 
 ## Summary
 
-React-free observable and snapshot-store primitives shared by Client controllers and renderer adapters. The package owns synchronous and animation-frame publication, Immer-backed updates, shallow equality, and optional browser persistence; React hook construction remains in `@deepseek-ai/dsh-client-ui-renderer`. Use it when Client state must publish stable snapshots without depending on React.
+React-free observable and snapshot-store primitives shared by Client controllers and renderer adapters. The package owns synchronous and animation-frame publication, Immer-backed updates, shallow equality, and optional browser persistence; React hook construction remains in `@janhq/jan-client-ui-renderer`. Use it when Client state must publish stable snapshots without depending on React. A store instance may carry an optional `dispose()`; the renderer calls it once when it drops a Session-scoped instance at the end of that Session's Context generation, so an owner that kept its own reference can let go. Persisted values stay.
 
 ## Table of Contents
 

@@ -48,6 +48,10 @@
   }
 }
 
+.primary:active:not(:disabled) {
+  background: var(--dsw-alias-button-primary-active);
+}
+
 .ghost:active:not(:disabled) {
   background: var(--dsw-alias-interactive-bg-active);
 }
@@ -56,7 +60,7 @@
 .outline {
   border: 0.5px solid transparent;
   background: transparent;
-  box-shadow: inset 0 0 0 var(--dsh-hairline-width, 0.5px) var(--dsh-button-outline-color, var(--dsw-alias-border-l3));
+  box-shadow: inset 0 0 0 var(--jan-hairline-width, 0.5px) var(--jan-button-outline-color, var(--dsw-alias-border-l3));
 }
 
 @media (hover: hover) {
@@ -73,6 +77,22 @@
   .toolbar:hover:not(:disabled) {
     background: var(--dsw-alias-button-tool-bar-hover);
   }
+}
+
+/* A neutral filled action: light on dark surfaces and dark on light ones, as the theme pairs the contrast fill with inverted labels. */
+.contrast {
+  background: var(--dsw-alias-button-contrast-fill);
+  color: var(--dsw-alias-label-primary-inverted);
+}
+
+@media (hover: hover) {
+  .contrast:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--dsw-alias-button-contrast-fill) 88%, transparent);
+  }
+}
+
+.contrast:active:not(:disabled) {
+  background: color-mix(in srgb, var(--dsw-alias-button-contrast-fill) 80%, transparent);
 }
 
 .icon {

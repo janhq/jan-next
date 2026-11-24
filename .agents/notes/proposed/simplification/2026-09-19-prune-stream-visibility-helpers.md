@@ -2,8 +2,6 @@
 
 Status: proposed
 
-English | [中文](2026-09-19-prune-stream-visibility-helpers.zh.md)
-
 ## Problem
 
 The [compact Assistant stream implementation](../../../../packages/llm/llm/src/assistant-stream.ts) exports five visibility queries: `isVisibleChunk`, `chunkHasVisibleText`, `runFirstVisibleTime`, `assistantStreamHasVisibleContent`, and `assistantStreamHasVisibleText`. Repository searches find no production caller outside that family. Its other consumers are the [unit tests](../../../../packages/llm/llm/tests/assistant-stream.spec.ts), package documentation, and the [record-reader reference](../../../../packages/llm/llm/README.md). The package root and published `./assistant-stream` entry expose the functions to external callers, whose usage this search cannot establish.
@@ -16,7 +14,7 @@ Remove the five exported visibility queries and their exclusive private helpers,
 
 Remove dedicated visibility tests and only the obsolete assertions inside mixed reader tests. Keep the mixed fixtures and assertions that verify first-token timing, early exit, raw chunks, text joining, and assembly equivalence.
 
-The [package README](../../../../packages/llm/llm/README.md) owns compact-reader behavior: retained readers avoid materializing per-member expansions, and durable input still uses validating expansion. Preserve those constraints and the used readers. When implementing this proposal, update that README and the [LLM subsystem page](../../../../docs/subsystems/llm-streaming.md) with their bilingual counterparts; archived records remain unchanged.
+The [package README](../../../../packages/llm/llm/README.md) owns compact-reader behavior: retained readers avoid materializing per-member expansions, and durable input still uses validating expansion. Preserve those constraints and the used readers. When implementing this proposal, update that README and the [LLM subsystem page](../../../../docs/subsystems/llm-streaming.md) with their bilingual counterparts.
 
 ## Alternatives considered
 

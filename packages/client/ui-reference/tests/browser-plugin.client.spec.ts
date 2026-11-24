@@ -3,21 +3,21 @@
  * deterministic ordering and labels, quoted-path suppression, pick projections, codec
  * round-trip, and registration lifecycle.
  */
-import { Context, Service } from '@deepseek-ai/cordis'
+import { Context, Service } from '@janhq/cordis'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { UiConversation } from '@deepseek-ai/dsh-client-ui-conversation/src/client/conversation/assembly.ts'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import { UiConversation } from '@janhq/jan-client-ui-conversation/src/client/conversation/assembly.ts'
 import { FileReference, FolderReference, type FileReferenceInjected } from '../src/client/FileReference.tsx'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { RemoteError, TestSessions } from '@deepseek-ai/dsh-client-test-runtime'
-import type { SessionFixture } from '@deepseek-ai/dsh-client-test-runtime'
+import type { SessionId } from '@janhq/jan-session/types'
+import { RemoteError, TestSessions } from '@janhq/jan-client-test-runtime'
+import type { SessionFixture } from '@janhq/jan-client-test-runtime'
 import type {
   CandidateRequest, ClientSessionContext, InputTriggerCandidate, InputTriggerSource,
-} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
-import type { FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference/types'
-import type { SessionReferenceMentionCandidate } from '@deepseek-ai/dsh-session-reference/types'
+} from '@janhq/jan-client-ui-input-trigger/client'
+import type { FileReferenceCandidate } from '@janhq/jan-file-reference/types'
+import type { SessionReferenceMentionCandidate } from '@janhq/jan-session-reference/types'
 import { apply, inject } from '../src/client/index.ts'
 import { apply as nodeApply } from '../src/index.ts'
 
@@ -30,10 +30,14 @@ const CREATED_AT = 1_700_000_000_000
 const NOW = CREATED_AT + 3 * 86_400_000
 /** The Host session list dates a row; only a session missing from it falls back to createdAt. */
 const UPDATED_AT = NOW - 3_600_000
+/** Registered projects the Client Workspace list reports; each test sets its own. */
+let projects: { workspaceId: string; path: string; title: string; isDefault?: true }[] = []
+const workspacesService = { list: { getSnapshot: () => ({ items: projects }) } }
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(NOW)
+  projects = []
 })
 afterEach(() => { vi.useRealTimers() })
 
@@ -89,7 +93,7 @@ async function bench(
       cwd: `${HOME}/project`,
       sameWorkspace: false,
       createdAt: CREATED_AT,
-      mention: '@[Research](dsh-session:InNvdXJjZSI)',
+      mention: '@[Research](jan-session:InNvdXJjZSI)',
     }],
   })),
   listed: Record<string, {
@@ -110,7 +114,7 @@ async function bench(
     },
   })
   class RemoteService extends Service {
-    readonly $host = { home: HOME, isLoopback: true }
+    readonly $host = { home: HOME, name: 'fixture-host', remote: false, isLoopback: true }
 
     constructor(serviceCtx: Context) {
       super(serviceCtx, 'remote')
@@ -119,6 +123,7 @@ async function bench(
   new RemoteService(ctx)
   ctx.provide('remote.fileReferences', { list: files })
   ctx.provide('remote.sessionReferenceResolver', { candidates: sessions })
+  ctx.provide('workspaces', workspacesService)
   ctx.provide('locale', new LocaleRuntime(ctx))
   const sessionStore = new TestSessions(async (action) => { await action() }, ctx)
   onTestFinished(async () => {
@@ -143,7 +148,7 @@ describe('apply', () => {
   it('declares its services and releases the @ reference registration on disposal', async () => {
     expect(inject).toEqual([
       'inputTriggers', 'locale', 'sessions', 'remote', 'remote.fileReferences',
-      'remote.sessionReferenceResolver', 'sidebarRight', 'slots', 'uiConversation',
+      'remote.sessionReferenceResolver', 'sidebarRight', 'slots', 'uiConversation', 'workspaces',
     ])
     const { fiber } = await bench()
     let registered: InputTriggerSource | undefined
@@ -157,7 +162,7 @@ describe('apply', () => {
       },
     })
     class RemoteService extends Service {
-      readonly $host = { home: undefined, isLoopback: false }
+      readonly $host = { home: undefined, name: undefined, remote: false, isLoopback: false }
 
       constructor(serviceCtx: Context) {
         super(serviceCtx, 'remote')
@@ -166,6 +171,7 @@ describe('apply', () => {
     new RemoteService(ctx)
     ctx.provide('remote.fileReferences', { list: () => Promise.resolve({ ok: true, value: [] }) })
     ctx.provide('remote.sessionReferenceResolver', { candidates: () => Promise.resolve({ ok: true, value: [] }) })
+    ctx.provide('workspaces', workspacesService)
     ctx.provide('locale', new LocaleRuntime(ctx))
     const sessions = new TestSessions(async (action) => { await action() }, ctx)
     onTestFinished(() => sessions.disposeScopes())
@@ -292,7 +298,7 @@ describe('candidates', () => {
             cwd: `${HOME}/project`,
             sameWorkspace: false,
             createdAt: CREATED_AT,
-            mention: '@[Research](dsh-session:InNvdXJjZSI)',
+            mention: '@[Research](jan-session:InNvdXJjZSI)',
           }],
         })
       }
@@ -326,6 +332,34 @@ describe('candidates', () => {
     ])
   })
 
+  it('lists matching projects after sessions as folder pointers and names a session by its project', async () => {
+    projects = [
+      { workspaceId: 'w1', path: `${HOME}/project`, title: 'Research Lab' },
+      { workspaceId: 'w2', path: `${HOME}/other`, title: 'Unrelated' },
+      { workspaceId: 'w3', path: `${HOME}/default-workspace`, title: 'default-workspace', isDefault: true },
+    ]
+    const { source } = await bench(undefined, undefined, { source: { updatedAt: UPDATED_AT } })
+    const rows = await source.candidates(session, request('lab'))
+    expect(rows.map(row => row.section)).toEqual(['Files & folders', 'Files & folders', 'Sessions', 'Projects'])
+    expect(rows[2]).toMatchObject({ name: 'Research', description: 'Research Lab · 1h' })
+    expect(rows[3]).toEqual({
+      name: 'Research Lab',
+      description: '~/project',
+      icon: 'folder',
+      section: 'Projects',
+      value: JSON.stringify({ kind: 'file', fileKind: 'directory', label: 'Research Lab', mention: `@${HOME}/project/` }),
+    })
+    const picked = source.onPick?.({ candidate: rows[3] as InputTriggerCandidate, action: 'pick' } as never)
+    expect(picked).toEqual({ insert: {
+      source: 'reference', ref: `@${HOME}/project/`, label: 'Research Lab/', appearance: 'folder', clipboardText: `@${HOME}/project/`,
+    } })
+    // An empty query lists every project under its display title; a typed path is file navigation only.
+    const all = await source.candidates(session, request(''))
+    expect(all.filter(row => row.section === 'Projects').map(row => row.name)).toEqual(['Research Lab', 'Unrelated', 'Default project'])
+    const pathRows = await source.candidates(session, request('src/'))
+    expect(pathRows.some(row => row.section === 'Projects')).toBe(false)
+  })
+
   it('suppresses sessions for an open quoted path and degrades each failed domain independently', async () => {
     const files = vi.fn()
       .mockResolvedValueOnce({
@@ -344,7 +378,7 @@ describe('candidates', () => {
         cwd: `${HOME}/project`,
         sameWorkspace: false,
         createdAt: CREATED_AT,
-        mention: '@[Research](dsh-session:InNvdXJjZSI)',
+        mention: '@[Research](jan-session:InNvdXJjZSI)',
       }],
     }))
     const { source } = await bench(files, sessions)
@@ -412,7 +446,7 @@ describe('candidates', () => {
         label: 'same',
         sameWorkspace: false,
         createdAt: CREATED_AT,
-        mention: '@[same](dsh-session:InNhbWUi)',
+        mention: '@[same](jan-session:InNhbWUi)',
       }],
     }))
     const { source } = await bench(files, sessions)
@@ -434,7 +468,7 @@ describe('candidates', () => {
         cwd: `${HOME}/project`,
         sameWorkspace: true,
         createdAt: CREATED_AT,
-        mention: '@[Unlisted run](dsh-session:InVubGlzdGVkIg)',
+        mention: '@[Unlisted run](jan-session:InVubGlzdGVkIg)',
       }],
     }))
     // A row absent from the list has no durable activity time to read.
@@ -456,7 +490,7 @@ describe('candidates', () => {
           cwd: `${HOME}/project`,
           sameWorkspace: true,
           createdAt: CREATED_AT,
-          mention: '@[Ordinary title](dsh-session:Im9yZGluYXJ5Ig)',
+          mention: '@[Ordinary title](jan-session:Im9yZGluYXJ5Ig)',
         },
         {
           sessionId: sid('worker'),
@@ -465,7 +499,7 @@ describe('candidates', () => {
           cwd: `${HOME}/project`,
           sameWorkspace: true,
           createdAt: CREATED_AT,
-          mention: '@[researcher](dsh-session:IndvcmtlciI)',
+          mention: '@[researcher](jan-session:IndvcmtlciI)',
         },
       ],
     }))
@@ -493,10 +527,10 @@ describe('candidates', () => {
     })).toEqual({
       insert: {
         source: 'reference',
-        ref: '@[researcher](dsh-session:IndvcmtlciI)',
+        ref: '@[researcher](jan-session:IndvcmtlciI)',
         label: 'researcher',
         appearance: 'session',
-        clipboardText: '@[researcher](dsh-session:IndvcmtlciI)',
+        clipboardText: '@[researcher](jan-session:IndvcmtlciI)',
       },
     })
   })
@@ -511,7 +545,7 @@ describe('candidates', () => {
         cwd: `${HOME}/project`,
         sameWorkspace: true,
         createdAt: NOW - 1_000,
-        mention: '@[Just now](dsh-session:Imp1c3Qtbm93Ig)',
+        mention: '@[Just now](jan-session:Imp1c3Qtbm93Ig)',
       }],
     }))
     const { source } = await bench(files, sessions, { 'just-now': { updatedAt: NOW - 1_000 } })
@@ -530,7 +564,7 @@ describe('candidates', () => {
         cwd: `${HOME}/project`,
         sameWorkspace: true,
         createdAt: CREATED_AT,
-        mention: '@[Sibling run](dsh-session:InNpYmxpbmdyIg)',
+        mention: '@[Sibling run](jan-session:InNpYmxpbmdyIg)',
       }],
     }))
     const { source } = await bench(files, sessions)
@@ -562,7 +596,7 @@ describe('directory header', () => {
   it('trails the workspace root down to the directory being listed', async () => {
     const { source } = await bench()
     expect(source.header?.(session, { query: 'src/module1/ind', drilled: true })).toEqual([
-      { label: 'Workspace', value: JSON.stringify({ kind: 'file', fileKind: 'directory', label: 'Workspace', mention: '@' }) },
+      { label: 'Project', value: JSON.stringify({ kind: 'file', fileKind: 'directory', label: 'Project', mention: '@' }) },
       { label: 'src', value: JSON.stringify({ kind: 'file', fileKind: 'directory', label: 'src', mention: '@src/' }) },
       {
         label: 'module1',
@@ -657,7 +691,7 @@ describe('pick and codec', () => {
     const { source } = await bench()
     const candidates = await source.candidates(session, request(''))
     const candidate = candidates.find(item => item.name === 'Research')!
-    const mention = '@[Research](dsh-session:InNvdXJjZSI)'
+    const mention = '@[Research](jan-session:InNvdXJjZSI)'
     expect(pick(source, candidate)).toEqual({
       insert: {
         source: 'reference',
@@ -691,8 +725,8 @@ describe('reference preview', () => {
     expect(file.resolveFilePath('docs/a b.md')).toBe('/workspace/docs/a b.md')
     expect(factory(sid('other')).resolveFilePath('/absolute.md')).toBe('/absolute.md')
     expect(openResource.mock.calls).toEqual([
-      ['dsh-resource://file/session/target/docs/a%20b.md'],
-      ['dsh-resource://file/session/other/notes.md'],
+      ['jan-resource://file/session/target/docs/a%20b.md'],
+      ['jan-resource://file/session/other/notes.md'],
     ])
   })
 
@@ -701,10 +735,10 @@ describe('reference preview', () => {
     const openResource = vi.spyOn(ctx.sidebarRight, 'openResource')
     expect(source.openReference?.(session, { ref: '@notes/readme.md', appearance: 'file' })).toBe(true)
     expect(source.openReference?.(session, { ref: '@"docs/a b.md"', appearance: 'file' })).toBe(true)
-    expect(openResource).toHaveBeenNthCalledWith(1, 'dsh-resource://file/session/target/notes/readme.md')
-    expect(openResource).toHaveBeenNthCalledWith(2, 'dsh-resource://file/session/target/docs/a%20b.md')
+    expect(openResource).toHaveBeenNthCalledWith(1, 'jan-resource://file/session/target/notes/readme.md')
+    expect(openResource).toHaveBeenNthCalledWith(2, 'jan-resource://file/session/target/docs/a%20b.md')
     expect(source.openReference?.(session, { ref: '@docs/', appearance: 'folder' })).toBe(false)
-    expect(source.openReference?.(session, { ref: '@[Research](dsh-session:abc)', appearance: 'session' })).toBe(false)
+    expect(source.openReference?.(session, { ref: '@[Research](jan-session:abc)', appearance: 'session' })).toBe(false)
     expect(openResource).toHaveBeenCalledTimes(2)
     await fiber.dispose()
   })

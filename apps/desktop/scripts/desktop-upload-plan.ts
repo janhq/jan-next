@@ -5,12 +5,12 @@ import { createReadStream } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 import { dump, load } from 'js-yaml'
-import type { DesktopPackageTargetName } from './package-target.ts'
 import {
   desktopBuildRecordFilename,
   desktopLatestInstallerFilename,
   desktopUpdateMetadataFilename,
   resolveDesktopUploadConfig,
+  type DesktopAutoUpdateTarget,
 } from './desktop-auto-update-environment.mjs'
 import { desktopTargetBuildPaths } from './desktop-build-paths.mjs'
 import { validateDesktopBuildVersion } from './desktop-build-version.mjs'
@@ -21,7 +21,7 @@ const TARGETS = {
   'mac-arm64': { platform: 'darwin', arch: 'arm64', os: 'mac' },
   'mac-x64': { platform: 'darwin', arch: 'x64', os: 'mac' },
   'win-x64': { platform: 'win32', arch: 'x64', os: 'win' },
-} as const satisfies Record<DesktopPackageTargetName, {
+} as const satisfies Record<DesktopAutoUpdateTarget, {
   readonly platform: NodeJS.Platform
   readonly arch: string
   readonly os: string
@@ -43,7 +43,7 @@ export interface DesktopUploadArtifact {
 /** A validated installer or update upload, with any channel metadata ordered last. */
 export interface DesktopUploadPlan {
   readonly environment: 'test' | 'production'
-  readonly target: DesktopPackageTargetName
+  readonly target: DesktopAutoUpdateTarget
   readonly version: string
   /** Update feed directory URL, or the single installer URL for a fixed download. */
   readonly publicUrl: string
@@ -177,13 +177,13 @@ function uploadArtifact(
 }
 
 /**
- * Validate the completed package record, dsh version, update metadata, hashes, and target files.
+ * Validate the completed package record, jan version, update metadata, hashes, and target files.
  * @param targetName - Fixed platform and architecture selected by the upload command.
  * @param options - Optional filesystem roots and environment for tests or release automation.
  * @returns A fixed installer upload or an update plan with channel metadata ordered last.
  */
 export async function createDesktopUploadPlan(
-  targetName: DesktopPackageTargetName,
+  targetName: DesktopAutoUpdateTarget,
   options: DesktopUploadPlanOptions = {},
 ): Promise<DesktopUploadPlan> {
   const target = TARGETS[targetName]
@@ -194,10 +194,10 @@ export async function createDesktopUploadPlan(
   const repositoryRoot = options.repositoryRoot ?? REPOSITORY_ROOT
   const appRoot = options.appRoot ?? APP_ROOT
   const artifactsRoot = options.artifactsRoot ?? desktopTargetBuildPaths(targetName).artifacts
-  const dshVersion = options.packagedProductVersion ?? await manifestVersion(join(repositoryRoot, 'package.json'), 'dsh package')
+  const janVersion = options.packagedProductVersion ?? await manifestVersion(join(repositoryRoot, 'package.json'), 'jan package')
   const desktopVersion = options.packagedProductVersion ?? await manifestVersion(join(appRoot, 'package.json'), 'desktop package')
-  if (dshVersion !== desktopVersion) {
-    throw new Error(`desktop upload: desktop version ${desktopVersion} does not match current dsh version ${dshVersion}`)
+  if (janVersion !== desktopVersion) {
+    throw new Error(`desktop upload: desktop version ${desktopVersion} does not match current jan version ${janVersion}`)
   }
 
   const update = resolveDesktopUploadConfig(environment, target.platform, target.arch)
@@ -209,10 +209,10 @@ export async function createDesktopUploadPlan(
   const recordedVersion = stringField(buildRecord.version, `${targetName} package completion record.version`)
   let buildVersion: string
   try {
-    buildVersion = validateDesktopBuildVersion(recordedVersion, dshVersion)
+    buildVersion = validateDesktopBuildVersion(recordedVersion, janVersion)
   }
   catch (error) {
-    throw new Error(`desktop upload: ${targetName} package completion record holds ${recordedVersion}, which is not a build of dsh ${dshVersion}: ${
+    throw new Error(`desktop upload: ${targetName} package completion record holds ${recordedVersion}, which is not a build of jan ${janVersion}: ${
       error instanceof Error ? error.message : String(error)}`)
   }
   if (buildRecord.schemaVersion !== 1
@@ -241,7 +241,7 @@ export async function createDesktopUploadPlan(
     throw new Error(`desktop upload: ${metadataFilename}.files must contain exactly one target update file`)
   }
 
-  const base = `deepseek-harness-${buildVersion}-${target.os}-${target.arch}`
+  const base = `jan-${buildVersion}-${target.os}-${target.arch}`
   const updaterExtension = target.platform === 'darwin' ? 'zip' : 'exe'
   const updaterInfo = updateFileInfo(metadata.files[0], `${metadataFilename}.files[0]`, `${base}.${updaterExtension}`)
   const updaterPath = await verifyChecksummedArtifact(artifactsRoot, updaterInfo)

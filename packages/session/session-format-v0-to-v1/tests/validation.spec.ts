@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { SessionFormatEvent, SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'
-import { KNOWN_SESSION_EVENT_TYPES } from '@deepseek-ai/dsh-session'
+import type { SessionFormatEvent, SessionFormatJsonValue } from '@janhq/jan-session-format'
+import { KNOWN_SESSION_EVENT_TYPES } from '@janhq/jan-session'
 import {
   RELEASED_V0_EVENT_TYPES,
   RELEASED_V0_EVENT_DISPOSITIONS,
@@ -217,8 +217,10 @@ describe('released event and payload inventory', () => {
     expect(RELEASED_V0_EVENT_TYPES).toHaveLength(51)
     expect(RELEASED_V0_EVENT_TYPES.filter(type => !KNOWN_SESSION_EVENT_TYPES.has(type))).toEqual([
       'assistant/chunk',
+      'session-log-deepseek/delivery-accepted',
       'tool/code-dispatch',
       'tool/code-dispatch-start',
+      'web/deepseek-search-llm-request',
     ])
     expect(KNOWN_SESSION_EVENT_TYPES.has('tool/ptc-dispatch')).toBe(true)
     expect(KNOWN_SESSION_EVENT_TYPES.has('tool/ptc-dispatch-start')).toBe(true)

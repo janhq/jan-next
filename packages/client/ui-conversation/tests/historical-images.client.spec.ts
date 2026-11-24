@@ -1,11 +1,41 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { AttachmentId } from '@deepseek-ai/dsh-attachment'
-import type { SessionFace } from '@deepseek-ai/dsh-api-session-controller/client'
-import { RemoteError, SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
+import { AttachmentId } from '@janhq/jan-attachment'
+import type { SessionFace } from '@janhq/jan-api-session-controller/client'
+import { RemoteError, SlotTestRuntime } from '@janhq/jan-client-test-runtime'
 import { HistoricalImageCache } from '../src/client/conversation/historical-images.ts'
 
 describe('HistoricalImageCache', () => {
+  it('shares a trace-only URL until its last thumbnail releases it', async () => {
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:trace')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined)
+    const runtime = await SlotTestRuntime.create()
+    try {
+      const attachment = {
+        attachmentId: AttachmentId('trace-image'), mediaType: 'image/png', bytes: 1, width: 1, height: 1,
+      } as const
+      const read = vi.fn(async () => ({ ok: true as const, value: { attachment, data: Uint8Array.of(1) } }))
+      const sessionId = await runtime.sessions.add({ id: 's1', session: { readAttachment: read } })
+      const reference = runtime.sessions.retain(sessionId)
+      await reference.ready
+      const cache = new HistoricalImageCache(runtime.ctx, runtime.ctx.sessions)
+      const first = cache.acquire(sessionId, attachment)
+      const second = cache.acquire(sessionId, attachment)
+      expect(await first.url).toBe(await second.url)
+      expect(read).toHaveBeenCalledTimes(1)
+      expect(create).toHaveBeenCalledTimes(1)
+      first.release()
+      expect(revoke).not.toHaveBeenCalled()
+      second.release()
+      expect(revoke).toHaveBeenCalledExactlyOnceWith('blob:trace')
+      expect(cache.peek(sessionId, attachment)).toBeUndefined()
+    } finally {
+      await runtime.dispose()
+      create.mockRestore()
+      revoke.mockRestore()
+    }
+  })
+
   it('invalidates a pending image load when its Session binding is released', async () => {
     const read = Promise.withResolvers<Awaited<ReturnType<SessionFace['readAttachment']>>>()
     const runtime = await SlotTestRuntime.create()

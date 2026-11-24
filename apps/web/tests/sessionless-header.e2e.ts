@@ -3,7 +3,7 @@ import { chromium, type Browser } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
-import { initialShortcutConfig } from '@deepseek-ai/dsh-client-shortcuts/protocol'
+import { initialShortcutConfig } from '@janhq/jan-client-shortcuts/protocol'
 
 let scaffold: WebScaffold
 let browser: Browser
@@ -26,7 +26,7 @@ describe('navigation without a selected Session', () => {
     try {
       if (platform !== 'web') {
         await page.addInitScript(({ value, snapshot }) => {
-          Object.assign(window, { dshDesktop: { protocolVersion: 1,
+          Object.assign(window, { janDesktop: { protocolVersion: 1,
             keyboard: { subscribe: () => () => {}, closeWindow: async () => {} },
             shortcuts: { get: async () => ({ ...snapshot, status: 'ready' }),
               subscribe: () => () => {}, recording: async () => {},
@@ -39,7 +39,7 @@ describe('navigation without a selected Session', () => {
       }
       const tripwire = watchConsole(page)
       await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-      await page.getByRole('textbox', { name: 'Choose workspace', exact: true }).waitFor()
+      await page.getByRole('textbox', { name: 'Choose project', exact: true }).waitFor()
       const sessionHeader = page.locator('[data-slot="conversation.session.header"]')
       expect(await sessionHeader.count()).toBe(0)
       const header = page.locator('[data-slot="conversation.header"] > header')

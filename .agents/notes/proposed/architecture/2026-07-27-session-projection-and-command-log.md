@@ -2,8 +2,6 @@
 
 Status: proposed
 
-English | [中文](2026-07-27-session-projection-and-command-log.zh.md)
-
 ## Problem
 
 Three in-flight web features — todo (#497), goal (#527), and plan mode (#587) — each derive per-session state from the session log and surface it in the browser client, and each invented its own copy of the same machinery:
@@ -22,7 +20,7 @@ Four infrastructure pieces, then the domains become pure contributors.
 
 A state-carrying log event MUST carry the complete post-change state, never a bare delta. All three domains already comply: `todo/write` is a whole-list snapshot, `plan/mode` a whole boolean, `goal/change` metadata a full `GoalSnapshot` (or a whole-value clear tombstone). The rule keeps every domain's transition trivially cheap (the framework drives it per event), keeps values self-describing on the wire, and lets any consumer treat the latest pushed value as final — out-of-order immunity by seq comparison, self-healing because a missed update is corrected by the next one.
 
-### Host projection registry (`dsh-session-projection`, new package)
+### Host projection registry (`jan-session-projection`, new package)
 
 A light Service Definition package: local host-state definitions, a merge-extensible client-view type map, the registry service, and zod validation for persisted state and client values. Capability-seam roles: domain host plugins provide projection units, carriers consume them, and neither knows the other.
 
@@ -53,7 +51,7 @@ declare module 'cordis' {
 }
 ```
 
-- `ProjectionDefinition<K, S>` carries each unit's host state type; `SessionProjectionMap` remains the one client DTO table shared by the wire block and React hook via `import type`. A unit may remain host-only by omitting `wire`. How a client value is *rendered* is the slot system's business, never the projection layer's. The state/view split is specified by the [implemented state and client-view note](../../archived/architecture/2026-08-19-session-projection-state-and-client-views.md).
+- `ProjectionDefinition<K, S>` carries each unit's host state type; `SessionProjectionMap` remains the one client DTO table shared by the wire block and React hook via `import type`. A unit may remain host-only by omitting `wire`. How a client value is *rendered* is the slot system's business, never the projection layer's.
 - **The host is the only place a projection is computed.** The framework drives every registered unit forward eagerly: each committed session event passes through `apply`; a unit uninterested in an event returns the same state reference, and an unchanged reference (`Object.is`) produces no downstream work. Clients never fold domain events — they receive finished values (baseline block + push frame below). This removes the double-implementation trap (plan's two-event fold written once, on the host) and any client-side domain code.
 - **State is always computed, never logged.** The log holds events only; the unit's state lives in the framework's per-session watermark cache (`{state, observedSeq}` per unit) and, in a later phase, in a **persisted projection cache** on the domain-KV storage seam: rows of `(sessionId, key, ver, seq, val)` (`ver` = the unit's `stateVersion`, `seq` = the watermark, `val` = the state JSON). A row is never wrong, only possibly stale — its `seq` says exactly how stale. The one read recipe, cold and live alike: take the cached state (or `init()`), forward-apply only the events past its watermark, `view` the result. Cold listings (every session's title across all workspaces) become an index read plus, at worst, a short tail replay; the session-persistence seam grows a read-from-seq primitive for that tail in the same later phase. Write policy: throttled (count/interval, configurable) plus two mandatory points — `turn/end` and detach (the live-to-cold moment). A crash between writes costs a longer tail replay, never a wrong value.
 - A domain's input event set is its own choice: todos folds `todo/write` alone; plan folds `plan/mode` plus its own `/plan` `command/run` records (see the plan section); goal folds `goal/change` metadata; session title folds its title events (retiring the bespoke `session/title` frame and the client's title-snapshot map — the fourth hand-rolled projection this seam absorbs).
@@ -61,7 +59,7 @@ declare module 'cordis' {
 
 ### Shipped consumer: the subagent identity unit
 
-The registry's two read faces already serve a shipped consumer beyond this RFC's wire plan: [subagent list identity via the projection unit](../../archived/architecture/2026-08-06-subagent-list-identity-projection.md) registers a `subagent` unit — the durable mode/label identity folded last-wins from `subagent/descriptor` — and `SubagentRuntime.listChildren` reads it through `snapshot()` for a live child (the watermark cache, zero log reads) and `restore({}, events, 0)` over one persistence inspection for a cold one. The registry contract is unchanged: no failure channel and no new read face — a unit never throws, an absent value is the signal, and how absence renders is that consumer's decision.
+The registry's two read faces already serve a shipped consumer beyond this RFC's wire plan: subagent list identity registers a `subagent` unit — the durable mode/label identity folded last-wins from `subagent/descriptor` — and `SubagentRuntime.listChildren` reads it through `snapshot()` for a live child (the watermark cache, zero log reads) and `restore({}, events, 0)` over one persistence inspection for a cold one. The registry contract is unchanged: no failure channel and no new read face — a unit never throws, an absent value is the signal, and how absence renders is that consumer's decision.
 
 ### Wire: projections block on the history tail page
 
@@ -136,7 +134,7 @@ The client flow builder gains one generic command node (run/done paired by `comm
 
 Infrastructure first; the three in-flight PRs are left untouched and re-target after the base lands (their migration mapping is the guide):
 
-1. **Host base**: `dsh-session-projection` (unit contract, eager drive, watermark cache) + api-proxy projections block + the `session/projection` push frame. Mergeable with zero domains registered (block and frames simply absent).
+1. **Host base**: `jan-session-projection` (unit contract, eager drive, watermark cache) + api-proxy projections block + the `session/projection` push frame. Mergeable with zero domains registered (block and frames simply absent).
 2. **Client base**: the generic value store + `useProjection` seat; retire the per-domain cell machinery and, with title's unit registered, the `session/title` frame and title-snapshot map. Depends on 1 for the frame shape (fixtures feed synthetic frames meanwhile).
 3. **Command channel**: the two events, executor logging, generic node + keyed slot, notice retirement, `{matched, commandId?}` admission. Parallel with 1.
 4. **Domain re-targets** (after 1+2): todo (unit in `tool-todo`, drop the rider field), then plan (two-event unit, RPCs retired, toggle → `/plan`), then goal (`goal/change` unit, drop `goals.get`, move the six `Session` methods into the domain plugin's inject).

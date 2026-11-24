@@ -7,26 +7,26 @@
  */
 
 import type { PtcDispatchLog } from './runtime-types.ts'
-import { symbols, type Context } from '@deepseek-ai/cordis'
-import { brandString } from '@deepseek-ai/dsh-brand'
-import { createUserMessage, HarnessError } from '@deepseek-ai/dsh-llm'
+import { symbols, type Context } from '@janhq/cordis'
+import { brandString } from '@janhq/jan-brand'
+import { createUserMessage, HarnessError } from '@janhq/jan-llm'
 
-import type { ContentBlock, ToolCallId, ToolSchema } from '@deepseek-ai/dsh-llm'
-import type { PtcBindingFunction, PtcRunResult, PtcRunSandbox, PtcRuntime } from '@deepseek-ai/dsh-ptc-runtime'
-import { approveEscalation, ESCALATION_TARGETS, validateEscalationArgs } from '@deepseek-ai/dsh-sandbox'
-import type { SandboxExecutionPolicy } from '@deepseek-ai/dsh-sandbox'
-import type {} from '@deepseek-ai/dsh-user-approval'
-import type {} from '@deepseek-ai/dsh-working-directory'
-import type {} from '@deepseek-ai/dsh-sandbox-policy'
-import { deepFreeze, snapshotJsonValue, type JsonValue } from '@deepseek-ai/dsh-util-values'
-import { defineTool, parameterSchemaSpecToJsonSchema, RUN_CODE_NAME, TOOL_ABORTED } from '@deepseek-ai/dsh-tools'
-import type { ToolExecutionPipeline } from '@deepseek-ai/dsh-tools/pipeline'
-import { toolErrorMessage } from '@deepseek-ai/dsh-tools/pipeline'
-import { scopeTarget } from '@deepseek-ai/dsh-scope'
+import type { ContentBlock, ToolCallId, ToolSchema } from '@janhq/jan-llm'
+import type { PtcBindingFunction, PtcRunResult, PtcRunSandbox, PtcRuntime } from '@janhq/jan-ptc-runtime'
+import { approveEscalation, ESCALATION_TARGETS, validateEscalationArgs } from '@janhq/jan-sandbox'
+import type { SandboxExecutionPolicy } from '@janhq/jan-sandbox'
+import type {} from '@janhq/jan-user-approval'
+import type {} from '@janhq/jan-working-directory'
+import type {} from '@janhq/jan-sandbox-policy'
+import { deepFreeze, snapshotJsonValue, type JsonValue } from '@janhq/jan-util-values'
+import { defineTool, parameterSchemaSpecToJsonSchema, RUN_CODE_NAME, TOOL_ABORTED } from '@janhq/jan-tools'
+import type { ToolExecutionPipeline } from '@janhq/jan-tools/pipeline'
+import { toolErrorMessage } from '@janhq/jan-tools/pipeline'
+import { scopeTarget } from '@janhq/jan-scope'
 import type { PtcCalls } from './ptc-calls.ts'
 import { CodeRunFailedError, ToolCallLimitExceededError } from './errors.ts'
 import type { Config } from './config.ts'
-import type { ToolDefinition, ToolExecutionResult, ToolRunContext } from '@deepseek-ai/dsh-tools'
+import type { ToolDefinition, ToolExecutionResult, ToolRunContext } from '@janhq/jan-tools'
 import type {} from './types.ts'
 
 /** The model-facing name of the PTC mode tool. */
@@ -81,11 +81,11 @@ const RUN_CODE_FLAVORS = {
 export function requirePtcRuntime(ctx: Context): SupportedPtcRuntime {
   const runtime = ctx.get('ptcRuntime')
   if (runtime === undefined) {
-    throw new Error('dsh-tools: mode "ptc" requires a PTC runtime — load a ctx.ptcRuntime implementation (e.g. @deepseek-ai/dsh-ptc-runtime-node) or load @deepseek-ai/dsh-tool-executor-native')
+    throw new Error('jan-tools: mode "ptc" requires a PTC runtime — load a ctx.ptcRuntime implementation (e.g. @janhq/jan-ptc-runtime-node) or load @janhq/jan-tool-executor-native')
   }
   if (!Object.hasOwn(RUN_CODE_FLAVORS, runtime.language)) {
     const known = Object.keys(RUN_CODE_FLAVORS).map(name => JSON.stringify(name)).join(', ')
-    throw new Error(`dsh-tools: no SDK renderer registered for runtime language ${JSON.stringify(runtime.language)} (known: ${known})`)
+    throw new Error(`jan-tools: no SDK renderer registered for runtime language ${JSON.stringify(runtime.language)} (known: ${known})`)
   }
   return runtime as SupportedPtcRuntime
 }
@@ -253,14 +253,14 @@ type RunCodeOutput = { logs: string[]; result?: JsonValue; sandbox?: PtcRunSandb
 async function resolveWorkingDirectory(ctx: Context, exec: ToolRunContext): Promise<string | undefined> {
   if (exec.agent === undefined) return undefined
   const directories = ctx.get('workingDirectory')
-  if (directories === undefined) throw new Error('dsh-tools: run_code with an Agent requires workingDirectory')
+  if (directories === undefined) throw new Error('jan-tools: run_code with an Agent requires workingDirectory')
   return directories.ensure(exec.agent, exec.signal)
 }
 
 /** Resolve standing authority for a runtime that enforces file policy. */
 function resolveSandboxPolicy(ctx: Context, exec: ToolRunContext): SandboxExecutionPolicy {
   const policy = ctx.get('sandboxPolicy')
-  if (policy === undefined) throw new Error('dsh-tools: confined PTC runtime requires sandboxPolicy')
+  if (policy === undefined) throw new Error('jan-tools: confined PTC runtime requires sandboxPolicy')
   return policy.resolve(exec.agent === undefined ? {} : { session: exec.agent.session })
 }
 

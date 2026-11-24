@@ -3,13 +3,11 @@ description: "MCP server manager for deployments, plugins, and management surfac
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-mcp-manager
-
-English | [中文](README.zh.md)
+# @janhq/jan-mcp-manager
 
 ## Summary
 
-`dsh-mcp-manager` manages a live fleet of MCP servers from two sources: entries in `config.servers` on its profile entry (also editable through Settings), and entries that installed plugins register for their own lifetime. The manager mounts one `dsh-mcp-client` instance per enabled entry, adding, rebuilding, disabling, and removing instances live as either source changes. `ctx.mcpManager` aggregates every server's connection status, `restart` recovers a server whose reconnect budget ran out, `probe` tests an entry without touching the live instances, and `watch` streams the server list to Remote clients. `${credential:REF}` templates keep secrets out of entries; mcp-client handles credential rotation inside each instance.
+`jan-mcp-manager` manages a live fleet of MCP servers from two sources: entries in `config.servers` on its profile entry (also editable through Settings), and entries that installed plugins register for their own lifetime. The manager mounts one `jan-mcp-client` instance per enabled entry, adding, rebuilding, disabling, and removing instances live as either source changes. `ctx.mcpManager` aggregates every server's connection status, `restart` recovers a server whose reconnect budget ran out, `probe` tests an entry without touching the live instances, and `watch` streams the server list to Remote clients. `${credential:REF}` templates keep secrets out of entries; mcp-client handles credential rotation inside each instance.
 
 ## Table of Contents
 
@@ -25,11 +23,11 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount the manager once per Host. The Web and Desktop profiles mount it as the `mcp-manager` row of [`dsh-web-app`](../../bundle/web-app/README.md). Its volatile `config.servers` holds configured entries; Settings uses the owning entry id as its namespace (`mcp` in the examples below). Credential templates resolve through the credentials provider, so compose the row with `inject: [credentials]` wherever entries may use them.
+Mount the manager once per Host. The Web and Desktop profiles mount it as the `mcp-manager` row of [`jan-web-app`](../../bundle/web-app/README.md). Its volatile `config.servers` holds configured entries; Settings uses the owning entry id as its namespace (`mcp` in the examples below). Credential templates resolve through the credentials provider, so compose the row with `inject: [credentials]` wherever entries may use them.
 
 ### When to choose it
 
-Choose the manager when the server set changes at runtime: a settings edit or a management surface adds, reconfigures, disables, or deletes configured servers, or an installed plugin brings its own server. Keep plain `dsh-mcp-client` rows instead when a deployment pins its servers in the composition, or when a server belongs to one agent preset rather than the whole Host; the manager governs the global plane only.
+Choose the manager when the server set changes at runtime: a settings edit or a management surface adds, reconfigures, disables, or deletes configured servers, or an installed plugin brings its own server. Keep plain `jan-mcp-client` rows instead when a deployment pins its servers in the composition, or when a server belongs to one agent preset rather than the whole Host; the manager governs the global plane only.
 
 ### Minimal configuration
 
@@ -37,7 +35,7 @@ One `cordis.yml` row mounts the manager; `servers` in its config is optional and
 
 ```yaml
 - id: mcp
-  name: '@deepseek-ai/dsh-mcp-manager'
+  name: '@janhq/jan-mcp-manager'
   inject: [credentials]
   config:
     servers:
@@ -73,7 +71,7 @@ A profile’s `cordis.patch.yml` replaces the entry’s complete `servers` map. 
 | `startupTimeoutMs` | `30,000` | Budget for template resolution, negotiation, connection, and initial tool discovery |
 | `toolCallTimeoutMs` / `closeTimeoutMs` / `reconnect` | mcp-client defaults | Per-server overrides |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-mcp-manager) is the exhaustive source for every accepted field.
+The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-mcp-manager) is the exhaustive source for every accepted field.
 
 ### Managing configured servers
 
@@ -86,8 +84,8 @@ Settings writes persist through ConfigEditor with revision checks; Loader update
 A plugin that integrates an MCP service registers its server instead of writing configuration:
 
 ```ts
-import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-mcp-manager'
+import type { Context } from '@janhq/cordis'
+import type {} from '@janhq/jan-mcp-manager'
 
 export const name = 'example-app'
 export const inject = ['mcpManager']
@@ -105,13 +103,13 @@ export function apply(ctx: Context): void {
 
 ### Observing and recovering
 
-`ctx.mcpManager.list()` returns each server's `name`, `configured` flag, and live `status`, listing configured entries before registered ones. The list includes removed entries whose cleanup is still pending or failed, with `configured: false`; a cleanup failure retains the row until the Host restarts. Cleanup status retains the first diagnostic and reports `closeConfirmed: false` if any instance or probe could not confirm closure. Published status changes emit `mcp-manager/status` while the manager is live, including cleanup failures after an entry's removal. Lifecycle operations do not wait for listeners; synchronous throws and returned promise rejections are logged without skipping other listeners.
+`ctx.mcpManager.list()` returns each server's `name`, `configured` flag, `origin`, and live `status`, listing configured entries before registered ones. `origin` is `{ kind: 'config' }` for a configured entry and `{ kind: 'plugin', plugin }` for a registration, naming the registering plugin. The list includes removed entries whose cleanup is still pending or failed, with `configured: false`; a cleanup failure retains the row until the Host restarts. Cleanup status retains the first diagnostic and reports `closeConfirmed: false` if any instance or probe could not confirm closure. Published status changes emit `mcp-manager/status` while the manager is live, including cleanup failures after an entry's removal. Lifecycle operations do not wait for listeners; synchronous throws and returned promise rejections are logged without skipping other listeners.
 
 Reconnection stays inside mcp-client. `restart(name)` replaces an instance and resets its reconnect budget, including after that budget runs out. Unconfirmed transport closure or a local cleanup error blocks replacement and further probes for that server; restart the Host to recover. `probe(name, options)` resolves templates, connects, reads server identity and tool names, and closes without registering tools or reserving a namespace. Disabled entries can be probed. The probe has its own deadline and cancellation signal, and reports connection/listing success separately from closure and cleanup results.
 
 ### Remote operations
 
-Browser clients reach the manager as `ctx.remote.mcpManager` through [`dsh-api-remotes`](../../api/remotes/README.md). `watch(signal)` yields the complete server list on subscription and again after every status or entry change, coalescing changes the subscriber has not read yet; aborting the signal ends that stream, and manager disposal ends every stream. `restart(name)` and `probe(name, signal)` run the operations above. Configuration writes stay on the Settings Remote; the manager adds no write method, so a browser cannot define a server command.
+Browser clients reach the manager as `ctx.remote.mcpManager` through [`jan-api-remotes`](../../api/remotes/README.md). `watch(signal)` yields the complete server list on subscription and again after every status or entry change, coalescing changes the subscriber has not read yet; aborting the signal ends that stream, and manager disposal ends every stream. `restart(name)` and `probe(name, signal)` run the operations above. Configuration writes stay on the Settings Remote; the manager adds no write method, so a browser cannot define a server command.
 
 -----
 
@@ -155,7 +153,7 @@ Read these pages when the package-level contract is not enough.
 - [mcp-client README](../mcp-client/README.md) — the per-instance bridge: naming, reconnect policy, tool execution, status surface.
 - [Settings package README](../../settings/settings/README.md) — the Config forms, inheritance, revision checks, and profile writes the manager uses.
 - [Credentials group README](../../credentials/README.md) — the credential references `${credential:…}` templates resolve.
-- [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-mcp-manager) — every accepted config field.
+- [Generated configuration catalog](../../../docs/config-catalog.md#janhqjan-mcp-manager) — every accepted config field.
 - [MCP manager Agent Note](../../../.agents/notes/implemented/feature/2026-08-31-mcp-manager-plugin.md) — the design decisions, peer-product survey, and rejected alternatives.
 
 -----
@@ -163,7 +161,7 @@ Read these pages when the package-level contract is not enough.
 <a id="model-experience"></a>
 ## Model Experience
 
-Indirectly, through the `dsh-mcp-client` instances it mounts, whose server-qualified tools and schemas enter requests; the manager itself registers no prompt or tool content.
+Indirectly, through the `jan-mcp-client` instances it mounts, whose server-qualified tools and schemas enter requests; the manager itself registers no prompt or tool content.
 
 #### KV Cache effect
 

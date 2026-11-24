@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type {
   SessionListState, SessionProjectionMap, SessionSummary,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
+} from '@janhq/jan-api-session-controller/client'
+import type { WorkspaceId, WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
 import type {
   SessionPendingInteraction, SessionStatus, SessionStatusSnapshot,
-} from '@deepseek-ai/dsh-client-ui-session/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { JsonValue } from '@deepseek-ai/dsh-util-values'
-import type { SessionProjectionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
+} from '@janhq/jan-client-ui-session/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { JsonValue } from '@janhq/jan-util-values'
+import type { SessionProjectionSnapshot } from '@janhq/jan-api-session-controller/client'
 import {
   type ArchivedFilter,
   deriveFlat, deriveGroups, deriveSearchResults, orderByRecency, owningGroupKey, owningParentFolder,
@@ -469,6 +469,15 @@ describe('deriveGroups', () => {
       partial, [workspace('project', ['missing', 'present'])], noRows, noAttention, view(['project']),
     )
     expect(groups[0]!.sessions.map(node => node.id)).toEqual([sid('present')])
+  })
+
+  it('suppresses sessions with another sidebar presentation but keeps their archived chats discoverable', () => {
+    const bot = summary('bot-session', 2)
+    const all = list(summary('ordinary', 1), bot)
+    const project = workspace('first', ['ordinary', 'bot-session'])
+    const hidden = new Set([bot.id])
+    expect(deriveGroups(all, [project], { ...noRows, hiddenSessionIds: hidden }, noAttention, view(['first']))[0]!.sessions.map(row => row.id)).toEqual([sid('ordinary')])
+    expect(deriveFlat(all, project.sessionIds, { ...rowState({ archived: ['bot-session'], archivedFilter: 'only' }), hiddenSessionIds: hidden }, noAttention).map(row => row.id)).toEqual([bot.id])
   })
 
   it('hides archived sessions from workspace groups and Ungrouped', () => {

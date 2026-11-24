@@ -1,10 +1,7 @@
 /** Full-viewport viewing of loaded, standalone content images in documentation pages. */
 import { labelButton, type MediaViewer, viewerButton } from './media-viewer.ts'
 
-const messages = {
-  en: 'View image fullscreen: {alt}',
-  zh: '全屏查看图片：{alt}',
-}
+const openLabel = 'View image fullscreen: {alt}'
 
 interface ImageEntry {
   container: HTMLElement
@@ -23,12 +20,10 @@ export class ImageViewer {
 
   /**
    * @param doc Browser document containing VitePress content.
-   * @param language Current VitePress language, read again when entries refresh.
    * @param viewer Shared modal owner for images and diagrams.
    */
   constructor(
     private readonly doc: Document,
-    private readonly language: () => string,
     private readonly viewer: Pick<MediaViewer, 'open'>,
   ) {
     const root = doc.querySelector('#VPContent') ?? doc.body
@@ -44,7 +39,7 @@ export class ImageViewer {
     this.#scan()
   }
 
-  /** Close the image view and refresh controls after route, language, or theme changes. */
+  /** Close the image view and refresh controls after route or theme changes. */
   refresh(): void {
     this.#closeActive()
     this.#scan()
@@ -68,8 +63,8 @@ export class ImageViewer {
     if (image === this.#active) this.#closeActive()
     entry.events.abort()
     entry.button.remove()
-    entry.container.classList.remove('dsh-image-container')
-    image.classList.remove('dsh-image-zoomable')
+    entry.container.classList.remove('jan-image-container')
+    image.classList.remove('jan-image-zoomable')
     this.#entries.delete(image)
   }
 
@@ -87,9 +82,8 @@ export class ImageViewer {
         this.#remove(image, entry)
       }
     }
-    const copy = this.language().startsWith('zh') ? messages.zh : messages.en
     for (const image of images) {
-      const label = copy.replace('{alt}', () => image.alt)
+      const label = openLabel.replace('{alt}', () => image.alt)
       const existing = this.#entries.get(image)
       if (existing) {
         if (existing.button.getAttribute('aria-label') !== label) labelButton(existing.button, label)
@@ -98,7 +92,7 @@ export class ImageViewer {
       const container = image.parentElement
       if (!container) continue
       const button = viewerButton(this.doc, label, 'open')
-      button.className = 'dsh-image-open'
+      button.className = 'jan-image-open'
       button.setAttribute('aria-haspopup', 'dialog')
       const events = new AbortController()
       const open = (): void => {
@@ -118,8 +112,8 @@ export class ImageViewer {
       }
       button.addEventListener('click', open, { signal: events.signal })
       image.addEventListener('click', open, { signal: events.signal })
-      container.classList.add('dsh-image-container')
-      image.classList.add('dsh-image-zoomable')
+      container.classList.add('jan-image-container')
+      image.classList.add('jan-image-zoomable')
       container.append(button)
       this.#entries.set(image, { container, button, events, source: image.currentSrc || image.src })
     }

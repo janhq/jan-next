@@ -19,14 +19,16 @@
    meet at the column edge. The rows add up to it — 10px top inset, the 30px
    title row, the tab strip's 10px margin, and a 25px view row. When the views
    and the More launcher do not fit on one row, the row wraps and the header
-   grows past 76px. */
+   grows past 76px. On macOS the top inset follows the frame's title inset
+   (ui-layout AppFrame `--jan-frame-title-inset`), which centres the title row
+   on the traffic lights; the header grows by the same amount. */
 .header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   flex: none;
   box-sizing: border-box;
-  min-height: 76px;
-  padding: 10px 28px 0 20px;
+  min-height: calc(66px + var(--jan-frame-title-inset, 10px));
+  padding: var(--jan-frame-title-inset, 10px) 28px 0 20px;
   border-bottom: 0.5px solid var(--dsw-alias-border-l3);
 }
 
@@ -78,7 +80,40 @@
      controls, ui-layout AppFrame) when it is published; the header already
      pads 20px of it. Zero everywhere else (the fallback makes the max
      negative). */
-  padding-inline-start: max(0px, calc(var(--dsh-frame-leading-clearance, 0px) - 20px));
+  padding-inline-start: max(0px, calc(var(--jan-frame-leading-clearance, 0px) - 20px));
+}
+
+.titleRowEmpty { justify-content: flex-end; }
+
+.stripTitleRow {
+  container-type: normal;
+  min-height: 0;
+  padding: 0;
+}
+
+.stripTitleRow .titleCluster {
+  flex: none;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  mask-image: none;
+}
+
+.stripTitleRow .crumbs { display: none; }
+.stripTitleRow .headerActions:empty { display: none; }
+.stripTitleRow .headerUtilities { margin-left: 4px; }
+/* The title row's icon buttons keep one 8px gap, the rhythm of the window's leading controls. */
+.stripTitleRow .headerCorner { margin-inline: 8px 0; }
+/* Under a chip strip the view tabs' text starts on the chips' text line: the strip's start
+   inset plus the chip's 10px pad (ConversationDesk, ui-dockkit `.tab`). Doubled class:
+   `.tabs` (declared later) would otherwise reset the start inset to 8px. */
+.tabs.stripViews { padding-inline: 18px 12px; }
+:global([data-dockkit-pane]):first-child .tabs.stripViews {
+  padding-inline-start: calc(max(8px, var(--jan-frame-leading-clearance, 0px)) + 10px);
+}
+
+@container (max-width: 370px) {
+  .stripTitleRow .headerActions { max-width: 28px; overflow: clip; }
 }
 
 /* Header actions do not shrink, so on a narrow row they overflow the cluster.
@@ -200,9 +235,10 @@
   color: var(--dsw-alias-label-secondary);
 }
 
+/* Header icon buttons draw their 16px artwork at its own grid, like the left sidebar's. */
 .headerMenuButton svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 
 /* The far-right corner seat reaches 16px into the header's 28px right padding,
@@ -258,13 +294,13 @@
    spans the text and reaches 1px past the tab box to sit over the header
    rule. */
 .tab {
-  --dsh-tab-hit-inline: 10px;
+  --jan-tab-hit-inline: 10px;
 
   position: relative;
   box-sizing: border-box;
   min-height: 35px;
-  margin: -10px calc(-1 * var(--dsh-tab-hit-inline)) 0;
-  padding: 10px var(--dsh-tab-hit-inline) 9px;
+  margin: -10px calc(-1 * var(--jan-tab-hit-inline)) 0;
+  padding: 10px var(--jan-tab-hit-inline) 9px;
   border: none;
   background: transparent;
   font-size: 13px;
@@ -277,9 +313,9 @@
 .tab::after {
   content: '';
   position: absolute;
-  right: var(--dsh-tab-hit-inline);
+  right: var(--jan-tab-hit-inline);
   bottom: -1px;
-  left: var(--dsh-tab-hit-inline);
+  left: var(--jan-tab-hit-inline);
   height: 2px;
   border-radius: 2px;
   background: transparent;
@@ -351,23 +387,23 @@
   z-index: 0;
   width: min(
     10px,
-    calc((100% - var(--dsh-chat-content-width)) / 2 - 24px - 24px)
+    calc((100% - var(--jan-chat-content-width)) / 2 - 24px - 24px)
   );
   cursor: col-resize;
 }
 
 .widthHandle[data-side='left'] {
-  right: calc(50% + var(--dsh-chat-content-width) / 2 + 24px);
+  right: calc(50% + var(--jan-chat-content-width) / 2 + 24px);
 }
 
 .widthHandle[data-side='right'] {
-  left: calc(50% + var(--dsh-chat-content-width) / 2 + 24px);
+  left: calc(50% + var(--jan-chat-content-width) / 2 + 24px);
 }
 
 /* The glow: a short 2px bar following the captured pointer's Y, centered in the strip
    (29px from the content column), not a full-height rule — a 16px solid core
    centered on the pointer
-   (published during drag as --dsh-width-handle-pointer-y), fading to
+   (published during drag as --jan-width-handle-pointer-y), fading to
    transparent over 28px each side (72px total). A solid CORE, not a single
    solid stop: a lone peak washes out over the fade. The resting scrollbar
    tint keeps this secondary affordance quiet in both themes. Before the first
@@ -381,10 +417,10 @@
   border-radius: 2px;
   background: linear-gradient(
     to bottom,
-    transparent calc(var(--dsh-width-handle-pointer-y, 50%) - 36px),
-    var(--dsw-alias-scrollbar-bg-l1) calc(var(--dsh-width-handle-pointer-y, 50%) - 8px),
-    var(--dsw-alias-scrollbar-bg-l1) calc(var(--dsh-width-handle-pointer-y, 50%) + 8px),
-    transparent calc(var(--dsh-width-handle-pointer-y, 50%) + 36px)
+    transparent calc(var(--jan-width-handle-pointer-y, 50%) - 36px),
+    var(--dsw-alias-scrollbar-bg-l1) calc(var(--jan-width-handle-pointer-y, 50%) - 8px),
+    var(--dsw-alias-scrollbar-bg-l1) calc(var(--jan-width-handle-pointer-y, 50%) + 8px),
+    transparent calc(var(--jan-width-handle-pointer-y, 50%) + 36px)
   );
   opacity: 0;
   pointer-events: none;
@@ -419,11 +455,11 @@
 .composerStack {
   /* Horizontal geometry (card width, clearance, dock inset) rides the shared
      .root variables above so takeover siblings match the stack. */
-  --dsh-composer-stack-gap: 6px;
+  --jan-composer-stack-gap: 6px;
 
   display: flex;
   flex-direction: column;
-  gap: var(--dsh-composer-stack-gap);
+  gap: var(--jan-composer-stack-gap);
 }
 
 /* Common seat for the composer chain (fallback + elected overlay siblings). */
@@ -438,14 +474,17 @@
      the seat because it is the chain's only shared ancestor — fallback and
      elected overlay are siblings — and custom properties inherit down to
      whichever entry is mounted. */
-  --dsh-composer-text-max-height: 336px;
+  --jan-composer-text-max-height: 336px;
 }
 
 /* Active phase: header is ordinary column chrome above the scrollport (not
    sticky). The scroll body holds the transcript and the sticky composer seat
-   so wheel over the footer moves the flow. */
+   so wheel over the footer moves the flow. `clip`, not `hidden`: in a column
+   narrower than the content width the right width handle sits past the edge,
+   and a scroll container would let focus or scrollIntoView shift the whole
+   column sideways. */
 .root[data-phase='active'] {
-  overflow: hidden;
+  overflow: clip;
 }
 
 .root[data-phase='active'] .header {
@@ -465,21 +504,21 @@
   /* Shared width axis for the transcript, dock cards, composer, and takeover
      cards. Main width controls publish the live body width and optional user
      preference; embedded occurrences override this adaptive axis below. */
-  --dsh-chat-content-width: var(
-    --dsh-chat-user-width,
-    clamp(680px, calc(var(--dsh-conversation-column-width, 0px) * 0.64), 920px)
+  --jan-chat-content-width: var(
+    --jan-chat-user-width,
+    clamp(680px, calc(var(--jan-conversation-column-width, 0px) * 0.64), 920px)
   );
-  --dsh-composer-card-max-width: calc(var(--dsh-chat-content-width) + 32px);
-  --dsh-composer-side-clearance: 16px;
-  --dsh-composer-dock-inset: 8px;
+  --jan-composer-card-max-width: calc(var(--jan-chat-content-width) + 32px);
+  --jan-composer-side-clearance: 16px;
+  --jan-composer-dock-inset: 8px;
 }
 
 .embeddedBody {
   overflow: hidden;
-  --dsh-chat-content-width: min(calc(100% - 32px), 920px);
-  --dsh-composer-card-max-width: min(calc(100% - 16px), 952px);
-  --dsh-composer-side-clearance: 8px;
-  --dsh-composer-dock-inset: 8px;
+  --jan-chat-content-width: min(calc(100% - 32px), 920px);
+  --jan-composer-card-max-width: min(calc(100% - 16px), 952px);
+  --jan-composer-side-clearance: 8px;
+  --jan-composer-dock-inset: 8px;
 }
 
 .scrollBody {
@@ -495,7 +534,7 @@
   /* Reserved unconditionally: the composer seat rides this box's content box in
      Chat and its padding box under a view's composer overlay, so an `auto`
      gutter moves the input card sideways by the bar's width whenever the two
-     differ ([decision](../../../../../../.agents/notes/archived/bug-fix/2026-08-04-composer-tab-gutter-reservation.md)). */
+     differ. */
   scrollbar-gutter: stable;
 }
 
@@ -562,8 +601,7 @@
   /* The view owns its own scrollers (the trajectory ledger scrolls inside the
      view), so this box never scrolls here; reserving a gutter would only
      narrow the view's content by the bar's width. Chat keeps the reservation
-     on the same element, so the seat below compensates with the bar's width
-     ([decision](../../../../../../.agents/notes/archived/bug-fix/2026-08-04-composer-tab-gutter-reservation.md)). */
+     on the same element, so the seat below compensates with the bar's width. */
   scrollbar-gutter: auto;
 }
 
@@ -578,12 +616,11 @@
   /* Chat's seat rides this box's content box, which its own scrolling shortens
      by the bar's width; the overlay seat is against the padding box, so it
      must give back the same width to keep the input card in place across
-     tabs. Reads ui-theme's --dsh-scrollbar-width, which mirrors the WebKit
+     tabs. Reads ui-theme's --jan-scrollbar-width, which mirrors the WebKit
      bar's layout width. Chat reserves the engine-resolved width, so on an
      engine where the resolved width differs from this fixed 8px the card
-     drifts by half the difference — accepted residual risk, recorded in
-     ([decision](../../../../../../.agents/notes/archived/bug-fix/2026-08-12-composer-overlay-seat-width-compensation.md)). */
-  right: var(--dsh-scrollbar-width);
+     drifts by half the difference — accepted residual risk. */
+  right: var(--jan-scrollbar-width);
   bottom: 0;
   left: 0;
 }
@@ -601,20 +638,47 @@
   padding-bottom: 32px;
   /* Card cap + both clearances: the hero input card lands at exactly the same
      width as the docked composer at every viewport. */
-  width: min(calc(var(--dsh-composer-card-max-width) + 2 * var(--dsh-composer-side-clearance)), 100%);
+  width: min(calc(var(--jan-composer-card-max-width) + 2 * var(--jan-composer-side-clearance)), 100%);
   z-index: 1;
 }
 
+/* The welcome rises in once the phase lands on the hero (settling keeps the
+   seat hidden, so nothing plays unseen): the heading first, the composer
+   120ms later, the suggestions 240ms later; 10px on the emphasized curve.
+   Slot seats are `display: contents`, so their rendered children move. */
+:is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child,
+:is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot] > * {
+  animation: conversation-welcome-in 350ms var(--ds-ease-emphasized) 120ms backwards;
+}
+
+:is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child {
+  animation-delay: 0ms;
+}
+
+:is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot='conversation.hero.suggestions'] > * {
+  animation-delay: 240ms;
+}
+
+@keyframes conversation-welcome-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child,
+  :is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot] > * {
+    animation: none;
+  }
+}
+
+/* Under the hero card, at the start of the model and context row. */
 .heroWorkspaceRow {
   display: flex;
   align-items: center;
   gap: 2px;
   min-width: 0;
-  margin-top: 4px;
-  /* figma drew px 8; left nudged +12 so the chip's folder glyph lines up
-     closer to the card's inner controls below; right keeps the trailing
-     preset seat off the card edge. */
-  padding: 0 16px 0 20px;
 }
 
 /* Plugin options share the row, pushed to its right edge. */
@@ -629,6 +693,15 @@
 
 .heroOptions:empty {
   display: none;
+}
+
+/* A narrow pane has no room for the plugin options beside the project, preset,
+   model and context readings; they overlapped them, so they step aside. The
+   query resolves against the nearest container, the composer dock (InputBar). */
+@container (max-width: 600px) {
+  .heroOptions {
+    display: none;
+  }
 }
 
 /* Hero: the composer sits inside the session scroll body; center there so

@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-09-30-structured-draft-initialization.zh.md)
-
 ## Problem
 
 New-task entry points need to place unsent content in the composer. A draft contains not only text but also file, folder, and Session references the user has selected. Saving only their text projection loses the chips' source, target, and presentation fields when the input object is disposed. Filling the composer after mounting also cannot guarantee that the first input-model read contains the complete document.
@@ -20,7 +18,7 @@ The second parameter of `startSession(workspaceId?, options?)` contains `prompt`
 
 A string represents input without structured references; an ambiguous `@` query never selects a file automatically. The public `SessionInput.setDraft` and `InputActions.setDraft` methods accept only text. Internal structured restoration reuses the editor's reference restoration without listing directories or reading files. Plain text and file, folder, and Session chips all pass through the registered editor transforms and projection.
 
-The existing `dsh.conversation.<sessionId>` key remains. Readers accept both legacy strings and structured `draft` values; new writes store structured values. The original Conversation store still writes the complete record, without a second writer for that key. Reference changes must reach persistence even when the visible text does not change.
+The existing `jan.conversation.<sessionId>` key remains. Readers accept both legacy strings and structured `draft` values; new writes store structured values. The original Conversation store still writes the complete record, without a second writer for that key. Reference changes must reach persistence even when the visible text does not change.
 
 ### Classes and methods
 

@@ -1,4 +1,4 @@
-import { executeToolFixture, executeModelToolFixture } from '@deepseek-ai/dsh-tool-testkit'
+import { executeToolFixture, executeModelToolFixture } from '@janhq/jan-tool-testkit'
 // Boots the shipped Web composition over the built dist this lane already uses
 // and asserts its catalog, defaults, Loader lifecycle, and one complete Auto
 // producer-to-tool path. Browser scenarios in this lane own visual behavior.
@@ -9,21 +9,21 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, expect, it } from 'vitest'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import { LlmAdapter, ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { canonicalPath, writableRoots } from '@deepseek-ai/dsh-sandbox'
-import { SESSION_FORMAT_VERSION, SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
-import { auditStartupEntries, composeEntries, loadOverlayPatches } from '@deepseek-ai/dsh-app-boot'
+import type { Agent } from '@janhq/jan-agent'
+import { LlmAdapter, ToolCallId } from '@janhq/jan-llm'
+import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@janhq/jan-llm'
+import { canonicalPath, writableRoots } from '@janhq/jan-sandbox'
+import { SESSION_FORMAT_VERSION, SessionId, type SessionEvent } from '@janhq/jan-session'
+import { auditStartupEntries, composeEntries, loadOverlayPatches } from '@janhq/jan-app-boot'
 // These imports carry the tools/sandboxPolicy/approval Context merges.
-import { RUN_CODE_NAME } from '@deepseek-ai/dsh-tools'
-import type {} from '@deepseek-ai/dsh-sandbox-policy'
-import type {} from '@deepseek-ai/dsh-user-approval'
-import type {} from '@deepseek-ai/dsh-permission-presets'
-import type {} from '@deepseek-ai/dsh-agent-preset-registry'
-import type {} from '@deepseek-ai/dsh-commands'
-import type {} from '@deepseek-ai/dsh-system-prompt'
-import type {} from '@deepseek-ai/dsh-terminal'
+import { RUN_CODE_NAME } from '@janhq/jan-tools'
+import type {} from '@janhq/jan-sandbox-policy'
+import type {} from '@janhq/jan-user-approval'
+import type {} from '@janhq/jan-permission-presets'
+import type {} from '@janhq/jan-agent-preset-registry'
+import type {} from '@janhq/jan-commands'
+import type {} from '@janhq/jan-system-prompt'
+import type {} from '@janhq/jan-terminal'
 import { launchWebScaffold, readPersistedEvents, type WebScaffold } from './scaffold.ts'
 import { AUTO_REVIEW_FIXTURE } from './auto-review-fixture.ts'
 import { REPO_ROOT } from './support.ts'
@@ -512,7 +512,7 @@ const EXPECTED_TOOLS = [
 ]
 
 /**
- * `glob` and `grep` come from `dsh-tool-fs-search`, which spawns the PACKAGED
+ * `glob` and `grep` come from `jan-tool-fs-search`, which spawns the PACKAGED
  * ripgrep binary (`@vscode/ripgrep`) through the subprocess seam, so the pair
  * is always present on every host — asserted as fixed members, not a host
  * dependency.
@@ -530,17 +530,16 @@ afterEach(async () => {
 })
 
 it('assembles the shipped Web transport, catalog, guidance, and defaults', async () => {
-  scaffold = await launchWebScaffold({ deepSeekMissingCredential: true })
+  scaffold = await launchWebScaffold({ missingModelCredential: true })
   const ctx = scaffold.ctx
-  expect(ctx.llm.listProviders().some(provider => provider.id === 'deepseek-messages')).toBe(false)
-  expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'deepseek-official', model: 'deepseek-flash' })
+  expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'tokamak', model: 'tokamak-1-preview' })
   const index = await fetch(`http://127.0.0.1:${String(ctx.webServer.port)}`, {
     headers: { 'accept-encoding': 'gzip' },
   })
   expect(index.headers.get('content-encoding')).toBe('gzip')
   expect(index.headers.get('vary')).toContain('Accept-Encoding')
   await index.body?.cancel()
-  expect(ctx.llm.providerRetryPolicy('deepseek-official')).toMatchInlineSnapshot(`
+  expect(ctx.llm.providerRetryPolicy('tokamak')).toMatchInlineSnapshot(`
     {
       "initialDelayMs": 500,
       "jitterRatio": 0.1,
@@ -554,17 +553,6 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
         "TIMEOUT",
         "TRANSPORT",
       ],
-    }
-  `)
-  await ctx.settings.update('llm-deepseek', {
-    retryPolicy: { mode: 'always', maxRetries: 5 },
-  })
-  expect(ctx.llm.providerRetryPolicy('deepseek-official')).toMatchInlineSnapshot(`
-    {
-      "initialDelayMs": 500,
-      "jitterRatio": 0.1,
-      "maxDelayMs": 10000,
-      "mode": "always",
     }
   `)
   await ctx.settings.update('llm-pi-ai', {
@@ -627,7 +615,8 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
   )
   expect(scaffold.ctx.sandboxPolicy.defaultMode).toBe('workspace-write')
   expect(scaffold.ctx.approval.config.policy).toBe('ask')
-  expect(scaffold.ctx.permissionPresets.defaultPreset).toBe('workspace-write')
+  // The app pins Full access into new sessions; the composition-wide sandbox and approval stay confined.
+  expect(scaffold.ctx.permissionPresets.defaultPreset).toBe('danger-full-access')
   expect(scaffold.ctx.permissionPresets.names).toEqual([
     'read-only',
     'workspace-write',
@@ -642,11 +631,11 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
   const commandHandle = await scaffold.ctx.agents.create({
     sessionId: SessionId('shipped-command-catalog'),
     meta: { cwd: scaffold.workspaceCwd },
-    agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    agentOptions: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
   })
   try {
     expect(scaffold.ctx.commands.list(commandHandle.agent)).toContainEqual({
-      definitionId: '@deepseek-ai/dsh-command-feedback',
+      definitionId: '@janhq/jan-command-feedback',
       name: 'feedback',
       description: 'Record feedback about this session',
       input: { hint: '<text>' },
@@ -657,7 +646,7 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
 }, 120_000)
 
 it('ships PTC with run_code but without the general workflow SDK binding', async () => {
-  scaffold = await launchWebScaffold({ deepSeekMissingCredential: true })
+  scaffold = await launchWebScaffold({ missingModelCredential: true })
   const ctx = scaffold.ctx
   const handle = await ctx.agents.create({
     sessionId: SessionId('shipped-ptc-composition'),

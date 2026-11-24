@@ -7,7 +7,7 @@
    12px caption chevron; 28px chip height matches the sibling Plan /
    Read-only selects in the same tool row. */
 .trigger {
-  anchor-name: var(--dsh-model-anchor);
+  anchor-name: var(--jan-model-anchor);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -68,7 +68,7 @@
 
 /* The Models glyph replaces the text when the composer row cannot fit it. */
 .triggerIcon {
-  display: var(--dsh-composer-model-icon-display, none);
+  display: var(--jan-composer-model-icon-display, none);
   flex: 0 0 auto;
 }
 
@@ -76,7 +76,7 @@
    Outside a composer, the trigger retains its text. */
 .triggerLabel,
 .triggerEffort {
-  display: var(--dsh-composer-model-text-display, block);
+  display: var(--jan-composer-model-text-display, block);
 }
 
 .chevron {
@@ -94,8 +94,8 @@
 .menu {
   box-sizing: border-box;
   position: fixed;
-  position-anchor: var(--dsh-model-anchor);
-  top: max(12px, var(--dsh-frame-overlay-top, 12px));
+  position-anchor: var(--jan-model-anchor);
+  top: max(12px, var(--jan-frame-overlay-top, 12px));
   left: 12px;
   /* Anchor insets stay linear because scroll compensation runs after layout. */
   right: anchor(right);
@@ -109,9 +109,9 @@
   /* Rows size the card up to its visible bounds; longer names ellipsize. */
   width: fit-content;
   height: fit-content;
-  min-width: min(240px, calc(100vw - 24px));
+  min-width: min(280px, calc(100vw - 24px));
   max-width: min(420px, calc(100vw - 24px));
-  max-height: min(360px, calc(100dvh - 96px));
+  max-height: min(480px, calc(100dvh - 96px));
   overflow: hidden;
   padding: 4px;
   /* Surface tokens match the Menu primitive card (ui-primitives
@@ -125,8 +125,8 @@
      elevation choice sits with the surface; the custom properties inherit
      down to whichever descendant actually scrolls (see ui-theme
      styles/scrollbar.css for the rebinding contract). */
-  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
-  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+  --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
 .status,
@@ -135,6 +135,23 @@
   color: var(--dsw-alias-label-tertiary);
   font-size: 12px;
   line-height: 18px;
+}
+
+.emptyAction {
+  display: block;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.emptyAction:focus-visible {
+  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
 }
 
 .error,
@@ -168,10 +185,13 @@
   cursor: pointer;
 }
 
+/* Search sits above the list, set off by a hairline like the footer rows. */
 .searchRow {
   position: relative;
   flex-shrink: 0;
-  margin: 2px 0 3px;
+  margin: 2px 0 4px;
+  padding-bottom: 4px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l1);
 }
 
 .searchRow .search {
@@ -244,6 +264,11 @@
   overflow-y: auto;
 }
 
+/* One provider needs no heading: it only repeats what every row already is. */
+.groups > [data-menu-group]:only-child > [data-menu-group-heading] {
+  display: none;
+}
+
 .option {
   box-sizing: border-box;
   display: flex;
@@ -271,6 +296,11 @@
   max-width: 100%;
 }
 
+/* The details card lines up with whichever model row is highlighted. */
+.modelOption.optionActive {
+  anchor-name: var(--jan-model-row-anchor);
+}
+
 @media (hover: hover) {
   .option:not(.modelOption):hover:not(:disabled) {
     background: var(--dsw-alias-interactive-bg-hover);
@@ -281,6 +311,11 @@
  * primitive's selected treatment. */
 .selected {
   background: transparent;
+}
+
+/* The model in use reads at a glance, not only through the trailing check. */
+.selected .modelName {
+  font-weight: 600;
 }
 
 .option:disabled {
@@ -336,6 +371,90 @@
   height: 14px;
 }
 
+/* The star shows on starred rows, and on any row under the pointer or highlight. */
+.star {
+  display: grid;
+  place-items: center;
+  flex: 0 0 16px;
+  height: 16px;
+  border-radius: var(--dsw-alias-radius-sm, 4px);
+  color: var(--dsw-alias-label-tertiary);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.optionActive .star,
+.starOn {
+  opacity: 1;
+}
+
+.starOn {
+  color: var(--dsw-alias-state-warn-label, #d99a00);
+}
+
+@media (hover: hover) {
+  .option:hover .star {
+    opacity: 1;
+  }
+
+  .star:not(.starOn):hover {
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+/* The current model repeats its effort so the row reads like the trigger. */
+.rowEffort {
+  flex: 0 0 auto;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+}
+
+/* Signals that the highlighted row has a details card beside the menu. */
+.rowChevron {
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  opacity: 0;
+}
+
+.optionActive .rowChevron {
+  opacity: 1;
+}
+
+.favorite {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  corner-shape: round;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.favorite.starOn svg {
+  color: var(--dsw-alias-state-warn-label, #d99a00);
+}
+
+.favorite:focus-visible {
+  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 1px;
+}
+
+@media (hover: hover) {
+  .favorite:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
 /* Two-level root cells use the same compact rhythm as the model rows. */
 .cell {
   box-sizing: border-box;
@@ -387,4 +506,165 @@
   width: 12px;
   height: 12px;
   color: var(--dsw-alias-menu-icon);
+}
+
+/* Rows below the model list: Effort, session options and Manage models,
+   set off from the list by a hairline. They never scroll away with it. */
+.footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
+}
+
+.footer:empty {
+  display: none;
+}
+
+/* Manage models shares the menu row grammar (14px icon, 6px gap), so contributed
+   option rows built from MenuItemButton line up with it. */
+.manage {
+  gap: 6px;
+}
+
+.manageIcon {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  color: var(--dsw-alias-menu-icon);
+}
+
+/* The highlighted model's details open beside the menu, top-aligned with the
+   highlighted row so the card follows the cursor down the list. Near the
+   bottom of the window it bottom-aligns with the row instead, and it flips to
+   the other side when the window has no room on the right.
+   A fixed width keeps the card from jumping while the pointer runs down the list. */
+.flyout {
+  box-sizing: border-box;
+  position: fixed;
+  left: calc(anchor(var(--jan-model-menu-anchor) right) + 8px);
+  top: calc(anchor(var(--jan-model-row-anchor) top) - 12px);
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  margin: 0;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(260px, calc(100vw - 24px));
+  max-height: min(480px, calc(100dvh - 96px));
+  overflow-y: auto;
+  padding: 12px;
+  border: 0;
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
+  color: var(--dsw-alias-label-primary);
+  --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+.detailsHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.detailsName {
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detailsProvider,
+.facts,
+.detailsLabel {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Modality chips: icon plus a short word, like a model catalog's filter tabs. */
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--dsw-radius-xs);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+}
+
+.detailsDescription {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.detailsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
+}
+
+.levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.level {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  corner-shape: round;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.level:focus-visible {
+  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 1px;
+}
+
+@media (hover: hover) {
+  .level:hover:not(:disabled):not(.levelChecked) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.level.levelChecked {
+  border-color: transparent;
+  background: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-bg-module-platform, #fff);
+}
+
+.level:disabled {
+  color: var(--dsw-alias-label-dimmed);
+  cursor: default;
 }

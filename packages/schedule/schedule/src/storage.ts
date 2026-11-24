@@ -2,9 +2,10 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import { z } from 'zod'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import { MessageId } from '@deepseek-ai/dsh-llm/brand'
-import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
+import { SessionId } from '@janhq/jan-session'
+import { MessageId } from '@janhq/jan-llm/brand'
+import { defineDomain, domainTable } from '@janhq/jan-storage-domain'
+import { WorkspaceId } from '@janhq/jan-workspace'
 import { decodeScheduleRecord } from './domain.ts'
 import type { ScheduleDeliveryRecord, ScheduleId, ScheduleRecord, ScheduleTarget } from './types.ts'
 
@@ -33,6 +34,8 @@ const deliveryReceiptSchema = z.object({
   deliveredAt: instantSchema,
   messageId: messageIdSchema,
   targetSessionId: sessionIdSchema.optional(),
+  owner: z.string().min(1).optional(),
+  outcome: z.literal('accepted').optional(),
 }).strict()
 
 const deliveryHistorySchema = z.object({
@@ -43,16 +46,30 @@ const deliveryHistorySchema = z.object({
   message: 'Delivery history message identities must be unique within a task',
 })
 
+const workspaceIdSchema = z.string().min(1).transform(WorkspaceId)
+
 const createSpecSchema = z.object({
   cwd: z.string().min(1).exactOptional(),
+  workspaceId: workspaceIdSchema.exactOptional(),
   agentPreset: z.string().min(1).exactOptional(),
 }).strict()
 
 const targetSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('session'), sessionId: sessionIdSchema }).strict(),
+  z.object({ kind: z.literal('session'), sessionId: sessionIdSchema, workspaceId: workspaceIdSchema.exactOptional() }).strict(),
   z.object({ kind: z.literal('new_once'), sessionId: sessionIdSchema.optional(), create: createSpecSchema.default({}) }).strict(),
   z.object({ kind: z.literal('new'), create: createSpecSchema.default({}) }).strict(),
+  z.object({ kind: z.literal('plugin'), owner: z.string().min(1) }).strict(),
 ])
+
+/**
+ * Read the saved project binding, including after a create-once target became a reused Session.
+ * @param target - stored delivery destination.
+ * @returns the Workspace id, or undefined for a plugin or an unbound Session target.
+ */
+export function targetWorkspaceId(target: ScheduleTarget): WorkspaceId | undefined {
+  if (target.kind === 'plugin') return undefined
+  return target.kind === 'session' ? target.workspaceId : target.create.workspaceId
+}
 
 /** Stable reservation for a task without a saved destination; reads never allocate or persist a Session. */
 function defaultSessionId(id: ScheduleId): SessionId {
@@ -60,7 +77,7 @@ function defaultSessionId(id: ScheduleId): SessionId {
 }
 
 /**
- * Version-2 task schema accepting version-1 rows. New metadata is optional on disk. An explicit target
+ * Version-3 task schema accepting version-1 and version-2 rows. New metadata is optional on disk. An explicit target
  * ignores the former Session binding; a missing target uses that binding or a stable create-once destination.
  * Normal decoding does not write. The next edit or delivery writes this current shape without `sessionId`.
  */
@@ -68,11 +85,15 @@ export const scheduleTaskSchema = z.object({
   record: recordSchema,
   sessionId: z.unknown().optional(),
   target: targetSchema.optional(),
+  /** A Session inbox that must be mounted before this task may deliver. */
+  sessionDestinationOwner: z.string().min(1).exactOptional(),
+  pluginPayload: z.string().exactOptional(),
   involvedSessionIds: z.array(sessionIdSchema).optional(),
   status: z.enum(['active', 'paused', 'ended', 'inactive']).default('active'),
   createdAt: instantSchema.optional(),
   updatedAt: instantSchema.optional(),
   lastDelivery: deliveryReceiptSchema.optional(),
+  deliveryFailure: z.object({ code: z.literal('project-removed'), failedAt: instantSchema }).strict().exactOptional(),
   deliveryHistory: deliveryHistorySchema.optional(),
   pendingDelivery: z.object({ targetSessionId: sessionIdSchema }).strict().optional(),
 }).strict().transform(({ sessionId, target: savedTarget, lastDelivery, deliveryHistory, ...task }, context) => {
@@ -88,33 +109,47 @@ export const scheduleTaskSchema = z.object({
     : savedTarget.kind === 'new_once'
       ? { ...savedTarget, sessionId: savedTarget.sessionId ?? defaultSessionId(task.record.id) }
       : savedTarget
-  const hasReceiptTarget = savedTarget === undefined
-    ? binding?.success === true
-    : savedTarget.kind !== 'new' && savedTarget.sessionId !== undefined
-  const receipts = [lastDelivery, ...(deliveryHistory?.records ?? [])]
-  if (!hasReceiptTarget && receipts.some(value => value !== undefined && value.targetSessionId === undefined)) {
-    context.addIssue({ code: 'custom', message: 'A saved delivery without an existing destination must name its target Session' })
+  const bindingId = savedTarget === undefined
+    ? binding?.data
+    : savedTarget.kind === 'session' || savedTarget.kind === 'new_once' ? savedTarget.sessionId : undefined
+  const receipt = (value: z.infer<typeof deliveryReceiptSchema> & { prompt?: string } | undefined): ScheduleDeliveryRecord | undefined => {
+    if (value === undefined) return undefined
+    const { targetSessionId, owner, outcome, ...identity } = value
+    if (owner !== undefined || outcome !== undefined) {
+      if (owner !== undefined && outcome !== undefined && targetSessionId === undefined) return { ...identity, owner, outcome }
+    } else {
+      const destination = targetSessionId ?? bindingId
+      if (destination !== undefined) return { ...identity, targetSessionId: destination }
+    }
+    context.addIssue({ code: 'custom', message: 'A saved delivery must name exactly one destination' })
+    return undefined
+  }
+  const last = receipt(lastDelivery)
+  const history = { records: [] as ScheduleDeliveryRecord[],
+    earlierRecordsUnavailable: deliveryHistory?.earlierRecordsUnavailable ?? true,
+    earlierRecordsPruned: deliveryHistory?.earlierRecordsPruned ?? false }
+  if (lastDelivery !== undefined && last === undefined) return z.NEVER
+  if (deliveryHistory === undefined) {
+    if (last !== undefined) history.records.push(last)
+  } else {
+    for (const saved of deliveryHistory.records) {
+      const decoded = receipt(saved)
+      if (decoded === undefined) return z.NEVER
+      history.records.push(decoded)
+    }
+  }
+  if (target.kind === 'plugin' && (task.sessionDestinationOwner !== undefined || task.pendingDelivery !== undefined
+      || history.records.some(value => value.owner !== target.owner))
+    || task.sessionDestinationOwner !== undefined && (target.kind !== 'session' || task.pendingDelivery !== undefined)
+    || task.pluginPayload !== undefined && target.kind !== 'plugin' && task.sessionDestinationOwner === undefined) {
+    context.addIssue({ code: 'custom', message: 'Plugin delivery state must belong to its registered owner' })
     return z.NEVER
   }
-  const receipt = <T extends z.infer<typeof deliveryReceiptSchema>>(value: T): T & { targetSessionId: SessionId } => {
-    if (value.targetSessionId !== undefined) return { ...value, targetSessionId: value.targetSessionId }
-    /* v8 ignore next -- the receipt-destination validation above rejects this combination before normalization. */
-    if (target.kind === 'new') throw new Error('A delivery to a fresh Session must name its target Session')
-    return { ...value, targetSessionId: target.sessionId }
-  }
-  const last = lastDelivery === undefined ? undefined : receipt(lastDelivery)
-  const history: {
-    records: ScheduleDeliveryRecord[]
-    earlierRecordsUnavailable: boolean
-    earlierRecordsPruned: boolean
-  } = deliveryHistory === undefined
-    ? { records: last === undefined ? [] : [last], earlierRecordsUnavailable: true, earlierRecordsPruned: false }
-    : { ...deliveryHistory, records: deliveryHistory.records.map(value => receipt(value)) }
   return {
     ...task,
     target,
     status: task.status === 'inactive' ? 'ended' as const : task.status,
-    involvedSessionIds: task.involvedSessionIds ?? (target.kind === 'new' ? [] : [target.sessionId]),
+    involvedSessionIds: task.involvedSessionIds ?? (target.kind === 'session' || target.kind === 'new_once' ? [target.sessionId] : []),
     ...(last === undefined ? {} : { lastDelivery: last }),
     deliveryHistory: history,
   }
@@ -130,8 +165,8 @@ export const scheduleTaskSchema = z.object({
 /** Persistent task value; a delivery receipt does not record model execution completion. */
 export type ScheduleTask = z.infer<typeof scheduleTaskSchema>
 
-/** Authoritative Host tasks retain their domain, backend routing, and envelope; v2 also reads v1 without startup writes. */
+/** Authoritative Host tasks retain their domain, backend routing, and envelope; v3 also reads v1 and v2 without startup writes. */
 export const scheduleDomain = defineDomain({
-  name: 'schedule', version: 2, compatibleVersions: [1],
+  name: 'schedule', version: 3, compatibleVersions: [1, 2],
   tables: { tasks: domainTable<ScheduleId, ScheduleTask>(scheduleTaskSchema) },
 })

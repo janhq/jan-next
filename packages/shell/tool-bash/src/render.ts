@@ -1,12 +1,12 @@
 /**
  * Model-facing result rendering for the bash tool.
  *
- * @module @deepseek-ai/dsh-tool-bash/render
+ * @module @janhq/jan-tool-bash/render
  */
 
-import type { ShellRunResult, ShellSandboxInfo, CollectedOutput } from '@deepseek-ai/dsh-shell'
-import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'
-import { escalationHintMarker, sandboxDenialMarker } from '@deepseek-ai/dsh-sandbox'
+import type { ShellRunResult, ShellSandboxInfo, CollectedOutput } from '@janhq/jan-shell'
+import type { SandboxMode } from '@janhq/jan-sandbox'
+import { escalationHintMarker, sandboxDenialMarker } from '@janhq/jan-sandbox'
 
 /** Append the truncation notice (with the full-output spill path) to a stream's text. */
 function streamText(output: CollectedOutput): string {
@@ -71,14 +71,16 @@ export function renderResult(
  * point, so `job_output` continues exactly after it), then the still-running
  * marker. The `tool:jobs` system-prompt section explains how to follow up.
  * @param promoted - the promoted result value: the job id, the wait that
- *   expired, and the output so far.
+ *   expired, whether a user steer released it instead, and the output so far.
  * @returns the model-facing text for a promoted call.
  */
-export function renderPromoted(promoted: { jobId: string; timeoutMs: number; output: string }): string {
+export function renderPromoted(promoted: { jobId: string; timeoutMs: number; steered?: boolean; output: string }): string {
   const body = promoted.output.length > 0
     ? promoted.output.endsWith('\n') ? promoted.output : `${promoted.output}\n`
     : ''
-  return `${body}[still running after ${promoted.timeoutMs}ms; moved to background job ${promoted.jobId}]`
+  return promoted.steered === true
+    ? `${body}[the user steered while this ran; still running as background job ${promoted.jobId}]`
+    : `${body}[still running after ${promoted.timeoutMs}ms; moved to background job ${promoted.jobId}]`
 }
 
 /**
@@ -119,8 +121,8 @@ export function renderJobRead(
 
 /**
  * The exit-status parse is the shared marker-contract half of the shell-tool
- * rendering story, owned by `@deepseek-ai/dsh-shell` so `dsh-tool-pwsh` reuses
+ * rendering story, owned by `@janhq/jan-shell` so `jan-tool-pwsh` reuses
  * it (its renderer emits the same markers). Re-exported here to keep
  * `../src/render.ts` a single import root for bash-tool consumers.
  */
-export { parseExitStatus, type ParsedExitStatus } from '@deepseek-ai/dsh-shell'
+export { parseExitStatus, type ParsedExitStatus } from '@janhq/jan-shell'

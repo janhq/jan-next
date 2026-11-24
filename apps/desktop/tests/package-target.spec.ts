@@ -19,6 +19,9 @@ describe('desktop package target', () => {
     expect(resolveDesktopPackageTarget('win-x64', 'win32', 'x64')).toMatchObject({
       platform: 'win32', arch: 'x64', builderPlatform: '--win', builderArch: '--x64',
     })
+    expect(resolveDesktopPackageTarget('linux-x64', 'linux', 'x64')).toMatchObject({
+      platform: 'linux', arch: 'x64', builderPlatform: '--linux', builderArch: '--x64',
+    })
   })
 
   it('allows an Apple Silicon host to build the Intel target through Rosetta', () => {
@@ -26,7 +29,9 @@ describe('desktop package target', () => {
   })
 
   it('rejects unsupported targets and hosts before building', () => {
-    expect(() => resolveDesktopPackageTarget('linux-x64', 'linux', 'x64')).toThrow(/unsupported target/u)
+    expect(() => resolveDesktopPackageTarget('linux-arm64', 'linux', 'arm64')).toThrow(/unsupported target/u)
+    expect(() => resolveDesktopPackageTarget('linux-x64', 'linux', 'arm64')).toThrow(/Linux x64/u)
+    expect(() => resolveDesktopPackageTarget('linux-x64', 'darwin', 'x64')).toThrow(/Linux x64/u)
     expect(() => resolveDesktopPackageTarget('win-x64', 'darwin', 'arm64')).toThrow(/Windows x64/u)
     expect(() => resolveDesktopPackageTarget('mac-arm64', 'darwin', 'x64')).toThrow(/Apple Silicon/u)
     expect(() => resolveDesktopPackageTarget('mac-arm64', 'linux', 'arm64')).toThrow(/macOS/u)
@@ -42,6 +47,15 @@ describe('desktop package target', () => {
     expect(parseDesktopPackageInvocation(['win-x64', '--check', '--unsigned'], 'win32', 'x64')).toMatchObject({ check: true, unsigned: true })
     expect(() => parseDesktopPackageInvocation(['mac-arm64', 'mac-x64'], 'darwin', 'arm64'))
       .toThrow(/at most one target/u)
+  })
+
+  it('builds Linux only as an unsigned package', () => {
+    expect(parseDesktopPackageInvocation(['linux-x64', '--unsigned', '--dir'], 'linux', 'x64')).toMatchObject({
+      target: { name: 'linux-x64' }, unsigned: true, directory: true,
+    })
+    expect(parseDesktopPackageInvocation(['--unsigned'], 'linux', 'x64').target.name).toBe('linux-x64')
+    expect(() => parseDesktopPackageInvocation(['linux-x64'], 'linux', 'x64')).toThrow(/only unsigned packages; pass --unsigned/u)
+    expect(() => parseDesktopPackageInvocation(['--dir'], 'linux', 'x64')).toThrow(/only unsigned packages/u)
   })
 
   it('parses a build version, including the separator a pnpm run script forwards', () => {
@@ -89,45 +103,45 @@ describe('desktop package target', () => {
 
   it('removes ambient certificate inputs for unsigned builds and overrides an inherited signing mode', () => {
     const environment = {
-      DSH_DESKTOP_APP_ID: 'com.example.desktop',
-      DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'token-secret',
+      JAN_DESKTOP_APP_ID: 'com.example.desktop',
+      JAN_DESKTOP_WINDOWS_TOKEN_PIN: 'token-secret',
       CSC_LINK: 'private.pfx',
       CSC_KEY_PASSWORD: 'secret',
       WIN_CSC_LINK: 'windows.pfx',
       CSC_IDENTITY_AUTO_DISCOVERY: 'true',
       APPLE_API_KEY: 'private.p8',
       APPLE_APP_SPECIFIC_PASSWORD: 'apple-secret',
-      DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
-      DSH_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
-      DSH_DESKTOP_MACOS_PACK_CONCURRENCY: '2',
-      DSH_DESKTOP_UNSIGNED: '1',
+      JAN_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
+      JAN_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
+      JAN_DESKTOP_MACOS_PACK_CONCURRENCY: '2',
+      JAN_DESKTOP_UNSIGNED: '1',
     }
     expect(desktopElectronBuilderEnvironment(environment, true)).toEqual({
-      DSH_DESKTOP_APP_ID: 'com.example.desktop',
-      DSH_DESKTOP_MACOS_PACK_CONCURRENCY: '2',
+      JAN_DESKTOP_APP_ID: 'com.example.desktop',
+      JAN_DESKTOP_MACOS_PACK_CONCURRENCY: '2',
       CSC_IDENTITY_AUTO_DISCOVERY: 'false',
-      DSH_DESKTOP_UNSIGNED: '1',
+      JAN_DESKTOP_UNSIGNED: '1',
     })
-    expect(desktopElectronBuilderEnvironment(environment, false)).toEqual({ ...environment, DSH_DESKTOP_UNSIGNED: '0' })
+    expect(desktopElectronBuilderEnvironment(environment, false)).toEqual({ ...environment, JAN_DESKTOP_UNSIGNED: '0' })
   })
 
   it.each([false, true])('pins the Windows archive filter for the NSIS decoder (unsigned: %s)', (unsigned) => {
     expect(desktopElectronBuilderEnvironment({
-      DSH_DESKTOP_TARGET_PLATFORM: 'win32', ELECTRON_BUILDER_7Z_FILTER: 'ARM64',
+      JAN_DESKTOP_TARGET_PLATFORM: 'win32', ELECTRON_BUILDER_7Z_FILTER: 'ARM64',
     }, unsigned).ELECTRON_BUILDER_7Z_FILTER).toBe('BCJ')
     expect(desktopElectronBuilderEnvironment({
-      DSH_DESKTOP_TARGET_PLATFORM: 'darwin', ELECTRON_BUILDER_7Z_FILTER: 'ARM',
+      JAN_DESKTOP_TARGET_PLATFORM: 'darwin', ELECTRON_BUILDER_7Z_FILTER: 'ARM',
     }, unsigned).ELECTRON_BUILDER_7Z_FILTER).toBe('ARM')
   })
 
   it('keeps Windows signing fields out of build and runtime preparation subprocesses', () => {
     expect(withoutWindowsSigningEnvironment({
-      DSH_DESKTOP_WINDOWS_CER_FILE: 'C:\\release\\server.cer',
-      DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'token-secret',
-      DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'container',
-      DSH_DESKTOP_WINDOWS_SIGNTOOL: 'C:\\tools\\signtool.exe',
-      DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
-    })).toEqual({ DSH_DESKTOP_AUTO_UPDATE_ENV: 'production' })
+      JAN_DESKTOP_WINDOWS_CER_FILE: 'C:\\release\\server.cer',
+      JAN_DESKTOP_WINDOWS_TOKEN_PIN: 'token-secret',
+      JAN_DESKTOP_WINDOWS_KEY_CONTAINER: 'container',
+      JAN_DESKTOP_WINDOWS_SIGNTOOL: 'C:\\tools\\signtool.exe',
+      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production',
+    })).toEqual({ JAN_DESKTOP_AUTO_UPDATE_ENV: 'production' })
   })
 
   it('keeps COS credentials out of every packaging subprocess', () => {
@@ -139,12 +153,12 @@ describe('desktop package target', () => {
       DOWNLOAD_PROD_COS_BUCKET: 'production-download-bucket',
       DOWNLOAD_PROD_COS_SECRET_ID: 'production-id',
       DOWNLOAD_PROD_COS_SECRET_KEY: 'production-key',
-      DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
+      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production',
     })).toEqual({
       DOWNLOAD_TEST_ORIGIN: 'https://desktop-updates.example.com',
       DOWNLOAD_TEST_COS_BUCKET: 'test-download-bucket',
       DOWNLOAD_PROD_COS_BUCKET: 'production-download-bucket',
-      DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
+      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production',
     })
   })
 })

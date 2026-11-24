@@ -19,15 +19,11 @@ describe('WebSearchCard stylesheet', () => {
     expect(page.match(/\.section \+ \.section \{[^}]*\}/)?.[0]).not.toContain('border')
   })
 
-  it('separates the provider menu block from the panel below it by spacing, not a hairline', () => {
+  it('separates the provider menu block from what follows by spacing, not a hairline', () => {
     const field = page.match(/\.field \{[^}]*\}/)?.[0]
     expect(field).toContain('padding: 8px 0 12px;')
     expect(field).not.toContain('border')
     expect(page).not.toMatch(/\.field\s*\+/)
-  })
-
-  it('sets the settings below the provider menu on a gray panel', () => {
-    expect(page).toMatch(/\.panel \{[^}]*background: var\(--dsw-alias-bg-module-platform\);/)
   })
 
   it('colors the provider list notice with the error state token', () => {

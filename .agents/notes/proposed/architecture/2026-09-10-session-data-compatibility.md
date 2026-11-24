@@ -2,8 +2,6 @@
 
 Status: proposed
 
-English | [中文](2026-09-10-session-data-compatibility.zh.md)
-
 ## Problem
 
 Users care whether old conversations still open after an upgrade, not about internal class names. The abstraction refactor must not incidentally change disk bytes or require manual session moves. The current `0.1.5-rc.1` checkout writes Session format V3 and includes the released-format migration chain through V3.
@@ -20,7 +18,7 @@ Do not overwrite old generations or auto-downgrade. Migration writes a new curre
 
 Stages 1–3 only rearrange code ownership. They do not change V3 Session JSONL bytes, `SESSION_FORMAT_VERSION`, or the user startup flow. Ordinary users need no extra manual migration or configuration change for this refactor. On first open of a supported old format, the existing migration pipeline prepares and publishes a current V3 generation. Large logs use streaming stages to avoid whole-artifact memory peaks.
 
-Users should still keep normal backups of `DSH_HOME` before upgrades. If open fails, preserve the full session generation and error text instead of deleting old files. Future providers must distinguish unsupported future versions, corruption, ownership conflicts, and migration failures. The system rebuilds query indexes and other derived data; users do not migrate them manually.
+Users should still keep normal backups of `JAN_HOME` before upgrades. If open fails, preserve the full session generation and error text instead of deleting old files. Future providers must distinguish unsupported future versions, corruption, ownership conflicts, and migration failures. The system rebuilds query indexes and other derived data; users do not migrate them manually.
 
 ### Invariants after provider replacement
 

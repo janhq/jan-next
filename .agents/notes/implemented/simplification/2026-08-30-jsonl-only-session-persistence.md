@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-08-30-jsonl-only-session-persistence.zh.md)
-
 ## Problem
 
 The product ships and exercises JSONL as its authoritative Session store, while the optional SQLite Session-persistence provider duplicates the same logical service over a second physical format. Every Session contract, event-envelope change, recovery rule, package graph, platform lane, and format transition therefore carries a second implementation and test matrix even though shipped profiles do not select it. Released Session-format migration also needs an exact per-Session source generation that remains untouched while a version-named successor is published; the single-database provider would require a separate immutable-generation transaction design without serving a current deployment.
@@ -12,9 +10,9 @@ The SQLite full-text Session-query provider is not an alternative authoritative 
 
 ## Decision
 
-`@deepseek-ai/dsh-session-persistence-jsonl` is the sole first-party implementation of `ctx.sessionPersistence`. The abstract Service Definition remains backend-neutral so an out-of-tree provider can implement the same service, but the repository owns and tests one authoritative physical Session format.
+`@janhq/jan-session-persistence-jsonl` is the sole first-party implementation of `ctx.sessionPersistence`. The abstract Service Definition remains backend-neutral so an out-of-tree provider can implement the same service, but the repository owns and tests one authoritative physical Session format.
 
-The `@deepseek-ai/dsh-session-persistence-sqlite` package, its schema resources, backend-specific tests, configuration surface, and Windows differential lane are absent. Cross-package persistence tests use the real JSONL provider or an owner-local fake. `@deepseek-ai/dsh-session-query-sqlite` remains the optional FTS5 query provider over a separate rebuildable database, and `@deepseek-ai/dsh-storage-sqlite` remains the generic domain-KV provider.
+The `@janhq/jan-session-persistence-sqlite` package, its schema resources, backend-specific tests, configuration surface, and Windows differential lane are absent. Cross-package persistence tests use the real JSONL provider or an owner-local fake. `@janhq/jan-session-query-sqlite` remains the optional FTS5 query provider over a separate rebuildable database, and `@janhq/jan-storage-sqlite` remains the generic domain-KV provider.
 
 Existing databases written by the removed provider are not opened or migrated by the current build. An operator who needs their contents must use a build that still contains that provider and export the logical Session before upgrading.
 

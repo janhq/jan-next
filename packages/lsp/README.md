@@ -5,8 +5,6 @@ kind: "package-group"
 
 # lsp/ — Language-server code navigation
 
-English | [中文](README.zh.md)
-
 ## Summary
 
 The lsp group lets agents navigate code through configured language servers: go to definitions, find references and implementations, and read hover documentation. Use `lsp-stdio` to connect local stdio language-server commands and extension mappings, and `tool-lsp` to make those operations available to the model. The shared `lsp` package keeps provider choice and normalized results consistent, so changing servers does not change model requests. Deployments must supply and configure their language servers; this group ships none.
@@ -36,7 +34,7 @@ Providers register capabilities, not tools: `tool-lsp` is the only owner of the 
 ## Related documentation
 
 - [LSP navigation subsystem](../../docs/subsystems/lsp.md) — operations, coordinates, requests and results, and `LspError` codes.
-- [Generated tool catalog](../../docs/tool-catalog.md#deepseek-aidsh-tool-lsp) — the `lsp` schema the model receives.
+- [Generated tool catalog](../../docs/tool-catalog.md#janhqjan-tool-lsp) — the `lsp` schema the model receives.
 
 -----
 

@@ -1,8 +1,8 @@
 /** A real registry, controller and adopted Session store; each spec decides when to show it. */
 import { vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { LayoutState, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
+import { Context } from '@janhq/cordis'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { LayoutState, TabId } from '@janhq/jan-client-ui-dockkit'
 import { createSidebarRightController } from '../src/client/service.ts'
 import { SidebarRightTabRegistry } from '../src/client/tab-registry.ts'
 import { createSidebarRightStore } from '../src/client/stores.ts'
@@ -23,11 +23,11 @@ export function controllerHarness() {
   const tabs = new SidebarRightTabRegistry(new Context())
   tabs.register(guideDefinition(t))
   tabs.register({
-    id: 'test/text', kind: 'text', patterns: ['dsh-resource://file/**'], priority: 'fallback',
+    id: 'test/text', kind: 'text', patterns: ['jan-resource://file/**'], priority: 'fallback',
     title: address => address.slice(address.lastIndexOf('/') + 1),
   })
   const pin = vi.fn<(address: string, signal: AbortSignal) => void>()
-  const { controller, adopt, forget, show, measure } = createSidebarRightController(tabs, pin, {
+  const { controller, adopt, releaseIdle, forget, show, measure } = createSidebarRightController(tabs, pin, {
     autoFullscreen: () => false,
     openWithFocus: (_sessionId, open) => { open() },
     closeWithFocus: (_sessionId, _paneId, close) => { close() },
@@ -57,5 +57,8 @@ export function controllerHarness() {
   }
   const entries = (): number => instance.getSnapshot().bySession[SESSION]?.history.entries.length ?? 0
   const expand = (): void => { instance.actions.setExpanded(SESSION, true) }
-  return { controller, adopt, unadopt, forget, show, measure, tabs, instance, pin, publish, titles, tabOf, layout, entries, room, expand }
+  return {
+    controller, adopt, unadopt, releaseIdle, forget, show, measure, tabs, instance, pin,
+    publish, titles, tabOf, layout, entries, room, expand,
+  }
 }

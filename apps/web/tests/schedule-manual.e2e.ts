@@ -1,14 +1,14 @@
 /** Schedule creation, prompt prefill, and editing through the shipped Web composition. */
 import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
-import type { ScheduleTiming } from '@deepseek-ai/dsh-schedule/client'
+import type { ScheduleTiming } from '@janhq/jan-schedule/client'
 import { launchWebScaffold, watchConsole } from './scaffold.ts'
 import { writeComposerDraft } from './support.ts'
 
 it.each([
-  { locale: 'en', panel: 'Automation tasks', create: 'New', menu: 'Choose a creation method', chat: 'Create in a session',
+  { locale: 'en', panel: 'Scheduled', create: 'New', menu: 'Choose a creation method', chat: 'Create in a session',
     prompt: 'Please create an automation task based on the requirements.' },
-  { locale: 'zh', panel: '自动化任务', create: '新建', menu: '选择创建方式', chat: '在会话中创建',
+  { locale: 'zh', panel: '定时任务', create: '新建', menu: '选择创建方式', chat: '在会话中创建',
     prompt: '请根据需求创建一个自动化任务。' },
 ])('prefills an unsent Schedule creation draft in $locale through both conversation entries', async (copy) => {
   const scaffold = await launchWebScaffold({ firstUse: true })
@@ -16,7 +16,7 @@ it.each([
   try {
     browser = await chromium.launch()
     const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, locale: copy.locale })
-    await page.addInitScript((locale) => { localStorage.setItem('dsh.locale', locale) }, copy.locale)
+    await page.addInitScript((locale) => { localStorage.setItem('jan.locale', locale) }, copy.locale)
     const tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     const input = page.locator('[data-composer-input][contenteditable="true"]').first()
@@ -69,10 +69,10 @@ it('opens stored timing fields immediately without selecting another repeat opti
     }
     browser = await chromium.launch()
     const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, locale: 'zh-CN', timezoneId: 'Asia/Shanghai' })
-    await page.addInitScript(() => { localStorage.setItem('dsh.locale', 'zh') })
+    await page.addInitScript(() => { localStorage.setItem('jan.locale', 'zh') })
     const tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-    await page.getByRole('button', { name: '自动化任务', exact: true }).click()
+    await page.getByRole('button', { name: '定时任务', exact: true }).click()
     const manager = page.getByTestId('task-manager-page')
     await manager.getByRole('button', { name: '全部', exact: true }).click()
     for (const { task, repeat, field } of tasks) {
@@ -106,12 +106,12 @@ it.each(['2026-03-07T16:00:00.000Z', '2026-03-08T16:00:00.000Z'])(
       browser = await chromium.launch()
       const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, locale: 'zh-CN', timezoneId: 'America/New_York' })
       await page.addInitScript((now) => {
-        localStorage.setItem('dsh.locale', 'zh')
+        localStorage.setItem('jan.locale', 'zh')
         Date.now = () => Date.parse(now)
       }, now)
       const tripwire = watchConsole(page)
       await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-      await page.getByRole('button', { name: '自动化任务', exact: true }).click()
+      await page.getByRole('button', { name: '定时任务', exact: true }).click()
       const manager = page.getByTestId('task-manager-page')
       await manager.getByRole('button', { name: '全部', exact: true }).click()
       await manager.getByRole('button', { name: task.title, exact: true }).click()
@@ -131,7 +131,7 @@ it.each(['2026-03-07T16:00:00.000Z', '2026-03-08T16:00:00.000Z'])(
       expect(updated.rrule).toContain('BYDAY=MO,FR')
 
       await page.reload({ waitUntil: 'load' })
-      await page.getByRole('button', { name: '自动化任务', exact: true }).click()
+      await page.getByRole('button', { name: '定时任务', exact: true }).click()
       await manager.getByRole('button', { name: '全部', exact: true }).click()
       await manager.getByRole('button', { name: task.title, exact: true }).click()
       await detail.getByRole('button', { name: '重复 每周', exact: true }).waitFor()
@@ -154,10 +154,10 @@ it('creates from a paused empty state, selects the task, and saves an inline edi
   try {
     browser = await chromium.launch()
     const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, locale: 'zh-CN', timezoneId: 'Asia/Shanghai' })
-    await page.addInitScript(() => { localStorage.setItem('dsh.locale', 'zh') })
+    await page.addInitScript(() => { localStorage.setItem('jan.locale', 'zh') })
     const tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-    await page.getByRole('button', { name: '自动化任务', exact: true }).click()
+    await page.getByRole('button', { name: '定时任务', exact: true }).click()
     const manager = page.getByTestId('task-manager-page')
     const createStyles = await manager.getByRole('group', { name: '创建', exact: true }).getByRole('button').evaluateAll(buttons => buttons.map((button) => {
       const style = getComputedStyle(button)
@@ -298,10 +298,10 @@ it('creates and edits Custom Cron through the built UI while retaining its expli
   try {
     browser = await chromium.launch()
     const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, locale: 'zh-CN', timezoneId: 'Asia/Shanghai' })
-    await page.addInitScript(() => { localStorage.setItem('dsh.locale', 'zh') })
+    await page.addInitScript(() => { localStorage.setItem('jan.locale', 'zh') })
     const tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-    await page.getByRole('button', { name: '自动化任务', exact: true }).click()
+    await page.getByRole('button', { name: '定时任务', exact: true }).click()
     const manager = page.getByTestId('task-manager-page')
     await manager.getByRole('button', { name: '选择创建方式', exact: true }).click()
     await page.getByRole('menuitem', { name: '手动创建', exact: true }).click()

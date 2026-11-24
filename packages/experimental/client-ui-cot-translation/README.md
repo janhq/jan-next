@@ -3,9 +3,7 @@ description: "Machine-translate expanded reasoning while retaining the original 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-experimental-client-ui-cot-translation
-
-English | [中文](README.zh.md)
+# @janhq/jan-experimental-client-ui-cot-translation
 
 ## Summary
 
@@ -61,11 +59,11 @@ A saved result needs no activation. On an uncached inactive Session, the Host jo
 <a id="model-experience"></a>
 ## Model Experience
 
-Indirectly, through optional independent paid Flash requests and normal Session activation on cache misses; the translator owns translation prompts, and the Session's preset owns startup context.
+Indirectly, through normal Session activation on cache misses; the Session's preset owns startup context.
 
 #### KV Cache effect
 
-Translation records do not replace model input. Normal activation may append context or repair an interrupted turn, with the same cache effects as opening the conversation. The [translator](../translator/README.md#model-experience) owns the independent paid query's token and cache effects.
+Translation records do not replace model input. Normal activation may append context or repair an interrupted turn, with the same cache effects as opening the conversation.
 
 ## Known Limitations and Deferred Work
 

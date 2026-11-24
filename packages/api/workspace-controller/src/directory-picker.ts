@@ -3,17 +3,17 @@
  * stable wire failure vocabulary over the `ctx.directoryPicker` seam.
  */
 
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { z } from 'zod'
-import { DirectoryPickerError } from '@deepseek-ai/dsh-host-directory-picker'
+import { DirectoryPickerError } from '@janhq/jan-host-directory-picker'
 import type {
   DirectoryPickerCapabilities, DirectoryPickerErrorCode,
-} from '@deepseek-ai/dsh-host-directory-picker'
+} from '@janhq/jan-host-directory-picker'
 // The seam owns the listing declaration; the generator requires the reference
 // site to name that package rather than this package's re-export of it.
-import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
-import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import type { RemoteErrorCode } from '@deepseek-ai/dsh-typert-protocol'
+import type { DirectoryListing } from '@janhq/jan-host-directory-picker/types'
+import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
+import type { RemoteErrorCode } from '@janhq/jan-typert-protocol'
 
 const createDirectoryRequestSchema = z.object({
   path: z.string(),
@@ -24,7 +24,7 @@ const createDirectoryRequestSchema = z.object({
   { message: 'host.createDirectory requires a single non-blank path segment name' },
 )
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Host directory-picking Remote namespace owner. */
     directoryPickerController: DirectoryPickerController
@@ -79,7 +79,8 @@ export class DirectoryPickerController extends TypertRemoteService {
   }
 
   /**
-   * Create one child directory for a Remote caller's in-app browser.
+   * Create one child directory for a Remote caller (the in-app browser or the
+   * new-project menu's New folder); every backend that can create folders serves it.
    * @param path - absolute existing parent directory.
    * @param name - single non-blank path segment.
    * @returns the created directory's absolute path.
@@ -94,7 +95,14 @@ export class DirectoryPickerController extends TypertRemoteService {
         { issues: request.error.issues },
       )
     }
-    const capability = this.requireCapability('browse', 'createDirectory')
+    const capability = this.ctx.directoryPicker.capability()
+    if (!('createDirectory' in capability)) {
+      throw new RemoteError(
+        'directory-picker/unavailable',
+        `directoryPicker.createDirectory is not served by the composed "${(capability as { kind: string }).kind}" picker`,
+        { capability: (capability as { kind: string }).kind },
+      )
+    }
     try {
       return await capability.createDirectory(request.data.path, request.data.name)
     } catch (error: unknown) {

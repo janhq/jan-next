@@ -1,27 +1,27 @@
 /** Test-owned Session Controller faces over declarative fixtures. */
-import type { Context } from '@deepseek-ai/cordis'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { Context } from '@janhq/cordis'
+import type { ImageAttachmentRef } from '@janhq/jan-attachment'
 import {
   createScope, MutableSessionEventSource, scopeOf, SESSION_SEARCH_RESULT_LIMIT,
-} from '@deepseek-ai/dsh-api-session-controller/client'
+} from '@janhq/jan-api-session-controller/client'
 import type {
   AgentContext, ISessions, ProjectionsFace, SessionBinding, SessionFace, SessionListState,
   SessionEventLikeEntry, SessionLiveEventEntry, SessionSearchResultItem,
   SessionReference, SessionReferenceSource, SessionRetainInfo, SessionRetainOptions,
   SessionSnapshot, SessionSummary, SessionTarget, SubmissionHandle,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import { scopeIdentityOf } from '@deepseek-ai/dsh-api-session-controller/src/client/scope.ts'
-import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller/types'
-import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+} from '@janhq/jan-api-session-controller/client'
+import { scopeIdentityOf } from '@janhq/jan-api-session-controller/src/client/scope.ts'
+import type { SessionRequestId } from '@janhq/jan-api-session-controller/types'
+import type { SubagentAddress } from '@janhq/jan-subagent/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
+import type { SessionId } from '@janhq/jan-session/types'
 import { sessionSnapshot } from './fixtures.ts'
 import type {
   SessionFixture, SessionFixtureSnapshot, Stabilizer,
 } from './fixtures.ts'
 
-declare module '@deepseek-ai/dsh-api-session-controller/client' {
+declare module '@janhq/jan-api-session-controller/client' {
   interface SessionReferenceSourceMap {
     testFixture: unknown
     testView: unknown
@@ -176,6 +176,14 @@ export class FixtureSession implements SessionFace {
    */
   rename(): never {
     throw new Error(`test session "${this.sessionId}": rename is not stubbed — supply it on the fixture's session face`)
+  }
+
+  /**
+   * Fail-loud stub; supply `contextPreview` on the fixture's session face to exercise it.
+   * @returns never - always throws.
+   */
+  contextPreview(): never {
+    throw new Error(`test session "${this.sessionId}": contextPreview is not stubbed - supply it on the fixture's session face`)
   }
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import WebRuntime, {
   WebError,
   type WebFetchProvider,
@@ -7,7 +7,7 @@ import WebRuntime, {
   type WebSearchProvider,
   type WebSearchRequest,
   type WebSearchResult,
-} from '@deepseek-ai/dsh-web'
+} from '@janhq/jan-web'
 
 /** A scripted search provider for contract tests. */
 function makeSearchProvider(
@@ -34,7 +34,9 @@ function fetchResult(marker: string): WebFetchResult {
 }
 
 /** Mount a WebRuntime on a fresh root context with the given config. */
-async function mountWeb(config: { searchProvider?: string; fetchProvider?: string } = {}): Promise<{ ctx: Context; web: WebRuntime }> {
+async function mountWeb(
+  config: { searchProvider?: string | string[]; fetchProvider?: string | string[] } = {},
+): Promise<{ ctx: Context; web: WebRuntime }> {
   const ctx = new Context()
   await ctx.plugin(WebRuntime, config)
   return { ctx, web: ctx.web }
@@ -222,6 +224,54 @@ describe('WebRuntime execution resolution', () => {
   })
 })
 
+describe('WebRuntime preference lists', () => {
+  it('selects the first registered and usable id, skipping unregistered and unavailable ones', async () => {
+    let tokamakUsable = false
+    const { web } = await mountWeb({ searchProvider: ['missing', 'tokamak', 'exa'] })
+    web.registerSearchProvider({ id: 'tokamak', available: () => tokamakUsable, search: () => Promise.resolve(searchResult('tokamak')) })
+    web.registerSearchProvider(makeSearchProvider('exa', available, () => Promise.resolve(searchResult('exa'))))
+    await expect(web.search({ query: 'q' })).resolves.toMatchObject({ content: 'exa' })
+    tokamakUsable = true
+    await expect(web.search({ query: 'q' })).resolves.toMatchObject({ content: 'tokamak' })
+  })
+
+  it('throws WEB_PROVIDER_CONFIGURED_MISSING when no listed id is registered', async () => {
+    const { web } = await mountWeb({ searchProvider: ['tokamak', 'perplexity'] })
+    web.registerSearchProvider(makeSearchProvider('exa', available, () => Promise.resolve(searchResult('exa'))))
+    await expect(web.search({ query: 'q' })).rejects.toMatchObject({
+      code: 'WEB_PROVIDER_CONFIGURED_MISSING', message: 'no configured web provider ("tokamak", "perplexity") is registered',
+    })
+  })
+
+  it('throws WEB_PROVIDER_CONFIGURED_UNAVAILABLE when every registered listed id is unavailable', async () => {
+    const { web } = await mountWeb({ fetchProvider: ['tokamak', 'http'] })
+    web.registerFetchProvider(makeFetchProvider('tokamak', unavailable, fetchResult('tokamak')))
+    web.registerFetchProvider(makeFetchProvider('other', available, fetchResult('other')))
+    await expect(web.fetch({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'WEB_PROVIDER_CONFIGURED_UNAVAILABLE' })
+  })
+
+  it('auto-selects for an empty list', async () => {
+    const { web } = await mountWeb({ searchProvider: [] })
+    web.registerSearchProvider(makeSearchProvider('exa', available, () => Promise.resolve(searchResult('exa'))))
+    await expect(web.search({ query: 'q' })).resolves.toMatchObject({ content: 'exa' })
+  })
+
+  it('reads comma-separated ids from the environment while the field is unset', async () => {
+    const saved = process.env.JAN_WEB_SEARCH_PROVIDER
+    process.env.JAN_WEB_SEARCH_PROVIDER = ' tokamak , ,exa'
+    try {
+      const { web } = await mountWeb()
+      web.registerSearchProvider(makeSearchProvider('tokamak', unavailable, () => Promise.resolve(searchResult('tokamak'))))
+      web.registerSearchProvider(makeSearchProvider('exa', available, () => Promise.resolve(searchResult('exa'))))
+      web.registerSearchProvider(makeSearchProvider('you', available, () => Promise.resolve(searchResult('you'))))
+      await expect(web.search({ query: 'q' })).resolves.toMatchObject({ content: 'exa' })
+    } finally {
+      if (saved === undefined) delete process.env.JAN_WEB_SEARCH_PROVIDER
+      else process.env.JAN_WEB_SEARCH_PROVIDER = saved
+    }
+  })
+})
+
 describe('WebRuntime search readiness', () => {
   /** A search provider whose readiness answer is scripted and whose calls are recorded. */
   function readyProvider(id: string, isAvailable: boolean, ready: boolean, asked: (string | undefined)[] = []): WebSearchProvider {
@@ -238,8 +288,8 @@ describe('WebRuntime search readiness', () => {
     const { web } = await mountWeb({ searchProvider: 'deepseek' })
     const asked: (string | undefined)[] = []
     web.registerSearchProvider(readyProvider('deepseek', available, false, asked))
-    await expect(web.searchReady('deepseek-official')).resolves.toBe(false)
-    expect(asked).toEqual(['deepseek-official'])
+    await expect(web.searchReady('tokamak')).resolves.toBe(false)
+    expect(asked).toEqual(['tokamak'])
   })
 
   it('does not ask a provider that search() would not select', async () => {
@@ -247,7 +297,7 @@ describe('WebRuntime search readiness', () => {
     const deepseekAsked: (string | undefined)[] = []
     web.registerSearchProvider(readyProvider('exa', available, true))
     web.registerSearchProvider(readyProvider('deepseek', available, false, deepseekAsked))
-    await expect(web.searchReady('deepseek-official')).resolves.toBe(true)
+    await expect(web.searchReady('tokamak')).resolves.toBe(true)
     expect(deepseekAsked).toEqual([])
   })
 
@@ -261,7 +311,7 @@ describe('WebRuntime search readiness', () => {
   it('treats a selected provider without ready() as ready', async () => {
     const { web } = await mountWeb()
     web.registerSearchProvider(makeSearchProvider('plain', available, () => Promise.resolve(searchResult('plain'))))
-    await expect(web.searchReady('deepseek-official')).resolves.toBe(true)
+    await expect(web.searchReady('tokamak')).resolves.toBe(true)
   })
 
   it.each([
@@ -272,7 +322,7 @@ describe('WebRuntime search readiness', () => {
   ] as const)('answers true when %s, leaving search() to report the failure', async (_label, config, providers) => {
     const { web } = await mountWeb(config)
     for (const provider of providers) web.registerSearchProvider(provider)
-    await expect(web.searchReady('deepseek-official')).resolves.toBe(true)
+    await expect(web.searchReady('tokamak')).resolves.toBe(true)
     await expect(web.search({ query: 'q' })).rejects.toBeInstanceOf(WebError)
   })
 })
@@ -345,21 +395,21 @@ describe('WebRuntime fetch readiness', () => {
     const httpAsked: (string | undefined)[] = []
     web.registerFetchProvider(readyFetchProvider('deepseek', available, false, asked))
     web.registerFetchProvider(readyFetchProvider('http', available, true, httpAsked))
-    await expect(web.fetchReady('deepseek-official')).resolves.toBe(false)
-    expect(asked).toEqual(['deepseek-official'])
+    await expect(web.fetchReady('tokamak')).resolves.toBe(false)
+    expect(asked).toEqual(['tokamak'])
     expect(httpAsked).toEqual([])
   })
 
   it('treats a selected provider without ready() as ready', async () => {
     const { web } = await mountWeb()
     web.registerFetchProvider(makeFetchProvider('http', available, fetchResult('http')))
-    await expect(web.fetchReady('deepseek-official')).resolves.toBe(true)
+    await expect(web.fetchReady('tokamak')).resolves.toBe(true)
   })
 
   it('answers true when no provider qualifies, leaving fetch() to report the failure', async () => {
     const { web } = await mountWeb({ fetchProvider: 'down' })
     web.registerFetchProvider(readyFetchProvider('down', unavailable, false))
-    await expect(web.fetchReady('deepseek-official')).resolves.toBe(true)
+    await expect(web.fetchReady('tokamak')).resolves.toBe(true)
     await expect(web.fetch({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'WEB_PROVIDER_CONFIGURED_UNAVAILABLE' })
   })
 })

@@ -5,8 +5,6 @@ description: "The sdk-minimal default tool roster adds read_image and automatica
 
 # SDK-minimal image reading and automatic compaction
 
-English | [中文](guide.zh.md)
-
 ## Change
 
 `sdk-minimal` advertises `read_image` alongside its persistent shell and `working_directory`. Automatic compaction sends an additional model request to summarize older history when context pressure reaches the configured threshold. The complete Session log remains stored as uncompressed JSONL. Images that exceed the route budget are permanently replaced by attachment/path placeholders so the request can retry. SDK prompt text does not execute `/compact`.
@@ -15,7 +13,7 @@ Clients that pin tool names, benchmark prompt size, or count model requests must
 
 ## Migration
 
-1. Accept the new defaults, or place this patch in `$DSH_HOME/profiles/sdk-minimal/cordis.patch.yml` to retain the previous default tools and disable automatic compaction:
+1. Accept the new defaults, or place this patch in `$JAN_HOME/profiles/sdk-minimal/cordis.patch.yml` to retain the previous default tools and disable automatic compaction:
 
 ```yaml
 - id: tool-fs

@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-attachment",
+  "name": "@janhq/jan-attachment",
   "description": "Durable immutable attachment storage seam for Jan",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/attachment/attachment"
   },
   "type": "module",
@@ -22,11 +22,11 @@
   "files": ["lib/index.js", "lib/types/**/*.js", "lib/types/**/*.d.ts"],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   }
 }

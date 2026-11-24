@@ -1,23 +1,25 @@
 /** Authenticated, cancellation-aware browser access to the managed local llama.cpp model. */
-import { Context } from '@deepseek-ai/cordis'
-import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import type {} from '@deepseek-ai/dsh-llama-cpp'
-import type { HuggingFaceRepoInfo, LlamaCppState } from '@deepseek-ai/dsh-llama-cpp/types'
+import { Context } from '@janhq/cordis'
+import { resolveJanHome } from '@janhq/jan-home-paths'
+import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
+import type {} from '@janhq/jan-llama-cpp'
+import type { HuggingFaceRepoInfo, LlamaCppState, StoredDownload } from '@janhq/jan-llama-cpp/types'
+import { repositoryCaches, speechCaches, type RepositoryCacheOwner } from './stored-caches.ts'
 
 export type {
   CatalogModelInfo, HuggingFaceFileInfo, HuggingFaceRepoInfo, ImportModelOptions, LlamaCppDevice, LlamaCppDownload, LlamaCppHardware,
   LlamaCppHostPlatform, LlamaCppModelInfo, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource,
-  LocalModelStatus, ModelFit,
-} from '@deepseek-ai/dsh-llama-cpp/types'
+  LocalModelStatus, ModelFit, StoredDownload,
+} from '@janhq/jan-llama-cpp/types'
 
-declare module '@deepseek-ai/dsh-typert-protocol' {
+declare module '@janhq/jan-typert-protocol' {
   interface RemoteErrorDetailsMap {
     /** The local model operation failed. */
     'llama-cpp/failed': { readonly reason: string }
   }
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Local model Remote controller. */
     llamaCppController: LlamaCppController
@@ -100,8 +102,8 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
-   * Start a failed download again.
-   * @param id - model id of the failed download.
+   * Start a failed or paused download again, from its partial file.
+   * @param id - model id of the failed or paused download.
    */
   @Remote
   retryDownload(id: string): void {
@@ -109,12 +111,59 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
-   * Stop one download, or dismiss it when it failed.
+   * Pause a running or queued download, keeping its partial file for {@link retryDownload}.
+   * @param id - model id of the download.
+   */
+  @Remote
+  pauseDownload(id: string): void {
+    try { this.ctx.llamaCpp.pause(id) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Stop one download and discard its files, or dismiss it when it failed.
    * @param id - model id of the download.
    * @returns after it settles.
    */
   @Remote
   async cancelDownload(id: string): Promise<void> { await this.ctx.llamaCpp.cancel(id) }
+
+  /**
+   * Jan's on-disk downloads and caches, with paths relative to the Jan data folder.
+   * @returns every listed item, sorted by name and then path.
+   */
+  @Remote
+  async listStoredDownloads(): Promise<StoredDownload[]> {
+    try {
+      const home = resolveJanHome(this.ctx.get('profileContext')?.home)
+      const [models, caches] = await Promise.all([this.ctx.llamaCpp.listStoredDownloads(home), this.storedCaches(home)])
+      return [...models, ...caches.map(cache => cache.item)].sort((a, b) => a.name.localeCompare(b.name) || a.path.localeCompare(b.path))
+    } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Remove one currently listed download.
+   * @param path - exact Jan-home-relative path from the list.
+   * @returns after the files are gone.
+   */
+  @Remote
+  async deleteStoredDownload(path: string): Promise<void> {
+    try {
+      const home = resolveJanHome(this.ctx.get('profileContext')?.home)
+      const cache = (await this.storedCaches(home)).find(entry => entry.item.path === path)
+      if (cache === undefined) await this.ctx.llamaCpp.deleteStoredDownload(home, path)
+      else await cache.delete()
+    } catch (error) { throw failed(error) }
+  }
+
+  private async storedCaches(home: string) {
+    const market = this.ctx.get('pluginMarket') as RepositoryCacheOwner | undefined
+    const speechMounted = this.ctx.get('senseVoiceWorker', false) !== undefined
+    const [voice, repositories] = await Promise.all([
+      speechCaches(home, speechMounted ? 'Disable the Voice Input plugin before deleting its speech files.' : undefined),
+      market === undefined ? [] : repositoryCaches(home, market),
+    ])
+    return [...voice, ...repositories]
+  }
 
   /**
    * Add a GGUF file from this computer, left where it is.
@@ -138,6 +187,46 @@ export default class LlamaCppController extends TypertRemoteService {
   @Remote
   async setDefaultModel(id: string): Promise<void> {
     try { await this.ctx.llamaCpp.setDefault(id) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Current served context, GGUF-trained maximum when known, and auto-fit for one installed model.
+   * @param id - installed model id; `local` names the default.
+   * @returns served context tokens, the trained maximum when the GGUF declares one, and whether auto-fit is on.
+   */
+  @Remote
+  getModelContext(id: string): { current: number; maximum?: number; fit: boolean } {
+    try { return this.ctx.llamaCpp.getModelContext(id) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Persist a per-model context length and wait for the worker's new preset to load.
+   * @param id - installed model id; `local` names the default.
+   * @param contextSize - positive token count, at most the model's trained maximum.
+   */
+  @Remote
+  async setModelContext(id: string, contextSize: number): Promise<void> {
+    try { await this.ctx.llamaCpp.setModelContext(id, contextSize) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Persist and apply automatic GPU/memory fit for one installed model.
+   * @param id - installed model id; `local` names the default.
+   * @param fit - whether llama.cpp fits the context and offload to free memory.
+   */
+  @Remote
+  async setModelFit(id: string, fit: boolean): Promise<void> {
+    try { await this.ctx.llamaCpp.setModelFit(id, fit) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Grow the context to the next step, reload the model, or answer null at its maximum.
+   * @param id - installed model id; `local` names the default.
+   * @returns the new context length, or null when the model cannot grow further.
+   */
+  @Remote
+  async increaseModelContext(id: string): Promise<number | null> {
+    try { return await this.ctx.llamaCpp.increaseModelContext(id) } catch (error) { throw failed(error) }
   }
 
   /**

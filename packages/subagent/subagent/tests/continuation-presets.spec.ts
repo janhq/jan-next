@@ -6,19 +6,19 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { Context } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import Include from '@deepseek-ai/cordis-plugin-include'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import AgentPresets from '@deepseek-ai/dsh-agent-preset-registry'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import Include from '@janhq/cordis-plugin-include'
+import type { Agent } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import AgentPresets from '@janhq/jan-agent-preset-registry'
+import { createUserMessage } from '@janhq/jan-llm'
+import { SessionId } from '@janhq/jan-session'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
 import { managerState, subagentManager } from './manager-internals.ts'
-import * as SubagentFork from '@deepseek-ai/dsh-subagent-fork-in-process'
-import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
+import * as SubagentFork from '@janhq/jan-subagent-fork-in-process'
+import * as SubagentSpawn from '@janhq/jan-subagent-spawn-in-process'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import SubagentRuntime, { SUBAGENT_DESCRIPTOR_VERSION, snapshotSubagentDescriptor } from '../src/index.ts'
 import { TestSessionQuery } from './test-session-query.ts'
@@ -38,7 +38,7 @@ afterEach(async () => {
 
 /** Real preset mounts, Agent lifecycle, and persistence with a scripted model. */
 async function setup(script: ConstructorParameters<typeof MockAdapter>[0] = [textResponse('done'), textResponse('continued'), textResponse('done again')]) {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-continuation-presets-'))
+  const root = mkdtempSync(join(tmpdir(), 'jan-continuation-presets-'))
   roots.push(root)
   const ctx = new Context()
   contexts.push(ctx)
@@ -221,7 +221,10 @@ describe('continuable child presets', () => {
     parkParent(ctx, parent)
     const stopSelecting = ctx.on('agent/created', async ({ agent, source }) => {
       if (source === 'startup' && agent.session.header.parentSession === parent.id) {
-        await ctx.agentPresets.select(agent, 'reviewing')
+        // Creation already owns maintenance. Seed the later durable selection
+        // directly to exercise restoration without starting a second maintenance job.
+        await ctx.agentPresets.recompose(agent.ctx, 'reviewing')
+        agent.session.append('agent-preset/selected', { agentPreset: 'reviewing' })
       }
     })
     const started = await ctx.subagents.startActivation(startSpec(parent, 'coding'))
@@ -279,7 +282,8 @@ describe('continuable child presets', () => {
     parkParent(ctx, parent)
     const stopSelecting = ctx.on('agent/created', async ({ agent, source }) => {
       if (source === 'startup' && agent.session.header.parentSession === parent.id) {
-        await ctx.agentPresets.select(agent, 'reviewing')
+        await ctx.agentPresets.recompose(agent.ctx, 'reviewing')
+        agent.session.append('agent-preset/selected', { agentPreset: 'reviewing' })
       }
     })
     const started = await ctx.subagents.startActivation(startSpec(parent, undefined, 'fork'))

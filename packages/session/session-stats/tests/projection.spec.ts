@@ -11,15 +11,15 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { createMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import * as SessionStatsPlugin from '@deepseek-ai/dsh-session-stats'
-import { sessionStatsProjectionDefinition } from '@deepseek-ai/dsh-session-stats/src/projection.ts'
-import type { SessionStatsProjection } from '@deepseek-ai/dsh-session-stats/types'
+import { Context } from '@janhq/cordis'
+import { createMessage, ToolCallId } from '@janhq/jan-llm'
+import type { StreamChunk, TokenUsage } from '@janhq/jan-llm'
+import SessionStore, { SessionId } from '@janhq/jan-session'
+import type { Session, SessionEvent } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import * as SessionStatsPlugin from '@janhq/jan-session-stats'
+import { sessionStatsProjectionDefinition } from '@janhq/jan-session-stats/src/projection.ts'
+import type { SessionStatsProjection } from '@janhq/jan-session-stats/types'
 
 async function harness(withStatsPlugin: boolean): Promise<{ ctx: Context; session: Session }> {
   const ctx = new Context()
@@ -177,9 +177,10 @@ function fold(events: readonly SessionEvent[]): SessionStatsProjection {
 }
 
 describe('sessionStats wall-time fold (controlled timestamps)', () => {
+  // Long enough to hold every output token the tests report, so speed reads from the first token.
   const message = createMessage({
     role: 'assistant',
-    content: [{ type: 'text', text: 'answer' }],
+    content: [{ type: 'text', text: 'answer'.padEnd(30_000, '.') }],
     source: { kind: 'model', provider: 'mock', model: 'mock' },
   })
 
@@ -206,6 +207,19 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
       at(4_900, 'step/end', { turn: 1, step: 1 }),
     ])).toEqual(totals({
       turns: 1, steps: 1, llmMs: 3_800, ttftMs: 800, ttftSteps: 1, decodeMs: 3_000, decodeTokens: 60,
+    }))
+  })
+
+  it('leaves a step whose tokens arrived in one burst out of decode speed', () => {
+    // A buffered Tool call: 37.8 s of silence, then 7,000 tokens 27 ms apart.
+    expect(fold([
+      at(1_000, 'step/start', { turn: 1, step: 1 }),
+      messageAt(38_827, [{
+        time: 38_800, chunk: { type: 'text-delta', index: 0, text: 'a' },
+      }], { inputTokens: 10, outputTokens: 7_000 }),
+      at(38_900, 'step/end', { turn: 1, step: 1 }),
+    ])).toEqual(totals({
+      turns: 1, steps: 1, llmMs: 37_827, ttftMs: 37_800, ttftSteps: 1,
     }))
   })
 

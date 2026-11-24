@@ -2,13 +2,13 @@
   config:
     providers:
       - id: snapshot-command-images
-        name: DeepSeek
+        name: Tokamak
         models:
-          - id: deepseek-flash
+          - id: tokamak-flash
             inputModalities: [text, image]
 
 - insert:
     - id: command-attachment-request-capture
       name: '../manual-compact/capture-requests.mjs'
       config:
-        path: !!js dshHomePath('command-attachment-requests.jsonl')
+        path: !!js janHomePath('command-attachment-requests.jsonl')

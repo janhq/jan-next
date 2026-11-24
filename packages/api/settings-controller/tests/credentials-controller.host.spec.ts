@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import type { CredentialInfo } from '@deepseek-ai/dsh-credentials/types'
-import { remoteErrorOf, remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
+import { Context } from '@janhq/cordis'
+import type { CredentialInfo } from '@janhq/jan-credentials/types'
+import { remoteErrorOf, remoteMethods } from '@janhq/jan-typert-protocol'
 import CredentialsController from '../src/credentials.ts'
 import { MemoryCredentials } from '../../../credentials/credentials/tests/memory.ts'
 
@@ -55,24 +55,24 @@ describe('the credentials Remote namespace a configuration surface calls', () =>
     const ctx = new Context()
     await ctx.plugin(CredentialsController)
     for (const call of [
-      () => ctx.credentialsController.describe(['DEEPSEEK_API_KEY']),
-      () => ctx.credentialsController.set('DEEPSEEK_API_KEY', 'sk-live'),
-      () => ctx.credentialsController.unset('DEEPSEEK_API_KEY'),
+      () => ctx.credentialsController.describe(['TOKAMAK_API_KEY']),
+      () => ctx.credentialsController.set('TOKAMAK_API_KEY', 'sk-live'),
+      () => ctx.credentialsController.unset('TOKAMAK_API_KEY'),
     ]) {
       const failure = await call().catch((error: unknown) => error)
       expect(remoteErrorOf(failure)).toMatchObject({
         code: 'gateway/internal',
-        message: 'credentials service is absent: this deployment does not mount a credential provider (e.g. @deepseek-ai/dsh-credentials-local) in its composition',
+        message: 'credentials service is absent: this deployment does not mount a credential provider (e.g. @janhq/jan-credentials-local) in its composition',
         details: {},
       })
     }
   })
 
   it('describes a batch of references as one map, values excluded', async () => {
-    const controller = await boot({ DEEPSEEK_API_KEY: 'sk-seeded' })
-    const described = await controller.describe(['DEEPSEEK_API_KEY', 'OPENAI_API_KEY'])
+    const controller = await boot({ TOKAMAK_API_KEY: 'sk-seeded' })
+    const described = await controller.describe(['TOKAMAK_API_KEY', 'OPENAI_API_KEY'])
     expect(described).toEqual({
-      DEEPSEEK_API_KEY: { configured: true, source: 'memory', writable: true },
+      TOKAMAK_API_KEY: { configured: true, source: 'memory', writable: true },
       OPENAI_API_KEY: { configured: false, writable: true },
     })
     expect(JSON.stringify(described)).not.toContain('sk-seeded')
@@ -81,7 +81,7 @@ describe('the credentials Remote namespace a configuration surface calls', () =>
   it('reports an invalid reference as bad-request', async () => {
     const controller = await boot()
     for (const call of [
-      () => controller.describe(['DEEPSEEK_API_KEY', 'not a var']),
+      () => controller.describe(['TOKAMAK_API_KEY', 'not a var']),
       () => controller.set('not a var', 'sk-live'),
       () => controller.unset('not a var'),
     ]) {
@@ -100,39 +100,39 @@ describe('the credentials Remote namespace a configuration surface calls', () =>
 
   it('answers only the fields the view declares, whatever a provider returns', async () => {
     const controller = await boot({}, LeakyCredentials)
-    const described = await controller.describe(['DEEPSEEK_API_KEY'])
-    expect(described.DEEPSEEK_API_KEY).toEqual({ configured: true, source: 'memory', writable: true })
+    const described = await controller.describe(['TOKAMAK_API_KEY'])
+    expect(described.TOKAMAK_API_KEY).toEqual({ configured: true, source: 'memory', writable: true })
     expect(JSON.stringify(described)).not.toContain('sk-leaked')
   })
 
   it('stores and removes through the same references the batch describes', async () => {
     const controller = await boot()
-    await controller.set('DEEPSEEK_API_KEY', 'sk-live')
-    expect(await controller.describe(['DEEPSEEK_API_KEY']))
-      .toEqual({ DEEPSEEK_API_KEY: { configured: true, source: 'memory', writable: true } })
-    await controller.unset('DEEPSEEK_API_KEY')
-    expect(await controller.describe(['DEEPSEEK_API_KEY']))
-      .toEqual({ DEEPSEEK_API_KEY: { configured: false, writable: true } })
+    await controller.set('TOKAMAK_API_KEY', 'sk-live')
+    expect(await controller.describe(['TOKAMAK_API_KEY']))
+      .toEqual({ TOKAMAK_API_KEY: { configured: true, source: 'memory', writable: true } })
+    await controller.unset('TOKAMAK_API_KEY')
+    expect(await controller.describe(['TOKAMAK_API_KEY']))
+      .toEqual({ TOKAMAK_API_KEY: { configured: false, writable: true } })
   })
 
   it('reports a refused write as credential/rejected naming only the reference', async () => {
     const controller = await boot({}, RejectingCredentials)
-    const failure = await controller.set('DEEPSEEK_API_KEY', 'sk-live').catch((error: unknown) => error)
+    const failure = await controller.set('TOKAMAK_API_KEY', 'sk-live').catch((error: unknown) => error)
     const { code, message, details } = remoteErrorOf(failure) ?? {}
     expect(code).toBe('credential/rejected')
     expect(message).toContain('no longer parses')
-    expect(details).toEqual({ ref: 'DEEPSEEK_API_KEY' })
+    expect(details).toEqual({ ref: 'TOKAMAK_API_KEY' })
   })
 
   it('reports an empty value as bad-request', async () => {
     const controller = await boot()
-    const failure = await controller.set('DEEPSEEK_API_KEY', '').catch((error: unknown) => error)
+    const failure = await controller.set('TOKAMAK_API_KEY', '').catch((error: unknown) => error)
     expect(remoteErrorOf(failure)).toMatchObject({ code: 'gateway/bad-request' })
   })
 
   it('stringifies a refusal that is not an Error', async () => {
     const controller = await boot({}, LiteralRejectingCredentials)
-    const failure = await controller.set('DEEPSEEK_API_KEY', 'sk-live').catch((error: unknown) => error)
+    const failure = await controller.set('TOKAMAK_API_KEY', 'sk-live').catch((error: unknown) => error)
     expect(remoteErrorOf(failure)?.message).toBe('the store refused')
   })
 })

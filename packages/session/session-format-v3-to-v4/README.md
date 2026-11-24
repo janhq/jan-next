@@ -3,9 +3,7 @@ description: "Complete V3-to-V4 Session conversion and native admission: tool-ro
 kind: "package-library"
 ---
 
-# @deepseek-ai/dsh-session-format-v3-to-v4
-
-English | [中文](README.zh.md)
+# @janhq/jan-session-format-v3-to-v4
 
 ## Summary
 
@@ -123,13 +121,13 @@ A plugin source requires a string `plugin`, including the empty string. Conversi
 |---|---|
 | `compact` | `compact-checkpoint` |
 | `tools-code-mode`, `tools-ptc` | `ptc-mode` |
-| `dsh-compaction-basic` | `compact-basic` |
-| `@deepseek-ai/dsh-system-prompt`, on a system-role message | `system-prompt` |
-| `@deepseek-ai/dsh-system-prompt`, on another role | `runtime-context` |
+| `jan-compaction-basic` | `compact-basic` |
+| `@janhq/jan-system-prompt`, on a system-role message | `system-prompt` |
+| `@janhq/jan-system-prompt`, on another role | `runtime-context` |
 | Same-name first-party producers listed below | The exact plugin string |
 | Any other plugin name | `plugin:` followed by the complete original name |
 
-The same-name producers are `agent-instructions`, `session-reference`, `team-message`, `goal`, `skill-invocation`, `skill-catalog`, `coordinator`, `subagent-report`, `subagent-settled`, `webhook`, `agent-message`, `model-selection`, `plan-mode`, `time-context`, `tmux-context`, `user-approval`, `repeat-tool-reminder`, `tool-cordis`, `cordis-host-runner`, `tool-goal`, `tool-jobs`, `hooks-codex`, `hooks-claude-code`, `schedule`, and `dsh-session-title-llm`.
+The same-name producers are `agent-instructions`, `session-reference`, `team-message`, `goal`, `skill-invocation`, `skill-catalog`, `coordinator`, `subagent-report`, `subagent-settled`, `webhook`, `agent-message`, `model-selection`, `plan-mode`, `time-context`, `tmux-context`, `user-approval`, `repeat-tool-reminder`, `tool-cordis`, `cordis-host-runner`, `tool-goal`, `tool-jobs`, `hooks-codex`, `hooks-claude-code`, `schedule`, and `jan-session-title-llm`.
 
 The complete plugin string is retained after `plugin:`: a plugin named `acme` becomes `plugin:acme`. Direct sources, including unknown and already-prefixed kinds, keep their original kind and every own JSON field.
 
@@ -161,28 +159,19 @@ Storage supplies recognizable direct-child evidence and rechecks membership and 
 
 An open turn with no open step can be closed when the next numbered `turn/start` immediately follows a nonempty `agent/inbox/spliced` for `next-turn`. The stage inserts `turn/end` with reason `interrupted` immediately before that start, using its timestamp. Open tails remain open. Other turn-order violations, unresolved tools, and active compactions still fail target validation. Native V4 never applies this repair.
 
-Insertion renumbers subsequent envelopes densely and remaps audited same-artifact references: `sourceEventSeqs`, replacement `startSeq/endSeq`, command completion `sourceEventSeq`, title `messageSeqs`, compaction `shadowedRange` and `shadowedSeqs`, and image-offload target `seq`. Captured Session references, generation-qualified delivery coordinates, turn/step numbers, stream and image indexes, ids, and arbitrary JSON retain their values. Unknown ignorable events retain opaque payload and surface metadata; only their envelope sequence is renumbered. Without insertion, source event coordinates remain unchanged; appended catalog records only extend the suffix.
+Insertion renumbers subsequent envelopes densely and remaps audited same-artifact references: `sourceEventSeqs`, replacement `startSeq/endSeq`, command completion `sourceEventSeq`, title `messageSeqs`, compaction `shadowedRange` and `shadowedSeqs`, and image-offload target `seq`. Captured Session references, turn/step numbers, stream and image indexes, ids, and arbitrary JSON retain their values. Unknown ignorable events retain opaque payload and surface metadata; only their envelope sequence is renumbered. Without insertion, source event coordinates remain unchanged; appended catalog records only extend the suffix.
 
 For a seeded Session, the last `session/end-seed` carrying `inherited: true` identifies the inherited event count, excluding that marker. The target count includes inserted events before that marker. A supplied source cut must agree with the original V3-stage marker position, including when preceding V0–V2 migrations already remapped it; a missing tagged marker, an inherited marker in an unseeded Session, or a cut outside the events is refused. Unseeded stages expose zero before EOF; seeded stages leave the count unknown until `finish()`. Untagged markers do not define fork inheritance.
 
 <a id="delivery-guards"></a>
 ### Delivery generations
 
-| Delivery record | Admission and preservation |
-|---|---|
-| Any interpreted `session-log-deepseek/delivery-accepted` | Generation must be a nonnegative safe integer; omission identifies V0. |
-| V3 source marker claiming generation 4 | Refuse: advancing the header must not activate a target-generation watermark. |
-| V3 source marker for generation 3 | Require a nonempty Session id and nonnegative safe-integer `throughSeq` before the marker; a foreign id is allowed only before the inherited cut with `parentSession`. |
-| Other source generations, including values above 4 | Retain their event type and payload coordinates unchanged; they remain inactive in V4. |
-| Native V4 marker for generation 4 | Require an earlier `throughSeq` and nonempty Session id; a foreign id is allowed only before the validated inherited cut, without requiring `parentSession`. |
-| Native V4 historical marker, including generation 3 | Retain recorded coordinates and identity; it is not a V4 acceptance watermark. |
-
-No delivery payload or event type is rewritten. Higher-version migrations own any future activation checks; this edge checks only promotion to V4. The marker’s envelope sequence follows insertion remapping; source-generation ownership is checked against the original V3 sequence and inherited cut.
+`session-log-deepseek/delivery-accepted` remains in the released V3 vocabulary, so the stage converts it like any other V3 event. The installed vocabulary no longer contains it, so V4 restoration refuses a migrated or native log that carries it.
 
 <a id="source-audit"></a>
 ### Source audit and refusal
 
-V3 physical decoding and header validation run before the stage. The stage checks dense sequences, source cuts, canonical tool-result wrappers, named plugin sources, delivery ownership, and supplied catalog evidence as specified above. It does not run the complete released V3 semantic restorer or copy the V2→V3 event/content allowlist. Complete restoration additionally applies the V4 target rules below; physical parsing, stage conversion, and target restoration are distinct checks.
+V3 physical decoding and header validation run before the stage. The stage checks dense sequences, source cuts, canonical tool-result wrappers, named plugin sources, and supplied catalog evidence as specified above. It does not run the complete released V3 semantic restorer or copy the V2→V3 event/content allowlist. Complete restoration additionally applies the V4 target rules below; physical parsing, stage conversion, and target restoration are distinct checks.
 
 Only the enumerated messages and fields are converted. Unrelated events and arbitrary JSON do not acquire new meanings from matching strings or numbers. The fixed `RELEASED_V3_EVENT_TYPES` set separates source events from extensions independently of the current writer. The stage rejects unknown required V3 event types before interpreting their payloads or consulting the V4 vocabulary, including names that V4 recognizes. Unknown ignorable names become `plugin:<original-name>` with their payload unchanged. No generic source-schema validation or recursive numeric-field inference is implied.
 
@@ -240,13 +229,13 @@ Current common admission does not validate each user/tool/developer content bloc
 | `system/message`, `developer/message`, `assistant/attempt` | Match an open turn and step. Request headers and contexts require an open turn. |
 | `tool/ptc-dispatch-start`, `tool/ptc-dispatch` | Require an open turn, unique sub-call start and settlement, stable root/parent/name/arguments, and a nested parent belonging to the same root. |
 | `llm/retry`, `llm/retry-started` | Match the current request provider and turn/step, sequential attempts per policy chain, stable retry identity, and one start matching a prior scheduled attempt. |
-| `session/title`, `session/title-llm-request` | Cite distinct earlier human `user/message` events. User-assigned titles have no citations; other titles have citations. An LLM title request has nonempty citations and one user-role text message sourced from `dsh-session-title-llm`. |
+| `session/title`, `session/title-llm-request` | Cite distinct earlier human `user/message` events. User-assigned titles have no citations; other titles have citations. An LLM title request has nonempty citations and one user-role text message sourced from `jan-session-title-llm`. |
 | `command/run`, `command/done` | Run ids are unique; completion has a prior run. A present completion `sourceEventSeq` names an earlier non-command event and accompanies success. |
 | `compaction/start`, `compaction/summary`, `compaction/end` | Match compaction id, source command, and the active turn context. Summary spans name exact current-surface nodes and exclude the protected head; successful completion has one summary. Inherited unfinished compactions expire at the end-seed marker. |
 | `compaction/prune` | Its span names exact current-surface nodes and excludes the protected head; it does not require a compaction transaction or its owner fields. |
 | Compact checkpoint replacement | Its `compact-checkpoint` source identifies the active compaction. |
 | Native `subagent/catalog` | Validates own version-0 through version-3 payloads after the inherited cut; version 3 is native-only and adds the child's name to a continuable or external entry. Each child id and version-3 sibling name must be unique. Names contain 1–32 lowercase letters, digits, or hyphens, start with a letter, and cannot be `lead`. Native reads neither collect child logs nor compare their physical facts; inherited entries do not establish own membership. |
-| Inherited cut and delivery | Apply the native V4 marker, coordinate, and generation-ownership rules above. |
+| Inherited cut | Apply the native V4 marker and coordinate rules above. |
 
 These checks are generation-owned in [relationships.ts](src/relationships.ts). Full common message/envelope acceptance and plugin-owned message projections additionally use the installed Session; the exported V4 restorer alone is not a replacement for complete catalog restoration.
 

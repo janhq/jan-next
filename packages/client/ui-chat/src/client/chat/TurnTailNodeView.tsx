@@ -1,5 +1,5 @@
-import { memo } from 'react'
-import type { InjectFace, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
+import { memo, useCallback, useRef } from 'react'
+import type { InjectFace, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { ChatNodeViewProps, PerformanceUsageInjected, TurnTailOwnerProps } from '../contract/slots.ts'
 import { MessageIconActions } from './MessageIconActions.tsx'
 import { TurnUsagePanel } from './TurnUsagePanel.tsx'
@@ -29,6 +29,13 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
   node, openFile, forkAt, renderSlot, t, useAccess, useChat, usePerformanceUsage,
 }: TurnTailNodeViewProps) {
   const detailed = usePerformanceUsage(mode => mode) === 'detailed'
+  const root = useRef<HTMLDivElement>(null)
+  // The reply's nodes are this tail's siblings in the flow, keyed by turn; the last embed is the one its actions mean.
+  const getEmbed = useCallback((): HTMLElement | null => {
+    const flow = root.current?.closest('[data-chat-flow]')
+    const embeds = flow?.querySelectorAll<HTMLElement>(`[data-chat-turn="${node.data.turn}"] [data-chat-embed]`)
+    return embeds === undefined || embeds.length === 0 ? null : embeds[embeds.length - 1] ?? null
+  }, [node.data.turn])
   const forkAllowed = useAccess('session/fork')
   const data = node.data
   const hasLaterChatNode = useChat(snapshot =>
@@ -51,18 +58,20 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
   // Interruption-frozen partials carry no messageId, so they address no
   // durable message and contribute no per-message actions.
   const messageId = closing.finalNode.messageId
+  const text = assistantText(closing.blocks)
   const assistantActions = messageId === undefined
     ? null
-    : renderSlot('conversation.chat.assistant-actions', { messageId })
+    : renderSlot('conversation.chat.assistant-actions', { messageId, text, getEmbed })
   return (
     <div
+      ref={root}
       className={css.root}
       data-turn-tail={data.turn}
       data-actions-reveal={endsWithResponse ? 'always' : 'hover'}
     >
       {tail}
       <MessageIconActions
-        text={assistantText(closing.blocks)}
+        text={text}
         time={closing.time}
         clock="end"
         // The branch action owns boundary resolution: it sends the real
@@ -72,7 +81,7 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
         className={css.actions}
         extraActions={assistantActions}
         usageAction={detailed && data.tokenUsage !== undefined
-          ? <TurnUsagePanel usage={data.tokenUsage} t={t} />
+          ? <TurnUsagePanel usage={data.tokenUsage} timing={data.timing} t={t} />
           : null}
         t={t}
       />

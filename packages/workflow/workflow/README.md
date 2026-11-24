@@ -3,9 +3,7 @@ description: "The workflow orchestration capability: run a model-written script 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-workflow
-
-English | [中文](README.zh.md)
+# @janhq/jan-workflow
 
 ## Summary
 
@@ -29,7 +27,7 @@ Run a workflow when a task decomposes into many independent pieces that one scri
 
 ### The model-facing path
 
-The model reaches the capability through the `workflow` tool from `dsh-tool-workflow`, which owns the call schema and result envelope; the engine supplies the execution underneath. A tool call submits `meta`, `script`, and optional `args` and returns `{ runId, agentsStarted, result }` when the run completes. The tool blocks the parent turn until the whole workflow settles, so the model sees one final outcome, never intermediate child messages.
+The model reaches the capability through the `workflow` tool from `jan-tool-workflow`, which owns the call schema and result envelope; the engine supplies the execution underneath. A tool call submits `meta`, `script`, and optional `args` and returns `{ runId, agentsStarted, result }` when the run completes. The tool blocks the parent turn until the whole workflow settles, so the model sees one final outcome, never intermediate child messages.
 
 ### Running a workflow script
 
@@ -103,14 +101,13 @@ Read these pages when the package-level contract is not enough. They move from t
 - [Group map](../README.md) — the workflow capability family and its packages.
 - [workflow tool](../tool-workflow/README.md) — the model-facing consumer that owns the call schema and result envelope.
 - [PTC workflow engine](../workflow-ptc/README.md) — the current execution engine and its isolation boundary.
-- [historical Dynamic workflows Agent Note](../../../.agents/notes/archived/feature/2026-07-05-dynamic-workflows.md) — the seam design and its decisions.
 
 -----
 
 <a id="model-experience"></a>
 ## Model Experience
 
-Indirectly, through its consumer `dsh-tool-workflow` and a workflow engine, which render the parent tool result and the child-agent requests.
+Indirectly, through its consumer `jan-tool-workflow` and a workflow engine, which render the parent tool result and the child-agent requests.
 
 #### KV Cache effect
 

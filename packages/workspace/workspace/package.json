@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-workspace",
+  "name": "@janhq/jan-workspace",
   "description": "Workspace entity registry (ctx.workspaceRegistry): durable workspace records with validated session attachment over the domain data form for Jan",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/workspace/workspace"
   },
   "type": "module",
@@ -34,23 +34,23 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-persistence": "workspace:*",
-    "@deepseek-ai/dsh-storage": "workspace:*",
-    "@deepseek-ai/dsh-storage-domain": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-persistence": "workspace:*",
+    "@janhq/jan-storage": "workspace:*",
+    "@janhq/jan-storage-domain": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "zod": "4.4.3"
+    "@janhq/jan-brand": "workspace:*",
+    "zod": "4.6.6"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-persistence": "workspace:*",
-    "@deepseek-ai/dsh-storage": "workspace:*",
-    "@deepseek-ai/dsh-storage-domain": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-persistence": "workspace:*",
+    "@janhq/jan-storage": "workspace:*",
+    "@janhq/jan-storage-domain": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*"
   }
 }

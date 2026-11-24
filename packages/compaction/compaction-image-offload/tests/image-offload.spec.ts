@@ -4,19 +4,16 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import BasicCompactionEngine from '@deepseek-ai/dsh-compaction-basic'
-import TokenMeter from '@deepseek-ai/dsh-token-meter'
-import { ImageVariantId } from '@deepseek-ai/dsh-attachment'
-import { resolveAdapterOptions } from '@deepseek-ai/dsh-llm-deepseek'
-import { inlineImages } from '@deepseek-ai/dsh-llm-deepseek/src/images.ts'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createAssistantMessage, createToolResultMessage, createUserMessage, projectOffloadedImages, offloadedImageText, IMAGE_OFFLOAD_REQUIRED_CODE, LlmAdapter, LlmError, ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { isReplacementSurfaceEvent, SessionId } from '@deepseek-ai/dsh-session'
-import type { Session } from '@deepseek-ai/dsh-session'
+import { Context } from '@janhq/cordis'
+import AgentLoop from '@janhq/jan-agent-loop'
+import type { Agent } from '@janhq/jan-agent'
+import BasicCompactionEngine from '@janhq/jan-compaction-basic'
+import TokenMeter from '@janhq/jan-token-meter'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { createAssistantMessage, createToolResultMessage, createUserMessage, IMAGE_OFFLOAD_REQUIRED_CODE, LlmAdapter, LlmError, ToolCallId } from '@janhq/jan-llm'
+import type { ContentBlock, GenerateOptions, StreamChunk } from '@janhq/jan-llm'
+import { isReplacementSurfaceEvent, SessionId } from '@janhq/jan-session'
+import type { Session } from '@janhq/jan-session'
 import * as offload from '../src/index.ts'
 
 type ScriptEntry = StreamChunk[] | (() => never)
@@ -24,7 +21,7 @@ type ScriptEntry = StreamChunk[] | (() => never)
 /** Replies one scripted stream per request and declares no retry policy. */
 class ScriptedAdapter extends LlmAdapter {
   readonly requests: GenerateOptions[] = []
-  serializeSummary = false
+  budgetSummaryImages = false
 
   constructor(readonly script: ScriptEntry[]) {
     super()
@@ -32,16 +29,10 @@ class ScriptedAdapter extends LlmAdapter {
 
   async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
-    if (this.serializeSummary && options.purpose === 'compaction') {
-      inlineImages(
-        projectOffloadedImages(options.messages, ref => offloadedImageText(ref)),
-        new Map([image('first').attachment].map(ref => [ref.attachmentId, {
-          variantId: ImageVariantId(`sha256:${'b'.repeat(64)}`), attachment: ref,
-          data: new Uint8Array(ref.bytes), mediaType: ref.mediaType, bytes: ref.bytes,
-          width: ref.width, height: ref.height, depth: 'uchar', space: 'srgb', hasAlpha: false,
-        }])),
-        resolveAdapterOptions({ maxInlineRequestImageBytes: 1, inlineImageOffloadByteQuantum: 1 }),
-      )
+    if (this.budgetSummaryImages && options.purpose === 'compaction') {
+      const inline = options.messages.flatMap(message => message.content)
+        .filter(block => block.type === 'image' && block.offloaded !== true).length
+      if (inline > 0) throw new LlmError('request images exceed the route budget', IMAGE_OFFLOAD_REQUIRED_CODE, { offloadImages: inline })
     }
     const entry = this.script.shift()
     if (entry === undefined) throw new Error('script exhausted')
@@ -133,10 +124,10 @@ describe('summary image offload', () => {
     expect(decisions(agent.session)).toEqual([])
   })
 
-  it('recovers real summary image preparation with a tighter budget and fresh pricing', async () => {
+  it('recovers summary image preparation that exceeds the route budget', async () => {
     const { compact, agent, adapter } = await summaryHarness([textResponse('answer'), textResponse('checkpoint')])
     const span = await seedImages(agent, ['first', 'second'])
-    adapter.serializeSummary = true
+    adapter.budgetSummaryImages = true
     const result = await compact.compactNow(agent, new AbortController().signal)
     expect(result).not.toBeNull()
     expect(adapter.requests.map(offloadedNames)).toEqual([[], [], ['first', 'second']])

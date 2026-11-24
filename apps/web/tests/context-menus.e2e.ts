@@ -4,10 +4,10 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Locator, type Page } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed, vi } from 'vitest'
-import { createLaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
-import { createAssistantMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
-import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
-import type {} from '@deepseek-ai/dsh-session-title'
+import { createLaunchEnvironmentSnapshot } from '@janhq/jan-launch-environment'
+import { createAssistantMessage, createUserMessage } from '@janhq/jan-llm'
+import { SESSION_FORMAT_VERSION, Session, SessionId } from '@janhq/jan-session'
+import type {} from '@janhq/jan-session-title'
 import { launchWebScaffold, seedSession, watchConsole, type WebScaffold } from './scaffold.ts'
 import { saveFailureShot } from './support.ts'
 
@@ -27,7 +27,7 @@ function fixture(title: string): string {
   session.append('step/start', { turn: 1, step: 1 })
   session.append('assistant/message', { stream: [], turn: 1, step: 1, message: createAssistantMessage({
     content: [{ type: 'text', text: '[First file](first.txt#L2) [Second file](second.txt) [Website](https://example.com/path?q=1#fragment)\n\n![Original](original.gif) ![Remote](https://images.example/original.gif)\n\nCONTEXT_MENU_READY' }],
-    source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
   }) }, { surfaceOp: 'append' })
   session.append('step/end', { turn: 1, step: 1 })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
@@ -117,7 +117,7 @@ describe.each(['MacIntel', 'Win32', 'Linux x86_64'])('web context menus on %s', 
   it('updates an open Session menu from another window’s shortcut preferences and still renames the captured row', async () => {
     onTestFailed(() => saveFailureShot(page, 'context-menus-live-shortcuts'))
     const other = await page.context().newPage()
-    const key = 'dsh.keybindings.v1'
+    const key = 'jan.keybindings.v1'
     const original = await page.evaluate(key => localStorage.getItem(key), key)
     try {
       await other.goto(scaffold.authenticatedUrl)
@@ -178,7 +178,7 @@ describe.each(['MacIntel', 'Win32', 'Linux x86_64'])('web context menus on %s', 
     const menu = page.getByRole('menu')
     await menu.getByRole('menuitem', { name: 'Rename', exact: true }).waitFor()
     const names = await menuLabels(menu)
-    expect(names).toEqual(['Rename', 'Show in folder', 'Delete workspace'])
+    expect(names).toEqual(['Rename', 'Show in folder', 'Remove project'])
     expect(await menu.locator('svg[data-icon]').count()).toBe(3)
     expect(await workspace.getAttribute('aria-expanded')).toBe(expanded)
     await page.keyboard.press('Escape')
@@ -189,8 +189,8 @@ describe.each(['MacIntel', 'Win32', 'Linux x86_64'])('web context menus on %s', 
     await page.getByRole('dialog').waitFor()
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await workspace.click({ button: 'right' })
-    await menu.getByRole('menuitem', { name: 'Delete workspace', exact: true }).click()
-    await page.getByRole('dialog', { name: 'Delete workspace', exact: true }).waitFor()
+    await menu.getByRole('menuitem', { name: 'Remove project', exact: true }).click()
+    await page.getByRole('dialog', { name: 'Remove project', exact: true }).waitFor()
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await page.locator('[data-sidebar-right-expand]').click()
     await page.locator('[data-sidebar-right-guide-entry="files"]').click()
@@ -221,7 +221,7 @@ describe.each(['MacIntel', 'Win32', 'Linux x86_64'])('web context menus on %s', 
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(join(scaffold.workspaceCwd, 'first.txt'))
     expect(await file.evaluate(element => element === document.activeElement)).toBe(true)
     await page.evaluate(() => {
-      document.documentElement.style.setProperty('--dsh-frame-overlay-top', '100px')
+      document.documentElement.style.setProperty('--jan-frame-overlay-top', '100px')
       const frames: number[] = []
       const observer = new MutationObserver(() => {
         for (const menu of document.querySelectorAll('[role="menu"]')) frames.push(menu.querySelectorAll('[role="menuitem"]').length)
@@ -249,7 +249,7 @@ describe.each(['MacIntel', 'Win32', 'Linux x86_64'])('web context menus on %s', 
       const observed = (window as Window & { menuObservation?: { frames: number[]; observer: MutationObserver } }).menuObservation
       if (observed === undefined) throw new Error('Menu observer not installed')
       observed.observer.disconnect()
-      document.documentElement.style.removeProperty('--dsh-frame-overlay-top')
+      document.documentElement.style.removeProperty('--jan-frame-overlay-top')
       return observed.frames
     })
     expect(counts.length).toBeGreaterThan(0)
@@ -417,7 +417,7 @@ describe.each(['MacIntel', 'Win32', 'Linux x86_64'])('web context menus on %s', 
       const destinations = { download: join(scaffold.workspaceCwd, 'downloaded.gif'), saveAs: join(scaffold.workspaceCwd, 'saved.txt') }
       await native.addInitScript(({ platform, destinations }) => {
         Object.defineProperty(navigator, 'platform', { value: platform })
-        Object.defineProperty(globalThis, 'dshDesktop', { value: { protocolVersion: 1, fileActions: {
+        Object.defineProperty(globalThis, 'janDesktop', { value: { protocolVersion: 1, fileActions: {
           save: async ({ mode }: { mode: 'download' | 'saveAs' }) => ({ status: 'saved', path: destinations[mode] }),
         } } })
       }, { platform, destinations })

@@ -1,6 +1,6 @@
 /** Bind the source-owned permission UI to its generated Remote contribution. */
-import type { Context } from '@deepseek-ai/cordis'
-import cuaRemote from '@deepseek-ai/dsh-cua/remote'
+import type { Context } from '@janhq/cordis'
+import cuaRemote from '@janhq/jan-cua/remote'
 import { mountCuaPermissions } from './mount.ts'
 
 export { inject } from './mount.ts'

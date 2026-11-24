@@ -1,35 +1,32 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
-import { scopeOf } from '@deepseek-ai/dsh-scope'
-import { SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import SessionQueryEngine from '@deepseek-ai/dsh-session-query'
-import SubagentService, { NO_START_CAPABILITIES, SubagentError, type SubagentActivation } from '@deepseek-ai/dsh-subagent'
-import * as SubagentFork from '@deepseek-ai/dsh-subagent-fork-in-process'
-import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
-import { renderPrompt, renderContextSnapshot } from '@deepseek-ai/dsh-system-prompt'
-import * as ToolSubagentControl from '@deepseek-ai/dsh-tool-subagent-control'
-import { defineContentToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import { resolveAdapterOptions } from '@deepseek-ai/dsh-llm-deepseek'
-import { serialize } from '@deepseek-ai/dsh-llm-deepseek/src/serialize.ts'
-import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
+import { Context } from '@janhq/cordis'
+import type { Agent } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { ToolCallId, createUserMessage } from '@janhq/jan-llm'
+import { scopeOf } from '@janhq/jan-scope'
+import { SessionId, SessionLogOffset } from '@janhq/jan-session'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
+import SessionQueryEngine from '@janhq/jan-session-query'
+import SubagentService, { NO_START_CAPABILITIES, SubagentError, type SubagentActivation } from '@janhq/jan-subagent'
+import * as SubagentFork from '@janhq/jan-subagent-fork-in-process'
+import * as SubagentSpawn from '@janhq/jan-subagent-spawn-in-process'
+import { renderPrompt, renderContextSnapshot } from '@janhq/jan-system-prompt'
+import * as ToolSubagentControl from '@janhq/jan-tool-subagent-control'
+import { defineContentToolFixture } from '@janhq/jan-tool-testkit'
+import type { GenerateOptions } from '@janhq/jan-llm'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import { mountWorkingDirectoryFixture } from '../../../subagent/subagent/tests/working-directory-fixture.ts'
 import { bindSubagentActivation } from '../../../subagent/subagent/tests/manager-internals.ts'
 import TeamService, { TeamId } from '../../agent-team/src/index.ts'
 import * as toolTeam from '../src/index.ts'
 
-function serializeRequest(request: GenerateOptions) {
-  const connection = resolveAdapterOptions({ models: [{ id: request.model, systemPromptUpdate: 'in-history' }] })
-  return serialize(request, connection, request.messages, new Map(), () => undefined)
+function requestPrefix(request: GenerateOptions) {
+  return { system: request.system, tools: request.tools, messages: request.messages }
 }
 
 function runtimeContextText(request: GenerateOptions) {
@@ -74,7 +71,7 @@ async function setup(script: ConstructorParameters<typeof MockAdapter>[0], enabl
   contexts.add(ctx)
   await mountAgentLoopTestDependencies(ctx)
   await mountWorkingDirectoryFixture(ctx)
-  const storageRoot = mkdtempSync(join(tmpdir(), 'dsh-tool-team-'))
+  const storageRoot = mkdtempSync(join(tmpdir(), 'jan-tool-team-'))
   roots.push(storageRoot)
   await ctx.plugin(JsonlSessionPersistence, { root: storageRoot })
   await ctx.plugin(TestSessionQuery)
@@ -182,7 +179,7 @@ async function waitNoAgent(ctx: Context, id: SessionId): Promise<void> {
   await vi.waitFor(() => { expect(ctx.agents.get(id)).toBeUndefined() }, { timeout: 5_000 })
 }
 
-describe('dsh-tool-team', () => {
+describe('jan-tool-team', () => {
   it.each([true, false])('cancels reassignment without appending when discovery observes cancellation: %s', async (observesCancellation) => {
     const { ctx, lead } = await setup(['hang'])
     const childActivation = await spawn(ctx, lead, 'worker', 'stay running')
@@ -298,12 +295,12 @@ describe('dsh-tool-team', () => {
     const { ctx, lead, adapter } = await setup([textResponse('parent answer'), textResponse('child answer')])
     if (systemPromptUpdate !== undefined) adapter.systemPromptUpdate = systemPromptUpdate
     await runTurn(lead, 'Parent task')
-    const parentRequest = serializeRequest(adapter.requests[0]!)
+    const parentRequest = requestPrefix(adapter.requests[0]!)
     const parentHistory = structuredClone(lead.session.deriveMessages())
     const childActivation = await spawn(ctx, lead, 'reviewer', 'Review the work', provider)
     const childId = childActivation.childId
     await waitNoAgent(ctx, childId)
-    const childRequest = serializeRequest(adapter.requests[1]!)
+    const childRequest = requestPrefix(adapter.requests[1]!)
     expect(childRequest.tools).toEqual(parentRequest.tools)
     expect(childRequest.system).toEqual(parentRequest.system)
     if (provider === 'fork') {
@@ -330,8 +327,8 @@ describe('dsh-tool-team', () => {
     expect(ctx.agentTeams.isEnabled(handle.agent)).toBe(false)
     await ctx.agentTeams.setEnabled(handle.agent, true)
     await runTurn(handle.agent, 'Continue independently')
-    const parentRequest = serializeRequest(adapter.requests[0]!)
-    const childRequest = serializeRequest(adapter.requests[1]!)
+    const parentRequest = requestPrefix(adapter.requests[0]!)
+    const childRequest = requestPrefix(adapter.requests[1]!)
     expect(childRequest.tools).toEqual(parentRequest.tools)
     expect(childRequest.messages.slice(0, parentRequest.messages.length)).toEqual(parentRequest.messages)
     expect(childRequest.messages.at(-1)?.content).toContainEqual({ type: 'text', text: 'Continue independently' })
@@ -378,9 +375,9 @@ describe('dsh-tool-team', () => {
       await ctx.agentTeams.setEnabled(handle.agent, true)
       const inheritedHistory = structuredClone(handle.agent.session.deriveMessages())
       await runTurn(handle.agent, 'Continue independently')
-      const original = serializeRequest(adapter.requests.find(request => request.sessionId === teammateId)!)
+      const original = requestPrefix(adapter.requests.find(request => request.sessionId === teammateId)!)
       const forkRequest = adapter.requests.find(request => request.sessionId === handle.agent.id)!
-      const fork = serializeRequest(forkRequest)
+      const fork = requestPrefix(forkRequest)
       expect(fork.tools).toEqual(original.tools)
       expect(fork.messages.slice(0, original.messages.length)).toEqual(original.messages)
       expect(forkRequest.messages.slice(0, inheritedHistory.length)).toEqual(inheritedHistory)

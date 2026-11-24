@@ -5,15 +5,12 @@
 - id: headless-runner
   disabled: true
 
-- id: llm-deepseek
-  disabled: true
-
 - id: agent-loop
   config:
     agents:
       - id: main
-        provider: deepseek-official
-        model: deepseek-v4-flash
+        provider: tokamak-official
+        model: tokamak-1-preview
         cwd: !!js process.cwd()
 
 - id: session-persistence-jsonl
@@ -28,5 +25,5 @@
 - id: sandbox-policy
   inject: []
   config:
-    mode: !!js process.env.DSH_PERMISSION_MODE ?? 'workspace-write'
+    mode: !!js process.env.JAN_PERMISSION_MODE ?? 'workspace-write'
     workspaceRoot: !!js process.cwd()

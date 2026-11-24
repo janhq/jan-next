@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Composer selection survives focus transfers and background editor reconciliation. */
-import * as uiPrimitives from '@deepseek-ai/dsh-client-ui-primitives'
+import * as uiPrimitives from '@janhq/jan-client-ui-primitives'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { $getRoot, $getSelection, $isRangeSelection, SELECTION_CHANGE_COMMAND, UNDO_COMMAND } from 'lexical'
 import { DraftEditorRuntime } from '../src/client/input/editor/runtime.ts'
@@ -42,6 +42,7 @@ function fixture(start = 1, end = 4) {
   const runtime: DraftEditorRuntime = new DraftEditorRuntime({
     onUpdate: () => { runtime.refreshProjection(); onUpdate() },
     quoteLabels: () => ({ remove: 'Remove quote' }),
+    contextLabels: () => ({ remove: 'Remove context' }),
     openReference: () => false,
     lexicon: () => new Map(), resolveLexicon: () => undefined,
   })
@@ -146,7 +147,7 @@ it('hands mobile submission focus to the composer without stealing focus from an
   const userAgent = vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1')
   onTestFinished(() => { userAgent.mockRestore() })
   vi.resetModules()
-  const detection = await import('@deepseek-ai/dsh-client-ui-primitives/src/focus.ts')
+  const detection = await import('@janhq/jan-client-ui-primitives/src/focus.ts')
   const device = vi.spyOn(uiPrimitives, 'isMobileDevice').mockImplementation(detection.isMobileDevice)
   onTestFinished(() => { device.mockRestore() })
   const f = fixture()
@@ -167,7 +168,7 @@ it('retains mobile focus for a newer draft suffix and removes dismissal with the
   const userAgent = vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1')
   onTestFinished(() => { userAgent.mockRestore() })
   vi.resetModules()
-  const detection = await import('@deepseek-ai/dsh-client-ui-primitives/src/focus.ts')
+  const detection = await import('@janhq/jan-client-ui-primitives/src/focus.ts')
   const device = vi.spyOn(uiPrimitives, 'isMobileDevice').mockImplementation(detection.isMobileDevice)
   onTestFinished(() => { device.mockRestore() })
   const f = fixture()

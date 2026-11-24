@@ -56,10 +56,13 @@ const PREPARING_CASES = [
 
 const STREAMING_CHARACTERS = 256 * 1024
 const STREAMING_SAMPLES = 5
-/** Reference-machine expectations; shared CI scaling applies only to elapsed time. */
+/**
+ * Reference-machine expectations; shared CI scaling applies only to elapsed time. They cover
+ * GitHub-hosted EPYC 9V74 medians of up to 31 and 104 ms (run 44328402353).
+ */
 const STREAMING_WORKLOADS = [
-  { fragments: 4_096, expectedMs: 12 },
-  { fragments: 16_384, expectedMs: 32 },
+  { fragments: 4_096, expectedMs: 16 },
+  { fragments: 16_384, expectedMs: 52 },
 ] as const
 const STREAMING_CASES = STREAMING_WORKLOADS.flatMap(workload => [
   { ...workload, blockType: 'text', pattern: 'ordinary' },
@@ -71,7 +74,7 @@ const EXPECTED_STREAMING_RETAINED_MB = 16
 const WORKER = join(
   import.meta.dirname,
   '..',
-  '.dsh-build',
+  '.jan-build',
   'conversation-fold',
   'conversation-fold.worker.js',
 )

@@ -1,4 +1,4 @@
-/** Stage the signed helper artifact selected by the credential-free npm pack job. */
+/** Stage a packaged signed helper into the CUA provider before npm packing. */
 import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { cuaHelperSourceDigest } from './build-inputs.ts'

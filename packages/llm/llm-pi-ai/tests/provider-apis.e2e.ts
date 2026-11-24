@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { AttachmentId, AttachmentStore, ImageVariantId } from '@deepseek-ai/dsh-attachment'
+import { Context } from '@janhq/cordis'
+import { AttachmentId, AttachmentStore, ImageVariantId } from '@janhq/jan-attachment'
 import type {
   ImageAttachmentLimits,
   ImageAttachmentRef,
@@ -9,10 +9,10 @@ import type {
   RequestImageAttachment,
   SaveImageAttachment,
   StoredImageAttachment,
-} from '@deepseek-ai/dsh-attachment'
-import LlmRuntime, { createToolResultMessage, createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { Message, ToolSchema } from '@deepseek-ai/dsh-llm'
-import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
+} from '@janhq/jan-attachment'
+import LlmRuntime, { createToolResultMessage, createUserMessage, ToolCallId } from '@janhq/jan-llm'
+import type { Message, ToolSchema } from '@janhq/jan-llm'
+import * as LlmPiAi from '@janhq/jan-llm-pi-ai'
 import type { PiAiReplayResponse } from '../src/replay.ts'
 import { assemble, type AssembledResult } from './assemble.ts'
 
@@ -25,18 +25,18 @@ interface ProviderCase {
   headers?: Record<string, string>
 }
 
-const openAIBaseURL = process.env.DSH_PI_AI_OPENAI_BASE_URL
+const openAIBaseURL = process.env.JAN_PI_AI_OPENAI_BASE_URL
 const azureOpenAIKey = process.env.AZURE_OPENAI_API_KEY
 // Strictly ANTHROPIC_*: the DeepSeek endpoint does not serve the anthropic-messages
 // protocol, so falling back to DEEPSEEK_API_KEY turns the keyless skip into a 404.
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY
-const anthropicBaseURL = process.env.DSH_PI_AI_ANTHROPIC_BASE_URL
+const anthropicBaseURL = process.env.JAN_PI_AI_ANTHROPIC_BASE_URL
 
 const providerCases: ProviderCase[] = [
   {
     provider: 'openai',
     api: 'openai-responses',
-    model: process.env.DSH_PI_AI_OPENAI_MODEL ?? 'gpt-5.5',
+    model: process.env.JAN_PI_AI_OPENAI_MODEL ?? 'gpt-5.5',
     ...azureOpenAIKey
       ? { apiKey: azureOpenAIKey, headers: { 'api-key': azureOpenAIKey, Authorization: '' } }
       : {},
@@ -45,7 +45,7 @@ const providerCases: ProviderCase[] = [
   {
     provider: 'anthropic',
     api: 'anthropic-messages',
-    model: process.env.DSH_PI_AI_ANTHROPIC_MODEL ?? 'claude-opus-4-8',
+    model: process.env.JAN_PI_AI_ANTHROPIC_MODEL ?? 'claude-opus-4-8',
     ...anthropicApiKey === undefined ? {} : { apiKey: anthropicApiKey },
     ...anthropicBaseURL === undefined ? {} : { baseURL: anthropicBaseURL },
   },
@@ -121,7 +121,7 @@ afterEach(async () => {
 function ask(text: string): Message[] {
   return [createUserMessage({
     content: [{ type: 'text', text }],
-    source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    source: { kind: 'model', provider: 'deepseek', model: 'deepseek-flash' },
   })]
 }
 
@@ -249,7 +249,7 @@ for (const profile of providerCases) {
                 },
                 { type: 'image', attachment: ref },
               ],
-              source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+              source: { kind: 'model', provider: 'deepseek', model: 'deepseek-flash' },
             })],
             maxTokens: 256,
           })

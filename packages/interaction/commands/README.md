@@ -3,13 +3,11 @@ description: "Human slash-command registry for interactive UIs: plugin-owned com
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-commands
-
-English | [中文](README.zh.md)
+# @janhq/jan-commands
 
 ## Summary
 
-`dsh-commands` lets users run `/command [input]` actions in interactive Harness UIs without turning the command or its result into a model message. Commands can advertise input hints, accept attachments, and target one agent while preserving a global command with the same name for other agents. Every admitted run is recorded in the receiving agent's session log, while the UI renders the settled result outside model history. Use it for direct human controls in the `dsh` CLI or Web client; UI-less demos and ACP automation do not provide this command surface.
+`jan-commands` lets users run `/command [input]` actions in interactive Harness UIs without turning the command or its result into a model message. Commands can advertise input hints, accept attachments, and target one agent while preserving a global command with the same name for other agents. Every admitted run is recorded in the receiving agent's session log, while the UI renders the settled result outside model history. Use it for direct human controls in the `jan` CLI or Web client; UI-less demos and ACP automation do not provide this command surface.
 
 ## Table of Contents
 
@@ -61,7 +59,7 @@ A command may declare `input.attachments` to accept composer images and generic 
 
 An interactive adapter calls `execute(agent, line, attachments, signal)` with the exact receiving agent, the full command line, and the submission's ordered attachments. It returns the settled `CommandExecution` — the normalized result plus its lifecycle `commandId` — or `undefined` for invalid syntax or an unknown name. `list(agent)` and `find(agent, name)` serve discovery after agent-scoped shadowing.
 
-The stateless `@deepseek-ai/dsh-commands/builtin` entry shares first-party identity, English/Chinese input tokens, and descriptor resolution across Host and Client adapters. `builtinCommandName()` identifies the definition independently of its registered name; `resolveCommand()` preserves exact-name priority and follows aliases by definition ID. Adapters choose their supported subset; the registry itself continues to accept arbitrary definitions.
+The stateless `@janhq/jan-commands/builtin` entry shares first-party identity, English/Chinese input tokens, and descriptor resolution across Host and Client adapters. `builtinCommandName()` identifies the definition independently of its registered name; `resolveCommand()` preserves exact-name priority and follows aliases by definition ID. Adapters choose their supported subset; the registry itself continues to accept arbitrary definitions.
 
 ### Cancellation
 
@@ -105,10 +103,9 @@ Attachment enforcement happens in the executor: images are committed through `ad
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the package-level contract is not enough. They move from the shared command vocabulary to the design evidence and adjacent surfaces.
+Read these pages when the package-level contract is not enough. They move from the shared command vocabulary to adjacent surfaces.
 
 - [Commands subsystem reference](../../../docs/subsystems/commands.md) — registry semantics, input metadata, and the `ctx.commands` Cordis surface.
-- [historical Command registration Agent Note](../../../.agents/notes/archived/feature/2026-07-19-plugin-command-registration.md) — the boundary and dispatch contract behind this service.
 - [Interaction group map](../README.md) — adjacent approval, permission, and question packages.
 - [Plan mode package](../../plan/plan-mode/README.md) — a shipped command producer that drives model-visible work.
 
@@ -121,7 +118,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 #### What the model sees
 
-The registry itself submits nothing. Known slash commands execute in the UI command plane, and their `CommandResult` text is not submitted as a user message. Unknown slash-command input is rejected by shipped adapters instead of becoming a model prompt. A command producer may explicitly use the receiving `Agent`; for example, [`dsh-plan-mode`](../../plan/plan-mode/README.md#model-and-human-interactions) submits the optional message and ordered attachments in `/plan [message]` after selecting plan mode. The executor only admits attachments into durable objects; the declaring producer decides whether and how they become model-visible message content.
+The registry itself submits nothing. Known slash commands execute in the UI command plane, and their `CommandResult` text is not submitted as a user message. Unknown slash-command input is rejected by shipped adapters instead of becoming a model prompt. A command producer may explicitly use the receiving `Agent`; for example, [`jan-plan-mode`](../../plan/plan-mode/README.md#model-and-human-interactions) submits the optional message and ordered attachments in `/plan [message]` after selecting plan mode. The executor only admits attachments into durable objects; the declaring producer decides whether and how they become model-visible message content.
 
 #### Token effect
 

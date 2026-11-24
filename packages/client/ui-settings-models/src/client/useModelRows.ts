@@ -1,7 +1,7 @@
 /** Local model-row identities, disclosures, capacity text, and draft ordering. */
 
 import { useRef, useState } from 'react'
-import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
+import type { ModelDraft } from './model-drafts.ts'
 
 /** Text fields whose unfinished spelling belongs to one draft row. */
 export type CapacityField = 'contextWindow' | 'maxTokens'
@@ -26,7 +26,7 @@ export interface ModelRowOrder {
 }
 
 interface ModelRows {
-  rows: (RowState & { model: DeepSeekModelDraft; order: ModelRowOrder })[]
+  rows: (RowState & { model: ModelDraft; order: ModelRowOrder })[]
   toggle: (index: number) => void
   edit: (index: number, field: CapacityField, text: string | undefined) => void
   forget: (removed: ReadonlySet<number>) => void
@@ -46,7 +46,7 @@ function createRow(key: number): RowState {
  * @returns row state and local editing and ordering actions.
  */
 export function useModelRows(
-  models: readonly DeepSeekModelDraft[], onChange: (models: DeepSeekModelDraft[]) => void, disabled: boolean,
+  models: readonly ModelDraft[], onChange: (models: ModelDraft[]) => void, disabled: boolean,
 ): ModelRows {
   const nextKey = useRef(0)
   const [stored, setRows] = useState(() => models.map(() => createRow(nextKey.current++)))

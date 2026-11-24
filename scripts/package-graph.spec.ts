@@ -12,15 +12,15 @@ afterEach(() => {
 })
 
 function fixture(packages: Readonly<Record<string, readonly string[]>>): string {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-package-graph-'))
+  const root = mkdtempSync(join(tmpdir(), 'jan-package-graph-'))
   roots.push(root)
   for (const [name, dependencies] of Object.entries(packages)) {
     const directory = join(root, 'packages', 'client', name)
     mkdirSync(directory, { recursive: true })
     writeFileSync(join(directory, 'package.json'), `${JSON.stringify({
-      name: `@deepseek-ai/dsh-${name}`,
+      name: `@janhq/jan-${name}`,
       peerDependencies: Object.fromEntries(dependencies.map(dependency => [
-        `@deepseek-ai/dsh-${dependency}`,
+        `@janhq/jan-${dependency}`,
         'workspace:^',
       ])),
     }, null, 2)}\n`)
@@ -47,26 +47,21 @@ describe('collectPackageGraph', () => {
     const root = fixture({ consumer: ['missing'] })
 
     expect(() => collectPackageGraph(root, ['client'], 'fixture'))
-      .toThrow('fixture: @deepseek-ai/dsh-consumer references missing in-repo peer @deepseek-ai/dsh-missing')
+      .toThrow('fixture: @janhq/jan-consumer references missing in-repo peer @janhq/jan-missing')
   })
 })
 
 describe('renderModuleGraph', () => {
-  it('renders the same peer edge in both generated languages', () => {
+  it('renders each peer edge in the diagram and the table', () => {
     const packages = [
-      { short: 'provider', name: '@deepseek-ai/dsh-provider', group: 'core', rel: 'packages/core/provider', deps: [] },
-      { short: 'consumer', name: '@deepseek-ai/dsh-consumer', group: 'core', rel: 'packages/core/consumer', deps: ['provider'] },
+      { short: 'provider', name: '@janhq/jan-provider', group: 'core', rel: 'packages/core/provider', deps: [] },
+      { short: 'consumer', name: '@janhq/jan-consumer', group: 'core', rel: 'packages/core/consumer', deps: ['provider'] },
     ]
 
-    const english = renderModuleGraph(packages, 'en')
-    const chinese = renderModuleGraph(packages, 'zh')
+    const output = renderModuleGraph(packages)
 
-    expect(english).toContain('# Shared-instance dependency graph')
-    expect(chinese).toContain('# 共享实例依赖关系图')
-    expect(chinese).toContain('[English](module-graph.md) | 中文')
-    for (const output of [english, chinese]) {
-      expect(output).toContain('pkg_consumer --> pkg_provider')
-      expect(output).toContain('| [`consumer`](../packages/core/consumer) | `core` | [`provider`](../packages/core/provider) |')
-    }
+    expect(output).toContain('# Shared-instance dependency graph')
+    expect(output).toContain('pkg_consumer --> pkg_provider')
+    expect(output).toContain('| [`consumer`](../packages/core/consumer) | `core` | [`provider`](../packages/core/provider) |')
   })
 })

@@ -1,12 +1,18 @@
 /** Tool-category and live-detail interpretation owned by Chat grouping. */
+import { estimateContent } from '@janhq/jan-token-meter/client'
 import { reasoningText } from '../reasoning-text.ts'
-import type { ToolArgs } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ToolArgs } from '@janhq/jan-client-ui-conversation/client'
 import type { ProcessActivity, ProcessActivitySummary, RunningProcessActivity } from '../contract/process-groups.ts'
 import type { ChatNode } from '../contract/chat-nodes.ts'
 import { isRunningTool } from '../contract/chat-nodes.ts'
 import type { ToolCallBlock } from '../contract/snapshot.ts'
 
-function activity(name: string): RunningProcessActivity {
+/**
+ * Name a tool's process category from its wire name.
+ * @param name - wire tool name.
+ * @returns the category whose `message.stepProcess.*` label describes the call.
+ */
+export function toolActivity(name: string): RunningProcessActivity {
   if (name === 'read') return 'read'
   if (name === 'read_image') return 'readImage'
   if (name === 'grep' || name === 'glob' || name.endsWith('_inspect')) return 'search'
@@ -128,10 +134,34 @@ function liveToolDetail(name: string, args: ToolArgs): string {
 }
 
 /**
+ * Wall-clock span of a step: the earliest start to the latest end its tool calls and reasoning record.
+ * @param nodes - process members.
+ * @returns the span in ms, or undefined while a tool runs or no member records both ends.
+ */
+function processDuration(nodes: readonly ChatNode[]): number | undefined {
+  let start = Infinity
+  let end = -Infinity
+  for (const node of nodes) {
+    if (node.kind === 'tool-call') {
+      const root = node.data.root
+      if (isRunningTool(root)) return undefined
+      start = Math.min(start, root.callTime ?? root.time)
+      end = Math.max(end, root.time)
+    } else if (node.kind === 'assistant-step') {
+      const timing = node.data.finalNode?.timing
+      if (timing?.stepStartTime == null) continue
+      start = Math.min(start, timing.stepStartTime)
+      end = Math.max(end, timing.completedTime)
+    }
+  }
+  return end >= start ? end - start : undefined
+}
+
+/**
  * Rank categories by distinct call count, breaking ties by first appearance.
  * A group whose members are all Context reports one `context` category counting those members; Context beside other members adds no count.
  * @param nodes - process members, including recursive tools.
- * @returns all ranked categories and the latest running tool category and bounded task detail.
+ * @returns all ranked categories, the latest running tool category and bounded task detail, and the step's duration or context cost.
  */
 export function processActivity(nodes: readonly ChatNode[]): ProcessActivitySummary {
   const counts = new Map<ProcessActivity, number>()
@@ -140,12 +170,13 @@ export function processActivity(nodes: readonly ChatNode[]): ProcessActivitySumm
   let runningDetail = ''
   let runningTime = -Infinity
   let preparing: boolean | undefined
+  let contextTokens: number | undefined
   const visit = (tool: ToolCallBlock): void => {
     if (seen.has(tool.callId)) return
     seen.add(tool.callId)
     const call = isRunningTool(tool) ? tool : tool.call
     if (call !== null) {
-      const kind = activity(call.name)
+      const kind = toolActivity(call.name)
       if (isRunningTool(tool) && tool.time >= runningTime) {
         running = kind
         preparing = tool.phase === 'preparing'
@@ -160,11 +191,20 @@ export function processActivity(nodes: readonly ChatNode[]): ProcessActivitySumm
     if (node.kind === 'tool-call') visit(node.data.root)
   }
   if (running === undefined) runningDetail = liveReasoningDetail(nodes)
-  if (nodes.length > 0 && nodes.every(node => node.kind === 'context')) counts.set('context', nodes.length)
+  if (nodes.length > 0 && nodes.every(node => node.kind === 'context')) {
+    counts.set('context', nodes.length)
+    // The sum of the figures the rows show: tool-list changes and unattributed context show none.
+    const priced = nodes.filter(node => node.data.producer.label !== null
+      && !(node.data.content.length > 0 && node.data.content.every(block => block.type === 'tool-addition' || block.type === 'tool-removal')))
+    if (priced.length > 0) contextTokens = priced.reduce((total, node) => total + estimateContent(node.data.content), 0)
+  }
+  const durationMs = contextTokens === undefined ? processDuration(nodes) : undefined
   return {
     counts: [...counts].map(([kind, count]) => ({ kind, count })).sort((a, b) => b.count - a.count),
     running,
     runningDetail,
     ...preparing ? { preparing: true } : {},
+    ...contextTokens === undefined ? {} : { contextTokens },
+    ...durationMs === undefined ? {} : { durationMs },
   }
 }

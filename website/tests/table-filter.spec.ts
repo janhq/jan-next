@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-/** Independent table filtering, localized controls, and layout resource ownership. */
+/** Independent table filtering, accessible controls, and layout resource ownership. */
 import assert from 'node:assert/strict'
 import { fireEvent, getByRole, queryAllByRole } from '@testing-library/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,7 +7,6 @@ import { DocumentTables } from '../.vitepress/theme/table-filter.ts'
 
 let tables: DocumentTables | undefined
 let article: HTMLElement
-let language: string
 let frameId: number
 const frames = new Map<number, FrameRequestCallback>()
 const observers: ResizeObserverFixture[] = []
@@ -21,7 +20,6 @@ class ResizeObserverFixture implements ResizeObserver {
 }
 
 beforeEach(() => {
-  language = 'en-US'
   frameId = 0
   document.body.innerHTML = '<div id="VPContent" class="VPDoc"><main><div class="vp-doc"></div></main></div>'
   const content = document.querySelector<HTMLElement>('.vp-doc')
@@ -54,7 +52,7 @@ function renderTable(count = 10) {
   for (let index = 0; index < count; index++) {
     const row = body.insertRow()
     row.innerHTML = index === 0
-      ? '<td><code>ctx.llm</code></td><td><a href="/reference/llm">llm-deepseek</a></td><td>Streams completions</td>'
+      ? '<td><code>ctx.llm</code></td><td><a href="/reference/llm">llm-pi-ai</a></td><td>Streams completions</td>'
       : `<td>service-${index}</td><td>package-${index}</td><td>说明 ${index}</td>`
     for (const cell of row.cells) {
       // jsdom has no layout-backed innerText; these fixtures contain only visible text.
@@ -68,7 +66,7 @@ function renderTable(count = 10) {
 }
 
 function install(): DocumentTables {
-  tables = new DocumentTables(document, () => language)
+  tables = new DocumentTables(document)
   return tables
 }
 
@@ -104,7 +102,7 @@ describe('documentation table filtering', () => {
   })
 
   it.each([
-    ['  CTX.LLM  ', 0], ['LLM-DEEPSEEK', 0], ['streams', 0], ['说明 9', 9],
+    ['  CTX.LLM  ', 0], ['LLM-PI-AI', 0], ['streams', 0], ['说明 9', 9],
   ])('matches visible text across columns for %s', (query, index) => {
     const fixture = renderTable()
     install()
@@ -116,7 +114,7 @@ describe('documentation table filtering', () => {
   it('retains cell content and links and restores row order and input focus on clear', () => {
     const fixture = renderTable()
     const content = fixture.table.textContent
-    const link = getByRole(fixture.table, 'link', { name: 'llm-deepseek' })
+    const link = getByRole(fixture.table, 'link', { name: 'llm-pi-ai' })
     install()
     expect(queryAllByRole(fixture.section, 'button')).toHaveLength(0)
     const input = filter(fixture.section, 'unmatched')
@@ -128,7 +126,7 @@ describe('documentation table filtering', () => {
     clear.focus()
     clear.click()
     expect(visible(fixture.table)).toEqual(fixture.rows)
-    expect(getByRole(fixture.table, 'link', { name: 'llm-deepseek' })).toBe(link)
+    expect(getByRole(fixture.table, 'link', { name: 'llm-pi-ai' })).toBe(link)
     expect(link.getAttribute('href')).toBe('/reference/llm')
     expect(document.activeElement).toBe(input)
     expect(input.value).toBe('')
@@ -139,29 +137,27 @@ describe('documentation table filtering', () => {
     expect(clear.hidden).toBe(false)
   })
 
-  it.each(['en-US', 'zh-CN'])('renders accessible controls and an empty result in %s', async (locale) => {
-    language = locale
+  it('renders accessible controls and an empty result', async () => {
     const { section } = renderTable()
     install()
     filter(section, 'unmatched')
     const controls = section.firstElementChild
     assert(controls)
-    await expect(`${controls.outerHTML}\n`).toMatchFileSnapshot(`./expected/table-filter.${locale}.html`)
+    await expect(`${controls.outerHTML}\n`).toMatchFileSnapshot('./expected/table-filter.html')
   })
 
-  it('keeps queries isolated across tables and preserves them through repeated content and locale refreshes', () => {
+  it('keeps queries isolated across tables and preserves them through repeated content refreshes', () => {
     const first = renderTable()
     const second = renderTable()
     const owner = install()
     const input = filter(first.section, 'unmatched')
     filter(second.section, 'package-9')
-    language = 'zh-CN'
     owner.refresh()
     owner.refresh()
-    expect(getByRole(first.section, 'searchbox', { name: '筛选表格' })).toBe(input)
-    expect(getByRole(first.section, 'status').textContent).toBe('没有匹配的行。')
+    expect(getByRole(first.section, 'searchbox', { name: 'Filter table' })).toBe(input)
+    expect(getByRole(first.section, 'status').textContent).toBe('No matching rows.')
     expect(queryAllByRole(article, 'searchbox')).toHaveLength(2)
-    getByRole(first.section, 'button', { name: '清空' }).click()
+    getByRole(first.section, 'button', { name: 'Clear' }).click()
     expect(visible(first.table)).toEqual(first.rows)
     expect(visible(second.table)).toEqual([second.rows[9]])
   })
@@ -204,25 +200,25 @@ describe('documentation table filtering', () => {
     vi.spyOn(head, 'offsetHeight', 'get').mockReturnValue(40)
     install()
     paint()
-    expect(head.style.getPropertyValue('--dsh-table-header-offset')).toBe('0px')
+    expect(head.style.getPropertyValue('--jan-table-header-offset')).toBe('0px')
     layout.top = -120
     fireEvent.scroll(window)
     fireEvent.scroll(window)
     expect(frames.size).toBe(1)
     paint()
-    expect(head.style.getPropertyValue('--dsh-table-header-offset')).toBe('184px')
+    expect(head.style.getPropertyValue('--jan-table-header-offset')).toBe('184px')
     layout.nav = 48
     fireEvent.resize(window)
     paint()
-    expect(head.style.getPropertyValue('--dsh-table-header-offset')).toBe('168px')
+    expect(head.style.getPropertyValue('--jan-table-header-offset')).toBe('168px')
     layout.top = -450
     observers[0]?.notify()
     paint()
-    expect(head.style.getPropertyValue('--dsh-table-header-offset')).toBe('460px')
+    expect(head.style.getPropertyValue('--jan-table-header-offset')).toBe('460px')
     layout.height = 40
     filter(section, 'unmatched')
     paint()
-    expect(head.style.getPropertyValue('--dsh-table-header-offset')).toBe('0px')
+    expect(head.style.getPropertyValue('--jan-table-header-offset')).toBe('0px')
   })
 
   it('restores initial visibility and stops pending frames, input handlers, and layout subscriptions on disposal', () => {
@@ -237,7 +233,7 @@ describe('documentation table filtering', () => {
     expect(frames.size).toBe(0)
     expect(queryAllByRole(section, 'searchbox')).toHaveLength(0)
     expect(table.className).toBe('')
-    expect(table.tHead?.style.getPropertyValue('--dsh-table-header-offset')).toBe('')
+    expect(table.tHead?.style.getPropertyValue('--jan-table-header-offset')).toBe('')
     expect(visible(table)).toEqual(rows.slice(1))
     expect(observers[0]?.disconnect).toHaveBeenCalledOnce()
     fireEvent.input(input, { target: { value: 'unmatched' } })

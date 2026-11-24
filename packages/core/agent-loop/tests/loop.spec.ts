@@ -1,20 +1,20 @@
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import LlmRuntime, { createUserMessage, ToolCallId, LlmError, ReasoningEffortId, StreamChunk, expandAssistantStream } from '@deepseek-ai/dsh-llm'
-import type { ContextFormed } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
-import SessionStore, { SessionId, TurnEndReason } from '@deepseek-ai/dsh-session'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { defineContentToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import AgentRegistry, { type Agent, type AssistantStreamFrame } from '@deepseek-ai/dsh-agent'
+import { Context } from '@janhq/cordis'
+import LlmRuntime, { createUserMessage, ToolCallId, LlmError, ReasoningEffortId, StreamChunk, expandAssistantStream } from '@janhq/jan-llm'
+import type { ContextFormed } from '@janhq/jan-llm'
+import type { GenerateOptions } from '@janhq/jan-llm'
+import SessionStore, { SessionId, TurnEndReason } from '@janhq/jan-session'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import { defineContentToolFixture } from '@janhq/jan-tool-testkit'
+import AgentRegistry, { type Agent, type AssistantStreamFrame } from '@janhq/jan-agent'
 
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import AgentLoop from '@janhq/jan-agent-loop'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import { MockAdapter, maxTokensResponse, textResponse, toolCallResponse } from './mock-adapter.ts'
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'loop-test': { kind: 'loop-test' } & ContextFormed
     'max-tokens-test': { kind: 'max-tokens-test' } & ContextFormed
@@ -544,7 +544,7 @@ describe('agent loop', () => {
     await waitForIdle(ctx, agent)
 
     const request = adapter.requests[0]
-    expect(systemOf(request)).toBe('You are an AI agent powered by DeepSeek Harness.\n\nYou are a test agent on mock.\n\nUse the noop tool wisely.')
+    expect(systemOf(request)).toBe('You are an AI agent powered by Jan.\n\nYou are a test agent on mock.\n\nUse the noop tool wisely.')
     expect(request!.tools?.map(t => t.name)).toEqual(['noop'])
   })
 
@@ -561,7 +561,7 @@ describe('agent loop', () => {
     send(agent, 'hi')
     await waitForIdle(ctx, agent)
 
-    expect(systemOf(adapter.requests[0])).toBe('You are an AI agent powered by DeepSeek Harness.\n\nA coding agent.')
+    expect(systemOf(adapter.requests[0])).toBe('You are an AI agent powered by Jan.\n\nA coding agent.')
     expect((await ctx.systemPrompt.assemble({ agent, scope: agent })).variables).not.toHaveProperty('cwd')
   })
 
@@ -599,7 +599,7 @@ describe('agent loop', () => {
     await waitForIdle(ctx, agent)
 
     expect(adapter.requests).toHaveLength(1)
-    expect(systemOf(adapter.requests[0])).toBe('You are an AI agent powered by DeepSeek Harness.\n\nIn /rescued.')
+    expect(systemOf(adapter.requests[0])).toBe('You are an AI agent powered by Jan.\n\nIn /rescued.')
     const turnEnds = agent.session.snapshotEvents().filter(e => e.type === 'turn/end')
     expect(turnEnds).toHaveLength(2)
     expect(turnEnds[1]?.type === 'turn/end' && turnEnds[1].data.reason.kind).toBe('completed')
@@ -616,7 +616,7 @@ describe('agent loop', () => {
 
     expect(adapter.requests).toHaveLength(1)
     expect(adapter.requests[0]!.model).toBe('mock')
-    expect(systemOf(adapter.requests[0])).toBe('You are an AI agent powered by DeepSeek Harness.\n\nYou run on mock.')
+    expect(systemOf(adapter.requests[0])).toBe('You are an AI agent powered by Jan.\n\nYou run on mock.')
   })
 
   it('sends no system message when system-prompt/assemble short-circuits with an empty assembly', async () => {
@@ -658,7 +658,7 @@ describe('agent loop', () => {
       send(agent, 'second')
       await secondIdle
       expect(adapter.requests).toHaveLength(2)
-      expect(systemOf(adapter.requests[1])).toBe('You are an AI agent powered by DeepSeek Harness.')
+      expect(systemOf(adapter.requests[1])).toBe('You are an AI agent powered by Jan.')
       expect(adapter.requests[1]?.messages.map(message => message.role)).toEqual(['system', 'user', 'assistant', 'user'])
       const replacement = agent.session.snapshotEvents().findLast(event => event.type === 'system/message')
       expect(replacement).toMatchObject({
@@ -791,6 +791,8 @@ describe('agent loop', () => {
       expect(snapshots).toHaveLength(2)
       expect(adapter.requests[1]?.messages.some(message => message.role === 'user' && message.source?.kind === 'runtime-context'
         && message.content.some(block => block.type === 'text' && block.text.includes('/workspace')))).toBe(true)
+      const users = adapter.requests[1]?.messages.filter(message => message.role === 'user') ?? []
+      expect(users.slice(-2).map(message => message.source?.kind)).toEqual(['runtime-context', 'user'])
       expect(agent.session.snapshotEvents().filter(event => event.type === 'user/message' && event.data.source.kind === 'user')).toHaveLength(2)
     } finally {
       await ctx.fiber.dispose()
@@ -1068,6 +1070,27 @@ describe('agent loop', () => {
     expect(JSON.stringify(adapter.requests[1]?.messages)).toContain('second idle steer')
   })
 
+  it('a steer cuts a stalled stream short and answers it in the same turn', async () => {
+    const adapter = new MockAdapter(['hang', textResponse('steered answer')])
+    const ctx = await harness(adapter)
+    const agent = await ctx.agentLoop.create(SessionId('steer-yield'), { provider: 'mock', model: 'mock' })
+    const idle = waitForIdle(ctx, agent)
+    send(agent, 'long task')
+    // The first request has streamed its partial text and now stalls.
+    await vi.waitFor(() => { expect(adapter.requests).toHaveLength(1) })
+    await new Promise(resolve => setTimeout(resolve, 20))
+    agent.steer(createUserMessage({ content: [{ type: 'text', text: 'change of plan' }], source: { kind: 'user' } }))
+    await idle
+
+    const events = agent.session.snapshotEvents()
+    const assistants = events.filter(event => event.type === 'assistant/message')
+    expect(assistants.map(event => event.type === 'assistant/message' && event.data.interrupted === true)).toEqual([true, false])
+    expect(assistants[0]?.type === 'assistant/message' && assistants[0].data.steered).toBe(true)
+    expect(JSON.stringify(adapter.requests[1]?.messages)).toContain('change of plan')
+    expect(events.filter(event => event.type === 'turn/start')).toHaveLength(1)
+    expect(events.find(event => event.type === 'turn/end')?.data).toMatchObject({ reason: { kind: 'completed' } })
+  })
+
   it('stops after a throwing pre-step listener and retains later steering until a wakeup', async () => {
     const adapter = new MockAdapter([textResponse('recovered')])
     const ctx = await harness(adapter)
@@ -1299,7 +1322,7 @@ describe('agent loop', () => {
     expect(texts).toContain('late steering')
   })
 
-  it.each(['provider', 'model'] as const)('rejects an agent/request replacement that changes %s after step preparation', async (field) => {
+  it.each(['provider', 'model'] as const)('rejects an agent/request replacement that changes %s after step preparation and keeps the input', async (field) => {
     const adapter = new MockAdapter([textResponse('never')])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
@@ -1313,8 +1336,10 @@ describe('agent loop', () => {
     send(agent, 'hi')
     await waitForIdle(ctx, agent)
     expect(adapter.requests).toEqual([])
-    expect(agent.session.snapshotEvents().filter(event => ['request/header', 'user/message', 'system/message'].includes(event.type)))
-      .toEqual([])
+    const events = agent.session.snapshotEvents()
+    expect(events.filter(event => event.type === 'request/header')).toEqual([])
+    expect(events.flatMap(event => event.type === 'user/message' ? event.data.content : []))
+      .toEqual([{ type: 'text', text: 'hi' }])
     expect(agent.session.snapshotEvents().at(-1)).toMatchObject({
       type: 'turn/end', data: { reason: { kind: 'error', error: {
         message: `agent "a1": agent/request proposed "${field === 'provider' ? 'other/mock' : 'mock/other'}" after step preparation fixed "mock/mock"; use agent.model.select() before step preparation`,

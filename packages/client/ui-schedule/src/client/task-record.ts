@@ -1,6 +1,6 @@
 /** Catalog vocabulary shared by the Session surfaces and Host task management. */
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { ScheduleCatalogEntry, RRuleScheduleRecord } from '@deepseek-ai/dsh-schedule/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { ScheduleCatalogEntry, RRuleScheduleRecord } from '@janhq/jan-schedule/client'
 
 /** Earliest scheduled delivery after applying the Host's current admission interval.
  * @param task - Catalog entry with its scheduled occurrence and optional delivery floor.
@@ -17,6 +17,7 @@ export function taskNextRunAt(task: Pick<ScheduleCatalogEntry, 'scheduledAt' | '
  * @returns Destination identity, if a delivery or reservation names one.
  */
 export function taskSessionId(task: Pick<ScheduleCatalogEntry, 'target' | 'lastDelivery'>): SessionId | undefined {
+  if (task.target.kind === 'plugin') return undefined
   return task.target.kind === 'new' ? task.lastDelivery?.targetSessionId : task.target.sessionId
 }
 

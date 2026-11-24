@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from deepseek_harness import RunResult
+from jan import RunResult
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -34,7 +34,7 @@ def live_result(**overrides: object) -> RunResult:
 
 @pytest.fixture
 def live_smoke(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
-    import deepseek_harness
+    import jan
 
     state = SimpleNamespace(
         prompts=[], session_ids=[], challenges=[], checked_logs=[], closed=False,
@@ -95,9 +95,9 @@ def live_smoke(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
                 raise AssertionError(state.receipt_mode)
             return state.verify_result
 
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "unit-test-key")
-    monkeypatch.setenv("DEEPSEEK_BASE_URL", "https://api.invalid")
-    monkeypatch.setattr(deepseek_harness, "DeepSeekHarness", ScriptedHarness)
+    monkeypatch.setenv("TOKAMAK_API_KEY", "unit-test-key")
+    monkeypatch.setenv("TOKAMAK_BASE_URL", "https://api.invalid")
+    monkeypatch.setattr(jan, "Jan", ScriptedHarness)
     monkeypatch.setattr(globals_["secrets"], "token_hex", fresh_challenge)
     monkeypatch.setitem(globals_, "assert_zstd_session_log", state.checked_logs.append)
     return state

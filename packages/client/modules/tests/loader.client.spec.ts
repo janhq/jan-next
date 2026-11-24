@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import { removeOwnedStyles } from '../src/client/entry-lifecycle.ts'
 import { readRelease } from '../src/client/manifest.ts'
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   apply, createClientModuleSystem, parseBootManifest,
   type BootModuleRow, type ClientBundleRegistration, type ClientModuleCreateOptions,
-  type ClientModuleLoader, type ClientModuleLoaderTarget, type DshWindow,
+  type ClientModuleLoader, type ClientModuleLoaderTarget, type JanWindow,
 } from '../src/client/index.ts'
 
-const MODULES_ID = '@deepseek-ai/dsh-client-modules'
+const MODULES_ID = '@janhq/jan-client-modules'
 
 // The host composes graph rows and batch descriptors as app-directory-relative
 // browser references, so these fixtures carry the same form.
@@ -19,7 +19,7 @@ const chunkReference = (id: string, fileName: string, rev = '0'): string =>
   `plugins/${id}/${fileName}?rev=${rev}`
 const BOOTSTRAP_URL = comboReference([MODULES_ID], 'bootstrap')
 const APPLICATION_URL = comboReference(['a', 'b'], 'application')
-const win = globalThis as DshWindow
+const win = globalThis as JanWindow
 const bootstrapExports = { apply, createClientModuleSystem }
 
 type Factory = ClientBundleRegistration['factory']
@@ -111,7 +111,7 @@ function bench(
       : url === APPLICATION_URL
         ? entries.filter(entry => entry.initialUrl === APPLICATION_URL).map(entry => entry.id)
         : undefined
-    const parsed = new URL(url, 'http://dsh.invalid')
+    const parsed = new URL(url, 'http://jan.invalid')
     const combo = parsed.search.startsWith('??') ? parsed.search.slice(2).split('&', 1)[0] : undefined
     const singleId = combo?.split(',').length === 1 && combo.endsWith('/client.js')
       ? combo.slice(0, -'/client.js'.length)
@@ -171,6 +171,14 @@ describe('lazy CJS arrival', () => {
     expect(b.fetched).toEqual([])
     expect(win.__ModuleLoader__).toBe(b.target)
     expect(b.target.mode).toBe('live')
+  })
+
+  it('maps DSH browser factory requires onto Jan static modules', async () => {
+    const seed = { Toast: 'Jan toast' }
+    const b = bench([row('dsh-ppt')], { 'dsh-ppt': require => ({ Toast: (require('@deepseek-ai/dsh-client-ui-primitives') as typeof seed).Toast }) }, {
+      seed: { '@janhq/jan-client-ui-primitives': seed },
+    })
+    expect(await b.loader.import('dsh-ppt', '', {})).toEqual({ Toast: 'Jan toast' })
   })
 
   it('prefetch loads and registers but does not run the factory', async () => {

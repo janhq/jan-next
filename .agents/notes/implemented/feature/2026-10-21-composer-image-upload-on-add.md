@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-10-21-composer-image-upload-on-add.zh.md)
-
 ## Problem
 
 The Web composer kept image drafts in the browser and base64-encoded each image into `session/prompt` at send time, so the Host received, validated, normalized, and stored image bytes inside prompt admission. Generic files already uploaded when picked ([generic file upload](2026-08-26-generic-file-upload.md)). An image message therefore carried up to the per-message image byte limit in one RPC body, and its send time grew with image size; a composer that waits for the Host to accept a message before clearing it would hold the draft for that whole transfer.
@@ -23,7 +21,7 @@ An ordinary Session's composer uploads each image draft as soon as it is added, 
 - Sending an image message transfers only references, and the normalization cost moves to the moment the image is added.
 - Per-image refusals such as an undecodable or oversized image surface when the image is added: the thumbnail names the refusal instead of offering a retry, and Enter repeats it. The model's image-input check and the per-message image count and byte limits still apply at send.
 - Commands accept only file receipts, so a command submission that carries an image waits for the image upload like a message and then encodes the image inline: the image is stored a second time, and its unused receipt lasts until its Session ends.
-- Removing an image while it uploads cancels the upload, and a cancelled upload receives no receipt; an image whose storage had already begun, or whose upload had finished, stays under `DSH_HOME`, which never deletes attachments. On a remote Host the bytes reach the server as soon as the user adds the image.
+- Removing an image while it uploads cancels the upload, and a cancelled upload receives no receipt; an image whose storage had already begun, or whose upload had finished, stays under `JAN_HOME`, which never deletes attachments. On a remote Host the bytes reach the server as soon as the user adds the image.
 - Staged image receipts share the generic files' in-memory lifetime: a Host restart between adding and sending surfaces `FILE_NOT_STAGED`, and the user adds the image again.
 - Image drafts, like file drafts, are not restored after a page reload or after their Session's client scope is released.
 

@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
-import type { CatalogModelInfo, LlamaCppProgress, LlamaCppState, LocalModelEntry } from '@deepseek-ai/dsh-api-llama-cpp-controller'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { bindSnapshotSelector } from '@janhq/jan-client-test-runtime'
+import type { CatalogModelInfo, LlamaCppProgress, LlamaCppState, LocalModelEntry } from '@janhq/jan-api-llama-cpp-controller'
 import { LocalModelCard, type LocalModelCardProps } from '../src/client/LocalModelCard.tsx'
 import { LocalSetup, type LocalSetupProps } from '../src/client/LocalSetup.tsx'
 import { en } from '../src/client/locales.ts'
@@ -15,7 +15,7 @@ afterEach(cleanup)
 const model = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_716_066_656 }
 const jan: LocalModelEntry = {
   id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, source: 'catalog', active: true, status: 'loaded', architecture: 'qwen3',
-  vision: false,
+  vision: false, configuredContextSize: 32768, autoFit: false,
 }
 const catalog: CatalogModelInfo[] = [
   { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, repo: 'janhq/Jan-v3.5-4B-gguf', recommended: true, installed: false, vision: false },
@@ -45,8 +45,10 @@ function fixture(state: StateInput) {
   const store = createSnapshotStore<LocalModelMirror>({ state: full(state), connected: true })
   const actions = {
     install: vi.fn(), cancel: vi.fn(), start: vi.fn(), stop: vi.fn(), uninstall: vi.fn(),
-    downloadModel: vi.fn(), cancelDownload: vi.fn(), retryDownload: vi.fn(),
+    downloadModel: vi.fn(), cancelDownload: vi.fn(), retryDownload: vi.fn(), pauseDownload: vi.fn(),
     setDefaultModel: vi.fn<LocalModelActions['setDefaultModel']>(async () => ({ ok: true, value: undefined })),
+    setModelContext: vi.fn<LocalModelActions['setModelContext']>(async () => ({ ok: true, value: undefined })),
+    setModelFit: vi.fn<LocalModelActions['setModelFit']>(async () => ({ ok: true, value: undefined })),
     loadModel: vi.fn<LocalModelActions['loadModel']>(async () => ({ ok: true, value: undefined })),
     unloadModel: vi.fn<LocalModelActions['unloadModel']>(async () => ({ ok: true, value: undefined })),
     deleteModel: vi.fn<LocalModelActions['deleteModel']>(async () => ({ ok: true, value: undefined })),
@@ -79,7 +81,7 @@ it('offers the download with its total size, then shows percent, speed, time lef
   expect(f.actions.install).toHaveBeenCalledOnce()
   view.unmount()
   const running = progress(1_000_000_000, 2_716_066_656, { bytesPerSecond: 20_000_000 })
-  f.set({ phase: 'downloading', progress: running, downloads: [{ id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', progress: running }] })
+  f.set({ phase: 'downloading', progress: running, downloads: [{ id: 'jan-v3.5-4b', repo: 'janhq/Jan-v3.5-4B-GGUF', name: 'Jan v3.5 4B', progress: running }] })
   card(f)
   expect(screen.getByTestId('local-model-progress').textContent)
     .toBe('Downloading Jan v3.5 4B: 36% · 1.0 GB of 2.7 GB · 20 MB/s · about 2 min left')
@@ -117,14 +119,14 @@ it('shows a failure with the worker log and offers a retry', () => {
 it('lists installed models with fit, context and residency, and loads, unloads, makes default and deletes them', async () => {
   const imported: LocalModelEntry = {
     id: 'mine', name: 'Mine', bytes: 1_000_000, source: 'import', active: false, status: 'unloaded', architecture: 'llama',
-    contextLength: 8192, fit: 'too-large', vision: true,
+    contextLength: 8192, configuredContextSize: 8192, autoFit: false, fit: 'too-large', vision: true,
   }
   const f = fixture({ phase: 'running', models: [{ ...jan, contextSize: 32768, fit: 'fits' }, imported] })
   card(f)
   const rows = screen.getByTestId('local-model-installed').querySelectorAll('li')
   expect([...rows].map(row => row.textContent)).toEqual([
-    'Jan v3.5 4BDefaultFits2.7 GB · qwen3 · 32,768-token context · CuratedLoadedUnloadDelete',
-    'MineVisionToo large1 MB · llama · trained on 8,192 tokens · Imported fileNot loadedLoadMake defaultDelete',
+    'Jan v3.5 4BDefaultFits2.7 GB · qwen3 · 32,768-token context · CuratedContext lengthAuto-fitLoadedUnloadDelete',
+    'MineVisionToo large1 MB · llama · trained on 8,192 tokens · Imported fileContext lengthMaximum: 8,192 tokensAuto-fitNot loadedLoadMake defaultDelete',
   ])
   expect(rows[1]?.querySelector('[data-fit]')?.getAttribute('title')).toBe(en.fitTooLargeHint)
   expect(rows[0]?.querySelector('[data-testid="local-model-vision"]')).toBeNull()
@@ -147,6 +149,28 @@ it('lists installed models with fit, context and residency, and loads, unloads, 
   // A refused removal keeps the row and says why on it.
   expect((await screen.findByRole('alert')).textContent).toBe('the model has requests in flight; retry once they finish')
   expect(screen.getByTestId('local-model-installed').querySelectorAll('li')).toHaveLength(2)
+})
+
+it('changes per-model context length and automatic fit while preserving the installed row', async () => {
+  const f = fixture({ phase: 'running', models: [{ ...jan, configuredContextSize: 32768, autoFit: false, contextLength: 131072 }] })
+  card(f)
+  expect(screen.getByRole<HTMLInputElement>('spinbutton', { name: 'Context length' }).value).toBe('32768')
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Context length' }), { target: { value: '49152' } })
+  fireEvent.blur(screen.getByRole('spinbutton', { name: 'Context length' }))
+  await waitFor(() => { expect(f.actions.setModelContext).toHaveBeenCalledWith(jan.id, 49152) })
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Auto-fit' }))
+  await waitFor(() => { expect(f.actions.setModelFit).toHaveBeenCalledWith(jan.id, true) })
+})
+
+it('rejects an invalid context without changing the saved setting', () => {
+  const f = fixture({ phase: 'running', models: [{ ...jan, configuredContextSize: 32768, contextLength: 65536 }] })
+  card(f)
+  const input = screen.getByRole<HTMLInputElement>('spinbutton', { name: 'Context length' })
+  fireEvent.change(input, { target: { value: '70000' } })
+  fireEvent.blur(input)
+  expect(f.actions.setModelContext).not.toHaveBeenCalled()
+  expect(screen.getByRole('alert').textContent).toBe(en.invalidContext)
+  expect(input.value).toBe('32768')
 })
 
 it('hides residency and load controls while the server is stopped, and summarizes the hardware', () => {
@@ -177,13 +201,21 @@ it('downloads a curated model and shows it in the downloads list with its progre
   expect(f.actions.downloadModel).toHaveBeenCalledWith('qwen3-8b')
   view.unmount()
   f.set({ phase: 'running', models: [jan], downloads: [
-    { id: 'qwen3-8b', name: 'Qwen3 8B', progress: progress(2_500_000_000, 5_027_784_512) },
-    { id: 'broken', name: 'Broken', error: 'Could not download model: HTTP 404' },
+    { id: 'qwen3-8b', repo: 'Qwen/Qwen3-8B-GGUF', name: 'Qwen3 8B', progress: progress(2_500_000_000, 5_027_784_512) },
+    { id: 'broken', repo: 'example/Broken-GGUF', name: 'Broken', error: 'Could not download model: HTTP 404' },
+    { id: 'gemma', repo: 'google/gemma-GGUF', name: 'Gemma', paused: true, progress: progress(1_000_000_000, 4_000_000_000) },
   ] })
   card(f)
   const downloads = screen.getByTestId('local-model-downloads')
   expect(downloads.textContent).toContain('Downloading Qwen3 8B: 49% · 2.5 GB of 5.0 GB')
   expect(downloads.textContent).toContain('Could not download model: HTTP 404')
+  expect(downloads.textContent).toContain('Paused at 25%')
+  // Only the running download offers Pause; only the paused one offers Resume.
+  expect(screen.getAllByTestId('local-model-pause-download')).toHaveLength(1)
+  fireEvent.click(screen.getByTestId('local-model-pause-download'))
+  expect(f.actions.pauseDownload).toHaveBeenCalledWith('qwen3-8b')
+  fireEvent.click(screen.getByTestId('local-model-resume-download'))
+  expect(f.actions.retryDownload).toHaveBeenCalledWith('gemma')
   fireEvent.click(screen.getByTestId('local-model-retry-download'))
   expect(f.actions.retryDownload).toHaveBeenCalledWith('broken')
   fireEvent.click(screen.getByRole('button', { name: en.dismiss }))
@@ -210,12 +242,12 @@ it('looks up a pasted Hugging Face repository and downloads one of its files', a
   expect(screen.queryByTestId('local-model-repo-projector')).toBeNull()
   await act(async () => {
     fireEvent.click(screen.getByTestId('local-model-repo-download'))
-    f.set({ phase: 'running', models: [jan], downloads: [{ id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M' }] })
+    f.set({ phase: 'running', models: [jan], downloads: [{ id: 'tiny-q4_k_m', repo: 'example/tiny-GGUF', name: 'tiny-Q4_K_M' }] })
   })
   expect(f.actions.downloadRepoFile).toHaveBeenCalledWith('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   expect(screen.queryByTestId('local-model-repo-download')).toBeNull()
   // The row follows the live state: installed, then offered again once the model is deleted.
-  const tiny: LocalModelEntry = { id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M', bytes: 2_000_000, source: 'huggingface', active: false, status: 'unloaded', architecture: 'qwen3', vision: false }
+  const tiny: LocalModelEntry = { id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M', bytes: 2_000_000, source: 'huggingface', active: false, status: 'unloaded', architecture: 'qwen3', vision: false, configuredContextSize: 8192, autoFit: false }
   await act(async () => { f.set({ phase: 'running', models: [jan, tiny] }) })
   expect(screen.getByTestId('local-model-repo-files').querySelectorAll('li')[1]?.textContent).toContain('Installed')
   await act(async () => { f.set({ phase: 'running', models: [jan] }) })
@@ -386,7 +418,7 @@ it('drops a lookup answer that arrives after the text changed, and remembers sta
   await act(async () => { fireEvent.click(screen.getByTestId('local-model-lookup')) })
   await act(async () => {
     fireEvent.click(screen.getByTestId('local-model-repo-download'))
-    f.set({ phase: 'running', models: [jan], downloads: [{ id: 'new-q4_k_m', name: 'new-Q4_K_M' }] })
+    f.set({ phase: 'running', models: [jan], downloads: [{ id: 'new-q4_k_m', repo: 'example/new-GGUF', name: 'new-Q4_K_M' }] })
   })
   await act(async () => { fireEvent.click(screen.getByTestId('local-model-lookup')) })
   expect(screen.queryByTestId('local-model-repo-download')).toBeNull()

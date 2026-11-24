@@ -1,10 +1,19 @@
 [
   {
-    "system": "You are a helpful software engineer assistant.",
+    "system": [
+      {
+        "type": "text",
+        "text": "You are a helpful software engineer assistant.",
+        "cache_control": {
+          "type": "ephemeral"
+        }
+      }
+    ],
     "tools": [
       {
         "name": "bash",
         "description": "Run commands in a bash shell\n* When invoking this tool, the contents of the \"command\" parameter does NOT need to be XML-escaped.\n* Network access depends on the task environment. Prefer configured mirrors/proxies when they are available.\n* State is persistent across command calls and discussions with the user.\n* To inspect a particular line range of a file, e.g. lines 10-25, try 'sed -n 10,25p /path/to/the/file'.\n* Please avoid commands that may produce a very large amount of output.\n* Please run long lived commands in the background, e.g. 'sleep 10 &' or start a server in the background.",
+        "eager_input_streaming": true,
         "input_schema": {
           "type": "object",
           "properties": {
@@ -21,6 +30,7 @@
       {
         "name": "read_image",
         "description": "Read a PNG/JPEG/WebP/GIF file and return the image itself. Large images are downscaled automatically; do not install image libraries or create thumbnails to inspect an image.",
+        "eager_input_streaming": true,
         "input_schema": {
           "type": "object",
           "properties": {
@@ -37,6 +47,7 @@
       {
         "name": "working_directory",
         "description": "Read the current working directory, or change it with cd. Relative paths use the current directory. Existing shells and running processes keep their own directories.",
+        "eager_input_streaming": true,
         "input_schema": {
           "type": "object",
           "properties": {
@@ -44,7 +55,11 @@
               "type": "string",
               "description": "Existing directory to enter. Omit to read the current directory."
             }
-          }
+          },
+          "required": []
+        },
+        "cache_control": {
+          "type": "ephemeral"
         }
       }
     ],
@@ -54,22 +69,39 @@
         "content": [
           {
             "type": "text",
-            "text": "Exercise the packaged minimal agent's persistent shell."
-          },
+            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\"."
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
           {
             "type": "text",
-            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\"."
+            "text": "Exercise the packaged minimal agent's persistent shell.",
+            "cache_control": {
+              "type": "ephemeral"
+            }
           }
         ]
       }
     ]
   },
   {
-    "system": "You are a helpful software engineer assistant.",
+    "system": [
+      {
+        "type": "text",
+        "text": "You are a helpful software engineer assistant.",
+        "cache_control": {
+          "type": "ephemeral"
+        }
+      }
+    ],
     "tools": [
       {
         "name": "bash",
         "description": "Run commands in a bash shell\n* When invoking this tool, the contents of the \"command\" parameter does NOT need to be XML-escaped.\n* Network access depends on the task environment. Prefer configured mirrors/proxies when they are available.\n* State is persistent across command calls and discussions with the user.\n* To inspect a particular line range of a file, e.g. lines 10-25, try 'sed -n 10,25p /path/to/the/file'.\n* Please avoid commands that may produce a very large amount of output.\n* Please run long lived commands in the background, e.g. 'sleep 10 &' or start a server in the background.",
+        "eager_input_streaming": true,
         "input_schema": {
           "type": "object",
           "properties": {
@@ -86,6 +118,7 @@
       {
         "name": "read_image",
         "description": "Read a PNG/JPEG/WebP/GIF file and return the image itself. Large images are downscaled automatically; do not install image libraries or create thumbnails to inspect an image.",
+        "eager_input_streaming": true,
         "input_schema": {
           "type": "object",
           "properties": {
@@ -102,6 +135,7 @@
       {
         "name": "working_directory",
         "description": "Read the current working directory, or change it with cd. Relative paths use the current directory. Existing shells and running processes keep their own directories.",
+        "eager_input_streaming": true,
         "input_schema": {
           "type": "object",
           "properties": {
@@ -109,7 +143,11 @@
               "type": "string",
               "description": "Existing directory to enter. Omit to read the current directory."
             }
-          }
+          },
+          "required": []
+        },
+        "cache_control": {
+          "type": "ephemeral"
         }
       }
     ],
@@ -119,11 +157,16 @@
         "content": [
           {
             "type": "text",
-            "text": "Exercise the packaged minimal agent's persistent shell."
-          },
+            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\"."
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
           {
             "type": "text",
-            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\"."
+            "text": "Exercise the packaged minimal agent's persistent shell."
           }
         ]
       },
@@ -149,11 +192,20 @@
     ]
   },
   {
-    "system": "You are a helpful software engineer assistant.",
+    "system": [
+      {
+        "type": "text",
+        "text": "You are a helpful software engineer assistant.",
+        "cache_control": {
+          "type": "ephemeral"
+        }
+      }
+    ],
     "tools": [
       {
         "name": "bash",
         "description": "Run commands in a bash shell\n* When invoking this tool, the contents of the \"command\" parameter does NOT need to be XML-escaped.\n* Network access depends on the task environment. Prefer configured mirrors/proxies when they are available.\n* State is persistent across command calls and discussions with the user.\n* To inspect a particular line range of a file, e.g. lines 10-25, try 'sed -n 10,25p /path/to/the/file'.\n* Please avoid commands that may produce a very large amount of output.\n* Please run long lived commands in the background, e.g. 'sleep 10 &' or start a server in the background.",
+        "eager_input_streaming": true,
         "input_schema": {
           "type": "object",
           "properties": {
@@ -170,6 +222,7 @@
       {
         "name": "read_image",
         "description": "Read a PNG/JPEG/WebP/GIF file and return the image itself. Large images are downscaled automatically; do not install image libraries or create thumbnails to inspect an image.",
+        "eager_input_streaming": true,
         "input_schema": {
           "type": "object",
           "properties": {
@@ -186,6 +239,7 @@
       {
         "name": "working_directory",
         "description": "Read the current working directory, or change it with cd. Relative paths use the current directory. Existing shells and running processes keep their own directories.",
+        "eager_input_streaming": true,
         "input_schema": {
           "type": "object",
           "properties": {
@@ -193,7 +247,11 @@
               "type": "string",
               "description": "Existing directory to enter. Omit to read the current directory."
             }
-          }
+          },
+          "required": []
+        },
+        "cache_control": {
+          "type": "ephemeral"
         }
       }
     ],
@@ -203,11 +261,16 @@
         "content": [
           {
             "type": "text",
-            "text": "Exercise the packaged minimal agent's persistent shell."
-          },
+            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\"."
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
           {
             "type": "text",
-            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\"."
+            "text": "Exercise the packaged minimal agent's persistent shell."
           }
         ]
       },

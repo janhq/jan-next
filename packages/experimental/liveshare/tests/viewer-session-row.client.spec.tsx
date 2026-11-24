@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 /** Viewer-owned lineage markers alongside the shared Session menu. */
-import { Context } from '@deepseek-ai/cordis'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { Context } from '@janhq/cordis'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import type { SessionId } from '@janhq/jan-session/types'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'

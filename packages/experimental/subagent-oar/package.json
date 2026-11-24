@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-experimental-subagent-oar",
+  "name": "@janhq/jan-experimental-subagent-oar",
   "description": "Experimental one-shot subagents through OAR runtimes",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/experimental/subagent-oar"
   },
   "type": "module",
@@ -32,41 +32,41 @@
   "license": "MIT",
   "icon": "./icon.svg",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-subagent": "workspace:*",
-    "@deepseek-ai/dsh-subprocess": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-subagent": "workspace:*",
+    "@janhq/jan-subprocess": "workspace:*"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.4.0",
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-timeout": "workspace:*",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-timeout": "workspace:*",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
     "@earendil-works/pi-ai": "^1.3.0",
     "@earendil-works/pi-coding-agent": "^1.3.0",
     "cross-spawn": "^7.0.6",
-    "undici": "8.10.2",
+    "undici": "8.12.2",
     "which": "^2.0.2"
   },
   "devDependencies": {
     "@botiverse/oar": "0.67.0",
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-app-boot": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-loader-smoke": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-checkpoint-policy": "workspace:*",
-    "@deepseek-ai/dsh-session-persistence-jsonl": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-subagent": "workspace:*",
-    "@deepseek-ai/dsh-subprocess": "workspace:*",
-    "@deepseek-ai/dsh-tool-jobs": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop-testkit": "workspace:*",
-    "@deepseek-ai/dsh-experimental-tool-subagent-oar": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-app-boot": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-loader-smoke": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-checkpoint-policy": "workspace:*",
+    "@janhq/jan-session-persistence-jsonl": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-subagent": "workspace:*",
+    "@janhq/jan-subprocess": "workspace:*",
+    "@janhq/jan-tool-jobs": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-agent-loop-testkit": "workspace:*",
+    "@janhq/jan-experimental-tool-subagent-oar": "workspace:*"
   }
 }

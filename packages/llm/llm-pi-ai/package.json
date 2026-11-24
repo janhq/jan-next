@@ -1,13 +1,13 @@
 {
-  "name": "@deepseek-ai/dsh-llm-pi-ai",
-  "description": "pi-ai-backed DeepSeek adapter for the Jan LLM seam (design-verification twin of dsh-llm-deepseek)",
+  "name": "@janhq/jan-llm-pi-ai",
+  "description": "pi-ai-backed multi-provider adapter for the Jan LLM seam",
   "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/llm/llm-pi-ai"
   },
   "type": "module",
@@ -29,43 +29,54 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-attachment": "workspace:*",
-    "@deepseek-ai/dsh-authorization": "workspace:*",
-    "@deepseek-ai/dsh-credentials": "workspace:*",
-    "@deepseek-ai/dsh-fs": "workspace:*",
-    "@deepseek-ai/dsh-launch-environment": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-timeout": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-agent-default-model": "workspace:*",
+    "@janhq/jan-attachment": "workspace:*",
+    "@janhq/jan-authorization": "workspace:*",
+    "@janhq/jan-credentials": "workspace:*",
+    "@janhq/jan-fs": "workspace:*",
+    "@janhq/jan-launch-environment": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-storage-domain": "workspace:*",
+    "@janhq/jan-timeout": "workspace:*"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~",
-    "@earendil-works/pi-ai": "^1.3.0"
+    "@earendil-works/pi-ai": "^1.3.0",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
+    "zod": "4.6.6"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-agent-loop-testkit": "workspace:*",
-    "@deepseek-ai/dsh-attachment": "workspace:*",
-    "@deepseek-ai/dsh-authorization": "workspace:*",
-    "@deepseek-ai/dsh-credentials": "workspace:*",
-    "@deepseek-ai/dsh-fs": "workspace:*",
-    "@deepseek-ai/dsh-http-proxy": "workspace:*",
-    "@deepseek-ai/dsh-launch-environment": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-llm-deepseek": "workspace:*",
-    "@deepseek-ai/dsh-llm-deepseek-api-key": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-settings": "workspace:*",
-    "@deepseek-ai/dsh-timeout": "workspace:*",
-    "@deepseek-ai/dsh-tool-testkit": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-agent-default-model": "workspace:*",
+    "@janhq/jan-agent-loop-testkit": "workspace:*",
+    "@janhq/jan-attachment": "workspace:*",
+    "@janhq/jan-authorization": "workspace:*",
+    "@janhq/jan-credentials": "workspace:*",
+    "@janhq/jan-fs": "workspace:*",
+    "@janhq/jan-http-proxy": "workspace:*",
+    "@janhq/jan-launch-environment": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-settings": "workspace:*",
+    "@janhq/jan-storage": "workspace:*",
+    "@janhq/jan-storage-domain": "workspace:*",
+    "@janhq/jan-storage-json": "workspace:*",
+    "@janhq/jan-timeout": "workspace:*",
+    "@janhq/jan-tool-testkit": "workspace:*",
+    "@janhq/jan-tools": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/cordis-plugin-loader": {
+    "@janhq/cordis-plugin-loader": {
+      "optional": true
+    },
+    "@janhq/jan-agent-default-model": {
+      "optional": true
+    },
+    "@janhq/jan-storage-domain": {
       "optional": true
     }
   }

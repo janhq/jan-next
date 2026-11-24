@@ -3,40 +3,40 @@
     "environment": "test",
     "version": "1.2.3-alpha.1",
     "keys": [
-      "dsh-desk/0123456789abcdef0123456789abcdef/bin/mac-arm64/stable/deepseek-harness-1.2.3-alpha.1-mac-arm64.dmg",
-      "dsh-desk/0123456789abcdef0123456789abcdef/bin/mac-arm64/stable/deepseek-harness-1.2.3-alpha.1-mac-arm64.zip",
-      "dsh-desk/0123456789abcdef0123456789abcdef/bin/mac-arm64/stable/deepseek-harness-1.2.3-alpha.1-mac-arm64.zip.blockmap",
-      "dsh-desk/0123456789abcdef0123456789abcdef/feeds/mac-arm64/stable-mac.yml"
+      "jan-desk/0123456789abcdef0123456789abcdef/bin/mac-arm64/stable/jan-1.2.3-alpha.1-mac-arm64.dmg",
+      "jan-desk/0123456789abcdef0123456789abcdef/bin/mac-arm64/stable/jan-1.2.3-alpha.1-mac-arm64.zip",
+      "jan-desk/0123456789abcdef0123456789abcdef/bin/mac-arm64/stable/jan-1.2.3-alpha.1-mac-arm64.zip.blockmap",
+      "jan-desk/0123456789abcdef0123456789abcdef/feeds/mac-arm64/stable-mac.yml"
     ]
   },
   {
     "environment": "test",
     "version": "1.2.3-rc.1",
     "keys": [
-      "dsh-desk/0123456789abcdef0123456789abcdef/bin/mac-arm64/stable/deepseek-harness-1.2.3-rc.1-mac-arm64.dmg",
-      "dsh-desk/0123456789abcdef0123456789abcdef/bin/mac-arm64/stable/deepseek-harness-1.2.3-rc.1-mac-arm64.zip",
-      "dsh-desk/0123456789abcdef0123456789abcdef/bin/mac-arm64/stable/deepseek-harness-1.2.3-rc.1-mac-arm64.zip.blockmap",
-      "dsh-desk/0123456789abcdef0123456789abcdef/feeds/mac-arm64/stable-mac.yml"
+      "jan-desk/0123456789abcdef0123456789abcdef/bin/mac-arm64/stable/jan-1.2.3-rc.1-mac-arm64.dmg",
+      "jan-desk/0123456789abcdef0123456789abcdef/bin/mac-arm64/stable/jan-1.2.3-rc.1-mac-arm64.zip",
+      "jan-desk/0123456789abcdef0123456789abcdef/bin/mac-arm64/stable/jan-1.2.3-rc.1-mac-arm64.zip.blockmap",
+      "jan-desk/0123456789abcdef0123456789abcdef/feeds/mac-arm64/stable-mac.yml"
     ]
   },
   {
     "environment": "production",
     "version": "1.2.3-alpha.1",
     "keys": [
-      "dsh-desk/bin/mac-arm64/stable/deepseek-harness-1.2.3-alpha.1-mac-arm64.dmg",
-      "dsh-desk/bin/mac-arm64/stable/deepseek-harness-1.2.3-alpha.1-mac-arm64.zip",
-      "dsh-desk/bin/mac-arm64/stable/deepseek-harness-1.2.3-alpha.1-mac-arm64.zip.blockmap",
-      "dsh-desk/feeds/mac-arm64/stable-mac.yml"
+      "jan-desk/bin/mac-arm64/stable/jan-1.2.3-alpha.1-mac-arm64.dmg",
+      "jan-desk/bin/mac-arm64/stable/jan-1.2.3-alpha.1-mac-arm64.zip",
+      "jan-desk/bin/mac-arm64/stable/jan-1.2.3-alpha.1-mac-arm64.zip.blockmap",
+      "jan-desk/feeds/mac-arm64/stable-mac.yml"
     ]
   },
   {
     "environment": "production",
     "version": "1.2.3-rc.1",
     "keys": [
-      "dsh-desk/bin/mac-arm64/stable/deepseek-harness-1.2.3-rc.1-mac-arm64.dmg",
-      "dsh-desk/bin/mac-arm64/stable/deepseek-harness-1.2.3-rc.1-mac-arm64.zip",
-      "dsh-desk/bin/mac-arm64/stable/deepseek-harness-1.2.3-rc.1-mac-arm64.zip.blockmap",
-      "dsh-desk/feeds/mac-arm64/stable-mac.yml"
+      "jan-desk/bin/mac-arm64/stable/jan-1.2.3-rc.1-mac-arm64.dmg",
+      "jan-desk/bin/mac-arm64/stable/jan-1.2.3-rc.1-mac-arm64.zip",
+      "jan-desk/bin/mac-arm64/stable/jan-1.2.3-rc.1-mac-arm64.zip.blockmap",
+      "jan-desk/feeds/mac-arm64/stable-mac.yml"
     ]
   }
 ]

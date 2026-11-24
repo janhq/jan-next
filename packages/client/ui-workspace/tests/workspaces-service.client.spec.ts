@@ -1,23 +1,23 @@
 import { setImmediate } from 'node:timers/promises'
-import { Context } from '@deepseek-ai/cordis'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { Context } from '@janhq/cordis'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { afterEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import type {
   ISessions, SessionListState, SessionReference, SessionSummary,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import { SessionCreateError } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
+} from '@janhq/jan-api-session-controller/client'
+import { SessionCreateError } from '@janhq/jan-api-session-controller/client'
+import type { SubagentAddress } from '@janhq/jan-subagent/client'
 import type {
   IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
-} from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { ClientRemote, DirectoryListing } from '@deepseek-ai/dsh-api-remotes/client'
-import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
-import { SessionId } from '@deepseek-ai/dsh-session/types'
-import { LayoutController } from '@deepseek-ai/dsh-client-ui-layout/client'
-import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import type { DraftInitializationOptions, SessionInputResolver } from '@deepseek-ai/dsh-client-ui-conversation/client'
+} from '@janhq/jan-api-workspace-controller/client'
+import type { ClientRemote, DirectoryListing } from '@janhq/jan-api-remotes/client'
+import { RemoteError } from '@janhq/jan-client-test-runtime'
+import type { RemoteResult } from '@janhq/jan-api-remotes/client'
+import { SessionId } from '@janhq/jan-session/types'
+import { LayoutController } from '@janhq/jan-client-ui-layout/client'
+import type { MainPanelId, PanelInfo } from '@janhq/jan-client-ui-layout/client'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import type { DraftInitializationOptions, SessionInputResolver } from '@janhq/jan-client-ui-conversation/client'
 import type { RowToast } from '../src/client/contract/slots.ts'
 import { DirectoryBrowseError, UiWorkspaceService } from '../src/client/navigation.ts'
 import { en, zh } from '../src/client/locales.ts'
@@ -39,7 +39,7 @@ function persistSelection(selection: {
   readonly sessionId?: SessionId
   readonly subagentAddress?: SubagentAddress
 }): Map<string, string> {
-  const backing = new Map([['dsh.sessions.current', JSON.stringify(selection)]])
+  const backing = new Map([['jan.sessions.current', JSON.stringify(selection)]])
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => backing.get(key) ?? null,
     setItem: (key: string, value: string) => { backing.set(key, value) },
@@ -176,7 +176,7 @@ class FakeSessions implements ISessions {
 }
 
 class FakeWorkspaces implements IWorkspaces {
-  readonly initializeDefault = vi.fn<IWorkspaces['initializeDefault']>(async () => undefined)
+  readonly initializeDefault = vi.fn<IWorkspaces['initializeDefault']>(async () => ({ ...workspace('default'), isDefault: true }))
   readonly list: MutableSource<WorkspaceSnapshot>
   readonly archiveCalls: SessionId[] = []
   readonly unarchiveCalls: SessionId[] = []
@@ -196,6 +196,7 @@ class FakeWorkspaces implements IWorkspaces {
 
   declare readonly create: IWorkspaces['create']
   declare readonly rename: IWorkspaces['rename']
+  declare readonly updateIdentity: IWorkspaces['updateIdentity']
   declare readonly delete: IWorkspaces['delete']
   declare readonly insertBefore: IWorkspaces['insertBefore']
   declare readonly insertSessionBefore: IWorkspaces['insertSessionBefore']
@@ -287,11 +288,14 @@ function bench(options: BenchOptions = {}) {
   ctx.provide('locale', locale)
   const requestDraftInitialization = vi.fn<SessionInputResolver['requestDraftInitialization']>(() => 'applied')
   if (options.conversation !== false) ctx.provide('conversation', { input: { requestDraftInitialization } })
+  const panelInfo = createSnapshotStore<PanelInfo>({ activePanelId: null })
+  const unregisteredPanels = new Set<MainPanelId>()
   const layout = new LayoutController({
-    selectPanel: vi.fn(), retainMainPanels: vi.fn(),
+    selectPanel: vi.fn((panelId: MainPanelId | null) => { panelInfo.set({ activePanelId: panelId }) }),
+    retainMainPanels: vi.fn(), configureSidebar: vi.fn(),
     setSidebar: vi.fn(), toggleSidebar: vi.fn(), setViewportWidth: vi.fn(),
     setRightbar: vi.fn(), openRightbar: vi.fn(), closeRightbar: vi.fn(),
-  }, () => true, createSnapshotStore({ activePanelId: null }))
+  }, id => !unregisteredPanels.has(id), panelInfo)
   const selectPanel = vi.spyOn(layout, 'selectPanel')
   ctx.provide('layout', layout)
   ctx.effect(() => () => { layout.dispose() })
@@ -309,8 +313,12 @@ function bench(options: BenchOptions = {}) {
     sessions,
     view.actions,
     notify,
+    () => false,
   )
-  return { ctx, directoryPicker, sessions, uiWorkspace, workspaces, layout, selectPanel, view, notify, requestDraftInitialization }
+  return {
+    ctx, directoryPicker, sessions, uiWorkspace, workspaces, layout, selectPanel, view, notify, requestDraftInitialization,
+    unregisteredPanels,
+  }
 }
 
 function lastOpening(open: MockInstance<UiWorkspaceService['openWorkspace']>): Promise<void> {
@@ -320,35 +328,15 @@ function lastOpening(open: MockInstance<UiWorkspaceService['openWorkspace']>): P
 }
 
 describe('UiWorkspaceService', () => {
-  it('prepares and selects the default Workspace after both startup baselines', async () => {
-    const b = bench({ configureWorkspaces: (workspaces) => {
-      workspaces.initializeDefault.mockImplementation(async () => {
-        const item = workspace('default')
-        workspaces.list.set(workspaceState([item]))
-        return item
-      })
-    } })
-    expect(b.workspaces.initializeDefault).not.toHaveBeenCalled()
+  it.each([false, true])('does not create a project or chat at startup (default exists: %s)', async (hasDefault) => {
+    const b = bench()
     b.sessions.list.set(sessionState())
-    expect(b.workspaces.initializeDefault).not.toHaveBeenCalled()
-    b.workspaces.list.set(workspaceState())
-    await vi.waitFor(() => {
-      expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('created-default'), { source: 'mainView' })
-    })
-    expect(b.workspaces.initializeDefault).toHaveBeenCalledExactlyOnceWith(expect.any(AbortSignal))
-    expect(b.sessions.create).toHaveBeenCalledWith({ workspaceId: wid('default') })
-    expect(b.notify).not.toHaveBeenCalled()
-  })
+    b.workspaces.list.set(workspaceState(hasDefault ? [{ ...workspace('default'), isDefault: true }] : []))
+    await setImmediate()
 
-  it('leaves an ineligible empty installation without a Session or failure notice', async () => {
-    const b = bench({ workspaces: workspaceState(), sessions: sessionState() })
-    await setImmediate()
-    b.workspaces.list.set(workspaceState())
-    b.sessions.list.set(sessionState())
-    await setImmediate()
-    expect(b.workspaces.initializeDefault).toHaveBeenCalledOnce()
+    expect(b.workspaces.initializeDefault).not.toHaveBeenCalled()
     expect(b.sessions.create).not.toHaveBeenCalled()
-    expect(b.notify).not.toHaveBeenCalled()
+    expect(b.sessions.retain).not.toHaveBeenCalled()
   })
 
   it('requires explicit selection when the startup Session list contains history', async () => {
@@ -358,23 +346,23 @@ describe('UiWorkspaceService', () => {
     expect(b.sessions.create).not.toHaveBeenCalled()
   })
 
-  it('publishes a startup directory failure once without creating a Session', async () => {
-    const b = bench({ workspaces: workspaceState(), sessions: sessionState(), configureWorkspaces: (workspaces) => {
-      workspaces.initializeDefault.mockRejectedValueOnce(new Error('denied'))
-    } })
-    await vi.waitFor(() => { expect(b.notify).toHaveBeenCalledExactlyOnceWith({ kind: 'defaultWorkspaceFailed' }) })
-    b.workspaces.list.set(workspaceState())
-    await setImmediate()
-    expect(b.workspaces.initializeDefault).toHaveBeenCalledOnce()
-    expect(b.sessions.create).not.toHaveBeenCalled()
-    expect(b.notify).toHaveBeenCalledExactlyOnceWith({ kind: 'defaultWorkspaceFailed' })
+  it('uses the initialized project without waiting for its catalog row', async () => {
+    const b = bench({ workspaces: workspaceState(), sessions: sessionState() })
+    b.uiWorkspace.startSession()
+    await vi.waitFor(() => {
+      expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('created-default'), { source: 'mainView' })
+    })
+    expect(b.workspaces.initializeDefault).toHaveBeenCalledExactlyOnceWith(expect.any(AbortSignal))
+    expect(b.sessions.create).toHaveBeenCalledExactlyOnceWith({ workspaceId: wid('default') })
+    expect(b.notify).not.toHaveBeenCalled()
   })
 
-  it.each(['session', 'panel', 'disposal'] as const)('cancels startup directory preparation after %s navigation', async (kind) => {
+  it.each(['session', 'panel', 'disposal'] as const)('cancels default preparation after %s navigation', async (kind) => {
     const pending = Promise.withResolvers<WorkspaceView>()
     const b = bench({ workspaces: workspaceState(), sessions: sessionState(), configureWorkspaces: (workspaces) => {
       workspaces.initializeDefault.mockReturnValueOnce(pending.promise)
     } })
+    b.uiWorkspace.startSession()
     if (kind === 'session') b.uiWorkspace.openSession(sid('manual'))
     else if (kind === 'panel') b.layout.selectPanel('other-panel' as MainPanelId)
     else await b.ctx.fiber.dispose()
@@ -386,11 +374,12 @@ describe('UiWorkspaceService', () => {
     expect(b.notify).not.toHaveBeenCalled()
   })
 
-  it.each(['session', 'panel', 'disposal'] as const)('suppresses a startup directory failure after %s navigation', async (kind) => {
+  it.each(['session', 'panel', 'disposal'] as const)('suppresses a default preparation failure after %s navigation', async (kind) => {
     const pending = Promise.withResolvers<WorkspaceView>()
     const b = bench({ workspaces: workspaceState(), sessions: sessionState(), configureWorkspaces: (workspaces) => {
       workspaces.initializeDefault.mockReturnValueOnce(pending.promise)
     } })
+    b.uiWorkspace.startSession()
     if (kind === 'session') b.uiWorkspace.openSession(sid('manual'))
     else if (kind === 'panel') b.layout.selectPanel('other-panel' as MainPanelId)
     else await b.ctx.fiber.dispose()
@@ -400,27 +389,6 @@ describe('UiWorkspaceService', () => {
     expect(b.notify).not.toHaveBeenCalled()
   })
 
-  it.each([false, true])('reports Session failure without a directory error and retains the Workspace (superseded: %s)', async (superseded) => {
-    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const created = Promise.withResolvers<SessionId>()
-    const b = bench({ workspaces: workspaceState(), sessions: sessionState(), configureWorkspaces: (workspaces) => {
-      workspaces.initializeDefault.mockImplementationOnce(async () => {
-        const item = workspace('default')
-        workspaces.list.set(workspaceState([item]))
-        return item
-      })
-    }, configureSessions: (sessions) => { sessions.create.mockReturnValueOnce(created.promise) } })
-    await vi.waitFor(() => { expect(b.sessions.create).toHaveBeenCalledOnce() })
-    if (superseded) b.layout.selectPanel('other-panel' as MainPanelId)
-    const failure = new Error('session failed')
-    created.reject(failure)
-    await vi.waitFor(() => {
-      expect(warning).toHaveBeenCalledExactlyOnceWith('initial Session restoration failed:', failure)
-    })
-    expect(b.workspaces.list.getSnapshot().items).toEqual([workspace('default')])
-    expect(b.notify).not.toHaveBeenCalled()
-    expect(b.sessions.retain).not.toHaveBeenCalled()
-  })
 
   it('retains an explicit main target before revealing its Conversation', () => {
     const b = bench()
@@ -511,15 +479,19 @@ describe('UiWorkspaceService', () => {
   })
 
   it('ignores a rejected startup selection and stale catalog callbacks after disposal', async () => {
+    persistSelection({ sessionId: sid('saved') })
     const created = Promise.withResolvers<SessionId>()
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const b = bench({
-      workspaces: workspaceState([workspace('a')], [], 'ready'),
+      workspaces: workspaceState([workspace('a', [sid('saved')])]),
       sessions: sessionState([], 'pending'),
       configureSessions: (sessions) => { sessions.create.mockReturnValue(created.promise) },
     })
     const staleReconcile = b.sessions.list.listenersSnapshot()[0]!
-    b.sessions.list.set(sessionState())
+    b.sessions.list.set(sessionState([summary('saved', { blank: true, cwd: '/w/a' })]))
+    await vi.waitFor(() => {
+      expect(b.sessions.create).toHaveBeenCalledExactlyOnceWith({ workspaceId: wid('a'), sessionId: sid('saved') })
+    })
     await b.ctx.fiber.dispose()
     staleReconcile()
     created.reject(new Error('late failure'))
@@ -712,12 +684,26 @@ describe('UiWorkspaceService', () => {
     ])
   })
 
+  it('skips another presentation’s blank for connect, until the presentation lets it go', async () => {
+    const id = sid('contributed')
+    const b = bench({
+      sessions: sessionState([summary('contributed', { blank: true, cwd: '/w/a' })], 'pending'),
+      workspaces: workspaceState([workspace('a', [id])]),
+    })
+    const source = createSnapshotStore<ReadonlySet<SessionId>>(new Set([id]))
+    const stopPresentation = b.uiWorkspace.registerSessionPresentation(source)
+    expect(b.uiWorkspace.hiddenSessions.getSnapshot()).toEqual(new Set([id]))
+    await expect(b.uiWorkspace.connectWorkspace(wid('a'))).resolves.toBe(sid('created-a'))
+    source.set(new Set())
+    expect(b.uiWorkspace.hiddenSessions.getSnapshot().size).toBe(0)
+    source.set(new Set([id]))
+    stopPresentation()
+    expect(b.uiWorkspace.hiddenSessions.getSnapshot().size).toBe(0)
+    await expect(b.uiWorkspace.connectWorkspace(wid('a'))).resolves.toBe(id)
+  })
+
   it('reports a refused explicit Session creation through the Workspace notice', async () => {
     const b = bench({ workspaces: workspaceState([workspace('a')]), sessions: sessionState() })
-    // Startup restoration creates its own Session first and stays quiet on failure (pinned above).
-    await vi.waitFor(() => { expect(b.sessions.retain).toHaveBeenCalledOnce() })
-    b.sessions.retain.mockClear()
-    expect(b.notify).not.toHaveBeenCalled()
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const refused = new SessionCreateError(new RemoteError(
       'agent-preset/invalid',
@@ -746,64 +732,81 @@ describe('UiWorkspaceService', () => {
     expect(b.notify).toHaveBeenCalledTimes(3)
   })
 
-  it('uses only an explicit Workspace or the recent-Workspace policy for new Sessions', async () => {
+  it.each([
+    ['a', "This project's folder is missing. It may have been moved or deleted. (a)"],
+    ['unknown', "This project's folder is missing. It may have been moved or deleted."],
+  ])('explains a missing project folder for reported project %s', async (id, message) => {
+    const b = bench({ workspaces: workspaceState([workspace('a')]), sessions: sessionState() })
+    const refused = new SessionCreateError(new RemoteError(
+      'workspace/project-folder-missing', 'The registered project folder is unavailable.', { workspaceId: wid(id) },
+    ), undefined)
+    b.sessions.create.mockRejectedValueOnce(refused)
+    await expect(b.uiWorkspace.openWorkspace(wid('a'))).rejects.toBe(refused)
+    expect(b.notify).toHaveBeenCalledExactlyOnceWith({ kind: 'createFailed', message })
+  })
+
+  it('ignores the retained chat and recent projects when starting a global New Session', async () => {
     const current = summary('current', { cwd: '/w/current-home', updatedAt: 1 })
     const recent = summary('recent', { cwd: '/w/recent-home', updatedAt: 2 })
+    const defaultProject = { ...workspace('canonical-default'), isDefault: true as const }
     const b = bench({
       sessions: sessionState([current, recent]),
       workspaces: workspaceState([
-        workspace('old'),
         workspace('current-home', [current.id]),
         workspace('recent-home', [recent.id]),
-      ]),
-    })
-    b.uiWorkspace.startSession(wid('old'))
-    await vi.waitFor(() => {
-      expect(b.sessions.retain).toHaveBeenLastCalledWith(sid('created-old'), { source: 'mainView' })
+      ], [], 'pending'),
+      configureWorkspaces: (workspaces) => { workspaces.initializeDefault.mockResolvedValue(defaultProject) },
     })
     b.uiWorkspace.openSession(current.id)
     b.uiWorkspace.startSession()
-    await vi.waitFor(() => {
-      expect(b.sessions.retain).toHaveBeenLastCalledWith(sid('created-current-home'), { source: 'mainView' })
-    })
-    const recentOnly = bench({
-      sessions: sessionState([current, recent]),
-      workspaces: workspaceState([
-        workspace('current-home', [current.id]),
-        workspace('recent-home', [recent.id]),
-      ]),
-    })
-    recentOnly.uiWorkspace.startSession()
-    await vi.waitFor(() => {
-      expect(recentOnly.sessions.retain).toHaveBeenLastCalledWith(sid('created-recent-home'), { source: 'mainView' })
-    })
-    b.sessions.create.mockRejectedValueOnce(new Error('create failed'))
-    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    b.uiWorkspace.startSession(wid('recent-home'))
-    await vi.waitFor(() => { expect(warning).toHaveBeenCalledWith('new session failed:', expect.any(Error)) })
-    const empty = bench()
-    empty.uiWorkspace.startSession()
-    expect(empty.selectPanel).toHaveBeenCalledWith(null)
 
-    const missingMember = bench({
-      sessions: sessionState(),
-      workspaces: workspaceState([
-        workspace('older', [sid('missing')], '2026-01-01T00:00:00.000Z'),
-        workspace('newer', [], '2026-02-01T00:00:00.000Z'),
-      ]),
-    })
-    missingMember.uiWorkspace.startSession()
     await vi.waitFor(() => {
-      expect(missingMember.sessions.create).toHaveBeenCalledWith({ workspaceId: wid('newer') })
+      expect(b.sessions.create).toHaveBeenCalledExactlyOnceWith({ workspaceId: defaultProject.workspaceId })
     })
+    expect(b.workspaces.initializeDefault).toHaveBeenCalledExactlyOnceWith(expect.any(AbortSignal))
   })
 
-  it('opens nothing when a New Session request has no Workspace to open', () => {
-    const b = bench()
+  it('starts a global New Session in the open project instead of the retained chat project', async () => {
+    const current = summary('current', { cwd: '/w/chat-project' })
+    persistSelection({ sessionId: current.id })
+    const b = bench({
+      sessions: sessionState([current]),
+      workspaces: workspaceState([workspace('chat-project', [current.id]), workspace('open-project')]),
+    })
+    const panel = 'project' as MainPanelId
+    b.uiWorkspace.registerProjectHandler(() => { b.layout.selectPanel(panel) }, panel)
+    b.uiWorkspace.openProjectSurface(wid('open-project'))
 
     b.uiWorkspace.startSession()
 
-    expect(b.selectPanel).toHaveBeenCalledWith(null)
+    await vi.waitFor(() => {
+      expect(b.sessions.create).toHaveBeenLastCalledWith({ workspaceId: wid('open-project') })
+    })
+  })
+
+  it('sends the registered default project ID when New Session uses that project', async () => {
+    const defaultProject = { ...workspace('registered-default'), isDefault: true as const }
+    const b = bench({ workspaces: workspaceState([defaultProject]) })
+
+    b.uiWorkspace.startSession()
+
+    await vi.waitFor(() => {
+      expect(b.sessions.create).toHaveBeenCalledExactlyOnceWith({ workspaceId: defaultProject.workspaceId })
+    })
+    expect(b.workspaces.initializeDefault).not.toHaveBeenCalled()
+  })
+
+  it('never creates or opens a chat after a pending default lookup is superseded', async () => {
+    const pending = Promise.withResolvers<WorkspaceView>()
+    const b = bench({ configureWorkspaces: (workspaces) => { workspaces.initializeDefault.mockReturnValue(pending.promise) } })
+    b.uiWorkspace.startSession()
+    b.uiWorkspace.openSession(sid('manual'))
+    pending.resolve(workspace('default'))
+    await setImmediate()
+
+    expect(b.workspaces.initializeDefault.mock.calls[0]![0]?.aborted).toBe(true)
+    expect(b.sessions.create).not.toHaveBeenCalled()
+    expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('manual'), { source: 'mainView' })
   })
 
   describe('startSession draft initialization', () => {
@@ -828,7 +831,7 @@ describe('UiWorkspaceService', () => {
         expect(binding.sessionId).toBe(sid('actual-target'))
         expect(target.release).not.toHaveBeenCalled()
         expect(previous.release).not.toHaveBeenCalled()
-        expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({ sessionId: sid('previous') })
+        expect(JSON.parse(backing.get('jan.sessions.current')!)).toEqual({ sessionId: sid('previous') })
         expect(b.selectPanel).not.toHaveBeenCalled()
         return 'applied'
       })
@@ -840,7 +843,7 @@ describe('UiWorkspaceService', () => {
       expect(b.sessions.binding).toHaveBeenCalledExactlyOnceWith(sid('actual-target'))
       expect(previous.release).toHaveBeenCalledOnce()
       expect(b.sessions.retained[1]!.release).not.toHaveBeenCalled()
-      expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({ sessionId: sid('actual-target') })
+      expect(JSON.parse(backing.get('jan.sessions.current')!)).toEqual({ sessionId: sid('actual-target') })
       expect(b.notify).not.toHaveBeenCalled()
     })
 
@@ -875,7 +878,7 @@ describe('UiWorkspaceService', () => {
       )
       expect(b.sessions.retained[0]!.release).toHaveBeenCalledOnce()
       expect(b.sessions.retained[1]!.release).not.toHaveBeenCalled()
-      expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({ sessionId: sid('created-a') })
+      expect(JSON.parse(backing.get('jan.sessions.current')!)).toEqual({ sessionId: sid('created-a') })
       expect(b.notify).not.toHaveBeenCalled()
     })
 
@@ -957,25 +960,39 @@ describe('UiWorkspaceService', () => {
         expect(b.sessions.retained[0]!.release).not.toHaveBeenCalled()
         expect(b.sessions.retained[1]!.release).toHaveBeenCalledOnce()
         expect(b.sessions.binding(sid('created-a'))).toBeUndefined()
-        expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({ sessionId: sid('previous') })
+        expect(JSON.parse(backing.get('jan.sessions.current')!)).toEqual({ sessionId: sid('previous') })
         expect(b.selectPanel).not.toHaveBeenCalled()
         expect(b.requestDraftInitialization).toHaveBeenCalledTimes(failure === 'blocked' ? 1 : 0)
       },
     )
 
-    it('requests a Workspace without clearing the current selection when no Workspace is available', () => {
+    it('creates a default-project draft from a quick prompt without waiting for the catalog', async () => {
+      const defaultProject = workspace('new-default')
+      const b = bench({ configureWorkspaces: (workspaces) => { workspaces.initializeDefault.mockResolvedValue(defaultProject) } })
+      b.uiWorkspace.startSession(undefined, { prompt: 'unsent', agentPreset: 'cordis', whenDraftExists: 'append' })
+
+      await vi.waitFor(() => {
+        expect(b.requestDraftInitialization).toHaveBeenCalledExactlyOnceWith(
+          b.sessions.retained[0]!.reference.binding, { prompt: 'unsent', whenDraftExists: 'append' },
+        )
+      })
+      expect(b.sessions.create).toHaveBeenCalledExactlyOnceWith({ workspaceId: defaultProject.workspaceId, agentPreset: 'cordis' })
+      expect(b.notify).not.toHaveBeenCalled()
+    })
+
+    it('keeps the current selection when ensuring the default project fails', async () => {
       const backing = persistSelection({})
-      const b = bench()
-      b.uiWorkspace.openSession(sid('ungrouped'))
+      const b = bench({ configureWorkspaces: (workspaces) => { workspaces.initializeDefault.mockRejectedValue(new Error('denied')) } })
+      b.uiWorkspace.openSession(sid('previous'))
       b.selectPanel.mockClear()
 
       b.uiWorkspace.startSession(undefined, { prompt: 'unsent' })
 
-      expect(b.notify).toHaveBeenCalledExactlyOnceWith({ kind: 'createFailed', message: 'Choose a workspace first.' })
+      await vi.waitFor(() => { expect(b.notify).toHaveBeenCalledExactlyOnceWith({ kind: 'defaultWorkspaceFailed' }) })
       expect(b.sessions.create).not.toHaveBeenCalled()
       expect(b.requestDraftInitialization).not.toHaveBeenCalled()
       expect(b.sessions.retained[0]!.release).not.toHaveBeenCalled()
-      expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({ sessionId: sid('ungrouped') })
+      expect(JSON.parse(backing.get('jan.sessions.current')!)).toEqual({ sessionId: sid('previous') })
       expect(b.selectPanel).not.toHaveBeenCalled()
     })
 
@@ -997,7 +1014,7 @@ describe('UiWorkspaceService', () => {
       expect(b.requestDraftInitialization).not.toHaveBeenCalled()
       expect(b.sessions.retained).toHaveLength(1)
       expect(b.sessions.retained[0]!.release).not.toHaveBeenCalled()
-      expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({ sessionId: sid('previous') })
+      expect(JSON.parse(backing.get('jan.sessions.current')!)).toEqual({ sessionId: sid('previous') })
       expect(b.selectPanel).not.toHaveBeenCalled()
     })
   })
@@ -1014,19 +1031,6 @@ describe('UiWorkspaceService', () => {
     ])
     expect(b.sessions.retained[0]!.release).toHaveBeenCalledOnce()
     expect(b.sessions.retained[1]!.release).not.toHaveBeenCalled()
-  })
-
-  it('opens the most recent Workspace after both startup catalogs become ready', async () => {
-    const b = bench()
-    b.workspaces.list.set(workspaceState([
-      workspace('newest', [], '2026-03-01T00:00:00.000Z'),
-      workspace('same-time', [], '2026-03-01T00:00:00.000Z'),
-      workspace('older', [], '2026-01-01T00:00:00.000Z'),
-    ]))
-    b.sessions.list.set(sessionState())
-    await vi.waitFor(() => {
-      expect(b.sessions.retain).toHaveBeenCalledWith(sid('created-newest'), { source: 'mainView' })
-    })
   })
 
   it('uses catalog order for Workspace connects without reading the saved selection', async () => {
@@ -1050,10 +1054,9 @@ describe('UiWorkspaceService', () => {
       sessions: sessionState([summary('saved', { blank: true, cwd })]),
       workspaces: workspaceState([workspace('a', [sid('saved')])], archived ? [sid('saved')] : []),
     })
-    await vi.waitFor(() => {
-      expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('created-a'), { source: 'mainView' })
-    })
-    expect(b.sessions.create).toHaveBeenCalledExactlyOnceWith({ workspaceId: wid('a') })
+    await setImmediate()
+    expect(b.sessions.retain).not.toHaveBeenCalled()
+    expect(b.sessions.create).not.toHaveBeenCalled()
   })
 
   it('restores a saved ungrouped blank directly', () => {
@@ -1342,13 +1345,14 @@ describe('UiWorkspaceService', () => {
   })
 
   it('keeps an explicit creation failure visible after a failed startup and a catalog update', async () => {
+    persistSelection({ sessionId: sid('saved') })
     const startupFailure = new Error('startup failed')
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const creating = Promise.withResolvers<undefined>()
     const created = Promise.withResolvers<SessionId>()
     const b = bench({
-      sessions: sessionState(),
-      workspaces: workspaceState([workspace('a')]),
+      sessions: sessionState([summary('saved', { blank: true, cwd: '/w/a' })]),
+      workspaces: workspaceState([workspace('a', [sid('saved')])]),
       configureSessions: (sessions) => {
         sessions.create.mockRejectedValueOnce(startupFailure).mockImplementationOnce(() => {
           creating.resolve(undefined)
@@ -1463,7 +1467,7 @@ describe('UiWorkspaceService', () => {
 
     b.uiWorkspace.openSession(address.childSessionId)
 
-    expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({
+    expect(JSON.parse(backing.get('jan.sessions.current')!)).toEqual({
       sessionId: address.childSessionId,
       subagentAddress: address,
     })
@@ -1566,5 +1570,279 @@ describe('UiWorkspaceService', () => {
     await expect(b.uiWorkspace.createDirectory('/home/u', 'new')).rejects.toMatchObject({
       rpcError: { code: 'directory-picker/exists' },
     })
+  })
+})
+
+describe('UiWorkspaceService navigation history', () => {
+  /** Sessions a, b, c (plus `extra`) in one Workspace, with `a` restored from the saved selection. */
+  function fixture(extra: readonly string[] = []) {
+    const backing = persistSelection({ sessionId: sid('a') })
+    const ids = ['a', 'b', 'c', ...extra]
+    const b = bench({
+      workspaces: workspaceState([workspace('w', ids.map(sid))]),
+      sessions: sessionState(ids.map(id => summary(id))),
+    })
+    // Test-owned persistence: the store writes exactly `{ sessionId }`, so the parse is a known shape.
+    const shown = (): string => {
+      const saved = JSON.parse(backing.get('jan.sessions.current')!) as { sessionId: string }
+      return saved.sessionId
+    }
+    const availability = () => b.uiWorkspace.navigationHistory.getSnapshot()
+    return { b, shown, availability }
+  }
+
+  it('goes back to the previous Session and forward again', () => {
+    const { b, shown, availability } = fixture()
+    expect(availability()).toEqual({ canGoBack: false, canGoForward: false })
+    b.uiWorkspace.openSession(sid('b'))
+    expect(shown()).toBe('b')
+    expect(availability()).toEqual({ canGoBack: true, canGoForward: false })
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('a')
+    expect(availability()).toEqual({ canGoBack: false, canGoForward: true })
+    b.uiWorkspace.goForward()
+    expect(shown()).toBe('b')
+    expect(availability()).toEqual({ canGoBack: true, canGoForward: false })
+  })
+
+  it('does nothing when the direction has no entry', () => {
+    const { b, shown } = fixture()
+    b.uiWorkspace.goBack()
+    b.uiWorkspace.goForward()
+    expect(shown()).toBe('a')
+    expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('a'), { source: 'mainView' })
+  })
+
+  it('releases the Session it leaves and retains the one it returns to', () => {
+    const { b } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    b.uiWorkspace.goBack()
+    // Recent-view retains keep left chats warm; this checks only the main view's own references.
+    const main = b.sessions.retained.filter((_, index) => b.sessions.retain.mock.calls[index]![1]?.source === 'mainView')
+    expect(main.map(item => item.reference.sessionId)).toEqual([sid('a'), sid('b'), sid('a')])
+    const [first, second, third] = main
+    expect(first!.release).toHaveBeenCalledOnce()
+    expect(second!.release).toHaveBeenCalledOnce()
+    expect(third!.release).not.toHaveBeenCalled()
+  })
+
+  it('keeps the last three chats it left open and releases older ones', () => {
+    const { b } = fixture(['d', 'e'])
+    for (const id of ['b', 'c', 'd', 'e']) b.uiWorkspace.openSession(sid(id))
+    const recent = b.sessions.retained.filter((_, index) => b.sessions.retain.mock.calls[index]![1]?.source === 'recentView')
+    expect(recent.map(item => item.reference.sessionId)).toEqual([sid('a'), sid('b'), sid('c'), sid('d')])
+    expect(recent.map(item => item.release.mock.calls.length)).toEqual([1, 0, 0, 0])
+    // Returning to a kept chat hands it back to the main view.
+    b.uiWorkspace.openSession(sid('c'))
+    expect(recent[2]!.release).toHaveBeenCalledOnce()
+  })
+
+  it('does not record the replay as a navigation', () => {
+    const { b, availability } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    b.uiWorkspace.openSession(sid('c'))
+    b.uiWorkspace.goBack()
+    b.uiWorkspace.goBack()
+    expect(availability()).toEqual({ canGoBack: false, canGoForward: true })
+    b.uiWorkspace.goForward()
+    b.uiWorkspace.goForward()
+    expect(availability()).toEqual({ canGoBack: true, canGoForward: false })
+  })
+
+  it('clears Forward when a new navigation follows Back', () => {
+    const { b, shown, availability } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    b.uiWorkspace.goBack()
+    expect(availability().canGoForward).toBe(true)
+    b.uiWorkspace.openSession(sid('c'))
+    expect(availability()).toEqual({ canGoBack: true, canGoForward: false })
+    b.uiWorkspace.goForward()
+    expect(shown()).toBe('c')
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('a')
+  })
+
+  it('ignores re-opening the Session already shown', () => {
+    const { b, availability } = fixture()
+    b.uiWorkspace.openSession(sid('a'))
+    expect(availability()).toEqual({ canGoBack: false, canGoForward: false })
+  })
+
+  it('republishes availability only when a flag changes', () => {
+    const { b } = fixture()
+    const listener = vi.fn()
+    b.uiWorkspace.navigationHistory.subscribe(listener)
+    b.uiWorkspace.openSession(sid('b'))
+    expect(listener).toHaveBeenCalledOnce()
+    b.uiWorkspace.openSession(sid('c'))
+    expect(listener).toHaveBeenCalledOnce()
+  })
+
+  it('records opening and closing a global panel as entries', () => {
+    const { b, shown } = fixture()
+    const panel = () => b.layout.panelInfo.getSnapshot().activePanelId
+    b.layout.selectPanel('plugins' as MainPanelId)
+    b.layout.selectPanel(null)
+    b.uiWorkspace.goBack()
+    expect(panel()).toBe('plugins')
+    expect(shown()).toBe('a')
+    b.uiWorkspace.goBack()
+    expect(panel()).toBeNull()
+    expect(b.uiWorkspace.navigationHistory.getSnapshot()).toEqual({ canGoBack: false, canGoForward: true })
+    b.uiWorkspace.goForward()
+    expect(panel()).toBe('plugins')
+    b.uiWorkspace.goForward()
+    expect(panel()).toBeNull()
+  })
+
+  it('replays distinct projects in the same panel and skips a deleted project', () => {
+    const alpha = workspace('alpha', [sid('a')])
+    const beta = workspace('beta')
+    persistSelection({ sessionId: sid('a') })
+    const b = bench({ workspaces: workspaceState([alpha, beta]), sessions: sessionState([summary('a')]) })
+    const panel = 'project' as MainPanelId
+    let shown: WorkspaceId | undefined
+    const showProject = (id: WorkspaceId) => { shown = id; b.layout.selectPanel(panel) }
+    b.uiWorkspace.registerProjectHandler(showProject, panel)
+    b.uiWorkspace.openProjectSurface(alpha.workspaceId)
+    b.uiWorkspace.openProjectSurface(beta.workspaceId)
+    expect(shown).toBe(beta.workspaceId)
+    b.uiWorkspace.goBack()
+    expect(b.layout.panelInfo.getSnapshot().activePanelId).toBe(panel)
+    expect(shown).toBe(alpha.workspaceId)
+    b.uiWorkspace.goForward()
+    expect(shown).toBe(beta.workspaceId)
+    b.workspaces.list.set(workspaceState([beta]))
+    b.uiWorkspace.goBack()
+    expect(b.layout.panelInfo.getSnapshot().activePanelId).toBeNull()
+    b.uiWorkspace.goForward()
+    expect(b.layout.panelInfo.getSnapshot().activePanelId).toBe(panel)
+    expect(shown).toBe(beta.workspaceId)
+  })
+
+  it('records a Session opened over a panel as one entry and returns to both', () => {
+    const { b, shown } = fixture()
+    const panel = () => b.layout.panelInfo.getSnapshot().activePanelId
+    b.layout.selectPanel('plugins' as MainPanelId)
+    b.uiWorkspace.openSession(sid('b'))
+    expect(panel()).toBeNull()
+    b.uiWorkspace.goBack()
+    expect([shown(), panel()]).toEqual(['a', 'plugins'])
+    b.uiWorkspace.goBack()
+    expect([shown(), panel()]).toEqual(['a', null])
+    expect(b.uiWorkspace.navigationHistory.getSnapshot().canGoBack).toBe(false)
+  })
+
+  it('moves between panels on different Sessions', () => {
+    const { b, shown } = fixture()
+    const panel = () => b.layout.panelInfo.getSnapshot().activePanelId
+    b.uiWorkspace.openSession(sid('b'))
+    b.layout.selectPanel('plugins' as MainPanelId)
+    b.uiWorkspace.goBack()
+    expect([shown(), panel()]).toEqual(['b', null])
+    b.uiWorkspace.goBack()
+    expect([shown(), panel()]).toEqual(['a', null])
+    b.uiWorkspace.goForward()
+    b.uiWorkspace.goForward()
+    expect([shown(), panel()]).toEqual(['b', 'plugins'])
+  })
+
+  it('skips an entry whose panel is no longer registered', () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { b, shown } = fixture()
+    const panel = () => b.layout.panelInfo.getSnapshot().activePanelId
+    b.layout.selectPanel('plugins' as MainPanelId)
+    b.uiWorkspace.openSession(sid('b'))
+    b.unregisteredPanels.add('plugins' as MainPanelId)
+    b.uiWorkspace.goBack()
+    expect([shown(), panel()]).toEqual(['a', null])
+    expect(warning).toHaveBeenCalledOnce()
+    expect(b.uiWorkspace.navigationHistory.getSnapshot()).toEqual({ canGoBack: false, canGoForward: true })
+  })
+
+  it('skips a deleted Session and disables Back once nothing remains', () => {
+    const { b, shown, availability } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    b.uiWorkspace.openSession(sid('c'))
+    b.sessions.list.set(sessionState([summary('a'), summary('c')]))
+    expect(availability().canGoBack).toBe(true)
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('a')
+    b.uiWorkspace.openSession(sid('c'))
+    b.sessions.list.set(sessionState([summary('c')]))
+    expect(availability()).toEqual({ canGoBack: false, canGoForward: false })
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('c')
+  })
+
+  it('skips an archived Session in both directions', () => {
+    const { b, shown } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    b.uiWorkspace.openSession(sid('c'))
+    b.uiWorkspace.goBack()
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('a')
+    b.workspaces.list.set(workspaceState([workspace('w', ['a', 'b', 'c'].map(sid))], [sid('b')]))
+    b.uiWorkspace.goForward()
+    expect(shown()).toBe('c')
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('a')
+  })
+
+  it('leaves no entry when archiving the Session on display, and Back still reaches the one before', async () => {
+    const { b, shown, availability } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    await b.uiWorkspace.archiveSession(sid('b'))
+    expect(availability()).toEqual({ canGoBack: true, canGoForward: false })
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('a')
+  })
+
+  it('does not create an entry when startup restoration opens a Session', () => {
+    const { availability } = fixture()
+    expect(availability()).toEqual({ canGoBack: false, canGoForward: false })
+  })
+
+  it('does not create an entry when startup restoration replaces a saved blank', async () => {
+    persistSelection({ sessionId: sid('blank') })
+    const b = bench({
+      workspaces: workspaceState([workspace('w', [sid('blank')])]),
+      sessions: sessionState([summary('blank', { blank: true, cwd: '/w/w' })]),
+    })
+    await vi.waitFor(() => { expect(b.sessions.retain).toHaveBeenCalledWith(sid('blank'), { source: 'mainView' }) })
+    expect(b.uiWorkspace.navigationHistory.getSnapshot()).toEqual({ canGoBack: false, canGoForward: false })
+  })
+
+  it('records New Session as an entry that Back undoes', async () => {
+    persistSelection({ sessionId: sid('a') })
+    const b = bench({
+      workspaces: workspaceState([workspace('w', [sid('a'), sid('blank')])]),
+      sessions: sessionState([summary('a'), summary('blank', { blank: true, cwd: '/w/w' })]),
+    })
+    b.uiWorkspace.startSession(wid('w'))
+    await vi.waitFor(() => { expect(b.uiWorkspace.navigationHistory.getSnapshot().canGoBack).toBe(true) })
+    b.uiWorkspace.goBack()
+    expect(b.sessions.retain.mock.calls.findLast(args => args[1]?.source === 'mainView')![0]).toBe(sid('a'))
+  })
+
+  it('caps the stack at 50 entries, dropping the oldest', () => {
+    const extra = Array.from({ length: 60 }, (_, index) => `s${index}`)
+    const { b, shown, availability } = fixture(extra)
+    for (const id of extra) b.uiWorkspace.openSession(sid(id))
+    let steps = 0
+    while (availability().canGoBack) {
+      b.uiWorkspace.goBack()
+      steps += 1
+    }
+    expect(steps).toBe(50)
+    expect(shown()).toBe('s9')
+  })
+
+  it('ignores Back and Forward after disposal', async () => {
+    const { b, shown } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    await b.ctx.fiber.dispose()
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('b')
   })
 })

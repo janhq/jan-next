@@ -1,8 +1,8 @@
-- text: Workspaces
+- text: Projects
 - button "Search sessions"
 - textbox "Search session names"
 - button "View options"
-- button "Add workspace"
+- button "Add project"
 - tree "Sessions":
   - treeitem "Ungrouped" [expanded]
   - treeitem "T4 source (1) now"

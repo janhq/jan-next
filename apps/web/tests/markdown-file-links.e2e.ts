@@ -4,10 +4,10 @@ import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Locator, type Page } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import { ToolCallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
-import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
-import { sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
-import type {} from '@deepseek-ai/dsh-session-title'
+import { ToolCallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@janhq/jan-llm'
+import { SESSION_FORMAT_VERSION, Session, SessionId } from '@janhq/jan-session'
+import { sessionFileAddress } from '@janhq/jan-util-workspace-path'
+import type {} from '@janhq/jan-session-title'
 import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
@@ -39,7 +39,7 @@ function parentPathFixture(path: string): string {
     turn: 1, step: 1, stream: [],
     message: createAssistantMessage({
       content: [{ type: 'tool-call', id: callId, name: 'read', arguments: args }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
   }, { surfaceOp: 'append' })
   const call = session.append('tool/call', { turn: 1, step: 1, callId, name: 'read', arguments: args })
@@ -53,7 +53,7 @@ function parentPathFixture(path: string): string {
     turn: 1, step: 2, stream: [],
     message: createAssistantMessage({
       content: [{ type: 'text', text: `[Parent file:24–30](<${path}#L24-L30>) · [Parent file:30](<${path}#L30>)` }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
   }, { surfaceOp: 'append' })
   session.append('step/end', { turn: 1, step: 2 })
@@ -82,7 +82,7 @@ function changedDirectoryFixture(path: string): string {
     turn: 1, step: 1, stream: [],
     message: createAssistantMessage({
       content: [{ type: 'text', text: `[Worktree notes](${path})` }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
   }, { surfaceOp: 'append' })
   session.append('step/end', { turn: 1, step: 1 })
@@ -227,7 +227,7 @@ describe('web e2e: Markdown file links', () => {
     const source = page.getByRole('button', { name: 'Parent file:24–30', exact: true })
     await source.click()
     const column = page.locator('[data-rightbar-col]')
-    const stored = () => page.evaluate(key => localStorage.getItem(key), `dsh.sidebar-right.v1.${id}`)
+    const stored = () => page.evaluate(key => localStorage.getItem(key), `jan.sidebar-right.v1.${id}`)
     const address = sessionFileAddress(id, path)
     await expect.poll(() => column.locator('[data-textpreview-target="24"]').textContent()).toBe('parent line 24\n')
     await expect.poll(() => column.locator('[data-textpreview-path]').textContent()).toBe(join(scaffold.workspaceCwd, 'parent.txt'))

@@ -1,17 +1,32 @@
+/* The duration header line: the disclosure button, then feature contributions
+   on the same line; a contribution's open panel takes `flex-basis: 100%` and
+   drops below the line, still above the hairline. */
+.row {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding-bottom: 8px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
 .root {
   box-sizing: border-box;
   display: flex;
+  flex: none;
   align-items: center;
-  width: 100%;
   min-width: 0;
-  height: calc(33px + var(--dsh-content-font-delta, 0px));
-  padding: 0 0 8px;
+  max-width: 100%;
+  height: calc(25px + var(--jan-content-font-delta, 0px));
+  padding: 0;
   border: none;
-  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
   background: none;
   color: var(--dsw-alias-label-tertiary);
   font: inherit;
-  font-size: var(--dsh-content-font-size, 14px);
+  font-size: var(--jan-content-font-size, 14px);
   cursor: pointer;
   text-align: left;
   transition: color 100ms ease;
@@ -44,7 +59,7 @@
   min-width: 0;
   overflow: hidden;
   font-size: inherit;
-  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
+  line-height: calc(24px + var(--jan-content-font-delta, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }

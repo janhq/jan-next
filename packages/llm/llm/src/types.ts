@@ -4,17 +4,18 @@
  * mapped interfaces make the content, source, and finish unions extensible.
  */
 
-import type { Branded } from '@deepseek-ai/dsh-brand'
-import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type { LocalizedText } from '@deepseek-ai/dsh-package-manifest'
+import type { Branded } from '@janhq/jan-brand'
+import type { FileAttachmentRef, ImageAttachmentRef } from '@janhq/jan-attachment'
+import type { LocalizedText } from '@janhq/jan-package-manifest'
 import type { MessageId, ToolCallId, ProviderRequestId, ReasoningEffortId } from './brand.ts'
 import type { Message, UserMessage } from './message.ts'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Events {
     /**
      * The provider topology changed: an adapter registered or unregistered
-     * routes, or the configurable-provider directory gained or lost entries.
+     * routes, an adapter announced a changed model set for its routes, or the
+     * configurable-provider directory gained or lost entries.
      * This payload-free registry notification fires at each commit point
      * (including registration disposal); consumers re-read `listProviders()`,
      * `listModels()`, or `listConfigurableProviders()` for the new state.
@@ -22,12 +23,6 @@ declare module '@deepseek-ai/cordis' {
      * @mode emit
      */
     'llm/adapters-updated'(): void
-    /**
-     * A provider's advertised models or display metadata changed; consumers reload `listModels()`.
-     * @mode emit
-     * @param provider - route whose model catalog changed.
-     */
-    'llm/models-updated'(provider: string): void
   }
 }
 
@@ -59,7 +54,7 @@ export interface LlmFailure {
   /**
    * With code `IMAGE_OFFLOAD_REQUIRED`: how many more of the oldest retained
    * image occurrences the route needs offloaded before the same request fits
-   * its exact byte accounting. `dsh-compaction-image-offload` records the
+   * its exact byte accounting. `jan-compaction-image-offload` records the
    * selected occurrences in an `image/offload` event and retries the step.
    */
   readonly offloadImages?: number
@@ -177,7 +172,7 @@ export type FinishReason = FinishReasonMap[keyof FinishReasonMap]
  * Counts are DISJOINT: `inputTokens` is uncached input only; cached input is
  * reported separately as `cacheReadTokens`/`cacheWriteTokens` (billed input =
  * sum of the three). Adapters whose providers fold cache hits into a total
- * prompt count (DeepSeek's `prompt_tokens`) subtract them out.
+ * prompt count (OpenAI-compatible `prompt_tokens`) subtract them out.
  */
 export interface TokenUsage {
   inputTokens: number
@@ -323,7 +318,7 @@ export interface LlmModelDiscoveryOperation extends LlmModelDiscoveryRequest {
   signal?: AbortSignal
 }
 
-declare module '@deepseek-ai/dsh-typert-protocol' {
+declare module '@janhq/jan-typert-protocol' {
   interface RemoteErrorDetailsMap {
     /** A draft provider interrogation refused or failed. */
     'llm/model-discovery-rejected': {
@@ -377,6 +372,12 @@ export interface LlmModelInfo {
   description?: string
   /** Accepted request modalities; absent means unknown, while an explicit omission is negative capability. */
   inputModalities?: readonly ModelModality[]
+  /**
+   * Whether the model calls the tools a request declares; absent means unknown.
+   * `false` is a declared inability (a local chat template with no tool
+   * support), which selectors surface before the user starts a tool task.
+   */
+  toolUse?: boolean
   /**
    * Selector label advertised by catalog discovery; exact-route resolution
    * omits it, and no model request or Session event carries it.
@@ -510,8 +511,8 @@ export type StreamChunk =
 /**
  * JSON-schema description of a tool, as sent to the model.
  *
- * Declared here (not in dsh-tools) because it is part of {@link GenerateOptions};
- * dsh-tools' ToolDefinition and dsh-system-prompt's PromptAssembly both import
+ * Declared here (not in jan-tools) because it is part of {@link GenerateOptions};
+ * jan-tools' ToolDefinition and jan-system-prompt's PromptAssembly both import
  * it from this package.
  */
 export interface ToolSchema {
@@ -569,7 +570,7 @@ export interface GenerateOptions<Purpose extends string = LlmRequestPurpose> {
   reasoningEffort?: ReasoningEffortId
   /**
    * Ordered conversation messages, exactly as the provider sees them. A
-   * loop-built request passes the derived history (dsh-agent-loop), whose
+   * loop-built request passes the derived history (jan-agent-loop), whose
    * leading system-role message carries the system prompt; a hand-built
    * one-shot may include identity-free user inputs.
    */

@@ -1,12 +1,12 @@
-import { Context } from '@deepseek-ai/cordis'
-import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
-import * as FsPolicy from '@deepseek-ai/dsh-fs-observation-policy'
-import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
-import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek-api-key'
+import { Context } from '@janhq/cordis'
+import WorkingDirectory from '@janhq/jan-working-directory'
+import type { Agent } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import LocalFileSystem from '@janhq/jan-fs-local'
+import * as FsPolicy from '@janhq/jan-fs-observation-policy'
+import * as ToolFs from '@janhq/jan-tool-fs'
+import * as LlmPiAi from '@janhq/jan-llm-pi-ai'
 
 /**
  * Build the real fs-tool stack for with-key e2e tests. Agents have no session
@@ -17,7 +17,7 @@ export async function fsHarness(fsCwd: string, persona = ''): Promise<Context> {
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx, { systemPrompt: { personaPrefix: persona } })
   await ctx.plugin(AgentLoop, { agents: [] })
-  await ctx.plugin(LlmDeepSeek)
+  await ctx.plugin(LlmPiAi, { providers: { tokamak: { api: 'openai-completions', baseURL: process.env.TOKAMAK_BASE_URL ?? 'https://api.tokamak.sh/v1', apiKeyEnv: 'TOKAMAK_API_KEY', models: [{ id: 'tokamak-1-preview' }] } } })
   await ctx.plugin(LocalFileSystem, { cwd: fsCwd })
   await ctx.plugin(WorkingDirectory, { defaultDirectory: fsCwd })
   await ctx.plugin(FsPolicy)

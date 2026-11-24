@@ -4,13 +4,14 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { zstdDecompressSync } from 'node:zlib'
-import { resolveExampleLaunch } from '@deepseek-ai/dsh-loader-smoke'
-import { scanZstdFrames } from '@deepseek-ai/dsh-session-persistence-jsonl/src/zstd.js'
+import { resolveExampleLaunch } from '@janhq/jan-loader-smoke'
+import { scanZstdFrames } from '@janhq/jan-session-persistence-jsonl/src/zstd.js'
 import { execa } from 'execa'
 import { describe, expect, it, onTestFinished } from 'vitest'
-import { workspaceDependencyPaths, type PrimaryRuntimeManifest } from '@deepseek-ai/dsh-tool-workspace-dependencies'
+import { workspaceDependencyPaths, type PrimaryRuntimeManifest } from '@janhq/jan-tool-workspace-dependencies'
 
-import { messagesResponse } from './fixtures/messages-response.ts'
+import { findToolResult, messagesResponse, toolResultText } from './fixtures/messages-response.ts'
+import { MOCK_MODEL_KEY_ENV, MOCK_MODEL_PROVIDER, writeMockModelRoute } from './fixtures/mock-model-route.ts'
 
 const repoRoot = fileURLToPath(new URL('../../../../../', import.meta.url))
 const launch = resolveExampleLaunch({
@@ -51,7 +52,7 @@ function waitForLine(
   })
 }
 
-describe('Python SDK dsh profile keyless smoke', () => {
+describe('Python SDK jan profile keyless smoke', () => {
   it.each([
     { label: 'reports max-token turns with the default mapping config', envValue: undefined, editorEnabled: false },
     { label: 'reports max-token turns with mapping enabled through env', envValue: 'true', editorEnabled: false },
@@ -67,7 +68,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
     const unreadEdit = 'unreadEdit' in scenario && scenario.unreadEdit
     const patchEnabled = 'patchEnabled' in scenario && scenario.patchEnabled
 
-    const root = await mkdtemp(join(tmpdir(), 'dsh-python-sdk-runtime-smoke-'))
+    const root = await mkdtemp(join(tmpdir(), 'jan-python-sdk-runtime-smoke-'))
     const unreadFile = join(root, 'notes.txt')
     if (unreadEdit) await writeFile(unreadFile, 'alpha\n')
     const editorPatch = join(root, 'editor.patch.yml')
@@ -76,7 +77,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
     if (editorEnabled) await writeFile(editorPatch, [
       '- insert:',
       '    - id: tool-str-replace-editor',
-      "      name: '@deepseek-ai/dsh-tool-str-replace-editor'",
+      "      name: '@janhq/jan-tool-str-replace-editor'",
       '',
     ].join('\n'))
     const modelRequests: Record<string, unknown>[] = []
@@ -100,12 +101,14 @@ describe('Python SDK dsh profile keyless smoke', () => {
     await new Promise<void>(resolve => modelServer.listen(0, '127.0.0.1', resolve))
     const address = modelServer.address()
     if (address === null || typeof address === 'string') throw new Error('model server did not bind a TCP port')
+    const routePatch = await writeMockModelRoute(root, `http://127.0.0.1:${address.port}`, ['mock-pro'])
     // The line-predicate protocol driving below is the genuinely custom part;
     // execa owns spawn, the deadline, and exit settlement around it.
     const child = execa(launch.command, [
       ...launch.args,
       '--profile',
       'sdk',
+      '--patch', routePatch,
       ...(editorEnabled ? ['--patch', editorPatch] : []),
       ...(patchEnabled ? ['--patch', fsPatch] : []),
       ...(ptc ? ['--patch', join(repoRoot, 'apps/cli/config/examples/ptc.yml')] : []),
@@ -113,13 +116,12 @@ describe('Python SDK dsh profile keyless smoke', () => {
       cwd: repoRoot,
       env: {
         ...launch.env,
-        DSH_HOME: join(root, '.dsh'),
-        DSH_PERMISSION_MODE: 'danger-full-access',
-        DSH_TELEMETRY_DISABLED: '1',
-        DSH_TOOLS_MODE: ptc ? 'native' : 'ptc',
-        DEEPSEEK_API_KEY: 'keyless-smoke-no-call',
-        DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}`,
-        ...(envValue === undefined ? {} : { DSH_MAX_TOKENS_AS_SUCCESS: envValue }),
+        JAN_HOME: join(root, '.jan'),
+        JAN_PERMISSION_MODE: 'danger-full-access',
+        JAN_TELEMETRY_DISABLED: '1',
+        JAN_TOOLS_MODE: ptc ? 'native' : 'ptc',
+        [MOCK_MODEL_KEY_ENV]: 'keyless-smoke-no-call',
+        ...(envValue === undefined ? {} : { JAN_MAX_TOKENS_AS_SUCCESS: envValue }),
       },
       timeout: 35_000,
       killSignal: 'SIGKILL',
@@ -143,9 +145,8 @@ describe('Python SDK dsh profile keyless smoke', () => {
         method: 'initialize',
         params: {
           cwd: root,
-          provider: 'deepseek-official',
-          model: 'deepseek-v4-pro',
-          reasoningEffort: 'max',
+          provider: MOCK_MODEL_PROVIDER,
+          model: 'mock-pro',
           maxTokens: 1234,
         },
       })}\n`)
@@ -153,7 +154,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
       expect(initialized).toMatchObject({
         jsonrpc: '2.0',
         id: 1,
-        result: { serverInfo: { name: 'deepseek-harness-sdk-runtime' } },
+        result: { serverInfo: { name: 'jan-sdk-runtime' } },
       })
 
       child.stdin.write(`${JSON.stringify({
@@ -192,7 +193,6 @@ describe('Python SDK dsh profile keyless smoke', () => {
       expect(modelRequests[0]?.tools).toEqual(expect.any(Array))
       const tools = modelRequests[0]?.tools as { name?: string }[]
       const toolNames = tools.map(tool => tool.name)
-      expect(modelRequests[0]?.output_config).toEqual({ effort: 'max' })
       expect(modelRequests[0]?.max_tokens).toBe(1234)
       const expectedTools = ['read', 'write', 'edit', 'web_fetch', 'web_search', 'subagent', 'subagent_fork',
         'present', 'ask_user_question', 'schedule_create', 'schedule_edit', 'schedule_list', 'schedule_view', 'plugin_manager']
@@ -211,15 +211,15 @@ describe('Python SDK dsh profile keyless smoke', () => {
         'Time sampled while preparing']) {
         expect(requestText.includes(text), text).toBe(true)
       }
-      expect(requestText).not.toContain('Current DeepSeek Harness implementation checkout:')
-      expect(requestText).not.toContain('Current DeepSeek Harness Web GUI URL:')
+      expect(requestText).not.toContain('Current Jan implementation checkout:')
+      expect(requestText).not.toContain('Current Jan Web GUI URL:')
 
       child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'shutdown' })}\n`)
       const shutdown = await waitForLine(lines, value => value.id === 3, () => stderr)
       expect(shutdown).toMatchObject({ jsonrpc: '2.0', id: 3, result: {} })
       const exit = await child
       expect(exit.exitCode, `signal=${String(exit.signal)}; stderr=${stderr}`).toBe(0)
-      const sessionsRoot = join(root, '.dsh', 'sessions')
+      const sessionsRoot = join(root, '.jan', 'sessions')
       const files = await readdir(sessionsRoot, { recursive: true })
       // Session logs are JSONL across one zstd frame per batch, header frame
       // first. Decompress frames explicitly: a single call over concatenated
@@ -255,13 +255,12 @@ describe('Python SDK dsh profile keyless smoke', () => {
   }, 40_000)
 
   it.each([
-    { label: 'boots the standalone minimal profile through its generated manifest', editorEnabled: false, imageEnabled: false, optOut: false, offloadEnabled: false },
-    { label: 'executes the documented editor opt-in patch with sdk-minimal', editorEnabled: true, imageEnabled: false, optOut: false, offloadEnabled: false },
-    { label: 'sends a read_image result to the model with sdk-minimal', editorEnabled: false, imageEnabled: true, optOut: false, offloadEnabled: false },
-    { label: 'offloads an over-budget image and continues with sdk-minimal', editorEnabled: false, imageEnabled: true, optOut: false, offloadEnabled: true },
-    { label: 'retains the previous tools through the documented opt-out patch', editorEnabled: false, imageEnabled: false, optOut: true, offloadEnabled: false },
-  ])('$label', async ({ editorEnabled, imageEnabled, optOut, offloadEnabled }) => {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-python-sdk-minimal-'))
+    { label: 'boots the standalone minimal profile through its generated manifest', editorEnabled: false, imageEnabled: false, optOut: false },
+    { label: 'executes the documented editor opt-in patch with sdk-minimal', editorEnabled: true, imageEnabled: false, optOut: false },
+    { label: 'sends a read_image result to the model with sdk-minimal', editorEnabled: false, imageEnabled: true, optOut: false },
+    { label: 'retains the previous tools through the documented opt-out patch', editorEnabled: false, imageEnabled: false, optOut: true },
+  ])('$label', async ({ editorEnabled, imageEnabled, optOut }) => {
+    const root = await mkdtemp(join(tmpdir(), 'jan-python-sdk-minimal-'))
     onTestFinished(() => rm(root, { recursive: true, force: true }))
     const editorPatch = join(root, 'editor.patch.yml')
     if (editorEnabled) {
@@ -277,14 +276,6 @@ describe('Python SDK dsh profile keyless smoke', () => {
       expect(yaml).toBeDefined()
       await writeFile(editorPatch, yaml!)
     }
-    if (offloadEnabled) await writeFile(editorPatch, [
-      '- id: llm-deepseek',
-      '  config:',
-      '    apiKeyEnv: DEEPSEEK_API_KEY',
-      '    maxRequestFilesBytes: 1',
-      '    imageOffloadByteQuantum: 1',
-      '',
-    ].join('\n'))
     const editorFile = join(root, 'editor.txt')
     if (imageEnabled) await writeFile(join(root, 'red.png'), Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64',
@@ -296,16 +287,6 @@ describe('Python SDK dsh profile keyless smoke', () => {
     ] : []
     const modelRequests: Record<string, unknown>[] = []
     const modelServer = createServer((request, response) => {
-      if (imageEnabled && request.url?.endsWith('/files')) {
-        request.resume()
-        response.writeHead(200, { 'content-type': 'application/json' })
-        response.end(JSON.stringify({
-          id: 'file-minimal-image', type: 'file', size_bytes: 69,
-          created_at: new Date().toISOString(),
-          filename: 'red.png', mime_type: 'image/png',
-        }))
-        return
-      }
       let body = ''
       request.setEncoding('utf8')
       request.on('data', (chunk: string) => { body += chunk })
@@ -326,19 +307,21 @@ describe('Python SDK dsh profile keyless smoke', () => {
     await new Promise<void>(resolve => modelServer.listen(0, '127.0.0.1', resolve))
     const address = modelServer.address()
     if (address === null || typeof address === 'string') throw new Error('model server did not bind a TCP port')
+    const routePatch = await writeMockModelRoute(root, `http://127.0.0.1:${address.port}`,
+      [{ id: 'mock-pro' }, { id: 'mock-vision', input: ['text', 'image'] }])
     const child = execa(launch.command, [
       ...launch.args,
       '--profile',
       'sdk-minimal',
-      ...(editorEnabled || optOut || offloadEnabled ? ['--patch', editorPatch] : []),
+      '--patch', routePatch,
+      ...(editorEnabled || optOut ? ['--patch', editorPatch] : []),
     ], {
       cwd: repoRoot,
       env: {
         ...launch.env,
-        DSH_HOME: join(root, '.dsh'),
-        DSH_SYSTEM_PROMPT: 'Minimal allowlist prompt.',
-        DEEPSEEK_API_KEY: 'keyless-smoke-no-call',
-        DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}`,
+        JAN_HOME: join(root, '.jan'),
+        JAN_SYSTEM_PROMPT: 'Minimal allowlist prompt.',
+        [MOCK_MODEL_KEY_ENV]: 'keyless-smoke-no-call',
       },
       timeout: 35_000,
       killSignal: 'SIGKILL',
@@ -360,7 +343,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
         jsonrpc: '2.0',
         id: 1,
         method: 'initialize',
-        params: { cwd: root, provider: 'deepseek-official', model: imageEnabled ? 'deepseek-flash' : 'deepseek-v4-pro' },
+        params: { cwd: root, provider: MOCK_MODEL_PROVIDER, model: imageEnabled ? 'mock-vision' : 'mock-pro' },
       })}\n`)
       await waitForLine(lines, value => value.id === 1, () => stderr)
       child.stdin.write(`${JSON.stringify({
@@ -369,11 +352,9 @@ describe('Python SDK dsh profile keyless smoke', () => {
         method: 'session/prompt',
         params: { sessionId: 'minimal', contentBlocks: [{ type: 'text', text: 'inspect tools' }] },
       })}\n`)
-      const offloads: Record<string, unknown>[] = []
       const turnEnd = await waitForLine(lines, (value) => {
         const params = value.params as Record<string, unknown> | undefined
         const event = params?.event as Record<string, unknown> | undefined
-        if (params?.sessionId === 'minimal' && event?.type === 'image/offload') offloads.push(event)
         return params?.sessionId === 'minimal' && event?.type === 'turn/end'
       }, () => stderr)
       expect(turnEnd, `${JSON.stringify(turnEnd)}\n${stderr}`).toMatchObject({
@@ -381,10 +362,10 @@ describe('Python SDK dsh profile keyless smoke', () => {
       })
 
       const profile = JSON.parse(
-        await readFile(join(root, '.dsh', 'profiles', 'sdk-minimal', 'package.json'), 'utf8'),
-      ) as { dsh?: { profile?: { bundles?: string[] } } }
-      expect(profile.dsh?.profile).toEqual({
-        bundles: ['@deepseek-ai/dsh-sdk-minimal'],
+        await readFile(join(root, '.jan', 'profiles', 'sdk-minimal', 'package.json'), 'utf8'),
+      ) as { jan?: { profile?: { bundles?: string[] } } }
+      expect(profile.jan?.profile).toEqual({
+        bundles: ['@janhq/jan-sdk-minimal'],
       })
       expect(modelRequests[0]?.tools).toEqual(expect.any(Array))
       const tools = modelRequests[0]?.tools as { name?: string }[]
@@ -397,40 +378,17 @@ describe('Python SDK dsh profile keyless smoke', () => {
       expect(modelRequests).toHaveLength(editorEnabled ? 3 : imageEnabled ? 2 : 1)
       if (imageEnabled) {
         const messages = modelRequests[1]?.messages as {
-          content: { type: string; tool_use_id?: string; content?: { type: string; source?: { type: string; file_id: string } }[] }[]
+          content: { type: string; tool_use_id?: string; content?: { type: string }[] }[]
         }[]
         const imageResult = messages.flatMap(message => message.content)
           .find(block => block.type === 'tool_result' && block.tool_use_id === 'minimal-image-read')
-        if (offloadEnabled) {
-          expect(offloads).toHaveLength(1)
-          expect(offloads[0]).toMatchObject({ data: { targets: [{ imageIndexes: [0] }] } })
-          expect(imageResult?.content?.some(block => block.type === 'image')).toBe(false)
-          expect(JSON.stringify(imageResult?.content)).toContain('red.png')
-        } else {
-          expect(offloads).toEqual([])
-          expect(imageResult?.content).toEqual(expect.arrayContaining([
-            { type: 'image', source: { type: 'file', file_id: 'file-minimal-image' } },
-          ]))
-        }
-        const stored = await readdir(join(root, '.dsh', 'attachments', 'v1', 'objects'), { recursive: true })
+        expect(imageResult?.content?.some(block => block.type === 'image')).toBe(true)
+        const stored = await readdir(join(root, '.jan', 'attachments', 'v1', 'objects'), { recursive: true })
         expect(stored.some(file => /[a-f0-9]{64}$/u.test(file))).toBe(true)
       }
       if (editorEnabled) {
         expect(await readFile(editorFile, 'utf8')).toBe(editorContent)
-        expect(modelRequests[2]?.messages).toEqual(expect.arrayContaining([
-          expect.objectContaining({
-            role: 'user',
-            content: expect.arrayContaining([
-              expect.objectContaining({
-                type: 'tool_result',
-                tool_use_id: 'editor-view',
-                content: expect.arrayContaining([
-                  { type: 'text', text: expect.stringContaining(editorContent.trim()) as unknown },
-                ]) as unknown,
-              }),
-            ]) as unknown,
-          }),
-        ]))
+        expect(toolResultText(findToolResult(modelRequests[2]?.messages, 'editor-view'))).toContain(editorContent.trim())
       }
 
       child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'shutdown' })}\n`)
@@ -447,8 +405,8 @@ describe('Python SDK dsh profile keyless smoke', () => {
   }, 40_000)
 
   it.each([false, true])('exits after startup failure with stdin open (logs blocked: %s)', async (blocked) => {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-sdk-startup-exit-'))
-    const home = join(root, '.dsh')
+    const root = await mkdtemp(join(tmpdir(), 'jan-sdk-startup-exit-'))
+    const home = join(root, '.jan')
     const patch = join(root, 'failure.yml')
     await mkdir(home)
     if (blocked) await writeFile(join(home, 'logs'), 'blocked')
@@ -457,7 +415,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
       ...launch.args, '--profile', 'sdk', '--patch', patch,
     ], {
       cwd: repoRoot,
-      env: { ...launch.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1', DEEPSEEK_API_KEY: 'keyless-no-call' },
+      env: { ...launch.env, JAN_HOME: home, JAN_TELEMETRY_DISABLED: '1' },
       stdin: 'pipe',
       stripFinalNewline: false,
       timeout: 25_000,
@@ -488,7 +446,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
   }, 30_000)
 
   it('rejects an invalid max-token success env value', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-python-sdk-runtime-invalid-'))
+    const root = await mkdtemp(join(tmpdir(), 'jan-python-sdk-runtime-invalid-'))
     try {
       const { exitCode, stdout, stderr } = await execa(launch.command, [
         ...launch.args,
@@ -498,9 +456,8 @@ describe('Python SDK dsh profile keyless smoke', () => {
         cwd: repoRoot,
         env: {
           ...launch.env,
-          DSH_HOME: join(root, '.dsh'),
-          DEEPSEEK_API_KEY: 'keyless-smoke-no-call',
-          DSH_MAX_TOKENS_AS_SUCCESS: 'sometimes',
+          JAN_HOME: join(root, '.jan'),
+          JAN_MAX_TOKENS_AS_SUCCESS: 'sometimes',
         },
         stdin: 'ignore',
         timeout: 25_000,
@@ -511,7 +468,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
       expect(exitCode, stderr).toBe(1)
       expect(stdout).toBe('')
       expect(stderr).toContain('startup failed:')
-      expect(stderr).toContain('sdk-jsonrpc-server (required)\n    Package: @deepseek-ai/dsh-sdk-jsonrpc-server\n    SyntaxError')
+      expect(stderr).toContain('sdk-jsonrpc-server (required)\n    Package: @janhq/jan-sdk-jsonrpc-server\n    SyntaxError')
       expect(stderr).toContain('sometimes')
     } finally {
       await rm(root, { recursive: true, force: true })
@@ -570,14 +527,15 @@ it.each(['unset', 'empty', 'bundled', 'full', 'python-only', 'python-only-no-cli
   if (address === null || typeof address === 'string') throw new Error('model fixture did not bind')
   const home = join(root, 'home')
   const cliPatch = join(root, 'cli.patch.yml')
+  const routePatch = await writeMockModelRoute(root, `http://127.0.0.1:${address.port}`, ['mock-pro'])
   await writeFile(cliPatch, JSON.stringify(mode === 'python-only-no-cli' ? [{ id: 'skill-office', config: { assetRoot: join(root, 'resources', 'office-skills'), cli: false } }] : []))
   const officeLaunch = resolveExampleLaunch({
     srcBin: fileURLToPath(new URL('../../../src/bin.ts', import.meta.url)), mode: 'lib',
-    configArgs: ['--profile', 'sdk', '--patch', cliPatch],
-    env: { DSH_HOME: home, DSH_PRIMARY_RUNTIME: mode === 'unset' || mode === 'bundled' ? undefined : mode === 'empty' ? '' : source + '/',
-      DSH_BUNDLED_PRIMARY_RUNTIME: mode === 'unset' ? undefined : mode === 'bundled' || mode === 'empty' ? source : join(root, 'unused-default'),
-      DSH_PERMISSION_MODE: 'danger-full-access', DSH_TELEMETRY_DISABLED: '1',
-      DEEPSEEK_API_KEY: 'local-fixture', DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}` },
+    configArgs: ['--profile', 'sdk', '--patch', routePatch, '--patch', cliPatch],
+    env: { JAN_HOME: home, JAN_PRIMARY_RUNTIME: mode === 'unset' || mode === 'bundled' ? undefined : mode === 'empty' ? '' : source + '/',
+      JAN_BUNDLED_PRIMARY_RUNTIME: mode === 'unset' ? undefined : mode === 'bundled' || mode === 'empty' ? source : join(root, 'unused-default'),
+      JAN_PERMISSION_MODE: 'danger-full-access', JAN_TELEMETRY_DISABLED: '1',
+      [MOCK_MODEL_KEY_ENV]: 'local-fixture' },
   })
   const child = execa(officeLaunch.command, officeLaunch.args, { cwd: repoRoot, env: officeLaunch.env, timeout: 60_000, reject: false })
   onTestFinished(async () => { child.kill('SIGKILL'); await child })
@@ -594,7 +552,7 @@ it.each(['unset', 'empty', 'bundled', 'full', 'python-only', 'python-only-no-cli
     child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`)
     return waitForLine(lines, value => value.id === id, () => stderr)
   }
-  expect(await send(1, 'initialize', { cwd: root, provider: 'deepseek-official', model: 'deepseek-v4-pro' })).toHaveProperty('result')
+  expect(await send(1, 'initialize', { cwd: root, provider: MOCK_MODEL_PROVIDER, model: 'mock-pro' })).toHaveProperty('result')
   await send(2, 'session/prompt', { sessionId: 'office', contentBlocks: [{ type: 'text', text: 'Query workspace dependencies.' }] })
   await waitForLine(lines, (value) => {
     const params = value.params as { sessionId?: string; event?: { type?: string } } | undefined
@@ -610,30 +568,12 @@ it.each(['unset', 'empty', 'bundled', 'full', 'python-only', 'python-only-no-cli
   }
   if (mode === 'wrong-type') {
     expect(requests).toHaveLength(2)
-    const messages = requests[1]!.messages as { content: { type: string; tool_use_id?: string; content?: unknown }[] }[]
-    const result = messages.flatMap(message => message.content).find(block => block.tool_use_id === 'workspace-dependencies')
-    expect(JSON.parse(JSON.stringify(result).replaceAll(JSON.stringify(paths.python).slice(1, -1), '<python>'))).toMatchInlineSnapshot(`
-      {
-        "content": [
-          {
-            "text": "Error: primary runtime: expected file at <python>",
-            "type": "text",
-          },
-        ],
-        "is_error": true,
-        "tool_use_id": "workspace-dependencies",
-        "type": "tool_result",
-      }
-    `)
+    const result = findToolResult(requests[1]!.messages, 'workspace-dependencies')
+    expect(result?.is_error).toBe(true)
+    expect(toolResultText(result)?.replaceAll(paths.python, '<python>')).toBe('Error: primary runtime: expected file at <python>')
   } else if (enabled) {
     expect(requests).toHaveLength(2)
-    const content: unknown = expect.arrayContaining([
-      expect.objectContaining({ type: 'tool_result', tool_use_id: 'workspace-dependencies',
-        content: [{ type: 'text', text: JSON.stringify(paths, undefined, 2) }] }),
-    ])
-    expect(requests[1]!.messages).toEqual(expect.arrayContaining([
-      expect.objectContaining({ role: 'user', content }),
-    ]))
+    expect(toolResultText(findToolResult(requests[1]!.messages, 'workspace-dependencies'))).toBe(JSON.stringify(paths, undefined, 2))
   }
   if (mode === 'python-only') expect(stderr).not.toContain('ENOENT')
   if (mode === 'missing-assets') expect(stderr).toContain('SKILL.md')
@@ -642,5 +582,5 @@ it.each(['unset', 'empty', 'bundled', 'full', 'python-only', 'python-only-no-cli
   expect(exit.timedOut).toBe(false)
   expect(exit.signal).toBeUndefined()
   expect(exit.exitCode, stderr).toBe(0)
-  await expect(readFile(join(home, 'dsh-runtimes', 'dsh-primary-runtime', 'runtime.json'))).rejects.toMatchObject({ code: 'ENOENT' })
+  await expect(readFile(join(home, 'jan-runtimes', 'jan-primary-runtime', 'runtime.json'))).rejects.toMatchObject({ code: 'ENOENT' })
 })

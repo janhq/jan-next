@@ -1,11 +1,11 @@
 /** Workspace-specific adapter for the Gateway-owned snapshot stream lifecycle. */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context } from '@janhq/cordis'
 import {
   RemoteSnapshotStream,
   RemoteStreamCarrierError,
   type ClientRemote,
-} from '@deepseek-ai/dsh-api-gateway/client'
+} from '@janhq/jan-api-gateway/client'
 import type { WorkspaceFollowFrame, WorkspaceFollowIncrement } from '../types.ts'
 import type { WorkspaceFollowSink } from './model.ts'
 import { ClientWorkspaceModel } from './model.ts'
@@ -17,9 +17,10 @@ export type {
 } from './model.ts'
 export { WorkspaceArchiveError, WorkspaceController, WorkspaceCreateError } from './service.ts'
 export type { IWorkspaces, WorkspaceSource } from './service.ts'
+export { workspaceDisplayTitle } from '../default-workspace.ts'
 export type {
   SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, WorkspaceId,
-  WorkspaceView,
+  WorkspaceAvatar, WorkspaceColor, WorkspaceIcon, WorkspaceIdentityPatch, WorkspaceUpdateRequest, WorkspaceView,
 } from '../types.ts'
 
 type WorkspaceBaselineFrame = Extract<WorkspaceFollowFrame, { type: 'baseline' }>
@@ -30,7 +31,7 @@ export type WorkspaceStateStream = RemoteSnapshotStream<
   WorkspaceFollowIncrement
 >
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** React-free Client Workspace state and commands. */
     workspaces: import('./service.ts').IWorkspaces

@@ -3,9 +3,7 @@ description: "Automatic conversation condensation for deployments choosing, tuni
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-compaction-basic
-
-English | [中文](README.zh.md)
+# @janhq/jan-compaction-basic
 
 ## Summary
 
@@ -25,7 +23,7 @@ This package keeps long agent conversations working near the model's context lim
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount this package to get automatic conversation condensation in a composition that already provides an LLM, session storage, and token measurement. The shipped `dsh` base enables it by default; mount it explicitly to control when condensation starts.
+Mount this package to get automatic conversation condensation in a composition that already provides an LLM, session storage, and token measurement. The shipped `jan` base enables it by default; mount it explicitly to control when condensation starts.
 
 ### What you get
 
@@ -36,17 +34,17 @@ With the default settings you get four behaviors: automatic condensation as the 
 Mount session storage, token measurement, the optional pruner, this backend, and optionally the on-demand command:
 
 ```yaml
-- name: '@deepseek-ai/dsh-session'
-- name: '@deepseek-ai/dsh-token-meter'
-- name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
-- name: '@deepseek-ai/dsh-compaction-basic'
-- name: '@deepseek-ai/dsh-command-compact'
+- name: '@janhq/jan-session'
+- name: '@janhq/jan-token-meter'
+- name: '@janhq/jan-compaction-tool-result-pruner'
+- name: '@janhq/jan-compaction-basic'
+- name: '@janhq/jan-command-compact'
 ```
 
 You can verify success by watching the conversation continue past the point where it would otherwise overflow, and by running `/compact` for an immediate condensation. If the composition lacks an LLM, session storage, or token measurement, the plugin fails to load. One backend can serve models with different context sizes; give each route its own threshold and retention with a per-model override:
 
 ```yaml
-- name: '@deepseek-ai/dsh-compaction-basic'
+- name: '@janhq/jan-compaction-basic'
   config:
     thresholdRatio: 0.8
     retainRatio: 0.16
@@ -61,23 +59,25 @@ You can verify success by watching the conversation continue past the point wher
 
 ### Tuning when condensation starts
 
-All settings are optional. With context window `W`, effective request output cap `O`, and headroom `B`, the default trigger is `floor(min(W × 0.8, W − O − B))`, where `B = 65,536` tokens. Retention keeps the newest 16% of `W − O` verbatim. The table below lists every setting; the generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-compaction-basic) also includes their types.
+All settings are optional. With context window `W`, effective request output cap `O`, threshold ratio `r`, and headroom `B`, the trigger is `floor(min(W × r, W − O − B))`. Unless `headroomTokens` is set, `B = min(65,536, floor(W × max(1 − r, 0.1)))`: each window keeps its share above the threshold, so the trigger lands at `r` of the window when `O` is small, and small local windows keep a budget. Retention keeps the newest 16% of `W − O` verbatim. The table below lists every setting; the generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-compaction-basic) also includes their types.
+
+In Jan, `auto`, `thresholdRatio`, `summarizationProvider`, and `summarizationModel` are live-editable from **Settings > Agent loop > Context**; changes take effect on the next compaction decision without reloading the plugin. Settings writes them to the host-plane `@janhq/jan-compaction-basic/settings` entry (id `compaction-settings`), because each agent preset mounts its own compaction backend in an isolated realm that Settings does not serve. A field set there overrides the same field of every mounted backend; an unset field keeps that backend's own value. Set both summarization fields to `''` to use the chat's own routed model (falling back to its agent model before a route exists). `/compact` remains available when `auto` is off. An invalid live combination leaves the last valid policy active and logs one warning until the values change.
 
 | Field | Default | Meaning |
 |---|---|---|
 | `thresholdRatio` | `0.8` | Window fraction used in `floor(min(W × thresholdRatio, W − O − headroomTokens))`. |
-| `headroomTokens` | `65536` | Additional pressure headroom beyond the routed output reservation; a non-negative integer. |
+| `headroomTokens` | `min(65536, floor(W × max(1 − r, 0.1)))` | Additional pressure headroom beyond the routed output reservation; a non-negative integer that replaces the window-scaled default. |
 | `retainRatio` | `0.16` | Recent conversation kept verbatim as a fraction of `W − O`; mutually exclusive with `retainTokens`. |
 | `retainTokens` | — | Absolute recent-conversation budget kept verbatim; mutually exclusive with `retainRatio` and must be below the resolved threshold. |
 | `summarizationProvider` | `''` | Set together with `summarizationModel`; an empty pair uses the latest routed request target, then the `AgentOptions` pair. |
 | `summarizationModel` | `''` | Set together with `summarizationProvider`; an empty pair uses the latest routed request target, then the `AgentOptions` pair. |
-| `maxTokens` | `headroomTokens` (`65536`) | Positive summary output cap, including any provider-counted reasoning tokens. Explicit per-model caps override explicit global caps; otherwise the cap follows the resolved headroom. |
+| `maxTokens` | explicit `headroomTokens`, else the summarizing model's default headroom | Positive summary output cap, including any provider-counted reasoning tokens. Explicit per-model caps override explicit global caps; otherwise the cap follows an explicit headroom, or the window-scaled default of the model that writes the summary (`65536` when it declares no window). |
 | `compactionRetries` | `1` | Extra condensation attempts after the first when pressure remains above threshold. |
 | `maxOverflowRetries` | `1` | Maximum retries after a confirmed context-window overflow; `0` disables recovery only. |
 | `modelPolicies` | `[]` | Exact `{ provider, model, ...partialPolicy }` overrides for individual model routes. |
 | `auto` | `true` | Enable automatic condensation and overflow recovery; set `false` for manual-only operation. |
 
-Misconfiguration fails fast: unknown settings, duplicate per-model overrides, invalid token counts, both retention forms together, or a retention ratio at least as large as the threshold ratio reject the plugin at load. When the model is first used, `W − O − B` must be positive and the resolved retained budget must be below the trigger. Zero headroom requires an explicit positive `maxTokens`, globally or in that model policy. Small-window deployments must configure headroom that fits their capacity; lower `thresholdRatio` to compact earlier.
+Misconfiguration fails fast: unknown settings, duplicate per-model overrides, invalid token counts, both retention forms together, or a retention ratio at least as large as the threshold ratio reject the plugin at load. When the model is first used, `W − O − B` must be positive and the resolved retained budget must be below the trigger. Zero headroom requires an explicit positive `maxTokens`, globally or in that model policy. An explicit headroom must fit the smallest window it applies to; lower `thresholdRatio` to compact earlier.
 
 ### What happens when condensation runs
 
@@ -87,15 +87,15 @@ The oldest balanced span is replaced by one summary message and the recent tail 
 
 Before a changed provider/model request is committed, automatic compaction measures the existing history against the destination model's capacity, output reservation, and pressure policy. When condensation is needed, it uses the previous routed model and its summary settings; an explicitly configured summary target still takes precedence. The destination request proceeds only after history falls below its threshold. Failure reports `MODEL_SWITCH_COMPACTION_FAILED` and leaves the previous request header intact; select a larger model or retry after correcting the reported cause. Completed pruning or condensation remains in the session even when a later attempt fails. The check runs when the next request is prepared, and `auto: false` disables it.
 
-The destination must have a registered adapter, declared context capacity, and a valid pressure budget even for short history. The default 65,536-token headroom does not fit a window of that size or smaller; set `modelPolicies[].headroomTokens` for that route as in the example above. See the [upgrade guide](../../../docs/upgrade-guide/v0.2.1-alpha.4/model-switch-compaction/guide.md) for migration.
+The destination must have a registered adapter, declared context capacity, and a valid pressure budget even for short history. The window-scaled default headroom fits every declared window; an explicit `headroomTokens` at or above a route's window does not, so give that route its own `modelPolicies[].headroomTokens` as in the example above. See the [upgrade guide](../../../docs/upgrade-guide/v0.2.1-alpha.4/model-switch-compaction/guide.md) for migration.
 
 ### On-demand condensation with /compact
 
-With `dsh-command-compact` mounted, type `/compact` in a chat UI to condense immediately, even below the pressure threshold. The command reports how many history items were condensed and the estimated tokens saved. While the agent is mid-turn or condensation is already running, `/compact` reports that condensation is unavailable; prompts you send while it runs are accepted and start after it finishes.
+With `jan-command-compact` mounted, type `/compact` in a chat UI to condense immediately, even below the pressure threshold. The command reports how many history items were condensed and the estimated tokens saved. While the agent is mid-turn or condensation is already running, `/compact` reports that condensation is unavailable; prompts you send while it runs are accepted and start after it finishes.
 
 ### Trimming oversized tool outputs
 
-Mount `dsh-compaction-tool-result-pruner` before this package to trim oversized tool results as part of condensation. Trimming makes no model call and can remove the need to summarize at all: when the trimmed conversation fits within the threshold, condensation skips the summary. Trimming only runs after a condensation trigger qualifies — a below-pressure conversation is never touched.
+Mount `jan-compaction-tool-result-pruner` before this package to trim oversized tool results as part of condensation. Trimming makes no model call and can remove the need to summarize at all: when the trimmed conversation fits within the threshold, condensation skips the summary. Trimming only runs after a condensation trigger qualifies — a below-pressure conversation is never touched.
 
 -----
 
@@ -147,8 +147,9 @@ The transaction validates the surface span and the durable lock, appends `compac
 | [`src/summarizer.ts`](src/summarizer.ts) | Default `ctx.llm.stream()` summarization, checkpoint framing, safe-summary projection |
 | [`src/config.ts`](src/config.ts) | Load-time validation and routed-model policy resolution |
 | [`src/types.ts`](src/types.ts) | `BasicCompactionConfig` and resolved policy vocabulary |
+| [`src/settings.ts`](src/settings.ts) | `./settings` entry: host-plane `compactionSettings` service holding the four live preferences |
 
-The package root's type declarations add `compaction` to `LlmRequestPurposeMap`. Direct callers constructing compaction requests use `import type {} from '@deepseek-ai/dsh-compaction-basic'` so `GenerateOptions.purpose` includes that key.
+The package root's type declarations add `compaction` to `LlmRequestPurposeMap`. Direct callers constructing compaction requests use `import type {} from '@janhq/jan-compaction-basic'` so `GenerateOptions.purpose` includes that key.
 
 </details>
 
@@ -164,7 +165,7 @@ Read these pages when the package-level contract is not enough; they move from t
 - [Tool-result pruner](../compaction-tool-result-pruner/README.md) — the optional companion that trims oversized tool outputs first.
 - [Human /compact command](../command-compact/README.md) — on-demand condensation without waiting for pressure.
 - [Token meter](../../llm/token-meter/README.md) — the measurement service that decides when to condense.
-- [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-compaction-basic) — every accepted config field and its source declaration.
+- [Generated configuration catalog](../../../docs/config-catalog.md#janhqjan-compaction-basic) — every accepted config field and its source declaration.
 
 -----
 
@@ -252,7 +253,7 @@ The replayed system prompt, tools, and shadowed-region messages match the conver
 These limits define when automatic condensation is a poor fit or needs special care; they are the current package constraints.
 
 - **Meter accuracy follows the fixed heuristic** — missing reusable provider usage falls back to character count plus structural overhead rather than exact tokenization; image occurrences carry provider-exact visual tokens only on routes whose adapter declares request-image pricing.
-- **Overflow classification is adapter-maintained** — provider wording can change; both DeepSeek adapters normalize recognized context-limit failures to `CONTEXT_WINDOW_EXCEEDED`.
+- **Overflow classification is adapter-maintained** — provider wording can change; adapters normalize recognized context-limit failures to `CONTEXT_WINDOW_EXCEEDED`.
 - **Some indivisible-unit and envelope-only overflow remains outside surface compaction** — recovery cannot shrink system/tools/prefix, split an indivisible non-tool node, or repair a tool unit whose non-prunable remainder still exceeds the window. The optional pruner can shrink text-bearing tool-result bulk inside an otherwise indivisible pair.
 - **`compactRegion` requires an open turn** — a manual call on a fully-closed session throws ("no open turn") rather than compacting.
 - **Summarization failure preserves the latest durable surface** — pre-step pressure logs a warning and continues; model-switch pressure rejects the destination request. Completed pruning and earlier checkpoints survive either failure. Summarization truncation at `maxTokens`, which hidden reasoning tokens can consume, follows the same rule.

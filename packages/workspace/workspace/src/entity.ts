@@ -5,14 +5,15 @@
  * `updatedAt` stamping and invalid-account pruning happen exactly once.
  * Not re-exported from the package entrypoint — consumers see only the
  * `Workspace` interface.
- * @module @deepseek-ai/dsh-workspace/src/entity
+ * @module @janhq/jan-workspace/src/entity
  */
 
 import { stat } from 'node:fs/promises'
-import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
-import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
+import type { SessionHeader, SessionId } from '@janhq/jan-session'
+import type { KvTable } from '@janhq/jan-storage-domain'
 import type { WorkspaceRecord } from './spec.ts'
-import type { Workspace, WorkspaceId } from './types.ts'
+import { sameWorkspaceAvatar } from './types.ts'
+import type { Workspace, WorkspaceAvatar, WorkspaceColor, WorkspaceId, WorkspaceIdentityPatch } from './types.ts'
 import { realpathNormalize } from './paths.ts'
 
 /** An insertSessionBefore request named a session or anchor not on the account (storage failures stay plain errors). */
@@ -91,6 +92,14 @@ export class WorkspaceEntity implements Workspace {
     return this.record.title
   }
 
+  get color(): WorkspaceColor | undefined {
+    return this.record.color
+  }
+
+  get avatar(): WorkspaceAvatar | undefined {
+    return this.record.avatar
+  }
+
   get createdAt(): string {
     return this.record.createdAt
   }
@@ -105,6 +114,21 @@ export class WorkspaceEntity implements Workspace {
 
   async setTitle(title: string): Promise<void> {
     await this.mutate(record => ({ ...record, title }))
+  }
+
+  /**
+   * Apply identity changes together, preserving omitted fields and clearing null appearance fields.
+   * @param patch - title and optional appearance changes.
+   */
+  async updateIdentity(patch: WorkspaceIdentityPatch): Promise<void> {
+    await this.mutate((record) => {
+      const title = patch.title ?? record.title
+      const color = patch.color === undefined ? record.color : patch.color ?? undefined
+      const avatar = patch.avatar === undefined ? record.avatar : patch.avatar ?? undefined
+      return title === record.title && color === record.color && sameWorkspaceAvatar(avatar, record.avatar)
+        ? record
+        : { ...record, title, color, avatar }
+    })
   }
 
   async attachSession(sessionId: SessionId): Promise<void> {

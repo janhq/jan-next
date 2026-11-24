@@ -31,27 +31,24 @@ function violationsIn(root: string, rel: string): { url: string; reason: string 
 }
 
 describe('Markdown source discovery', () => {
-  it('rejects broken links in both top-level package indexes', () => {
+  it('rejects broken links in the top-level package index', () => {
     const root = layout({
       'packages/README.md': '[removed group](removed/README.md)\n',
-      'packages/README.zh.md': '[removed group](removed/README.zh.md)\n',
     })
     const sources = markdownLinkSourcePaths(root)
     const violations = sources.flatMap(file => findViolations(join(root, file), markdownLinkCache(), root))
     expect(violations.map(({ file, reason }) => ({ file, reason })).sort((a, b) => a.file.localeCompare(b.file)))
       .toEqual([
         { file: join('packages', 'README.md'), reason: 'target' },
-        { file: join('packages', 'README.zh.md'), reason: 'target' },
       ])
   })
 
-  it('checks package instructions, nested docs, and detail documents while excluding frozen notes', () => {
+  it('checks package instructions, nested docs, and detail documents', () => {
     const root = layout({
       'packages/AGENTS.md': '[missing](missing.md)\n',
       'packages/core/README.md': '[missing](missing.md)\n',
       'packages/core/probe/README.md': '[missing](missing.md)\n',
       'packages/core/probe/docs/DETAIL.md': '![missing](missing.png)\n',
-      '.agents/notes/archived/process/frozen.md': '[historical](missing.md)\n',
     })
     const sources = markdownLinkSourcePaths(root)
     const violations = sources.flatMap(file => findViolations(join(root, file), markdownLinkCache(), root))

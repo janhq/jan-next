@@ -5,8 +5,6 @@ description: "The Web profile replaces the `webRuntime` service and the `web-run
 
 # Web listener and trust configuration moves to `webStartup`
 
-English | [中文](guide.zh.md)
-
 ## Change
 
 The Web profile no longer provides the `webRuntime` service, and the `web-runtime` row no longer declares a `trustedHosts` config value. A profile, overlay, or `--patch` file that injects `webRuntime` now waits for a service that never mounts, and an expression reading `ctx.webRuntime.trustedHosts` fails to evaluate, so the required Connection cannot start.
@@ -33,4 +31,4 @@ The `web-startup` row provides one `webStartup` service carrying the invocation'
    ```
 
 4. Replace a wildcard `host` with one concrete address of a local interface. The bind IP itself is accepted by the Host fence with no `--trusted-host` entry; a proxy or DNS authority still needs one.
-5. Boot with the migrated overlay: `dsh --profile web --patch ./extra.yml --no-open` must print the `dsh web:` URL line and serve. A row still waiting on `webRuntime` leaves the required Connection pending and reports an activation failure, and a rejected `host` fails at load. `dsh --profile web --patch ./extra.yml --dump-config` prints the composed patch before boot. [The Web bundle README](../../../../packages/bundle/web-app/README.md) owns the composed rows.
+5. Boot with the migrated overlay: `jan --profile web --patch ./extra.yml --no-open` must print the `jan web:` URL line and serve. A row still waiting on `webRuntime` leaves the required Connection pending and reports an activation failure, and a rejected `host` fails at load. `jan --profile web --patch ./extra.yml --dump-config` prints the composed patch before boot. [The Web bundle README](../../../../packages/bundle/web-app/README.md) owns the composed rows.

@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-10-14-no-top-level-await-in-packages.zh.md)
-
 ## Problem
 
 The child-process entry `src/worker.ts` of [speech-to-text-sensevoice](../../../../packages/experimental/speech-to-text-sensevoice/README.md) ran `await startRecognitionServer(...)` at module scope. Top-level await makes module evaluation asynchronous: an importer's evaluation waits on it, and an entry failure becomes a module-loading failure instead of an error the entry handles explicitly. The same file is also the package's `./worker` export, and the browser Preview's module loader wraps module bodies as CommonJS, so it refuses to pack top-level await, which kept voice-input-bundle out of the image. No repository gate prevented this pattern; a repository-wide scan found two more cases outside bins: ssh's `src/helper-entry.ts` (the target of the `./helper` export) and inspector's `src/worker/entry.ts` (a worker_threads entry).
@@ -12,7 +10,7 @@ The child-process entry `src/worker.ts` of [speech-to-text-sensevoice](../../../
 
 - Entry modules use an explicit `async function main()`:
   - sensevoice: a failure before readiness writes only the error message to stderr and exits with code 1 once the message is flushed (`process.exit(1)` in the write callback, because a loaded native recognizer would otherwise keep the process alive); stdout carries only one `{"port":N}` line, which the Host parses as readiness.
-  - ssh helper: `main()` holds the helper's try/catch/finally and signal handling; every failure is reported on stderr with the `dsh-ssh-sandbox:` prefix and exit code 127.
+  - ssh helper: `main()` holds the helper's try/catch/finally and signal handling; every failure is reported on stderr with the `jan-ssh-sandbox:` prefix and exit code 127.
   - inspector worker: the synchronous startup stays at module scope, the asynchronous part runs in `main()`, and a failure sends the failure frame before stopping.
 - Gate [verify-no-top-level-await](../../../../scripts/verify-no-top-level-await.ts):
   - **Scope**: `.ts` and `.tsx` files under `packages/*/*/src/**`.

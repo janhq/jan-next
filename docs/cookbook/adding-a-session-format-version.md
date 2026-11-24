@@ -1,7 +1,5 @@
 # Cookbook: adding a Session log format version
 
-English | [中文](adding-a-session-format-version.zh.md)
-
 ## Summary
 
 Use this tutorial to introduce the next Session log format version without rewriting released data. Read the [version and release-status authority](../session-format-status.md) to identify the checkout writer and the latest released format. Let N denote that verified released format and N+1 the target; substitute numeric values for these placeholders in names and metadata. Start with a working contributor checkout and read the [package checklist](adding-a-package.md), [format library](../../packages/session/session-format/README.md), and [released-format decision](../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md).
@@ -30,14 +28,14 @@ Released codecs preserve accepted interpretations. A current-version codec can a
 
 Same-version logs bypass adjacent migrations and can mix historical and newer record variants after resume. Each integer therefore identifies a family of supported representations, not one fixed schema. Owning readers must retain and distinguish those variants; the next outgoing migration must handle them. Do not add same-version migrations or rely on `restoreCurrent` alone for normalization: current-version JSONL reads using transformed validation bypass that hook. Use disposable, isolated Harness homes for interim integration formats; rerun changed adjacent conversions from unchanged historical input rather than rewriting a committed generation or using a real user's home.
 
-Before changing the writer, use the [archive command](../persistence-changes/historical-formats/README.md#maintenance) to preserve its complete persistence schema, then add the bilingual format reference under `docs/persistence-changes/historical-formats/vN.*`. Preserve all earlier records. The format coverage check requires every integer below the new writer to have its own document; the current generated catalog covers only the new writer.
+Before changing the writer, use the [archive command](../persistence-changes/historical-formats/README.md#maintenance) to preserve its complete persistence schema, then add the format reference under `docs/persistence-changes/historical-formats/vN.*`. Preserve all earlier records. The format coverage check requires every integer below the new writer to have its own document; the current generated catalog covers only the new writer.
 
 <a id="add-an-identity-edge"></a>
 ## 2. Add an identity edge
 
 Follow the package checklist to create a library for N→N+1, not a mounted plugin. An identity body conversion is only an initial wiring scaffold. The [V2-to-V3 specification](../../packages/session/session-format-v2-to-v3/README.md#v2-to-v3-specification) is a fixed example of explicit transformations and preservation rules, not an edge to extend or treat as an identity conversion.
 
-Declare `dsh.sessionFormatMigration` with numeric `from: N` and `to: N+1`, an export path, and the exported migration, source codec, target codec, target-header validator, and target restorer. Reuse the source codec exported by the preceding edge package and depend on that package; do not copy or redefine a released codec. Export the target codec and validators from the new package. Add the edge as a direct dependency of the catalog and add the workspace’s TypeScript paths and project references.
+Declare `jan.sessionFormatMigration` with numeric `from: N` and `to: N+1`, an export path, and the exported migration, source codec, target codec, target-header validator, and target restorer. Reuse the source codec exported by the preceding edge package and depend on that package; do not copy or redefine a released codec. Export the target codec and validators from the new package. Add the edge as a direct dependency of the catalog and add the workspace’s TypeScript paths and project references.
 
 Set `SESSION_FORMAT_VERSION` in [core Session types](../../packages/core/session/src/types.ts) to N+1 alongside the new edge declarations, then generate the catalog. The command below generates only the declared chain; it does not implement a new version:
 
@@ -108,10 +106,9 @@ pnpm run test:snapshot scripts/session-snapshot-corpus.corpus.ts
 
 After implementing the new edge, add its actual test path to the focused Vitest run. Add the changed JSONL, replay, projection, and SDK tests selected by the actual diff, plus the built publication-Worker smoke when that path changes. Require successful strict migration, identity preservation for the skeleton, malformed and unknown-required-event refusal, deterministic repeated restores, independent concurrent stage state, seeded multi-hop cuts, unchanged predecessors, and no fallback. Report exact commands and failures, not an inferred full-suite result.
 
-Update the [owning Agent Note](../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md) rather than adding a redundant decision record. Keep the [release record](../session-format-status.md#updating-the-record) unchanged until publication; after publication, update it with verified release evidence. Audit related active notes for supersession; retain independent rationale and leave archived notes frozen. Update bilingual prose together, re-record each changed pair with the repository tool, then run documentation checks:
+Update the [owning Agent Note](../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md) rather than adding a redundant decision record. Keep the [release record](../session-format-status.md#updating-the-record) unchanged until publication; after publication, update it with verified release evidence. Audit related active notes for supersession; retain independent rationale. Then run documentation checks:
 
 ```sh
-pnpm run verify-translation-pairing --write docs/cookbook/adding-a-session-format-version.md
 pnpm run test:docs
 pnpm run doc-sync
 pnpm run lint
@@ -121,13 +118,13 @@ git diff --check
 <a id="v4-corpus-trial"></a>
 ### Developer V4 corpus trial
 
-Use the one-time [migration script](../../scripts/migrate-sessions-to-v4.ts) from an installed contributor checkout whose writer is V4. Stop DSH processes using the target root before starting so writer locks and changing child logs do not prevent migration. Run from the repository root:
+Use the one-time [migration script](../../scripts/migrate-sessions-to-v4.ts) from an installed contributor checkout whose writer is V4. Stop Jan processes using the target root before starting so writer locks and changing child logs do not prevent migration. Run from the repository root:
 
 ```sh
 pnpm run migrate:sessions-to-v4
 ```
 
-The default root is `~/.dsh/sessions`. Use `--sessions-dir /path/to/sessions-copy` for another corpus, or `--help` for usage. Concurrent jobs default to the available CPU count capped at 16; `--jobs N` accepts any positive safe integer, including larger expert overrides, and `--jobs 1` runs serially. A bounded queue opens only that many Sessions at once, regardless of corpus size. Each historical Session goes through the normal locked, validated publication path to create a V4 successor beside its unchanged source files. Existing V4 Sessions are opened read-only; rerunning does not reconvert them. The script makes no model requests and does not change conversion or refusal rules.
+The default root is `~/.config/jan-alpha/sessions`. Use `--sessions-dir /path/to/sessions-copy` for another corpus, or `--help` for usage. Concurrent jobs default to the available CPU count capped at 16; `--jobs N` accepts any positive safe integer, including larger expert overrides, and `--jobs 1` runs serially. A bounded queue opens only that many Sessions at once, regardless of corpus size. Each historical Session goes through the normal locked, validated publication path to create a V4 successor beside its unchanged source files. Existing V4 Sessions are opened read-only; rerunning does not reconvert them. The script makes no model requests and does not change conversion or refusal rules.
 
 The terminal reports each Session's selected file, version, progress, outcome, and elapsed time. Individual errors do not stop later Sessions. The final summary lists every failure and the full diagnostic log under the system temporary directory; any failure returns a nonzero exit status. It also prints JSON and saves the same report as `summary.json` beside `migration.log`: counts by source version and outcome, grouped failure reasons, per-input diagnostics, runtime details, and both report paths. Known diagnostics expose event types, unexpected members, child-log involvement, and sequence numbers; unrecognized errors retain their messages without inferred causes. Include these reports when reporting a migration problem. Sessions converted during this run remain distinct from those already at V4.
 

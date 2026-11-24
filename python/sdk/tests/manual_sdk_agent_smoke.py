@@ -1,4 +1,4 @@
-"""Drive the repo-source dsh SDK profile through the SDK and a keyless mock SSE server.
+"""Drive the repo-source jan SDK profile through the SDK and a keyless mock SSE server.
 
 Requires ``pnpm install`` but no build. This manual test is not collected by
 pytest; run ``python tests/manual_sdk_agent_smoke.py``.
@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from deepseek_harness import DeepSeekHarness
+from jan import Jan
 
 
 class MockCompletionHandler(BaseHTTPRequestHandler):
@@ -48,8 +48,8 @@ class MockCompletionHandler(BaseHTTPRequestHandler):
 
 
 def run_smoke(repo_root: Path, keep_sessions: bool) -> None:
-    dsh_home = Path(tempfile.mkdtemp(prefix="dsh-sdk-smoke-home-"))
-    session_root = dsh_home / "sessions"
+    jan_home = Path(tempfile.mkdtemp(prefix="jan-sdk-smoke-home-"))
+    session_root = jan_home / "sessions"
     runtime_entry = repo_root / "apps/cli/src/bin.ts"
     server = ThreadingHTTPServer(("127.0.0.1", 0), MockCompletionHandler)
     thread = threading.Thread(target=server.serve_forever, name="mock-messages-server", daemon=True)
@@ -57,11 +57,17 @@ def run_smoke(repo_root: Path, keep_sessions: bool) -> None:
     base_url = f"http://127.0.0.1:{server.server_address[1]}"
 
     print(f"repo_root={repo_root}")
-    print(f"dsh_home={dsh_home}")
+    print(f"jan_home={jan_home}")
     print(f"mock_base_url={base_url}")
+    route = jan_home / "mock-model.patch.json"
+    route.write_text(json.dumps([{"id": "llm-pi-ai", "config": {"providers": {"sdk-smoke": {
+        "api": "anthropic-messages", "baseURL": base_url, "apiKeyEnv": "SDK_SMOKE_API_KEY",
+        "models": [{"id": "sdk-smoke-model"}],
+    }}}}]))
 
     try:
-        with DeepSeekHarness(
+        with Jan(
+            provider="sdk-smoke",
             model="sdk-smoke-model",
             cwd=str(repo_root / "python/sdk"),
             runtime_cwd=str(repo_root),
@@ -72,13 +78,14 @@ def run_smoke(repo_root: Path, keep_sessions: bool) -> None:
                 str(runtime_entry),
                 "--profile",
                 "sdk",
+                "--patch",
+                str(route),
             ),
             env={
-                "DSH_HOME": str(dsh_home),
-                "DSH_PERMISSION_MODE": "danger-full-access",
-                "DSH_TELEMETRY_DISABLED": "1",
-                "DEEPSEEK_BASE_URL": base_url,
-                "DEEPSEEK_API_KEY": "sdk-smoke-key",
+                "JAN_HOME": str(jan_home),
+                "JAN_PERMISSION_MODE": "danger-full-access",
+                "JAN_TELEMETRY_DISABLED": "1",
+                "SDK_SMOKE_API_KEY": "sdk-smoke-key",
             },
             request_timeout_seconds=20,
             shutdown_timeout_seconds=2,
@@ -107,10 +114,10 @@ def run_smoke(repo_root: Path, keep_sessions: bool) -> None:
         server.server_close()
 
     if keep_sessions:
-        print(f"kept_dsh_home={dsh_home}")
+        print(f"kept_jan_home={jan_home}")
     else:
-        shutil.rmtree(dsh_home)
-        print("removed temporary dsh home")
+        shutil.rmtree(jan_home)
+        print("removed temporary jan home")
 
 
 def main() -> None:
@@ -119,7 +126,7 @@ def main() -> None:
         "--repo-root",
         type=Path,
         default=Path(__file__).resolve().parents[3],
-        help="Path to the deepseek-harness checkout.",
+        help="Path to the jan checkout.",
     )
     parser.add_argument("--keep-sessions", action="store_true")
     args = parser.parse_args()

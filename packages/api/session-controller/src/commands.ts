@@ -1,31 +1,32 @@
 /** Session commands whose activation policy is explicit at each Remote method. */
 
-import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
+import type { ProjectionHandle } from '@janhq/jan-session-projection'
 import { continuationProjectionDefinition, type ContinuationState } from './continuation.ts'
 
 import { modelAvailable } from './catalog.ts'
 import { randomUUID } from 'node:crypto'
-import type { Context } from '@deepseek-ai/cordis'
-import { brandString } from '@deepseek-ai/dsh-brand'
-import type { Agent, ModelSelection as AgentModelSelection } from '@deepseek-ai/dsh-agent'
-import { AttachmentError } from '@deepseek-ai/dsh-attachment'
+import { isAbsolute } from 'node:path'
+import type { Context } from '@janhq/cordis'
+import { brandString } from '@janhq/jan-brand'
+import type { Agent, ModelSelection as AgentModelSelection } from '@janhq/jan-agent'
+import { AttachmentError } from '@janhq/jan-attachment'
 import type {
   AttachmentAdmissionPart,
-} from '@deepseek-ai/dsh-attachment'
-import type { FileUploadReceiptId, StagedAttachment } from '@deepseek-ai/dsh-client-file-upload/types'
-import type {} from '@deepseek-ai/dsh-client-file-upload'
+} from '@janhq/jan-attachment'
+import type { FileUploadReceiptId, StagedAttachment } from '@janhq/jan-client-file-upload/types'
+import type {} from '@janhq/jan-client-file-upload'
 import {
   ReasoningEffortId, createUserMessage, freezeMessage,
-} from '@deepseek-ai/dsh-llm'
-import type { MessageId, MessageSource } from '@deepseek-ai/dsh-llm'
-import { buildForkSeed } from '@deepseek-ai/dsh-session/fork'
-import { SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
-import type { Session, SessionEvent, SessionHeader, SessionId, UserMessage } from '@deepseek-ai/dsh-session'
-import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
-import { SessionTitleInvalidError } from '@deepseek-ai/dsh-session-title'
-import { assertNever } from '@deepseek-ai/dsh-util-values'
-import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
-import type { Workspace } from '@deepseek-ai/dsh-workspace'
+} from '@janhq/jan-llm'
+import type { MessageId, MessageSource } from '@janhq/jan-llm'
+import { buildForkSeed } from '@janhq/jan-session/fork'
+import { SessionLogOffset, SessionSeq } from '@janhq/jan-session'
+import type { Session, SessionEvent, SessionHeader, SessionId, UserMessage } from '@janhq/jan-session'
+import { SessionQueryError, type SessionObservation } from '@janhq/jan-session-query'
+import { SessionTitleInvalidError } from '@janhq/jan-session-title'
+import { assertNever } from '@janhq/jan-util-values'
+import { RemoteError, remoteErrorOf } from '@janhq/jan-typert-protocol'
+import type { Workspace, WorkspaceId } from '@janhq/jan-workspace'
 import {
   ApiSessionAgentController,
   ApiSessionCwdConflict,
@@ -94,6 +95,7 @@ export class SessionCommandController {
   }>()
 
   private continuation!: ProjectionHandle<ContinuationState>
+  private readonly creations = new Map<SessionId, Promise<void>>()
 
   /** Register complete-history empty-prompt eligibility. @returns when command admission is ready. */
   async initialize(): Promise<void> {
@@ -103,12 +105,10 @@ export class SessionCommandController {
   /**
    * @param ctx - Host context carrying Agent, model, attachment, title, and Workspace services.
    * @param agents - sole owner of create, resume, and Agent composition.
-   * @param defaultCwd - project directory used when create names neither a Workspace nor a cwd.
    */
   constructor(
     private readonly ctx: Context,
     private readonly agents: ApiSessionAgentController,
-    private readonly defaultCwd: string,
   ) {}
 
   /**
@@ -121,21 +121,30 @@ export class SessionCommandController {
     if (request.workspaceId !== undefined && request.cwd !== undefined) {
       throw new RemoteError('gateway/bad-request', 'session.create accepts workspaceId or cwd, not both', {})
     }
-    let workspace: Workspace | undefined
-    if (request.workspaceId !== undefined) {
-      workspace = this.ctx.workspaceRegistry.get(request.workspaceId)
-      if (workspace === undefined) {
-        throw new RemoteError('workspace/not-found', `workspace "${request.workspaceId}" not found`, {
-          workspaceId: request.workspaceId,
-        })
-      }
+    if (request.cwd !== undefined && (!isAbsolute(request.cwd) || request.cwd.includes('\0'))) {
+      throw new RemoteError('gateway/bad-request', 'session.create cwd must be an absolute path without NUL', {})
     }
-    const cwd = workspace?.path ?? request.cwd ?? this.defaultCwd
+    const sessionId = request.sessionId
+    if (sessionId === undefined) return this.createInTarget(request)
+    const result = (this.creations.get(sessionId) ?? Promise.resolve()).then(() => this.createInTarget(request))
+    const settled = result.then(() => undefined, () => undefined)
+    this.creations.set(sessionId, settled)
+    try {
+      return await result
+    } finally {
+      if (this.creations.get(sessionId) === settled) this.creations.delete(sessionId)
+    }
+  }
+
+  private async createInTarget(request: SessionCreateRequest): Promise<SessionCreateValue> {
+    let workspace: Workspace | undefined
+    const cwd = request.cwd ?? (workspace = await this.resolveCreateWorkspace(request.workspaceId)).path
     let created: ApiSessionCreated
     try {
       created = await this.agents.createSession({
         ...(request.sessionId === undefined ? {} : { sessionId: request.sessionId }),
         cwd,
+        ...(workspace === undefined ? {} : { workspaceId: workspace.id }),
         ...(request.agentPreset === undefined ? {} : { agentPreset: request.agentPreset }),
         reusable: sessionId => !this.ctx.workspaceRegistry.archivedSessionIds.includes(sessionId)
           && (workspace === undefined || workspace.sessionIds.includes(sessionId)),
@@ -176,7 +185,9 @@ export class SessionCommandController {
             : { reasoningEffort: ReasoningEffortId(request.reasoningEffort) }),
         }
         await this.ctx.llm.resolveCallConfig(selected)
+        const from = agent.model.current()?.provider
         agent.model.select(selected)
+        await this.agents.followRouteDefault(agent, from, selected.provider)
         void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
           this.ctx.logger.warn(
             `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
@@ -323,14 +334,33 @@ export class SessionCommandController {
     if (this.hasPromptRequest(agent.session, request.requestId)) return { accepted: true }
     if (request.content.length === 0) {
       try {
-        return await agent.runMaintenance(() => {
+        return await agent.runMaintenance(async (signal) => {
           const inbox = agent.inbox
-          if (request.mode !== 'queue' || this.continuation.stateOf(agent.session).ending === null
-            || inbox.nextTurn.length > 0 || inbox.nextStep.some(message => message.source.kind === 'user')) {
+          const hasPendingTurnInput = () => inbox.nextTurn.length > 0 || inbox.nextStep.some(message => message.source.kind === 'user')
+          const { ending } = this.continuation.stateOf(agent.session)
+          if (request.mode !== 'queue' || ending === null || hasPendingTurnInput()) {
             throw new RemoteError('session/agent-busy', 'generation continuation is unavailable', { reason: 'NO_CONTINUABLE_FAILURE_OR_PENDING_INPUT' })
           }
+          if (typeof ending === 'object') {
+            const failedWindow = agent.session.requestContext()?.contextWindow
+            const selected = agent.model.current()
+            if (failedWindow === undefined || selected === undefined) {
+              throw new RemoteError('session/agent-busy', 'compact the conversation before continuing', { reason: 'CONTEXT_RECOVERY_REQUIRED' })
+            }
+            const model = await this.ctx.llm.resolveModelInfo(selected.provider, selected.model, signal)
+            signal.throwIfAborted()
+            const current = agent.model.current()
+            if ((model.context?.contextWindow ?? 0) <= failedWindow
+              || current?.provider !== selected.provider || current.model !== selected.model) {
+              throw new RemoteError('session/agent-busy', 'compact the conversation or increase the model context before continuing', { reason: 'CONTEXT_RECOVERY_REQUIRED' })
+            }
+            // Route lookup may yield while another caller queues new human work.
+            if (hasPendingTurnInput()) {
+              throw new RemoteError('session/agent-busy', 'generation continuation is unavailable', { reason: 'NO_CONTINUABLE_FAILURE_OR_PENDING_INPUT' })
+            }
+          }
           agent.followup(createUserMessage({ content: [], source }))
-          return Promise.resolve({ accepted: true as const })
+          return { accepted: true as const }
         })
       } catch (error: unknown) {
         if (remoteErrorOf(error) !== undefined) throw error
@@ -543,6 +573,15 @@ export class SessionCommandController {
     const found = await this.agents.resolveAgent(sessionId)
     if ('error' in found) throw found.error
     return found.agent
+  }
+
+  private async resolveCreateWorkspace(workspaceId: WorkspaceId | undefined): Promise<Workspace> {
+    const registry = this.ctx.workspaceRegistry
+    if (workspaceId === undefined) return registry.ensureDefault()
+    if (registry.defaultWorkspace?.id === workspaceId) return registry.ensureDefault()
+    const workspace = registry.get(workspaceId)
+    if (workspace !== undefined) return workspace
+    throw new RemoteError('workspace/not-found', `workspace "${workspaceId}" not found`, { workspaceId })
   }
 
   private rejectCreation(error: unknown): never {

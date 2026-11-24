@@ -3,9 +3,7 @@ description: "Managed local llama.cpp models: verified GGUF downloads from a cur
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-llama-cpp
-
-English | [中文](README.zh.md)
+# @janhq/jan-llama-cpp
 
 ## Summary
 
@@ -35,9 +33,9 @@ Choose it when a deployment serves GGUF chat models on the user's own machine th
 
 ```yaml
 - id: llama-cpp
-  name: '@deepseek-ai/dsh-llama-cpp'
+  name: '@janhq/jan-llama-cpp'
   config:
-    dataRoot: !!js dshHomePath('llama-cpp')
+    dataRoot: !!js janHomePath('llama-cpp')
     workerPath: !!js "process.env.JAN_LLAMA_WORKER || undefined"
 ```
 
@@ -52,19 +50,21 @@ The desktop app sets `JAN_LLAMA_WORKER` to its bundled worker; `pnpm run dev:web
 | `ctxSize` | `32768` | Requested context; `0` lets `fit` choose, starting from the trained context and never below `fitCtx` (`16384`) |
 | `fit` | on; off on macOS | Let llama.cpp size GPU layers, and the context when `ctxSize` is `0`, to device memory |
 | `mmprojOffload` | `true` | Run vision projectors on the GPU; `false` keeps them in system memory |
-| `slotCacheMiB` | `0` | Disk budget for per-thread KV state under `<dataRoot>/slots`; `0` saves nothing |
+| `slotCacheMiB` | `8192` | Disk budget for per-Session KV state under `<dataRoot>/slots`; `0` saves nothing |
 | `autoStart` | `true` | Start the worker at boot when a model is installed and the user left it running |
 | `provider`, `routeModelId` | `local`, `local` | Route name and the alias model id of the default model |
 | `apiKeyRef`, `baseURLRef` | `LLAMA_CPP_API_KEY`, `LLAMA_CPP_BASE_URL` | Credential references the route reads as `apiKeyEnv` and `baseURLEnv` |
 | `routeNamespace` | `llm-pi-ai` | Settings namespace whose `providers.<provider>.models` the service rewrites; empty disables the rewrite |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-llama-cpp) lists every accepted field, including GPU, batch, and KV cache options.
+The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-llama-cpp) lists every accepted field, including GPU, batch, and KV cache options.
 
 ### Models and the picker
 
-The service records installed models in `<dataRoot>/install.json` (version 3) with facts read from each GGUF header: architecture, trained context, and KV cache dimensions. A download is verified against its SHA-256 digest and size before it is recorded. An imported file stays where it is and is not hashed. Projector (CLIP) and embedding-only files are refused as models. Removing a downloaded model deletes its file; removing an imported model only forgets it.
+The service records installed models in `<dataRoot>/install.json` (version 3) with facts read from each GGUF header: architecture, trained context, KV cache dimensions, and whether the chat template renders the request's `tools` list. A download is verified against its SHA-256 digest and size before it is recorded. An imported file stays where it is and is not hashed. Projector (CLIP) and embedding-only files are refused as models. Removing a downloaded model deletes its file; removing an imported model only forgets it. A record written before tool support was read gets that fact from the header once at boot.
 
 The first installed model becomes the default and starts the worker. The picker lists every installed model as `local/<model id>`, and `local/local` always selects the default model, so a released Session that recorded `local/local` keeps working after the default changes. When the settings section declares the `local` provider, the service keeps its `models` list equal to the installed set: `<name> (local default)` for the alias first, then `<name> (local)` per model. Each `contextWindow` is the context the worker last settled on for that model, otherwise the planned context, and never exceeds the trained context. Each entry's `input` is `['text', 'image']` when the model has a projector that encodes images, otherwise `['text']`; `llm-pi-ai` accepts image attachments only for the former.
+
+Each entry also carries `toolUse`: `true` when the model's chat template renders `tools`, `false` when it has no template or one that never reads them. The worker cannot declare tools to a `false` model, so the composer warns and offers a model that can use tools before the user starts a tool task. The check reads the template text, not its behavior; a template that names `tools` but renders them badly still reads as `true`.
 
 When the agent default model names no model this route serves, or names another route that offers no models, the service moves it to `local/local`. **Make default** also moves a default on another local model id to `local/local`. A usable default on another route stays.
 
@@ -85,6 +85,8 @@ A model can carry one multimodal projector (`mmproj`) GGUF file, which lets it r
 Start runs the worker with `--port 0`, so the operating system assigns a loopback port, and passes a fresh API key in the `JAN_LLAMA_API_KEY` environment variable. After the default model loads, the service stores the endpoint in `LLAMA_CPP_BASE_URL` and the key in `LLAMA_CPP_API_KEY`; it withdraws both when the worker stops, so the route offers no models while nothing serves. Stop closes the worker's stdin and terminates the worker after `stopTimeoutMs`. Later boots start the worker only when the user left it running.
 
 The service writes `<dataRoot>/run/preset.ini` with one section per installed model, named by model id, and an alias section `[local]` with `alias-of = <default model id>`. A model with a projector adds `mmproj = <absolute projector path>` to its section, and `mmproj-offload = false` when `mmprojOffload` is `false`. A request for `local` reaches the default model's engine without a second load. Installing, importing, removing, or changing the default rewrites the preset and calls `POST /models/reload` on the running worker without a restart; the worker reloads only changed sections, so retargeting the alias reloads no model. **Make default** and removing the default then load the new default into the running worker; a load failure rejects that request with the worker's reason, while the worker keeps running and the model stays the default.
+
+Each installed model can override `ctxSize` and `fit` through `setModelContext` and `setModelFit`. These choices live beside the model's GGUF facts in `install.json`; a changed model section is reloaded into the running worker before the call returns. `getModelContext` reports the served length and GGUF-trained maximum when available. `increaseModelContext` grows 8k -> 32k -> 1.5x, capped at the trained maximum (or 131072 when metadata is missing), and returns `null` at the limit. An explicit context length must be positive and no greater than a known maximum.
 
 A model loads on its first request or on an explicit load. At most `modelsMax` models stay resident: loading another evicts the least recently used idle model, and the worker answers HTTP 503 while every resident model is busy. Removal unloads a resident model first, because Windows cannot delete a file the worker maps, and fails while the model has requests in flight.
 
@@ -147,7 +149,7 @@ The service adds no tokens. It sets each route entry's `contextWindow` to the co
 
 #### KV Cache effect
 
-Prefix reuse happens in the worker's llama.cpp prompt cache for the resident model. Unloading, evicting, or reloading the model, stopping the worker, and switching models discard that reuse; retargeting the `local` alias reloads no model. Per-thread KV state on disk (`slotCacheMiB`) is off by default.
+Prefix reuse happens in the worker's llama.cpp prompt cache for the resident model. The service also sets `threadCache` on the `local` route, so each conversation request names its Session as the worker's thread in slot 0. When another Session takes the slot, the worker saves the outgoing Session's KV state under `<dataRoot>/slots` (bounded by `slotCacheMiB`, oldest dropped first), and saves every resident Session when it stops. Returning to a Session, including after a restart, restores that state instead of reading the conversation again. Titles, compaction and other auxiliary requests name no thread. Saved state is kept per model and its launch options; changing a model's options discards that model's saved state.
 
 ## Known Limitations and Deferred Work
 
@@ -160,7 +162,6 @@ The worker serves chat models, with image input through a projector, using share
 - An imported projector is not checked against its model; a mismatched projector can make the model fail to load.
 - A downloaded model that lost its projector stays text-only; removing it and downloading it again restores image input.
 - Launch options apply to every model; there are no per-model settings and no settings UI for them.
-- KV state reuse across restarts is off: `slotCacheMiB` defaults to `0`, and the `llm-pi-ai` route does not send the thread name the worker caches by.
 - Fit thresholds estimate driver and operating system overhead; a `fits` model can still fail to load, and a `too-large` model can load.
 - `fit` defaults off on macOS, where Metal counts the whole memory-mapped file against its working set; the context there follows `ctxSize`.
 

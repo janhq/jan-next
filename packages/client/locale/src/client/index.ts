@@ -4,18 +4,18 @@
  * preference row into the settings General section — the locale feature owns
  * its own settings surface.
  */
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { LocalizedText } from '@deepseek-ai/dsh-package-manifest'
+import type { Context as ClientContext } from '@janhq/cordis'
+import type { LocalizedText } from '@janhq/jan-package-manifest'
 import {
   type BoundActions, type LocaleDictOf, type LocaleNamespaceMap, type Translate, type TranslateNS,
-} from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-slots'
 // Type-only: the ctx.configForms Context merge and the settings slot types.
 // Cross-plugin collaboration goes through the service, never a value import
 // (client bundle purity gate).
-import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm } from '@janhq/jan-client-ui-settings/client'
 import { parseLocaleBootstrap, type LocaleBootstrap, type LocaleBridge } from './bootstrap.ts'
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
 import {
   LOCALE_ID_PATTERN, LOCALE_IDS, LOCALE_PREFERENCE_FIELD, LOCALE_SETTINGS_NAMESPACE,
   type BuiltInLocaleId, type LocaleId, type LocaleSettings,
@@ -37,9 +37,9 @@ export type { BuiltInLocaleId, LocaleId, LocaleSettings } from '../locale-settin
 // The translate currency lives in ui-slots (the render machinery synthesizes
 // the seat); re-exported here so dictionary owners import one package.
 // TranslateNS<'model'> is the namespace-addressed developer-facing form.
-export type { Translate, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+export type { Translate, TranslateNS } from '@janhq/jan-client-ui-slots'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Shared cross-feature vocabulary, consulted by the lookup chain after the entry's own namespace misses. */
     common: CommonKey
@@ -59,6 +59,28 @@ export interface LanguageRegistration {
   label: string
   /** Registered language consulted when this language lacks a dictionary key. */
   fallback: LocaleId
+}
+
+/** One machine-generated translation with the exact source text it translated. */
+export interface GeneratedEntry {
+  /** The plugin's own text at generation time; the translation applies only while the plugin still supplies it. */
+  readonly src: string
+  /** The translation, in the template syntax of the source. */
+  readonly text: string
+}
+
+/** Generated translations of one namespace and locale. */
+export interface GeneratedTable {
+  /** Locale of the plugin's own table whose text `src` repeats. */
+  readonly from: string
+  /** Entries by dictionary key. */
+  readonly entries: Readonly<Record<string, GeneratedEntry>>
+}
+
+/** One namespace the plugins registered and the locales their own tables cover. */
+export interface RegisteredNamespace {
+  readonly ns: string
+  readonly locales: readonly string[]
 }
 
 /** One normalized selectable locale published in snapshots. */
@@ -81,7 +103,7 @@ export interface LocaleSnapshot {
   revision: number
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     locale: LocaleRuntime
   }
@@ -165,6 +187,8 @@ function syncDocumentLanguage(snapshot: LocaleSnapshot): void {
  */
 export class LocaleRuntime {
   private dicts = new Map<string, Map<string, LocaleDict>>()
+  /** Lowest-priority layer: generated tables never collide with {@link register} and never shadow a registered string. */
+  private generated = new Map<string, Map<string, GeneratedTable>>()
   private bound = new Map<string, Translate>()
   private catalog = new Map<string, LocaleDefinition>()
   private fallbackChains = new Map<string, readonly LocaleId[]>()
@@ -248,7 +272,7 @@ export class LocaleRuntime {
    * locale, because the active value may be a provisional browser-derived or
    * fallback resolution that nothing has stored yet. Picking the language
    * already on screen is still an explicit choice, and it must survive a
-   * different browser sharing the same DSH home. Only the render notification
+   * different browser sharing the same Jan home. Only the render notification
    * is conditional: republishing an unchanged locale would churn every
    * subscriber for nothing.
    * @param id - a registered locale id; unknown ids throw.
@@ -467,6 +491,54 @@ export class LocaleRuntime {
     return t
   }
 
+  /**
+   * List the namespaces registered through {@link register} and the locales each covers. Generated tables are not listed.
+   * @returns one row per namespace with at least one registered locale.
+   */
+  namespaces(): readonly RegisteredNamespace[] {
+    return [...this.dicts].flatMap(([ns, locales]) => locales.size === 0 ? [] : [{ ns, locales: [...locales.keys()] }])
+  }
+
+  /**
+   * Read one registered dictionary.
+   * @param ns - namespace.
+   * @param locale - locale tag, compared case-insensitively.
+   * @returns the registered dictionary, or undefined when the namespace has none for that locale.
+   */
+  dictionary(ns: string, locale: string): Readonly<LocaleDict> | undefined {
+    return this.dicts.get(ns)?.get(localeKey(locale))
+  }
+
+  /**
+   * Register generated translations for a namespace and locale in the lowest-priority layer. Lookup consults a
+   * generated entry only where the registered dictionaries of that locale lack the key, and only while the
+   * registered `from` dictionary still holds the entry's source text. A table registered for the same namespace and
+   * locale replaces the earlier generated one. Registration order against {@link register} does not matter, and the
+   * two never collide.
+   * @param ns - namespace the plugin registered.
+   * @param locale - locale the translations are in.
+   * @param table - source locale and entries.
+   * @returns idempotent disposer removing exactly this table.
+   * @throws when `locale` is not a BCP 47-style tag.
+   */
+  registerGenerated(ns: string, locale: string, table: GeneratedTable): () => void {
+    if (!LOCALE_ID_PATTERN.test(locale)) throw new Error(`locale id "${locale}" is not a BCP 47-style tag`)
+    let locales = this.generated.get(ns)
+    if (locales === undefined) {
+      locales = new Map()
+      this.generated.set(ns, locales)
+    }
+    const key = localeKey(locale)
+    locales.set(key, table)
+    this.publish(this.snapshot.active, false)
+    return () => {
+      const owner = this.generated.get(ns)
+      if (owner?.get(key) !== table) return
+      owner.delete(key)
+      this.publish(this.snapshot.active, false)
+    }
+  }
+
   private translate(ns: string, key: string, params?: Record<string, unknown>): string {
     const chain = this.fallbackChain(this.snapshot.active)
     const template = this.lookup(ns, key, chain)
@@ -480,8 +552,14 @@ export class LocaleRuntime {
   private lookup(ns: string, key: string, chain: readonly LocaleId[]): string | undefined {
     const locales = this.dicts.get(ns)
     for (const locale of chain) {
-      const value = locales?.get(localeKey(locale))?.[key]
+      const id = localeKey(locale)
+      const value = locales?.get(id)?.[key]
       if (value !== undefined) return value
+      const generated = this.generated.get(ns)?.get(id)
+      const entry = generated?.entries[key]
+      if (generated !== undefined && entry !== undefined && locales?.get(localeKey(generated.from))?.[key] === entry.src) {
+        return entry.text
+      }
     }
     return undefined
   }
@@ -565,7 +643,7 @@ export const inject = ['slots', 'remote', 'configForms']
  * @returns resolves after native language initialization and plugin registration.
  */
 export async function apply(ctx: ClientContext): Promise<void> {
-  const bridge = (globalThis as { __DSH_LOCALE__?: LocaleBridge }).__DSH_LOCALE__
+  const bridge = (globalThis as { __JAN_LOCALE__?: LocaleBridge }).__JAN_LOCALE__
   let bootstrap: LocaleBootstrap | undefined
   if (bridge !== undefined) {
     let value: unknown

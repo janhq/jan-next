@@ -1,9 +1,9 @@
 /** Searchable editable shortcut reference and its General Settings row. */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Button, IconCloseOutlineRegular, IconRefreshOutlineRegular, Modal, ShortcutKeys, Tooltip, Toast, focusWithoutRing, isBehindModal, rankByName } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ObservableSnapshot, PropsStore } from '@deepseek-ai/dsh-client-store'
-import type { ShortcutCatalogEntry, ShortcutPlatform, Shortcuts } from '@deepseek-ai/dsh-client-shortcuts/client'
+import { Button, IconCloseOutlineRegular, IconRefreshOutlineRegular, Modal, ShortcutKeys, Tooltip, Toast, focusWithoutRing, isBehindModal, rankByName } from '@janhq/jan-client-ui-primitives'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type { ObservableSnapshot, PropsStore } from '@janhq/jan-client-store'
+import type { ShortcutCatalogEntry, ShortcutPlatform, Shortcuts } from '@janhq/jan-client-shortcuts/client'
 import { ShortcutEditor } from './Editor.tsx'
 import { ShortcutIcon } from './Icons.tsx'
 import { shortcutFailure, shortcutReadFailure } from './feedback.ts'
@@ -33,8 +33,9 @@ const coreActionOrder = new Map<string, number>([
   'session.fork',
   'session.archive',
   'settings.open',
-  'fontSize.increase',
-  'fontSize.decrease',
+  'view.zoomIn',
+  'view.zoomOut',
+  'view.actualSize',
   'workspace.openLocal',
   'sidebar.right.toggle',
   'workspace.files',

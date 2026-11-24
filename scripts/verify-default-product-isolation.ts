@@ -9,11 +9,12 @@ import { basename, dirname, extname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { JSDOM } from 'jsdom'
 import ts from 'typescript'
-import { applyEntryPatches, type PatchOptions } from '@deepseek-ai/cordis-plugin-include'
-import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
+import { applyEntryPatches, type PatchOptions } from '@janhq/cordis-plugin-include'
+import type { EntryOptions } from '@janhq/cordis-plugin-loader'
 import { loadOverlayPatches } from '../packages/boot/app-boot/src/index.ts'
 import { bundlePatchPaths, composeEntries } from '../packages/boot/app-boot/src/profile.ts'
-import type { DshBundleManifest } from '../packages/util/package-manifest/src/types.ts'
+import type { JanBundleManifest } from '../packages/util/package-manifest/src/types.ts'
+import { janPackageName } from '../packages/util/package-manifest/src/dsh-compat.ts'
 import { isAgentPresetEntry, isCordisGroupEntry, loadCordisYaml } from './cordis-yaml.ts'
 import {
   collectRuntimeLocalSourceSpecifiers,
@@ -23,6 +24,8 @@ import {
 import { isExperimentalPackageName } from './experimental-package-policy.ts'
 // The independently published entry package owns platform-engine dependencies.
 const EXTERNAL_KIT_PACKAGES = new Set(['@deepseek-ai/libreoffice-kit'])
+// Unlisted packages in these scopes fail; `@deepseek-ai/` covers the external kit's platform engines.
+const OWNED_SCOPES = ['@janhq/', '@deepseek-ai/'] as const
 const PROFILE_SOURCE = 'packages/util/official-bundles/src/bundles.ts'
 const PRESET_PATTERN = 'packages/bundle/web-app/presets/*.patch.yml'
 const RUNTIME_SECTIONS = ['dependencies', 'optionalDependencies', 'peerDependencies'] as const
@@ -35,7 +38,7 @@ interface Manifest {
   optionalDependencies?: Record<string, string>
   peerDependencies?: Record<string, string>
   devDependencies?: Record<string, string>
-  dsh?: { bundle?: DshBundleManifest; configTrees?: Array<{ path: string }> }
+  jan?: { bundle?: JanBundleManifest; configTrees?: Array<{ path: string }> }
 }
 
 interface Package {
@@ -64,7 +67,7 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
   const directories = new Map<string, Package>()
   const display = (path: string): string => relative(root, path).replaceAll('\\', '/')
   for (const path of globSync([
-    'apps/*/package.json', 'packages/*/*/package.json', 'vendor/*/package.json',
+    'apps/*/package.json', 'packages/*/*/package.json', 'plugins/*/package.json', 'vendor/*/package.json',
     'native/system/packages/*/package.json', 'python/sdk-runtime/package.json',
   ], { cwd: root }).sort()) {
     const manifest = JSON.parse(readFileSync(resolve(root, path), 'utf8')) as Manifest
@@ -78,8 +81,8 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
     if (!existsSync(resolve(root, path))) failures.push(`missing default product root ${path}`)
   }
   const cli = directories.get(resolve(root, 'apps/cli'))
-  if (cli?.manifest.name !== '@deepseek-ai/dsh') {
-    failures.push('apps/cli/package.json must identify @deepseek-ai/dsh')
+  if (cli?.manifest.name !== '@janhq/jan') {
+    failures.push('apps/cli/package.json must identify @janhq/jan')
   }
   // The bundles the launcher ships switched off: each a runtime dependency of the installation that is a bundle
   // with an icon and locale display metadata for the plugin manager's Official group, none a default.
@@ -91,8 +94,8 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
       failures.push(`${PROFILE_SOURCE}: optional bundle ${name} must be a runtime dependency of apps/cli`)
     }
     const manifest = packages.get(name)?.manifest
-    if (manifest?.dsh?.bundle?.patch === undefined) {
-      failures.push(`${PROFILE_SOURCE}: optional bundle ${name} must declare dsh.bundle.patch`)
+    if (manifest?.jan?.bundle?.patch === undefined) {
+      failures.push(`${PROFILE_SOURCE}: optional bundle ${name} must declare jan.bundle.patch`)
     }
     if (typeof manifest?.icon !== 'string' && manifest?.exports?.['./icon'] == null) {
       failures.push(`${PROFILE_SOURCE}: optional bundle ${name} must declare icon or export ./icon`)
@@ -135,7 +138,8 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
       if (pkg !== undefined) add(pkg, origin)
       return
     }
-    const packageName = barePackageName(name)
+    // Vendored DeepSeek Harness packages import upstream names; the loader resolves them to Jan's packages.
+    const packageName = janPackageName(barePackageName(name))
     if (isExperimentalPackageName(packageName)) {
       failures.push(`${origin} -> ${name}: default product must not include experimental packages`)
       return
@@ -143,7 +147,7 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
     const pkg = packages.get(packageName)
     if (pkg !== undefined) add(pkg, origin)
     else if (EXTERNAL_KIT_PACKAGES.has(packageName)) return
-    else if (packageName.startsWith('@deepseek-ai/')) failures.push(`${origin}: unknown workspace package ${name}`)
+    else if (OWNED_SCOPES.some(scope => packageName.startsWith(scope))) failures.push(`${origin}: unknown workspace package ${name}`)
   }
   const dependency = (name: string, range: string, owner: Package, origin: string): void => {
     reference(name, origin, owner)
@@ -198,7 +202,7 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
       }
       if (isAgentPresetEntry(entry)) entry.config.plugins.forEach(visit)
       if (Array.isArray(entry.insert)) entry.insert.forEach(visit)
-      if ((entry.name === '@deepseek-ai/cordis-plugin-include' || entry.name === 'cordis:include') && isRecord(entry.config)) {
+      if ((entry.name === '@janhq/cordis-plugin-include' || entry.name === 'cordis:include') && isRecord(entry.config)) {
         if (!composedWeb && Array.isArray(entry.config.patches)) entry.config.patches.forEach(visit)
         const included = entry.config.path
         if (typeof included !== 'string') return
@@ -243,14 +247,14 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
   if (selection !== undefined) {
     for (const name of selection.packages) {
       reference(name, PROFILE_SOURCE)
-      if (packages.get(name)?.manifest.dsh?.bundle?.patch === undefined) {
-        failures.push(`${PROFILE_SOURCE}: default bundle ${name} must declare dsh.bundle.patch`)
+      if (packages.get(name)?.manifest.jan?.bundle?.patch === undefined) {
+        failures.push(`${PROFILE_SOURCE}: default bundle ${name} must declare jan.bundle.patch`)
       }
       if (optionalBundles.has(name)) failures.push(`${PROFILE_SOURCE}: optional bundle ${name} must not be a default bundle`)
     }
     const webLayers = selection.webBundles.flatMap((name) => {
       const pkg = packages.get(name)
-      const bundle = pkg?.manifest.dsh?.bundle
+      const bundle = pkg?.manifest.jan?.bundle
       if (pkg === undefined || bundle === undefined) return []
       return [bundlePatchPaths(pkg.directory, bundle).flatMap(file => loadOverlayPatches('verify-default-product-isolation', file))]
     })
@@ -298,8 +302,8 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
         dependency(name, range, pkg, `${manifest.name} ${section}`)
       }
     }
-    for (const file of manifest.dsh?.bundle === undefined ? [] : bundlePatchPaths(pkg.directory, manifest.dsh.bundle)) scanConfig(file)
-    for (const tree of manifest.dsh?.configTrees ?? []) {
+    for (const file of manifest.jan?.bundle === undefined ? [] : bundlePatchPaths(pkg.directory, manifest.jan.bundle)) scanConfig(file)
+    for (const tree of manifest.jan?.configTrees ?? []) {
       const treePath = resolve(pkg.directory, tree.path)
       const files = existsSync(treePath) && statSync(treePath).isDirectory()
         ? globSync('**/*.{yml,yaml}', { cwd: treePath, exclude: ['**/*.i18n.yaml', '**/preset.yml'] }) : []

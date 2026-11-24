@@ -21,66 +21,66 @@ describe('desktop package-set selection', () => {
   })
 
   it('does not select a packaging target when imported as a library', async () => {
-    vi.stubEnv('DSH_DESKTOP_TARGET_PLATFORM', 'linux')
-    vi.stubEnv('DSH_DESKTOP_TARGET_ARCH', 'x64')
+    vi.stubEnv('JAN_DESKTOP_TARGET_PLATFORM', 'linux')
+    vi.stubEnv('JAN_DESKTOP_TARGET_ARCH', 'x64')
     vi.resetModules()
     await expect(import('../scripts/prepare-package-set.ts')).resolves.toHaveProperty('prepareDesktopPackageSet')
   })
 
   it('includes only the available internal production closure', () => {
     const available = new Map<string, PackedDesktopPackage>([
-      ['@deepseek-ai/dsh', packed('@deepseek-ai/dsh', {
-        dependencies: { '@deepseek-ai/dsh-base': '^1.0.0', external: '^2.0.0' },
-        optionalDependencies: { '@deepseek-ai/platform-package': '1.0.0', '@deepseek-ai/missing-platform': '1.0.0' },
+      ['@janhq/jan', packed('@janhq/jan', {
+        dependencies: { '@janhq/jan-base': '^1.0.0', external: '^2.0.0' },
+        optionalDependencies: { '@janhq/platform-package': '1.0.0', '@janhq/missing-platform': '1.0.0' },
       })],
-      ['@deepseek-ai/dsh-desktop-host', packed('@deepseek-ai/dsh-desktop-host', {
-        dependencies: { '@deepseek-ai/dsh': '^1.0.0' },
+      ['@janhq/jan-desktop-host', packed('@janhq/jan-desktop-host', {
+        dependencies: { '@janhq/jan': '^1.0.0' },
       })],
-      ['@deepseek-ai/dsh-base', packed('@deepseek-ai/dsh-base', {
-        peerDependencies: { '@deepseek-ai/cordis': '^1.0.0' },
+      ['@janhq/jan-base', packed('@janhq/jan-base', {
+        peerDependencies: { '@janhq/cordis': '^1.0.0' },
       })],
-      ['@deepseek-ai/cordis', packed('@deepseek-ai/cordis')],
-      ['@deepseek-ai/platform-package', packed('@deepseek-ai/platform-package')],
-      ['@deepseek-ai/unused', packed('@deepseek-ai/unused')],
+      ['@janhq/cordis', packed('@janhq/cordis')],
+      ['@janhq/platform-package', packed('@janhq/platform-package')],
+      ['@janhq/unused', packed('@janhq/unused')],
     ])
     expect(selectDesktopPackageClosure(available, { platform: 'win32', arch: 'x64' }).map(entry => entry.manifest.name)).toEqual([
-      '@deepseek-ai/cordis',
-      '@deepseek-ai/dsh',
-      '@deepseek-ai/dsh-base',
-      '@deepseek-ai/dsh-desktop-host',
-      '@deepseek-ai/platform-package',
+      '@janhq/cordis',
+      '@janhq/jan',
+      '@janhq/jan-base',
+      '@janhq/jan-desktop-host',
+      '@janhq/platform-package',
     ])
   })
 
   it.each([
-    '@deepseek-ai/dsh-base', '@deepseek-ai/cordis', '@deepseek-ai/node-addon-system',
+    '@janhq/jan-base', '@janhq/cordis', '@janhq/node-addon-system',
   ])('rejects required prepared package %s absent from the packed release inputs', (dependency) => {
     const available = new Map<string, PackedDesktopPackage>([
-      ['@deepseek-ai/dsh', packed('@deepseek-ai/dsh', {
+      ['@janhq/jan', packed('@janhq/jan', {
         dependencies: { [dependency]: '^1.0.0' },
       })],
-      ['@deepseek-ai/dsh-desktop-host', packed('@deepseek-ai/dsh-desktop-host', {
-        dependencies: { '@deepseek-ai/dsh': '^1.0.0' },
+      ['@janhq/jan-desktop-host', packed('@janhq/jan-desktop-host', {
+        dependencies: { '@janhq/jan': '^1.0.0' },
       })],
     ])
     expect(() => selectDesktopPackageClosure(available, { platform: 'win32', arch: 'x64' })).toThrow(/unpacked package/u)
     expect(() => selectDesktopPackageClosure(new Map([
-      ['@deepseek-ai/dsh', packed('@deepseek-ai/dsh')],
-    ]), { platform: 'win32', arch: 'x64' })).toThrow(/omit @deepseek-ai\/dsh-desktop-host/u)
+      ['@janhq/jan', packed('@janhq/jan')],
+    ]), { platform: 'win32', arch: 'x64' })).toThrow(/omit @janhq\/jan-desktop-host/u)
   })
 
   it('leaves independently published Office packages to npm resolution', () => {
     const available = new Map<string, PackedDesktopPackage>([
-      ['@deepseek-ai/dsh', packed('@deepseek-ai/dsh', {
+      ['@janhq/jan', packed('@janhq/jan', {
         dependencies: {
           '@deepseek-ai/libreoffice-kit': '0.0.1',
           '@deepseek-ai/libreoffice-kit-wasm': '0.0.1',
         },
       })],
-      ['@deepseek-ai/dsh-desktop-host', packed('@deepseek-ai/dsh-desktop-host')],
+      ['@janhq/jan-desktop-host', packed('@janhq/jan-desktop-host')],
     ])
     expect(selectDesktopPackageClosure(available, { platform: 'win32', arch: 'x64' }).map(entry => entry.manifest.name)).toEqual([
-      '@deepseek-ai/dsh', '@deepseek-ai/dsh-desktop-host',
+      '@janhq/jan', '@janhq/jan-desktop-host',
     ])
   })
 
@@ -99,15 +99,15 @@ describe('desktop package-set selection', () => {
   })
 })
 
-const macProvider = '@deepseek-ai/dsh-experimental-cua-macos'
-const cuaBundle = '@deepseek-ai/dsh-cua-bundle'
+const macProvider = '@janhq/jan-experimental-cua-macos'
+const cuaBundle = '@janhq/jan-cua-bundle'
 const targetManifests = () => new Map<string, PackedDesktopPackage>([
-  ['@deepseek-ai/dsh', packed('@deepseek-ai/dsh', { dependencies: { [cuaBundle]: '1.0.0' } })],
-  ['@deepseek-ai/dsh-desktop-host', packed('@deepseek-ai/dsh-desktop-host')],
+  ['@janhq/jan', packed('@janhq/jan', { dependencies: { [cuaBundle]: '1.0.0' } })],
+  ['@janhq/jan-desktop-host', packed('@janhq/jan-desktop-host')],
   [cuaBundle, packed(cuaBundle, {
-    optionalDependencies: { [macProvider]: '1.0.0' }, dependencies: { '@deepseek-ai/dsh-cua': '1.0.0' },
+    optionalDependencies: { [macProvider]: '1.0.0' }, dependencies: { '@janhq/jan-cua': '1.0.0' },
   })],
-  ['@deepseek-ai/dsh-cua', packed('@deepseek-ai/dsh-cua')],
+  ['@janhq/jan-cua', packed('@janhq/jan-cua')],
   [macProvider, packed(macProvider, { os: ['darwin'] })],
 ])
 
@@ -116,7 +116,7 @@ it.each([
 ] as const)('selects the CUA native tarball for target %s/%s independently of the host', (platform, arch, included) => {
   const selected = selectDesktopPackageClosure(targetManifests(), { platform, arch }).map(entry => entry.manifest.name)
   expect(selected.includes(macProvider)).toBe(included)
-  expect(selected).toContain('@deepseek-ai/dsh-cua')
+  expect(selected).toContain('@janhq/jan-cua')
   expect(selected).toContain(cuaBundle)
 })
 
@@ -143,11 +143,11 @@ it('copies no macOS tarball into the Windows package set', () => {
   const inputs = join(root, 'inputs')
   mkdirSync(inputs)
   for (const [name, entry] of targetManifests()) {
-    const stem = name.replace('@deepseek-ai/', '')
+    const stem = name.replace('@janhq/', '')
     const folder = join(root, stem, 'package')
     mkdirSync(folder, { recursive: true })
     writeFileSync(join(folder, 'package.json'), JSON.stringify(entry.manifest))
-    if (name === '@deepseek-ai/dsh-desktop-host') {
+    if (name === '@janhq/jan-desktop-host') {
       for (const file of DESKTOP_HOST_RUNTIME_FILES) {
         mkdirSync(join(folder, file, '..'), { recursive: true })
         writeFileSync(join(folder, file), '')
@@ -157,8 +157,8 @@ it('copies no macOS tarball into the Windows package set', () => {
   }
   const output = join(root, 'output')
   prepareDesktopPackageSet([inputs], output, { platform: 'win32', arch: 'x64' })
-  expect(readdirSync(join(output, DESKTOP_PACKAGES_DIR))).not.toContain('dsh-experimental-cua-macos.tgz')
+  expect(readdirSync(join(output, DESKTOP_PACKAGES_DIR))).not.toContain('jan-experimental-cua-macos.tgz')
   prepareDesktopPackageSet([inputs], output, { platform: 'darwin', arch: 'arm64' })
-  expect(readFileSync(join(output, DESKTOP_PACKAGES_DIR, 'dsh-experimental-cua-macos.tgz')))
-    .toEqual(readFileSync(join(inputs, 'dsh-experimental-cua-macos.tgz')))
+  expect(readFileSync(join(output, DESKTOP_PACKAGES_DIR, 'jan-experimental-cua-macos.tgz')))
+    .toEqual(readFileSync(join(inputs, 'jan-experimental-cua-macos.tgz')))
 })

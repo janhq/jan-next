@@ -8,17 +8,17 @@
  * (and the reverse), the one-shared-state contract of the dual entry.
  * Scope disposal drops the directory (HMR safety).
  */
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { describe, expect, it, vi } from 'vitest'
-import { createScope } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
-import type { ModelSelection } from '@deepseek-ai/dsh-agent/types'
-import type { ModelSelectionProjection } from '@deepseek-ai/dsh-agent/types'
-import { ReasoningEffortId } from '@deepseek-ai/dsh-llm/brand'
-import type { CommandContribution, PopupSelectSpec, SelectOption } from '@deepseek-ai/dsh-client-ui-commands/client'
+import { createScope } from '@janhq/jan-api-session-controller/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
+import { RemoteError, TestRemote } from '@janhq/jan-client-test-runtime'
+import type { ModelSelection } from '@janhq/jan-agent/types'
+import type { ModelSelectionProjection } from '@janhq/jan-agent/types'
+import { ReasoningEffortId } from '@janhq/jan-llm/brand'
+import type { CommandContribution, PopupSelectSpec, SelectOption } from '@janhq/jan-client-ui-commands/client'
 import type { ModelSelectInjected } from '../src/client/slots.ts'
 import { apply, inject } from '../src/client/index.ts'
 import { zh } from '../src/client/locales.ts'
@@ -26,12 +26,12 @@ import { zh } from '../src/client/locales.ts'
 const sid = (k: string): SessionId => k as SessionId
 
 const GROUPS = [{
-  id: 'deepseek-official',
-  name: 'DeepSeek',
+  id: 'example',
+  name: 'Tokamak',
   models: [
     {
-      id: 'deepseek-v4-flash',
-      name: 'DeepSeek-V4-Flash',
+      id: 'tokamak-1-preview',
+      name: 'Tokamak 1 Preview',
       description: 'Fast, efficient, and economical; suited to focused, routine, or parallel tasks.',
       reasoning: {
         efforts: [
@@ -43,8 +43,8 @@ const GROUPS = [{
       },
     },
     {
-      id: 'deepseek-v4-pro',
-      name: 'DeepSeek-V4-Pro',
+      id: 'tokamak-1-pro',
+      name: 'Tokamak 1 Pro',
       description: 'Stronger agentic coding, knowledge, and difficult reasoning; suited to complex or quality-critical tasks at higher cost.',
       reasoning: {
         efforts: [
@@ -60,7 +60,7 @@ const GROUPS = [{
   id: 'external',
   name: 'External Provider',
   models: [{
-    id: 'deepseek-v4-flash',
+    id: 'tokamak-1-preview',
     name: 'External Flash',
     description: 'Provider-authored description.',
   }],
@@ -69,7 +69,7 @@ const GROUPS = [{
 /** Boot the plugin over fake faces + a stateful fake host (current moves on selectModel). */
 async function bench(locale: 'zh' | 'en' = 'zh') {
   const ctx = new Context()
-  let defaultSelection: ModelSelection = { provider: 'deepseek-official', model: 'deepseek-v4-flash' }
+  let defaultSelection: ModelSelection = { provider: 'example', model: 'tokamak-1-preview' }
   let selected = defaultSelection
   const calls = { models: 0, select: 0 }
   const projections = new Map<SessionId, SnapshotStore<ModelSelectionProjection | undefined>>()
@@ -77,6 +77,7 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
   let routable = true
   let catalogFailure = false
   let groups = GROUPS
+  let failures: { id: string; name: string; message: string; code?: string }[] = []
   let selectionFailure: RemoteError<'session/writer-held'> | undefined
   const sessionRemote = {
     modelCatalog: () => {
@@ -86,9 +87,9 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
         ok: true as const,
         value: {
           default: defaultSelection,
-          routableProviders: routable ? ['deepseek-official'] : [],
+          routableProviders: routable ? ['example'] : [],
           groups: routable ? groups : [],
-          failures: [],
+          failures,
         },
       })
     },
@@ -197,6 +198,7 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
     setProjected: (id: SessionId, value: ModelSelectionProjection) => { projections.get(id)?.set(value) },
     address: (id: SessionId) => { addressed.add(id) },
     setGroups: (next: typeof GROUPS) => { groups = next },
+    setFailures: (next: typeof failures) => { failures = next },
     setCatalogFailure: (next: boolean) => { catalogFailure = next },
     setRoutable: (next: boolean) => { routable = next },
     blockOf: (key: string) => blocks.get(sid(key)),
@@ -235,35 +237,50 @@ describe('ui-model-selection dual entry', () => {
     expect(face.resolveText('1017')).toBe('1017')
   })
 
+  it('lists provider failures as unselectable rows, asking for a sign-in when a credential is missing', async () => {
+    const b = await bench('en')
+    b.setFailures([
+      { id: 'tokamak', name: 'Tokamak', message: 'no credential', code: 'MISSING_CREDENTIAL' },
+      { id: 'gateway', name: 'Gateway', message: 'answered 503' },
+    ])
+    b.remote.emit('llm/adapters-updated', [])
+    b.mint('s1')
+    const options = await b.popup().options(projection('s1'), new AbortController().signal)
+    expect(options.slice(-2).map(option => [option.label, option.detail])).toEqual([
+      ['Tokamak', 'Sign in or add an API key to load models'],
+      ['Gateway', 'Catalog failed to load: answered 503'],
+    ])
+  })
+
   it.each(['zh', 'en'] as const)('shows names and providers without catalog descriptions (%s)', async (locale) => {
     const b = await bench(locale)
     b.mint('s1')
     const options = await b.popup().options(projection('s1'), new AbortController().signal)
     expect(options.map((o: SelectOption) => o.label)).toEqual([
-      'DeepSeek-V4-Flash', 'DeepSeek-V4-Pro', 'External Flash',
+      'Tokamak 1 Preview', 'Tokamak 1 Pro', 'External Flash',
     ])
-    expect(options.map(option => option.group?.label)).toEqual(['DeepSeek', 'DeepSeek', 'External Provider'])
+    expect(options.map(option => option.group?.label)).toEqual(['Tokamak', 'Tokamak', 'External Provider'])
     expect(options.every(option => option.detail === undefined)).toBe(true)
-    expect(b.popup().searchMode).toBe('fuzzy-label')
     expect(options[0]?.active).toBe(true)
     expect(options[1]?.active).toBeUndefined()
     expect(b.popup().searchLabels?.()).toEqual(locale === 'zh'
-      ? { placeholder: '搜索模型…', empty: '暂无可用模型', noResults: '没有匹配的模型。' }
-      : { placeholder: 'Search models…', empty: 'No models available.', noResults: 'No matching models.' })
+      ? { placeholder: '搜索模型…', empty: '还没有可用的模型。前往设置 -> 模型免费下载本地模型，在这台电脑上运行，无需账号。', noResults: '没有匹配的模型。' }
+      : {
+        placeholder: 'Search models…',
+        empty: 'No models yet. Go to Settings -> Models to download a free local model that runs on this computer, no account needed.',
+        noResults: 'No matching models.',
+      })
   })
 
-  it('orders popup provider groups account-first while retaining third-party catalog order', async () => {
+  it('lists popup provider groups in catalog order', async () => {
     const b = await bench()
     try {
-      b.setGroups([
-        GROUPS[1]!, GROUPS[0]!, { ...GROUPS[0]!, id: 'deepseek-account', name: 'DeepSeek Account' },
-        { ...GROUPS[1]!, id: 'last-provider', name: 'Last Provider' },
-      ])
+      b.setGroups([GROUPS[1]!, GROUPS[0]!, { ...GROUPS[1]!, id: 'last-provider', name: 'Last Provider' }])
       b.remote.emit('llm/adapters-updated', [])
       b.mint('s1')
       const options = await b.popup().options(projection('s1'), new AbortController().signal)
       expect([...new Set(options.map(option => option.group?.name))])
-        .toEqual(['deepseek-account', 'deepseek-official', 'external', 'last-provider'])
+        .toEqual(['external', 'example', 'last-provider'])
     } finally {
       await b.ctx.fiber.dispose()
     }
@@ -274,24 +291,24 @@ describe('ui-model-selection dual entry', () => {
     b.mint('s1')
     const seatFace = b.seat().inject!(sid('s1'))
     // Switch through the SEAT entry; the directory holds the submission until it settles.
-    const selection = { provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'max' }
+    const selection = { provider: 'example', model: 'tokamak-1-pro', reasoningEffort: 'max' }
     const settled = seatFace.select(selection)
     expect(seatFace.directory.getSnapshot()).toMatchObject({ status: 'selecting', pending: selection })
     expect(await settled).toEqual({ ok: true, value: undefined })
     expect(seatFace.directory.getSnapshot()).toMatchObject({ status: 'ready', pending: null })
     expect(b.hostCurrent()).toEqual({
-      provider: 'deepseek-official',
-      model: 'deepseek-v4-pro',
+      provider: 'example',
+      model: 'tokamak-1-pro',
       reasoningEffort: 'max',
     })
     expect(seatFace.directory.getSnapshot().current).toEqual({
-      provider: 'deepseek-official',
-      model: 'deepseek-v4-pro',
+      provider: 'example',
+      model: 'tokamak-1-pro',
       reasoningEffort: 'max',
     })
     // The POPUP's next options pass reflects it without a seat-side reload.
     const options = await b.popup().options(projection('s1'), new AbortController().signal)
-    expect(options.find((o: SelectOption) => o.label === 'DeepSeek-V4-Pro')).toMatchObject({ active: true })
+    expect(options.find((o: SelectOption) => o.label === 'Tokamak 1 Pro')).toMatchObject({ active: true })
   })
 
   it('a popup selection lands on the seat store — the reverse direction of the same state', async () => {
@@ -299,43 +316,30 @@ describe('ui-model-selection dual entry', () => {
     b.mint('s1')
     const seatFace = b.seat().inject!(sid('s1'))
     const options = await b.popup().options(projection('s1'), new AbortController().signal)
-    const pro = options.find((o: SelectOption) => o.label === 'DeepSeek-V4-Pro')!
+    const pro = options.find((o: SelectOption) => o.label === 'Tokamak 1 Pro')!
     await b.popup().onSelect(pro, projection('s1'))
     expect(seatFace.directory.getSnapshot().current).toEqual({
-      provider: 'deepseek-official',
-      model: 'deepseek-v4-pro',
+      provider: 'example',
+      model: 'tokamak-1-pro',
       reasoningEffort: 'high',
     })
-  })
-
-  it.each(['en', 'zh'] as const)('localizes account provider headings in the %s model popup', async (locale) => {
-    const b = await bench(locale)
-    try {
-      b.setGroups([{ ...GROUPS[0]!, id: 'deepseek-account', name: 'DeepSeek Account' }])
-      b.remote.emit('llm/adapters-updated', [])
-      b.mint('s1')
-      const options = await b.popup().options(projection('s1'), new AbortController().signal)
-      expect(options[0]?.group?.label).toBe(locale === 'zh' ? 'DeepSeek 账号' : 'DeepSeek Account')
-    } finally {
-      await b.ctx.fiber.dispose()
-    }
   })
 
   it('removes account models from the picker after sign-out', async () => {
     const b = await bench('en')
     try {
-      b.setGroups([{ ...GROUPS[0]!, id: 'deepseek-account', name: 'DeepSeek Account' }, ...GROUPS])
+      b.setGroups([{ ...GROUPS[0]!, id: 'account', name: 'Account' }, ...GROUPS])
       b.remote.emit('llm/adapters-updated', [])
       b.mint('s1')
       const before = await b.popup().options(projection('s1'), new AbortController().signal)
-      expect(before.some(option => option.group?.label === 'DeepSeek Account')).toBe(true)
+      expect(before.some(option => option.group?.label === 'Account')).toBe(true)
       b.setGroups(GROUPS)
-      b.remote.emit('credentials/record-updated', ['deepseek-account-platform'])
+      b.remote.emit('credentials/record-updated', ['account-record'])
       await vi.waitFor(() => {
         expect(b.ctx.modelDirectories.directoryFor(sid('s1')).store.getSnapshot().groups).toEqual(GROUPS)
       })
       const after = await b.popup().options(projection('s1'), new AbortController().signal)
-      expect(after.some(option => option.group?.label === 'DeepSeek Account')).toBe(false)
+      expect(after.some(option => option.group?.label === 'Account')).toBe(false)
       expect(after.length).toBeGreaterThan(0)
     } finally {
       await b.ctx.fiber.dispose()
@@ -365,8 +369,8 @@ describe('ui-model-selection dual entry', () => {
     b.mint('s1')
     const face = b.seat().inject!(sid('s1'))
     await b.ctx.modelDirectories.directoryFor(sid('s1')).load()
-    const late = face.select({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
-    expect(face.directory.getSnapshot().pending).toEqual({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
+    const late = face.select({ provider: 'example', model: 'tokamak-1-pro' })
+    expect(face.directory.getSnapshot().pending).toEqual({ provider: 'example', model: 'tokamak-1-pro' })
     b.ctx.emit('connection/reset')
     expect(face.directory.getSnapshot()).toMatchObject({ status: 'loading', pending: null })
     await late
@@ -377,8 +381,8 @@ describe('ui-model-selection dual entry', () => {
     const b = await bench()
     b.mint('s1')
     const face = b.seat().inject!(sid('s1'))
-    await face.select({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
-    b.setHostCurrent({ provider: 'deepseek-official', model: 'deepseek-v4-flash' })
+    await face.select({ provider: 'example', model: 'tokamak-1-pro' })
+    b.setHostCurrent({ provider: 'example', model: 'tokamak-1-preview' })
 
     b.ctx.emit('connection/reset')
     expect(face.directory.getSnapshot()).toMatchObject({
@@ -401,13 +405,13 @@ describe('ui-model-selection dual entry', () => {
         b.setGroups(GROUPS.map(group => ({
           ...group, models: group.models.map(model => ({ ...model, ...(badge === undefined ? {} : { badge }) })),
         })))
-        b.remote.emit('llm/models-updated', ['deepseek-official'])
+        b.remote.emit('llm/adapters-updated', [])
         await vi.waitFor(() => {
           expect(face.directory.getSnapshot().status).toBe('ready')
           expect(face.directory.getSnapshot().groups[0]?.models[0]?.badge).toEqual(badge)
         })
       }
-      expect(face.directory.getSnapshot().current?.model).toBe('deepseek-v4-flash')
+      expect(face.directory.getSnapshot().current?.model).toBe('tokamak-1-preview')
     } finally {
       await b.ctx.fiber.dispose()
     }
@@ -418,15 +422,15 @@ describe('ui-model-selection dual entry', () => {
     b.mint('s1')
     const face = b.seat().inject!(sid('s1'))
     face.load()
-    expect(face.directory.getSnapshot().current?.model).toBe('deepseek-v4-flash')
+    expect(face.directory.getSnapshot().current?.model).toBe('tokamak-1-preview')
 
-    b.remote.emit('settings/document-updated', ['llm-deepseek', 1])
+    b.remote.emit('settings/document-updated', ['llm-pi-ai', 1])
     b.setProjected(sid('s1'), {
-      lastUsed: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-      next: { provider: 'deepseek-official', model: 'deepseek-v4-pro' },
+      lastUsed: { provider: 'example', model: 'tokamak-1-preview' },
+      next: { provider: 'example', model: 'tokamak-1-pro' },
     })
     expect(face.directory.getSnapshot()).toMatchObject({
-      current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      current: { provider: 'example', model: 'tokamak-1-preview' },
       groups: GROUPS,
       routable: null,
       status: 'loading',
@@ -434,7 +438,7 @@ describe('ui-model-selection dual entry', () => {
 
     await vi.waitFor(() => {
       expect(face.directory.getSnapshot()).toMatchObject({
-        current: { provider: 'deepseek-official', model: 'deepseek-v4-pro' },
+        current: { provider: 'example', model: 'tokamak-1-pro' },
         status: 'ready',
       })
     })
@@ -447,10 +451,10 @@ describe('ui-model-selection dual entry', () => {
       const face = b.seat().inject!(sid('s1'))
       await b.ctx.modelDirectories.directoryFor(sid('s1')).load()
       b.setCatalogFailure(true)
-      b.remote.emit('credentials/record-updated', ['DEEPSEEK_API_KEY'])
+      b.remote.emit('credentials/record-updated', ['TOKAMAK_API_KEY'])
       await vi.waitFor(() => {
         expect(face.directory.getSnapshot()).toMatchObject({
-          current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+          current: { provider: 'example', model: 'tokamak-1-preview' },
           groups: GROUPS, routable: null, status: 'error', error: 'catalog offline',
         })
       })
@@ -477,21 +481,21 @@ describe('ui-model-selection dual entry', () => {
   it('retains saved effort for existing and new sessions after credentials disappear', async () => {
     const b = await bench()
     try {
-      b.setHostCurrent({ provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: ReasoningEffortId('max') })
+      b.setHostCurrent({ provider: 'example', model: 'tokamak-1-preview', reasoningEffort: ReasoningEffortId('max') })
       b.mint('existing')
       const existing = b.ctx.modelDirectories.directoryFor(sid('existing'))
       await existing.load()
       b.setProjected(sid('existing'), { lastUsed: null,
-        next: { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: ReasoningEffortId('high') } })
+        next: { provider: 'example', model: 'tokamak-1-preview', reasoningEffort: ReasoningEffortId('high') } })
       b.setRoutable(false)
-      b.remote.emit('settings/document-updated', ['llm-deepseek', 1])
+      b.remote.emit('settings/document-updated', ['llm-pi-ai', 1])
       expect(existing.store.getSnapshot().retainedEffort).toBe('High')
       await vi.waitFor(() => {
-        expect(existing.store.getSnapshot()).toMatchObject({ current: { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' }, routable: false, retainedEffort: 'High' })
+        expect(existing.store.getSnapshot()).toMatchObject({ current: { provider: 'example', model: 'tokamak-1-preview', reasoningEffort: 'high' }, routable: false, retainedEffort: 'High' })
       })
       b.mint('new')
       const fresh = b.ctx.modelDirectories.directoryFor(sid('new'))
-      expect(fresh.store.getSnapshot()).toMatchObject({ current: { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'max' }, routable: false, retainedEffort: 'Max' })
+      expect(fresh.store.getSnapshot()).toMatchObject({ current: { provider: 'example', model: 'tokamak-1-preview', reasoningEffort: 'max' }, routable: false, retainedEffort: 'Max' })
     } finally {
       await b.ctx.fiber.dispose()
     }
@@ -510,7 +514,7 @@ describe('ui-model-selection dual entry', () => {
     expect(b.calls.models).toBe(1)
 
     b.setRoutable(false)
-    b.remote.emit('settings/document-updated', ['llm-deepseek', 1])
+    b.remote.emit('settings/document-updated', ['llm-pi-ai', 1])
     await Promise.resolve()
     await Promise.resolve()
     expect(b.blockOf('s1')).toBeUndefined()
@@ -529,7 +533,7 @@ describe('ui-model-selection dual entry', () => {
     const b = await bench()
     b.mint('s1')
     const face = b.seat().inject!(sid('s1'))
-    const intended = { provider: 'deepseek-official', model: 'unlisted' }
+    const intended = { provider: 'example', model: 'unlisted' }
     b.setProjected(sid('s1'), { lastUsed: intended, next: intended })
     await vi.waitFor(() => { expect(face.directory.getSnapshot().status).toBe('ready') })
     expect(face.directory.getSnapshot().current).toEqual(intended)
@@ -556,12 +560,12 @@ describe('ui-model-selection dual entry', () => {
     const face = b.seat().inject!(sid('child'))
     expect(face.available).toBe(false)
     face.load()
-    await expect(face.select({ provider: 'deepseek', model: 'deepseek-v4-pro' })).resolves.toBeUndefined()
+    await expect(face.select({ provider: 'tokamak', model: 'tokamak-1-pro' })).resolves.toBeUndefined()
     await expect(b.ctx.modelDirectories.directoryFor(sid('child')).load())
       .rejects.toThrow(/unavailable for addressed subagent/)
     await expect(b.ctx.modelDirectories.directoryFor(sid('child')).select({
-      provider: 'deepseek',
-      model: 'deepseek-v4-pro',
+      provider: 'tokamak',
+      model: 'tokamak-1-pro',
     })).rejects.toThrow(/unavailable for addressed subagent/)
     b.ctx.emit('connection/reset')
     await Promise.resolve()
@@ -575,16 +579,16 @@ it.each([false, true])('reports accepted switches with blank=%s and no refused s
   const scope = b.mint('analytics', blank)
   try {
     const face = b.seat().inject!(sid('analytics'))
-    await face.select({ provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: ReasoningEffortId('max') })
-    expect(b.track).toHaveBeenCalledWith('model_switch', { ...blank ? {} : { session_id: 'analytics' }, switch_from: 'deepseek-official/deepseek-v4-flash', switch_to: 'deepseek-official/deepseek-v4-pro' })
+    await face.select({ provider: 'example', model: 'tokamak-1-pro', reasoningEffort: ReasoningEffortId('max') })
+    expect(b.track).toHaveBeenCalledWith('model_switch', { ...blank ? {} : { session_id: 'analytics' }, switch_from: 'example/tokamak-1-preview', switch_to: 'example/tokamak-1-pro' })
     b.track.mockClear()
-    await face.select({ provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'high' })
+    await face.select({ provider: 'example', model: 'tokamak-1-pro', reasoningEffort: 'high' })
     expect(b.track).toHaveBeenCalledExactlyOnceWith('thinking_level_switch', {
-      ...blank ? {} : { session_id: 'analytics' }, model_name: 'deepseek-official/deepseek-v4-pro', switch_from: 'max', switch_to: 'high',
+      ...blank ? {} : { session_id: 'analytics' }, model_name: 'example/tokamak-1-pro', switch_from: 'max', switch_to: 'high',
     })
     b.track.mockClear()
     b.rejectSelection()
-    await face.select({ provider: 'deepseek-official', model: 'deepseek-v4-flash' })
+    await face.select({ provider: 'example', model: 'tokamak-1-preview' })
     expect(b.track).not.toHaveBeenCalled()
   } finally { await scope.fiber.dispose(); await b.ctx.fiber.dispose() }
 })

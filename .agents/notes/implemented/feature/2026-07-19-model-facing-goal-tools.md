@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-07-19-model-facing-goal-tools.zh.md)
-
 ## Problem
 
 The persisted goal domain deliberately exposes lifecycle verbs to plugins, not directly to a model. A model still needs a small control API for discovering the current goal, creating one from human intent, and changing its lifecycle. Prompt guidance alone cannot establish who authorized a mutation: a subagent, injected plugin message, stale model turn, or resumed session could all produce the same tool arguments.
@@ -12,7 +10,7 @@ The tool API also needs to preserve the separation between durable state and liv
 
 ## Decision
 
-`@deepseek-ai/dsh-tool-goal` in `packages/goal/tool-goal/` contributes three exclusive tools and one system-prompt policy section over `ctx.goals`: `get_goal`, `create_goal`, and `update_goal`. The names and read-create-update shape follow Codex's compact goal tool surface while the authority rules use this repository's public agent, session, tool, and goal services.
+`@janhq/jan-tool-goal` in `packages/goal/tool-goal/` contributes three exclusive tools and one system-prompt policy section over `ctx.goals`: `get_goal`, `create_goal`, and `update_goal`. The names and read-create-update shape follow Codex's compact goal tool surface while the authority rules use this repository's public agent, session, tool, and goal services.
 
 ### Tools and model contract
 
@@ -22,7 +20,7 @@ The prompt tells the model that it may infer goal intent from a direct human req
 
 All three tools use exclusive execution so a model-ordered batch observes prior mutations and their new revisions. Results are compact JSON. UI presentation is a pure function of arguments and uses generic read or mutation cards; mutation cards select meaningful action values before the goal id, so accepted fillers cannot blank their input. Activation is reported only as live observation and is never written into replay state.
 
-An autonomous goal round that successfully reports completion or blocking defers one wrap-up instruction onto its tool result so the model still addresses the user before the turn ends through the ordinary no-tool-calls stop; the original conclude-at-result stop is superseded by the [goal-round wrap-up decision](../../archived/bug-fix/2026-08-02-goal-round-wrapup-message.md). Direct-human mutations receive no instruction: the assistant can acknowledge the change, and concurrent human steering remains available to ordinary stopping checks.
+An autonomous goal round that successfully reports completion or blocking defers one wrap-up instruction onto its tool result so the model still addresses the user before the turn ends through the ordinary no-tool-calls stop. Direct-human mutations receive no instruction: the assistant can acknowledge the change, and concurrent human steering remains available to ordinary stopping checks.
 
 ### Execution authority
 
@@ -65,5 +63,5 @@ Unit coverage pins registration and disposal, exclusive scheduling, generated pr
 - The model cannot resume a durable paused goal; that user-owned path is enforced by the separate [user-owned goal pause reference](../../../../packages/goal/tool-goal/README.md).
 - These tools mutate goal state but do not schedule goal rounds, classify abnormal driver stops, or cancel an active turn; the same-session driver owns those behaviors.
 - Goal-round authority is dormant unless a separately mounted continuation driver admits goal-sourced user turns; this tool package never manufactures that authority itself.
-- Human slash-command discovery and rendering are owned by the separate [`dsh-command-goal`](../../../../packages/goal/command-goal/README.md) plugin.
+- Human slash-command discovery and rendering are owned by the separate [`jan-command-goal`](../../../../packages/goal/command-goal/README.md) plugin.
 - A scope can hide tool registrations while leaving the independently registered prompt section visible unless the deployment scopes both together.

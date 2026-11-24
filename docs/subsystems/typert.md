@@ -1,8 +1,6 @@
 # Typert remote calls
 
-English | [中文](typert.zh.md)
-
-Types shared by generated Remote artifacts, the Host Gateway, and consumer API assemblies. The [Typert Gateway Agent Note](../../.agents/notes/implemented/architecture/2026-08-02-typert-remote-method-calls.md) owns the architecture and transport decisions; this page records the literal public contracts from [`dsh-typert-protocol`](../../packages/typert/protocol/src/types.ts) and [`dsh-api-gateway`](../../packages/api/gateway/src/types.ts).
+Types shared by generated Remote artifacts, the Host Gateway, and consumer API assemblies. The [Typert Gateway Agent Note](../../.agents/notes/implemented/architecture/2026-08-02-typert-remote-method-calls.md) owns the architecture and transport decisions; this page records the literal public contracts from [`jan-typert-protocol`](../../packages/typert/protocol/src/types.ts) and [`jan-api-gateway`](../../packages/api/gateway/src/types.ts).
 
 ## Lookup and Context declarations
 
@@ -232,6 +230,12 @@ interface PeerScope {
   /** Whether the Peer may open a forwarded-event stream; this does not grant business permissions. */
   readonly interactions: 'answer' | 'none'
   /**
+   * `'local'` when the Peer is another Host that federates this one: its calls are answered by
+   * this Host alone and never handed to a registered forwarder, so two Hosts that federate each
+   * other do not echo lists and streams back and forth. Absent means `'all'`.
+   */
+  readonly forward?: 'all' | 'local'
+  /**
    * Tear down every registration made through `ctx`.
    * @returns settles once the scope has quiesced; racing calls share one completion.
    */
@@ -286,7 +290,7 @@ interface RemoteInvocation {
 
 ## Remote access resources
 
-Every Remote method is under the access control of [`dsh-api-remote-access`](../../packages/api/remote-access/README.md): a non-owner call is allowed only when the policy for its principal kind binds, on every resource the call touches, a role that lists the endpoint action. The package that owns an identity type merge-declares its resource kind in `TypertResourceMap`; `global`, the built-in identity-less resource, is never a kind there. The Gateway reads a kind's identities from the `resources` readers of `@Remote({ resources })` or `@RemoteScope(key, { resources })`, else from a lookup parameter or scoped Context that declares the kind as its `resource`, else from the default field or resolver registered in `typert.resources`; a call that names no resource touches `global`. The [Peer principals Agent Note](../../.agents/notes/implemented/architecture/2026-10-12-peer-principal-and-remote-access.md) owns the decision.
+Every Remote method is under the access control of [`jan-api-remote-access`](../../packages/api/remote-access/README.md): a non-owner call is allowed only when the policy for its principal kind binds, on every resource the call touches, a role that lists the endpoint action. The package that owns an identity type merge-declares its resource kind in `TypertResourceMap`; `global`, the built-in identity-less resource, is never a kind there. The Gateway reads a kind's identities from the `resources` readers of `@Remote({ resources })` or `@RemoteScope(key, { resources })`, else from a lookup parameter or scoped Context that declares the kind as its `resource`, else from the default field or resolver registered in `typert.resources`; a call that names no resource touches `global`. The [Peer principals Agent Note](../../.agents/notes/implemented/architecture/2026-10-12-peer-principal-and-remote-access.md) owns the decision.
 
 ```ts type-equiv
 /**
@@ -469,8 +473,21 @@ interface TypertGateway {
    * @returns a cancellation-aware iterable over the business results.
    */
   stream(request: InvokeRemoteRequest): Promise<AsyncIterable<unknown>>
+
+  /**
+   * Register the sole carrier-level forwarder (Host federation). Only owner
+   * Peers whose `forward` is not `'local'` pass through it; every other Peer reaches this Host directly.
+   * @param forwarder - the hook offered every owner wire call and stream.
+   * @returns disposer restoring direct dispatch.
+   * @throws Error when a forwarder is already registered.
+   */
+  registerForwarder(forwarder: TypertGatewayForwarder): () => void
 }
 ```
+
+### TypertGatewayForwarder
+
+`TypertGatewayForwarder` is the optional carrier hook for owner Remote calls and streams. It can answer on another Host or transform a local answer. Each method receives wire input and returns wire output; to leave a call unchanged, it returns `local()`. Forwarded streams do not receive Client uplink items. Non-owner Peers and owner Peers with `forward: 'local'` bypass the hook.
 
 ## Consumer Remote
 
@@ -506,7 +523,7 @@ interface TypertClientRemote extends TypertRemoteNamespaceMap {
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxremoteaccess--remoteaccessservice"></a>
 
@@ -694,6 +711,13 @@ async invoke(request: InvokeRemoteRequest): Promise<unknown>
  * @returns a cancellation-aware iterable over the business results.
  */
 async stream(request: InvokeRemoteRequest): Promise<AsyncIterable<unknown>>
+
+/**
+ * Register the sole carrier-level forwarder.
+ * @param forwarder - the hook offered every owner wire call and stream.
+ * @returns disposer restoring direct dispatch.
+ */
+registerForwarder(forwarder: TypertGatewayForwarder): () => void
 ```
 
 Source: [`packages/api/gateway/src/index.ts`](../../packages/api/gateway/src/index.ts)

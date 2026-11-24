@@ -1,7 +1,5 @@
 # Conversation assembly
 
-English | [中文](conversation.zh.md)
-
 Conversation is the target-neutral assembly layer between a Client `SessionEventLikeEntry` window and browser views. [`ui-conversation`](../../packages/client/ui-conversation/README.md) owns the event and view registries, one identity-stable binding per `SessionBinding`, Turn/Step locations, incremental Context assembly, target sources, the shared shell, and input orchestration. Target packages such as [`ui-chat`](../../packages/client/ui-chat/README.md) and [`ui-trajectory`](../../packages/client/ui-trajectory/README.md) own their Definitions, final snapshots, and rendering.
 
 This page defines the data model and the extension path for a business-owned Conversation node. The [Web Client architecture](web-client.md) places the subsystem between Client models and Slots; the [Conversation Node assembly decision](../../.agents/notes/implemented/architecture/2026-08-09-client-conversation-node-assembly.md) owns its rationale.
@@ -77,13 +75,13 @@ The example keeps the producer declarations and client contribution in one block
 
 ```ts ignore-check
 import { createElement } from 'react'
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { Branded } from '@deepseek-ai/dsh-brand'
+import type { Context as ClientContext } from '@janhq/cordis'
+import type { Branded } from '@janhq/jan-brand'
 import type {
   ConversationLocation, ConversationNodeContext,
   ConversationNodeDefinition,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { ChatNodeViewProps } from '@deepseek-ai/dsh-client-ui-chat/client'
+} from '@janhq/jan-client-ui-conversation/client'
+import type { ChatNodeViewProps } from '@janhq/jan-client-ui-chat/client'
 
 type ReviewId = Branded<'ReviewId'>
 
@@ -108,7 +106,7 @@ interface ReviewEndData {
   readonly summary: string
 }
 
-declare module '@deepseek-ai/dsh-session/types' {
+declare module '@janhq/jan-session/types' {
   interface SessionEventMap {
     /**
      * Opens one durable review job.
@@ -138,13 +136,13 @@ interface ReviewChatData {
   readonly summary?: string
 }
 
-declare module '@deepseek-ai/dsh-client-ui-chat/client' {
+declare module '@janhq/jan-client-ui-chat/client' {
   interface ChatNodeDataMap {
     'review-job': ReviewChatData
   }
 }
 
-declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
+declare module '@janhq/jan-client-ui-conversation/client' {
   interface ConversationStepDataMap {
     'review-job': ReviewChatData
   }

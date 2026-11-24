@@ -1,11 +1,9 @@
 ---
-description: "Subagent conversation catalog, continuation routing UI, and '@' reference source for the dsh web client."
+description: "Subagent conversation catalog, continuation routing UI, and '@' reference source for the jan web client."
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-subagent
-
-English | [中文](README.zh.md)
+# @janhq/jan-client-ui-subagent
 
 ## Summary
 
@@ -25,15 +23,15 @@ Browse local subagent conversations and external tasks from the parent header. L
 <a id="use-this-package"></a>
 ## Use this package
 
-The session header uses the session title for ordinary breadcrumbs. Subagent breadcrumbs prefer the original creation description (`entry.label`), then the agent name (`entry.name`), then the Session id. Ordinary and subagent breadcrumb titles both use 14px text with a 20px line height. When the session's direct catalog has entries or a read has failed, the descendant-count trigger renders after the preset label in the header actions band, with no breadcrumb separator. An absent or empty catalog hides the count trigger unless the root Session has an enabled, available Team board with shared tasks or a task-record error. Enabling Team mode alone does not show an empty entry. The trigger opens that direct catalog, uses the total count as its accessible name and the running count as its accessible description, and loads nested catalogs only when their rows expand. Select a local child at any depth to open that child's conversation with its exact `{parentSessionId, childSessionId, mode}` address, or use a noncurrent local row's trailing arrow to open the same address in the right Sidebar, preferring a separate pane when room permits.
+A root conversation lists its subagents in one drop-down above the composer. The collapsed header shows the direct count, a running dot while any child runs, and the direct progress in completed, in progress, not running, and external order; zero counts are omitted. Clicking the header opens the roster in place, inside the composer's column, with no floating menu. Each row shows a status dot, a status word, the creation description (or Session title, else agent name), total provider tokens, and elapsed active time; below 480px of column width the status word is visually hidden and the dot carries the state. Clicking a row expands it: the agent name, last requested model, and an Open chat action, then its six most recent observations, each hanging off a corner connector with its time, then that child's own subagents as nested rows. The trailing panel button opens a child in the right Sidebar. External tasks show as plain rows with no expansion, navigation, or execution status. A roster that hides (no children, no shared tasks, no load error) starts closed when it returns.
 
-This package registers the `dsh-resource://subagentchat/session/<child>?parent=<parent>&mode=<mode>` resource and builtin Sidebar tab type. The resource retains the child `SessionReference` directly from its address without refreshing the parent catalog, and releases the reference when the tab record closes. The tab renders the shared `conversation.content` Factory through `sidebar.chat.conversation`, fixes the local View to Chat, and omits the main Conversation header and width controls.
+The composer drop-down shows only while a child or the root conversation runs, shared tasks or a task-board failure keep it reachable, or the catalog read failed. Once the turn closes and no child runs, the subagents move to that turn's header line through `conversation.chat.turn-process.trailing`: `Completed in 8s` is followed by `2 subagents · 2 completed`, and clicking it opens the same rows below the line. A turn claims the direct children created between its start and end; a turn that spawned none shows nothing.
 
-Every open catalog menu is 360px wide with 6px outer padding, constrained to fit the layout viewport. The root menu shows noncollapsible Subagents and Shared tasks headers only when Team mode is enabled, at least one nondeleted shared task exists, and the footer contribution is available. The Subagents header uses a Users icon and counts direct entries in completed, in progress, not running, and external order; zero counts are omitted and the separator matches the input task list. External tasks never count as running or completed. An empty Subagents section shows “No subagents” only alongside shared tasks. With Team mode off or no shared tasks, the menu shows only the subagent list, without section headers, a shared-task module, empty-state copy, or a divider; a real task-record failure remains a separate alert. Shared tasks have a 4px top margin rather than a divider. Both section headers keep a 7px icon/title gap and an additional 4px before their counts. Only the menu scrolls; sections have no nested scrolling. In WebKit-compatible browsers, the native 5px scrollbar sits in the right 6px inset with inset track ends and a stable gutter, preserving content width when scrolling becomes necessary. Other browsers retain their standard native scrollbar.
+This package registers the `jan-resource://subagentchat/session/<child>?parent=<parent>&mode=<mode>` resource and builtin Sidebar tab type. The resource retains the child `SessionReference` directly from its address without refreshing the parent catalog, and releases the reference when the tab record closes. The tab renders the shared `conversation.content` Factory through `sidebar.chat.conversation`, fixes the local View to Chat, and omits the main Conversation header and width controls.
 
-The root catalog exposes `conversation.session.header.actions.subagent.footer` for shared tasks. Child and ancestor breadcrumb catalogs show navigation only, without section headers.
+Shared tasks render under the roster's rows through `conversation.session.header.actions.subagent.footer`. The roster stays visible with zero children only while Team mode is enabled, at least one nondeleted shared task exists (or the task board reports a failure), and the footer contribution is available; “No subagents” appears only beside shared tasks. A failed catalog read shows its message and a Retry action.
 
-The wide root count trigger shows a 14px Users icon in its 14px slot when no child is running and the shared ongoing loader otherwise, without a dropdown arrow. As the title row narrows, passive preset text hides at widths of 540px or less and the count text hides at 460px or less. The compact trigger always shows the Users icon, including while children are running; running indicators remain inside the menu. It matches More and sidebar controls: a 28×28px action with no padding, a 15px glyph in a 15px slot, secondary ink, and ghost hover and active backgrounds. Header actions use an 8px gap in compact layout and 10px in wide layout. The icon-only tooltip exposes the full count. Resizing preserves focus on the trigger. Subagent switchers retain their description-first text and existing icon.
+Child and ancestor lineage catalogs stay in the Conversation header as floating menus, 360px wide with 6px outer padding and constrained to fit the layout viewport. They show navigation only, without section headers. In WebKit-compatible browsers, the native 5px scrollbar sits in the right 6px inset with inset track ends and a stable gutter.
 
 ### Browsing the tree
 
@@ -71,6 +69,8 @@ Breadcrumb addresses derive from the Provider-bound Session address, loaded pare
 
 ### Duration, completion, and tokens
 
+Each local row also shows the model identifier from the most recent recorded request when available. An unconsumed model selection does not replace that identifier, and no model is inferred for a session without a recorded request.
+
 Each visible catalog level advances its own clock while it contains a running child; collapsing the level or closing the menu releases that clock. Token totals sum the four disjoint `tokenUsage` buckets. The `subagentTiming` projection sums completed-turn duration and supplies `latestTurnCompleted` for both the success dot and completed count; opening another turn clears that completion until its own `turn/end`. Duration advances once per second only for an open turn on a running child and freezes after the child becomes inactive; an interrupted open turn is bounded by its same-cut `active.through`, never by newer session metadata.
 
 ### Composer election
@@ -88,12 +88,11 @@ Lineage-menu highlights follow the [standard menu edge geometry](../../../docs/u
 <a id="further-exploration"></a>
 ## Further Exploration
 
-These pages cover the conversation surface, the host seam, and the design notes.
+These pages cover the conversation surface and the host seam.
 
-- [ui-conversation](../ui-conversation/README.md) — the chat surface hosting the header action and composer chain.
+- [ui-conversation](../ui-conversation/README.md) - the chat surface hosting the catalog and composer chain.
 - [ui-input-trigger](../ui-input-trigger/README.md) — the suggestion machinery hosting the `@` source.
 - [subagent](../../subagent/subagent/README.md) — the host-side capability seam behind continuable children.
-- [historical Web subagent conversations](../../../.agents/notes/archived/feature/2026-07-27-web-subagent-conversations.md) — the catalog and composer specification.
 - [Current-turn interrupt](../../subagent/subagent/README.md) — the independent Stop semantics.
 
 -----

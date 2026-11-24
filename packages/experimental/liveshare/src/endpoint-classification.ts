@@ -11,7 +11,7 @@
  * Classes: `reader-*` entries are decided by the share-viewer policy and can never be exposed through
  * a plugin declaration; `always-allowed` bypasses every policy; `plugin-offered` is reachable only
  * through a plugin's live declaration and the owner's selection; `owner-only` is never exposed.
- * @module @deepseek-ai/dsh-experimental-liveshare/src/endpoint-classification
+ * @module @janhq/jan-experimental-liveshare/src/endpoint-classification
  */
 
 /** Why one Remote endpoint may be called on a share viewer's behalf. */
@@ -97,8 +97,8 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'job/kill': 'owner-only', // owner background jobs
   'job/list': 'owner-only', // owner background jobs'
   'fileReferences/list': 'owner-only', // owner file references'
+  'session/contextPreview': 'owner-only', // owner prices a Session's next request; resolving resumes the Agent
   'session/create': 'owner-only', // owner creates a Session
-  'session/initializeDefaultModel': 'owner-only', // owner initializes a Session default model
   'session/openWorkspacePath': 'owner-only', // owner opens a Workspace path
   'session/search': 'owner-only', // owner searches across Sessions
   'session/selectModel': 'owner-only', // owner selects a Session model
@@ -133,6 +133,7 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'workspace/rename': 'owner-only', // owner renames a Workspace
   'workspace/unarchiveSession': 'owner-only', // owner unarchives a Session
   'workspace/unpinSession': 'owner-only', // owner unpins a Session
+  'workspace/update': 'owner-only', // owner edits project identity
   'workspaceFiles/changes': 'owner-only', // owner Workspace file access
   'workspaceFiles/list': 'owner-only', // owner Workspace file access'
   'workspaceFiles/read': 'owner-only', // absolute paths reach files outside the Workspace, so no share offers it
@@ -206,6 +207,17 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'goals/pause': 'owner-only', // owner pauses a goal
   'goals/resume': 'owner-only', // owner resumes a goal
   'pluginInventory/list': 'owner-only', // owner plugin inventory
+  'pluginI18n/clear': 'owner-only', // owner plugin text translation
+  'pluginI18n/consent': 'owner-only', // owner plugin text translation
+  'pluginI18n/route': 'owner-only', // owner plugin text translation
+  'pluginI18n/routes': 'owner-only', // owner plugin text translation
+  'pluginI18n/setConsent': 'owner-only', // owner plugin text translation
+  'pluginI18n/setRoute': 'owner-only', // owner plugin text translation
+  'pluginI18n/status': 'owner-only', // owner plugin text translation
+  'pluginI18n/statuses': 'owner-only', // owner plugin text translation
+  'pluginI18n/tables': 'owner-only', // owner plugin text translation
+  'pluginI18n/translate': 'owner-only', // owner plugin text translation
+  'pluginI18n/translateStrings': 'owner-only', // owner plugin text translation
   'mcpManager/probe': 'owner-only', // owner MCP server management
   'mcpManager/restart': 'owner-only', // owner MCP server management
   'mcpManager/watch': 'owner-only', // owner MCP server management

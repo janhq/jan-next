@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-09-04-right-sidebar-docking-infrastructure.zh.md)
-
 ## Problem
 
 The Web client's right column was a single-purpose Detail panel: `ui-chat` occupied the `details` slot with `DetailsPanel`, which showed one selected Tool call's raw payload through a `conversation.details.tool` child seat. Nothing else could live there. A plugin that wanted a persistent side surface — a file preview, a task list, a diff — had no seat to register into, no way to open its content from the conversation, and no shared layout to share the column with.
@@ -20,7 +18,7 @@ The [stable Sidebar mounting decision](../architecture/2026-09-20-sidebar-retain
 
 | Package | Kind | Owns |
 |---|---|---|
-| `packages/client/ui-dockkit` | static-linked library, zero DSH dependencies | the layout engine and the React components that render and drive it; consumers compile its sources, and it keeps exactly one stylesheet because a consumer de-duplicates injected sheets by file name |
+| `packages/client/ui-dockkit` | static-linked library, zero Jan dependencies | the layout engine and the React components that render and drive it; consumers compile its sources, and it keeps exactly one stylesheet because a consumer de-duplicates injected sheets by file name |
 | `packages/client/ui-sidebar-right` | dynamic plugin | the `rightbar` panel seat and the `conversation.session.header.corner` expand button over one store, one surface per session, both presentations, the float host, `ctx.sidebarRight`, `ctx.sidebarRightTabs`, the tab domain (one occurrence per tab record), the three extension seats, the guide tab type, and the `sidebarRight` copy namespace |
 
 The kit is the product's first embedder and knows nothing about it: every string arrives through `DockLabels`, every tab body through a `TabRenderer` dispatching on an opaque `kind`, and every gesture leaves through `DockIntents`. The integration package supplies what the kit refuses to know.

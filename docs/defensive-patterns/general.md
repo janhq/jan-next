@@ -1,7 +1,5 @@
 # Defensive patterns
 
-English | [中文](general.zh.md)
-
 Hard-won bug-class rules: each pattern below is a class of defect that actually shipped or nearly shipped here, stated as the rule that prevents its recurrence. Read this before writing lifecycle, concurrency, subprocess, or teardown code. Test-tier counterparts (real entry path, world-verification, resource ownership) are in [testing.md](../testing.md); the type-level definitions these rules refer to live in [subsystems/](../subsystems/README.md).
 
 ## Report orthogonal outcomes independently
@@ -116,7 +114,7 @@ const sessions = ctx.get('sessions')   // one owner, lifetime tied to the servic
 ```
 
 ```ts ignore-check
-globalThis.__dshCache = new Map()   // shared across instances, reclaimed never
+globalThis.__janCache = new Map()   // shared across instances, reclaimed never
 ```
 
 The wrong form lets instances overwrite each other, makes reclamation timing unknowable, and leaks state between tests.
@@ -163,7 +161,7 @@ Measurement is owned by [benchmarks/](../../benchmarks/AGENTS.md), one directory
 pnpm run test:bench
 ```
 
-Package-local diagnostics stay beside their owner with the `.perf.ts` suffix and do not join `test:bench`. The CI gate is `pnpm run check:ci:bench` (job `node 24 / benchmarks`), which publishes a scaled report — that gate is an alert, not a pass: a regression there is located by re-running the owning scenario and profiling segments locally to find which part slowed and which change introduced it. Retained-memory claims use `pnpm run test:bench:memory 4g|8g`, which reruns its listed files under an unchanged budget in a swapless cgroup.
+Package-local diagnostics stay beside their owner with the `.perf.ts` suffix and do not join `test:bench`. `pnpm run check:ci:bench` runs the benchmark lane and writes a scaled report; CI does not run it while it uses shared hosted runners. A failing budget is an alert, not a pass: a regression is located by re-running the owning scenario and profiling segments locally to find which part slowed and which change introduced it. Retained-memory claims use `pnpm run test:bench:memory 4g|8g`, which reruns its listed files under an unchanged budget in a swapless cgroup.
 
 Boundaries: edits that touch no runtime path — comments, documentation, test-only code — need no measurement, and production performance code is not benchmark instrumentation to be deleted opportunistically (`performance.now()` and `scheduler.yield()` are part of production decode and encode chunk scheduling). An architectural change that genuinely costs performance states the measured cost and the reason, and the domain owner approves it; "the layering needed it" is not a self-service reason. Record the command, the numbers, the environment, and the input size so the baseline can be rebuilt.
 
@@ -199,7 +197,7 @@ The judged condition is whether teardown awaits actual quiescence or only reques
 
 ## Contain callback exceptions in the dispatcher
 
-Catch and report each listener's exception without rejecting the dispatch promise or starving later listeners. The listener's owner must handle state it mutates under the [error-handling rules](../../.agents/skills/dsh-error-handling/SKILL.md#catch-recover-or-stop); catching alone does not restore state.
+Catch and report each listener's exception without rejecting the dispatch promise or starving later listeners. The listener's owner must handle state it mutates under the [error-handling rules](../../.agents/skills/jan-error-handling/SKILL.md#catch-recover-or-stop); catching alone does not restore state.
 
 The judged condition is whether a throwing listener can reject the dispatch promise or prevent later listeners from running. The boundary is the caller's own await: an error the dispatcher deliberately propagates to the operation that requested it is not a containment failure.
 

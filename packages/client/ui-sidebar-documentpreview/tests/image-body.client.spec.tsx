@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 /** Image Blob ownership, media types, pane-contained rendering, and failure states. */
 import { useSyncExternalStore } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { TabId } from '@janhq/jan-client-ui-dockkit'
 import { ImageBody, imageMediaType, type ImageBodyProps } from '../src/client/image/ImageBody.tsx'
 import { en } from '../src/client/image/locales.ts'
 import { createZoomStore, type ZoomState } from '../src/client/zoom/store.ts'
@@ -46,7 +46,7 @@ function props(path = 'asset.png', data: Uint8Array<ArrayBuffer> = new Uint8Arra
   return {
     fileDrag,
     useContextMenu: contextMenuHook(vi.fn()),
-    resourceAddress: `dsh-resource://file/session/image/${path}`,
+    resourceAddress: `jan-resource://file/session/image/${path}`,
     content: { kind: 'bytes', data },
     wrap: false,
     sessionId: 'image' as SessionId,
@@ -130,7 +130,8 @@ describe('ImageBody', () => {
   it('matches media types case-insensitively on decoded path suffixes', () => {
     expect(imageMediaType('folder/PHOTO.JPEG')).toBe('image/jpeg')
     expect(imageMediaType('folder/no-extension')).toBeUndefined()
-    expect(imageMediaType('folder/photo.avif')).toBeUndefined()
+    expect(imageMediaType('folder/photo.avif')).toBe('image/avif')
+    expect(imageMediaType('folder/photo.heic')).toBeUndefined()
   })
 
   it('retains image zoom without recreating the image or Blob URL', async () => {

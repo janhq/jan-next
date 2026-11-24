@@ -2,16 +2,16 @@
 /** ToolCallTree-owned root/subcall markers and keyed Tool dispatch. */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { bindDisclosure, useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
-import type { SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
-import { contextMenuHook, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { bindDisclosure, useDisclosure } from '@janhq/jan-client-ui-chat/src/client/chat/use-disclosure.ts'
+import type { SessionSnapshot } from '@janhq/jan-api-session-controller/client'
+import type { ToolCallBlock, ToolResultNode } from '@janhq/jan-client-ui-chat/client'
+import { contextMenuHook, makeTranslate } from '@janhq/jan-client-test-runtime'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import type { ToolCallOwnerProps, ToolTreeProps } from '../src/client/contract/slots.ts'
 import { ToolCallTree } from '../src/client/tool/ToolCallTree.tsx'
-import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
-import { PartialArguments } from '@deepseek-ai/dsh-util-values'
+import { zh } from '@janhq/jan-client-ui-conversation/src/client/locales.ts'
+import { PartialArguments } from '@janhq/jan-util-values'
 
 afterEach(cleanup)
 
@@ -22,6 +22,9 @@ const root = (callId: string, call: ToolResultNode['call']): ToolResultNode => (
   name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
   content: [], isError: false, subCalls: [],
 })
+
+/** One stable title view, as the bound hook returns between changes. */
+const TITLES = { display: (text: string) => text, request: () => {} }
 
 function props(
   block: ToolCallBlock,
@@ -57,6 +60,7 @@ function props(
     sessionId: 'original' as ToolTreeProps['sessionId'],
     resolveFilePath: path => path,
     useHostInfo: ((selector: (info: { home: string | undefined }) => unknown) => selector({ home })) as ToolTreeProps['useHostInfo'],
+    useTitles: ((selector: (view: typeof TITLES) => unknown) => selector(TITLES)) as ToolTreeProps['useTitles'],
     t,
   }
   return fixture as ToolTreeProps

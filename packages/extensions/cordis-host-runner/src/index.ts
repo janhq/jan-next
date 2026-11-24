@@ -1,22 +1,22 @@
 /**
  * Dynamic Cordis Plugin service: immutable package definitions, one active run
  * per Plugin, human-approved Client activation, and Host/Client invocation.
- * @module @deepseek-ai/dsh-cordis-host-runner
+ * @module @janhq/jan-cordis-host-runner
  */
 
-import { Context } from '@deepseek-ai/cordis'
-import type { Fiber } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-declare module '@deepseek-ai/dsh-llm' {
+import { Context } from '@janhq/cordis'
+import type { Fiber } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import type { Agent } from '@janhq/jan-agent'
+import { createUserMessage } from '@janhq/jan-llm'
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'cordis-host-runner': { kind: 'cordis-host-runner' }
   }
 }
 
-import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
-import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+import { TypertRemoteService, Remote } from '@janhq/jan-typert-protocol'
+import type { JsonValue } from '@janhq/jan-util-values'
 import { isPlugin, normalizeHandler } from './guard.ts'
 import { CordisInspectRegistryService } from './inspect-registry.ts'
 import { missingServices, startHostHalf } from './lifecycle.ts'
@@ -92,7 +92,7 @@ export {
   brandCordisDynamicPluginRunId as CordisDynamicPluginRunId,
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Process-local dynamic Plugin registry and lifecycle service. */
     dynamicCordisRunner: DynamicCordisRunnerService
@@ -1261,7 +1261,7 @@ function missingFor(ctx: Context, run: DynamicCordisRun): string[] {
 }
 
 function missingPluginMessage(id: CordisDynamicPluginId): string {
-  return `no dynamic plugin "${id}" in this process — it may have been removed or lost on DSH restart`
+  return `no dynamic plugin "${id}" in this process — it may have been removed or lost on Jan restart`
 }
 
 function errorDetails(error: unknown): CordisErrorDetails {

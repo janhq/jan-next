@@ -77,7 +77,7 @@ it('accepts a worker built for the packaged platform and architecture', () => {
 
 it('rejects a missing worker or one built for another target', () => {
   expect(() => { assertStagedLlamaWorker('win32', 'x64', stage('jan-llama-worker', pe(0x8664))) })
-    .toThrow(/jan-llama-worker\.exe is missing.*DSH_DESKTOP_OMIT_LLAMA_WORKER=1/u)
+    .toThrow(/jan-llama-worker\.exe is missing.*JAN_DESKTOP_OMIT_LLAMA_WORKER=1/u)
   expect(() => { assertStagedLlamaWorker('darwin', 'x64', stage('jan-llama-worker', machO(0x0100000c))) })
     .toThrow(/targets darwin arm64, not darwin x64/u)
   expect(() => { assertStagedLlamaWorker('darwin', 'x64', stage('jan-llama-worker', elf(0x3e))) })
@@ -105,7 +105,7 @@ it('signs the packaged macOS worker and its libraries with the application', asy
 
 it('signs the packaged Windows worker and its DLLs with the application', async () => {
   const worker = ['jan-llama-worker.exe', 'ggml.dll', 'ggml-base.dll', 'ggml-vulkan.dll'].map(name => join('resources', 'llama-worker', name))
-  const root = tree(Object.fromEntries(['Jan Alpha.exe', ...worker].map(name => [name, pe(0x8664)])))
+  const root = tree(Object.fromEntries(['Jan Next.exe', ...worker].map(name => [name, pe(0x8664)])))
   const signed = new Set<string>()
   await signWindowsCode(root, {
     thumbprint: 'AA',
@@ -115,7 +115,7 @@ it('signs the packaged Windows worker and its DLLs with the application', async 
       ? { status: 'Valid', timestamped: true, thumbprint: 'AA' }
       : { status: 'NotSigned', timestamped: false, thumbprint: null },
   })
-  expect([...signed].sort()).toEqual(['Jan Alpha.exe', ...worker].map(name => join(root, name)).sort())
+  expect([...signed].sort()).toEqual(['Jan Next.exe', ...worker].map(name => join(root, name)).sort())
 })
 
 it('stages from the worker crate dist directory', () => {

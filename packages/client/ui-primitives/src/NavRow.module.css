@@ -1,0 +1,119 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  margin: 0 0 2px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row > svg {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* The current page keeps the sidebar's selection fill, one step stronger than hover, so a hovered
+   row never reads as a second selection (the Settings rail uses the same pair). */
+.current {
+  background: var(--dsw-specific-sidebar-nav-item-active, var(--dsw-alias-interactive-bg-active));
+  font-weight: 500;
+}
+
+.current > svg {
+  color: var(--dsw-alias-label-primary);
+}
+
+@media (hover: hover) {
+  .row:not(.current):hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+/* A held press darkens the fill one step, so the row answers before the
+   page it opens has painted. */
+.row:active {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+.row:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+
+.rail {
+  justify-content: center;
+  padding: 0;
+}
+
+.rail > svg {
+  color: inherit;
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.shortcut {
+  margin-left: auto;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+}
+
+/* The "+" sits over the row's right edge and shows while the row is hovered
+   or anything in it has focus. */
+.item {
+  position: relative;
+}
+
+.quick {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.item:focus-within > .quick {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .item:hover > .quick {
+    opacity: 1;
+  }
+
+  .quick:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+.quick:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+  opacity: 1;
+}

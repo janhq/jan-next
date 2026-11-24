@@ -1,5 +1,5 @@
 /** Command contributions and immutable catalog values. */
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { BindingIssue, NormalizedBinding, ShortcutConfigSnapshot, ShortcutEdit, ShortcutRevision, ShortcutSaveResult, ShortcutBinding, ShortcutCommandId, ShortcutPlatform, ShortcutProfile, ShortcutRuntime } from '../protocol.ts'
 
 /** Local input owner resolved before an application command. */
@@ -135,4 +135,11 @@ export interface Shortcuts {
    * @returns disposer removing the binding and catalog entry.
    */
   register(command: ShortcutCommand): () => void
+  /**
+   * Run a registered command from a non-keyboard surface, such as a command palette, through its own resolver.
+   * Unknown ids, commands blocked by `context.modal`, and unhandled resolutions do nothing.
+   * @param id - registered product command.
+   * @param context - live input owner and modal state the command resolves against.
+   */
+  invoke(id: ShortcutCommandId, context: ShortcutContext): void
 }

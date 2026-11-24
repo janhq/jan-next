@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-settings",
+  "name": "@janhq/jan-settings",
   "description": "Abstract user-settings seam (ctx.settings) for Jan",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/settings/settings"
   },
   "type": "module",
@@ -34,27 +34,27 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/schemastery": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~",
-    "@deepseek-ai/cordis-plugin-timer": "workspace:~",
-    "@deepseek-ai/dsh-app-boot": "workspace:*",
-    "@deepseek-ai/dsh-hmr": "workspace:*",
-    "@deepseek-ai/dsh-agent-default-model": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
+    "@janhq/cordis-plugin-timer": "workspace:~",
+    "@janhq/jan-app-boot": "workspace:*",
+    "@janhq/jan-hmr": "workspace:*",
+    "@janhq/jan-agent-default-model": "workspace:*",
     "yaml": "^2.8.1"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/dsh-config-editor": "workspace:*",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/cosmokit": "workspace:~",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/jan-config-editor": "workspace:*",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/cosmokit": "workspace:~",
     "yaml": "^2.8.1"
   }
 }

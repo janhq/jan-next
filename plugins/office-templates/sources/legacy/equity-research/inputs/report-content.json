@@ -1,0 +1,4683 @@
+{
+  "sourceDocument": "xiaomi-ev-research_delivery-scale-to-earnings-quality_20260910.docx",
+  "sourceSha256": "4ed88227dae74e0dfbbcef12fc65145cd2d25bd95cbf84fb2a3220e10f1ac637",
+  "contentPolicy": "Frozen prior-report content for Skill composition and output validation; no new investment recommendation or independent factual research.",
+  "cover": [
+    {
+      "kind": "table",
+      "widths": [
+        11906
+      ],
+      "rows": [
+        [
+          [
+            {
+              "kind": "p",
+              "role": "equation",
+              "runs": [
+                {
+                  "text": "September 10, 2026\tCompany special report",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "September 10, 2026\tCompany special report"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "Xiaomi EV",
+                  "bold": true,
+                  "italic": false
+                }
+              ],
+              "text": "Xiaomi EV"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "XIAOMI AUTO",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "XIAOMI AUTO"
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "p",
+      "role": "body",
+      "runs": [
+        {
+          "text": "China / New-energy vehicles",
+          "bold": false,
+          "italic": false
+        }
+      ],
+      "text": "China / New-energy vehicles"
+    },
+    {
+      "kind": "p",
+      "role": "body",
+      "runs": [
+        {
+          "text": "From delivery scale to earnings quality",
+          "bold": true,
+          "italic": false
+        }
+      ],
+      "text": "From delivery scale to earnings quality"
+    },
+    {
+      "kind": "p",
+      "role": "body",
+      "runs": [
+        {
+          "text": "Mid-2026 operating review: rebalancing scale, model mix and investment intensity",
+          "bold": false,
+          "italic": false
+        }
+      ],
+      "text": "Mid-2026 operating review: rebalancing scale, model mix and investment intensity"
+    },
+    {
+      "kind": "table",
+      "widths": [
+        5556,
+        340,
+        3515
+      ],
+      "rows": [
+        [
+          [
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "The scale base is in place",
+                  "bold": true,
+                  "italic": false
+                }
+              ],
+              "text": "The scale base is in place"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "Deliveries were 411,082 vehicles in 2025 and 185,055 in H1 2026. Q2 recovered to 104,199 but has not yet returned to the Q4 2025 peak. [S1, S4]",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "Deliveries were 411,082 vehicles in 2025 and 185,055 in H1 2026. Q2 recovered to 104,199 but has not yet returned to the Q4 2025 peak. [S1, S4]"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "Revenue growth must be read alongside pricing",
+                  "bold": true,
+                  "italic": false
+                }
+              ],
+              "text": "Revenue growth must be read alongside pricing"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "Q2 2026 vehicle revenue was RMB 23.9 billion, with deliveries up 28.2% YoY; ASP was RMB 229,312. Product mix sets how much revenue each additional delivery brings. [S1]",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "Q2 2026 vehicle revenue was RMB 23.9 billion, with deliveries up 28.2% YoY; ASP was RMB 229,312. Product mix sets how much revenue each additional delivery brings. [S1]"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "Gross profit and expenses set the pace of payoff",
+                  "bold": true,
+                  "italic": false
+                }
+              ],
+              "text": "Gross profit and expenses set the pace of payoff"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "The EV, AI and other new initiatives segment had a Q2 gross margin of 19.2% and an operating loss of about RMB 2.6 billion. This basis includes AI and other investment, so the segment boundary must be kept in analysis. [S1]",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "The EV, AI and other new initiatives segment had a Q2 gross margin of 19.2% and an operating loss of about RMB 2.6 billion. This basis includes AI and other investment, so the segment boundary must be kept in analysis. [S1]"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "Model expansion brings new operating demands",
+                  "bold": true,
+                  "italic": false
+                }
+              ],
+              "text": "Model expansion brings new operating demands"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "The SU7 generation change, YU7 tiering and newly pre-sold models widen coverage, and also test capacity planning, channel service, parts supply and quality management. [S2, S3, S7]",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "The SU7 generation change, YU7 tiering and newly pre-sold models widen coverage, and also test capacity planning, channel service, parts supply and quality management. [S2, S3, S7]"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "Next judgments rest on verifiable indicators",
+                  "bold": true,
+                  "italic": false
+                }
+              ],
+              "text": "Next judgments rest on verifiable indicators"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "Watch whether the delivery recovery comes with a stable ASP and gross margin, and whether expense growth stays below gross profit growth. Monthly order buzz and launch events are only partial evidence.",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "Watch whether the delivery recovery comes with a stable ASP and gross margin, and whether expense growth stays below gross profit growth. Monthly order buzz and launch events are only partial evidence."
+            }
+          ],
+          [
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [],
+              "text": ""
+            }
+          ],
+          [
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "Report details",
+                  "bold": true,
+                  "italic": false
+                }
+              ],
+              "text": "Report details"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "Subject: Xiaomi EV business\nPrepared by: Codex research\nFinancial baseline: Q2 2026\nData retrieval date: September 10, 2026",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "Subject: Xiaomi EV business\nPrepared by: Codex research\nFinancial baseline: Q2 2026\nData retrieval date: September 10, 2026"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "5 key judgments",
+                  "bold": true,
+                  "italic": false
+                }
+              ],
+              "text": "5 key judgments"
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "1. Deliveries are the starting point.",
+                  "bold": true,
+                  "italic": false
+                },
+                {
+                  "text": "\nRevenue and profit also depend on model mix, costs and expenses.",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "1. Deliveries are the starting point.\nRevenue and profit also depend on model mix, costs and expenses."
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "2. Basis determines conclusions.",
+                  "bold": true,
+                  "italic": false
+                },
+                {
+                  "text": "\nVehicle revenue can be shown separately; segment profit includes AI and other new initiatives.",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "2. Basis determines conclusions.\nVehicle revenue can be shown separately; segment profit includes AI and other new initiatives."
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "3. The annual target sets a pace.",
+                  "bold": true,
+                  "italic": false
+                },
+                {
+                  "text": "\nBased on the 550,000-vehicle target announced in March, the required H2 monthly average is about 60,800 vehicles.",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "3. The annual target sets a pace.\nBased on the 550,000-vehicle target announced in March, the required H2 monthly average is about 60,800 vehicles."
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "4. New-model expansion needs validation.",
+                  "bold": true,
+                  "italic": false
+                },
+                {
+                  "text": "\nPre-sale, locked orders, mass production and delivery represent different stages.",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "4. New-model expansion needs validation.\nPre-sale, locked orders, mass production and delivery represent different stages."
+            },
+            {
+              "kind": "p",
+              "role": "body",
+              "runs": [
+                {
+                  "text": "5. Profit recovery depends on mix.",
+                  "bold": true,
+                  "italic": false
+                },
+                {
+                  "text": "\nRevenue scale, gross margin and expense control need to improve together.",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              "text": "5. Profit recovery depends on mix.\nRevenue scale, gross margin and expense control need to improve together."
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "kind": "p",
+      "role": "body",
+      "runs": [
+        {
+          "text": "This report is compiled from public information for corporate operating research and document showcase purposes. Scenario estimates are conditional projections; prices are kept at their respective publication dates. Vehicle business and Xiaomi Group consolidated bases are labeled separately. Full sources, methods and disclosures are on pages 9-12.",
+          "bold": false,
+          "italic": false
+        }
+      ],
+      "text": "This report is compiled from public information for corporate operating research and document showcase purposes. Scenario estimates are conditional projections; prices are kept at their respective publication dates. Vehicle business and Xiaomi Group consolidated bases are labeled separately. Full sources, methods and disclosures are on pages 9-12."
+    },
+    {
+      "kind": "p",
+      "role": "body",
+      "runs": [
+        {
+          "text": "Codex research",
+          "bold": false,
+          "italic": false
+        }
+      ],
+      "text": "Codex research"
+    },
+    {
+      "kind": "p",
+      "role": "body",
+      "runs": [],
+      "text": ""
+    }
+  ],
+  "pages": [
+    [
+      {
+        "kind": "p",
+        "role": "h1",
+        "runs": [
+          {
+            "text": "Contents",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Contents",
+        "bookmark": "toc"
+      },
+      {
+        "kind": "p",
+        "role": "toc",
+        "runs": [
+          {
+            "text": "Summary: earnings quality enters validation",
+            "bold": true,
+            "italic": false,
+            "anchor": "summary"
+          },
+          {
+            "text": "\t3",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Summary: earnings quality enters validation\t3"
+      },
+      {
+        "kind": "p",
+        "role": "toc",
+        "runs": [
+          {
+            "text": "1. Delivery scale and the annual pace",
+            "bold": true,
+            "italic": false,
+            "anchor": "delivery"
+          },
+          {
+            "text": "\t4",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "1. Delivery scale and the annual pace\t4"
+      },
+      {
+        "kind": "p",
+        "role": "toc",
+        "runs": [
+          {
+            "text": "2. Product mix: coverage and complexity",
+            "bold": true,
+            "italic": false,
+            "anchor": "products"
+          },
+          {
+            "text": "\t5",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "2. Product mix: coverage and complexity\t5"
+      },
+      {
+        "kind": "p",
+        "role": "toc",
+        "runs": [
+          {
+            "text": "3. Operating quality: margin and expenses",
+            "bold": true,
+            "italic": false,
+            "anchor": "economics"
+          },
+          {
+            "text": "\t6",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "3. Operating quality: margin and expenses\t6"
+      },
+      {
+        "kind": "p",
+        "role": "toc",
+        "runs": [
+          {
+            "text": "4. Scenarios: from targets to conditions",
+            "bold": true,
+            "italic": false,
+            "anchor": "scenarios"
+          },
+          {
+            "text": "\t7",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "4. Scenarios: from targets to conditions\t7"
+      },
+      {
+        "kind": "p",
+        "role": "toc",
+        "runs": [
+          {
+            "text": "5. Risks and catalysts: a watch list",
+            "bold": true,
+            "italic": false,
+            "anchor": "risks"
+          },
+          {
+            "text": "\t8",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "5. Risks and catalysts: a watch list\t8"
+      },
+      {
+        "kind": "p",
+        "role": "toc",
+        "runs": [
+          {
+            "text": "Appendix A: Data sources and links",
+            "bold": true,
+            "italic": false,
+            "anchor": "sources"
+          },
+          {
+            "text": "\t9",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Appendix A: Data sources and links\t9"
+      },
+      {
+        "kind": "p",
+        "role": "toc",
+        "runs": [
+          {
+            "text": "Appendix B: Methods and basis notes",
+            "bold": true,
+            "italic": false,
+            "anchor": "methods"
+          },
+          {
+            "text": "\t10",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Appendix B: Methods and basis notes\t10"
+      },
+      {
+        "kind": "p",
+        "role": "toc",
+        "runs": [
+          {
+            "text": "Glossary",
+            "bold": true,
+            "italic": false,
+            "anchor": "glossary"
+          },
+          {
+            "text": "\t11",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Glossary\t11"
+      },
+      {
+        "kind": "p",
+        "role": "toc",
+        "runs": [
+          {
+            "text": "Disclosure appendix",
+            "bold": true,
+            "italic": false,
+            "anchor": "disclosure"
+          },
+          {
+            "text": "\t12",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Disclosure appendix\t12"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Operating and financial data are mainly as of June 30, 2026; product and recall items are listed by their own announcement dates.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Operating and financial data are mainly as of June 30, 2026; product and recall items are listed by their own announcement dates."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "Reading path",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Reading path"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Start with the conclusions, then check the drivers.",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " Page 3 summarizes the research view; pages 4-6 explain deliveries, model mix and operating profit in turn; page 7 turns the annual target and profit constraints into reproducible conditions; page 8 lists the follow-up validation points.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Start with the conclusions, then check the drivers. Page 3 summarizes the research view; pages 4-6 explain deliveries, model mix and operating profit in turn; page 7 turns the annual target and profit constraints into reproducible conditions; page 8 lists the follow-up validation points."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Use the appendices to rebuild the numbers.",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " Page 9 provides clickable primary sources and page 10 gives formulas, units and boundaries. Revenue, gross margin and operating profit in the exhibits each have a defined basis, and actual data and this report's estimates are labeled separately.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Use the appendices to rebuild the numbers. Page 9 provides clickable primary sources and page 10 gives formulas, units and boundaries. Revenue, gross margin and operating profit in the exhibits each have a defined basis, and actual data and this report's estimates are labeled separately."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "Three analytical layers",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Three analytical layers"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Vehicle business:",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " Deliveries, vehicle sales revenue and vehicle ASP, used to analyze scale and model mix.\n",
+            "bold": false,
+            "italic": false
+          },
+          {
+            "text": "EV, AI and other new initiatives segment:",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " Gross profit, operating expenses and operating profit, used to observe disclosed investment and returns.\n",
+            "bold": false,
+            "italic": false
+          },
+          {
+            "text": "Xiaomi Group:",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " smartphones, AIoT and other businesses form the overall financial backdrop; group metrics are flagged separately.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Vehicle business: Deliveries, vehicle sales revenue and vehicle ASP, used to analyze scale and model mix.\nEV, AI and other new initiatives segment: Gross profit, operating expenses and operating profit, used to observe disclosed investment and returns.\nXiaomi Group: smartphones, AIoT and other businesses form the overall financial backdrop; group metrics are flagged separately."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "This report focuses on operating fundamentals; prices, orders and product status are kept at specific dates. Cross-period comparisons prefer the same-basis series from quarterly announcements, and the annual target uses the reference value management disclosed in March 2026.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "This report focuses on operating fundamentals; prices, orders and product status are kept at specific dates. Cross-period comparisons prefer the same-basis series from quarterly announcements, and the annual target uses the reference value management disclosed in March 2026."
+      }
+    ],
+    [
+      {
+        "kind": "p",
+        "role": "h1",
+        "runs": [
+          {
+            "text": "Summary: earnings quality enters validation",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Summary: earnings quality enters validation",
+        "bookmark": "summary"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Xiaomi EV has built a delivery base of real scale, and the key question for 2026 is how growth turns into stable profit. Q2 deliveries rebounded while vehicle ASP and the combined segment gross margin stayed under pressure, so volume, price mix and investment intensity need to be read together. New models open room for growth and also raise demands on supply chain, service and quality management. Later judgments should rest on consecutive quarters of deliveries, gross profit and expense results, while keeping the boundary of the combined EV and AI disclosure.",
+            "bold": true,
+            "italic": false
+          }
+        ],
+        "text": "Xiaomi EV has built a delivery base of real scale, and the key question for 2026 is how growth turns into stable profit. Q2 deliveries rebounded while vehicle ASP and the combined segment gross margin stayed under pressure, so volume, price mix and investment intensity need to be read together. New models open room for growth and also raise demands on supply chain, service and quality management. Later judgments should rest on consecutive quarters of deliveries, gross profit and expense results, while keeping the boundary of the combined EV and AI disclosure."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "I. Recovery speed determines the path to the full-year target",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "I. Recovery speed determines the path to the full-year target"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Deliveries in the four quarters of 2025 totaled 411,082 vehicles, with Q4 reaching 145,115. H1 2026 deliveries were 185,055, and Q2 grew 28.9% over Q1. Looking at H2, returning to the earlier peak and sustaining a higher monthly average represent different levels of operating demand. [S1, S3, S4]",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Deliveries in the four quarters of 2025 totaled 411,082 vehicles, with Q4 reaching 145,115. H1 2026 deliveries were 185,055, and Q2 grew 28.9% over Q1. Looking at H2, returning to the earlier peak and sustaining a higher monthly average represent different levels of operating demand. [S1, S3, S4]"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Taking the 550,000-vehicle full-year target management disclosed in March as the reference, H2 would need 364,945 deliveries, about 60,824 a month, roughly 75.1% above the Q2 monthly average. This calculation defines the pace the target requires; actual attainment still depends on demand, production and delivery coordination. See Exhibit 6.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Taking the 550,000-vehicle full-year target management disclosed in March as the reference, H2 would need 364,945 deliveries, about 60,824 a month, roughly 75.1% above the Q2 monthly average. This calculation defines the pace the target requires; actual attainment still depends on demand, production and delivery coordination. See Exhibit 6."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "II. ASP changes need to be read within the model mix",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "II. ASP changes need to be read within the model mix"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Q2 vehicle ASP was RMB 229,312, down 9.6% YoY. The company links the YoY change to a lower share of the SU7 Ultra and the QoQ change to a higher share of the new-generation SU7. The decline in average price therefore contains a mix effect; assessing the price competitiveness of a single model also requires same-configuration transaction prices and promotion information. [S1]",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Q2 vehicle ASP was RMB 229,312, down 9.6% YoY. The company links the YoY change to a lower share of the SU7 Ultra and the QoQ change to a higher share of the new-generation SU7. The decline in average price therefore contains a mix effect; assessing the price competitiveness of a single model also requires same-configuration transaction prices and promotion information. [S1]"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The more meaningful question for operating results is whether the volume from new models can cover their price structure and added costs, and whether higher-priced versions deliver a lasting contribution. Launch prices describe product positioning, while quarterly ASP is closer to the revenue structure of vehicles actually delivered.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The more meaningful question for operating results is whether the volume from new models can cover their price structure and added costs, and whether higher-priced versions deliver a lasting contribution. Launch prices describe product positioning, while quarterly ASP is closer to the revenue structure of vehicles actually delivered."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "III. Segment profit recovery needs gross profit and expenses to work together",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "III. Segment profit recovery needs gross profit and expenses to work together"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Q2 gross margin for the EV, AI and other new initiatives segment was 19.2%, with an operating loss of about RMB 2.6 billion. Compared with Q1, the recovery in deliveries and revenue brought higher gross profit, but expenses remain elevated. The segment earned an operating profit of about RMB 0.9 billion for full-year 2025, showing that profitability is sensitive to scale, mix and the timing of investment. [S1, S3, S4]",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Q2 gross margin for the EV, AI and other new initiatives segment was 19.2%, with an operating loss of about RMB 2.6 billion. Compared with Q1, the recovery in deliveries and revenue brought higher gross profit, but expenses remain elevated. The segment earned an operating profit of about RMB 0.9 billion for full-year 2025, showing that profitability is sensitive to scale, mix and the timing of investment. [S1, S3, S4]"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "In a static model with fixed quarterly expenses, a change in either revenue or gross margin alone can move profit; real operations also include changes in new-model development, channel investment and AI R&D. This report shows the sensitivity to both revenue and gross margin in Exhibit 7, to avoid treating any single volume threshold as a profit promise.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "In a static model with fixed quarterly expenses, a change in either revenue or gross margin alone can move profit; real operations also include changes in new-model development, channel investment and AI R&D. This report shows the sensitivity to both revenue and gross margin in Exhibit 7, to avoid treating any single volume threshold as a profit promise."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "IV. Quality and service are essential capabilities once scale expands",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "IV. Quality and service are essential capabilities once scale expands"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The 2025 driver-assistance recall and the 2026 in-car emergency mechanical door handle recall, both published by regulators, concern software scenario capability and emergency-operation recognition respectively. Follow-up should track recall execution, remedial measures and service capacity, and read different batches and defect scopes separately. [S8, S9a, S9b]",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The 2025 driver-assistance recall and the 2026 in-car emergency mechanical door handle recall, both published by regulators, concern software scenario capability and emergency-operation recognition respectively. Follow-up should track recall execution, remedial measures and service capacity, and read different batches and defect scopes separately. [S8, S9a, S9b]"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Upgrade signals for the research view are delivery growth and a stable gross margin occurring together, a falling segment expense ratio, and product and service issues being closed out consistently. If volume relies mainly on low-priced mix and expenses keep growing faster than gross profit, profit improvement may lag delivery improvement. These judgments are this report's own analysis.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Upgrade signals for the research view are delivery growth and a stable gross margin occurring together, a falling segment expense ratio, and product and service issues being closed out consistently. If volume relies mainly on low-priced mix and expenses keep growing faster than gross profit, profit improvement may lag delivery improvement. These judgments are this report's own analysis."
+      }
+    ],
+    [
+      {
+        "kind": "p",
+        "role": "h1",
+        "runs": [
+          {
+            "text": "1. Delivery scale and the annual pace",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "1. Delivery scale and the annual pace",
+        "bookmark": "delivery"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Quarterly deliveries reflect demand, supply and product changeovers together.",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " Reading half-year totals alongside single-quarter peaks separates a temporary recovery from sustained growth capacity. Exhibit 1 shows the six-quarter series from company announcements.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Quarterly deliveries reflect demand, supply and product changeovers together. Reading half-year totals alongside single-quarter peaks separates a temporary recovery from sustained growth capacity. Exhibit 1 shows the six-quarter series from company announcements."
+      },
+      {
+        "kind": "p",
+        "role": "caption",
+        "runs": [
+          {
+            "text": "Exhibit 1: Q2 2026 deliveries rebounded but remain below the prior year-end peak",
+            "bold": true,
+            "italic": false
+          }
+        ],
+        "text": "Exhibit 1: Q2 2026 deliveries rebounded but remain below the prior year-end peak",
+        "bookmark": "exhibit1"
+      },
+      {
+        "kind": "image",
+        "role": "body",
+        "runs": [],
+        "text": "",
+        "file": "image1.png"
+      },
+      {
+        "kind": "p",
+        "role": "source",
+        "runs": [
+          {
+            "text": "Source: Xiaomi quarterly and annual results announcements [S1, S3-S6]; converted to thousand vehicles by this report.",
+            "bold": false,
+            "italic": true
+          }
+        ],
+        "text": "Source: Xiaomi quarterly and annual results announcements [S1, S3-S6]; converted to thousand vehicles by this report."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "1.1 The model changeover explains part of the volatility",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "1.1 The model changeover explains part of the volatility"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Q1 2026 deliveries were 80,856; the company cited the end of first-generation SU7 sales and the product transition. The new-generation SU7 launched in March, and Q2 deliveries recovered to 104,199. The company's order-lock and cumulative delivery figures use their own cut-off dates and should be kept separate in research, so that the conversion from demand to fulfillment can be observed. [S1, S3, S7]",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Q1 2026 deliveries were 80,856; the company cited the end of first-generation SU7 sales and the product transition. The new-generation SU7 launched in March, and Q2 deliveries recovered to 104,199. The company's order-lock and cumulative delivery figures use their own cut-off dates and should be kept separate in research, so that the conversion from demand to fulfillment can be observed. [S1, S3, S7]"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The low Q1 base helps the QoQ recovery in Q2, but YoY, QoQ and two-year cumulative figures answer different questions. YoY growth reflects scale expansion against the same quarter last year; the QoQ recovery reflects short-term pace; comparison with the Q4 peak reflects the delivery level production and channels have previously reached.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The low Q1 base helps the QoQ recovery in Q2, but YoY, QoQ and two-year cumulative figures answer different questions. YoY growth reflects scale expansion against the same quarter last year; the QoQ recovery reflects short-term pace; comparison with the Q4 peak reflects the delivery level production and channels have previously reached."
+      },
+      {
+        "kind": "p",
+        "role": "caption",
+        "runs": [
+          {
+            "text": "Exhibit 2: Three comparison bases describe the extent of the Q2 recovery",
+            "bold": true,
+            "italic": false
+          }
+        ],
+        "text": "Exhibit 2: Three comparison bases describe the extent of the Q2 recovery",
+        "bookmark": "exhibit2"
+      },
+      {
+        "kind": "table",
+        "widths": [
+          3288,
+          1814,
+          4309
+        ],
+        "rows": [
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Comparison",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Comparison"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Result",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Result"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Operating meaning",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Operating meaning"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "2026Q2 vs 2026Q1",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "2026Q2 vs 2026Q1"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "+28.9%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "+28.9%"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Quarterly deliveries rebound after the changeover",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Quarterly deliveries rebound after the changeover"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "2026Q2 vs 2025Q2",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "2026Q2 vs 2025Q2"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "+28.2%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "+28.2%"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Scale expanded versus a year earlier",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Scale expanded versus a year earlier"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "2026Q2 vs 2025Q4",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "2026Q2 vs 2025Q4"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "−28.2%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "−28.2%"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Still short of the prior year-end peak",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Still short of the prior year-end peak"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "2026H1 / 550,000 reference target",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "2026H1 / 550,000 reference target"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "33.6%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "33.6%"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "H2 must carry a larger share of deliveries",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "H2 must carry a larger share of deliveries"
+              }
+            ]
+          ]
+        ]
+      },
+      {
+        "kind": "p",
+        "role": "source",
+        "runs": [
+          {
+            "text": "Source: [S1, S3, S4]; calculated by this report. 550,000 vehicles is the target disclosed in March 2026.",
+            "bold": false,
+            "italic": true
+          }
+        ],
+        "text": "Source: [S1, S3, S4]; calculated by this report. 550,000 vehicles is the target disclosed in March 2026."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "1.2 Separating delivery bottlenecks explains the speed of growth",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "1.2 Separating delivery bottlenecks explains the speed of growth"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "On the demand side, watch new orders, cancellations and wait times by model and version; on the supply side, watch key components and production changeovers; on the fulfillment side, watch vehicle transport, store handover and after-sales readiness. The company's delivery announcements give the outcome, while operating attribution still needs more matching evidence.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "On the demand side, watch new orders, cancellations and wait times by model and version; on the supply side, watch key components and production changeovers; on the fulfillment side, watch vehicle transport, store handover and after-sales readiness. The company's delivery announcements give the outcome, while operating attribution still needs more matching evidence."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Simply annualizing the Q2 pace gives about 416,800 vehicles. This is an arithmetic benchmark for the running rate; seasonality, new-product ramp-up and promotion cadence will all change the H2 trajectory. Page 7 therefore compares several full-year delivery conditions.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Simply annualizing the Q2 pace gives about 416,800 vehicles. This is an arithmetic benchmark for the running rate; seasonality, new-product ramp-up and promotion cadence will all change the H2 trajectory. Page 7 therefore compares several full-year delivery conditions."
+      }
+    ],
+    [
+      {
+        "kind": "p",
+        "role": "h1",
+        "runs": [
+          {
+            "text": "2. Product mix: coverage and complexity",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "2. Product mix: coverage and complexity",
+        "bookmark": "products"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "More models can widen customer coverage, but the value of the product mix ultimately shows up in deliveries and gross profit.",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " Xiaomi has extended from the SU7 sedan to the YU7 SUV and announced new pre-sale products. The table below keeps the official release milestones; prices are the launch or pre-sale prices of the respective versions.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "More models can widen customer coverage, but the value of the product mix ultimately shows up in deliveries and gross profit. Xiaomi has extended from the SU7 sedan to the YU7 SUV and announced new pre-sale products. The table below keeps the official release milestones; prices are the launch or pre-sale prices of the respective versions."
+      },
+      {
+        "kind": "p",
+        "role": "caption",
+        "runs": [
+          {
+            "text": "Exhibit 3: Key product milestones and public prices, by disclosure date",
+            "bold": true,
+            "italic": false
+          }
+        ],
+        "text": "Exhibit 3: Key product milestones and public prices, by disclosure date",
+        "bookmark": "exhibit3"
+      },
+      {
+        "kind": "table",
+        "widths": [
+          2551,
+          1984,
+          2324,
+          2551
+        ],
+        "rows": [
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Product / version",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Product / version"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Price (RMB)",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Price (RMB)"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Public status",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Public status"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Analytical focus",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Analytical focus"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "New-generation SU7\nStandard / Pro / Max",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "New-generation SU7\nStandard / Pro / Max"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "21.99 / 24.99 / 30.39",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "21.99 / 24.99 / 30.39"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Launched 2026-03-19",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Launched 2026-03-19"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Generation changeover, version mix",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Generation changeover, version mix"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "YU7 new Standard",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "YU7 new Standard"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "23.35",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "23.35"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Launched 2026-05-21",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Launched 2026-05-21"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "New price coverage and demand conversion",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "New price coverage and demand conversion"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "YU7 GT",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "YU7 GT"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "38.99",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "38.99"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Launched 2026-05-21",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Launched 2026-05-21"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Contribution of the high-priced performance version",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Contribution of the high-priced performance version"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "SkyNomad N70 Max",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "SkyNomad N70 Max"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "25.99",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "25.99"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Pre-sale as of 2026-08-18",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Pre-sale as of 2026-08-18"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Mass-production delivery of the five-seat EREV",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Mass-production delivery of the five-seat EREV"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "SkyNomad N90 Max",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "SkyNomad N90 Max"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "29.99",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "29.99"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Pre-sale as of 2026-08-18",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Pre-sale as of 2026-08-18"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Customer coverage of the seven-seat EREV",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Customer coverage of the seven-seat EREV"
+              }
+            ]
+          ]
+        ]
+      },
+      {
+        "kind": "p",
+        "role": "source",
+        "runs": [
+          {
+            "text": "Source: Xiaomi official releases and results announcements [S1-S3, S7]. Configurations, discounts and final prices are subject to each latest sales document; pre-sale materials state a launch expected in September 2026.",
+            "bold": false,
+            "italic": true
+          }
+        ],
+        "text": "Source: Xiaomi official releases and results announcements [S1-S3, S7]. Configurations, discounts and final prices are subject to each latest sales document; pre-sale materials state a launch expected in September 2026."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "2.1 Price-band coverage and revenue mix need to be analyzed together",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "2.1 Price-band coverage and revenue mix need to be analyzed together"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The new-generation SU7 and the new YU7 versions cover adjacent price bands, which helps meet different body-style preferences. Higher-priced versions such as the YU7 GT may contribute more revenue, but their volume, gross margin and effect on core models need to be confirmed by quarterly results. Product positioning and brand attention can create demand leads; the actual value depends on transactions and fulfillment.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The new-generation SU7 and the new YU7 versions cover adjacent price bands, which helps meet different body-style preferences. Higher-priced versions such as the YU7 GT may contribute more revenue, but their volume, gross margin and effect on core models need to be confirmed by quarterly results. Product positioning and brand attention can create demand leads; the actual value depends on transactions and fulfillment."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Quarterly ASP is the average result of the delivered model mix. For example, when the share of higher-priced versions falls, overall ASP can decline even if each version's own price is stable. To identify the effect of promotions, check same-configuration transaction prices, financing offers, option benefits and the delivered version mix; inferring a price cut across the lineup from changes in the starting price alone would mix these factors.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Quarterly ASP is the average result of the delivered model mix. For example, when the share of higher-priced versions falls, overall ASP can decline even if each version's own price is stable. To identify the effect of promotions, check same-configuration transaction prices, financing offers, option benefits and the delivered version mix; inferring a price cut across the lineup from changes in the starting price alone would mix these factors."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "2.2 A multi-model lineup places higher demands on production and service",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "2.2 A multi-model lineup places higher demands on production and service"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Sedans, SUVs and new powertrain types extend user scenarios, but also add parts variety, production scheduling, spare-parts supply and service training requirements. Growth quality depends on sharing efficiency across models and on whether the added complexity is absorbed by processes and capabilities. Research on new products should follow pre-sale progress through to mass-production stability and post-delivery service feedback.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Sedans, SUVs and new powertrain types extend user scenarios, but also add parts variety, production scheduling, spare-parts supply and service training requirements. Growth quality depends on sharing efficiency across models and on whether the added complexity is absorbed by processes and capabilities. Research on new products should follow pre-sale progress through to mass-production stability and post-delivery service feedback."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The company disclosed that as of March 31, 2026 its automotive sales network had 490 stores covering 143 cities. This scale shows that channel coverage has a base; the store count still needs to be read together with delivery efficiency, after-sales capacity and regional demand. These network figures are as of the end of Q1. [S3]",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The company disclosed that as of March 31, 2026 its automotive sales network had 490 stores covering 143 cities. This scale shows that channel coverage has a base; the store count still needs to be read together with delivery efficiency, after-sales capacity and regional demand. These network figures are as of the end of Q1. [S3]"
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "2.3 The commercial value of ecosystem synergy needs quantifiable evidence",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "2.3 The commercial value of ecosystem synergy needs quantifiable evidence"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The experience link between phones, cars and home devices forms Xiaomi's differentiation narrative. Its commercial return can be measured by lead conversion, customer acquisition cost, user retention and service revenue. Group user numbers describe ecosystem reach, while the actual car-buying population and paid service behavior determine conversion. This report treats ecosystem synergy as a growth mechanism to be validated, kept separate from confirmed vehicle revenue.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The experience link between phones, cars and home devices forms Xiaomi's differentiation narrative. Its commercial return can be measured by lead conversion, customer acquisition cost, user retention and service revenue. Group user numbers describe ecosystem reach, while the actual car-buying population and paid service behavior determine conversion. This report treats ecosystem synergy as a growth mechanism to be validated, kept separate from confirmed vehicle revenue."
+      }
+    ],
+    [
+      {
+        "kind": "p",
+        "role": "h1",
+        "runs": [
+          {
+            "text": "3. Operating quality: margin and expenses",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "3. Operating quality: margin and expenses",
+        "bookmark": "economics"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Vehicle revenue and segment profit use different disclosure boundaries.",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " Vehicle ASP reflects the sales mix; segment gross margin also includes AI and other new initiatives. The two series can be read together to observe operating changes, while attribution must keep each basis.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Vehicle revenue and segment profit use different disclosure boundaries. Vehicle ASP reflects the sales mix; segment gross margin also includes AI and other new initiatives. The two series can be read together to observe operating changes, while attribution must keep each basis."
+      },
+      {
+        "kind": "p",
+        "role": "caption",
+        "runs": [
+          {
+            "text": "Exhibit 4: Vehicle ASP has fallen from its Q3 2025 peak",
+            "bold": true,
+            "italic": false
+          }
+        ],
+        "text": "Exhibit 4: Vehicle ASP has fallen from its Q3 2025 peak",
+        "bookmark": "exhibit4"
+      },
+      {
+        "kind": "image",
+        "role": "body",
+        "runs": [],
+        "text": "",
+        "file": "image2.png"
+      },
+      {
+        "kind": "p",
+        "role": "source",
+        "runs": [
+          {
+            "text": "Source: Xiaomi results announcements [S1, S3-S6]. ASP is on a vehicle basis; the exact series is in Appendix B.",
+            "bold": false,
+            "italic": true
+          }
+        ],
+        "text": "Source: Xiaomi results announcements [S1, S3-S6]. ASP is on a vehicle basis; the exact series is in Appendix B."
+      },
+      {
+        "kind": "p",
+        "role": "caption",
+        "runs": [
+          {
+            "text": "Exhibit 5: Combined segment gross margin fell from 26.4% in 2025Q2 to 19.2% in 2026Q2",
+            "bold": true,
+            "italic": false
+          }
+        ],
+        "text": "Exhibit 5: Combined segment gross margin fell from 26.4% in 2025Q2 to 19.2% in 2026Q2",
+        "bookmark": "exhibit5"
+      },
+      {
+        "kind": "image",
+        "role": "body",
+        "runs": [],
+        "text": "",
+        "file": "image3.png"
+      },
+      {
+        "kind": "p",
+        "role": "source",
+        "runs": [
+          {
+            "text": "Source: Xiaomi results announcements [S1, S3-S6]. Combined EV, AI and other new initiatives segment basis.",
+            "bold": false,
+            "italic": true
+          }
+        ],
+        "text": "Source: Xiaomi results announcements [S1, S3-S6]. Combined EV, AI and other new initiatives segment basis."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "3.1 Higher volume and lower prices together shape revenue",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "3.1 Higher volume and lower prices together shape revenue"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Q2 deliveries rose 28.2% YoY and vehicle revenue rose 15.9% YoY. Factors the company cites include a lower share of the SU7 Ultra, product mix changes and higher costs for some components. The 9.6% YoY ASP decline, together with the delivery change, explains why revenue growth was lower than volume growth. [S1]",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Q2 deliveries rose 28.2% YoY and vehicle revenue rose 15.9% YoY. Factors the company cites include a lower share of the SU7 Ultra, product mix changes and higher costs for some components. The 9.6% YoY ASP decline, together with the delivery change, explains why revenue growth was lower than volume growth. [S1]"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Q2 segment gross profit was about RMB 4.79 billion and operating expenses about RMB 7.4 billion, producing an operating loss of about RMB 2.6 billion. The loss reflects the combined result of EV, AI and other new initiatives. Deriving a per-model profit or a “loss per car” from it would spread different business investments over deliveries and depart from the disclosed basis. [S1]",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Q2 segment gross profit was about RMB 4.79 billion and operating expenses about RMB 7.4 billion, producing an operating loss of about RMB 2.6 billion. The loss reflects the combined result of EV, AI and other new initiatives. Deriving a per-model profit or a “loss per car” from it would spread different business investments over deliveries and depart from the disclosed basis. [S1]"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The key to profit recovery is whether the gross profit from added revenue can cover added expenses. Single-quarter product mix, R&D timing and delivery cadence all affect the result; persistence needs multi-quarter data to verify. Page 7 provides a sensitivity analysis at fixed expenses.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The key to profit recovery is whether the gross profit from added revenue can cover added expenses. Single-quarter product mix, R&D timing and delivery cadence all affect the result; persistence needs multi-quarter data to verify. Page 7 provides a sensitivity analysis at fixed expenses."
+      }
+    ],
+    [
+      {
+        "kind": "p",
+        "role": "h1",
+        "runs": [
+          {
+            "text": "4. Scenarios: from targets to conditions",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "4. Scenarios: from targets to conditions",
+        "bookmark": "scenarios"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "This section uses conditional projections; ",
+            "bold": false,
+            "italic": false
+          },
+          {
+            "text": "all scenarios are set by this report and assigned no probability",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": ". The delivery estimates show the H2 pace needed to reach different full-year volumes; the profit estimates use the combined segment basis, and fixed expenses only isolate the variable.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "This section uses conditional projections; all scenarios are set by this report and assigned no probability. The delivery estimates show the H2 pace needed to reach different full-year volumes; the profit estimates use the combined segment basis, and fixed expenses only isolate the variable."
+      },
+      {
+        "kind": "p",
+        "role": "caption",
+        "runs": [
+          {
+            "text": "Exhibit 6: H2 monthly average required under each full-year delivery condition",
+            "bold": true,
+            "italic": false
+          }
+        ],
+        "text": "Exhibit 6: H2 monthly average required under each full-year delivery condition",
+        "bookmark": "exhibit6"
+      },
+      {
+        "kind": "table",
+        "widths": [
+          2665,
+          2211,
+          2154,
+          2381
+        ],
+        "rows": [
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Full-year deliveries",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Full-year deliveries"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "H2 deliveries needed",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "H2 deliveries needed"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "H2 monthly average",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "H2 monthly average"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "vs 2026Q2 monthly avg.",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "vs 2026Q2 monthly avg."
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "450,000",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "450,000"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "264,945",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "264,945"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "44,158",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "44,158"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "+27.1%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "+27.1%"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "500,000",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "500,000"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "314,945",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "314,945"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "52,491",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "52,491"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "+51.1%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "+51.1%"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "550,000 (March target)",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "550,000 (March target)"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "364,945",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "364,945"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "60,824",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "60,824"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "+75.1%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "+75.1%"
+              }
+            ]
+          ]
+        ]
+      },
+      {
+        "kind": "p",
+        "role": "source",
+        "runs": [
+          {
+            "text": "Source: [S1, S3, S4]; calculated by this report. Figures are in vehicles. H1 deliveries were 185,055; the 2026Q2 monthly average was 34,733.",
+            "bold": false,
+            "italic": true
+          }
+        ],
+        "text": "Source: [S1, S3, S4]; calculated by this report. Figures are in vehicles. H1 deliveries were 185,055; the 2026Q2 monthly average was 34,733."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "4.1 Test growth assumptions against the required pace",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "4.1 Test growth assumptions against the required pace"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Even if the full year reaches 450,000 vehicles, the H2 monthly average must still rise about 27% above Q2. Against the 550,000 reference, a more marked and sustained acceleration is required. Validation should check deliveries of new models, stability of existing models and capacity utilization together, and distinguish a short-term push from a sustainable run rate.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Even if the full year reaches 450,000 vehicles, the H2 monthly average must still rise about 27% above Q2. Against the 550,000 reference, a more marked and sustained acceleration is required. Validation should check deliveries of new models, stability of existing models and capacity utilization together, and distinguish a short-term push from a sustainable run rate."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "A management target is a corporate operating plan; this report's scenarios are arithmetic comparisons. Treating a target directly as a forecast would omit the uncertainty of demand, supply and ramp-up. When a new full-year target or actual delivery data appears, the baseline should be updated with the new disclosure.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "A management target is a corporate operating plan; this report's scenarios are arithmetic comparisons. Treating a target directly as a forecast would omit the uncertainty of demand, supply and ramp-up. When a new full-year target or actual delivery data appears, the baseline should be updated with the new disclosure."
+      },
+      {
+        "kind": "p",
+        "role": "caption",
+        "runs": [
+          {
+            "text": "Exhibit 7: Segment operating profit (RMB bn) vs revenue and gross margin, fixed quarterly expenses of RMB 7.4 bn",
+            "bold": true,
+            "italic": false
+          }
+        ],
+        "text": "Exhibit 7: Segment operating profit (RMB bn) vs revenue and gross margin, fixed quarterly expenses of RMB 7.4 bn",
+        "bookmark": "exhibit7"
+      },
+      {
+        "kind": "table",
+        "widths": [
+          2608,
+          2268,
+          2268,
+          2268
+        ],
+        "rows": [
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Quarterly segment revenue (RMB bn)",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Quarterly segment revenue (RMB bn)"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Gross margin 18%",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Gross margin 18%"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Gross margin 21%",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Gross margin 21%"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Gross margin 24%",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Gross margin 24%"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "25.0",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "25.0"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "-2.90",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "-2.90"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "-2.15",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "-2.15"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "-1.40",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "-1.40"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "30.0",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "30.0"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "-2.00",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "-2.00"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "-1.10",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "-1.10"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "-0.20",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "-0.20"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "35.0",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "35.0"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "-1.10",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "-1.10"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "-0.05",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "-0.05"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "1.00",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "1.00"
+              }
+            ]
+          ]
+        ]
+      },
+      {
+        "kind": "p",
+        "role": "source",
+        "runs": [
+          {
+            "text": "Source: conditional projection by this report; formula is segment revenue x gross margin - operating expenses. The expense base refers to the approximate quarterly figure in [S1] and covers EV, AI and other new initiatives.",
+            "bold": false,
+            "italic": true
+          }
+        ],
+        "text": "Source: conditional projection by this report; formula is segment revenue x gross margin - operating expenses. The expense base refers to the approximate quarterly figure in [S1] and covers EV, AI and other new initiatives."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "4.2 Revenue growth and margin improvement can complement each other",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "4.2 Revenue growth and margin improvement can complement each other"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Under a static condition of a 19.2% gross margin and fixed expenses of RMB 7.4 billion, quarterly segment revenue would need to reach about RMB 38.54 billion to approach operating break-even. With a 24% gross margin, the same expenses imply revenue of about RMB 30.83 billion. This gap shows that the path to profit depends on the combination of quality and scale.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Under a static condition of a 19.2% gross margin and fixed expenses of RMB 7.4 billion, quarterly segment revenue would need to reach about RMB 38.54 billion to approach operating break-even. With a 24% gross margin, the same expenses imply revenue of about RMB 30.83 billion. This gap shows that the path to profit depends on the combination of quality and scale."
+      },
+      {
+        "kind": "p",
+        "role": "equation",
+        "runs": [
+          {
+            "text": "Static breakeven revenue\t",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "R = O / g = 7.4 / 19.2% ≈ RMB 38.54 billion",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Static breakeven revenue\tR = O / g = 7.4 / 19.2% ≈ RMB 38.54 billion"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Actual expenses may change with new models, AI investment and channel expansion, and gross margin moves with product mix and costs. The revenue thresholds above are only for understanding the relationships; converting combined segment revenue directly into vehicle volume needs additional assumptions about the vehicle share of revenue and cost boundaries.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Actual expenses may change with new models, AI investment and channel expansion, and gross margin moves with product mix and costs. The revenue thresholds above are only for understanding the relationships; converting combined segment revenue directly into vehicle volume needs additional assumptions about the vehicle share of revenue and cost boundaries."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Operating judgment should use a quarter-by-quarter bridge of “actual revenue - actual gross profit - actual expenses”, while valuation also needs cash flow, long-term investment and balance sheet information. This report stays within operating analysis and sets no stock target price.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Operating judgment should use a quarter-by-quarter bridge of “actual revenue - actual gross profit - actual expenses”, while valuation also needs cash flow, long-term investment and balance sheet information. This report stays within operating analysis and sets no stock target price."
+      }
+    ],
+    [
+      {
+        "kind": "p",
+        "role": "h1",
+        "runs": [
+          {
+            "text": "5. Risks and catalysts: a watch list",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "5. Risks and catalysts: a watch list",
+        "bookmark": "risks"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Risk observations should map to operating metrics and follow-up actions. Product expansion and delivery growth offer upside, while price competition, cost pressure and service capacity determine whether growth is retained as profit. The items below separate evidence from results still to be validated.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Risk observations should map to operating metrics and follow-up actions. Product expansion and delivery growth offer upside, while price competition, cost pressure and service capacity determine whether growth is retained as profit. The items below separate evidence from results still to be validated."
+      },
+      {
+        "kind": "p",
+        "role": "caption",
+        "runs": [
+          {
+            "text": "Exhibit 8: Operating watch list: turning events into validation metrics",
+            "bold": true,
+            "italic": false
+          }
+        ],
+        "text": "Exhibit 8: Operating watch list: turning events into validation metrics",
+        "bookmark": "exhibit8"
+      },
+      {
+        "kind": "table",
+        "widths": [
+          1701,
+          3515,
+          4195
+        ],
+        "rows": [
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Watch item",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Watch item"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Evidence / status",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Evidence / status"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "What to validate next",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "What to validate next"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Delivery recovery",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Delivery recovery"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "2026Q2 deliveries of 104,199",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "2026Q2 deliveries of 104,199"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Whether the faster pace is sustained; how the model mix changes",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Whether the faster pace is sustained; how the model mix changes"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Volume and price",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Volume and price"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "2026Q2 vehicle ASP of RMB 229,312",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "2026Q2 vehicle ASP of RMB 229,312"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Transaction prices of core versions, discounts and share of high-priced versions",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Transaction prices of core versions, discounts and share of high-priced versions"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Segment profitability",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Segment profitability"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "2026Q2 gross margin 19.2%; operating loss of about RMB 2.6 billion",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "2026Q2 gross margin 19.2%; operating loss of about RMB 2.6 billion"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Whether gross profit growth can exceed expense growth",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Whether gross profit growth can exceed expense growth"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "New-product delivery",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "New-product delivery"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Pre-sale information announced for new products",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Pre-sale information announced for new products"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Three milestones: formal launch, mass production, delivery",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Three milestones: formal launch, mass production, delivery"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Service capacity",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Service capacity"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "490 sales stores at end of 2026Q1",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "490 sales stores at end of 2026Q1"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Regional delivery efficiency, repair wait times and spare-parts availability",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Regional delivery efficiency, repair wait times and spare-parts availability"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Recall execution",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Recall execution"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Designated-batch recalls in 2025 and 2026",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Designated-batch recalls in 2025 and 2026"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Notification coverage, repair completion and new product improvements",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "Notification coverage, repair completion and new product improvements"
+              }
+            ]
+          ]
+        ]
+      },
+      {
+        "kind": "p",
+        "role": "source",
+        "runs": [
+          {
+            "text": "Source: Xiaomi announcements [S1-S3], regulator announcements [S8, S9a, S9b]; the right-hand column is this report's observation framework.",
+            "bold": false,
+            "italic": true
+          }
+        ],
+        "text": "Source: Xiaomi announcements [S1-S3], regulator announcements [S8, S9a, S9b]; the right-hand column is this report's observation framework."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "5.1 Each recall relates to a specific product and defect",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "5.1 Each recall relates to a specific product and defect"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The official announcement of September 2025 covered 116,887 designated-batch SU7 Standard vehicles; the defect relates to the recognition, warning or handling capability of highway navigation-assisted driving in some scenarios, and the remedy was an OTA software upgrade. Analysis should center on the announced defect and the effect of the fix. [S8]",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The official announcement of September 2025 covered 116,887 designated-batch SU7 Standard vehicles; the defect relates to the recognition, warning or handling capability of highway navigation-assisted driving in some scenarios, and the remedy was an OTA software upgrade. Analysis should center on the announced defect and the effect of the fix. [S8]"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The two filings of August 21, 2026 cover 339,069 and 51,366 vehicles respectively, 390,435 in total. The announcements note that the recognition and operation of the in-car emergency mechanical door handle pose a safety risk; the remedies include adding warning labels and optimizing the central-screen unlock and window-lowering strategy. The producer entity and vehicle scope of each announcement are listed separately. [S9a, S9b]",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The two filings of August 21, 2026 cover 339,069 and 51,366 vehicles respectively, 390,435 in total. The announcements note that the recognition and operation of the in-car emergency mechanical door handle pose a safety risk; the remedies include adding warning labels and optimizing the central-screen unlock and window-lowering strategy. The producer entity and vehicle scope of each announcement are listed separately. [S9a, S9b]"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Recalls in different years may cover some of the same vehicles, so adding numbers across years would double count. Recall size helps in understanding the handling workload and cannot by itself imply an accident rate. At the operating level, track repair execution, customer outreach, product improvements and the service resources committed.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Recalls in different years may cover some of the same vehicles, so adding numbers across years would double count. Recall size helps in understanding the handling workload and cannot by itself imply an accident rate. At the operating level, track repair execution, customer outreach, product improvements and the service resources committed."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "5.2 Triggers for upgrading and downgrading the view",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "5.2 Triggers for upgrading and downgrading the view"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Upgrade conditions:",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " consecutive quarters of delivery growth with a stable gross margin and segment expenses growing more slowly than gross profit; new products moving smoothly from pre-sale to stable delivery; service capacity able to absorb the added vehicle fleet. Together these strengthen the credibility of profit recovery.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Upgrade conditions: consecutive quarters of delivery growth with a stable gross margin and segment expenses growing more slowly than gross profit; new products moving smoothly from pre-sale to stable delivery; service capacity able to absorb the added vehicle fleet. Together these strengthen the credibility of profit recovery."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Downgrade conditions:",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " growth relying mainly on a low-priced mix with rising costs, added expenses consuming the gross profit improvement, or persistent delays in mass production, delivery or service. If these occur, operating assumptions should be adjusted first, and the full-year revenue and profit scenarios updated afterwards.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Downgrade conditions: growth relying mainly on a low-priced mix with rising costs, added expenses consuming the gross profit improvement, or persistent delays in mass production, delivery or service. If these occur, operating assumptions should be adjusted first, and the full-year revenue and profit scenarios updated afterwards."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The Group ecosystem and brand can support customer reach, while the long-term competitiveness of the vehicle business still has to show up in product quality, cost efficiency and sustained cash returns. The watch list gives continuous tracking a single basis, and judgments are updated as new evidence arrives.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The Group ecosystem and brand can support customer reach, while the long-term competitiveness of the vehicle business still has to show up in product quality, cost efficiency and sustained cash returns. The watch list gives continuous tracking a single basis, and judgments are updated as new evidence arrives."
+      }
+    ],
+    [
+      {
+        "kind": "p",
+        "role": "h1",
+        "runs": [
+          {
+            "text": "Appendix A: Data sources and links",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Appendix A: Data sources and links",
+        "bookmark": "sources"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Core operating data come from Xiaomi investor relations announcements, product information from official release materials, and recall items from regulators. The links below open the corresponding files directly; the data retrieval date is September 10, 2026.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Core operating data come from Xiaomi investor relations announcements, product information from official release materials, and recall items from regulators. The links below open the corresponding files directly; the data retrieval date is September 10, 2026."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "[S1] Xiaomi Corporation: Q2 and interim 2026 results announcement",
+            "bold": true,
+            "italic": false,
+            "url": "https://ir.mi.com/static-files/4a85fc36-8a6d-4c24-b45b-b18d5d162e6c"
+          }
+        ],
+        "text": "[S1] Xiaomi Corporation: Q2 and interim 2026 results announcement"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Date / period: 2026-08-18. Pages 6, 10-14, 18, 20-22, 36. Quarterly deliveries, vehicle revenue, ASP, combined segment gross profit and operating expenses; interim financial data are unaudited and reviewed.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Date / period: 2026-08-18. Pages 6, 10-14, 18, 20-22, 36. Quarterly deliveries, vehicle revenue, ASP, combined segment gross profit and operating expenses; interim financial data are unaudited and reviewed."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "[S2] Xiaomi Corporation: Q2 2026 results presentation",
+            "bold": true,
+            "italic": false,
+            "url": "https://ir.mi.com/static-files/20793a18-42e5-43d1-9f2b-aad269cefcd4"
+          }
+        ],
+        "text": "[S2] Xiaomi Corporation: Q2 2026 results presentation"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Date / period: 2026-08-18. Product progress and SkyNomad series pre-sale materials; pre-sale prices and expected launch dates are kept at the announcement date.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Date / period: 2026-08-18. Product progress and SkyNomad series pre-sale materials; pre-sale prices and expected launch dates are kept at the announcement date."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "[S3] Xiaomi Corporation: Q1 2026 results announcement",
+            "bold": true,
+            "italic": false,
+            "url": "https://ir.mi.com/static-files/098acc43-1b58-4d1b-b375-9ea25f35477b"
+          }
+        ],
+        "text": "[S3] Xiaomi Corporation: Q1 2026 results announcement"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Date / period: 2026-05-26. Pages 6-7, 13, 21, etc. Q1 deliveries and segment metrics, YU7 new version and GT launch information, sales network.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Date / period: 2026-05-26. Pages 6-7, 13, 21, etc. Q1 deliveries and segment metrics, YU7 new version and GT launch information, sales network."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "[S4] Xiaomi Corporation: Full-year and Q4 2025 results announcement",
+            "bold": true,
+            "italic": false,
+            "url": "https://ir.mi.com/system/files-encrypted/nasdaq_kms/assets/2026/03/24/5-35-03/25Q4%20EN%20AC%20Xiaomi.pdf"
+          }
+        ],
+        "text": "[S4] Xiaomi Corporation: Full-year and Q4 2025 results announcement"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Date / period: 2026-03-24. Pages 8, 13, 21, 30, etc. Full-year deliveries, vehicle revenue, segment operating profit, the 550,000 target for 2026.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Date / period: 2026-03-24. Pages 8, 13, 21, 30, etc. Full-year deliveries, vehicle revenue, segment operating profit, the 550,000 target for 2026."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "[S5] Xiaomi Corporation: Q3 2025 results announcement",
+            "bold": true,
+            "italic": false,
+            "url": "https://ir.mi.com/static-files/e4830480-8ce9-45f8-a09d-64e40b2bdfac"
+          }
+        ],
+        "text": "[S5] Xiaomi Corporation: Q3 2025 results announcement"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Date / period: 2025-Q3. Pages 6, 11, 13-14, etc. Quarterly deliveries, ASP, segment gross margin and the first quarterly operating profit.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Date / period: 2025-Q3. Pages 6, 11, 13-14, etc. Quarterly deliveries, ASP, segment gross margin and the first quarterly operating profit."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "[S6] Xiaomi Corporation: Q2 2025 results announcement",
+            "bold": true,
+            "italic": false,
+            "url": "https://ir.mi.com/system/files-encrypted/nasdaq_kms/assets/2025/08/19/5-36-23/25Q2%20AC_ENG.pdf"
+          }
+        ],
+        "text": "[S6] Xiaomi Corporation: Q2 2025 results announcement"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Date / period: 2025-08-19. Pages 6, 20, etc. Quarterly deliveries, ASP and segment metrics for each quarter of H1 2025.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Date / period: 2025-08-19. Pages 6, 20, etc. Quarterly deliveries, ASP and segment metrics for each quarter of H1 2025."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "[S7] Xiaomi official: New-generation SU7 launch introduction",
+            "bold": true,
+            "italic": false,
+            "url": "https://www.mi.com/global/discover/article?id=6117"
+          }
+        ],
+        "text": "[S7] Xiaomi official: New-generation SU7 launch introduction"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Date / period: 2026-03-26. Corresponds to the March 19 launch event; Standard, Pro and Max launch prices and product positioning.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Date / period: 2026-03-26. Corresponds to the March 19 launch event; Standard, Pro and Max launch prices and product positioning."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "[S8] SAMR: 2025 SU7 Standard recall announcement",
+            "bold": true,
+            "italic": false,
+            "url": "https://www.samr.gov.cn/zw/zh/art/2025/art_2152a981c72a430b9d10d6ef5cd9c09b.html"
+          }
+        ],
+        "text": "[S8] SAMR: 2025 SU7 Standard recall announcement"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Date / period: 2025-09-19. 116,887 designated-batch vehicles; driver-assistance software defect and OTA recall measure.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Date / period: 2025-09-19. 116,887 designated-batch vehicles; driver-assistance software defect and OTA recall measure."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "[S9a] SAMR Defective Product Administrative Center: 2024 SU7 series recall (1)",
+            "bold": true,
+            "italic": false,
+            "url": "https://www.samrdprc.org.cn/qczh/qczhgg1/202608/t20260821_115889.html"
+          }
+        ],
+        "text": "[S9a] SAMR Defective Product Administrative Center: 2024 SU7 series recall (1)"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Date / period: 2026-08-21. Filing S2026M0096V, 339,069 vehicles; recognition and operation risk of the in-car emergency mechanical door handle.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Date / period: 2026-08-21. Filing S2026M0096V, 339,069 vehicles; recognition and operation risk of the in-car emergency mechanical door handle."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "[S9b] SAMR Defective Product Administrative Center: 2024 SU7 series recall (2)",
+            "bold": true,
+            "italic": false,
+            "url": "https://www.samrdprc.org.cn/qczh/qczhgg1/202608/t20260821_115890.html"
+          }
+        ],
+        "text": "[S9b] SAMR Defective Product Administrative Center: 2024 SU7 series recall (2)"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Date / period: 2026-08-21. Filing S2026M0097V, 51,366 vehicles; measures include adding warning labels and a software upgrade.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Date / period: 2026-08-21. Filing S2026M0097V, 51,366 vehicles; measures include adding warning labels and a software upgrade."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "Order of source use",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Order of source use"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Prefer the explicit figures and segment notes in results announcements; presentations supplement product milestones. For cross-period data, use comparable official series; keep prices at the corresponding version and disclosure date; for recalls, rely on the filed vehicle scope and defect description.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Prefer the explicit figures and segment notes in results announcements; presentations supplement product milestones. For cross-period data, use comparable official series; keep prices at the corresponding version and disclosure date; for recalls, rely on the filed vehicle scope and defect description."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "All analytical passages are this report's own compilation and inference. Company explanations of operating changes are marked “company disclosure” or “company explanation” in the text; scenario data are labeled as estimates in titles and sources. The [S1] etc. numbers in the text map one-to-one to the sources on this page.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "All analytical passages are this report's own compilation and inference. Company explanations of operating changes are marked “company disclosure” or “company explanation” in the text; scenario data are labeled as estimates in titles and sources. The [S1] etc. numbers in the text map one-to-one to the sources on this page."
+      }
+    ],
+    [
+      {
+        "kind": "p",
+        "role": "h1",
+        "runs": [
+          {
+            "text": "Appendix B: Methods and basis notes",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Appendix B: Methods and basis notes",
+        "bookmark": "methods"
+      },
+      {
+        "kind": "p",
+        "role": "caption",
+        "runs": [
+          {
+            "text": "Exhibit 9: Quarterly base data: deliveries, vehicle ASP and combined segment gross margin",
+            "bold": true,
+            "italic": false
+          }
+        ],
+        "text": "Exhibit 9: Quarterly base data: deliveries, vehicle ASP and combined segment gross margin",
+        "bookmark": "exhibit9"
+      },
+      {
+        "kind": "table",
+        "widths": [
+          1757,
+          2551,
+          2721,
+          2381
+        ],
+        "rows": [
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Period",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Period"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Deliveries (vehicles)",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Deliveries (vehicles)"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Vehicle ASP (RMB)",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Vehicle ASP (RMB)"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "Segment gross margin",
+                    "bold": true,
+                    "italic": false
+                  }
+                ],
+                "text": "Segment gross margin"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "25Q1",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "25Q1"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "75,869",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "75,869"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "238,301",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "238,301"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "23.2%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "23.2%"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "25Q2",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "25Q2"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "81,302",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "81,302"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "253,662",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "253,662"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "26.4%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "26.4%"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "25Q3",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "25Q3"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "108,796",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "108,796"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "260,053",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "260,053"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "25.5%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "25.5%"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "25Q4",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "25Q4"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "145,115",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "145,115"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "249,846",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "249,846"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "22.7%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "22.7%"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "26Q1",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "26Q1"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "80,856",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "80,856"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "235,116",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "235,116"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "20.1%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "20.1%"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "26Q2",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "26Q2"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "104,199",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "104,199"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "229,312",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "229,312"
+              }
+            ],
+            [
+              {
+                "kind": "p",
+                "role": "body",
+                "runs": [
+                  {
+                    "text": "19.2%",
+                    "bold": false,
+                    "italic": false
+                  }
+                ],
+                "text": "19.2%"
+              }
+            ]
+          ]
+        ]
+      },
+      {
+        "kind": "p",
+        "role": "source",
+        "runs": [
+          {
+            "text": "Source: Xiaomi results announcements [S1, S3-S6]. 25Q1 means Q1 2025; gross margin includes EV, AI and other new initiatives.",
+            "bold": false,
+            "italic": true
+          }
+        ],
+        "text": "Source: Xiaomi results announcements [S1, S3-S6]. 25Q1 means Q1 2025; gross margin includes EV, AI and other new initiatives."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "Key calculations",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Key calculations"
+      },
+      {
+        "kind": "p",
+        "role": "equation",
+        "runs": [
+          {
+            "text": "Half-year deliveries\t",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "D(H1) = 80,856 + 104,199 = 185,055 vehicles",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Half-year deliveries\tD(H1) = 80,856 + 104,199 = 185,055 vehicles"
+      },
+      {
+        "kind": "p",
+        "role": "equation",
+        "runs": [
+          {
+            "text": "Quarterly deliveries QoQ\t",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "104,199 / 80,856 − 1 ≈ 28.9%",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Quarterly deliveries QoQ\t104,199 / 80,856 − 1 ≈ 28.9%"
+      },
+      {
+        "kind": "p",
+        "role": "equation",
+        "runs": [
+          {
+            "text": "Remaining deliveries to target\t",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "D(H2) = 550,000 - 185,055 = 364,945 vehicles",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Remaining deliveries to target\tD(H2) = 550,000 - 185,055 = 364,945 vehicles"
+      },
+      {
+        "kind": "p",
+        "role": "equation",
+        "runs": [
+          {
+            "text": "Required H2 monthly average\t",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "D(H2) / 6 ≈ 60,824 vehicles / month",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Required H2 monthly average\tD(H2) / 6 ≈ 60,824 vehicles / month"
+      },
+      {
+        "kind": "p",
+        "role": "equation",
+        "runs": [
+          {
+            "text": "Gross margin YoY change\t",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "19.2% - 26.4% = -7.2 percentage points",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Gross margin YoY change\t19.2% - 26.4% = -7.2 percentage points"
+      },
+      {
+        "kind": "p",
+        "role": "equation",
+        "runs": [
+          {
+            "text": "Segment operating profit model\t",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "OP = R × g − O",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Segment operating profit model\tOP = R × g − O"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Here R is quarterly combined segment revenue, g is the gross margin on the same basis and O is quarterly segment operating expenses. Exhibit 7 uses approximately RMB 7.4 billion of expenses as a fixed condition; this model is a different concept from net profit, cash flow and capital expenditure.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Here R is quarterly combined segment revenue, g is the gross margin on the same basis and O is quarterly segment operating expenses. Exhibit 7 uses approximately RMB 7.4 billion of expenses as a fixed condition; this model is a different concept from net profit, cash flow and capital expenditure."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "Data handling rules",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Data handling rules"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Units and rounding.",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " The text uses RMB billion and thousand vehicles, while base tables keep deliveries and ASP as integers; percentages are generally kept to one decimal. Recomputing with the approximate revenue and expenses in announcements may produce normal rounding differences.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Units and rounding. The text uses RMB billion and thousand vehicles, while base tables keep deliveries and ASP as integers; percentages are generally kept to one decimal. Recomputing with the approximate revenue and expenses in announcements may produce normal rounding differences."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Statistical boundary.",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " Vehicle revenue and ASP correspond to car sales; segment gross margin and operating profit include AI and other new initiatives. Segment operating profit is defined as segment gross profit less operating expenses. Group R&D, cash and profit are used only when explicitly labeled on a group basis.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Statistical boundary. Vehicle revenue and ASP correspond to car sales; segment gross margin and operating profit include AI and other new initiatives. Segment operating profit is defined as segment gross profit less operating expenses. Group R&D, cash and profit are used only when explicitly labeled on a group basis."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Timing and comparison.",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " Half-year data are the sum of two quarters; QoQ compares adjacent quarters and YoY compares the same quarter of the prior year. The annual target cites management's March 2026 disclosure, and prices and pre-sale status use the corresponding announcement dates. The retrieval date and financial periods are stated separately.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Timing and comparison. Half-year data are the sum of two quarters; QoQ compares adjacent quarters and YoY compares the same quarter of the prior year. The annual target cites management's March 2026 disclosure, and prices and pre-sale status use the corresponding announcement dates. The retrieval date and financial periods are stated separately."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Conditional projection.",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": " Delivery scenarios use three full-year volumes of 450,000, 500,000 and 550,000; the profit sensitivity varies revenue and gross margin while fixing expenses. The model assigns no probabilities and omits some operating variables, so actual results should be updated continuously.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Conditional projection. Delivery scenarios use three full-year volumes of 450,000, 500,000 and 550,000; the profit sensitivity varies revenue and gross margin while fixing expenses. The model assigns no probabilities and omits some operating variables, so actual results should be updated continuously."
+      }
+    ],
+    [
+      {
+        "kind": "p",
+        "role": "h1",
+        "runs": [
+          {
+            "text": "Glossary",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Glossary",
+        "bookmark": "glossary"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Terms below are sorted by English abbreviation or name, and definitions are limited to their use in this report. Financial metrics prefer the disclosure boundaries in Xiaomi announcements.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Terms below are sorted by English abbreviation or name, and definitions are limited to their use in this report. Financial metrics prefer the disclosure boundaries in Xiaomi announcements."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "ASP / Average Selling Price",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nThe average relationship between vehicle sales revenue and the corresponding sales volume over a given period. It can be affected by model, trim, configuration and incentive structure, and differs in meaning from the official guide price of any single model.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "ASP / Average Selling Price\nThe average relationship between vehicle sales revenue and the corresponding sales volume over a given period. It can be affected by model, trim, configuration and incentive structure, and differs in meaning from the official guide price of any single model."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "BEV / Battery Electric Vehicle",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nVehicles that store energy in a traction battery and are driven by electric motors. The product classification of SU7 and YU7 in this report follows the company's published information.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "BEV / Battery Electric Vehicle\nVehicles that store energy in a traction battery and are driven by electric motors. The product classification of SU7 and YU7 in this report follows the company's published information."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "CLTC / China Light-duty Vehicle Test Cycle",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nThe prescribed driving cycle used for vehicle testing. The corresponding range figures in regulatory announcements are standard test results; real-world range is also affected by temperature, road conditions, speed and driving style.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "CLTC / China Light-duty Vehicle Test Cycle\nThe prescribed driving cycle used for vehicle testing. The corresponding range figures in regulatory announcements are standard test results; real-world range is also affected by temperature, road conditions, speed and driving style."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Delivery",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nThe number of vehicles delivered as disclosed by the company. Orders, locked orders, production and retail statistics correspond to different business stages and methodologies; comparisons should use a consistent basis.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Delivery\nThe number of vehicles delivered as disclosed by the company. Orders, locked orders, production and retail statistics correspond to different business stages and methodologies; comparisons should use a consistent basis."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "EREV / Extended-Range Electric Vehicle",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nA vehicle category driven mainly by electric drive and equipped with a range-extender system. This report uses only the product positioning in the company's pre-sale materials; subsequent status is subject to formal disclosure.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "EREV / Extended-Range Electric Vehicle\nA vehicle category driven mainly by electric drive and equipped with a range-extender system. This report uses only the product positioning in the company's pre-sale materials; subsequent status is subject to formal disclosure."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Gross Margin",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nGross profit (revenue minus cost of sales) as a share of revenue. Charts in this report show the gross margin of the Smart EV, AI and other new initiatives segment, retaining the combined segment scope.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Gross Margin\nGross profit (revenue minus cost of sales) as a share of revenue. Charts in this report show the gross margin of the Smart EV, AI and other new initiatives segment, retaining the combined segment scope."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "H1 / H2 (first half / second half)",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nH1 covers January-June and H2 covers July-December. Monthly averages are half-year totals divided by six and are used only to compare pace.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "H1 / H2 (first half / second half)\nH1 covers January-June and H2 covers July-December. Monthly averages are half-year totals divided by six and are used only to compare pace."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Operating Expenses",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nIncludes R&D, selling and administrative expenses for the relevant operating activities, as defined in the company's segment disclosure. The fixed-expense model in this report is used to isolate changes in revenue and gross margin.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Operating Expenses\nIncludes R&D, selling and administrative expenses for the relevant operating activities, as defined in the company's segment disclosure. The fixed-expense model in this report is used to isolate changes in revenue and gross margin."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Operating Profit",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nThe segment basis in this report is segment gross profit minus segment operating expenses. It sits at a different level from net profit attributable to shareholders, adjusted net profit and operating cash flow.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Operating Profit\nThe segment basis in this report is segment gross profit minus segment operating expenses. It sits at a different level from net profit attributable to shareholders, adjusted net profit and operating cash flow."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "OTA / Over-the-Air",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nSoftware updates delivered to vehicles over a network. When OTA is used in a recall, the corresponding measures must still be carried out per the regulatory announcement, and vehicle update completion should be tracked.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "OTA / Over-the-Air\nSoftware updates delivered to vehicles over a network. When OTA is used in a recall, the corresponding measures must still be carried out per the regulatory announcement, and vehicle update completion should be tracked."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Product Mix",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nThe composition of different models, trims and configurations within deliveries or revenue. Changes in the share of higher-priced models may affect ASP, and differences in product cost may also change overall gross margin.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Product Mix\nThe composition of different models, trims and configurations within deliveries or revenue. Changes in the share of higher-priced models may affect ASP, and differences in product cost may also change overall gross margin."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "QoQ / Quarter-on-Quarter",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nThe rate of change versus the immediately preceding quarter. Model changeovers and delivery pacing can make short-term QoQ changes highly volatile.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "QoQ / Quarter-on-Quarter\nThe rate of change versus the immediately preceding quarter. Model changeovers and delivery pacing can make short-term QoQ changes highly volatile."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Scenario Analysis",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nComparison of possible outcomes under explicit assumptions. The scenarios in this report are conditional projections intended to show the operating requirements for reaching a given outcome.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Scenario Analysis\nComparison of possible outcomes under explicit assumptions. The scenarios in this report are conditional projections intended to show the operating requirements for reaching a given outcome."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Segment",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nAn operating unit disclosed by a company according to its business management and financial reporting boundaries. In this report, the \"combined segment\" refers to the Smart EV, AI and other new initiatives segment.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Segment\nAn operating unit disclosed by a company according to its business management and financial reporting boundaries. In this report, the \"combined segment\" refers to the Smart EV, AI and other new initiatives segment."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "YoY / Year-on-Year",
+            "bold": true,
+            "italic": false
+          },
+          {
+            "text": "\nThe rate of change versus the same period of the prior year, which helps reduce the effect of some seasonal factors on comparisons. Changes in product cycles still affect comparability.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "YoY / Year-on-Year\nThe rate of change versus the same period of the prior year, which helps reduce the effect of some seasonal factors on comparisons. Changes in product cycles still affect comparability."
+      }
+    ],
+    [
+      {
+        "kind": "p",
+        "role": "h1",
+        "runs": [
+          {
+            "text": "Disclosure appendix",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Disclosure appendix",
+        "bookmark": "disclosure"
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "Report nature and author statement",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Report nature and author statement"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "This report was compiled by Codex from public information and is an AI-assisted corporate operating study and document showcase. The subject is the Xiaomi EV business and the disclosure segment it belongs to. The research views, calculation framework and scenario assumptions in the text are formed by this report; the operating facts and product information cited belong to their original sources.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "This report was compiled by Codex from public information and is an AI-assisted corporate operating study and document showcase. The subject is the Xiaomi EV business and the disclosure segment it belongs to. The research views, calculation framework and scenario assumptions in the text are formed by this report; the operating facts and product information cited belong to their original sources."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "This report is not issued in the name of a licensed securities analyst or securities research institution, and no formal rating coverage has been carried out. It provides no Reg AC analyst certification, rating distribution or investment banking relationship table. Institutional-research-style layout is used to organize information; the author identity and nature of the report are as stated in this paragraph.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "This report is not issued in the name of a licensed securities analyst or securities research institution, and no formal rating coverage has been carried out. It provides no Reg AC analyst certification, rating distribution or investment banking relationship table. Institutional-research-style layout is used to organize information; the author identity and nature of the report are as stated in this paragraph."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "Sources and timeliness",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Sources and timeliness"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The financial analysis mainly uses quarterly and interim data as of June 30, 2026, while product and recall information use their respective announcement dates. The data retrieval date is September 10, 2026. Public information may be updated after the report is produced; when that happens, product status, operating data and research assumptions should be rechecked.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The financial analysis mainly uses quarterly and interim data as of June 30, 2026, while product and recall information use their respective announcement dates. The data retrieval date is September 10, 2026. Public information may be updated after the report is produced; when that happens, product status, operating data and research assumptions should be rechecked."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Company results announcements, presentations and official product materials reflect the company's disclosures and explanations; regulator announcements reflect specific filed matters. This report tries to separate disclosed facts, management targets and this report's inferences. Source compilation, rounding and cross-period consolidation may still introduce errors, and important conclusions should be read against the original files.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Company results announcements, presentations and official product materials reflect the company's disclosures and explanations; regulator announcements reflect specific filed matters. This report tries to separate disclosed facts, management targets and this report's inferences. Source compilation, rounding and cross-period consolidation may still introduce errors, and important conclusions should be read against the original files."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "Financial basis and valuation scope",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Financial basis and valuation scope"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Xiaomi EV sits within the Xiaomi Group's business system, and the public segment covers EV, AI and other new initiatives. Combined segment gross profit, operating expenses and operating profit cannot be directly restated as standalone EV net profit or the profit of any one model. Group-level revenue, R&D, cash and profit are labeled separately from the vehicle basis.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Xiaomi EV sits within the Xiaomi Group's business system, and the public segment covers EV, AI and other new initiatives. Combined segment gross profit, operating expenses and operating profit cannot be directly restated as standalone EV net profit or the profit of any one model. Group-level revenue, R&D, cash and profit are labeled separately from the vehicle basis."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "This report centers on operating fundamentals, risks and profitability conditions, and makes no securities buy or sell recommendation, rating or stock target price. Valuing the vehicle business on its own would also require explicit cash flows, capital investment, balance sheet, long-term margins and allocation rules between group businesses, with a valuation model built on them.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "This report centers on operating fundamentals, risks and profitability conditions, and makes no securities buy or sell recommendation, rating or stock target price. Valuing the vehicle business on its own would also require explicit cash flows, capital investment, balance sheet, long-term margins and allocation rules between group businesses, with a valuation model built on them."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "Scenario estimates and forward-looking views",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Scenario estimates and forward-looking views"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The delivery scenarios and profit sensitivity depend on the stated revenue, gross margin, expense and period conditions. No scenario is assigned a probability, and none represents management guidance or a performance commitment. Product launches, supply chain, competition, promotions, R&D and market conditions could all cause actual results to deviate significantly from the estimates.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The delivery scenarios and profit sensitivity depend on the stated revenue, gross margin, expense and period conditions. No scenario is assigned a probability, and none represents management guidance or a performance commitment. Product launches, supply chain, competition, promotions, R&D and market conditions could all cause actual results to deviate significantly from the estimates."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "The static profitability threshold is used to explain relationships between variables. In real operations, expenses, product mix and costs may change together, so the model should be updated with new quarterly data. Historical deliveries and profitability form only an analytical basis; future results still need validation by later evidence.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "The static profitability threshold is used to explain relationships between variables. In real operations, expenses, product mix and costs may change together, so the model should be updated with new quarterly data. Historical deliveries and profitability form only an analytical basis; future results still need validation by later evidence."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "Product prices, safety and recall information",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Product prices, safety and recall information"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Prices in the text correspond to specific models, versions and public dates, and pre-sale and final prices are listed separately. Range or technical information, if cited, should be understood under the original test or stated conditions. For recall measures applying to a specific vehicle, rely on the regulatory filing, vehicle identification information and the producer's notice.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Prices in the text correspond to specific models, versions and public dates, and pre-sale and final prices are listed separately. Range or technical information, if cited, should be understood under the original test or stated conditions. For recall measures applying to a specific vehicle, rely on the regulatory filing, vehicle identification information and the producer's notice."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Recall counts describe a designated scope and cannot be used to infer a failure or accident rate across all products. Recall scopes in different years may overlap. The discussion of recalls in this report serves operating-risk research; specific defects, handling procedures and remediation results are as stated in official documents.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Recall counts describe a designated scope and cannot be used to infer a failure or accident rate across all products. Recall scopes in different years may overlap. The discussion of recalls in this report serves operating-risk research; specific defects, handling procedures and remediation results are as stated in official documents."
+      },
+      {
+        "kind": "p",
+        "role": "h2",
+        "runs": [
+          {
+            "text": "Use and independent judgment",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Use and independent judgment"
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "This report is intended for corporate research and information discussion and gives no personalized advice on anyone's investment objectives, financial situation or risk tolerance. Users should check original sources, carry out any necessary further inquiry and form their own judgment in proportion to the importance of the decision. Views and estimates in the report may be adjusted as new information arrives.",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "This report is intended for corporate research and information discussion and gives no personalized advice on anyone's investment objectives, financial situation or risk tolerance. Users should check original sources, carry out any necessary further inquiry and form their own judgment in proportion to the importance of the decision. Views and estimates in the report may be adjusted as new information arrives."
+      },
+      {
+        "kind": "p",
+        "role": "body",
+        "runs": [
+          {
+            "text": "Prepared by: Codex research  |  Version date: September 10, 2026",
+            "bold": false,
+            "italic": false
+          }
+        ],
+        "text": "Prepared by: Codex research  |  Version date: September 10, 2026"
+      }
+    ]
+  ],
+  "images": [
+    "image1.png",
+    "image2.png",
+    "image3.png"
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Xiaomi Group: 2026 Q2 and Interim Results Announcement",
+      "date": "2026-08-18",
+      "url": "https://ir.mi.com/static-files/4a85fc36-8a6d-4c24-b45b-b18d5d162e6c",
+      "use": "Pages 6, 10-14, 18, 20-22, 36. Quarterly deliveries, EV revenue, ASP, combined segment gross profit and operating expenses; interim financial data are unaudited but reviewed."
+    },
+    {
+      "id": "S2",
+      "title": "Xiaomi Group: 2026 Q2 Results Presentation",
+      "date": "2026-08-18",
+      "url": "https://ir.mi.com/static-files/20793a18-42e5-43d1-9f2b-aad269cefcd4",
+      "use": "Product progress and SkyNomad series pre-sale materials; pre-sale prices and expected launch timing are as of the announcement date."
+    },
+    {
+      "id": "S3",
+      "title": "Xiaomi Group: 2026 Q1 Results Announcement",
+      "date": "2026-05-26",
+      "url": "https://ir.mi.com/static-files/098acc43-1b58-4d1b-b375-9ea25f35477b",
+      "use": "Pages 6-7, 13, 21, etc. Q1 deliveries and segment metrics, new YU7 versions and GT launch information, sales network."
+    },
+    {
+      "id": "S4",
+      "title": "Xiaomi Group: 2025 Annual and Q4 Results Announcement",
+      "date": "2026-03-24",
+      "url": "https://ir.mi.com/system/files-encrypted/nasdaq_kms/assets/2026/03/24/5-35-03/25Q4%20EN%20AC%20Xiaomi.pdf",
+      "use": "Pages 8, 13, 21, 30, etc. Full-year deliveries, EV revenue, segment operating profit, 2026 target of 550,000 vehicles."
+    },
+    {
+      "id": "S5",
+      "title": "Xiaomi Group: 2025 Q3 Results Announcement",
+      "date": "2025-Q3",
+      "url": "https://ir.mi.com/static-files/e4830480-8ce9-45f8-a09d-64e40b2bdfac",
+      "use": "Pages 6, 11, 13-14, etc. Quarterly deliveries, ASP, segment gross margin and first quarterly operating profit."
+    },
+    {
+      "id": "S6",
+      "title": "Xiaomi Group: 2025 Q2 Results Announcement",
+      "date": "2025-08-19",
+      "url": "https://ir.mi.com/system/files-encrypted/nasdaq_kms/assets/2025/08/19/5-36-23/25Q2%20AC_ENG.pdf",
+      "use": "Pages 6, 20, etc. Quarterly deliveries, ASP and segment metrics for H1 2025."
+    },
+    {
+      "id": "S7",
+      "title": "Xiaomi official: New-generation SU7 launch introduction",
+      "date": "2026-03-26",
+      "url": "https://www.mi.com/global/discover/article?id=6117",
+      "use": "Corresponds to the March 19 launch event; Standard, Pro and Max launch prices and product positioning."
+    },
+    {
+      "id": "S8",
+      "title": "SAMR: 2025 SU7 Standard Edition recall announcement",
+      "date": "2025-09-19",
+      "url": "https://www.samr.gov.cn/zw/zh/art/2025/art_2152a981c72a430b9d10d6ef5cd9c09b.html",
+      "use": "116,887 vehicles in specified batches; driver-assistance software defect and OTA recall measures."
+    },
+    {
+      "id": "S9a",
+      "title": "Recall Technology Center: 2024 SU7 series recall (I)",
+      "date": "2026-08-21",
+      "url": "https://www.samrdprc.org.cn/qczh/qczhgg1/202608/t20260821_115889.html",
+      "use": "Filing S2026M0096V, 339,069 vehicles; risk related to identification and operation of the in-cabin emergency mechanical door release."
+    },
+    {
+      "id": "S9b",
+      "title": "Recall Technology Center: 2024 SU7 series recall (II)",
+      "date": "2026-08-21",
+      "url": "https://www.samrdprc.org.cn/qczh/qczhgg1/202608/t20260821_115890.html",
+      "use": "Filing S2026M0097V, 51,366 vehicles; measures include applying warning labels and a software upgrade."
+    }
+  ],
+  "data": {
+    "quarters": [
+      "25Q1",
+      "25Q2",
+      "25Q3",
+      "25Q4",
+      "26Q1",
+      "26Q2"
+    ],
+    "deliveries": [
+      75869,
+      81302,
+      108796,
+      145115,
+      80856,
+      104199
+    ],
+    "asp_rmb": [
+      238301,
+      253662,
+      260053,
+      249846,
+      235116,
+      229312
+    ],
+    "segment_gross_margin_pct": [
+      23.2,
+      26.4,
+      25.5,
+      22.7,
+      20.1,
+      19.2
+    ],
+    "calculations": {
+      "h1_deliveries": 185055,
+      "fy2025_deliveries": 411082,
+      "h2_target_remaining": 364945,
+      "h2_target_monthly": 60824.166666666664,
+      "q2_monthly": 34733.0,
+      "h2_monthly_uplift": 0.7511924298697683,
+      "h1_target_attainment": 0.33646363636363635,
+      "break_even_segment_revenue_yi": 385.4166666666667,
+      "recall2026_total": 390435
+    },
+    "retrieved": "2026-09-10",
+    "scope": "official public filings; forecast scenarios are arithmetic conditions"
+  }
+}

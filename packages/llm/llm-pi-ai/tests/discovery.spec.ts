@@ -2,9 +2,9 @@ import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import LlmRuntime, { userAgent } from '@deepseek-ai/dsh-llm'
-import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
+import { Context } from '@janhq/cordis'
+import LlmRuntime, { userAgent } from '@janhq/jan-llm'
+import * as LlmPiAi from '@janhq/jan-llm-pi-ai'
 import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all'
 import { discoverModels } from '../src/discovery.ts'
 
@@ -123,6 +123,10 @@ describe('draft-provider model discovery', () => {
           { id: 'acme-camel', displayName: 'Acme Camel', contextWindow: 131_072, maxOutputTokens: 8192 },
           { id: 'acme-mixed', name: 'Acme Mixed', context_window: 32_768, maxTokens: 2048 },
           { id: 'acme-legacy', max_tokens: 1024 },
+          { id: 'acme-router', display_name: 'Acme Router', context_length: 1_000_000, max_completion_tokens: 128_000 },
+          { id: 'acme-vision', architecture: { input_modalities: ['text', 'image', 'audio'], output_modalities: ['text'] } },
+          { id: 'acme-painter', architecture: { input_modalities: ['text'], output_modalities: ['image'] } },
+          { id: 'acme-silent', architecture: { input_modalities: ['audio'] } },
           { id: 'acme-small' },
         ],
       }),
@@ -136,6 +140,10 @@ describe('draft-provider model discovery', () => {
       { id: 'acme-camel', name: 'Acme Camel', contextWindow: 131_072, maxTokens: 8192 },
       { id: 'acme-mixed', name: 'Acme Mixed', contextWindow: 32_768, maxTokens: 2048 },
       { id: 'acme-legacy', name: 'acme-legacy', maxTokens: 1024 },
+      { id: 'acme-router', name: 'Acme Router', contextWindow: 1_000_000, maxTokens: 128_000 },
+      // An entry producing no text is not a chat model.
+      { id: 'acme-vision', name: 'acme-vision', inputModalities: ['text', 'image'] },
+      { id: 'acme-silent', name: 'acme-silent' },
       { id: 'acme-small', name: 'acme-small' },
     ])
     expect(server.paths).toEqual(['/v1/models'])
@@ -431,7 +439,7 @@ describe('draft-provider model discovery', () => {
     const ctx = await harness()
 
     await expect(ctx.llm.discoverModels('llm-pi-ai', { provider: 'openai' })).resolves.not.toHaveLength(0)
-    await expect(ctx.llm.discoverModels('llm-deepseek', { baseURL: 'https://api.deepseek.com' }))
+    await expect(ctx.llm.discoverModels('other-adapter', { baseURL: 'https://api.example.test' }))
       .rejects.toMatchObject({ code: 'NO_DISCOVERY' })
     await expect(ctx.llm.discoverModels('llm-pi-ai', { baseURL: '' }))
       .rejects.toMatchObject({ code: 'INVALID_DISCOVERY' })
@@ -504,10 +512,10 @@ const RECORDED_LISTINGS = [
     file: 'openrouter-2026-09-02.json',
     api: 'openai-completions',
     models: [
-      { id: 'anthropic/claude-fable-5.1', name: 'Anthropic: Claude Fable 5.1', contextWindow: 1_000_000, maxTokens: 128_000 },
+      { id: 'anthropic/claude-fable-5.1', name: 'Anthropic: Claude Fable 5.1', contextWindow: 1_000_000, maxTokens: 128_000, inputModalities: ['text', 'image'] },
       // The router's own aggregate route reports no completion cap.
-      { id: 'openrouter/auto-beta', name: 'Auto Router (Beta)', contextWindow: 2_000_000 },
-      { id: 'deepseek/deepseek-v4-flash', name: 'DeepSeek: DeepSeek V4 Flash 0423', contextWindow: 1_048_576, maxTokens: 384_000 },
+      { id: 'openrouter/auto-beta', name: 'Auto Router (Beta)', contextWindow: 2_000_000, inputModalities: ['text', 'image'] },
+      { id: 'deepseek/deepseek-v4-flash', name: 'DeepSeek: DeepSeek V4 Flash 0423', contextWindow: 1_048_576, maxTokens: 384_000, inputModalities: ['text'] },
     ],
   },
   {

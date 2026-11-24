@@ -3,9 +3,7 @@ description: "Changed files, deliveries, and clickable file references for the W
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-deliverables
-
-English | [中文](README.zh.md)
+# @janhq/jan-client-ui-deliverables
 
 ## Summary
 
@@ -36,6 +34,8 @@ The `present` tool's preparing stage is one non-expandable document-icon row. It
 
 The Web `standard`, `ptc`, and `cordis` presets expose `present` for final files accessible through the Session filesystem, including files created through Bash. Call it with `files: [{ path, description? }]` after creating the files. The [present tool](../../deliverables/deliverable-file-references/README.md) owns file-count limits and Session declarations. A single delivery fills the row; multiple deliveries form a two-column grid, collapsed after four files. Cards show the basename, description or file type, and a shared native opening control. Delivery and changed-file icon tiles use white at 50% opacity in the light theme and 5% in the dark theme. Icon tiles and single-file changed cards use the same border as delivery cards. Clicking the card previews the file in the right Sidebar. The control opens the default application and lists associated applications, with file reveal last. Matching inline-code references also open Sidebar previews. Delivery cards appear in the turn tail only after the turn ends, so a turn waiting on a blocking question shows none yet; the `present` tool description directs the model to link files in its message for earlier review. Cards include every declaration in the turn, including declarations recorded after the closing reply; duplicate declarations use the last description.
 
+A turn that delivers exactly one SVG, PNG, JPEG, GIF, WebP, or HTML file also shows that file above its card. An image opens the Sidebar preview on click. Inline HTML uses the Sidebar's static preview policy: sanitized markup in an opaque-origin sandbox that blocks scripts and network resources. The bytes come from the composed workspace Remote; when that read is refused or unavailable, only the card renders. Turns with several deliveries show the cards alone.
+
 The `present` tool row retains its document icon and recorded result across progress, success, failure, and interruption. Native actions share pending state and publish progress or retryable errors on the card. An acknowledged open or reveal immediately restores the file description; failures remain visible until another attempt. Each gesture settles on a discriminated outcome — acknowledged open, acknowledged reveal, named failure, or a request dropped because the same file was already opening or the plugin was disposed — which the contributed control reports according to the mobile success and shared failure policy in [ui-open-in-app](../ui-open-in-app/README.md). Disposing the plugin cancels pending requests and suppresses their announcements. Desktop metadata is loaded when cards mount and invalidated on connection replacement. Without a Host desktop, cards retain Sidebar preview but omit native controls; failed metadata reads offer Retry. Delivery cards and change review expose `deliverables.file.actions` and `deliverables.review.file.actions`, supplied by [ui-open-in-app](../ui-open-in-app/README.md). Association GET requests and native POST actions both validate the recorded file coordinates and Session filesystem mapping before using the Host desktop.
 
 ### The changed-files card
@@ -56,6 +56,18 @@ Without wrapping, the two columns synchronize vertical scrolling and horizontal 
 
 The closing prose links paths the turn produced or delivered, including those recorded after the closing reply: an inline-code token resolves by exact target, by an exact argument recorded for that target, or by a unique basename. Every matching fact must identify the same file; ambiguous arguments and basenames stay inert. No suffix or current-directory guess is used. A resolved mention keeps its code chip and takes the markdown sheet's link language, with the full path as its title.
 
+<a id="artifacts-library"></a>
+### The Artifacts library
+
+The `artifacts` main panel has two tabs. **Files** lists every file the assistant presented in any chat, newest first, with a search box (file name, path, description, chat title) and kind filters: documents, spreadsheets, presentations, images, code, and other, by extension. Each row shows the file name, its chat title, and a relative time, and offers Open, Show in folder, and Go to chat. Open and Show in folder use the same authenticated native-open routes as delivery cards and need a Host desktop; a file that no longer exists on disk stays listed as unavailable, with only Go to chat enabled. **Links** lists every web link a chat mentioned, newest mention first, with a search box (URL, link text, chat title). Each row shows the link text (or the site name), the site, who shared it, its chat title, and a relative time; the title opens the page in the browser, and the row offers Copy link and Go to chat. The sidebar entry shares the panel id `artifacts`; each tab renders 24 rows at a time.
+
+The panel reads no chat history. It reads two summary-key Session projections, so the Session list carries them, cold chats from the persisted projection cache:
+
+- `presentedFiles`, which the Host-mounted [`jan-tool-present/projection`](../../deliverables/tool-present/README.md) entry registers: each chat's distinct presented files.
+- `sharedLinks`, which this package's Host-mounted `@janhq/jan-client-ui-deliverables/links` entry registers: each chat's distinct absolute `http`/`https` links from the person's own messages and the assistant's replies, as Markdown links (with their text) or bare URLs. Images, code spans and fenced code, and context the app injects are skipped, and a chat keeps its newest 100 links.
+
+Chats checkpointed before a projection existed carry no value; while the panel is open it reads each such chat's projections once, two at a time, newest first. Subagent chats are not listed, and a fork lists only its own deliveries and links.
+
 -----
 
 <a id="understand-the-implementation"></a>
@@ -64,7 +76,7 @@ The closing prose links paths the turn produced or delivered, including those re
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The Node half serves authenticated native file opens; the shared guidance comes from the separately mounted file-reference plugin described under [Model Experience](#model-experience). Explicit Markdown links use the shared [Markdown renderer](../ui-primitives/README.md); inline-code matching remains limited to produced or delivered files. The browser half registers a wrapper around the changed-files card and explicit deliveries into the chat view's `conversation.chat.turnTail` list alongside other feature artifacts. `deliverablesDefinition` folds the sequence of each Turn's latest validated `workspace/changes` announcement into `DeliverablesTurnData.changes`, whose summary the card reads from the Host and caches until the connection is replaced, its `deliverables/presented` events into deliveries, and the successful first-party mutation calls of `write`, `edit`, and mutating `str_replace_editor` commands into recorded file targets and exact argument aliases after validating their raw arguments; the produced paths feed only the prose mention resolver. Successful absolute `meta.path` values identify those targets. Root results without that field retain the legacy argument fallback; malformed relative targets contribute no guessed path. Reads, deletes, unsupported tools, malformed calls, malformed events, and failed results contribute nothing. Each row opens `dsh-resource://changes-review/session/<sessionId>/<seq>/<turn>` through `ctx.sidebarRight.openResource` with the file's index as the `changes-review` navigation parameter; the package registers the `changes-review` tab type at the `builtin` band for that pattern and its body under the keyed `sidebar.right.pane.tab` seat with an exclusive store of per-tab choices, and the body reads the summary and the comparisons through the authenticated routes into stores cleared on connection replacement. The package also provides the `chatFileMentions` service the chat view consults per closing message; composing the plugin out removes every surface and leaves the view's empty list at zero cost.
+The Node half serves authenticated native file opens; the shared guidance comes from the separately mounted file-reference plugin described under [Model Experience](#model-experience). Explicit Markdown links use the shared [Markdown renderer](../ui-primitives/README.md); inline-code matching remains limited to produced or delivered files. The browser half registers a wrapper around the changed-files card and explicit deliveries into the chat view's `conversation.chat.turnTail` list alongside other feature artifacts. `deliverablesDefinition` folds the sequence of each Turn's latest validated `workspace/changes` announcement into `DeliverablesTurnData.changes`, whose summary the card reads from the Host and caches until the connection is replaced, its `deliverables/presented` events into deliveries, and the successful first-party mutation calls of `write`, `edit`, and mutating `str_replace_editor` commands into recorded file targets and exact argument aliases after validating their raw arguments; the produced paths feed only the prose mention resolver. Successful absolute `meta.path` values identify those targets. Root results without that field retain the legacy argument fallback; malformed relative targets contribute no guessed path. Reads, deletes, unsupported tools, malformed calls, malformed events, and failed results contribute nothing. Each row opens `jan-resource://changes-review/session/<sessionId>/<seq>/<turn>` through `ctx.sidebarRight.openResource` with the file's index as the `changes-review` navigation parameter; the package registers the `changes-review` tab type at the `builtin` band for that pattern and its body under the keyed `sidebar.right.pane.tab` seat with an exclusive store of per-tab choices, and the body reads the summary and the comparisons through the authenticated routes into stores cleared on connection replacement. The package also provides the `chatFileMentions` service the chat view consults per closing message; composing the plugin out removes every surface and leaves the view's empty list at zero cost.
 
 Native opening uses an authenticated POST addressed by the viewed Session, event sequence, and original file index; the review tab's native open of a changed file uses the same coordinates. For a declaration the Host reads the viewed Session header with the event and passes its cwd, or the deployment workspace root when absent, to `workspaceFiles.stat`; for a changed file it passes the working directory the served summary carries. This uses the same composed filesystem as Sidebar previews and does not activate an Agent, including for child Sessions. Native actions require the canonical process path to map from a Host path back to that same process path. Providers without this mapping return 422, after which the review tab hides its native open; a same-named Host file is insufficient. The same configured desktop availability governs metadata and execution. Edits affect subsequent opens; deletion returns an error. No file-content copy or attachment is created. Plugin disposal cancels and awaits pending native-open requests.
 
@@ -75,13 +87,10 @@ Native opening uses an authenticated POST addressed by the viewed Session, event
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the deliverables surface is not enough. They move from the card to the Host recorder, the turn-tail hole, and the decisions behind the vocabulary.
+Read these pages when the deliverables surface is not enough. They move from the card to the Host recorder and the turn-tail hole.
 
 - [workspace-changes](../../deliverables/workspace-changes/README.md) — the Host plugin that records and serves the summary the card renders.
 - [ui-chat](../ui-chat/README.md) — declares the `conversation.chat.turnTail` hole and renders the closing prose.
-- [historical Turn changed-files card](../../../.agents/notes/archived/feature/2026-09-11-turn-changed-files-card.md) — the decision behind git-recorded summaries replacing the mutation-call row.
-- [historical Workspace file links](../../../.agents/notes/archived/feature/2026-07-31-web-workspace-file-links.md) — the decision behind the earlier produced-files row; its Host open path is superseded by the [right Sidebar](../../../.agents/notes/implemented/feature/2026-09-04-right-sidebar-docking-infrastructure.md).
-- [Inline file mentions](../../../.agents/notes/archived/feature/2026-08-07-web-inline-file-mentions.md) — the decision behind clickable mentions in the closing prose.
 - [Client package map](../README.md) — adjacent browser UI packages.
 
 -----
@@ -95,7 +104,7 @@ Delivery cards and known inline file mentions expose a [context menu](../ui-cont
 
 #### What the model sees
 
-The Web composition mounts the shared [`dsh-deliverable-file-references`](../../deliverables/deliverable-file-references/README.md#model-experience) guidance. This UI package renders the resulting file references and cards.
+The Web composition mounts the shared [`jan-deliverable-file-references`](../../deliverables/deliverable-file-references/README.md#model-experience) guidance. This UI package renders the resulting file references and cards.
 
 #### Token effect
 
@@ -112,7 +121,7 @@ No direct effect on model requests.
 
 These limits define the current deliverables vocabulary. They are current package constraints, not a general file-linking comparison or a task backlog.
 
-- **Inline local images require an HTTP(S) page**: Desktop’s `dsh-app:` pages do not support this file route. POSIX absolute paths and Windows drive-letter paths are supported; relative Chat image paths require the viewed Session’s workspace root. Separate image file links are optional.
+- **Inline local images require an HTTP(S) page**: Desktop’s `jan-app:` pages do not support this file route. POSIX absolute paths and Windows drive-letter paths are supported; relative Chat image paths require the viewed Session’s workspace root. Separate image file links are optional.
 - **Mention matching uses exact paths, unique argument aliases, or unique basenames only** — a suffix mention stays inert; widening the matcher is deferred until a real closing-message shape needs it.
 - **Terminal-created files require explicit delivery** — the card lists them once git records the change, but delivery cards and inline-code references require `present`; explicit Markdown links can reference existing files directly.
 - **Declarations do not preserve file contents** — reopening or transferring a Session requires source files accessible through the viewed Session’s filesystem. Missing files, directories, and final symbolic links return 404.

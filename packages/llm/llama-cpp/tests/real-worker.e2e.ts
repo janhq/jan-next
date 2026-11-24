@@ -2,9 +2,9 @@ import { mkdtemp, readFile, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import LocalSubprocess from '@deepseek-ai/dsh-subprocess-local'
-import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
+import { Context } from '@janhq/cordis'
+import LocalSubprocess from '@janhq/jan-subprocess-local'
+import { LocalCredentialProvider } from '@janhq/jan-credentials-local'
 import { LlamaCpp, type LlamaCppState } from '../src/index.ts'
 
 // Self-skips unless both name real files: the staged worker and a small chat GGUF.

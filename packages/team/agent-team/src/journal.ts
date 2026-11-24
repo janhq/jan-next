@@ -1,9 +1,9 @@
 /** Serialized Team transactions over the exact live Lead Session log. */
 
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
-import type { Context } from '@deepseek-ai/cordis'
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import type { Agent } from '@janhq/jan-agent'
+import type { ProjectionHandle } from '@janhq/jan-session-projection'
+import type { Context } from '@janhq/cordis'
+import type { SessionId } from '@janhq/jan-session'
 import type { TeamProjectionState, TeamState } from './projection.ts'
 
 import { TeamId } from './types.ts'

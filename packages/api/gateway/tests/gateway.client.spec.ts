@@ -1,11 +1,11 @@
 import { queryObjects } from 'node:v8'
-import { RemoteError, typertOwnedValue } from '@deepseek-ai/dsh-typert-protocol'
-import { Context, Service } from '@deepseek-ai/cordis'
-import type { Fiber } from '@deepseek-ai/cordis'
+import { RemoteError, typertOwnedValue } from '@janhq/jan-typert-protocol'
+import { Context, Service } from '@janhq/cordis'
+import type { Fiber } from '@janhq/cordis'
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { z } from 'zod'
-import { RemoteMock } from '@deepseek-ai/dsh-remote-mock'
-import { openConnectionWebSocket } from '@deepseek-ai/dsh-client-connection/src/client/socket.ts'
+import { RemoteMock } from '@janhq/jan-remote-mock'
+import { openConnectionWebSocket } from '@janhq/jan-client-connection/src/client/socket.ts'
 import {
   apply as applyConnection,
   installConnection,
@@ -13,7 +13,7 @@ import {
   type ConnectionGeneration,
   type ConnectionGenerationSource,
   type ConnectionHandle,
-} from '@deepseek-ai/dsh-client-connection/client'
+} from '@janhq/jan-client-connection/client'
 import type {
   InvocationDescriptor,
   RemoteResult,
@@ -24,8 +24,8 @@ import type {
   TypertLookup,
   TypertRemoteScopeApi,
   TypertRemoteNamespace,
-} from '@deepseek-ai/dsh-typert-protocol'
-import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
+} from '@janhq/jan-typert-protocol'
+import TypertRegistry from '@janhq/jan-typert-registry'
 import type { ClientRemote } from '../src/client/index.ts'
 import { apply, inject, isRemoteFailure, RemoteStream } from '../src/client/index.ts'
 import {
@@ -44,7 +44,7 @@ interface FixtureAgent {
   readonly agentId: string
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Events {
     /**
      * Test-only forwarded Host event.
@@ -79,7 +79,7 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-declare module '@deepseek-ai/dsh-typert-protocol' {
+declare module '@janhq/jan-typert-protocol' {
   interface TypertRemoteEventSelection extends
     Record<'fixture/changed' | 'fixture/idle' | 'fixture/approval', true> {}
 
@@ -531,7 +531,7 @@ class RemoteEventCarrier {
     const abort = (): void => { connection.wake?.() }
     signal.addEventListener('abort', abort, { once: true })
     try {
-      yield { type: 'ready', clientId, host: { home: '/home/fixture' } }
+      yield { type: 'ready', clientId, host: { home: '/home/fixture', name: 'fixture-host', remote: false } }
       while (!signal.aborted) {
         while (connection.items.length > 0) {
           const item = connection.items.shift() as EventStreamItem
@@ -621,12 +621,12 @@ describe('Client Remote transport readiness', () => {
     const remote = ctx.remote
 
     const beforeReady = remote.$host
-    expect(beforeReady).toEqual({ home: undefined, isLoopback: true })
+    expect(beforeReady).toEqual({ home: undefined, name: undefined, remote: false, isLoopback: true })
     expect(remote.$host).toBe(beforeReady)
 
-    live.snapshot = { id: 1, host: { home: '/hosts/primary' } }
+    live.snapshot = { id: 1, host: { home: '/hosts/primary', name: 'fixture-host', remote: false } }
     const afterReady = remote.$host
-    expect(afterReady).toEqual({ home: '/hosts/primary', isLoopback: true })
+    expect(afterReady).toEqual({ home: '/hosts/primary', name: 'fixture-host', remote: false, isLoopback: true })
     expect(afterReady).not.toBe(beforeReady)
     expect(remote.$host).toBe(afterReady)
 
@@ -655,7 +655,7 @@ describe('Client Remote transport readiness', () => {
   it.each([false, true])('replaces a stalled carrier and restores events (socket opened: %s)', async (autoOpen) => {
     await withFakeWebSocket('https://harness.example', async () => {
       vi.useFakeTimers()
-      vi.stubGlobal('__DSH_CONNECTION_RECOVERY__', {
+      vi.stubGlobal('__JAN_CONNECTION_RECOVERY__', {
         backoffBaseMs: 10, backoffMaxMs: 10, generationReadyTimeoutMs: 100,
       })
       Object.assign(globalThis.location, { hostname: 'harness.example', search: '' })
@@ -683,7 +683,7 @@ describe('Client Remote transport readiness', () => {
         const opening = JSON.parse(replacement.sent[0]!) as { streamId: string }
         replacement.receive({
           type: 'item', streamId: opening.streamId,
-          value: { type: 'ready', clientId: 'recovered-client', host: { home: '/recovered' } },
+          value: { type: 'ready', clientId: 'recovered-client', host: { home: '/recovered', name: 'fixture-host', remote: false } },
         })
         await vi.advanceTimersByTimeAsync(0)
         expect(connection.state.getSnapshot()).toBe('connected')
@@ -1502,7 +1502,7 @@ describe('Client Typert API', () => {
     await subscriber
 
     expect(carrier.calls).toEqual([expect.objectContaining({
-      channel: '/api', endpoint: '$events', payload: { args: {} },
+      channel: '/api', endpoint: '$events', payload: { args: { hostInfo: true } },
     })])
     carrier.emit({ type: 'emit', event: 'fixture/changed', args: ['settings'] })
     await vi.waitFor(() => { expect(seen).toEqual(['settings']) })
@@ -2056,12 +2056,12 @@ describe('Client Typert API', () => {
       const socket = FakeWebSocket.sockets[0]!
       const opened = JSON.parse(socket.sent[0]!) as { streamId: string }
       expect(opened).toMatchObject({
-        type: 'open', endpoint: '$events', payload: { args: {} },
+        type: 'open', endpoint: '$events', payload: { args: { hostInfo: true } },
       })
       socket.receive({
         type: 'item',
         streamId: opened.streamId,
-        value: { type: 'ready', clientId: 'browser-client', host: { home: '/home/browser' } },
+        value: { type: 'ready', clientId: 'browser-client', host: { home: '/home/browser', name: 'fixture-host', remote: false } },
       })
       await run.ready
       socket.receive({
@@ -2103,13 +2103,13 @@ describe('Client Typert API', () => {
 
   it('publishes injected Host facts after Remote events report ready', async () => {
     const locationDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'location')
-    const transportDescriptor = Object.getOwnPropertyDescriptor(globalThis, '__DSH_TRANSPORT__')
-    const mock = RemoteMock.create({ host: { home: '/home/mock' } })
+    const transportDescriptor = Object.getOwnPropertyDescriptor(globalThis, '__JAN_TRANSPORT__')
+    const mock = RemoteMock.create({ host: { home: '/home/mock', name: 'fixture-host', remote: false } })
     Object.defineProperty(globalThis, 'location', {
       configurable: true,
       value: { hostname: '127.0.0.1', search: '' },
     })
-    Object.defineProperty(globalThis, '__DSH_TRANSPORT__', {
+    Object.defineProperty(globalThis, '__JAN_TRANSPORT__', {
       configurable: true,
       value: { rpc: mock.rpc } satisfies ClientTransportHooks,
     })
@@ -2128,9 +2128,44 @@ describe('Client Typert API', () => {
       await ctx.fiber.dispose()
       if (locationDescriptor === undefined) Reflect.deleteProperty(globalThis, 'location')
       else Object.defineProperty(globalThis, 'location', locationDescriptor)
-      if (transportDescriptor === undefined) Reflect.deleteProperty(globalThis, '__DSH_TRANSPORT__')
-      else Object.defineProperty(globalThis, '__DSH_TRANSPORT__', transportDescriptor)
+      if (transportDescriptor === undefined) Reflect.deleteProperty(globalThis, '__JAN_TRANSPORT__')
+      else Object.defineProperty(globalThis, '__JAN_TRANSPORT__', transportDescriptor)
     }
+  })
+
+  it('falls back to the old Host event payload and accepts home-only readiness', async () => {
+    await withFakeWebSocket('https://harness.example', async () => {
+      const call = vi.fn<ConnectionHandle['rpc']['call']>()
+      const { ctx, client, generation } = await benchFiber(call, 'web')
+      const run = generation.start()
+      try {
+        await vi.waitFor(() => { expect(FakeWebSocket.sockets[0]?.sent).toHaveLength(1) })
+        const socket = FakeWebSocket.sockets[0]!
+        const negotiated = JSON.parse(socket.sent[0]!) as { streamId: string }
+        expect(negotiated).toMatchObject({ endpoint: '$events', payload: { args: { hostInfo: true } } })
+        socket.receive({
+          type: 'error', streamId: negotiated.streamId,
+          error: { code: 'gateway/arguments-invalid', message: 'requires an empty args object', details: {} },
+        })
+        await vi.waitFor(() => { expect(socket.sent).toHaveLength(2) })
+        const legacy = JSON.parse(socket.sent[1]!) as { streamId: string }
+        expect(legacy).toMatchObject({ endpoint: '$events', payload: { args: {} } })
+        socket.receive({
+          type: 'item', streamId: legacy.streamId,
+          value: { type: 'ready', clientId: 'legacy-client', host: { home: '/home/legacy' } },
+        })
+        await run.ready
+        const seen: string[] = []
+        ctx.remote.$on('fixture/changed', (namespace) => { seen.push(namespace) })
+        socket.receive({
+          type: 'item', streamId: legacy.streamId,
+          value: { type: 'emit', event: 'fixture/changed', args: ['legacy'] },
+        })
+        await vi.waitFor(() => { expect(seen).toEqual(['legacy']) })
+      } finally {
+        await client.dispose()
+      }
+    })
   })
 
   it.each([
@@ -2145,6 +2180,8 @@ describe('Client Typert API', () => {
     { type: 'ready', clientId: 'client', host: {} },
     { type: 'ready', clientId: 'client', host: { home: 1 } },
     { type: 'ready', clientId: 'client', host: { home: '/home', extra: true } },
+    { type: 'ready', clientId: 'client', host: { home: '/home', name: 1, remote: false } },
+    { type: 'ready', clientId: 'client', host: { home: '/home', name: 'h', remote: 'yes' } },
     { type: 'emit', event: 'fixture/changed', args: ['too early'] },
   ])('rejects malformed forwarded-event readiness item %#', async (opening) => {
     const open: NonNullable<ConnectionHandle['rpc']['open']> = () => (async function *() {
@@ -2335,7 +2372,7 @@ describe('Client Typert API', () => {
   it('normalizes worker-local structural stream failures without sharing class identity', async () => {
     const cases = [{
       failure: Object.assign(new Error('fixture Host rejected the stream'), {
-        dshRemoteStreamFailure: {
+        janRemoteStreamFailure: {
           kind: 'remote' as const,
           code: 'fixture/rejected',
           details: { retry: false },
@@ -2351,7 +2388,7 @@ describe('Client Typert API', () => {
       },
     }, {
       failure: Object.assign(new Error('worker carrier stopped'), {
-        dshRemoteStreamFailure: { kind: 'carrier' as const },
+        janRemoteStreamFailure: { kind: 'carrier' as const },
       }),
       assert: (error: unknown) => {
         expect(error).toBeInstanceOf(RemoteStreamCarrierError)
@@ -2845,7 +2882,7 @@ describe('Remote stream client carrier lifecycle', () => {
       const unregister = connection.registerGenerationSource(async (signal, ready) => {
         try {
           for await (const _value of mux.open('$events', { args: {} }, signal)) {
-            ready({ home: '/home/fixture' })
+            ready({ home: '/home/fixture', name: 'fixture-host', remote: false })
           }
         } finally {
           // An in-flight forwarded answer may settle after the event stream fails.
@@ -2984,8 +3021,8 @@ describe('Remote stream client carrier lifecycle', () => {
   })
 
   it('connects to the shell-owned Host while the document uses a local asset origin', async () => {
-    await withFakeWebSocket('dsh-app://app', async () => {
-      vi.stubGlobal('__DSH_TRANSPORT__', { streamBaseUrl: 'http://127.0.0.1:43210' })
+    await withFakeWebSocket('jan-app://app', async () => {
+      vi.stubGlobal('__JAN_TRANSPORT__', { streamBaseUrl: 'http://127.0.0.1:43210' })
       const client = new RemoteStreamMuxClient()
       try {
         client.start()

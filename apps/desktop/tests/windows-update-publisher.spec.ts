@@ -34,7 +34,7 @@ const builderRequire = createRequire(require.resolve('app-builder-lib/package.js
 const { parseDn } = builderRequire('builder-util-runtime') as { parseDn: (value: string) => Map<string, string> }
 
 async function withCertificate(subject: unknown, action: (file: string, signTool: string) => Promise<void>): Promise<void> {
-  const directory = await mkdtemp(join(tmpdir(), 'dsh-update-publisher-'))
+  const directory = await mkdtemp(join(tmpdir(), 'jan-update-publisher-'))
   try {
     const certificate = join(directory, 'publisher.cer')
     const signTool = join(directory, 'signtool.exe')
@@ -49,11 +49,11 @@ async function withCertificate(subject: unknown, action: (file: string, signTool
 
 describe('Windows update publisher', () => {
   beforeAll(() => {
-    vi.stubEnv('DSH_DESKTOP_APP_ID', 'com.example.publisher-test')
-    vi.stubEnv('DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN', 'https://policy.example.com')
-    vi.stubEnv('DSH_DESKTOP_MANDATORY_UPDATE_CONFIG', JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }))
-    vi.stubEnv('DSH_DESKTOP_TARGET_PLATFORM', 'win32')
-    vi.stubEnv('DSH_DESKTOP_UNSIGNED', '1')
+    vi.stubEnv('JAN_DESKTOP_APP_ID', 'com.example.publisher-test')
+    vi.stubEnv('JAN_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN', 'https://policy.example.com')
+    vi.stubEnv('JAN_DESKTOP_MANDATORY_UPDATE_CONFIG', JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }))
+    vi.stubEnv('JAN_DESKTOP_TARGET_PLATFORM', 'win32')
+    vi.stubEnv('JAN_DESKTOP_UNSIGNED', '1')
   })
   afterAll(() => vi.unstubAllEnvs())
 
@@ -79,18 +79,18 @@ describe('Windows update publisher', () => {
     const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
     await withCertificate({ CN: 'Publisher', O: 'Company', C: 'CN' }, async (file, signTool) => {
       const config = createElectronBuilderConfig({
-        DSH_DESKTOP_APP_ID: 'com.example.publisher-test',
-        DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
-        DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',
-        ...(explicitTarget ? { DSH_DESKTOP_TARGET_PLATFORM: 'win32' } : {}),
-        DSH_DESKTOP_WINDOWS_CER_FILE: file,
-        DSH_DESKTOP_WINDOWS_SIGNTOOL: signTool,
-        DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'test-container',
-        DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'test-pin',
-        DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
+        JAN_DESKTOP_APP_ID: 'com.example.publisher-test',
+        JAN_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
+        JAN_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',
+        ...(explicitTarget ? { JAN_DESKTOP_TARGET_PLATFORM: 'win32' } : {}),
+        JAN_DESKTOP_WINDOWS_CER_FILE: file,
+        JAN_DESKTOP_WINDOWS_SIGNTOOL: signTool,
+        JAN_DESKTOP_WINDOWS_KEY_CONTAINER: 'test-container',
+        JAN_DESKTOP_WINDOWS_TOKEN_PIN: 'test-pin',
+        JAN_DESKTOP_AUTO_UPDATE_ENV: 'production', DOWNLOAD_PROD_ORIGIN: 'https://downloads.example.com',
       }, 'win32', 'x64')
       expect(config.win.forceCodeSigning).toBe(true)
-      expect(config.artifactName).toBe('deepseek-harness-${version}-${os}-${arch}.${ext}')
+      expect(config.artifactName).toBe('jan-${version}-${os}-${arch}.${ext}')
       expect(typeof config.win.signtoolOptions.sign).toBe('function')
       const manager = new WindowsSignToolManager({ platformSpecificBuildOptions: config.win, getCscLink: () => undefined })
       expect(await manager.computedPublisherName.value).toEqual(['CN=Publisher,O=Company,C=CN'])

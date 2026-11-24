@@ -3,18 +3,18 @@
  * Post-execute policies settle before retention; canonical program values
  * remain intact. Missing recovery storage or image pricing keeps the original
  * content and reports the reason through the logger.
- * @module @deepseek-ai/dsh-spill-policy
+ * @module @janhq/jan-spill-policy
  */
-import type {} from '@deepseek-ai/dsh-tool-executor-ptc'
-import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import { createUserMessage, resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, ImageBlock, LlmImageRequestPrice, ToolCallId } from '@deepseek-ai/dsh-llm'
-import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate'
-import type { SpillRef } from '@deepseek-ai/dsh-spill'
-import type { PostToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
-import type {} from '@deepseek-ai/dsh-attachment'
-import type {} from '@deepseek-ai/dsh-fs'
+import type {} from '@janhq/jan-tool-executor-ptc'
+import type { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import { createUserMessage, resolveImageAttachmentAccess } from '@janhq/jan-llm'
+import type { ContentBlock, ImageBlock, LlmImageRequestPrice, ToolCallId } from '@janhq/jan-llm'
+import { estimateContent } from '@janhq/jan-token-meter/estimate'
+import type { SpillRef } from '@janhq/jan-spill'
+import type { PostToolDecision, ToolExecution } from '@janhq/jan-tools'
+import type {} from '@janhq/jan-attachment'
+import type {} from '@janhq/jan-fs'
 import type { SpillPolicyExec } from './types.ts'
 import { formatSpillNotice } from './notice.ts'
 import { retainContent } from './retention.ts'

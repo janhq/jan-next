@@ -1,11 +1,11 @@
 import type {
   SettingsSchemaService,
-} from '@deepseek-ai/dsh-client-ui-settings/client'
+} from '@janhq/jan-client-ui-settings/client'
 
 /** Plain schema callbacks exposed to Models stores and presentation components. */
 export type SettingsSchemaOperations = Pick<
   SettingsSchemaService,
-  'rehydrate' | 'validate' | 'nodeAtPath' | 'getPath' | 'hasPath' | 'setPath' | 'deletePath'
+  'rehydrate' | 'nodeAtPath' | 'getPath' | 'hasPath' | 'setPath' | 'deletePath'
 >
 
 /**
@@ -16,7 +16,6 @@ export type SettingsSchemaOperations = Pick<
 export function createSettingsSchemaOperations(service: SettingsSchemaService): SettingsSchemaOperations {
   return {
     rehydrate: serialized => service.rehydrate(serialized),
-    validate: (schema, draft) => service.validate(schema, draft),
     nodeAtPath: (root, path) => service.nodeAtPath(root, path),
     getPath: (value, path) => service.getPath(value, path),
     hasPath: (value, path) => service.hasPath(value, path),

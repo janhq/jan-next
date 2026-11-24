@@ -1,0 +1,24 @@
+{
+  "name": "@janhq/jan-diagnostics",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Copy or save a redacted diagnostic report and open Jan's logs, from a failed chat and from Settings > About.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.mjs", "report.mjs", "client.js", "client.locale.js", "README.md"],
+  "dependencies": {
+    "@janhq/jan-native-command": "workspace:*",
+    "@janhq/jan-plugin-api": "workspace:*"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-primitives"]
+    }
+  }
+}

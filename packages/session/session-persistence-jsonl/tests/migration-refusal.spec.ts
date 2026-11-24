@@ -1,12 +1,12 @@
 /** Durable EOF refusals preserve historical generations and never fall back from the selected generation. */
 
-import { Context } from '@deepseek-ai/cordis'
-import { SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
-import { createSessionFormatCatalogWithChildren } from '@deepseek-ai/dsh-session-format-catalog'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
-import type { SessionFormatJsonObject } from '@deepseek-ai/dsh-session-format'
-import { SessionFormatUnsupportedError, SessionPersistenceCorruptionError } from '@deepseek-ai/dsh-session-persistence'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import { Context } from '@janhq/cordis'
+import { SESSION_FORMAT_VERSION, SessionId } from '@janhq/jan-session'
+import { createSessionFormatCatalogWithChildren } from '@janhq/jan-session-format-catalog'
+import type { SessionEvent } from '@janhq/jan-session'
+import type { SessionFormatJsonObject } from '@janhq/jan-session-format'
+import { SessionFormatUnsupportedError, SessionPersistenceCorruptionError } from '@janhq/jan-session-persistence'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
 import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -36,7 +36,7 @@ const releasedPrefix: readonly SessionFormatJsonObject[] = [
   ...prefix.slice(0, 2),
   { type: 'system/message', surfaceOp: 'append', data: {
     turn: 1, step: 1, message: {
-      id: 'native-system', role: 'system', source: { kind: 'plugin', plugin: '@deepseek-ai/dsh-system-prompt' },
+      id: 'native-system', role: 'system', source: { kind: 'plugin', plugin: '@janhq/jan-system-prompt' },
       content: [{ type: 'text', text: 'Inspect the durable audit.' }],
     },
   } },
@@ -124,7 +124,7 @@ const migrationRefusals = [
     tail: { type: 'session-log-deepseek/delivery-accepted', data: {
       sessionId: id, throughSeq: prefix.length - 1, sessionFormatVersion: 3,
     } },
-    diagnostic: '@deepseek-ai/dsh-session-format-v2-to-v3 refuses this format v2 Session: format v2 delivery marker claims target format v3',
+    diagnostic: '@janhq/jan-session-format-v2-to-v3 refuses this format v2 Session: format v2 delivery marker claims target format v3',
   },
   {
     name: 'source message colliding with the generated system ID',
@@ -170,7 +170,7 @@ let root: string
 const contexts: Context[] = []
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'dsh-migration-refusal-'))
+  root = await mkdtemp(join(tmpdir(), 'jan-migration-refusal-'))
 })
 
 afterEach(async () => {
@@ -289,7 +289,7 @@ describe.each(modes)('EOF migration refusal ($compression, $access)', ({ compres
     }
   })
 
-  it('refuses a V3 watermark claiming V4 without publishing a successor', async () => {
+  it('refuses a V3 delivery marker without publishing a successor', async () => {
     const marker = { type: 'session-log-deepseek/delivery-accepted', data: {
       sessionId: id, throughSeq: 0, sessionFormatVersion: 4,
     } }
@@ -297,7 +297,8 @@ describe.each(modes)('EOF migration refusal ($compression, $access)', ({ compres
     const original = await observe(path)
     const ctx = await mount(compression)
     await expectRefusal(ctx, access, path,
-      'format v3 delivery marker claims target format v4; source v3 artifact remains unchanged (raw log: ' + path + ')')
+      `format v4 contains unknown event type "session-log-deepseek/delivery-accepted" at seq ${nativePrefix.length}`
+      + '; source v3 artifact remains unchanged (raw log: ' + path + ')')
     expect(await observe(path)).toEqual(original)
     await expectOnlyGenerations([path])
   })
@@ -316,15 +317,6 @@ describe.each(modes)('EOF migration refusal ($compression, $access)', ({ compres
       + '; source v3 artifact remains unchanged (raw log: ' + path + ')')
     expect(await observe(path)).toEqual(original)
     await expectOnlyGenerations([path])
-  })
-
-  it.each([5, 99])('retains a V3 watermark claiming V%s unchanged through native reopening', async (sessionFormatVersion) => {
-    const marker = { type: 'session-log-deepseek/delivery-accepted', data: {
-      sessionId: id, throughSeq: 0, sessionFormatVersion,
-    } }
-    await expectV3Conversion([...releasedPrefix, marker], (events) => {
-      expect(events).toEqual([...nativePrefix, marker].map((row, seq) => ({ ...row, seq, time: 1001 + seq })))
-    })
   })
 
   it.each([false, true])('refuses own V3 tool-definition deferLoading=%s without publishing a successor', async (deferLoading) => {

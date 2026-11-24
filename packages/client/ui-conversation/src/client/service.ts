@@ -7,26 +7,27 @@
  * through one property read; assignment through the tracker proxy and `#`
  * private fields bypass that rebinding.
  */
-import { Service } from '@deepseek-ai/cordis'
-import type { Context } from '@deepseek-ai/cordis'
-import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
+import { Service } from '@janhq/cordis'
+import type { Context } from '@janhq/cordis'
+import { randomUUID } from '@janhq/jan-util-crypto'
 // Type-only imports: a plugin-to-plugin value import is a bundle purity
 // error, so scope resolution goes through the sessions service (scopeOf
 // method) instead of the standalone helper.
 import type {
   ISessions, PendingSubmissionRetirement, SessionFace,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import type {} from '@deepseek-ai/dsh-client-file-upload/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { FileAttachmentRef, ImageMediaType } from '@deepseek-ai/dsh-attachment'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+} from '@janhq/jan-api-session-controller/client'
+import type {} from '@janhq/jan-client-file-upload/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { FileAttachmentRef, ImageMediaType } from '@janhq/jan-attachment'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { SnapshotStore } from '@janhq/jan-client-store'
 import type {
   ComposerAttachment, ComposerFileAttachment, ComposerImageAttachment, DraftFileUpload,
 } from './contract/slots.ts'
-import type { QueueAction } from '@deepseek-ai/dsh-api-session-controller/types'
-import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
+import type { QueueAction } from '@janhq/jan-api-session-controller/types'
+import type { MessageId } from '@janhq/jan-llm/brand'
 import type { ComposerBlocks } from './contract/composer-blocks.ts'
+import type { DraftContextInsert } from './contract/draft-editor.ts'
 import type {
   DraftAttachmentId, DraftAttachmentSerializationResult, SessionInputResolver, SubmitAttachment, SubmitOutcome,
 } from './contract/input.ts'
@@ -45,6 +46,23 @@ export interface IConversation {
    * cannot import makes a session's input inert with its own reason.
    */
   readonly blocks: ComposerBlocks
+  /**
+   * Resolve ordered input-state ids to the scoped session's live draft attachments.
+   * @param ids - draft attachment ids from the input state.
+   * @returns descriptors that remain live, in requested order.
+   */
+  resolveDraftAttachments(ids: readonly DraftAttachmentId[]): readonly ComposerAttachment[]
+  /**
+   * Append browser-owned context to a retained Session's draft without sending it.
+   * @param sessionId - target Session, independent of the focused panel.
+   * @param text - plain text appended after existing paragraphs.
+   * @param files - ordered browser files to attach.
+   * @param contexts - atomic contexts shown as chips; the model reads each text verbatim.
+   * @returns whether the draft accepted the context, is blocked, or no longer exists.
+   */
+  appendDraft(
+    sessionId: SessionId, text: string, files?: readonly File[], contexts?: readonly DraftContextInsert[],
+  ): 'added' | 'blocked' | 'unavailable'
   /**
    * Send a prompt into the caller scope's session (queued turn).
    * @param text - prompt text, sent verbatim as one text block.
@@ -312,6 +330,24 @@ export class ConversationController extends Service implements IConversation {
     // An accepted prompt whose echo already retired unobserved, as when its queue entry was removed.
     if (ownership.retiredUnobserved) this.releaseDraftAttachments(attachments)
     return { kind: 'success' }
+  }
+
+  appendDraft(
+    sessionId: SessionId, text: string, files: readonly File[] = [], contexts: readonly DraftContextInsert[] = [],
+  ): 'added' | 'blocked' | 'unavailable' {
+    const binding = this.requireSessions().binding(sessionId)
+    const state = binding?.session.getSnapshot()
+    if (binding === undefined || state === undefined || state.removed) return 'unavailable'
+    const { subagent } = state
+    if ((subagent !== null && subagent.address.mode !== 'continuable')
+      || this.blocks.storeFor(sessionId).getSnapshot() !== undefined) return 'blocked'
+    const input = this.input.for(binding.ctx)
+    const { phase } = input.state.getSnapshot()
+    if (phase === 'adjudicating' || phase === 'submitting' || phase === 'sending') return 'blocked'
+    const drafts = this.createDrafts(sessionId, files, subagent === null)
+    if (input.appendDraft(text, drafts.map(draft => draft.id), contexts)) return 'added'
+    this.releaseDraftAttachments(drafts)
+    return 'blocked'
   }
 
   /**

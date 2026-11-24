@@ -1,7 +1,10 @@
 /** Resident conversation navigation and Session-specific header content. */
+import { useContext } from 'react'
+import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import type { ConversationHeaderProps } from '../contract/slots.ts'
 import { conversationPhase } from '../contract/snapshot.ts'
+import { ConversationDeskContext } from './ConversationDesk.tsx'
 import css from './ConversationRoot.module.css'
 
 /**
@@ -10,10 +13,22 @@ import css from './ConversationRoot.module.css'
  * @returns The persistent header with any selected Session's title and views.
  */
 export function ConversationHeader({ sessionId, useSession, useConversation, renderSlot }: ConversationHeaderProps) {
+  const desk = useContext(ConversationDeskContext)
   const session = useSession(s => s)
   const conversation = useConversation(s => s)
   const blank = session === undefined || conversation === undefined
     || (session.blank && conversationPhase(session, conversation) === 'blank')
+  if (desk !== undefined) {
+    return (
+      <>
+        {desk.leading && desk.stripTarget !== undefined && createPortal(
+          <div className={css.headerLeading} data-conversation-header-leading="">{renderSlot('conversation.header.leading', {})}</div>,
+          desk.stripTarget,
+        )}
+        {sessionId !== undefined && renderSlot('conversation.session.header', { hideChrome: blank })}
+      </>
+    )
+  }
   return (
     <header className={clsx(css.header, blank && css.headerBlank)} data-window-drag>
       <div className={css.headerLeading} data-conversation-header-leading="">
@@ -22,7 +37,7 @@ export function ConversationHeader({ sessionId, useSession, useConversation, ren
       {sessionId === undefined
         // The empty title row keeps the blank-Session header height, so the
         // Hero centers its input card at the same offset before a Session exists.
-        ? <div className={css.titleRow} />
+        ? <div className={clsx(css.titleRow, css.titleRowEmpty)} />
         : renderSlot('conversation.session.header', { hideChrome: blank })}
     </header>
   )

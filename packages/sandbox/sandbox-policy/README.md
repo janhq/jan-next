@@ -3,9 +3,7 @@ description: "The shared per-call sandbox policy resolver and current model cont
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-sandbox-policy
-
-English | [中文](README.zh.md)
+# @janhq/jan-sandbox-policy
 
 ## Summary
 
@@ -36,7 +34,7 @@ Choose it for every composition with confined capabilities (bash, filesystem, te
 Load the package with a default mode; the fail-safe default is `read-only`, and a deployment that wants a workspace-writable agent opts into `workspace-write` explicitly.
 
 ```yaml
-- name: '@deepseek-ai/dsh-sandbox-policy'
+- name: '@janhq/jan-sandbox-policy'
   config:
     mode: workspace-write
     workspaceRoot: /absolute/path/to/workspace
@@ -50,7 +48,7 @@ Load the package with a default mode; the fail-safe default is `read-only`, and 
 
 For a linked Git worktree, the caller can grant its shared Git directory with `additionalWritableRoots`. The caller selects that directory explicitly; the policy does not inspect Git files or grant a parent checkout. These grants are deployment configuration shared by the composition's sessions, rather than saved Session permissions. Granting the entire Git directory also permits changes to hooks and configuration that a later host Git invocation can execute outside the sandbox; use that grant only for trusted tasks. Use physical absolute directory paths. The enforcing host rejects missing paths, files, and symlinked roots, including a directory replaced by a symlink between calls. Remote grants are validated on the remote host.
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-sandbox-policy) is the exhaustive source for every accepted field and its JSDoc.
+The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-sandbox-policy) is the exhaustive source for every accepted field and its JSDoc.
 
 ### Switching a session's mode
 
@@ -80,7 +78,7 @@ A runtime switch is one log-only `sandbox/mode` event on the session it applies 
 
 ### Model-visible text
 
-The `sandbox:policy` contribution states the mode's capability-neutral file-effect contract and the recorded session workspace and explicit extra directories under `workspace-write`. It does not enumerate mounted capabilities; tool plugins retain operation-specific denial and escalation guidance, approval policy contributes separately to the same snapshot, and plan guidance remains `dsh-plan-mode`'s system section.
+The `sandbox:policy` contribution states the mode's capability-neutral file-effect contract and the recorded session workspace and explicit extra directories under `workspace-write`. It does not enumerate mounted capabilities; tool plugins retain operation-specific denial and escalation guidance, approval policy contributes separately to the same snapshot, and plan guidance remains `jan-plan-mode`'s system section.
 
 ### Source map
 
@@ -96,11 +94,10 @@ The `sandbox:policy` contribution states the mode's capability-neutral file-effe
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Start with the subsystem reference for the shared vocabulary, then the seam contract and the cross-family decision.
+Start with the subsystem reference for the shared vocabulary, then the seam contract.
 
 - [Process sandbox subsystem](../../../docs/subsystems/sandbox.md) — modes, per-call policy, and enforcement semantics.
 - [Sandbox seam package](../sandbox/README.md) — the confinement contract every enforcing capability implements.
-- [historical Cross-family file sandbox decision](../../../.agents/notes/archived/feature/2026-07-14-cross-family-fs-sandbox.md) — why one shared policy home exists.
 
 -----
 
@@ -111,30 +108,30 @@ Start with the subsystem reference for the shared vocabulary, then the seam cont
 
 #### What the model sees
 
-One `sandbox:policy` contribution in the current runtime-context snapshot for every agent session. It does not enumerate mounted capabilities. Tool plugins retain operation and escalation guidance, approval policy contributes separately to the same snapshot, and plan guidance remains `dsh-plan-mode`'s system section.
+One `sandbox:policy` contribution in the current runtime-context snapshot for every agent session. It does not enumerate mounted capabilities. Tool plugins retain operation and escalation guidance, approval policy contributes separately to the same snapshot, and plan guidance remains `jan-plan-mode`'s system section.
 
 ##### Read-only
 
 ```markdown
-Current DSH file policy: read-only. Any available operation enforced by the DSH file sandbox cannot modify files in the standing mode. Do not refuse a required modification from this policy alone: try an available tool normally and follow any denial and escalation guidance it returns.
+Current Jan file policy: read-only. Any available operation enforced by the Jan file sandbox cannot modify files in the standing mode. Do not refuse a required modification from this policy alone: try an available tool normally and follow any denial and escalation guidance it returns.
 ```
 
 ##### Workspace-write
 
 ```markdown
-Current DSH file policy: workspace-write. Any available operation enforced by the DSH file sandbox may modify files under the session workspace: "<workspace root>". Some platform temporary areas may also be writable.
+Current Jan file policy: workspace-write. Any available operation enforced by the Jan file sandbox may modify files under the session workspace: "<workspace root>". Some platform temporary areas may also be writable.
 ```
 
 ##### Workspace-write with extra directories
 
 ```markdown
-Current DSH file policy: workspace-write. Any available operation enforced by the DSH file sandbox may modify files under the session workspace: "<workspace root>". Additional writable directories: ["/repo/.git"]. Some platform temporary areas may also be writable.
+Current Jan file policy: workspace-write. Any available operation enforced by the Jan file sandbox may modify files under the session workspace: "<workspace root>". Additional writable directories: ["/repo/.git"]. Some platform temporary areas may also be writable.
 ```
 
 ##### Danger-full-access
 
 ```markdown
-Current DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.
+Current Jan file policy: danger-full-access. The Jan file sandbox does not restrict file modifications by available operations.
 ```
 
 #### Token effect
@@ -156,7 +153,7 @@ These limits define the policy surface this package provides. They are current p
 - **File-effect modes only** — `SandboxMode` governs file effects; network and process policy are outside its vocabulary, so no knob here restricts them.
 - **Temporary areas are deliberately summarized** — enforcing backends grant different platform temporary areas, which are selected after policy resolution and therefore cannot be enumerated truthfully in the current context.
 
-Policy-context replacements must be counter-tested on denied-then-escalatable tasks to verify that the model still attempts the initial tool call. The [historical five-of-twelve zero-tool-call measurement](../../../.agents/notes/archived/feature/2026-07-06-sandbox.md) records the failure this check prevents.
+Policy-context replacements must be counter-tested on denied-then-escalatable tasks to verify that the model still attempts the initial tool call.
 
 <a id="dev-note"></a>
 ### Dev Note

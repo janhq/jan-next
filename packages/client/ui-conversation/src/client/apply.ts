@@ -1,19 +1,19 @@
-import type {} from '@deepseek-ai/dsh-client-ui-context-menu/client'
+import type { } from '@janhq/jan-client-ui-context-menu/client'
 /** Registers the target-neutral Conversation assembly, shell, input, and docks. */
-import type {} from '@deepseek-ai/dsh-client-product-analytics/client'
-import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import type { ISessions, SessionBinding } from '@deepseek-ai/dsh-api-session-controller/client'
-import { IconPaperclipOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import { createSnapshotStore, type BoundActions } from '@deepseek-ai/dsh-client-store'
-import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { } from '@janhq/jan-client-product-analytics/client'
+import type { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import type { ISessions, SessionBinding } from '@janhq/jan-api-session-controller/client'
+import { IconPaperclipOutlineRegular } from '@janhq/jan-client-ui-primitives'
+import { createSnapshotStore, type BoundActions } from '@janhq/jan-client-store'
+import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
+import type { SessionId } from '@janhq/jan-session/types'
 // Type-only service and declaration merges used by this assembly.
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type { ShortcutCommandId, ShortcutFixedCommand } from '@deepseek-ai/dsh-client-shortcuts/client'
+import type { } from '@janhq/jan-client-locale/client'
+import type { } from '@janhq/jan-client-ui-renderer/client'
+import type { } from '@janhq/jan-client-ui-session/client'
+import type { } from '@janhq/jan-client-ui-settings/client'
+import type { ShortcutCommandId, ShortcutFixedCommand } from '@janhq/jan-client-shortcuts/client'
 import { UiConversation } from './conversation/assembly.ts'
 import { UserText, PlainUserText, SessionReference } from './user-text/UserText.tsx'
 import { sessionReferenceRule } from './user-text/session-reference-rule.ts'
@@ -26,20 +26,22 @@ import type {
 import type { InputNotice } from './contract/input.ts'
 import type { ReferenceInsert } from './contract/draft-editor.ts'
 import { createConversationStore, readConversationViewPreference } from './stores.ts'
-import { formatFileMention } from '@deepseek-ai/dsh-file-reference/grammar'
-import { relativizeToCwd, workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
+import { formatFileMention } from '@janhq/jan-file-reference/grammar'
+import { relativizeToCwd, workspaceTitleOf } from '@janhq/jan-util-workspace-path'
 import { ConversationController, UnsupportedImageMediaTypeError, isImageMediaType } from './service.ts'
 import type { IConversation } from './service.ts'
 import { ComposerBlockRegistry } from './input/blocks.ts'
 import type { ComposerBlock } from './contract/composer-blocks.ts'
 import { InputHub } from './input/hub.ts'
+import { focusDraftEditor, revealDraftSelection } from './input/editor/view-binding.ts'
 import { ComposerSubmissionPolicy } from './input/submission-policy.ts'
 import { queueDockEntry } from './queue/QueueDock.tsx'
 import { EnterBehaviorRow } from './settings/EnterBehaviorRow.tsx'
 import type { EnterBehaviorRowInjected } from './settings/EnterBehaviorRow.tsx'
 import { ConversationRoot } from './skeleton/ConversationRoot.tsx'
 import { ConversationContent } from './skeleton/ConversationContent.tsx'
-import { ConversationPanel } from './skeleton/ConversationPanel.tsx'
+import { ConversationPanel, paneRetainer, type ConversationPanelInjected } from './skeleton/ConversationPanel.tsx'
+import { ConversationLayout, MULTITASK_LAYOUT_KEY } from './skeleton/multitask-layout.ts'
 import { ConversationHeader } from './skeleton/ConversationHeader.tsx'
 import { ConversationSession, ConversationSessionHeader } from './skeleton/ConversationSession.tsx'
 import { InputBar } from './skeleton/InputBar.tsx'
@@ -50,7 +52,7 @@ import { createViewPins } from './view-pins.ts'
 import { en, ja, es, fr, de, ru, pt, NS, zh, type ConversationKey } from './locales.ts'
 import { CONVERSATION_SETTINGS_NAMESPACE, type ConversationSettings } from '../submission-settings.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Conversation shell, composer, queue, and dock copy. */
     conversation: ConversationKey
@@ -59,7 +61,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** Services required by the Conversation plugin. */
 export const inject = [
-  'slots', 'sessions', 'fileUpload', 'uiSession', 'uiWorkspace', 'locale', 'configForms',
+  'slots', 'sessions', 'fileUpload', 'uiSession', 'uiWorkspace', 'workspaces', 'locale', 'configForms',
 ]
 
 /** Conversation runtime configuration. */
@@ -77,25 +79,29 @@ export const Config: z<Config> = z.object({
 // hook order unchanged across current-Session transitions.
 const ABSENT_NOTICES = {
   getSnapshot: (): InputNotice | null => null,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 const ABSENT_BLOCK = {
   getSnapshot: (): ComposerBlock | undefined => undefined,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 const EMPTY_LEXICON: ReadonlyMap<'/' | '@', readonly string[]> = new Map()
 const ABSENT_LEXICON = {
   getSnapshot: () => EMPTY_LEXICON,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 const ABSENT_MENU_LAUNCHER = {
   getSnapshot: (): string | null => null,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
+}
+const ABSENT_CONTEXT_WINDOW = {
+  getSnapshot: (): number | undefined => undefined,
+  subscribe: () => () => { },
 }
 const EMPTY_FILE_UPLOADS: DraftFileUploads = {}
 const ABSENT_FILE_UPLOADS = {
   getSnapshot: () => EMPTY_FILE_UPLOADS,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 
 /**
@@ -110,14 +116,17 @@ interface HostPathBridge {
 
 /** The shell-installed bridge, when this document runs inside the Desktop application. */
 function hostPathBridge(): HostPathBridge | undefined {
-  return (globalThis as { __DSH_HOST_PATHS__?: HostPathBridge }).__DSH_HOST_PATHS__
+  return (globalThis as { __JAN_HOST_PATHS__?: HostPathBridge }).__JAN_HOST_PATHS__
 }
 
 interface WorkspaceNavigation {
   openSession(sessionId: SessionId): void
+  showEmptyConversation?(): void
+  registerSessionTabOpener?(open: (sessionId: SessionId) => void): () => void
   openWorkspace(
-    workspaceId: Parameters<ConversationInjected['selectWorkspace']>[0],
+    workspaceId: Parameters<ConversationInjected['selectWorkspace']>[0] | undefined,
     beforeOpen: (sessionId: SessionId) => void,
+    options?: { readonly reuseBlank: boolean },
   ): Promise<void>
 }
 
@@ -181,22 +190,73 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       reportTransformFailure: (error) => { console.error('[ui-conversation] user-text transformation failed:', error) },
     }),
   }, UserText)
-  slots.inject('conversation.user.text.node', function* () {
+  slots.inject('conversation.user.text.node', function*() {
     yield slots.register({ name: 'conversation.user.text.node', key: 'text', priority: 100 }, PlainUserText)
     yield slots.register({ name: 'conversation.user.text.node', key: 'session', priority: 100 }, SessionReference)
   })
 
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-conversation: dictionaries')
   const t = ctx.locale.bind(NS)
+  const desktop = (globalThis as { janConversationWindow?: ConversationPanelInjected['desktop'] }).janConversationWindow
+  const storageKey = desktop?.id === undefined ? MULTITASK_LAYOUT_KEY : `${MULTITASK_LAYOUT_KEY}.${desktop.id}`
+  const layout = new ConversationLayout(globalThis.localStorage.getItem(storageKey) ?? undefined,
+    (value) => { globalThis.localStorage.setItem(storageKey, value) },
+    (id) => {
+      if (id === undefined) workspaceNavigation.showEmptyConversation?.()
+      else workspaceNavigation.openSession(id)
+    })
+  const retainPane = paneRetainer(sessions)
+  const mainBinding = ctx.uiSession.adapter.current
+  const workspaces = ctx.workspaces.list
+  ctx.effect(() => {
+    const syncLayout = (): void => {
+      const list = sessions.list.getSnapshot()
+      const workspace = workspaces.getSnapshot()
+      const archived = new Set(workspace.archivedSessionIds)
+      layout.sync(mainBinding.getSnapshot().key as SessionId | undefined,
+        list.phase === 'ready' && workspace.phase === 'ready' ? new Set(list.ids.filter(id => !archived.has(id))) : undefined)
+    }
+    syncLayout()
+    const disposeTabOpener = workspaceNavigation.registerSessionTabOpener?.(layout.openInNewTab)
+    const unsubscribers = [sessions.list, mainBinding, workspaces].map(source => source.subscribe(syncLayout))
+    return () => {
+      disposeTabOpener?.()
+      for (const unsubscribe of unsubscribers) unsubscribe()
+    }
+  }, 'ui-conversation: synchronize multitask layout')
+  ctx.inject(['contextMenus', 'layout'], (scope) => {
+    scope.effect(() => scope.contextMenus.register({
+      id: 'session.tabs', target: 'session', order: 350,
+      observe: () => [layout, sessions.list, workspaces, ctx.locale],
+      resolve: ({ sessionId }) => {
+        const row = sessions.list.getSnapshot().byId[sessionId]
+        if (row === undefined || row.blank || row.origin === 'subagent'
+          || workspaces.getSnapshot().archivedSessionIds.includes(sessionId)) return []
+        const openTab = { id: 'new-tab', label: t('desk.openInNewTab'), run: () => {
+          scope.layout.selectPanel(null)
+          layout.openInNewTab(sessionId)
+        } }
+        return !layout.canOpenBeside(sessionId) ? [openTab] : [openTab, {
+          id: 'split', label: t('desk.openBeside'), run: () => {
+            scope.layout.selectPanel(null)
+            layout.openBeside(sessionId)
+          },
+        }]
+      },
+    }), 'ui-conversation: session tab menu')
+  })
   const conversationStore = createConversationStore()
-  const submissionPolicy = new ComposerSubmissionPolicy(
-    ctx.configForms.get<ConversationSettings>(CONVERSATION_SETTINGS_NAMESPACE),
-  )
+  const conversationForm = ctx.configForms.get<ConversationSettings & { heroPlaceholder?: string }>(CONVERSATION_SETTINGS_NAMESPACE)
+  const submissionPolicy = new ComposerSubmissionPolicy(conversationForm)
+  const heroPlaceholder = {
+    getSnapshot: (): string | undefined => conversationForm.getSnapshot().value?.heroPlaceholder || undefined,
+    subscribe: (listener: () => void) => conversationForm.subscribe(listener),
+  }
 
   ctx.effect(() => () => { submissionPolicy.dispose() })
 
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
+  ctx.slots.inject('settings.agentLoop.item', () => ctx.slots.register({
+    name: 'settings.agentLoop.item',
     id: 'composer-enter',
     order: 20,
     locale: NS,
@@ -270,18 +330,28 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   const stopShortcut = createSnapshotStore<readonly string[]>([])
   ctx.inject(['shortcuts'], (scope) => {
     const fixedInputs: readonly ShortcutFixedCommand[] = [
-      { id: 'fixed.send' as ShortcutCommandId, label: () => t('input.send'), keys: ['Enter'],
-        bindings: [{ code: 'Enter', modifiers: [] }], group: 'input' },
-      { id: 'fixed.newline' as ShortcutCommandId, label: () => t('shortcut.newline'),
+      {
+        id: 'fixed.send' as ShortcutCommandId, label: () => t('input.send'), keys: ['Enter'],
+        bindings: [{ code: 'Enter', modifiers: [] }], group: 'input',
+      },
+      {
+        id: 'fixed.newline' as ShortcutCommandId, label: () => t('shortcut.newline'),
         keys: scope.shortcuts.describeBinding({ code: 'Enter', modifiers: ['shift'] }).keys,
-        bindings: [{ code: 'Enter', modifiers: ['shift'] }], group: 'input' },
-      { id: 'fixed.complementary' as ShortcutCommandId, label: () => t('shortcut.complementary'),
+        bindings: [{ code: 'Enter', modifiers: ['shift'] }], group: 'input',
+      },
+      {
+        id: 'fixed.complementary' as ShortcutCommandId, label: () => t('shortcut.complementary'),
         keys: scope.shortcuts.describeBinding({ code: 'Enter', modifiers: ['primary'] }).keys,
-        bindings: [{ code: 'Enter', modifiers: ['control'] }, { code: 'Enter', modifiers: ['meta'] }], group: 'input' },
-      { id: 'fixed.slash' as ShortcutCommandId, label: () => t('shortcut.slash'), keys: ['/'],
-        bindings: [{ code: 'Slash', modifiers: [] }], group: 'input' },
-      { id: 'fixed.mention' as ShortcutCommandId, label: () => t('shortcut.mention'), keys: ['@'],
-        bindings: [{ code: 'Digit2', modifiers: ['shift'] }], group: 'input' },
+        bindings: [{ code: 'Enter', modifiers: ['control'] }, { code: 'Enter', modifiers: ['meta'] }], group: 'input',
+      },
+      {
+        id: 'fixed.slash' as ShortcutCommandId, label: () => t('shortcut.slash'), keys: ['/'],
+        bindings: [{ code: 'Slash', modifiers: [] }], group: 'input',
+      },
+      {
+        id: 'fixed.mention' as ShortcutCommandId, label: () => t('shortcut.mention'), keys: ['@'],
+        bindings: [{ code: 'Digit2', modifiers: ['shift'] }], group: 'input',
+      },
     ]
     for (const command of fixedInputs) {
       scope.effect(() => scope.shortcuts.registerFixed(command), `ui-conversation: ${command.id}`)
@@ -350,9 +420,12 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       'conversation.composer.bar': { kind: 'single', scope: 'session-maybe' },
       'conversation.input.dock': { kind: 'list', scope: 'session' },
       'conversation.hero.frame': { kind: 'hoc', scope: 'root' },
+      'conversation.hero.headline': { kind: 'single', scope: 'root' },
+      'conversation.hero.suggestions': { kind: 'single', scope: 'session-maybe' },
       'conversation.hero.brand.mark': { kind: 'single', scope: 'root' },
       'conversation.hero.workspace': { kind: 'single', scope: 'root' },
       'conversation.hero.agentPreset': { kind: 'single', scope: 'session-maybe' },
+      'conversation.composer.agentPreset': { kind: 'single', scope: 'session' },
       'conversation.hero.options': { kind: 'list', scope: 'session' },
     },
     slots: {
@@ -360,11 +433,33 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       widthControls: { scope: 'root' },
     },
     inject: (sessionId: SessionId | undefined): ConversationInjected => ({
+      pickSuggestion: (text) => {
+        if (sessionId === undefined) return
+        const binding = sessions.binding(sessionId)
+        const snapshot = binding?.session.getSnapshot()
+        const shell = inputHub.shell(sessionId)
+        if (snapshot === undefined || snapshot.removed || snapshot.subagent !== null
+          || composerBlocks.storeFor(sessionId).getSnapshot() !== undefined
+          || (shell.snapshot.phase !== 'plain' && shell.snapshot.phase !== 'claimed')) return
+        shell.actions.setDraft(text)
+        focusDraftEditor(shell.editor, () => {
+          const scroll = shell.editor.getRootElement()?.closest<HTMLDivElement>('[data-input-scroll]') ?? null
+          revealDraftSelection({ current: scroll })
+        })
+      },
       hooks: {
         composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId),
+        heroPlaceholder,
       },
-      selectWorkspace: workspaceId => workspaceNavigation.openWorkspace(workspaceId, (nextId) => {
-        if (sessionId !== undefined && nextId !== sessionId) {
+      openDefaultDraft: readText => workspaceNavigation.openWorkspace(undefined, (nextId) => {
+        const text = readText()
+        if (text !== '') inputHub.shell(nextId).appendDraft(text, [])
+      }, { reuseBlank: false }),
+      selectWorkspace: (workspaceId, readText) => workspaceNavigation.openWorkspace(workspaceId, (nextId) => {
+        if (sessionId === undefined) {
+          const text = readText?.() ?? ''
+          if (text !== '') inputHub.shell(nextId).appendDraft(text, [])
+        } else if (nextId !== sessionId) {
           const from = inputHub.shell(sessionId)
           // A draft with a submission in flight stays with the Session that is admitting it.
           if (from.snapshot.phase !== 'plain' && from.snapshot.phase !== 'claimed') return
@@ -388,7 +483,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
             }
           }
         }
-      }),
+      }, { reuseBlank: sessionId !== undefined }),
     }),
   }, ConversationContent)
 
@@ -432,6 +527,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
 
   const registerHeader = () => slots.register({
     name: 'conversation.header',
+    locale: NS,
     children: {
       'conversation.header.leading': { kind: 'single', scope: 'root' },
       'conversation.session.header': { kind: 'single', scope: 'session' },
@@ -445,6 +541,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       'conversation.session.header.lineage': { kind: 'single', scope: 'session' },
       'conversation.session.header.actions': { kind: 'list', scope: 'session' },
       'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
+      'conversation.session.header.identity': { kind: 'list', scope: 'session' },
       'conversation.session.header.corner': { kind: 'single', scope: 'session' },
       'conversation.session.header.views.actions': { kind: 'list', scope: 'root' },
     },
@@ -464,6 +561,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     name: 'conversation.composer.bar',
     locale: NS,
     children: {
+      'conversation.input.placeholder': { kind: 'single', scope: 'session-maybe' },
       'conversation.input.attachments': { kind: 'single', scope: 'session-maybe' },
       'conversation.input.overlay': { kind: 'list', scope: 'session' },
       'conversation.input.permission': { kind: 'single', scope: 'session' },
@@ -472,6 +570,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       'conversation.input.right': { kind: 'list', scope: 'session' },
       'conversation.input.model': { kind: 'single', scope: 'session' },
       'conversation.input.activity': { kind: 'single', scope: 'session' },
+      'conversation.input.draftActivity': { kind: 'single', scope: 'session-maybe' },
       'conversation.composer.dock': { kind: 'list', scope: 'session' },
     },
     inject: (sessionId: SessionId | undefined): ComposerBarInjected => {
@@ -485,6 +584,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
           toggleCommandMenu: undefined,
           stop: undefined,
           retry: undefined,
+          previewContext: undefined,
           hooks: {
             stopShortcut,
             busyEnter: submissionPolicy.busyEnter,
@@ -492,6 +592,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
             notices: ABSENT_NOTICES,
             lexicon: ABSENT_LEXICON,
             menuLauncher: ABSENT_MENU_LAUNCHER,
+            contextWindow: ABSENT_CONTEXT_WINDOW,
           },
         }
       }
@@ -565,6 +666,10 @@ export function apply(ctx: Context, config: Config = Config({})): void {
           },
         stop: () => { stop(sessionId) },
         retry: (failureSeq) => { inputHub.retry(sessionId, failureSeq) },
+        previewContext: async () => {
+          const result = await sessions.binding(sessionId)?.session.contextPreview()
+          return result?.ok === true ? result.value : null
+        },
         hooks: {
           stopShortcut,
           busyEnter: submissionPolicy.busyEnter,
@@ -572,29 +677,37 @@ export function apply(ctx: Context, config: Config = Config({})): void {
           notices: shell.notices,
           lexicon: shell.lexicon,
           menuLauncher: inputTriggers?.launcher ?? ABSENT_MENU_LAUNCHER,
+          contextWindow: inputHub.contextWindowOf(sessionId),
         },
       }
     },
   }, InputBar)
 
-  slots.inject('main', function* () {
+  slots.inject('main', function*() {
     yield slots.register({
       name: 'main',
       key: 'conversation',
-      children: { 'main.conversation': { kind: 'single', scope: 'session-maybe' } },
+      locale: NS,
+      inject: () => ({ layout, retainPane, desktop }),
+      children: {
+        'main.conversation': { kind: 'single', scope: 'session-maybe' },
+        'conversation.desk.new-tab.item': { kind: 'list', scope: 'root' },
+      },
     }, ConversationPanel)
     yield registerConversationRoot()
     yield registerConversationContent()
     yield registerConversationSession()
     yield registerHeader()
     yield registerSessionHeader()
-    yield registerComposerBar()
   })
 
   ctx.plugin(ConversationController, {
     input: inputHub,
     blocks: composerBlocks,
     maxConcurrentFileUploads,
+  })
+  ctx.inject(['conversation'], (scope) => {
+    scope.slots.inject('conversation.composer.bar', registerComposerBar)
   })
   ctx.plugin(todoDockEntry)
   ctx.plugin(queueDockEntry)

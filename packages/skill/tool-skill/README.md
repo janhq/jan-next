@@ -3,9 +3,7 @@ description: "The model-facing skill catalog and loader tool for users and maint
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-tool-skill
-
-English | [中文](README.zh.md)
+# @janhq/jan-tool-skill
 
 ## Summary
 
@@ -27,7 +25,7 @@ Agents can discover and load skills during a session. When the `skill` tool is v
 
 Skill discovery, catalog updates, and explicit skill invocation use the Session's current working directory.
 
-Mount the plugin alongside the skill registry to give agents a session skill catalog and the `skill` loader tool. It requires `ctx.agents`, `ctx.tools`, and `ctx.skills`.
+Mount the plugin alongside the skill registry to give agents a session skill catalog and the `skill` loader tool. It requires `ctx.agents`, `ctx.tools`, and `ctx.skills`; `ctx.commands` is optional and only adds `/reload`.
 
 ### When to choose it
 
@@ -38,16 +36,16 @@ Use it when agents should discover and load skills during a session. Skip it whe
 Load the plugin together with the skill registry and at least one provider. The only configuration caps the normalized description length rendered in the catalog.
 
 ```yaml
-- name: '@deepseek-ai/dsh-skill'
-- name: '@deepseek-ai/dsh-skill-filesystem'
-- name: '@deepseek-ai/dsh-tool-skill'
+- name: '@janhq/jan-skill'
+- name: '@janhq/jan-skill-filesystem'
+- name: '@janhq/jan-tool-skill'
 ```
 
 | Field | Default | Meaning |
 |---|---|---|
 | `catalogDescriptionMaxLength` | `500` | Maximum normalized description length rendered in the session catalog; minimum 3 |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-tool-skill) is the exhaustive source for every accepted field.
+The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-tool-skill) is the exhaustive source for every accepted field.
 
 ### What the model gets
 
@@ -55,6 +53,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 - **A loader tool.** The model calls `skill` with the exact skill name and receives the full instruction body plus resource guidance in a canonical `<skill_content>` block; the result is retained as ordinary tool history.
 - **Explicit user invocation.** A `/name` token in direct user input that names a user-invocable skill injects that skill's instructions into the step, without the model having to load it.
 - **Live catalog updates.** Later membership, description, visibility, or completeness changes append a replacement catalog; removing every skill appends an empty catalog that retires older names.
+- **`/reload`.** When a commands registry is composed, the plugin registers `/reload` for a user who edited skills or instruction files outside Jan. It runs the `agent/reload` waterfall: this plugin drops the skill registry's cached catalogs (`SkillRegistry.refresh()`), so the next step appends a replacement catalog, and other listeners such as `@janhq/jan-agent-instructions` re-read their own sources. Every change reaches the model as a message appended after the conversation; the system prompt and earlier messages are not rewritten, so a provider's prompt cache for them stays valid. The reply joins each listener's report line, for example the skill count.
 
 ### Observable success and failures
 
@@ -72,7 +71,7 @@ This section explains how the catalog and the invocation boundary are built; the
 
 ### Design concept
 
-The package is built on two ideas. First, the catalog is a durable projection, diffed by a digest over the published entries and completeness rather than the rendered prose, so the `<system-reminder>` framing can never force a republish and consumers never re-parse the `<available_skills>` block. Second, one canonical rendering serves both load paths — the tool result and the user-explicit injection — through `renderSkillContent` shared from `dsh-skill`, so the model sees the same `<skill_content>` shape regardless of who initiated the load.
+The package is built on two ideas. First, the catalog is a durable projection, diffed by a digest over the published entries and completeness rather than the rendered prose, so the `<system-reminder>` framing can never force a republish and consumers never re-parse the `<available_skills>` block. Second, one canonical rendering serves both load paths — the tool result and the user-explicit injection — through `renderSkillContent` shared from `jan-skill`, so the model sees the same `<skill_content>` shape regardless of who initiated the load.
 
 ### Source map
 
@@ -95,12 +94,11 @@ The `/name` gesture listener scans only claimed user messages: a whitespace-boun
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the package-level contract is not enough. They move from the registry vocabulary behind the catalog to the exact tool schema and the design rationale.
+Read these pages when the package-level contract is not enough. They move from the registry vocabulary behind the catalog to the exact tool schema.
 
 - [Skill subsystem reference](../../../docs/subsystems/skills.md) — the registry and provider vocabulary behind the catalog.
 - [skill package](../skill/README.md) — the registry and the shared `renderSkillContent` rendering.
-- [Generated tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tool-skill) — the exact `skill` schema the model receives.
-- [User-explicit skill invocation Agent Note](../../../.agents/notes/archived/feature/2026-08-08-user-explicit-skill-invocation.md) — the `/name` gesture design.
+- [Generated tool catalog](../../../docs/tool-catalog.md#janhqjan-tool-skill) — the exact `skill` schema the model receives.
 
 -----
 
@@ -111,7 +109,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 #### What the model sees
 
-If this exact `skill` tool is visible and either model-invocable skills exist or discovery is incomplete, the agent receives the catalog template below as a durable user-role message before the first request, with one data-dependent entry per sorted skill. Later membership, description, visibility, or completeness changes append a replacement using the same `<available_skills>` envelope; deleting every skill appends an empty envelope with an explicit instruction not to use older names. The template's closing sentence is the rule against double-loading: the user-explicit gesture boundary (the pre-step listener below) injects the same `renderSkillContent` output (shared from `@deepseek-ai/dsh-skill`) inline, and the catalog tells the model to follow that block instead of re-loading the skill through the tool; the replacement-catalog template carries the same anti-double-loading rule in both arms, including the emptied catalog.
+If this exact `skill` tool is visible and either model-invocable skills exist or discovery is incomplete, the agent receives the catalog template below as a durable user-role message before the first request, with one data-dependent entry per sorted skill. Later membership, description, visibility, or completeness changes append a replacement using the same `<available_skills>` envelope; deleting every skill appends an empty envelope with an explicit instruction not to use older names. The template's closing sentence is the rule against double-loading: the user-explicit gesture boundary (the pre-step listener below) injects the same `renderSkillContent` output (shared from `@janhq/jan-skill`) inline, and the catalog tells the model to follow that block instead of re-loading the skill through the tool; the replacement-catalog template carries the same anti-double-loading rule in both arms, including the emptied catalog.
 
 ##### Incomplete discovery notice
 
@@ -159,7 +157,7 @@ The initial durable catalog is appended after the existing reusable prefix. Dyna
 
 #### What the model sees
 
-The model sees the generated [`skill` schema](../../../docs/tool-catalog.md#deepseek-aidsh-tool-skill).
+The model sees the generated [`skill` schema](../../../docs/tool-catalog.md#janhqjan-tool-skill).
 
 #### Token effect
 

@@ -1,4 +1,4 @@
-// UI-only geometry for the Automation tasks page; no model calls or task mutations.
+// UI-only geometry for the Scheduled tasks page; no model calls or task mutations.
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
@@ -20,8 +20,8 @@ it('keeps the automation title intact before moving New to another line', async 
           const page = await context.newPage()
           const consoleWatch = watchConsole(page)
           await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-          const title = language === 'en' ? 'Automation tasks' : '自动化任务'
-          await page.getByRole('button', { name: title, exact: true }).click()
+          const [entry, title] = language === 'en' ? ['Scheduled', 'Scheduled tasks'] : ['定时任务', '定时任务']
+          await page.getByRole('button', { name: entry, exact: true }).click()
           const panel = page.getByTestId('task-manager-page')
           const heading = panel.getByRole('heading', { name: title, exact: true })
           await heading.waitFor()

@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-11-16-local-model-vision-projectors.zh.md)
-
 ## Problem
 
 The [bundled worker](../architecture/2026-11-13-bundled-llama-worker.md) served text only: the `llama-cpp` plugin refused multimodal projector (`mmproj`) files and wrote no projector into the preset. A vision-language GGUF model reads images only when llama.cpp loads it with its projector, so image attachments could not reach any local model, while Jan serves the same models with images.

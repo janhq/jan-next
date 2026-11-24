@@ -2,13 +2,13 @@
  * Vocabulary for the web capability seam (`ctx.web`). Search and fetch deliberately share one
  * seam so provider selection, cancellation, errors, and product configuration have one owner,
  * while retaining separate request and result types.
- * @module @deepseek-ai/dsh-web/types
+ * @module @janhq/jan-web/types
  */
 
-import { HarnessError } from '@deepseek-ai/dsh-llm'
-import type { LocalizedText } from '@deepseek-ai/dsh-package-manifest'
+import { HarnessError } from '@janhq/jan-llm'
+import type { LocalizedText } from '@janhq/jan-package-manifest'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Events {
     /**
      * The set of registered search or fetch providers changed: one provider
@@ -25,15 +25,15 @@ declare module '@deepseek-ai/cordis' {
 /**
  * What one search-capable backend is asked to search. Each request carries one
  * query; a consumer may issue several requests. `maxResults` is a
- * `dsh-tool-web`-layer bound passed through unchanged and enforced on the way
+ * `jan-tool-web`-layer bound passed through unchanged and enforced on the way
  * back by the seam (see {@link WebSearchResult}).
  */
 export interface WebSearchRequest {
   readonly query: string
   /**
    * Upper bound on returned sources; the seam truncates to it. Omitted = no
-   * bound. `dsh-tool-web` always sets it. A provider whose API supports a
-   * result-count control (the DeepSeek Search API's `count`) should apply it
+   * bound. `jan-tool-web` always sets it. A provider whose API supports a
+   * result-count control should apply it
    * at the request layer as a cost/latency optimization; the seam enforces the
    * bound regardless.
    */
@@ -42,8 +42,7 @@ export interface WebSearchRequest {
 
 /**
  * Normalized search outcome. `content` is optional provider-generated answer
- * text or summary (DeepSeek returns none; a provider whose API generates an
- * answer returns it here).
+ * text or summary; a provider whose API generates an answer returns it here.
  * `sources[]` is the portable citation shape. `truncated` is set by the seam
  * when it cut `sources[]` down to `maxResults`.
  */
@@ -60,7 +59,7 @@ export interface WebSearchResult {
  * One citeable source. A source always has a URL; `title`, `snippet`, `summary`,
  * and `publishedAt` are optional because not every provider returns them — forcing
  * adapters to invent them would make the seam lie (some providers return
- * URL-only citations). `dsh-tool-web` renders `title ?? hostname(url)` for display.
+ * URL-only citations). `jan-tool-web` renders `title ?? hostname(url)` for display.
  */
 export interface WebSearchSource {
   readonly url: string
@@ -102,7 +101,7 @@ export interface WebFetchResult {
 
 /**
  * The decoded body of a fetched resource. A CLOSED discriminated union owned by
- * `dsh-web`: the provider decodes the kind and `dsh-tool-web` renders it, so a
+ * `jan-web`: the provider decodes the kind and `jan-tool-web` renders it, so a
  * new kind is a coordinated change across known packages, not a plugin
  * extension. Consumers `switch` on `kind` ending in `default: assertNever(...)`
  * so adding a kind breaks compilation at every consumer until handled. Each arm
@@ -168,6 +167,12 @@ export interface WebFetchProvider {
   /** Retrieve one URL; honor `signal` for cancellation. */
   fetch(request: WebFetchRequest, signal?: AbortSignal): Promise<WebFetchResult>
 }
+
+/**
+ * A configured provider selection: one provider id, or provider ids in preference order. The
+ * first id that is registered and `available()` is selected by `ctx.web`.
+ */
+export type WebProviderPreference = string | readonly string[]
 
 /** One registered provider as listed by {@link WebProviderList}. */
 export interface WebProviderInfo {

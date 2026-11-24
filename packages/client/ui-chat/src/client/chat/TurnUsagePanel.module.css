@@ -13,36 +13,59 @@
   margin-left: -6px;
 }
 
-/* The information pills use the action icons' resting color. */
+/* The information pills use the action icons' resting color and their 6px inset, so the first
+   figure's icon follows the action icons at their own 20px glyph-to-glyph rhythm. */
 .trigger {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   min-width: 0;
-  height: calc(28px + var(--dsh-content-font-delta, 0px));
-  padding: 6px 8px;
+  height: calc(28px + var(--jan-content-font-delta, 0px));
+  padding: 6px;
   border: none;
   border-radius: var(--dsw-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-tertiary);
-  font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px);
+  font-size: calc(var(--jan-content-font-size-secondary, 13px) - 1px);
   font-variant-numeric: tabular-nums;
-  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
+  line-height: calc(24px + var(--jan-content-font-delta, 0px));
   white-space: nowrap;
   cursor: pointer;
 }
 
-/* A narrow column trims the label to an ellipsis instead of overflowing the
-   pill; the data glyph never shrinks. */
+/* The figures sit in one row of icon-plus-value groups, 12px apart (the gap the clock keeps
+   too); a narrow column clips the trailing groups instead of overflowing the pill. */
 .label {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.trigger svg {
-  width: calc(15px + var(--dsh-content-font-delta, 0px));
-  height: calc(15px + var(--dsh-content-font-delta, 0px));
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+/* Only the collapsed narrow pill shows a lone icon. */
+.narrowIcon {
+  display: none;
+}
+
+/* A pictorial stat icon beside 12px figures is 14px, the inline-meta pairing used across the
+   app; the lone narrow icon stands in for an action, so it takes the action icons' 16px. */
+.label svg {
+  width: calc(14px + var(--jan-content-font-delta, 0px));
+  height: calc(14px + var(--jan-content-font-delta, 0px));
+  flex: none;
+}
+
+.narrowIcon {
+  width: calc(16px + var(--jan-content-font-delta, 0px));
+  height: calc(16px + var(--jan-content-font-delta, 0px));
   flex: none;
 }
 
@@ -65,12 +88,16 @@
 @media (max-width: 480px) {
   .trigger {
     justify-content: center;
-    width: calc(28px + var(--dsh-content-font-delta, 0px));
+    width: calc(28px + var(--jan-content-font-delta, 0px));
     padding: 6px;
   }
 
   .trigger .label {
     display: none;
+  }
+
+  .trigger .narrowIcon {
+    display: block;
   }
 
   .root + .root {

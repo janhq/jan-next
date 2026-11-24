@@ -1,4 +1,4 @@
-import type { ProductEvent } from '@deepseek-ai/dsh-client-product-analytics/types'
+import type { ProductEvent } from '@janhq/jan-client-product-analytics/types'
 /** Native welcome operations using the shared Web authentication and RPC APIs. */
 
 import { randomUUID } from 'node:crypto'
@@ -27,7 +27,7 @@ export interface DesktopWelcomeBackend {
   /** @returns The saved UI language without account or provider requests. */
   readLocalePreference(): Promise<string | null>
   /**
-   * @param apiKey - User-entered official provider key.
+   * @param apiKey - User-entered Tokamak API key.
    * @returns A safe write outcome without provider diagnostics.
    */
   save(apiKey: string): Promise<{ ok: boolean }>
@@ -37,6 +37,8 @@ export interface DesktopWelcomeBackend {
     read(): Promise<WelcomeLocalModel | undefined>
     /** @returns after the Host accepted the first-run download. */
     start(): Promise<void>
+    /** @returns after the first-run download stopped; starting again resumes it. */
+    cancel(): Promise<void>
   }
 }
 
@@ -67,7 +69,7 @@ export function welcomeLocalModel(value: unknown): WelcomeLocalModel {
 }
 
 /**
- * tokamak-harness: the welcome key belongs to the `llm-pi-ai` `tokamak` route when the DeepSeek route is not mounted.
+ * Resolve the welcome key's credential reference from the `llm-pi-ai` `tokamak` route.
  * @param namespaces - Settings namespaces from `settings/describe`.
  * @returns the route's credential reference, or `undefined` when the route is absent.
  */
@@ -116,12 +118,7 @@ export function connectDesktopWelcome(
   const settingsAndReference = async () => {
     const settings = await invoke({ namespace: 'settings', method: 'describe', args: {} })
     if (!record(settings) || !Array.isArray(settings.namespaces)) throw new Error('desktop welcome: missing settings namespaces')
-    const official: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'llm-deepseek')
-    if (official === undefined) return { settings: { namespaces: settings.namespaces }, ref: tokamakReference(settings.namespaces) }
-    if (!record(official) || !record(official.value) || typeof official.value.apiKeyEnv !== 'string') {
-      throw new Error('desktop welcome: missing official DeepSeek credential reference')
-    }
-    return { settings: { namespaces: settings.namespaces }, ref: official.value.apiKeyEnv }
+    return { settings: { namespaces: settings.namespaces }, ref: tokamakReference(settings.namespaces) }
   }
   const localePreference = (namespaces: unknown[]): string | null => {
     const locale: unknown = namespaces.find((item: unknown) => record(item) && item.ns === 'locale')
@@ -185,6 +182,7 @@ export function connectDesktopWelcome(
         return value === undefined ? undefined : welcomeLocalModel(value)
       },
       async start() { await invoke({ namespace: 'llamaCpp', method: 'beginInstall', args: {} }) },
+      async cancel() { await invoke({ namespace: 'llamaCpp', method: 'cancelInstall', args: {} }) },
     },
     async analyticsEnabled() {
       const enabled = await invoke({ namespace: 'productAnalytics', method: 'enabled', args: {} }, AbortSignal.timeout(1000))

@@ -1,6 +1,6 @@
 /** Runtime inspection, session queries, and workflow reports from recorded text. */
 import type { ToolDetailsModel } from '../components/ToolDetails.tsx'
-import { hasSpillNotice } from '@deepseek-ai/dsh-spill-policy/notice'
+import { hasSpillNotice } from '@janhq/jan-spill-policy/notice'
 import {
   detailJson, detailList, detailRecord, inspectionItems,
   type DetailItem, type DetailTranslate,
@@ -16,19 +16,35 @@ function dateText(value: string | number, locale: string): string {
   }
 }
 
+/**
+ * Project provider-owned inspection records, marking every row so the descriptions plugins wrote for their tools and
+ * services can be translated like their titles.
+ * @param value - Parsed provider records.
+ * @param t - Conversation translator.
+ * @returns Entity rows, nested disclosures included, each marked as provider text.
+ */
+function providerItems(value: unknown, t: DetailTranslate): DetailItem[] {
+  const mark = (item: DetailItem): DetailItem => ({
+    ...item,
+    provider: true,
+    ...(item.groups === undefined ? {} : { groups: item.groups.map(group => ({ ...group, items: group.items.map(mark) })) }),
+  })
+  return inspectionItems(value, t).map(mark)
+}
+
 function cordisDetails(name: string, args: Record<string, unknown>, value: unknown, t: DetailTranslate): ToolDetailsModel | null {
   if (!detailRecord(value)) return null
   if (name === 'cordis_inspect_list') {
     if (!Array.isArray(value.providers)) return null
-    return detailList(inspectionItems(value.providers, t), t('detail.providers.count', { count: value.providers.length }), t)
+    return detailList(providerItems(value.providers, t), t('detail.providers.count', { count: value.providers.length }), t)
   }
   if (name === 'cordis_inspect_query') {
     if (!('data' in value) || typeof value.provider !== 'string' || typeof value.method !== 'string') return null
-    return detailList(inspectionItems(value.data, t), `${value.provider}.${value.method}`, t)
+    return detailList(providerItems(value.data, t), `${value.provider}.${value.method}`, t)
   }
   if (name === 'cordis_inspect_self') {
-    if (Array.isArray(value.plugins)) return detailList(inspectionItems(value.plugins, t), t('detail.plugins.count', { count: value.plugins.length }), t)
-    return detailList(inspectionItems(value, t), String(args.pluginId ?? args.packageId ?? value.mode), t)
+    if (Array.isArray(value.plugins)) return detailList(providerItems(value.plugins, t), t('detail.plugins.count', { count: value.plugins.length }), t)
+    return detailList(providerItems(value, t), String(args.pluginId ?? args.packageId ?? value.mode), t)
   }
   return null
 }

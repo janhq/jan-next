@@ -1,30 +1,29 @@
 /** MCP admission, token retention, recovery files, and PTC forwarding together. */
-import { executeToolFixture, executeModelToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import * as PtcToolExecutor from '@deepseek-ai/dsh-tool-executor-ptc'
+import { executeToolFixture, executeModelToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import * as PtcToolExecutor from '@janhq/jan-tool-executor-ptc'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import AttachmentStore, { AttachmentId } from '@deepseek-ai/dsh-attachment'
-import type { ImageAttachmentRef, SaveImageAttachment, StoredImageAttachment } from '@deepseek-ai/dsh-attachment'
-import FileSystem from '@deepseek-ai/dsh-fs-local'
-import { LlmAdapter, LlmRuntime, ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions, StreamChunk, ImageBlock, LlmImageRequestPricing, LlmResolvedModelInfo } from '@deepseek-ai/dsh-llm'
-import { deepSeekImageTokens } from '@deepseek-ai/dsh-llm-deepseek'
-import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate'
-import { createMcpToolDefinition } from '@deepseek-ai/dsh-mcp-client'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { defineContentToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import LocalSpillStore from '@deepseek-ai/dsh-spill-local'
-import { PtcRuntime } from '@deepseek-ai/dsh-ptc-runtime'
-import type { PtcRunRequest, PtcRunSpec, PtcRunResult } from '@deepseek-ai/dsh-ptc-runtime'
-import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+import { Context } from '@janhq/cordis'
+import { provideWorkingDirectoryFixture } from '@janhq/jan-agent-loop-testkit'
+import type { Agent } from '@janhq/jan-agent'
+import AttachmentStore, { AttachmentId } from '@janhq/jan-attachment'
+import type { ImageAttachmentRef, SaveImageAttachment, StoredImageAttachment } from '@janhq/jan-attachment'
+import FileSystem from '@janhq/jan-fs-local'
+import { LlmAdapter, LlmRuntime, ToolCallId } from '@janhq/jan-llm'
+import type { GenerateOptions, StreamChunk, ImageBlock, LlmImageRequestPricing, LlmResolvedModelInfo } from '@janhq/jan-llm'
+import { estimateContent } from '@janhq/jan-token-meter/estimate'
+import { createMcpToolDefinition } from '@janhq/jan-mcp-client'
+import { Session, SessionId } from '@janhq/jan-session'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import { defineContentToolFixture } from '@janhq/jan-tool-testkit'
+import LocalSpillStore from '@janhq/jan-spill-local'
+import { PtcRuntime } from '@janhq/jan-ptc-runtime'
+import type { PtcRunRequest, PtcRunSpec, PtcRunResult } from '@janhq/jan-ptc-runtime'
+import type { JsonValue } from '@janhq/jan-util-values'
 import * as SpillPolicy from '../src/index.ts'
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWNgZGIGAAAOAAeCcsnOAAAAAElFTkSuQmCC', 'base64')
@@ -54,20 +53,22 @@ class TestAttachments extends AttachmentStore {
   }
 }
 
+const imageTokens = (width: number, height: number): number => Math.ceil(width / 16) * Math.ceil(height / 16)
+
 class VisionAdapter extends LlmAdapter {
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     return Promise.resolve({ provider, id: model, name: model, inputModalities: ['text', 'image'] })
   }
   override imageRequestPricing(): LlmImageRequestPricing {
     return { priceImages: images => images.map(({ attachment }) => ({
-      visualTokens: deepSeekImageTokens(attachment.width, attachment.height), text: '',
+      visualTokens: imageTokens(attachment.width, attachment.height), text: '',
     })) }
   }
   stream(_options: GenerateOptions): AsyncIterable<StreamChunk> { throw new Error('fixture does not stream') }
 }
 
 async function setup(content: JsonValue[], maxInlineTokens: number, mode: 'native' | 'ptc' = 'native') {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-multimodal-spill-'))
+  const root = await mkdtemp(join(tmpdir(), 'jan-multimodal-spill-'))
   const ctx = new Context()
   provideWorkingDirectoryFixture(ctx, root)
   onTestFinished(async () => {
@@ -121,7 +122,7 @@ describe('multimodal spill', () => {
     expect(paths).toHaveLength(2)
     for (const path of paths) expect(await readFile(path)).toEqual(PNG)
     const visual = result.content.filter((block): block is ImageBlock => block.type === 'image')
-      .reduce((total, block) => total + deepSeekImageTokens(block.attachment.width, block.attachment.height) + 4, 0)
+      .reduce((total, block) => total + imageTokens(block.attachment.width, block.attachment.height) + 4, 0)
     expect(visual + estimateContent(result.content.filter(block => block.type === 'text'))).toBeLessThanOrEqual(1000)
   })
 

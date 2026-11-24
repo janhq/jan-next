@@ -1,25 +1,23 @@
 # Host-wide Schedule
 
-English | [中文](schedule.zh.md)
-
 Schedule stores Host tasks independently of Session activation. One management API addresses tasks by id, and one evaluator handles seven authoritative timing kinds: `after`, `at`, `every`, `daily`, `weekly`, `cron`, and `rrule`. Targets reuse an existing Session, create one Session and reuse it, or create a Session for each delivery. The [package README](../../packages/schedule/schedule/README.md) owns composition and reminder framing; [`types.ts`](../../packages/schedule/schedule/src/types.ts) owns the complete value and request types.
 
 <a id="durable-tasks"></a>
 ## Durable tasks
 
-The plugin README owns the current [v2 task schema, v1 defaults, and persisted JSON example](../../packages/schedule/schedule/README.md#storage-format). The domain retains its name, routing, and whole-unit layout. All seven timing kinds remain authoritative; normalization preserves committed occurrences and does not convert Cron into RRULE.
+The plugin README owns the [current task schema, historical defaults, and persisted JSON example](../../packages/schedule/schedule/README.md#storage-format). The domain retains its name, routing, and whole-unit layout. All seven timing kinds remain authoritative; normalization preserves committed occurrences and does not convert Cron into RRULE.
 
 Malformed storage, invalid rows, mismatched task keys, and unsupported versions reject before tasks activate. Failed opening leaves the medium unchanged. An absent file starts empty. Missing target Sessions remain visible in management; reading a task never activates its Session.
 
 <a id="storage-versioning"></a>
 ## Storage versioning
 
-The README defines [when tasks upgrade](../../packages/schedule/schedule/README.md#storage-format), SQLite's unchanged physical schema, mutation costs, and a future compatible v3. `compatibleVersions` admits old unit stamps for current decoding; normal edits and delivery persist current rows. Reads leave storage unchanged. The shared [domain version policy](storage.md#domain-versioning) applies to both JSON and SQLite.
+The README defines [when tasks upgrade](../../packages/schedule/schedule/README.md#storage-format), SQLite's unchanged physical schema, and mutation costs. `compatibleVersions` admits old unit stamps for current decoding; normal edits and delivery persist current rows. Reads leave storage unchanged. The shared [domain version policy](storage.md#domain-versioning) applies to both JSON and SQLite.
 
 <a id="recurrence-rules"></a>
 ## Recurrence rules
 
-[`dsh-util-time`](../../packages/util/time/README.md) owns reusable `Cron` and `RRule` parsing and bounded occurrence arithmetic. Both parsed values expose their authoritative expression and zone, `next(after)`, and `resolve(scheduledAt, acceptedAt)`. Parsers return an accepted value or a rejection reason; Schedule maps reasons to its own input errors and owns record validation, admission limits, persistence, and dispatch.
+[`jan-util-time`](../../packages/util/time/README.md) owns reusable `Cron` and `RRule` parsing and bounded occurrence arithmetic. Both parsed values expose their authoritative expression and zone, `next(after)`, and `resolve(scheduledAt, acceptedAt)`. Parsers return an accepted value or a rejection reason; Schedule maps reasons to its own input errors and owns record validation, admission limits, persistence, and dispatch.
 
 Every stored `scheduledAt` is a canonical RFC 3339 UTC instant with millisecond precision and a year from 0001 through 9999. Decoding never recalculates it from current zone data. Latest-only catch-up preserves that committed floor, delivers the latest due occurrence once, and commits the first future occurrence. Exhaustion leaves the task stored as `ended`.
 
@@ -81,12 +79,12 @@ Custom RRULE text retains its `DTSTART` zone. The model-facing tools continue to
 | `new_once` | Reserve a Session id before first delivery, create that exact Session when needed, then store `session` and reuse it. Retries and restart keep the reservation. |
 | `new` | Create a Session per delivery. Persist `pendingDelivery.targetSessionId` before creation so a failed attempt retries the same Session. |
 
-An omitted creation target defaults to `new_once`. Adding or replacing a `new` or `new_once` target requires the embedding's Session creation provider. SDK compositions without it reject those requests with `invalid_rule` before saving; existing `session` targets remain available. Creation values `cwd` and `agentPreset` are optional and use Host defaults. A created Session joins the Workspace registered at its directory, if any, and takes the task title while untitled; `new` adds its creation minute in the rule's zone. Join or rename failures are logged without blocking delivery.
+An omitted creation target defaults to `new_once`. Adding or replacing a `new` or `new_once` target requires the embedding's Session creation provider. SDK compositions without it reject those requests with `invalid_rule` before saving; existing `session` targets remain available. A target with neither a project nor a cwd binds to the active default project when it first creates a Session. An optional preset selects the created Session's agent; without one it uses the Host default. See [project binding](../../packages/schedule/schedule/README.md#configuration-and-management-api) for placement and failure behavior. An untitled Session takes the task title; `new` adds its creation minute in the rule's zone.
 
 <a id="task-management"></a>
 ## Task management
 
-All callers use the same `ScheduleCreateRequest`, `ScheduleCatalogEntry`, `ScheduleTiming`, and `ScheduleEditRequest`. Browser-safe types come from `@deepseek-ai/dsh-schedule/client`. There is no Session-bound management surface or second family of type aliases.
+All callers use the same `ScheduleCreateRequest`, `ScheduleCatalogEntry`, `ScheduleTiming`, and `ScheduleEditRequest`. Browser-safe types come from `@janhq/jan-schedule/client`. There is no Session-bound management surface or second family of type aliases.
 
 | Operation | Behavior |
 |---|---|
@@ -143,7 +141,7 @@ Historical version-1 `schedule/change` events retain the frozen `LegacyScheduleR
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxschedule--scheduleservice"></a>
 
@@ -154,6 +152,52 @@ Shared management service; reads and management writes never activate a Session,
 `sessionPersistence` supplies header-only target validation and the `session/flush` listener that acknowledges durable inbox delivery through `ctx.sessions.flush()`.
 
 ```ts cordis-catalog
+/**
+ * Use this Host's timer for independently persisted deadlines. The source
+ * owns its records; delivery never creates or wakes a Session on its behalf.
+ * @param source - A distinct deadline source with non-blocking reads.
+ * @returns Wake and disposal callbacks owned by the source's plugin effect.
+ */
+registerWakeSource(source: ScheduleWakeSource): ScheduleWakeRegistration
+
+/** Register a durable inbox for a plugin owner; disposing it suspends delivery without changing saved tasks.
+ * @param owner - Stable plugin owner saved as the task destination.
+ * @param receive - Acknowledges an occurrence after durable acceptance; must not call back into Schedule.
+ * @returns The disposer for this exact registration.
+ */
+registerDestination(owner: string, receive: SchedulePluginHandler): () => void
+
+/** Bind an existing Session's reminders to a mounted, durable inbox instead of waking the Agent directly.
+ * @param sessionId - Session whose reminders the inbox receives.
+ * @param owner - Stable plugin owner recorded as the delivering inbox.
+ * @param receive - Acknowledges an occurrence after durable acceptance; must not call back into Schedule.
+ * @returns The disposer for this exact registration.
+ */
+registerSessionDestination(sessionId: SessionId, owner: string, receive: SchedulePluginHandler): () => void
+
+/** Change a legacy inbox's visible target while retaining deadlines, receipts and its private payload.
+ * @param owner - Plugin owner whose saved tasks move.
+ * @param sessionId - Session the tasks now target.
+ * @param workspaceId - Project of that Session, when it has one.
+ */
+async retargetPluginTasks(owner: string, sessionId: SessionId, workspaceId?: WorkspaceId): Promise<void>
+
+/** Create an idempotently named task with a checkpoint for a mounted Session inbox.
+ * @param request - Task title, prompt and timing, as in ordinary Schedule creation.
+ * @param destination - Session with a registered inbox, stable task key, and optional opaque payload.
+ * @param signal - Cancellation before the durable write.
+ * @returns The stored task without its private payload.
+ */
+async createSessionTask(request: Omit<ScheduleCreateRequest, 'target'>, destination: { readonly sessionId: SessionId; readonly key: string; readonly payload?: string }, signal?: AbortSignal): Promise<ScheduleCatalogEntry>
+
+/** Create a plugin-owned task, reusing its original task identity when the owner retries the same key.
+ * @param request - Task title, prompt and timing, as in ordinary Schedule creation.
+ * @param destination - Registered owner, stable owner-local task key, and optional opaque payload.
+ * @param signal - Cancellation before the durable write.
+ * @returns The stored task without its private payload.
+ */
+async createPluginTask(request: Omit<ScheduleCreateRequest, 'target'>, destination: { readonly owner: string; readonly key: string; readonly payload?: string }, signal?: AbortSignal): Promise<ScheduleCatalogEntry>
+
 /** Read effective delivery limits without loading or activating a task.
  * @returns The configured minimum spacing between deliveries that each create a Session, in seconds.
  */
@@ -226,8 +270,8 @@ async history(request: ScheduleDeliveryHistoryRequest): Promise<ScheduleDelivery
  * with `schedule/target-archived`.
  * @param request - Task identity.
  * @param signal - Cancellation checked after entering the delivery transaction and before delivery.
- * @returns Task state after Session persistence acknowledged the delivery, `schedule_execution_pending` while
- * another execution of the task is queued, running, or inside its delivery floor, or a non-mutating miss.
+ * @returns Task state after Session persistence acknowledged the delivery, a non-mutating refusal, or a miss.
+ * @throws `schedule/project-removed` after durably pausing a task whose project was removed.
  */
 @Remote('run') async run(request: ScheduleRunRequest, signal?: AbortSignal): Promise<ScheduleRunResult>
 
@@ -269,7 +313,7 @@ async history(request: ScheduleDeliveryHistoryRequest): Promise<ScheduleDelivery
 async edit( request: ScheduleEditRequest, actorSessionId?: SessionId, signal?: AbortSignal, ): Promise<ScheduleEditResult>
 ```
 
-Types: [SessionId](core.md)
+Types: [SessionId](core.md) · [WorkspaceId](workspace.md)
 
 Source: [`packages/schedule/schedule/src/index.ts`](../../packages/schedule/schedule/src/index.ts)
 

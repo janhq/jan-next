@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Plugin-Übersetzungsoberfläche",
+    "description": "Lädt gespeicherte Plugin-Übersetzungen, bietet nach der Installation eine Übersetzung an und ergänzt die Plugin-Einstellungen um den Tab Übersetzungen."
+  }
+}

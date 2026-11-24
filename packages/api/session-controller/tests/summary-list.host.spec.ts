@@ -7,22 +7,22 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import { agentPresetProjectionDefinition } from '@deepseek-ai/dsh-agent-preset-registry'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import type { SessionFollowFrame } from '@deepseek-ai/dsh-api-session-controller/types'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { Context } from '@janhq/cordis'
+import AgentRegistry from '@janhq/jan-agent'
+import { agentPresetProjectionDefinition } from '@janhq/jan-agent-preset-registry'
+import SessionStore, { SessionId } from '@janhq/jan-session'
+import type { SessionFollowFrame } from '@janhq/jan-api-session-controller/types'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import {
   apply as sessionStatsApply, inject as sessionStatsInject, name as sessionStatsName,
-} from '@deepseek-ai/dsh-session-stats'
+} from '@janhq/jan-session-stats'
 import {
   apply as turnOutlineApply, inject as turnOutlineInject, name as turnOutlineName,
-} from '@deepseek-ai/dsh-session-turn-outline'
+} from '@janhq/jan-session-turn-outline'
 import {
   apply as toolTodoApply, Config as toolTodoConfig, inject as toolTodoInject, name as toolTodoName,
-} from '@deepseek-ai/dsh-tool-todo'
-import TokenMeter from '@deepseek-ai/dsh-token-meter'
+} from '@janhq/jan-tool-todo'
+import TokenMeter from '@janhq/jan-token-meter'
 import { createSessionTestRemote } from './test-remote.ts'
 
 const SUMMARY_EXCLUDED_KEYS = ['turnOutline', 'sessionStats', 'todos', 'imageLimits', 'contextPressure', 'contextBreakdown'] as const

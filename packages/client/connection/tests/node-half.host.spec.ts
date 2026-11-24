@@ -2,13 +2,13 @@
 import { EventEmitter } from 'node:events'
 import { createServer, request as httpRequest } from 'node:http'
 import { Readable } from 'node:stream'
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import type { AddressInfo } from 'node:net'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
-import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
-import type { IndexInjection, WebServer, WebRoute, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
+import type { AttachmentStore } from '@janhq/jan-attachment'
+import type { CredentialProvider } from '@janhq/jan-credentials'
+import type { IndexInjection, WebServer, WebRoute, WebUpgradeRoute } from '@janhq/jan-host-webserver'
 import {
   API_PATH,
   RpcId,
@@ -277,7 +277,7 @@ describe('connection node half', () => {
       const rows: IndexInjection[] = []
       ctx.emit('webserver/index-inject', rows, PAGE_PEER)
       expect(rows).toEqual([{
-        kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: {
+        kind: 'global', name: '__JAN_CONNECTION_RECOVERY__', value: {
           backoffBaseMs: 500, backoffFactor: 2, backoffMaxMs: 10_000,
           generationReadyWarnMs: 3_000, generationReadyTimeoutMs: 25_000,
         },
@@ -726,6 +726,17 @@ describe('operator-scoped connect', () => {
     } finally { await host.dispose() }
   })
 
+  it('keeps a federating Host on this Host when it connects with forward=local', async () => {
+    const host = await mounted()
+    try {
+      for (const [query, forward] of [['', 'all'], ['&forward=all', 'all'], ['&interactions=answer&forward=local', 'local']] as const) {
+        const result = await connect(host, query)
+        expect(result.state.status).toBe(302)
+        expect(admitted(host.connection, result.cookie).forward).toBe(forward)
+      }
+    } finally { await host.dispose() }
+  })
+
   it('keeps all browser cookies on the shared operator and creates independent API operators', async () => {
     const host = await mounted()
     try {
@@ -747,7 +758,7 @@ describe('operator-scoped connect', () => {
   it('refuses invalid declarations, authentication, and untrusted connect requests without a cookie', async () => {
     const host = await mounted()
     try {
-      for (const query of ['&interactions=observe', '&interactions=', '&interactions=none&interactions=answer']) {
+      for (const query of ['&interactions=observe', '&interactions=', '&interactions=none&interactions=answer', '&forward=peers', '&forward=local&forward=all']) {
         const result = await connect(host, query)
         expect(result.state.status).toBe(400)
         expect(result.cookie).toBe('')

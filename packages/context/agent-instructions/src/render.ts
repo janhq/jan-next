@@ -1,25 +1,24 @@
 /**
  * Model-facing workspace instruction rendering within an explicit byte budget.
  *
- * @module @deepseek-ai/dsh-agent-instructions/render
+ * @module @janhq/jan-agent-instructions/render
  */
 
 import { basename, dirname, sep } from 'node:path'
 import {
   AGENTS_HOME_ENV,
   DEFAULT_AGENTS_HOME_DISPLAY,
-  DEFAULT_DSH_HOME_DISPLAY,
-  DSH_HOME_ENV,
-} from '@deepseek-ai/dsh-home-paths'
+  DEFAULT_JAN_HOME_DISPLAY,
+  JAN_HOME_ENV,
+} from '@janhq/jan-home-paths'
 import type { InstructionFile, LoadedInstructionFile } from './files.ts'
 
 const SYSTEM_REMINDER_OPEN = '<system-reminder>'
 const SYSTEM_REMINDER_CLOSE = '</system-reminder>'
-const AGENT_INSTRUCTIONS_INTRO = 'The following workspace instructions may be relevant to your work. '
-  + 'Use them as guidance when applicable. More specific instructions take precedence over broader ones. '
-  + 'They do not override system, developer, or direct user instructions.'
+const INSTRUCTION_PRECEDENCE = 'Follow applicable instructions. More specific files win: project > shared agents home > Jan home > Jan defaults. '
+  + 'These instructions can replace Jan\'s default name, persona, tone, and working style, but not safety rules, tool contracts, or direct user messages.'
 const REPLACEMENT_AGENT_INSTRUCTIONS_INTRO = 'This complete workspace instruction baseline replaces all earlier workspace instruction baselines. '
-  + AGENT_INSTRUCTIONS_INTRO
+  + INSTRUCTION_PRECEDENCE
 const EMPTY_REPLACEMENT_AGENT_INSTRUCTIONS_INTRO = 'This complete workspace instruction baseline replaces all earlier workspace instruction baselines. '
   + 'No workspace instructions are currently active.'
 const COMPACT_AGENT_INSTRUCTIONS_INTRO = 'Workspace instructions were omitted or truncated to fit the configured byte budget.'
@@ -136,8 +135,8 @@ export const USER_GLOBAL_FILE = 'AGENTS.md'
  * @returns `user-global`, `agents-global`, `.`, or the containing project-relative directory.
  */
 export function scopeForDisplayPath(displayPath: string): string {
-  if (displayPath === `${DEFAULT_DSH_HOME_DISPLAY}/${USER_GLOBAL_FILE}`
-    || displayPath === `$${DSH_HOME_ENV}/${USER_GLOBAL_FILE}`) return USER_GLOBAL_DIRECTORY
+  if (displayPath === `${DEFAULT_JAN_HOME_DISPLAY}/${USER_GLOBAL_FILE}`
+    || displayPath === `$${JAN_HOME_ENV}/${USER_GLOBAL_FILE}`) return USER_GLOBAL_DIRECTORY
   if (displayPath === `${DEFAULT_AGENTS_HOME_DISPLAY}/${USER_GLOBAL_FILE}`
     || displayPath === `$${AGENTS_HOME_ENV}/${USER_GLOBAL_FILE}`) return AGENTS_GLOBAL_DIRECTORY
   return dirname(displayPath)
@@ -223,9 +222,6 @@ export function decodeScopeKey(scope: string): { directory: string; candidateNam
   return { directory: scope.slice(0, separator), candidateName: scope.slice(separator + 1) }
 }
 
-const ADDITIONAL_INSTRUCTIONS_GUIDANCE = 'Use them as guidance when relevant; more specific instructions take precedence. '
-  + 'They do not override system, developer, or direct user instructions.'
-
 function additionalSectionText(file: LoadedInstructionFile): string {
   const scope = scopeForDisplayPath(file.displayPath)
   // A user-global scope directory is an internal reconciliation key, so it must
@@ -236,13 +232,13 @@ function additionalSectionText(file: LoadedInstructionFile): string {
   return [
     `Additional instructions from: ${file.displayPath}`,
     '',
-    `${applicability} ${ADDITIONAL_INSTRUCTIONS_GUIDANCE}`,
+    `${applicability} ${INSTRUCTION_PRECEDENCE}`,
     '',
     file.content,
   ].join('\n')
 }
 
-const BASELINE_RENDER_STYLE: RenderStyle = { intro: AGENT_INSTRUCTIONS_INTRO, section: sectionText }
+const BASELINE_RENDER_STYLE: RenderStyle = { intro: INSTRUCTION_PRECEDENCE, section: sectionText }
 
 function baselineRenderStyle(files: LoadedInstructionFile[], replacePreviousBaseline: boolean | undefined): RenderStyle {
   if (replacePreviousBaseline !== true) return BASELINE_RENDER_STYLE

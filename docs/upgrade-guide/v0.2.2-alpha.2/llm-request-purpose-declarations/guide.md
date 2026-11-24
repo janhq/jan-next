@@ -5,21 +5,19 @@ description: "Auxiliary LLM request purposes require producer-owned type declara
 
 # Declare auxiliary LLM request purposes
 
-English | [中文](guide.zh.md)
-
 ## Change
 
-`GenerateOptions.purpose` derives from the declaration-mergeable `LlmRequestPurposeMap` exported by `@deepseek-ai/dsh-llm/types`. The shared package no longer declares `compaction` or `session-title`. Plugins that construct auxiliary requests must load the producer's declarations or declare their own purpose. Existing runtime purpose strings keep their meaning.
+`GenerateOptions.purpose` derives from the declaration-mergeable `LlmRequestPurposeMap` exported by `@janhq/jan-llm/types`. The shared package no longer declares `compaction` or `session-title`. Plugins that construct auxiliary requests must load the producer's declarations or declare their own purpose. Existing runtime purpose strings keep their meaning.
 
 ## Migration
 
-1. Import `@deepseek-ai/dsh-compaction-basic` for direct compaction requests, or `@deepseek-ai/dsh-session-title-llm` for title requests, using a type-only import when only the declaration is needed.
+1. Import `@janhq/jan-compaction-basic` for direct compaction requests, or `@janhq/jan-session-title-llm` for title requests, using a type-only import when only the declaration is needed.
 2. For a plugin-owned purpose, augment `LlmRequestPurposeMap` from the plugin's public type entry. Map the purpose key to `true`:
 
    ```ts
-   import type {} from '@deepseek-ai/dsh-llm/types'
+   import type {} from '@janhq/jan-llm/types'
 
-   declare module '@deepseek-ai/dsh-llm/types' {
+   declare module '@janhq/jan-llm/types' {
      interface LlmRequestPurposeMap {
        'my-plugin-purpose': true
      }

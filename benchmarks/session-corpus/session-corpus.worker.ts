@@ -4,27 +4,27 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { scheduler } from 'node:timers/promises'
-import { Context } from '@deepseek-ai/cordis'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { agentPresetProjectionDefinition } from '@deepseek-ai/dsh-agent-preset-registry'
-import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
-import type SessionController from '@deepseek-ai/dsh-api-session-controller'
-import { currentSessionMessageProjections } from '@deepseek-ai/dsh-session-format-catalog/message-projections'
-import { Session, SessionLogOffset } from '@deepseek-ai/dsh-session'
-import type { SessionId } from '@deepseek-ai/dsh-session'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import SessionProjectionCache, { checkpointRecord, projectionCacheDomainSpec } from '@deepseek-ai/dsh-session-projection-cache'
-import type { CheckpointRecord } from '@deepseek-ai/dsh-session-projection-cache'
-import SqliteSessionQueryEngine from '@deepseek-ai/dsh-session-query-sqlite'
-import * as SessionStatsPlugin from '@deepseek-ai/dsh-session-stats'
-import SessionTitleService from '@deepseek-ai/dsh-session-title'
-import * as SessionTurnOutlinePlugin from '@deepseek-ai/dsh-session-turn-outline'
-import Storage from '@deepseek-ai/dsh-storage'
-import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
-import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
-import * as StorageJson from '@deepseek-ai/dsh-storage-json'
-import TokenMeter from '@deepseek-ai/dsh-token-meter'
+import { Context } from '@janhq/cordis'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { agentPresetProjectionDefinition } from '@janhq/jan-agent-preset-registry'
+import RemoteAccessService from '@janhq/jan-api-remote-access'
+import type SessionController from '@janhq/jan-api-session-controller'
+import { currentSessionMessageProjections } from '@janhq/jan-session-format-catalog/message-projections'
+import { Session, SessionLogOffset } from '@janhq/jan-session'
+import type { SessionId } from '@janhq/jan-session'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
+import SessionProjectionCache, { checkpointRecord, projectionCacheDomainSpec } from '@janhq/jan-session-projection-cache'
+import type { CheckpointRecord } from '@janhq/jan-session-projection-cache'
+import SqliteSessionQueryEngine from '@janhq/jan-session-query-sqlite'
+import * as SessionStatsPlugin from '@janhq/jan-session-stats'
+import SessionTitleService from '@janhq/jan-session-title'
+import * as SessionTurnOutlinePlugin from '@janhq/jan-session-turn-outline'
+import Storage from '@janhq/jan-storage'
+import * as StorageDomain from '@janhq/jan-storage-domain'
+import type { KvTable } from '@janhq/jan-storage-domain'
+import * as StorageJson from '@janhq/jan-storage-json'
+import TokenMeter from '@janhq/jan-token-meter'
 import { assertBuiltBenchmarkRuntime } from '../support/built-worker.ts'
 import { serializeRecord } from '../../packages/storage/storage-json/src/format.ts'
 import { ANCHOR_COUNT } from './corpus-shape.ts'
@@ -360,10 +360,10 @@ async function measureFork(root: string, ranks: readonly number[]): Promise<Fork
 }
 
 assertBuiltBenchmarkRuntime(import.meta.url, Object.fromEntries([
-  '@deepseek-ai/dsh-api-session-controller',
-  '@deepseek-ai/dsh-session-persistence-jsonl',
-  '@deepseek-ai/dsh-session-query-sqlite',
-  '@deepseek-ai/dsh-session-projection-cache',
+  '@janhq/jan-api-session-controller',
+  '@janhq/jan-session-persistence-jsonl',
+  '@janhq/jan-session-query-sqlite',
+  '@janhq/jan-session-projection-cache',
 ].map(name => [name, import.meta.resolve(name)])))
 
 const USAGE = 'usage: session-corpus.worker.js <root> <anchors anchors...|seed name count|list count|search|fork ranks...>'

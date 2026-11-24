@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MockInstance } from 'vitest'
-import { SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
+import { SessionId, SessionSeq } from '@janhq/jan-session'
 import { agentFor, boundTask, gatedScheduleBackend, harness, recordOf, seededTask, seedTasks } from './harness.ts'
 import { MemoryMediaPool } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
 import { scheduleDomain } from '../src/storage.ts'
@@ -135,7 +135,7 @@ describe('shared Schedule management', () => {
     const created = await service.create({ prompt: 'check the build', title: 'Check the build',
       timing: { kind: 'after', after_seconds: 3_600 }, target: kind === 'session' ? { kind, sessionId } : { kind },
     }, sessionId)
-    if (created.target.kind === 'new') throw new Error('expected a stable target')
+    if (created.target.kind !== 'session' && created.target.kind !== 'new_once') throw new Error('expected a stable target')
     sessionId = created.target.sessionId
     ctx.sessions.create(sessionId)
     expect(created.target.kind).toBe(kind)

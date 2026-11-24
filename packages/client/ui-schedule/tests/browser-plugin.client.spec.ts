@@ -1,22 +1,22 @@
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { Context, Service } from '@deepseek-ai/cordis'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { Context, Service } from '@janhq/cordis'
 import { describe, expect, it, vi, type Mock } from 'vitest'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { UiConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { resolveSlotLabel, type HostObservable, type StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
-import { StaticRemoteAccess, stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
-import { apply as applyLocale, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import { UiConversation } from '@janhq/jan-client-ui-conversation/client'
+import { resolveSlotLabel, type HostObservable, type StoredEntry } from '@janhq/jan-client-ui-slots'
+import { StaticRemoteAccess, stubConfigForm } from '@janhq/jan-client-test-runtime'
+import { apply as applyLocale, inject as localeInject } from '@janhq/jan-client-locale/client'
 import { apply, inject } from '../src/client/index.ts'
 import { apply as applyNode } from '../src/index.ts'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { SessionListState } from '@janhq/jan-api-session-controller/client'
+import type { WorkspaceSnapshot } from '@janhq/jan-api-workspace-controller/client'
 import type {
   ScheduleEditRequest, ScheduleEditResult, ScheduleId, ScheduleInputErrorCode, ScheduleRunRequest, ScheduleRunResult,
   ScheduleCatalogEntry, ScheduleCreateRequest, ScheduleDeleteInactiveResult,
-} from '@deepseek-ai/dsh-schedule/client'
-import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
-import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
+} from '@janhq/jan-schedule/client'
+import type { RemoteResult } from '@janhq/jan-api-remotes/client'
+import { RemoteError } from '@janhq/jan-client-test-runtime'
 import type { CatalogInjected } from '../src/client/catalog-source.ts'
 import { ScheduleDeleteToast, type DeleteToastSource } from '../src/client/DeleteToast.tsx'
 import { SCHEDULE_TASK_ID, SCHEDULE_TASK_KIND } from '../src/client/definition.ts'
@@ -227,6 +227,27 @@ describe('ui-schedule browser half', () => {
       header()
       await ctx.fiber.dispose()
     }
+  })
+
+  it('publishes the same catalog used by the Tasks page to other browser surfaces', async () => {
+    const list = vi.fn().mockResolvedValue({ ok: true, value: [hostTask] })
+    const ctx = await baseContext({ schedule: { catalog: list }, $on: () => () => {} })
+    try {
+      ctx.slots.register({ name: 'root', children: { main: { kind: 'keyed', scope: 'root' } } } as never, Empty)
+      const plugin = ctx.plugin({ inject: [...inject], apply })
+      await plugin.await()
+      const face = injectedFace(ctx.slots.entries('main')[0]!, undefined as never) as TaskManagerInjected
+      const shared = ctx.get('hostTaskCatalog')
+      expect(shared?.catalog).toBe(face.hooks.catalog)
+      const stopPage = face.hooks.catalog.subscribe(vi.fn())
+      const stopConsumer = shared!.catalog.subscribe(vi.fn())
+      await vi.waitFor(() => { expect(shared!.catalog.getSnapshot().records).toEqual([hostTask]) })
+      expect(list).toHaveBeenCalledOnce()
+      stopConsumer()
+      stopPage()
+      await plugin.dispose()
+      expect(ctx.get('hostTaskCatalog')).toBeUndefined()
+    } finally { await ctx.fiber.dispose() }
   })
 
   it('waits for the header declaration, orders between static context and Jobs, and tears down', async () => {
@@ -521,9 +542,9 @@ describe('ui-schedule browser half', () => {
     const panel = ctx.slots.entries('sidebar.panellist')[0]!
     expect(panel.options.id).toBe('schedules')
     ctx.locale.setLocale('en')
-    expect(resolveSlotLabel(panel.options.label)).toBe('Automation tasks')
+    expect(resolveSlotLabel(panel.options.label)).toBe('Scheduled')
     ctx.locale.setLocale('zh')
-    expect(resolveSlotLabel(panel.options.label)).toBe('自动化任务')
+    expect(resolveSlotLabel(panel.options.label)).toBe('定时任务')
     const face = injectedFace(entry, undefined as never) as TaskManagerInjected
     const dispose = face.hooks.catalog.subscribe(vi.fn())
     try {

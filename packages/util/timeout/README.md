@@ -3,13 +3,11 @@ description: "Shared timeout arithmetic, deadline fusion, and timeout-versus-can
 kind: "package-library"
 ---
 
-# @deepseek-ai/dsh-timeout
-
-English | [中文](README.zh.md)
+# @janhq/jan-timeout
 
 ## Summary
 
-`dsh-timeout` lets callers apply bounded deadlines to work, distinguish local timeout from upstream cancellation, and monitor streamed reads for inactivity. `clampTimeout` fills a missing hint from a backend default, caps it at the allowed maximum, and rejects invalid values before work starts. `deadline` combines the chosen timeout with upstream cancellation in one signal, while the caller remains responsible for actually stopping its process, socket, or task. `idleWatchdog` counts only time spent waiting for provider reads, and zero remains reserved for backend-owned untimed work rather than public configuration.
+`jan-timeout` lets callers apply bounded deadlines to work, distinguish local timeout from upstream cancellation, and monitor streamed reads for inactivity. `clampTimeout` fills a missing hint from a backend default, caps it at the allowed maximum, and rejects invalid values before work starts. `deadline` combines the chosen timeout with upstream cancellation in one signal, while the caller remains responsible for actually stopping its process, socket, or task. `idleWatchdog` counts only time spent waiting for provider reads, and zero remains reserved for backend-owned untimed work rather than public configuration.
 
 ## Table of Contents
 
@@ -30,7 +28,7 @@ Use `deadline` when a capability runs one unit of work under a caller-visible ti
 ### Clamping a timeout hint
 
 ```ts
-import { clampTimeout } from '@deepseek-ai/dsh-timeout'
+import { clampTimeout } from '@janhq/jan-timeout'
 
 declare const requested: number | undefined
 declare const DEFAULT_TIMEOUT_MS: number
@@ -44,7 +42,7 @@ const timeoutMs = clampTimeout(requested, DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS, 'b
 ### Running work under a deadline
 
 ```text
-import { deadline, timeoutOf } from '@deepseek-ai/dsh-timeout'
+import { deadline, timeoutOf } from '@janhq/jan-timeout'
 
 using d = deadline(upstream, timeoutMs, 'BASH_TIMEOUT')
 const outcome = await runWork({ signal: d.signal })   // work listens on d.signal and terminates itself
@@ -61,7 +59,7 @@ The signal only notifies: the caller must attach its own termination — hand `d
 ### Streaming with an idle watchdog
 
 ```ts
-import { idleWatchdog } from '@deepseek-ai/dsh-timeout'
+import { idleWatchdog } from '@janhq/jan-timeout'
 
 declare const upstream: AbortSignal | undefined
 declare const idleMs: number
@@ -103,7 +101,7 @@ The library is built on one boundary: share the timing and classification, keep 
 
 ### Why an idle watchdog rearms
 
-`idleWatchdog` keeps one stable fused signal and arms the timer only while `next()` is outstanding; resolution disarms, later demand or `pulse()` rearms, disposal clears, and concurrent demand rejects. Unlike `deadline()`, an idle watchdog settles its outstanding demand on its own deadline: a read the transport leaves pending after an abort rejects `next()` with the watchdog's `TimeoutReason`, so a transport that never observes the signal cannot extend the wait past the idle interval. The signal still tells the transport to release its own resources — the DeepSeek and pi-ai adapters close their response body or SDK request on abort.
+`idleWatchdog` keeps one stable fused signal and arms the timer only while `next()` is outstanding; resolution disarms, later demand or `pulse()` rearms, disposal clears, and concurrent demand rejects. Unlike `deadline()`, an idle watchdog settles its outstanding demand on its own deadline: a read the transport leaves pending after an abort rejects `next()` with the watchdog's `TimeoutReason`, so a transport that never observes the signal cannot extend the wait past the idle interval. The signal still tells the transport to release its own resources — the pi-ai adapter closes its SDK request on abort.
 
 </details>
 

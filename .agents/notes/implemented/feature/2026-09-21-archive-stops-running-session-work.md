@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-09-21-archive-stops-running-session-work.zh.md)
-
 ## Problem
 
 Archiving was a pure visibility write: `WorkspaceRegistry.archiveSession` added the id to the registry-global archive set and nothing else. A Session archived in the middle of a turn kept running out of sight — the agent, its tool subprocess, and its model requests continued to completion — and the archived row deliberately shows no status dot, so nothing told the user an agent was still spending tokens. A background subagent, an owned job, or a due reminder could likewise keep working or start a new turn in a hidden Session. The Web surface never disposes an Agent, so the exposure lasted until the Host process exited.
@@ -28,9 +26,9 @@ Archive never hides running work. The registry owns the rule and declares one ca
 
 **Grey the archive action from a client-side activity mirror.** It would need its own derivation of running turns, running children, owned jobs, and active reminders from the list projections, and it could disagree with the Host (an unowned job, a child without a Host Agent). One refused round trip yields the Host's own list instead.
 
-**Give the workspace or schedule package a dependency on the agent registry.** The waterfall and parallel events let the Agent registry, the job registry seam, the Subagent runtime, and the Schedule plugin provide their families without new dependency edges into the entity registry; each gained an optional type-only edge to `dsh-workspace` for the event types, in the natural feature-to-entity direction (`dsh-workspace` depends on none of them, so no cycle).
+**Give the workspace or schedule package a dependency on the agent registry.** The waterfall and parallel events let the Agent registry, the job registry seam, the Subagent runtime, and the Schedule plugin provide their families without new dependency edges into the entity registry; each gained an optional type-only edge to `jan-workspace` for the event types, in the natural feature-to-entity direction (`jan-workspace` depends on none of them, so no cycle).
 
-**Report the families from the API Session Controller.** The controller sees every live Agent, the job registry, and the lineage fields on Session headers, so it could enumerate turns, children, and jobs itself — but then it would know each owner's vocabulary (descriptors and labels, the parent-cause cancel, job ownership). The Agent registry, the job seam, and the Subagent runtime already own that vocabulary, so each family lives with its owner; the controller keeps only the lineage step gate, which reads the archive set and header fields alone. The gate cannot move into `dsh-workspace` in turn: the owners now depend on its types, so the workspace package cannot depend on the Agent event vocabulary without a cycle.
+**Report the families from the API Session Controller.** The controller sees every live Agent, the job registry, and the lineage fields on Session headers, so it could enumerate turns, children, and jobs itself — but then it would know each owner's vocabulary (descriptors and labels, the parent-cause cancel, job ownership). The Agent registry, the job seam, and the Subagent runtime already own that vocabulary, so each family lives with its owner; the controller keeps only the lineage step gate, which reads the archive set and header fields alone. The gate cannot move into `jan-workspace` in turn: the owners now depend on its types, so the workspace package cannot depend on the Agent event vocabulary without a cycle.
 
 **Report the `schedule` family from live Sessions only.** The stored tasks are authoritative and outlive their Session's Agent, so consulting liveness would let a cold Session with armed rows archive silently, and its due row then dispatches into a turn the gate ends as `blocked`, consuming the occurrence without a model step ([archive admission reads the stored tasks](2026-09-22-archive-admission-reads-stored-tasks.md)).
 

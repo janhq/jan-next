@@ -49,6 +49,7 @@ const operations = {
   skip: () => Promise.resolve(),
   startLocalModel: () => Promise.resolve({ phase: 'downloading', name: 'Jan v3.5 4B', totalBytes: 1 }),
   readLocalModel: () => Promise.resolve(undefined),
+  cancelLocalModel: () => Promise.resolve(undefined),
 }
 
 describe('desktop welcome window', () => {
@@ -59,7 +60,7 @@ describe('desktop welcome window', () => {
       resizable: false, maximizable: false, fullscreenable: false,
       webPreferences: {
         nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true,
-        additionalArguments: ['--dsh-welcome-locale=zh-CN'],
+        additionalArguments: ['--jan-welcome-locale=zh-CN'],
       },
     })
     expect(options.webPreferences?.preload).toMatch(/preload-welcome\.cjs$/u)
@@ -135,6 +136,10 @@ describe('desktop welcome window', () => {
     expect(await save(own, 'sk-test')).toEqual({ ok: true })
     await electron.handlers.get(WELCOME_IPC.skip)!(own)
     expect(skip).toHaveBeenCalledOnce()
+    await electron.handlers.get(WELCOME_IPC.skip)!(own, 'hub')
+    expect(skip).toHaveBeenLastCalledWith('hub')
+    await expect(electron.handlers.get(WELCOME_IPC.skip)!(own, 'settings')).rejects.toThrow('invalid destination')
+    expect(skip).toHaveBeenCalledTimes(2)
     const copy = electron.handlers.get(WELCOME_IPC.copyLink)!
     await expect(copy({ ...own, senderFrame: {} }, 'attempt')).rejects.toThrow('unowned frame')
     await expect(copy(own, 42)).rejects.toThrow('invalid attempt')

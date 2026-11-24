@@ -2,13 +2,14 @@
  * The workspace domain declaration: record schema and the `defineDomain` spec
  * the registry opens. The zod schema validates the shipped format at the
  * durability boundary and is the direct source of a future RPC wire projection.
- * @module @deepseek-ai/dsh-workspace/src/spec
+ * @module @janhq/jan-workspace/src/spec
  */
 
 import { z } from 'zod'
-import { brandString } from '@deepseek-ai/dsh-brand'
-import type { SessionId } from '@deepseek-ai/dsh-session'
-import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
+import { brandString } from '@janhq/jan-brand'
+import type { SessionId } from '@janhq/jan-session'
+import { defineDomain, domainTable } from '@janhq/jan-storage-domain'
+import { isWorkspaceDomain, isWorkspaceEmoji, isWorkspaceImage, WORKSPACE_COLORS, WORKSPACE_ICONS } from './types.ts'
 import type { WorkspaceId } from './types.ts'
 
 /** Workspace id schema at the durable boundary; branding has no runtime representation. */
@@ -24,6 +25,13 @@ const sessionId = z.string().transform(value => brandString<SessionId>(value))
 export const workspaceRecord = z.object({
   path: z.string(),
   title: z.string(),
+  color: z.enum(WORKSPACE_COLORS).optional(),
+  avatar: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('icon'), name: z.enum(WORKSPACE_ICONS) }),
+    z.object({ kind: z.literal('emoji'), value: z.string().refine(isWorkspaceEmoji) }),
+    z.object({ kind: z.literal('image'), url: z.string().refine(isWorkspaceImage) }),
+    z.object({ kind: z.literal('favicon'), domain: z.string().refine(isWorkspaceDomain) }),
+  ]).optional(),
   sessionIds: z.array(sessionId),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -56,7 +64,7 @@ const workspacePendingMutation = z.discriminatedUnion('operation', [
  */
 export const workspaceDomainState = z.object({
   initialized: z.boolean(),
-  /** First-use Workspace identity, retained after its registration is deleted. */
+  /** Active default registration. Older units may contain the ID of a since-deleted row. */
   defaultWorkspaceId: workspaceId.optional(),
   workspaceIds: z.array(workspaceId),
   archivedSessionIds: z.array(sessionId).default([]),

@@ -5,10 +5,10 @@
  * serve it — `./types` for host consumers, `./client` for client aggregates —
  * with zero content duplication.
  *
- * @module @deepseek-ai/dsh-session-stats/types
+ * @module @janhq/jan-session-stats/types
  */
 
-import type { SessionProjectionSummaryExcluded } from '@deepseek-ai/dsh-session-projection/types'
+import type { SessionProjectionSummaryExcluded } from '@janhq/jan-session-projection/types'
 
 // Marks this file a module so the declaration below AUGMENTS the projection
 // table instead of declaring an ambient module.
@@ -34,13 +34,16 @@ export interface SessionStatsProjection {
   ttftMs: number
   /** Steps carrying a recorded first token. */
   ttftSteps: number
-  /** Summed decode wall time (first token → `assistant/message`) over steps that also report output tokens. */
+  /**
+   * Summed decode wall time (first token → `assistant/message`) over steps that also report output tokens; a step
+   * shorter than `MIN_DECODE_SPAN_MS` from `@janhq/jan-llm` arrived in one burst and is left out.
+   */
   decodeMs: number
   /** Summed provider output tokens over the same decode-timed steps. */
   decodeTokens: number
 }
 
-declare module '@deepseek-ai/dsh-session-projection/types' {
+declare module '@janhq/jan-session-projection/types' {
   interface SessionProjectionMap {
     /**
      * Whole-log turn/step counts and wall times; see

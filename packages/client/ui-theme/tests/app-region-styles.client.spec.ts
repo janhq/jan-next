@@ -76,7 +76,7 @@ const CHROME_ROWS: readonly ChromeRow[] = [
     file: SIDEBAR,
     selector: '.topStrip',
     markup: 'client/ui-sidebar/src/client/SidebarRoot.tsx',
-    height: ['height', '52px'],
+    height: ['height', 'calc(2 * var(--jan-frame-title-inset, 10px) + 32px)'],
   },
   {
     file: SIDEBAR,
@@ -88,14 +88,14 @@ const CHROME_ROWS: readonly ChromeRow[] = [
     file: CONVERSATION,
     selector: '.header',
     markup: 'client/ui-conversation/src/client/skeleton/ConversationHeader.tsx',
-    height: ['min-height', '76px'],
+    height: ['min-height', 'calc(66px + var(--jan-frame-title-inset, 10px))'],
   },
   {
     file: DOCKKIT,
     selector: '.tabStrip',
     markup: 'client/ui-dockkit/src/components/TabPanel.tsx',
     height: ['height', '28px'],
-    inset: ['padding', '10px 6px 0 var(--dsh-dockkit-strip-inline-start, 10px)'],
+    inset: ['padding', '10px 6px 0 var(--jan-dockkit-strip-inline-start, 10px)'],
   },
   {
     file: PLUGIN_MANAGER,
@@ -111,6 +111,11 @@ const CHROME_ROWS: readonly ChromeRow[] = [
     file: PLUGIN_MANAGER,
     selector: '.moreHead',
     markup: 'client/ui-plugin-manager/src/client/PluginManagerPage.tsx',
+  },
+  {
+    file: 'client/ui-deliverables/src/client/ArtifactsPage.module.css',
+    selector: '.head',
+    markup: 'client/ui-deliverables/src/client/ArtifactsPage.tsx',
   },
   {
     file: PLATFORM_OVERLAY,

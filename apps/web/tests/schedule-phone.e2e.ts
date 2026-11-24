@@ -1,10 +1,10 @@
-// UI-only phone geometry for the Automation tasks page: no text field it owns
+// UI-only phone geometry for the Scheduled tasks page: no text field it owns
 // sits under the 16px touch step, so the page never reads wider than the screen
 // — iOS Safari zooms the visual viewport for a focused field below it.
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
-import type {} from '@deepseek-ai/dsh-schedule'
+import type {} from '@janhq/jan-schedule'
 import { launchWebScaffold, watchConsole } from './scaffold.ts'
 import { revealNavigationDrawer } from './support.ts'
 
@@ -21,13 +21,13 @@ interface ViewFacts {
   instruction: string
 }
 
-/** Open the Automation tasks page and return its panel. */
+/** Open the Scheduled tasks page and return its panel. */
 async function openTaskManager(page: Page, url: string): Promise<Locator> {
   await page.goto(url, { waitUntil: 'load' })
   await revealNavigationDrawer(page, 'zh')
-  await page.getByRole('button', { name: '自动化任务', exact: true }).click()
+  await page.getByRole('button', { name: '定时任务', exact: true }).click()
   const panel = page.getByTestId('task-manager-page')
-  await panel.getByRole('heading', { name: '自动化任务', exact: true }).waitFor({ timeout: 30_000 })
+  await panel.getByRole('heading', { name: '定时任务', exact: true }).waitFor({ timeout: 30_000 })
   await page.evaluate(() => document.fonts.ready)
   return panel
 }
@@ -210,11 +210,11 @@ it('keeps the automation page on screen with its text fields at the touch step',
 }, 180_000)
 
 it.each([
-  { locale: 'en-US', tasks: 'Automation tasks', sidebar: 'Collapse sidebar', openSidebar: 'Open sidebar', close: 'Close details',
+  { locale: 'en-US', tasks: 'Scheduled', sidebar: 'Collapse sidebar', openSidebar: 'Open sidebar', close: 'Close details',
     methods: 'Choose a creation method', manual: 'Create manually', title: 'Automation task name', discard: 'Discard',
     instruction: 'Automation task instruction', create: 'Create',
     repeat: /^Repeat /, frequencies: ['Every month', 'Weekly', 'Once'] },
-  { locale: 'zh-CN', tasks: '自动化任务', sidebar: '收起侧边栏', openSidebar: '打开侧边栏', close: '关闭详情',
+  { locale: 'zh-CN', tasks: '定时任务', sidebar: '收起侧边栏', openSidebar: '打开侧边栏', close: '关闭详情',
     methods: '选择创建方式', manual: '手动创建', title: '自动化任务名称', discard: '放弃',
     instruction: '自动化任务内容', create: '创建',
     repeat: /^重复 /, frequencies: ['每月', '每周', '仅一次'] },

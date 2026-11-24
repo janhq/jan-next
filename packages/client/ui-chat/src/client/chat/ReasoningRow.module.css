@@ -5,7 +5,7 @@
 
 .root:not([data-expanded]) {
   contain: size layout;
-  height: calc(24px + var(--dsh-content-font-delta, 0px));
+  height: calc(24px + var(--jan-content-font-delta, 0px));
 }
 
 .row {
@@ -45,8 +45,8 @@
   min-width: 0;
   overflow: hidden;
   flex: 1 1 auto;
-  font-size: var(--dsh-content-font-size-secondary, 13px);
-  line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
+  font-size: var(--jan-content-font-size-secondary, 13px);
+  line-height: calc(20px + var(--jan-content-font-delta-secondary, 0px));
   white-space: nowrap;
 }
 
@@ -56,13 +56,15 @@
   text-overflow: ellipsis;
 }
 
-.summary[data-streaming] {
-  mask-image: linear-gradient(to right, black calc(100% - 48px), transparent);
+.summary[data-streaming] .summaryText {
+  direction: rtl;
+  text-align: left;
 }
 
-.summary[data-streaming] .summaryText {
-  overflow: visible;
-  text-overflow: clip;
+/* Move the ellipsis to the left without reordering the preview's words and punctuation. */
+.liveSummaryText {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .root:not([data-preview]) .separator,
@@ -72,6 +74,6 @@
 
 .thinkBody {
   /* Indent under the title, which starts at leading (16 + delta) + gap 6. */
-  padding: 4px 0 4px calc(22px + var(--dsh-content-font-delta, 0px));
+  padding: 4px 0 4px calc(22px + var(--jan-content-font-delta, 0px));
   min-width: 0;
 }

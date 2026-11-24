@@ -5,12 +5,12 @@
  * raw JSON representation. pi-ai also reports failures as terminal stream
  * events, which this module maps into Harness finish chunks.
  *
- * @module dsh-llm-pi-ai/stream
+ * @module jan-llm-pi-ai/stream
  */
 
-import { brandString } from '@deepseek-ai/dsh-brand'
-import { CONTEXT_WINDOW_EXCEEDED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
-import type { FinishReason, StreamChunk, TokenUsage, ToolCallId } from '@deepseek-ai/dsh-llm'
+import { brandString } from '@janhq/jan-brand'
+import { CONTENT_REFUSED_CODE, CONTEXT_WINDOW_EXCEEDED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE } from '@janhq/jan-llm'
+import type { FinishReason, StreamChunk, TokenUsage, ToolCallId } from '@janhq/jan-llm'
 import { isContextOverflow } from '@earendil-works/pi-ai/utils/overflow'
 import type { AssistantMessage, AssistantMessageEvent, Usage as PiUsage } from '@earendil-works/pi-ai'
 import { toPiReplayState } from './replay.ts'
@@ -40,6 +40,10 @@ export function mapUsage(usage: PiUsage): TokenUsage {
 // If pi-ai ever forwards the original Error (or a fetch/dispatcher hook that lets
 // us capture the cause ourselves), classify on `code`/`cause` instead of text.
 function classifyPiAiError(message: string): string {
+  // pi-ai turns a refusal stop, an OpenAI content filter and a "sensitive"
+  // stop into error stops with these wordings; gateways prefix their own.
+  // "refused to" keeps a transport "connection refused" out.
+  if (/\brefusal\b|\brefused to\b|content_filter|stopped with: sensitive/i.test(message)) return CONTENT_REFUSED_CODE
   if (/\b(?:401|403)\b/.test(message)) return 'AUTH'
   if (isQuotaExceededError(message)) return QUOTA_EXCEEDED_CODE
   if (/\b429\b|rate.?limit/i.test(message)) return 'RATE_LIMIT'
@@ -151,8 +155,20 @@ export async function* toStreamChunks(
   // in stream order), but we track ids per index for tool calls.
   const toolIds = new Map<number, { id: string; name: string }>()
   let argumentsError: string | undefined
+  // Usage reported before the terminal event (Anthropic's message_start
+  // carries exact input and cache counts) is surfaced as soon as it appears,
+  // so a reply cut by Stop or a steer still records what the provider billed.
+  let reported = ''
 
   for await (const event of events) {
+    if (event.type !== 'done' && event.type !== 'error') {
+      const { usage } = event.partial
+      const key = `${usage.input}/${usage.output}/${usage.cacheRead}/${usage.cacheWrite}/${usage.totalTokens}`
+      if (key !== reported && (usage.input > 0 || usage.cacheRead > 0 || usage.cacheWrite > 0)) {
+        reported = key
+        yield { type: 'usage', usage: mapUsage(usage) }
+      }
+    }
     switch (event.type) {
       case 'start':
         break

@@ -3,32 +3,32 @@ import { mkdtemp, mkdir, writeFile, readFile, rename, symlink, rm } from 'node:f
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, onTestFinished, vi } from 'vitest'
-import type { Context } from '@deepseek-ai/cordis'
-import Timer from '@deepseek-ai/cordis-plugin-timer'
-import { boot, initProfile, loadProfileDirectory, readProfilePatches, readProfileManifest, type ProfileContext } from '@deepseek-ai/dsh-app-boot'
-import Hmr from '@deepseek-ai/dsh-hmr'
-import PluginManager from '@deepseek-ai/dsh-plugin-manager'
-import Sessions, { SessionId } from '@deepseek-ai/dsh-session'
-import Projections from '@deepseek-ai/dsh-session-projection'
-import Agents from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import Llm, { createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
-import Skills from '@deepseek-ai/dsh-skill'
-import * as SkillTool from '@deepseek-ai/dsh-tool-skill'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import Tools from '@deepseek-ai/dsh-tools'
-import * as NativeExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import FsLocal from '@deepseek-ai/dsh-fs-local'
-import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
-import Access from '@deepseek-ai/dsh-api-remote-access'
-import * as ActionCards from '@deepseek-ai/dsh-action-cards'
-import type { SubagentActivation, SubagentActivationSpec } from '@deepseek-ai/dsh-subagent'
+import type { Context } from '@janhq/cordis'
+import Timer from '@janhq/cordis-plugin-timer'
+import { boot, initProfile, loadProfileDirectory, readProfilePatches, readProfileManifest, type ProfileContext } from '@janhq/jan-app-boot'
+import Hmr from '@janhq/jan-hmr'
+import PluginManager from '@janhq/jan-plugin-manager'
+import Sessions, { SessionId } from '@janhq/jan-session'
+import Projections from '@janhq/jan-session-projection'
+import Agents from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import Llm, { createUserMessage, ToolCallId } from '@janhq/jan-llm'
+import Skills from '@janhq/jan-skill'
+import * as SkillTool from '@janhq/jan-tool-skill'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import Tools from '@janhq/jan-tools'
+import * as NativeExecutor from '@janhq/jan-tool-executor-native'
+import FsLocal from '@janhq/jan-fs-local'
+import WorkingDirectory from '@janhq/jan-working-directory'
+import Access from '@janhq/jan-api-remote-access'
+import * as ActionCards from '@janhq/jan-action-cards'
+import type { SubagentActivation, SubagentActivationSpec } from '@janhq/jan-subagent'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import * as Recommendations from '../src/index.ts'
 import { RESULT_TEXT, writeBundle } from './fixture.ts'
 
 it.each(['portable-bundle', 'foreign-nested-row'] as const)('validates and installs through pnpm/HMR: %s', async (scenario) => {
-  const home = await mkdtemp(join(tmpdir(), 'dsh-creation-loader-'))
+  const home = await mkdtemp(join(tmpdir(), 'jan-creation-loader-'))
   let owner: Context | undefined
   onTestFinished(async () => { await owner?.fiber.dispose(); await rm(home, { recursive: true, force: true }) })
   const dir = join(home, 'profiles', 'test')
@@ -37,7 +37,7 @@ it.each(['portable-bundle', 'foreign-nested-row'] as const)('validates and insta
   await mkdir(base)
   await writeFile(anchor, JSON.stringify({ name: 'installation', dependencies: {} }))
   await writeFile(join(base, 'package.json'), JSON.stringify({ name: 'fixture-base', version: '1.0.0',
-    dsh: { bundle: { patch: './cordis.patch.yml' } } }))
+    jan: { bundle: { patch: './cordis.patch.yml' } } }))
   await writeFile(join(base, 'cordis.patch.yml'), JSON.stringify([{ insert: [
     ['session', 'sessions'], ['projection', 'projections'], ['llm', 'llm'], ['prompt', 'prompt'], ['tools', 'tools'],
     ['executor', 'executor'], ['fs', 'fs'], ['working-directory', 'workingDirectory'], ['skills', 'skills'], ['tool-skill', 'toolSkill'],
@@ -113,13 +113,13 @@ it.each(['portable-bundle', 'foreign-nested-row'] as const)('validates and insta
     expect([...ctx.loader.entries()].find(entry => entry.options.id === 'access')).toBe(access)
     expect(access?.options.name).toBe('cordis:access')
     expect(access?.fiber).toBeDefined()
-    expect(readProfileManifest('test', dir).dsh?.profile?.bundles).toEqual(['fixture-base'])
+    expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['fixture-base'])
     return
   }
   await vi.waitFor(() => { expect(receipt()?.phase).toBe('installed') }, { timeout: 20_000 })
   expect(receipt()?.data?.application).toBe('applied')
   expect(starts[0]?.agentPreset).toBe('cordis')
-  expect(starts[0]?.cwd?.startsWith(join(home, '.dsh-created-plugins'))).toBe(true)
+  expect(starts[0]?.cwd?.startsWith(join(home, '.jan-created-plugins'))).toBe(true)
   await rm(starts[0]!.cwd!, { recursive: true })
   const name = receipt()?.data?.bundleName
   if (typeof name !== 'string') throw new Error('the installed card records no bundle name')
@@ -127,11 +127,11 @@ it.each(['portable-bundle', 'foreign-nested-row'] as const)('validates and insta
   expect((await ctx.pluginManager.setBundleEnabled(name, true)).application).toBe('applied')
   const live = () => [...ctx.loader.entries()].find(entry => entry.options.id === name + ':counter')?.fiber
   expect(live()).toBeDefined()
-  expect(readProfileManifest('test', dir).dsh?.profile?.bundles).toContain(name)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toContain(name)
   await ctx.actionCards.act(agent, callId, 'undo')
   expect(receipt()?.phase).toBe('removed')
   expect(live()).toBeUndefined()
-  expect(readProfileManifest('test', dir).dsh?.profile?.bundles).toEqual(['fixture-base'])
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['fixture-base'])
   expect((await ctx.pluginManager.listBundles()).find(bundle => bundle.name === name)?.installed).not.toBe(true)
   const feature = [...ctx.loader.entries()].find(entry => entry.options.id === 'recommendations')
   expect(feature?.fiber).toBeDefined()

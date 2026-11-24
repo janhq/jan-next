@@ -1,12 +1,12 @@
 /** Per-Agent model instances share the loop's projection registration and teardown. */
-import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry, { AgentModel, modelSelectionProjectionDefinition } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import LlmRuntime from '@deepseek-ai/dsh-llm'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
+import { Context } from '@janhq/cordis'
+import AgentRegistry, { AgentModel, modelSelectionProjectionDefinition } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import LlmRuntime from '@janhq/jan-llm'
+import SessionStore, { SessionId } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
 async function dependencies() {

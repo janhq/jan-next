@@ -3,15 +3,14 @@
  * timestamps, goal lifecycle clocks, and hook duration while preserving semantic payload values.
  * The prompt-text and tool-schema scrubbers stay composable so one scenario per header class can
  * pin prompt and tool-schema sidecars.
- * @module @deepseek-ai/dsh-session-snapshot/normalize
+ * @module @janhq/jan-session-snapshot/normalize
  */
 
 import {
   decodeSeqRanges,
-} from '@deepseek-ai/dsh-session'
-import { prepareSessionSnapshotFixtureForComparison } from '@deepseek-ai/dsh-llm-replay'
+} from '@janhq/jan-session'
+import { prepareSessionSnapshotFixtureForComparison } from '@janhq/jan-llm-replay'
 import { redactSessionSnapshotIds } from './identity.ts'
-import { sessionHeaderVersion } from './session-files.ts'
 
 const SESSION_ID = '{{sessionId}}'
 const MESSAGE_ID = '{{messageId}}'
@@ -21,7 +20,6 @@ const SYSTEM = '{{system}}'
 const TOOLS = '{{tools}}'
 const EVENT_TIME = '{{eventTime}}'
 const EVENT_OMITTED_BYTES = '{{eventOmittedBytes}}'
-const SOURCE_SESSION_FORMAT = '{{sourceSessionFormatVersion}}'
 const PACKED_CHUNK_ROW_TYPES = new Set(['text-chunks', 'reasoning-chunks', 'tool-call-chunks'])
 
 function isPackedFixtureRow(record: Record<string, unknown>): boolean {
@@ -56,7 +54,7 @@ const LOCAL_SPILL_PATH_RE = new RegExp(
   'g',
 )
 const SNAPSHOT_SPILL_PATH_RE = new RegExp(
-  String.raw`(?:[A-Za-z]:)?[\\/]+(?:tmp|t)[\\/]+(?:dsh-acp-snap-[0-9a-f]{9}|dsh-acp-snapshot-spill)[\\/]+session-[0-9a-f]{12}[\\/]+[0-9a-f]{12}-([A-Za-z0-9._~-]+?)`
+  String.raw`(?:[A-Za-z]:)?[\\/]+(?:tmp|t)[\\/]+(?:jan-acp-snap-[0-9a-f]{9}|jan-acp-snapshot-spill)[\\/]+session-[0-9a-f]{12}[\\/]+[0-9a-f]{12}-([A-Za-z0-9._~-]+?)`
   + String.raw`(?=\. Use read with offset/limit|[\s)"]|\\+"|$)`,
   'g',
 )
@@ -109,10 +107,7 @@ export interface NormalizeOptions {
 }
 
 /** Comparison controls for complete primary and child Session logs. */
-export interface SessionSnapshotComparisonOptions extends Omit<NormalizeOptions, 'identityMode'> {
-  /** Inputs are captured native writer output, rather than source-versus-migrated-artifact comparisons. */
-  nativeWriterOutput?: true
-}
+export type SessionSnapshotComparisonOptions = Omit<NormalizeOptions, 'identityMode'>
 
 /** Return every known spelling of the generated cwd, most specific first. */
 function cwdSpellings(ctx: NormalizeContext): string[] {
@@ -474,10 +469,10 @@ export function normalizeSessionSnapshot(
 
 /**
  * Normalize one scenario's primary and child logs with shared typed identity redaction.
- * Native-writer comparison strictly restores each input before tokenizing its own delivery generation.
+ * Each versioned input is strictly restored before comparison.
  * @param rawLogs - primary-first persisted or projected session JSONL.
  * @param ctx - generated cwd spellings and other volatile run facts.
- * @param options - separator and native-writer comparison controls; identity relationships are preserved.
+ * @param options - separator controls; identity relationships are preserved.
  * @returns comparison-only Session records in input order; not persistence or fixture write-back input.
  */
 export function normalizeSessionSnapshots(
@@ -485,41 +480,30 @@ export function normalizeSessionSnapshots(
   ctx: NormalizeContext,
   options: SessionSnapshotComparisonOptions = {},
 ): string[] {
-  const { nativeWriterOutput, ...normalizeOptions } = options
-  const comparableLogs = rawLogs.map((log) => {
-    if (!hasSessionFormatVersion(log)) return normalizeSessionFormatMetadata(log)
-    const currentLog = prepareSessionSnapshotFixtureForComparison(log)
-    return normalizeSessionFormatMetadata(currentLog, nativeWriterOutput
-      ? sessionHeaderVersion(log, 'source Session snapshot') : undefined)
-  })
+  const comparableLogs = rawLogs.map(log => normalizeSessionFormatMetadata(hasSessionFormatVersion(log)
+    ? prepareSessionSnapshotFixtureForComparison(log)
+    : log))
   return redactSessionSnapshotIds(comparableLogs).map(log => projectSessionSnapshot(
     scrubSessionSnapshot(normalizeSessionLog(
       log,
       { ...ctx, sessionIds: [] },
-      { ...normalizeOptions, identityMode: 'preserve' },
+      { ...options, identityMode: 'preserve' },
     )),
   ))
 }
 
 /**
  * Omit the artifact header generation after official migration for comparison.
- * An explicit source version tokenizes only delivery markers for that original input generation.
- * Other delivery generations and every captured-source generation retain their recorded values.
+ * Every event, including captured-source generations, retains its recorded values.
  * @param rawLog - Session records or events as compact JSON lines.
- * @param sourceVersion - original generation of strictly validated native writer output; otherwise omit.
- * @returns comparison-only records with the Session header version omitted and native delivery qualifiers tokenized.
+ * @returns comparison-only records with the Session header version omitted.
  */
-export function normalizeSessionFormatMetadata(rawLog: string, sourceVersion?: number): string {
+export function normalizeSessionFormatMetadata(rawLog: string): string {
   return rawLog.split('\n').map((line) => {
     if (line.trim().length === 0) return line
     const record = JSON.parse(line) as Record<string, unknown>
-    if (record.type === 'session' && Object.hasOwn(record, 'version')) {
-      delete record.version
-    } else if (sourceVersion !== undefined && record.type === 'session-log-deepseek/delivery-accepted') {
-      const data = record.data as Record<string, unknown> | undefined
-      if (data?.sessionFormatVersion !== sourceVersion) return line
-      data.sessionFormatVersion = SOURCE_SESSION_FORMAT
-    } else return line
+    if (record.type !== 'session' || !Object.hasOwn(record, 'version')) return line
+    delete record.version
     return JSON.stringify(record)
   }).join('\n')
 }

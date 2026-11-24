@@ -1,8 +1,8 @@
 /** Builtin image metadata and keyed document-body registration. */
-import type {} from '@deepseek-ai/dsh-client-ui-file-drag/client'
-import type { Context } from '@deepseek-ai/cordis'
-import type { BoundActions } from '@deepseek-ai/dsh-client-store'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type {} from '@janhq/jan-client-ui-file-drag/client'
+import type { Context } from '@janhq/cordis'
+import type { BoundActions } from '@janhq/jan-client-store'
+import type { SessionId } from '@janhq/jan-session/types'
 import type {} from '../index.ts'
 import type { DocumentPreviewDefinition } from '../document/registry.ts'
 import { retainDocumentTabs } from '../document/tab-lifetime.ts'
@@ -11,13 +11,13 @@ import { ImageBody, type ImageBodyInjected } from './ImageBody.tsx'
 import { en, ja, es, fr, de, ru, pt, zh } from './locales.ts'
 
 /** Image implementation identity, shared by metadata and the keyed slot. */
-export const IMAGE_BODY_ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/image'
+export const IMAGE_BODY_ID = '@janhq/jan-client-ui-sidebar-documentpreview/image'
 
 /** File suffixes rendered by the builtin image body. */
-export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg'] as const
+export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'ico', 'svg'] as const
 
 /** Bitmap suffixes whose bytes are unreadable as text; SVG stays out because its XML source is worth reading. */
-export const BINARY_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'] as const
+export const BINARY_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'ico'] as const
 
 /**
  * Describe the builtin image renderer independently from its keyed body slot.

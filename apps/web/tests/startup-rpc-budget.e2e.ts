@@ -55,7 +55,7 @@ describe('startup RPC budget', () => {
         const refs = body.payload.args.refs
         credentials.push(refs)
         // Models requests batch references; the Web Search card asks for this one key.
-        if (refs.length === 1 && refs[0] === 'DEEPSEEK_API_KEY') {
+        if (refs.length === 1 && refs[0] === 'TOKAMAK_API_KEY') {
           webSearchRequests.add(request)
           credentialStarted.resolve(undefined)
         }
@@ -69,7 +69,7 @@ describe('startup RPC budget', () => {
     page.on('requestfailed', request => pending.delete(request))
     try {
       await page.goto(scaffold.authenticatedUrl)
-      await page.getByRole('textbox', { name: 'Choose workspace' }).waitFor({ timeout: 30_000 })
+      await page.getByRole('textbox', { name: 'Choose project' }).waitFor({ timeout: 30_000 })
       await expect.poll(() => settingsFinished, { timeout: 30_000 }).toBeGreaterThanOrEqual(DESCRIBE_BUDGET)
       await expect.poll(() => webSearchFinished, { timeout: 30_000 }).toBeGreaterThanOrEqual(WEB_SEARCH_CREDENTIAL_BUDGET)
       await expect.poll(() => pending.size, { timeout: 30_000 }).toBe(0)

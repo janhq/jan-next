@@ -1,9 +1,9 @@
 /** A declarative preset row in an ordinary Cordis composition. */
-import { Context, Service } from '@deepseek-ai/cordis'
-import { EntryGroup } from '@deepseek-ai/cordis-plugin-loader'
-import z from '@deepseek-ai/schemastery'
-import type { PresetDefinition } from '@deepseek-ai/dsh-agent-preset-registry'
-import type {} from '@deepseek-ai/dsh-agent-preset-registry'
+import { Context, Service } from '@janhq/cordis'
+import { EntryGroup } from '@janhq/cordis-plugin-loader'
+import z from '@janhq/schemastery'
+import type { PresetDefinition } from '@janhq/jan-agent-preset-registry'
+import type {} from '@janhq/jan-agent-preset-registry'
 
 /** Definition submitted to the preset registry. */
 export type Config = PresetDefinition
@@ -17,7 +17,11 @@ export default class AgentPreset {
     id: z.string().required(),
     name: z.string(),
     description: z.string(),
+    // A product glyph name (`code-outline`) or one emoji; unknown glyph names render as text.
+    icon: z.string().max(32),
     order: z.number(),
+    toolAllowlist: (z.array(z.string().min(1)) as z<string[] | undefined>).default(undefined),
+    readOnlyDelegation: z.boolean(),
     // Cordis owns individual plugin schemas; the registry validates entry structure.
     plugins: z.array(z.any()).required(),
   }) as z<Config>

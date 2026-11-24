@@ -3,13 +3,11 @@ description: "The shipped JSONL session-persistence backend for deployments and 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-session-persistence-jsonl
-
-English | [中文](README.zh.md)
+# @janhq/jan-session-persistence-jsonl
 
 ## Summary
 
-`dsh-session-persistence-jsonl` stores each session in a current append-only JSONL log and retains immutable historical format generations — checksummed Zstandard frames by default, raw newline-delimited lines when compression is disabled. It serves the current logical `SessionEvent` stream through persistence handles, so format migration, compression, historical decoding, and crash recovery remain storage-internal details. Choose it when consumers need a per-session file on disk; the logs are readable as plain lines when `compression: 'none'` is selected. A root directory is the one required configuration; durability, lazy materialization, [supported historical-format migration](../session-format-catalog/README.md), and torn-tail crash recovery come with the backend.
+`jan-session-persistence-jsonl` stores each session in a current append-only JSONL log and retains immutable historical format generations — checksummed Zstandard frames by default, raw newline-delimited lines when compression is disabled. It serves the current logical `SessionEvent` stream through persistence handles, so format migration, compression, historical decoding, and crash recovery remain storage-internal details. Choose it when consumers need a per-session file on disk; the logs are readable as plain lines when `compression: 'none'` is selected. A root directory is the one required configuration; durability, lazy materialization, [supported historical-format migration](../session-format-catalog/README.md), and torn-tail crash recovery come with the backend.
 
 ## Table of Contents
 
@@ -34,8 +32,8 @@ Choose this backend when consumers benefit from one artifact per session — nav
 ### Minimal configuration
 
 ```yaml
-- name: '@deepseek-ai/dsh-session'
-- name: '@deepseek-ai/dsh-session-persistence-jsonl'
+- name: '@janhq/jan-session'
+- name: '@janhq/jan-session-persistence-jsonl'
   config:
     root: /absolute/path/to/session-logs
 ```
@@ -50,7 +48,7 @@ Choose this backend when consumers benefit from one artifact per session — nav
 
 Live-event write batching is not configuration: the batching window is the seam's internal scheduling policy inside each write handle.
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-session-persistence-jsonl) is the exhaustive source for every accepted field and its JSDoc.
+The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-session-persistence-jsonl) is the exhaustive source for every accepted field and its JSDoc.
 
 ### On-disk layout
 
@@ -63,11 +61,13 @@ Each session gets a session-owned directory under a readable project directory. 
       session.jsonl.zstd         # released v0, compressed root
       session.v1.jsonl.zstd      # released v1, compressed root
       session.v2.jsonl.zstd      # released v2, compressed root
-      session.v3.jsonl.zstd      # released v3/current, compressed root
+      session.v3.jsonl.zstd      # released v3, compressed root
+      session.v4.jsonl.zstd      # released v4/current, compressed root
       session.jsonl              # released v0, raw root
       session.v1.jsonl           # released v1, raw root
       session.v2.jsonl           # released v2, raw root
-      session.v3.jsonl           # released v3/current, raw root; later versions use vN
+      session.v3.jsonl           # released v3, raw root
+      session.v4.jsonl           # released v4/current, raw root; later versions use vN
 ```
 
 Session ids are injectively escaped to one safe path segment before use (no traversal, no collision). The normalized cwd keeps the project directory readable for navigation; cwd strings that normalize alike share a project directory while session ids still select distinct session directories. Runtime operations select the numerically highest canonical generation, and format-refusal diagnostics name that absolute path so an operator can find the raw log a build refused to interpret.
@@ -78,13 +78,15 @@ A session is materialized lazily: `create(header)` writes nothing and returns th
 
 The current-generation scanner applies the current codec owner’s structural admission checks before recoverable-tail handling. Retired required PTC tags and `request/header.header.system` refuse the file even after an earlier malformed row; recovery never truncates them as ordinary damaged tail data.
 
-Unloading the backend waits for the consumer unloads it triggers through `sessionPersistence` injection before removing live-event listeners and draining and closing remaining handles. Consumers must register cleanup in that injecting scope; unrelated scopes and explicit Session or handle closure have their own lifetimes. Programmatic mounting uses the plugin namespace (`import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'`) with `ctx.plugin`; access storage through `ctx.sessionPersistence`.
+Unloading the backend waits for the consumer unloads it triggers through `sessionPersistence` injection before removing live-event listeners and draining and closing remaining handles. Consumers must register cleanup in that injecting scope; unrelated scopes and explicit Session or handle closure have their own lifetimes. Programmatic mounting uses the plugin namespace (`import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'`) with `ctx.plugin`; access storage through `ctx.sessionPersistence`.
 
 ### Reading the logs
 
 Materialized `stat` and `list` snapshots include the format catalog's header classification as `formatStatus`, alongside the translated logical `header`. They also include `location: { kind: 'jsonl', path }` for the selected physical generation. A read-only preparation leaves the selected historical version unchanged; the status becomes `current` after publication of the successor. Unmaterialized pending Sessions omit `formatStatus` and `location`.
 
 `open(id, 'read'|'write')` selects the highest canonical generation. Current input follows the ordinary fast path. For historical input, a read open decodes and migrates the source once, validates the current logical result, and returns it without publishing a successor. A write open reuses that revision-keyed preparation when available, or performs the same preparation, then encodes a same-directory temporary file in bounded chunks, verifies it in a Worker Thread, rechecks the source revision, and publishes the current successor without overwrite before returning. The source remains byte-identical. Source drift after preparation rejects that write open without replacing the logical history already returned to readers; a later write open prepares the new revision. The backend marks decoded event graphs `shared-frozen` when it freezes them before memoization; every nested object and array is frozen, and handle reads and slices preserve that state, including empty slices. Only an unmaterialized pending log reports `detached`. `stat(id)` and `list()` select and translate only the highest generation header without reading event rows or starting migration; snapshots carry the selected file’s `sizeBytes` and a best-effort revision. Current revisions identify that file; historical revisions also fingerprint the selected files across the persistence root, so child changes invalidate cached logical events. Fingerprinting reads filesystem metadata only; unrelated changes conservatively invalidate historical revisions. One `list()` call shares a corpus fingerprint across its historical entries. With `compression: 'none'`, the log is newline-delimited text an external reader can consume directly; the compressed default must be read through the backend.
+
+Finding a Session by id reads one directory per project the first time. The backend then remembers the project directory where the id was found, from that lookup, from a `list()`, or from creating the Session, and tries it first. If that directory no longer holds the id, it falls back to the full scan. The full scan and every `list()` still refuse an id stored in two projects. An id stored again in a second project by another writer is reported by the next `list()` rather than by an open that finds it in the remembered directory.
 
 Verification accepts a successful Worker response only after the Worker exits naturally with code 0. Its concurrency slot remains held through that exit; cancellation and Worker errors terminate and join the Worker before rejecting.
 

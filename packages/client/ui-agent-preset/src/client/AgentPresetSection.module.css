@@ -6,12 +6,6 @@
   color: var(--dsw-alias-label-primary);
 }
 
-.title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
 .intro {
   margin: 0;
   font-size: 13px;
@@ -221,6 +215,11 @@
   gap: 6px;
 }
 
+.cardIcon {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
+}
+
 .cardName {
   min-width: 0;
   font-size: 15px;
@@ -378,8 +377,8 @@
   line-height: 1.5;
   white-space: pre;
   tab-size: 2;
-  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
-  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+  --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
 .error {

@@ -8,32 +8,34 @@
  * Feature-owned rows and sections stay with their features.
  * Export discipline: packages/client/AGENTS.md.
  */
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { Context as ClientContext } from '@janhq/cordis'
 // Type-only: pulls the remoteAccess service merge (ctx.remoteAccess).
-import type {} from '@deepseek-ai/dsh-api-remote-access/client'
+import type {} from '@janhq/jan-api-remote-access/client'
 // Type-only: pulls the ctx.remote merge and its fixed Host facts.
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type {} from '@janhq/jan-api-remotes/client'
+import type { ConnectionHandle } from '@janhq/jan-client-connection/client'
 // Type-only: pulls the ctx.modules merge.
-import type {} from '@deepseek-ai/dsh-client-modules/client'
-import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import { closeTopModal } from '@deepseek-ai/dsh-client-ui-primitives'
+import type {} from '@janhq/jan-client-modules/client'
+import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
+import { closeTopModal } from '@janhq/jan-client-ui-primitives'
+import { createSnapshotStore, type ObservableSnapshot } from '@janhq/jan-client-store'
 // Type-only: the settings slot declarations plus the ctx.configForms Context
 // merge. Cross-plugin collaboration goes through the service, never a value
 // import (client bundle purity gate).
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@janhq/jan-client-ui-settings/client'
 // Type-only: pulls ctx.locale into this program.
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-import type {} from '@deepseek-ai/dsh-client-product-analytics/client'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-session/client'
+import type {} from '@janhq/jan-client-product-analytics/client'
 import type {
   SettingsOnboardingStep, SettingsRootInjected, SettingsSectionRow,
 } from './shell-contract.ts'
-import type { ShortcutCommandId } from '@deepseek-ai/dsh-client-shortcuts/client'
+import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
 import { createSettingsShellStore } from './shell-store.ts'
 import { SettingsRoot } from './SettingsRoot.tsx'
 import { DesktopUpdateBadge } from './DesktopUpdateIndicator.tsx'
+import { HostStatusChip, type HostStatusChipInjected } from './HostStatusChip.tsx'
 import type { DesktopUpdateBridge } from '../types.ts'
 import { DesktopChannelSource } from './desktop-channel-source.ts'
 import { DesktopChannelRow, DesktopChannelToast } from './DesktopChannelRow.tsx'
@@ -42,11 +44,28 @@ import { CloseLabel, HeaderContent, TriggerContent } from './chrome.tsx'
 import { GeneralSection } from './GeneralSection.tsx'
 import { CurrentVersionRow } from './CurrentVersionRow.tsx'
 import { DeveloperToolsRow, type DeveloperToolsRowInjected } from './DeveloperToolsRow.tsx'
+import { FactoryResetRow, type FactoryResetRowInjected } from './FactoryResetRow.tsx'
 import { SettingsDocumentAction } from './SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from './SettingsDocumentAction.tsx'
 import { SettingsDocumentStore } from './settings-document-store.ts'
 import { HostReleasePrompt, type HostReleasePromptInjected } from './HostReleasePrompt.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type SettingsKey } from './locales.ts'
+
+declare module '@janhq/cordis' {
+  interface Context {
+    /** Navigation into the active Settings shell; unavailable shells report false. */
+    settingsNavigation: {
+      /** Live availability of the Settings dialog. */
+      availability: ObservableSnapshot<boolean>
+      /**
+       * Open the Settings dialog at a registered section when access allows it.
+       * @param section - id of a Settings section, such as `models`.
+       * @returns whether Settings opened at that section.
+       */
+      open(section: string): boolean
+    }
+  }
+}
 
 export type {
   CloseLabelProps, HeaderContentProps, TriggerContentProps,
@@ -59,7 +78,7 @@ export type { SettingsDocumentState } from './settings-document-store.ts'
 export { SettingsDocumentStore } from './settings-document-store.ts'
 export type { SettingsKey } from './locales.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Shell chrome + shell-owned General section copy. */
     settings: SettingsKey
@@ -82,6 +101,16 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.settin
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  const availability = createSnapshotStore(false)
+  let openSection: ((section: string) => void) | undefined
+  ctx.provide('settingsNavigation', {
+    availability,
+    open: (section: string) => {
+      if (openSection === undefined) return false
+      openSection(section)
+      return true
+    },
+  })
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item', id: 'developer-tools', order: 15, locale: NS,
     inject: (): DeveloperToolsRowInjected => ({
@@ -103,7 +132,16 @@ export function apply(ctx: ClientContext): void {
   }, CurrentVersionRow))
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-settings-general: dictionaries')
   const connection = ctx.get('connection') as ConnectionHandle
-  const carrier = (globalThis as typeof globalThis & { dshDesktop?: { protocolVersion: number; updates?: DesktopUpdateBridge } }).dshDesktop
+  type DesktopCarrier = { protocolVersion: number; updates?: DesktopUpdateBridge; factoryReset?: FactoryResetRowInjected['reset'] }
+  const carrier = (globalThis as typeof globalThis & { janDesktop?: DesktopCarrier }).janDesktop
+  const factoryReset = carrier?.protocolVersion === 1 ? carrier.factoryReset : undefined
+  // Desktop owns the data and the relaunch, so the row exists only there; it closes the General list.
+  if (factoryReset !== undefined) {
+    ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+      name: 'settings.general.item', id: 'factory-reset', order: 110, locale: NS,
+      inject: (): FactoryResetRowInjected => ({ reset: categories => factoryReset(categories) }),
+    }, FactoryResetRow))
+  }
   const desktopUpdate = new DesktopUpdateSource(carrier?.protocolVersion === 1 ? carrier.updates : undefined)
   ctx.effect(() => () => { desktopUpdate.dispose() }, 'ui-settings-general: desktop update carrier')
   const channelBridge = carrier?.protocolVersion === 1 ? carrier.updates?.channels : undefined
@@ -116,10 +154,24 @@ export function apply(ctx: ClientContext): void {
     }, DesktopChannelRow))
     ctx.slots.inject('shell.overlay', () => ctx.slots.register({
       name: 'shell.overlay', id: 'desktop-channel-toast', locale: NS,
-      inject: () => ({ hooks: { channel: channel.store },
-        dismiss: (sequence: number) => { channel.dismissNotice(sequence) }, openConfiguration: () => { desktopUpdate.open() } }),
+      inject: () => ({
+        hooks: { channel: channel.store },
+        dismiss: (sequence: number) => { channel.dismissNotice(sequence) }, openConfiguration: () => { desktopUpdate.open() },
+      }),
     }, DesktopChannelToast))
   }
+
+  // A window on another computer names it beside the sidebar toggle, with the link state.
+  ctx.slots.inject('sidebar.toggle.actions', () => ctx.slots.register({
+    name: 'sidebar.toggle.actions', id: 'host-status', locale: NS,
+    inject: (): HostStatusChipInjected => ({
+      reconnect: () => { connection.reconnect() },
+      hooks: {
+        hostInfo: { getSnapshot: () => ctx.remote.$host, subscribe: listener => ctx.on('connection/reset', listener) },
+        connectionState: connection.state,
+      },
+    }),
+  }, HostStatusChip))
 
   ctx.slots.inject('sidebar.toggle.badge', () => ctx.slots.register({
     name: 'sidebar.toggle.badge', locale: NS,
@@ -222,10 +274,12 @@ export function apply(ctx: ClientContext): void {
         regions: ['page', 'editable', 'terminal'], modals: ['settings'],
         resolve: ({ modal }) => {
           if (modal !== null && modal !== 'settings') return { status: 'blocked', reason: 'modal' }
-          return { status: 'handled', run: () => {
-            if (modal === 'settings') closeTopModal(document)
-            else shellInstance.actions.open()
-          } }
+          return {
+            status: 'handled', run: () => {
+              if (modal === 'settings') closeTopModal(document)
+              else shellInstance.actions.open()
+            },
+          }
         },
       })
 
@@ -245,7 +299,9 @@ export function apply(ctx: ClientContext): void {
         },
         inject: shellInjected,
       }, SettingsRoot)
-      return () => { disposeCommand(); disposeSlot() }
+      openSection = (section: string) => { shellInstance.actions.openSection(section) }
+      availability.set(true)
+      return () => { openSection = undefined; availability.set(false); disposeCommand(); disposeSlot() }
     }))
 
   ctx.slots.inject('settings.trigger', () =>

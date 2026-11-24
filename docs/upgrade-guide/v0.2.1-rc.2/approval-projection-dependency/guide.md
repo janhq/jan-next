@@ -5,8 +5,6 @@ description: "Custom ApprovalService compositions must provide sessionProjection
 
 # Approval requires the Projection registry
 
-English | [中文](guide.zh.md)
-
 ## Change
 
 `ApprovalService` requires `sessionProjections`. It waits for projection registration during activation instead of reading the event log when the registry is absent or pending. Custom compositions that mounted approval alone must add the registry. Shipped profiles already provide it.
@@ -15,14 +13,14 @@ Approval outcomes, audit events, policy defaults, and synchronous business metho
 
 ## Migration
 
-1. In custom `cordis.yml` files, mount `@deepseek-ai/dsh-session-projection` before `@deepseek-ai/dsh-user-approval`. Avoid adding a duplicate registry to a shipped profile.
+1. In custom `cordis.yml` files, mount `@janhq/jan-session-projection` before `@janhq/jan-user-approval`. Avoid adding a duplicate registry to a shipped profile.
 2. In direct host compositions, use `ctx.plugin(ApprovalService)` and await activation before using `ctx.approval`. Do not construct the service with `new ApprovalService(...)`: that does not run `Service.init`.
 
    ```ts
-   import { Context } from '@deepseek-ai/cordis'
-   import SessionStore from '@deepseek-ai/dsh-session'
-   import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-   import ApprovalService from '@deepseek-ai/dsh-user-approval'
+   import { Context } from '@janhq/cordis'
+   import SessionStore from '@janhq/jan-session'
+   import SessionProjectionRegistry from '@janhq/jan-session-projection'
+   import ApprovalService from '@janhq/jan-user-approval'
 
    const ctx = new Context()
    await ctx.plugin(SessionStore)

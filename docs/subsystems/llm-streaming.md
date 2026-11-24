@@ -1,7 +1,5 @@
 # LLM Streaming
 
-English | [中文](llm-streaming.zh.md)
-
 The conversation and streaming types from [`packages/llm`](../../packages/llm/README.md): durable `Message` values, request-only user inputs, shared `ContentBlock` variants, the fully assembled model request, the raw `StreamChunk` protocol, the adapter contract every adapter must implement, and the shared assembler. The [core packages](core.md) hold and log these values on every turn; this page declares them.
 
 Source: [`packages/llm/llm/src/types.ts`](../../packages/llm/llm/src/types.ts)
@@ -245,7 +243,7 @@ interface LlmFailure {
   /**
    * With code `IMAGE_OFFLOAD_REQUIRED`: how many more of the oldest retained
    * image occurrences the route needs offloaded before the same request fits
-   * its exact byte accounting. `dsh-compaction-image-offload` records the
+   * its exact byte accounting. `jan-compaction-image-offload` records the
    * selected occurrences in an `image/offload` event and retries the step.
    */
   readonly offloadImages?: number
@@ -254,7 +252,7 @@ interface LlmFailure {
 
 ## Request-image pricing
 
-An adapter whose provider charges visual tokens for request images declares per-route pricing by overriding `LlmAdapter.imageRequestPricing`, and `ctx.llm.imageRequestPricing(provider, model)` resolves it synchronously for consumers. The token meter resolves the routed model's pricing on every measurement so compaction pressure, retention, and range selection price image history as the routed request actually sends it; the DeepSeek adapter prices each retained occurrence at its per-model request target with the published vision accounting and each occurrence selected by a logged image-offload decision as its placeholder text, while provider usage remains the authoritative anchor for completed requests.
+An adapter whose provider charges visual tokens for request images declares per-route pricing by overriding `LlmAdapter.imageRequestPricing`, and `ctx.llm.imageRequestPricing(provider, model)` resolves it synchronously for consumers. The token meter resolves the routed model's pricing on every measurement so compaction pressure, retention, and range selection price image history as the routed request actually sends it, while provider usage remains the authoritative anchor for completed requests.
 
 ```ts type-equiv
 /**
@@ -300,8 +298,8 @@ Every adapter MUST obey these, and every consumer may rely on them:
 - **Two sanctioned error paths, one `LlmFailure` type.** A failure may either THROW from `stream()` (transport/protocol errors) **or** end the stream with `finish {kind:'error'|'aborted', failure}` (provider in-band errors, for adapters that can't throw mid-stream). `LlmError.failure` carries the same `LlmFailure`. After the call selects its adapter, the stream preserves the exact thrown `Error` object and associates immutable facts plus the serving registration's immutable retry policy with that call; the agent loop commits the attempt stream as `assistant/attempt`, closes the failed step, and offers the error, facts, immutable prior-retried facts, serving policy, and turn signal to `agent/request-error`. A handling listener returns `{ kind: 'retry' }` after its awaited repair; absent recovery the structured failure becomes the turn error, and no surface Assistant message or tool side effect is committed for that attempt.
 - **One adapter call is one provider attempt.** Adapters disable library retries. Agent-level recovery opens another durable numbered turn; direct `ctx.llm.stream()` callers remain single-attempt.
 - **Provider stalls are bounded at the transport.** Both shipping remote adapters expose positive finite `streamIdleTimeoutMs` with a five-minute default. The watchdog arms only while iterator `next()` is outstanding, uses one stable signal for the whole request, maps its own expiry to `TIMEOUT`, and keeps an earlier caller abort as `ABORTED`.
-- **Context overflow has one canonical code.** Both DeepSeek adapters classify explicit provider detail through `isContextWindowExceededError()` and surface `CONTEXT_WINDOW_EXCEEDED`, whether the failure arrives as a thrown HTTP `LlmError` or an in-band finish error. Consumers route on the code, never provider text.
-- **An empty completion is a retryable error, not a silent success.** Both adapters map a terminal `stop` finish that carried no content blocks to `finish {kind:'error'}` with the canonical `EMPTY_RESPONSE` code, and `dsh-llm-retry` retries it by default.
+- **Context overflow has one canonical code.** Adapters classify explicit provider detail through `isContextWindowExceededError()` and surface `CONTEXT_WINDOW_EXCEEDED`, whether the failure arrives as a thrown HTTP `LlmError` or an in-band finish error. Consumers route on the code, never provider text.
+- **An empty completion is a retryable error, not a silent success.** Both adapters map a terminal `stop` finish that carried no content blocks to `finish {kind:'error'}` with the canonical `EMPTY_RESPONSE` code, and `jan-llm-retry` retries it by default.
 - **Every provider HTTP request carries the app-attribution header.** Adapters send `attributionHeaders()` (below) - the `User-Agent` baseline - and prove it with a wire-level test.
 - **Replay state is adapter-owned; its split is shared.** A successful `finish` may carry a `ReplayEnvelope`: opaque response-level metadata plus optional per-block entries aligned with the emitted block sequence. The alignment is the harness's vocabulary — when assembly drops a block it drops the entry at the same position, so stored metadata always describes stored content. The loop stores the pruned envelope with the assembled assistant message. On a later request, `LlmRuntime` passes the state only when the historical provider and target provider are currently registered to the exact same adapter instance. That adapter validates the state and owns any cross-model or cross-provider conversion; other adapters receive the provider-neutral content plus provider/model fields without the private state. Durable content stays authoritative: a stored state the reading adapter cannot use degrades that one message to provider-neutral conversion with a diagnostic instead of failing the request.
 
@@ -333,7 +331,7 @@ interface AppIdentity {
 
 ## `TokenUsage`
 
-Per-call token accounting. Counts are **disjoint**: `inputTokens` is uncached input only; cached input is reported separately, and billed input is the sum of the three. Adapters whose providers fold cache hits into a single prompt total (DeepSeek's `prompt_tokens`) subtract them back out. Optional `totalTokens` is an exact aggregate prompt-plus-output count preserved from the provider or reconstructed from authoritative aggregate counters; adapters omit it when unavailable or inconsistent. `reasoningTokens`, when present, is informational detail already included in `outputTokens`; totals must not add it again.
+Per-call token accounting. Counts are **disjoint**: `inputTokens` is uncached input only; cached input is reported separately, and billed input is the sum of the three. Adapters whose providers fold cache hits into a single prompt total (OpenAI-compatible `prompt_tokens`) subtract them back out. Optional `totalTokens` is an exact aggregate prompt-plus-output count preserved from the provider or reconstructed from authoritative aggregate counters; adapters omit it when unavailable or inconsistent. `reasoningTokens`, when present, is informational detail already included in `outputTokens`; totals must not add it again.
 
 ```ts type-equiv
 /**
@@ -342,7 +340,7 @@ Per-call token accounting. Counts are **disjoint**: `inputTokens` is uncached in
  * Counts are DISJOINT: `inputTokens` is uncached input only; cached input is
  * reported separately as `cacheReadTokens`/`cacheWriteTokens` (billed input =
  * sum of the three). Adapters whose providers fold cache hits into a total
- * prompt count (DeepSeek's `prompt_tokens`) subtract them out.
+ * prompt count (OpenAI-compatible `prompt_tokens`) subtract them out.
  */
 interface TokenUsage {
   inputTokens: number
@@ -430,7 +428,7 @@ Source: [`packages/llm/llm/src/types.ts`](../../packages/llm/llm/src/types.ts)
 
 Provider and model discovery uses small provider-neutral descriptors. A model catalog is advisory: routing still keys on a registered provider.
 
-Registering an adapter returns a handle: the disposer, plus the atomic route replacement a plugin whose route set is user-configurable needs.
+Registering an adapter returns a handle: the disposer, the atomic route replacement a plugin whose route set is user-configurable needs, and a model-set announcement for an adapter whose models change at runtime.
 
 ```ts type-equiv
 /**
@@ -455,6 +453,13 @@ interface AdapterRegistrationHandle {
    * @param providers - the complete next route set for this registration.
    */
   replace(providers: string[]): void
+  /**
+   * Announce that the models this registration's routes advertise changed
+   * without a route change, by publishing `llm/adapters-updated`. Call it after
+   * the adapter commits the new model set, so observers that re-read
+   * `listModels()` see it. A no-op once the registration has been released.
+   */
+  modelsChanged(): void
 }
 ```
 
@@ -558,6 +563,12 @@ interface LlmModelInfo {
   description?: string
   /** Accepted request modalities; absent means unknown, while an explicit omission is negative capability. */
   inputModalities?: readonly ModelModality[]
+  /**
+   * Whether the model calls the tools a request declares; absent means unknown.
+   * `false` is a declared inability (a local chat template with no tool
+   * support), which selectors surface before the user starts a tool task.
+   */
+  toolUse?: boolean
   /**
    * Selector label advertised by catalog discovery; exact-route resolution
    * omits it, and no model request or Session event carries it.
@@ -664,7 +675,7 @@ interface GenerateOptions<Purpose extends string = LlmRequestPurpose> {
   reasoningEffort?: ReasoningEffortId
   /**
    * Ordered conversation messages, exactly as the provider sees them. A
-   * loop-built request passes the derived history (dsh-agent-loop), whose
+   * loop-built request passes the derived history (jan-agent-loop), whose
    * leading system-role message carries the system prompt; a hand-built
    * one-shot may include identity-free user inputs.
    */
@@ -719,14 +730,14 @@ interface FinishReasonMap {
 
 `FinishReason = FinishReasonMap[keyof FinishReasonMap]`. `TokenUsage` (per-call accounting with disjoint cache fields) is detailed [below](#tokenusage).
 
-`GenerateOptions.tools` carries `ToolSchema` — the JSON-schema description of a tool, as sent to the model. It is declared in dsh-llm (not dsh-tools) precisely because it is part of the request the loop assembles every step:
+`GenerateOptions.tools` carries `ToolSchema` — the JSON-schema description of a tool, as sent to the model. It is declared in jan-llm (not jan-tools) precisely because it is part of the request the loop assembles every step:
 
 ```ts type-equiv
 /**
  * JSON-schema description of a tool, as sent to the model.
  *
- * Declared here (not in dsh-tools) because it is part of {@link GenerateOptions};
- * dsh-tools' ToolDefinition and dsh-system-prompt's PromptAssembly both import
+ * Declared here (not in jan-tools) because it is part of {@link GenerateOptions};
+ * jan-tools' ToolDefinition and jan-system-prompt's PromptAssembly both import
  * it from this package.
  */
 interface ToolSchema {
@@ -854,12 +865,6 @@ interface LlmCallConfigAdapterDefaults {
 }
 ```
 
-## Official DeepSeek request extensions
-
-`ctx.deepseekLlmApiExtensions` is the provider-specific registry for additive top-level fields on `deepseek-official` requests. Contributor plugins use `register(field, provider)` to claim one field; the adapter calls `prepare(request)` after serializing its base body and merges the returned fields before HTTP. The prepared `accept()` transaction runs after 2xx, so a contributor can commit delivery state without treating a transport or provider rejection as acceptance. A contributor whose preparation throws is logged and omitted from that request, and an acceptance failure is logged without failing the request; a base-field collision uses `REQUEST_EXTENSION` and fails the model request. A merged body that fails to serialize is sent without extension fields; acceptance is skipped and the provider plugin logs the omitted field names.
-
-The [wire reference](../deepseek-llm-api-wire-extensions.md) defines the exact request headers, extension transaction, field versions, and receiver obligations. The shipped composition registers [`dsh_session_log`](../../packages/session/session-log-deepseek/README.md) as a lossless incremental canonical-log suffix and [`dsh_plugin_packages`](../../packages/llm/plugin-package-inventory-deepseek/README.md) as the complete active Loader-backed package set. These fields remain outside model messages and are absent from the pi-ai adapter path.
-
 ## Pi-ai request headers
 
 `PiAiRequestHeaderContext` contains the prepared call's provider, model, resolved model `baseURL`, and optional Session id and auxiliary purpose. It is immutable, contains no messages or authentication fields, and accompanies a request-owned `Headers` object in the synchronous `llm-pi-ai/request-headers` waterfall. The [adapter's request-header documentation](../../packages/llm/llm-pi-ai/README.md#request-headers) defines contribution ownership, attribution precedence, and failure behavior. This extension point is specific to pi-ai inference requests.
@@ -900,8 +905,8 @@ interface PreparedLlmCall {
 /**
  * Provider-wire adapter for the harness message and stream vocabulary. Register implementations
  * with `ctx.llm.registerAdapter(providers, adapter)`. Every provider HTTP request must include
- * `attributionHeaders()`; prove the headers are added in the wire request or library header hook. The direct-fetch
- * DeepSeek and library-backed pi-ai adapters meet this contract through different internals.
+ * `attributionHeaders()`; prove the headers are added in the wire request or library header hook.
+ * Direct-fetch and library-backed adapters meet this contract through different internals.
  */
 declare abstract class LlmAdapter {
   /**
@@ -985,35 +990,7 @@ declare abstract class LlmAdapter {
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
-
-<a id="ctxdeepseekllmapiextensions--deepseekllmapiextensionregistry"></a>
-
-### `ctx.deepseekLlmApiExtensions` — `DeepSeekLlmApiExtensionRegistry`
-
-Registry of independently owned top-level fields for official DeepSeek requests.
-
-```ts cordis-catalog
-/**
- * Register the sole provider of one top-level request field. Registration is effect-scoped.
- * @param field - declaration-merged field owned by the provider.
- * @param provider - request-time field preparation and optional acceptance behavior.
- * @returns disposer that releases the field.
- */
-register<K extends keyof DeepSeekLlmApiExtensionMap>( field: K, provider: DeepSeekLlmApiExtensionProvider<DeepSeekLlmApiExtensionMap[K]>, ): () => Promise<void>
-
-/**
- * Prepare every currently registered field from one immutable base request.
- * A provider whose preparation throws, or whose value cannot be cloned, is omitted
- * from this request; the first such failure per field is logged. Only cancellation rejects. Field values are cloned
- * and frozen; providers retain no mutable alias to the outgoing request.
- * @param request - exact serialized request facts before extension fields.
- * @returns detached fields and their idempotent joint acceptance transaction.
- */
-async prepare(request: DeepSeekLlmApiExtensionRequest): Promise<PreparedDeepSeekLlmApiExtensions>
-```
-
-Source: [`packages/llm/deepseek-llm-api-extensions/src/index.ts`](../../packages/llm/deepseek-llm-api-extensions/src/index.ts)
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxllamacpp--llamacpp"></a>
 
@@ -1041,6 +1018,49 @@ subscribe(listener: () => void): () => void
  * @returns an async stream of states that ends when the caller or the service stops.
  */
 async *follow(caller: AbortSignal): AsyncIterable<LlamaCppState>
+
+/**
+ * Requested and trained context of an installed model; `local` names the default.
+ * @param id - installed model id or the route model id.
+ * @returns served context tokens, the trained maximum when the GGUF declares one, and whether auto-fit is on.
+ */
+getModelContext(id: string): { current: number; maximum?: number; fit: boolean }
+
+/**
+ * Save a model's context and reload its preset section in a running worker.
+ * @param id - installed model id or the route model id.
+ * @param contextSize - positive token count, at most the model's trained maximum.
+ */
+setModelContext(id: string, contextSize: number): Promise<void>
+
+/**
+ * Save the automatic memory-fit choice for one model.
+ * @param id - installed model id or the route model id.
+ * @param fit - whether llama.cpp fits the context and offload to free memory.
+ */
+setModelFit(id: string, fit: boolean): Promise<void>
+
+/**
+ * Grow to the next classic-Jan context step, bounded by GGUF metadata when available.
+ * @param id - installed model id or the route model id.
+ * @returns the new context length, or null when the model cannot grow further.
+ */
+increaseModelContext(id: string): Promise<number | null>
+
+/**
+ * List registry-owned models and files left by Jan's GGUF downloader.
+ * @param home - Jan data folder the paths are relative to.
+ * @returns the listed models and download files.
+ */
+listStoredDownloads(home: string): Promise<StoredDownload[]>
+
+/**
+ * Delete one listed artifact without unloading a resident model or touching an imported file.
+ * @param home - Jan data folder the path is relative to.
+ * @param path - exact Jan-home-relative path from {@link listStoredDownloads}.
+ * @returns after the artifact is removed.
+ */
+deleteStoredDownload(home: string, path: string): Promise<void>
 
 /**
  * First-run install: download the first-run model, then start the worker. With a model already
@@ -1078,15 +1098,22 @@ async lookupHuggingFace(input: string, signal?: AbortSignal): Promise<HuggingFac
 async downloadHuggingFace(input: string, file: string, signal?: AbortSignal): Promise<string>
 
 /**
- * Start a failed download again, from its partial file.
- * @param id - model id of the failed download.
- * @throws Error when no failed download has that id.
+ * Start a failed or paused download again, from its partial file.
+ * @param id - model id of the failed or paused download.
+ * @throws Error when no failed or paused download has that id.
  */
 retry(id: string): void
 
 /**
- * Stop downloads: one by id, or all, discarding their partial files (a download interrupted by
- * shutting down is kept and resumes instead); a failed entry is dismissed.
+ * Pause a running or queued download, keeping its partial file so {@link retry} resumes it.
+ * @param id - model id of the download.
+ * @throws Error when no running or queued download has that id.
+ */
+pause(id: string): void
+
+/**
+ * Stop downloads: one by id, or all, discarding their files (a download interrupted by shutting
+ * down is kept and resumes instead); a failed entry is dismissed, a paused one discarded.
  * @param id - model id, or undefined for every download.
  */
 async cancel(id?: string): Promise<void>
@@ -1211,17 +1238,36 @@ Install, start, stop and remove the local models and the worker serving them; pr
 @Remote async downloadRepoFile(repo: string, file: string, signal: AbortSignal): Promise<string>
 
 /**
- * Start a failed download again.
- * @param id - model id of the failed download.
+ * Start a failed or paused download again, from its partial file.
+ * @param id - model id of the failed or paused download.
  */
 @Remote retryDownload(id: string): void
 
 /**
- * Stop one download, or dismiss it when it failed.
+ * Pause a running or queued download, keeping its partial file for {@link retryDownload}.
+ * @param id - model id of the download.
+ */
+@Remote pauseDownload(id: string): void
+
+/**
+ * Stop one download and discard its files, or dismiss it when it failed.
  * @param id - model id of the download.
  * @returns after it settles.
  */
 @Remote async cancelDownload(id: string): Promise<void>
+
+/**
+ * Jan's on-disk downloads and caches, with paths relative to the Jan data folder.
+ * @returns every listed item, sorted by name and then path.
+ */
+@Remote async listStoredDownloads(): Promise<StoredDownload[]>
+
+/**
+ * Remove one currently listed download.
+ * @param path - exact Jan-home-relative path from the list.
+ * @returns after the files are gone.
+ */
+@Remote async deleteStoredDownload(path: string): Promise<void>
 
 /**
  * Add a GGUF file from this computer, left where it is.
@@ -1238,6 +1284,34 @@ Install, start, stop and remove the local models and the worker serving them; pr
  * @returns after the worker serves it or has failed to start.
  */
 @Remote async setDefaultModel(id: string): Promise<void>
+
+/**
+ * Current served context, GGUF-trained maximum when known, and auto-fit for one installed model.
+ * @param id - installed model id; `local` names the default.
+ * @returns served context tokens, the trained maximum when the GGUF declares one, and whether auto-fit is on.
+ */
+@Remote getModelContext(id: string): { current: number; maximum?: number; fit: boolean }
+
+/**
+ * Persist a per-model context length and wait for the worker's new preset to load.
+ * @param id - installed model id; `local` names the default.
+ * @param contextSize - positive token count, at most the model's trained maximum.
+ */
+@Remote async setModelContext(id: string, contextSize: number): Promise<void>
+
+/**
+ * Persist and apply automatic GPU/memory fit for one installed model.
+ * @param id - installed model id; `local` names the default.
+ * @param fit - whether llama.cpp fits the context and offload to free memory.
+ */
+@Remote async setModelFit(id: string, fit: boolean): Promise<void>
+
+/**
+ * Grow the context to the next step, reload the model, or answer null at its maximum.
+ * @param id - installed model id; `local` names the default.
+ * @returns the new context length, or null when the model cannot grow further.
+ */
+@Remote async increaseModelContext(id: string): Promise<number | null>
 
 /**
  * Load an installed model now instead of on its first request, starting a stopped worker.
@@ -1461,12 +1535,13 @@ Source: [`packages/llm/llm/src/index.ts`](../../packages/llm/llm/src/index.ts)
 
 #### `llm/adapters-updated` — emit
 
-The provider topology changed: an adapter registered or unregistered routes, or the configurable-provider directory gained or lost entries. This payload-free registry notification fires at each commit point (including registration disposal); consumers re-read `listProviders()`, `listModels()`, or `listConfigurableProviders()` for the new state. Observer failures are contained and cannot veto the registry mutation.
+The provider topology changed: an adapter registered or unregistered routes, an adapter announced a changed model set for its routes, or the configurable-provider directory gained or lost entries. This payload-free registry notification fires at each commit point (including registration disposal); consumers re-read `listProviders()`, `listModels()`, or `listConfigurableProviders()` for the new state. Observer failures are contained and cannot veto the registry mutation.
 
 ```ts cordis-catalog
 /**
  * The provider topology changed: an adapter registered or unregistered
- * routes, or the configurable-provider directory gained or lost entries.
+ * routes, an adapter announced a changed model set for its routes, or the
+ * configurable-provider directory gained or lost entries.
  * This payload-free registry notification fires at each commit point
  * (including registration disposal); consumers re-read `listProviders()`,
  * `listModels()`, or `listConfigurableProviders()` for the new state.
@@ -1474,23 +1549,6 @@ The provider topology changed: an adapter registered or unregistered routes, or 
  * @mode emit
  */
 'llm/adapters-updated'(): void
-```
-
-Source: [`packages/llm/llm/src/types.ts`](../../packages/llm/llm/src/types.ts)
-
-<a id="llmmodels-updated--emit"></a>
-
-#### `llm/models-updated` — emit
-
-A provider's advertised models or display metadata changed; consumers reload `listModels()`.
-
-```ts cordis-catalog
-/**
- * A provider's advertised models or display metadata changed; consumers reload `listModels()`.
- * @mode emit
- * @param provider - route whose model catalog changed.
- */
-'llm/models-updated'(provider: string): void
 ```
 
 Source: [`packages/llm/llm/src/types.ts`](../../packages/llm/llm/src/types.ts)
@@ -1522,6 +1580,25 @@ Source: [`packages/llm/llm/src/index.ts`](../../packages/llm/llm/src/index.ts)
 <a id="llm-pi-ai-events"></a>
 
 ### `llm-pi-ai/*` events
+
+<a id="llm-pi-aiprompt-progress--emit"></a>
+
+#### `llm-pi-ai/prompt-progress` — emit
+
+Prompt-processing progress of one call on a route whose profile sets `promptProgress`, emitted as the server reports it (llama.cpp sends one per batch). A call that ends before its prompt is read reports it read, so observers can drop the progress. Transient: not logged.
+
+```ts cordis-catalog
+/**
+ * Prompt-processing progress of one call on a route whose profile sets `promptProgress`,
+ * emitted as the server reports it (llama.cpp sends one per batch). A call that ends before
+ * its prompt is read reports it read, so observers can drop the progress. Transient: not logged.
+ * @mode emit
+ * @param progress - the call's route, prompt tokens read so far, and prompt total.
+ */
+'llm-pi-ai/prompt-progress'(progress: PiAiPromptProgress): void
+```
+
+Source: [`packages/llm/llm-pi-ai/src/index.ts`](../../packages/llm/llm-pi-ai/src/index.ts)
 
 <a id="llm-pi-airequest-headers--waterfall"></a>
 

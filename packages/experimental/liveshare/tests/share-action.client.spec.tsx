@@ -4,9 +4,9 @@
  * relay address that dialog starts from.
  */
 
-import { Context } from '@deepseek-ai/cordis'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { Context } from '@janhq/cordis'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import type { SessionId } from '@janhq/jan-session/types'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'

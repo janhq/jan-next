@@ -1,6 +1,6 @@
 /** `RemoteMock`: an endpoint table (unary answers or stream scripts), live stream control, a log, and the Connection carrier face. */
 
-import type { ClientConnectionRpc, ConnectionRpcResult } from '@deepseek-ai/dsh-client-connection/client'
+import type { ClientConnectionRpc, ConnectionRpcResult } from '@janhq/jan-client-connection/client'
 import { fn, type Mock } from '@vitest/spy'
 import { MockLogStore, type MockLog } from './log.ts'
 import { HandleUplink, MockClientStream, MockStream, toError, type StreamScript } from './streams.ts'
@@ -20,7 +20,7 @@ export interface RemoteTable {
 /** Construction options. */
 export interface RemoteMockOptions {
   /** Host facts the built-in `$events` ready frame carries; default `{ home: '/home/mock' }`. */
-  readonly host?: { readonly home: string }
+  readonly host?: { readonly home: string; readonly name?: string; readonly remote?: boolean }
 }
 
 /** Filter over the args a stream was opened with. */
@@ -101,7 +101,7 @@ export class RemoteMock {
    */
   static create(options: RemoteMockOptions = {}): RemoteMock {
     const mock = new RemoteMock()
-    const host = options.host ?? { home: '/home/mock' }
+    const host = { home: options.host?.home ?? '/home/mock', name: options.host?.name ?? 'mock-host', remote: options.host?.remote ?? false }
     let generation = 0
     return mock.stream(EVENTS_ENDPOINT, (_args, stream) => {
       generation += 1

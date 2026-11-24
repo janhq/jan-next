@@ -1,8 +1,5 @@
 /** Client-only filtering and page-scroll headers for original Markdown tables. */
-const messages = {
-  en: { placeholder: 'Search...', filter: 'Filter table', clear: 'Clear', empty: 'No matching rows.' },
-  zh: { placeholder: 'Search...', filter: '筛选表格', clear: '清空', empty: '没有匹配的行。' },
-}
+const copy = { placeholder: 'Search...', filter: 'Filter table', clear: 'Clear', empty: 'No matching rows.' }
 
 class FilterableTable {
   readonly #controls: HTMLDivElement
@@ -11,13 +8,11 @@ class FilterableTable {
   readonly #status: HTMLParagraphElement
   readonly #events = new AbortController()
   readonly #rows: { element: HTMLTableRowElement; text: string; hidden: HTMLTableRowElement['hidden'] }[]
-  #empty = ''
 
   constructor(
     private readonly table: HTMLTableElement,
     private readonly head: HTMLTableSectionElement,
     rows: HTMLTableRowElement[],
-    copy: typeof messages.en,
     private readonly changed: () => void,
   ) {
     const doc = table.ownerDocument
@@ -27,13 +22,17 @@ class FilterableTable {
       hidden: element.hidden,
     }))
     this.#controls = doc.createElement('div')
-    this.#controls.className = 'dsh-table-controls'
+    this.#controls.className = 'jan-table-controls'
     const toolbar = doc.createElement('div')
-    toolbar.className = 'dsh-table-toolbar'
+    toolbar.className = 'jan-table-toolbar'
     this.#input = doc.createElement('input')
     this.#input.type = 'search'
+    this.#input.placeholder = copy.placeholder
+    this.#input.setAttribute('aria-label', copy.filter)
     this.#clear = doc.createElement('button')
     this.#clear.type = 'button'
+    this.#clear.setAttribute('aria-label', copy.clear)
+    this.#clear.title = copy.clear
     const clearIcon = doc.createElement('span')
     clearIcon.textContent = '×'
     clearIcon.setAttribute('aria-hidden', 'true')
@@ -43,7 +42,7 @@ class FilterableTable {
     toolbar.append(this.#input, this.#clear)
     this.#controls.append(toolbar, this.#status)
     table.before(this.#controls)
-    table.classList.add('dsh-filterable-table')
+    table.classList.add('jan-filterable-table')
     const options = { signal: this.#events.signal }
     this.#input.addEventListener('input', () => { this.#filter() }, options)
     this.#clear.addEventListener('click', () => {
@@ -51,21 +50,12 @@ class FilterableTable {
       this.#filter()
       this.#input.focus()
     }, options)
-    this.localize(copy)
+    this.#filter()
   }
 
   matches(head: HTMLTableSectionElement, rows: HTMLTableRowElement[]): boolean {
     return this.head === head && rows.length === this.#rows.length
       && rows.every((row, index) => row === this.#rows[index]?.element)
-  }
-
-  localize(copy: typeof messages.en): void {
-    this.#input.placeholder = copy.placeholder
-    this.#input.setAttribute('aria-label', copy.filter)
-    this.#clear.setAttribute('aria-label', copy.clear)
-    this.#clear.title = copy.clear
-    this.#empty = copy.empty
-    this.#filter()
   }
 
   #filter(): void {
@@ -76,7 +66,7 @@ class FilterableTable {
       if (!row.element.hidden) visible++
     }
     this.#clear.hidden = this.#input.value.length === 0
-    this.#status.textContent = visible === 0 ? this.#empty : ''
+    this.#status.textContent = visible === 0 ? copy.empty : ''
     this.changed()
   }
 
@@ -88,14 +78,14 @@ class FilterableTable {
 
   positionHeader(offset: number): void {
     // Horizontal overflow makes the table the sticky scroll container; translate its own head to retain column alignment.
-    this.head.style.setProperty('--dsh-table-header-offset', `${offset}px`)
+    this.head.style.setProperty('--jan-table-header-offset', `${offset}px`)
   }
 
   dispose(): void {
     this.#events.abort()
     this.#controls.remove()
-    this.table.classList.remove('dsh-filterable-table')
-    this.head.style.removeProperty('--dsh-table-header-offset')
+    this.table.classList.remove('jan-filterable-table')
+    this.head.style.removeProperty('--jan-table-header-offset')
     for (const row of this.#rows) row.element.hidden = row.hidden
   }
 }
@@ -107,11 +97,8 @@ export class DocumentTables {
   readonly #sizes: ResizeObserver
   #frame: number | undefined
 
-  /**
-   * @param doc Browser document containing the rendered VitePress article.
-   * @param language Current VitePress language, read again on content refresh.
-   */
-  constructor(private readonly doc: Document, private readonly language: () => string) {
+  /** @param doc Browser document containing the rendered VitePress article. */
+  constructor(private readonly doc: Document) {
     this.#sizes = new ResizeObserver(() => { this.#schedule() })
     const content = doc.querySelector('#VPContent')
     if (content) this.#sizes.observe(content)
@@ -130,19 +117,15 @@ export class DocumentTables {
       this.#sizes.unobserve(table)
       this.#tables.delete(table)
     }
-    const copy = this.language().startsWith('zh') ? messages.zh : messages.en
     for (const table of tables) {
       const rows = Array.from(table.tBodies).flatMap(body => Array.from(body.rows))
       const existing = this.#tables.get(table)
-      if (table.tHead && rows.length >= 10 && existing?.matches(table.tHead, rows)) {
-        existing.localize(copy)
-        continue
-      }
+      if (table.tHead && rows.length >= 10 && existing?.matches(table.tHead, rows)) continue
       existing?.dispose()
       this.#sizes.unobserve(table)
       this.#tables.delete(table)
       if (!table.tHead || rows.length < 10) continue
-      this.#tables.set(table, new FilterableTable(table, table.tHead, rows, copy, () => { this.#schedule() }))
+      this.#tables.set(table, new FilterableTable(table, table.tHead, rows, () => { this.#schedule() }))
       this.#sizes.observe(table)
     }
     this.#schedule()

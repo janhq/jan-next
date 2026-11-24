@@ -1,24 +1,24 @@
 /** Remote contribution and slot registrations of the forge panel. */
 
-import type { Context } from '@deepseek-ai/cordis'
-import type { RemoteHostFacts } from '@deepseek-ai/dsh-api-remotes/client'
-import type {} from '@deepseek-ai/dsh-api-session-controller/client'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import { IconBranchOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
-import type {} from '@deepseek-ai/dsh-experimental-client-ui-forge/remote'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
+import type { Context } from '@janhq/cordis'
+import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
+import type {} from '@janhq/jan-api-session-controller/client'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-conversation/client'
+import type {} from '@janhq/jan-client-ui-layout/client'
+import { IconBranchOutlineRegular } from '@janhq/jan-client-ui-primitives'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-sidebar-right/client'
+import type { HostObservable } from '@janhq/jan-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-workspace/client'
+import type {} from '@janhq/jan-experimental-client-ui-forge/remote'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { RemoteResult, TypertRemoteContribution } from '@janhq/jan-typert-protocol'
 import type { ForgeChangeRequestListState, ForgeChangeRequestStatesFrame, ForgePanelChangeRequest } from '../types.ts'
 import { ReviewQueue } from './review-queue.ts'
 import { formatReviewComment, type ReviewSelection } from './review.ts'
 import { ActionToast } from './ActionToast.tsx'
-import { CHANGES_ID, changesDefinition } from './changes-address.ts'
+import { CHANGES_ID, changesAddress, changesDefinition } from './changes-address.ts'
 import { createChangesStore } from './changes-store.ts'
 import { ChangesTab, type ChangesTabInjected } from './ChangesTab.tsx'
 import { ChangesTabTitle } from './ChangesTabTitle.tsx'
@@ -33,6 +33,7 @@ import {
   createNoticeSource, createPanelSource, createStreamSource, createVisibilitySource, foldStates, type PanelSource, type VisibilitySource,
 } from './source.ts'
 import { numberOf } from './status.ts'
+import { GitStrip, type GitStripInjected } from './GitStrip.tsx'
 import { WorktreeProgress, type WorktreeProgressInjected } from './WorktreeProgress.tsx'
 import { WorktreeToggle, type WorktreeToggleInjected } from './WorktreeToggle.tsx'
 
@@ -40,7 +41,7 @@ import { WorktreeToggle, type WorktreeToggleInjected } from './WorktreeToggle.ts
 export const inject = ['remote', 'slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'sessions']
 
 /** Registry id of the forge tab type, also its slot key. */
-export const TAB_ID = '@deepseek-ai/dsh-experimental-client-ui-forge'
+export const TAB_ID = '@janhq/jan-experimental-client-ui-forge'
 
 /** Kind of the forge tab. */
 export const TAB_KIND = 'forge-panel'
@@ -209,7 +210,7 @@ function registerUi(ctx: Context): void {
       reviewQueue: ({ id, signal }) => {
         let queue = store.reviews.get(signal)
         if (queue === undefined) {
-          const records = new ReviewQueue(`dsh.forge-review.tab.v1.${JSON.stringify([sessionId, id])}`)
+          const records = new ReviewQueue(`jan.forge-review.tab.v1.${JSON.stringify([sessionId, id])}`)
           queue = records
           store.reviews.set(signal, records)
           const clear = (): void => { if (!records.close()) notices.report('review.saveFailed') }
@@ -310,6 +311,19 @@ function registerUi(ctx: Context): void {
   ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
     name: 'conversation.input.dock', id: 'forge-panel.worktree', order: 5, locale: NS, inject: progressFace,
   }, WorktreeProgress))
+  // Branch and local line counts at the top right of the composer, right above its card,
+  // only inside a Git checkout.
+  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+    name: 'conversation.input.dock', id: 'forge-panel.git', order: 10, locale: NS,
+    inject: (sessionId: SessionId): GitStripInjected => {
+      const binding = ctx.sessions.binding(sessionId)
+      if (binding === undefined) throw new Error(`forge-panel: Session ${sessionId} resolved no binding`)
+      return {
+        hooks: { panel: storesOf(sessionId).panel.hooks.panel, session: binding.session },
+        viewChanges: () => { ctx.sidebarRight.openResourceIn(sessionId, changesAddress({ sessionId, source: { kind: 'local' } })) },
+      }
+    },
+  }, GitStrip))
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay', id: 'forge-panel.toast', locale: NS,
     inject: () => ({ hooks: notices.hooks, dismiss: notices.dismiss }),

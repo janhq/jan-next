@@ -4,8 +4,8 @@ import type { DragEvent, ReactNode } from 'react'
 import {
   IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconDragHandleOutlineRegular,
   IconTrashOutlineRegular, Tooltip, useRowDragPreview,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
+} from '@janhq/jan-client-ui-primitives'
+import type { ModelDraft } from './model-drafts.ts'
 import type { ModelsKey } from './locales.ts'
 import { ModelInputTypes } from './ModelInputTypes.tsx'
 import { ModelReasoningEfforts } from './ModelReasoningEfforts.tsx'
@@ -22,11 +22,10 @@ interface CapacityInput {
 
 /** Adapter-owned data and actions for one model row. */
 interface ModelRowProps {
-  model: DeepSeekModelDraft
+  model: ModelDraft
   rowKey: number
   position: number
   order: ModelRowOrder
-  inputField: 'inputModalities' | 'input'
   inputFallback?: readonly string[] | undefined
   inputLoading?: boolean
   /** Levels the row's `reasoningEfforts` may declare; absent or empty shows no reasoning control. */
@@ -38,7 +37,7 @@ interface ModelRowProps {
   maxTokens: CapacityInput
   onFieldChange: (field: 'id' | 'name', value: string | undefined) => void
   onIdBlur?: (value: string) => void
-  onChange: (model: DeepSeekModelDraft) => void
+  onChange: (model: ModelDraft) => void
   onToggle: () => void
   onRemove: () => void
 }
@@ -111,7 +110,7 @@ export function ModelRow(props: ModelRowProps): ReactNode {
             draggable={!disabled}
             onDragStart={(event) => {
               event.dataTransfer.effectAllowed = 'move'
-              event.dataTransfer.setData('application/x-dsh-model-order', String(position))
+              event.dataTransfer.setData('application/x-jan-model-order', String(position))
               props.order.onStart()
               preview.start(event, event.currentTarget.closest('[data-row-key]') as HTMLElement)
             }}
@@ -168,7 +167,7 @@ export function ModelRow(props: ModelRowProps): ReactNode {
                 </label>
               ))}
               <ModelInputTypes
-                model={model} field={props.inputField} position={position}
+                model={model} position={position}
                 fallback={props.inputFallback} disabled={disabled || props.inputLoading === true} t={t} onChange={props.onChange}
               />
               {props.reasoningLevels !== undefined && props.reasoningLevels.length > 0

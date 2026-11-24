@@ -4,17 +4,17 @@
  * and the human kill all go through the `jobs` client service; this plugin
  * holds no transport state of its own.
  */
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { JobId } from '@deepseek-ai/dsh-jobs/brand'
+import type { Context as ClientContext } from '@janhq/cordis'
+import type { JobId } from '@janhq/jan-jobs/brand'
 import { JobListAction } from './JobListAction.tsx'
 import type { JobListInjected } from './JobListAction.tsx'
-import type {} from '@deepseek-ai/dsh-api-job-controller/client'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@janhq/jan-api-job-controller/client'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-session/client'
 import { en, ja, es, fr, de, ru, pt, NS, zh, type JobKey } from './locales.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Background-job list copy. */
     'job': JobKey

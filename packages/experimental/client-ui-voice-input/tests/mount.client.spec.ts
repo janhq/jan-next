@@ -1,25 +1,25 @@
 /** The optional namespace and microphone ownership follow Client plugin disposal. */
 import assert from 'node:assert/strict'
 import { Recording } from '../src/client/audio.ts'
-import { Context, Service } from '@deepseek-ai/cordis'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type { SpeechProviderId } from '@deepseek-ai/dsh-experimental-speech-to-text/types'
-import { RemoteError, type TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
+import { Context, Service } from '@janhq/cordis'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import type { SpeechProviderId } from '@janhq/jan-experimental-speech-to-text/types'
+import { RemoteError, type TypertRemoteContribution } from '@janhq/jan-typert-protocol'
 import { expect, it, vi } from 'vitest'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { mountVoiceInput, inject } from '../src/client/mount.ts'
 import { apply as hostApply } from '../src/index.ts'
 import { VoiceInput, type VoiceInputInjected } from '../src/client/VoiceInput.tsx'
 import { captureFixture } from './audio-fixture.client.ts'
 
 const REMOTE: TypertRemoteContribution = {
-  package: '@deepseek-ai/dsh-experimental-api-speech-to-text',
+  package: '@janhq/jan-experimental-api-speech-to-text',
   descriptors: [],
 }
 
 vi.mock('../src/client/readiness.ts', () => ({ observeReadiness: () => ({
-  state: createSnapshotStore({ catalog: null, connected: true, error: null }), dispose: async () => {},
+  state: createSnapshotStore({ catalog: null, connected: true, error: null }), start: () => {}, dispose: async () => {},
 }) }))
 
 /** Narrow the erased registry payload before exercising its registered actions. */
@@ -42,6 +42,7 @@ async function fixture(fail = false, navigation = true) {
       expect(contribution).toBe(REMOTE)
       return unmount
     }
+    $on() { return () => {} }
   }
   new Remote()
   const openBundle = vi.fn()
@@ -54,7 +55,7 @@ async function fixture(fail = false, navigation = true) {
   ctx.provide('locale', new LocaleRuntime(ctx))
   await ctx.plugin(SlotRegistry)
   ctx.slots.register({ name: 'root', children: {
-    'conversation.input.activity': { kind: 'single', scope: 'session' },
+    'conversation.input.draftActivity': { kind: 'single', scope: 'session-maybe' },
     'plugins.bundle.activation': { kind: 'keyed', scope: 'root' },
     'plugins.bundle.config': { kind: 'keyed', scope: 'root' },
   } } as never,
@@ -68,7 +69,7 @@ it('starts without the Plugins page navigation and follows its presence', async 
   const b = await fixture(false, false)
   try {
     await b.ctx.plugin({ inject: [...inject], apply: ctx => mountVoiceInput(ctx, REMOTE) })
-    const entry = b.ctx.slots.entries('conversation.input.activity').find(item => item.component === VoiceInput)
+    const entry = b.ctx.slots.entries('conversation.input.draftActivity').find(item => item.component === VoiceInput)
     const actions = entry!.inject!()
     assertVoiceActions(actions)
     expect(actions.hooks.pluginNavigation.getSnapshot()).toBe(false)
@@ -77,12 +78,35 @@ it('starts without the Plugins page navigation and follows its presence', async 
     await navigation
     await vi.waitFor(() => { expect(actions.hooks.pluginNavigation.getSnapshot()).toBe(true) })
     actions.openSettings()
-    expect(b.openBundle).toHaveBeenCalledWith('@deepseek-ai/dsh-experimental-voice-input-bundle')
+    expect(b.openBundle).toHaveBeenCalledWith('@janhq/jan-experimental-voice-input-bundle')
     await navigation.dispose()
     expect(actions.hooks.pluginNavigation.getSnapshot()).toBe(false)
   } finally {
     await b.ctx.fiber.dispose()
   }
+})
+
+it('enables the bundle through a late Plugin Manager and refuses while it is unavailable', async () => {
+  const b = await fixture()
+  try {
+    await b.ctx.plugin({ inject: [...inject], apply: ctx => mountVoiceInput(ctx, REMOTE) })
+    const actions = b.ctx.slots.entries('conversation.input.draftActivity')[0]!.inject!()
+    assertVoiceActions(actions)
+    await expect(actions.enableVoice()).rejects.toThrow('Plugin Manager is unavailable')
+
+    const name = '@janhq/jan-experimental-voice-input-bundle'
+    const setBundleEnabled = vi.fn(async () => ({ ok: true, value: { application: 'applied' } }))
+    const listBundles = vi.fn(async () => ({ ok: true, value: [{ name, availability: 'available', enabled: false }] }))
+    const stopManager = b.ctx.reflect.provide('remote.pluginManager', { listBundles, setBundleEnabled })
+    await vi.waitFor(() => { expect(actions.hooks.voiceBundle.getSnapshot()).toBe('disabled') })
+    await actions.enableVoice()
+    expect(setBundleEnabled).toHaveBeenCalledExactlyOnceWith(name, true)
+    expect(actions.hooks.voiceBundle.getSnapshot()).toBe('enabled')
+
+    await stopManager()
+    expect(actions.hooks.voiceBundle.getSnapshot()).toBe('unmanaged')
+    await expect(actions.enableVoice()).rejects.toThrow('Plugin Manager is unavailable')
+  } finally { await b.ctx.fiber.dispose() }
 })
 
 it('withdraws its Remote, localized slot and microphone captures on disposal', async () => {
@@ -91,12 +115,12 @@ it('withdraws its Remote, localized slot and microphone captures on disposal', a
   try {
     const fiber = b.ctx.plugin({ inject: [...inject], apply: ctx => mountVoiceInput(ctx, REMOTE) })
     await fiber
-    const entry = b.ctx.slots.entries('conversation.input.activity').find(item => item.component === VoiceInput)
+    const entry = b.ctx.slots.entries('conversation.input.draftActivity').find(item => item.component === VoiceInput)
     expect(entry).toMatchObject({ locale: 'voice-input' })
     const actions = entry!.inject!()
     assertVoiceActions(actions)
     actions.openSettings()
-    expect(b.openBundle).toHaveBeenCalledWith('@deepseek-ai/dsh-experimental-voice-input-bundle')
+    expect(b.openBundle).toHaveBeenCalledWith('@janhq/jan-experimental-voice-input-bundle')
     const finished = actions.createRecording()
     assert(finished instanceof Recording)
     await finished.dispose()
@@ -127,7 +151,7 @@ it('withdraws its Remote, localized slot and microphone captures on disposal', a
     expect(b.transcribe).toHaveBeenCalledWith(request, signal)
     await fiber.dispose()
     expect(dispose).toHaveBeenCalledOnce()
-    expect(b.ctx.slots.entries('conversation.input.activity')).toHaveLength(0)
+    expect(b.ctx.slots.entries('conversation.input.draftActivity')).toHaveLength(0)
     expect(b.ctx.slots.entries('plugins.bundle.activation')).toHaveLength(0)
     expect(b.unmount).toHaveBeenCalledOnce()
   } finally { await b.ctx.fiber.dispose() }
@@ -148,7 +172,7 @@ it('joins the same audio closure when cancellation overlaps Client plugin withdr
   try {
     const fiber = b.ctx.plugin({ inject: [...inject], apply: ctx => mountVoiceInput(ctx, REMOTE) })
     await fiber
-    const entry = b.ctx.slots.entries('conversation.input.activity').find(item => item.component === VoiceInput)!
+    const entry = b.ctx.slots.entries('conversation.input.draftActivity').find(item => item.component === VoiceInput)!
     const actions = entry.inject!()
     assertVoiceActions(actions)
     actions.selectMicrophone({ id: 'usb', label: 'USB microphone' })

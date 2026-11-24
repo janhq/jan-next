@@ -25,7 +25,7 @@ export interface DesktopToolchainProbeFailure {
 async function probeTar(): Promise<string | undefined> {
   // GNU tar reads the colon in an absolute Windows path as a remote-host separator, which the
   // release scripts avoid by running beside the archive; this probe confirms the archive reader works there.
-  const directory = await mkdtemp(join(tmpdir(), 'dsh-tar-probe-'))
+  const directory = await mkdtemp(join(tmpdir(), 'jan-tar-probe-'))
   try {
     const member = join(directory, 'probe.txt')
     await writeFile(member, 'probe\n')
@@ -75,7 +75,7 @@ async function probeWindowsInstallerToolchain(environment: NodeJS.ProcessEnv): P
  * @returns Every probe that failed, empty when the host can run the packaging sequence.
  */
 export async function probeDesktopToolchain(
-  platform: 'darwin' | 'win32',
+  platform: 'darwin' | 'win32' | 'linux',
   environment: NodeJS.ProcessEnv = process.env,
 ): Promise<readonly DesktopToolchainProbeFailure[]> {
   const failures: DesktopToolchainProbeFailure[] = []
@@ -92,7 +92,7 @@ export async function probeDesktopToolchain(
  * @returns Resolves when every probe passes.
  */
 export async function requireDesktopToolchain(
-  platform: 'darwin' | 'win32',
+  platform: 'darwin' | 'win32' | 'linux',
   environment: NodeJS.ProcessEnv = process.env,
 ): Promise<void> {
   const failures = await probeDesktopToolchain(platform, environment)

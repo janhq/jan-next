@@ -22,7 +22,7 @@ export const zh = {
   read: '无法读取 {location}。请检查访问权限后{reload}。',
   invalid: '{location} 的快捷键配置内容损坏。请先备份并修复该配置，然后{reload}。',
   future: '{location} 的快捷键配置由更新版本创建。请升级 Harness 后重试。',
-  'web-document': '当前网站本地存储中的 dsh.keybindings.v1', 'desktop-document': 'userData/keybindings.json',
+  'web-document': '当前网站本地存储中的 jan.keybindings.v1', 'desktop-document': 'userData/keybindings.json',
   'web-reload': '刷新页面', 'desktop-reload': '重新启动 Harness',
   'using-defaults': '当前使用默认键位。', 'using-accepted': '当前继续使用上次读取成功的键位。',
   'native-failed': '无法启用桌面录键保护，请关闭后重试。',
@@ -32,6 +32,7 @@ export const zh = {
   application: '应用操作', input: '消息输入', menus: '菜单与弹层', approval: '审批区域', unbound: '暂无快捷键',
   empty: '没有匹配的快捷键',
   move: '移动菜单选择', select: '选择菜单项', dismiss: '关闭菜单或顶层弹窗',
+  zoomIn: '放大', zoomOut: '缩小', actualSize: '实际大小',
 }
 /** Typed English counterpart. */
 export const en: Record<keyof typeof zh, string> = {
@@ -57,7 +58,7 @@ export const en: Record<keyof typeof zh, string> = {
   read: 'Could not read {location}. Check access permissions, then {reload}.',
   invalid: 'Shortcut configuration in {location} is damaged. Back up and repair this configuration, then {reload}.',
   future: 'Shortcut configuration in {location} was created by a newer version. Upgrade Harness and try again.',
-  'web-document': 'this site’s localStorage entry dsh.keybindings.v1', 'desktop-document': 'userData/keybindings.json',
+  'web-document': 'this site’s localStorage entry jan.keybindings.v1', 'desktop-document': 'userData/keybindings.json',
   'web-reload': 'reload the page', 'desktop-reload': 'restart Harness',
   'using-defaults': 'Default bindings are active.', 'using-accepted': 'The last successfully read bindings remain active.',
   'native-failed': 'Could not protect desktop key recording. Exit recording and try again.',
@@ -67,6 +68,7 @@ export const en: Record<keyof typeof zh, string> = {
   application: 'Application', input: 'Message input', menus: 'Menus and dialogs', approval: 'Approval area', unbound: 'No shortcut',
   empty: 'No matching shortcuts',
   move: 'Move menu selection', select: 'Select menu item', dismiss: 'Close menu or top dialog',
+  zoomIn: 'Zoom in', zoomOut: 'Zoom out', actualSize: 'Actual size',
 }
 
 /** Japanese copy, checked against the English keys. */
@@ -102,7 +104,7 @@ export const ja = {
   'read': '{location} を読み取れませんでした。アクセス権限を確認してから、{reload}してください。',
   'invalid': '{location} のショートカット構成が破損しています。この構成をバックアップして修復してから、{reload}してください。',
   'future': '{location} のショートカット構成は新しいバージョンで作成されています。Harness をアップグレードして再試行してください。',
-  'web-document': 'このサイトの localStorage エントリ dsh.keybindings.v1',
+  'web-document': 'このサイトの localStorage エントリ jan.keybindings.v1',
   'desktop-document': 'userData/keybindings.json',
   'web-reload': 'ページを再読み込み',
   'desktop-reload': 'Harness を再起動',
@@ -127,6 +129,9 @@ export const ja = {
   'move': 'メニュー選択を移動',
   'select': 'メニュー項目を選択',
   'dismiss': 'メニューまたは最上位ダイアログを閉じる',
+  'zoomIn': '拡大',
+  'zoomOut': '縮小',
+  'actualSize': '実際のサイズ',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -153,7 +158,7 @@ export const es = {
   read: 'No se pudo leer {location}. Verifique los permisos de acceso, luego {reload}.',
   invalid: 'La configuración de acceso directo en {location} está dañada. Haga una copia de seguridad y repare esta configuración, luego {reload}.',
   future: 'La configuración de acceso directo en {location} fue creada por una versión más reciente. Actualice el arnés e inténtelo de nuevo.',
-  'web-document': 'la entrada de almacenamiento local de este sitio dsh.keybindings.v1', 'desktop-document': 'datos de usuario/bindings.json',
+  'web-document': 'la entrada de almacenamiento local de este sitio jan.keybindings.v1', 'desktop-document': 'datos de usuario/bindings.json',
   'web-reload': 'recargar la pagina', 'desktop-reload': 'reiniciar el arnés',
   'using-defaults': 'Los enlaces predeterminados están activos.', 'using-accepted': 'Los últimos enlaces leídos correctamente permanecen activos.',
   'native-failed': 'No se pudo proteger la grabación de claves del escritorio. Salga de la grabación y vuelva a intentarlo.',
@@ -163,6 +168,7 @@ export const es = {
   application: 'Solicitud', input: 'Entrada de mensaje', menus: 'Menús y cuadros de diálogo', approval: 'Área de aprobación', unbound: 'Sin atajos',
   empty: 'No hay atajos coincidentes',
   move: 'Mover selección de menú', select: 'Seleccionar elemento del menú', dismiss: 'Cerrar menú o cuadro de diálogo superior',
+  zoomIn: 'Acercar', zoomOut: 'Alejar', actualSize: 'Tamaño real',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
@@ -189,7 +195,7 @@ export const fr = {
   read: "Impossible de lire {location}. Vérifiez les autorisations d'accès, puis {reload}.",
   invalid: 'La configuration des raccourcis dans {location} est endommagée. Sauvegardez et réparez cette configuration, puis {reload}.',
   future: 'La configuration des raccourcis dans {location} a été créée par une version plus récente. Mettez à niveau le harnais et réessayez.',
-  'web-document': "l'entrée localStorage de ce site dsh.keybindings.v1", 'desktop-document': 'userData/keybindings.json',
+  'web-document': "l'entrée localStorage de ce site jan.keybindings.v1", 'desktop-document': 'userData/keybindings.json',
   'web-reload': 'recharger la page', 'desktop-reload': 'redémarrer le harnais',
   'using-defaults': 'Les liaisons par défaut sont actives.', 'using-accepted': 'Les dernières liaisons lues avec succès restent actives.',
   'native-failed': "Impossible de protéger l'enregistrement des clés du bureau. Quittez l'enregistrement et réessayez.",
@@ -199,6 +205,7 @@ export const fr = {
   application: 'Demande', input: 'Saisie des messages', menus: 'Menus et boîtes de dialogue', approval: "Zone d'approbation", unbound: 'Pas de raccourci',
   empty: 'Aucun raccourci correspondant',
   move: 'Déplacer la sélection du menu', select: 'Sélectionner un élément de menu', dismiss: 'Fermer le menu ou la boîte de dialogue supérieure',
+  zoomIn: 'Zoom avant', zoomOut: 'Zoom arrière', actualSize: 'Taille réelle',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
@@ -225,7 +232,7 @@ export const de = {
   read: '{location} konnte nicht gelesen werden. Zugriffsberechtigungen prüfen, dann {reload}.',
   invalid: 'Die Verknüpfungskonfiguration in {location} ist beschädigt. Sichern und reparieren Sie diese Konfiguration, dann {reload}.',
   future: 'Die Verknüpfungskonfiguration in {location} wurde von einer neueren Version erstellt. Aktualisieren Sie Harness und versuchen Sie es erneut.',
-  'web-document': 'Der localStorage-Eintrag dieser Site dsh.keybindings.v1', 'desktop-document': 'userData/keybindings.json',
+  'web-document': 'Der localStorage-Eintrag dieser Site jan.keybindings.v1', 'desktop-document': 'userData/keybindings.json',
   'web-reload': 'Laden Sie die Seite neu', 'desktop-reload': 'Starten Sie Harness neu',
   'using-defaults': 'Standardbindungen sind aktiv.', 'using-accepted': 'Die zuletzt erfolgreich gelesenen Bindungen bleiben aktiv.',
   'native-failed': 'Die Desktop-Schlüsselaufzeichnung konnte nicht geschützt werden. Beenden Sie die Aufnahme und versuchen Sie es erneut.',
@@ -235,6 +242,7 @@ export const de = {
   application: 'Anwendung', input: 'Nachrichteneingabe', menus: 'Menüs und Dialoge', approval: 'Genehmigungsbereich', unbound: 'Keine Abkürzung',
   empty: 'Keine passenden Verknüpfungen',
   move: 'Menüauswahl verschieben', select: 'Menüpunkt auswählen', dismiss: 'Menü oder oberen Dialog schließen',
+  zoomIn: 'Vergrößern', zoomOut: 'Verkleinern', actualSize: 'Originalgröße',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -261,7 +269,7 @@ export const ru = {
   read: 'Не удалось прочитать {location}. Проверьте права доступа, затем {reload}.',
   invalid: 'Конфигурация ярлыка в {location} повреждена. Создайте резервную копию и исправьте эту конфигурацию, затем {reload}.',
   future: 'Конфигурация ярлыка в {location} была создана более новой версией. Обновите Harness и повторите попытку.',
-  'web-document': 'запись localStorage этого сайта dsh.keybindings.v1', 'desktop-document': 'userData/keybindings.json',
+  'web-document': 'запись localStorage этого сайта jan.keybindings.v1', 'desktop-document': 'userData/keybindings.json',
   'web-reload': 'перезагрузить страницу', 'desktop-reload': 'перезапустить Harness',
   'using-defaults': 'Привязки по умолчанию активны.', 'using-accepted': 'Последние успешно прочитанные привязки остаются активными.',
   'native-failed': 'Не удалось защитить запись клавиш рабочего стола. Выйдите из записи и повторите попытку.',
@@ -271,6 +279,7 @@ export const ru = {
   application: 'Приложение', input: 'Ввод сообщения', menus: 'Меню и диалоги', approval: 'Область утверждения', unbound: 'Нет ярлыка',
   empty: 'Нет подходящих ярлыков',
   move: 'Переместить выбор меню', select: 'Выберите пункт меню', dismiss: 'Закрыть меню или верхний диалог',
+  zoomIn: 'Увеличить', zoomOut: 'Уменьшить', actualSize: 'Фактический размер',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -297,7 +306,7 @@ export const pt = {
   read: 'Não foi possível ler {location}. Verifique as permissões de acesso e depois {reload}.',
   invalid: 'A configuração do atalho em {location} está danificada. Faça backup e repare esta configuração e então {reload}.',
   future: 'A configuração do atalho em {location} foi criada por uma versão mais recente. Atualize o Harness e tente novamente.',
-  'web-document': 'a entrada localStorage deste site dsh.keybindings.v1', 'desktop-document': 'userData/keybindings.json',
+  'web-document': 'a entrada localStorage deste site jan.keybindings.v1', 'desktop-document': 'userData/keybindings.json',
   'web-reload': 'recarregar a página', 'desktop-reload': 'reinicie o chicote',
   'using-defaults': 'As ligações padrão estão ativas.', 'using-accepted': 'As últimas ligações lidas com sucesso permanecem ativas.',
   'native-failed': 'Não foi possível proteger a gravação de teclas da área de trabalho. Saia da gravação e tente novamente.',
@@ -307,4 +316,5 @@ export const pt = {
   application: 'Aplicação', input: 'Entrada de mensagem', menus: 'Menus e caixas de diálogo', approval: 'Área de aprovação', unbound: 'Sem atalho',
   empty: 'Nenhum atalho correspondente',
   move: 'Mover seleção de menu', select: 'Selecione o item do menu', dismiss: 'Fechar menu ou caixa de diálogo superior',
+  zoomIn: 'Ampliar', zoomOut: 'Reduzir', actualSize: 'Tamanho real',
 } satisfies Record<keyof typeof en, string>

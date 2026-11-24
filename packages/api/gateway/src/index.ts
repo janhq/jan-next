@@ -2,22 +2,22 @@
  * Live Typert Remote dispatch over Cordis Services and registered providers.
  * Unary transport and response envelopes belong to Connection; live Remote
  * streams use the Gateway-owned WebSocket mux.
- * @module @deepseek-ai/dsh-api-gateway
+ * @module @janhq/jan-api-gateway
  */
 
 import { randomUUID } from 'node:crypto'
-import { Context, Service, symbols } from '@deepseek-ai/cordis'
+import { Context, Service, symbols } from '@janhq/cordis'
 import type {
   ConnectionRpcAttachment,
   ConnectionRpcHandler,
-} from '@deepseek-ai/dsh-client-connection'
-import type { RemoteAccessDecision } from '@deepseek-ai/dsh-api-remote-access'
+} from '@janhq/jan-client-connection'
+import type { RemoteAccessDecision } from '@janhq/jan-api-remote-access'
 import { callResources, eventResources } from './access.ts'
-import { Deque } from '@deepseek-ai/dsh-deque'
-import type { WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
-import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
-import type {} from '@deepseek-ai/dsh-cmdline'
-import z from '@deepseek-ai/schemastery'
+import { Deque } from '@janhq/jan-deque'
+import type { WebUpgradeRoute } from '@janhq/jan-host-webserver'
+import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
+import type { } from '@janhq/jan-cmdline'
+import z from '@janhq/schemastery'
 export type { TypertGatewayFaultDetails } from './remote-error-codes.ts'
 import {
   RemoteError,
@@ -33,12 +33,13 @@ import {
   type RemoteMethodMarker,
   type TypertCodec,
   type TypertGatewayBinding,
-} from '@deepseek-ai/dsh-typert-protocol'
+} from '@janhq/jan-typert-protocol'
 import type {
   InvokeRemoteRequest,
   PendingRemoteEventInfo,
   TypertGateway,
   TypertGatewayErrorCode,
+  TypertGatewayForwarder,
   TypertGatewayWireStream,
   TypertRemoteEventDispatch,
   TypertRemoteEventFrame,
@@ -70,8 +71,11 @@ import {
 } from './stream-protocol.ts'
 
 export type {
+  ForwardedRemoteRequest,
+  ForwardedRemoteResult,
   InvokeRemoteRequest,
   PendingRemoteEventInfo,
+  TypertGatewayForwarder,
   TypertGateway,
   TypertGatewayErrorCode,
   TypertGatewayWireStream,
@@ -228,6 +232,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
   }
 
   private srcClaims: ReadonlySet<string> | undefined
+  private forwarder: TypertGatewayForwarder | undefined
   private remoteEvents: RegisteredRemoteEventSource | undefined
   private readonly remoteEventClients = new Map<RemoteEventClientId, RemoteEventClient>()
   private readonly pendingRemoteEvents = new Map<RemoteEventId, PendingRemoteEvent>()
@@ -265,7 +270,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
           },
         )
         const releases = new Set<Promise<void>>()
-        webCtx.effect(function* () {
+        webCtx.effect(function*() {
           yield async () => {
             await mux.close()
             await Promise.all(releases)
@@ -364,7 +369,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
       this.remoteEvents = undefined
       lifetime.abort(error)
     })
-    const registration: RegisteredRemoteEventSource = { lifetime, done, host: { home: host.home } }
+    const registration: RegisteredRemoteEventSource = { lifetime, done, host: { home: host.home, name: host.name, remote: host.remote } }
     this.remoteEvents = registration
     return async () => {
       if (this.remoteEvents === registration) {
@@ -488,7 +493,36 @@ export class TypertGatewayService extends Service implements TypertGateway {
     return cancellableStream(source, prepared.endpoint, prepared.invocation)
   }
 
+  /**
+   * Register the sole carrier-level forwarder.
+   * @param forwarder - the hook offered every owner wire call and stream.
+   * @returns disposer restoring direct dispatch.
+   */
+  registerForwarder(forwarder: TypertGatewayForwarder): () => void {
+    if (this.forwarder !== undefined) throw new Error('typert gateway: a forwarder is already registered')
+    this.forwarder = forwarder
+    return () => { if (this.forwarder === forwarder) this.forwarder = undefined }
+  }
+
   private async dispatchRpc(
+    endpoint: string,
+    payload: unknown,
+    signal: AbortSignal,
+    peer: PeerScope,
+  ): Promise<ConnectionRpcResult> {
+    const forwarder = this.forwarder
+    // A federating Host's own Peer is answered here alone, so mutual federation cannot echo.
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- other packages merge non-owner kinds into PrincipalMap.
+    if (forwarder === undefined || peer.principal.kind !== 'owner' || peer.forward === 'local') return this.dispatchLocalRpc(endpoint, payload, signal, peer)
+    try {
+      const local = () => this.dispatchLocalRpc(endpoint, payload, signal, peer)
+      return await forwarder.call({ endpoint, payload, peer, signal }, local) as ConnectionRpcResult
+    } catch (error) {
+      return rpcFailure(error)
+    }
+  }
+
+  private async dispatchLocalRpc(
     endpoint: string,
     payload: unknown,
     signal: AbortSignal,
@@ -531,6 +565,26 @@ export class TypertGatewayService extends Service implements TypertGateway {
     control: AbortController,
     uplinkWindow?: RemoteInvocation['uplinkWindow'],
   ): Promise<AsyncIterable<unknown>> {
+    const forwarder = this.forwarder
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- other packages merge non-owner kinds into PrincipalMap.
+    if (forwarder === undefined || peer.principal.kind !== 'owner' || peer.forward === 'local') {
+      return this.openLocalWireStream(endpoint, payload, uplink, peer, signal, control, uplinkWindow)
+    }
+    return forwarder.stream(
+      { endpoint, payload, peer, signal },
+      () => this.openLocalWireStream(endpoint, payload, uplink, peer, signal, control, uplinkWindow),
+    )
+  }
+
+  private async openLocalWireStream(
+    endpoint: string,
+    payload: unknown,
+    uplink: AsyncIterable<unknown>,
+    peer: PeerScope,
+    signal: AbortSignal,
+    control: AbortController,
+    uplinkWindow?: RemoteInvocation['uplinkWindow'],
+  ): Promise<AsyncIterable<unknown>> {
     if (endpoint === REMOTE_EVENT_STREAM_ENDPOINT) {
       // A Gateway-owned stream reads no uplink: releasing it now keeps its items out of the bounded inbox.
       releaseUplink(uplink)
@@ -549,19 +603,23 @@ export class TypertGatewayService extends Service implements TypertGateway {
     RemoteEventEmitFrame | RemoteEventInvocationFrame | RemoteEventCancellationFrame
     | RemoteEventReadyFrame
   > {
+    const invalidPayload = (): never => {
+      throw new TypertGatewayError(
+        'gateway/arguments-invalid',
+        REMOTE_EVENT_STREAM_ENDPOINT,
+        'forwarded Remote event stream requires an empty args object or hostInfo: true',
+      )
+    }
     if (!isObject(payload)
       || !isPlainObject(payload)
       || Reflect.ownKeys(payload).length !== 1
       || !Object.hasOwn(payload, 'args')
       || !isObject(payload.args)
-      || !isPlainObject(payload.args)
-      || Reflect.ownKeys(payload.args).length !== 0) {
-      throw new TypertGatewayError(
-        'gateway/arguments-invalid',
-        REMOTE_EVENT_STREAM_ENDPOINT,
-        'forwarded Remote event stream requires an empty args object',
-      )
-    }
+      || !isPlainObject(payload.args)) return invalidPayload()
+    const args = payload.args
+    const argCount = Reflect.ownKeys(args).length
+    const withHostInfo = argCount === 1 && Object.hasOwn(args, 'hostInfo') && Reflect.get(args, 'hostInfo') === true
+    if (argCount !== 0 && !withHostInfo) return invalidPayload()
     const registration = this.remoteEvents
     if (registration === undefined) {
       throw new TypertGatewayError(
@@ -588,7 +646,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
       for (const pending of this.pendingRemoteEvents.values()) this.deliverRemoteEvent(pending, client)
     }
     try {
-      yield { ...REMOTE_EVENT_STREAM_READY, clientId, host: registration.host }
+      yield { ...REMOTE_EVENT_STREAM_READY, clientId, host: withHostInfo ? registration.host : { home: registration.host.home } }
       yield* client.queue.iterate(lifetime)
     } finally {
       this.removeRemoteEventClient(client)
@@ -1315,7 +1373,7 @@ function isIterable(value: unknown): value is Iterable<unknown> | AsyncIterable<
       || typeof Reflect.get(value, Symbol.asyncIterator) === 'function')
 }
 
-async function *cancellableStream(
+async function* cancellableStream(
   source: Iterable<unknown> | AsyncIterable<unknown>,
   endpoint: string,
   invocation: GatewayInvocation,
@@ -1474,7 +1532,7 @@ class GatewayInvocation implements RemoteInvocation {
     readonly peer: PeerScope,
     readonly signal: AbortSignal,
     private readonly uplink_: UplinkSource,
-  ) {}
+  ) { }
 
   uplink<In = unknown>(): AsyncIterable<In> {
     if (this.taken) {

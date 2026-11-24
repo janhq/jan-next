@@ -142,3 +142,13 @@
   color: var(--dsw-alias-label-caption);
   white-space: normal;
 }
+
+/* A preset's own emoji icon, centered in the glyph's box so rows line up. */
+.emoji {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  overflow: hidden;
+}

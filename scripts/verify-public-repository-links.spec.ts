@@ -11,7 +11,7 @@ describe('repository link policy', () => {
     const jsonEscapedRepository = unavailableRepository.replace('/', '\\/')
     const unicodeEscapedRepository = unavailableRepository.replace('/', String.raw`\u002f`)
     const source = [
-      'https://github.com/deepseek-ai/deepseek-harness',
+      'https://github.com/janhq/jan-next',
       `https://github.com/${unavailableRepository.toUpperCase()}/issues/1`,
       `https://github.com/${encodedRepository}/issues/2`,
       `https://github.com/${htmlEncodedRepository}/issues/3`,
@@ -30,13 +30,9 @@ describe('repository link policy', () => {
     ])
   })
 
-  it('preserves frozen archived Agent Notes', () => {
+  it('rejects references in Agent Notes', () => {
     const unavailableRepository = ['deepseek-ai', 'deepseek-harness-sdk'].join('/')
 
-    expect(findUnavailableRepositoryReferences(
-      '.agents/notes/archived/process/historical-record.md',
-      `https://github.com/${unavailableRepository}`,
-    )).toEqual([])
     expect(findUnavailableRepositoryReferences(
       '.agents/notes/implemented/process/active-record.md',
       `https://github.com/${unavailableRepository}`,

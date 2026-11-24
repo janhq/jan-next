@@ -1,10 +1,10 @@
 /** Authorized source identity and cancellation survive Host rendering. */
-import { Context } from '@deepseek-ai/cordis'
-import { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { WorkspaceFiles } from '@deepseek-ai/dsh-api-workspace-files'
-import type { FileSystem, FsInfo, FsTarget } from '@deepseek-ai/dsh-fs'
+import { Context } from '@janhq/cordis'
+import { SessionId } from '@janhq/jan-session/types'
+import type { WorkspaceFiles } from '@janhq/jan-api-workspace-files'
+import type { FileSystem, FsInfo, FsTarget } from '@janhq/jan-fs'
 import { OfficeToPdfError, OfficeToPdfKey, type OfficeToPdfResult } from '../src/index.ts'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteError } from '@janhq/jan-typert-protocol'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import OfficeToPdf from '../src/index.ts'
 
@@ -44,7 +44,7 @@ beforeEach(async () => {
 })
 afterEach(async () => { await ctx.fiber.dispose() })
 
-it.each(['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'])('converts authorized %s bytes and returns the PDF under source identity', async (extension) => {
+it.each(['doc', 'docx', 'odt', 'xls', 'xlsx', 'ods', 'ppt', 'pptx', 'odp'])('converts authorized %s bytes and returns the PDF under source identity', async (extension) => {
   const path = `report.${extension.toUpperCase()}`
   const result = await ctx.officeToPdf.render(scope, path, 'foreground', new AbortController().signal)
   expect(read).toHaveBeenCalledExactlyOnceWith(target, expect.any(AbortSignal), 4)
@@ -94,7 +94,7 @@ it('refuses a source replaced while checking read access before cache lookup', a
 })
 
 it('rejects unsupported extensions before reading a source', async () => {
-  await expect(ctx.officeToPdf.render(scope, 'report.odt', 'foreground', new AbortController().signal))
+  await expect(ctx.officeToPdf.render(scope, 'report.pages', 'foreground', new AbortController().signal))
     .rejects.toMatchObject({ code: 'document-render/failed', details: { reason: 'unsupported-format' } })
   expect(read).not.toHaveBeenCalled()
 })

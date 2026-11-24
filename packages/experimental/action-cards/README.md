@@ -3,9 +3,7 @@ description: "Shared Host service of optional action cards: the propose_action t
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-action-cards
-
-English | [中文](README.zh.md)
+# @janhq/jan-action-cards
 
 ## Summary
 
@@ -31,7 +29,7 @@ The [Personalized recommendations](../personalized-recommendations/README.md) bu
 |---|---|---|
 | `queuedMessageLimit` | `2` | Queued next-turn user messages at or above which `propose_action` refuses the call, so no card is offered. |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-action-cards) is the exhaustive source for accepted fields.
+The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-action-cards) is the exhaustive source for accepted fields.
 
 ### Register a card kind
 
@@ -85,7 +83,7 @@ The Remote `act(sessionId, callId, verb, payload?)` checks the owner, the live r
 
 #### What the model sees
 
-The [`propose_action` declaration](../../../docs/tool-catalog.md#deepseek-aidsh-action-cards) appears only to a live root Agent whose own direct call loaded the skill of a registered kind in this Session, from the next step on, for that Agent's lifetime. Subagents never see it, and neither do PTC presets, whose skill loads are dispatched from code, so they show no cards. A kind's skill names the action and the fields of `details`. An accepted call returns `Card shown below your answer. Do not restate it. <invitation>`, where `<invitation>` is the kind's one- or two-sentence guidance on inviting the user to the card in the user's language, so the model writes an invitation only after a card exists. A refused call carries no invitation and returns its reason, for example `Load skill <skill> first, then call propose_action.`, `One card per turn; the earlier card stands.`, `The user has queued more messages; show no card and answer briefly.`, `Cards are offered in the main conversation only.`, `Unknown action "<action>". Registered actions: <actions>.`, where the list reads `none` once the last kind unregistered, or the failing `details` fields.
+The [`propose_action` declaration](../../../docs/tool-catalog.md#janhqjan-action-cards) appears only to a live root Agent whose own direct call loaded the skill of a registered kind in this Session, from the next step on, for that Agent's lifetime. Subagents never see it, and neither do PTC presets, whose skill loads are dispatched from code, so they show no cards. A kind's skill names the action and the fields of `details`. An accepted call returns `Card shown below your answer. Do not restate it. <invitation>`, where `<invitation>` is the kind's one- or two-sentence guidance on inviting the user to the card in the user's language, so the model writes an invitation only after a card exists. A refused call carries no invitation and returns its reason, for example `Load skill <skill> first, then call propose_action.`, `One card per turn; the earlier card stands.`, `The user has queued more messages; show no card and answer briefly.`, `Cards are offered in the main conversation only.`, `Unknown action "<action>". Registered actions: <actions>.`, where the list reads `none` once the last kind unregistered, or the failing `details` fields.
 
 #### Token effect
 
@@ -93,7 +91,7 @@ Before a card skill loads, the tool adds no tokens. Afterwards each request of t
 
 #### KV Cache effect
 
-Activation is append-only on routes that declare tool updates, such as DeepSeek-V4.1-Flash: when the condition turns true the loop logs a header change and a `tool-addition` developer message, and those routes receive the definition as a deferred declaration referenced at that position, so the cached prefix is kept. A route without tool updates receives the tool in its declaration list from that step on, which changes the request prefix once. Disposing the Agent drops the activation; a reopened Session declares the tool again only after a card skill loads again, logging a removal and a later addition.
+Activation is append-only on routes that declare tool updates: when the condition turns true the loop logs a header change and a `tool-addition` developer message, and those routes receive the definition as a deferred declaration referenced at that position, so the cached prefix is kept. A route without tool updates receives the tool in its declaration list from that step on, which changes the request prefix once. Disposing the Agent drops the activation; a reopened Session declares the tool again only after a card skill loads again, logging a removal and a later addition.
 
 ### Card status notice
 

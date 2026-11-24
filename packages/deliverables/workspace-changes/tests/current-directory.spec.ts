@@ -3,15 +3,18 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
-import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
-import * as StrReplaceEditor from '@deepseek-ai/dsh-tool-str-replace-editor'
+import { Context } from '@janhq/cordis'
+import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@janhq/jan-agent-loop-testkit'
+import { createUserMessage } from '@janhq/jan-llm'
+import { SessionId } from '@janhq/jan-session'
+import type { SubprocessHandle } from '@janhq/jan-subprocess'
+import LocalSubprocessRuntime from '@janhq/jan-subprocess-local'
+import { TOOL_ABORTED_BEFORE_DISPATCH } from '@janhq/jan-tools'
+import * as ToolFs from '@janhq/jan-tool-fs'
+import * as StrReplaceEditor from '@janhq/jan-tool-str-replace-editor'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import * as WorkspaceChanges from '../src/index.ts'
+import { git, scratchDir } from './support.ts'
 
 const cleanups: Array<() => Promise<unknown>> = []
 afterEach(async () => {
@@ -20,7 +23,7 @@ afterEach(async () => {
 })
 
 it.each(['write', 'edit', 'str_replace_editor'] as const)('captures the resolved %s target before mutation, without a repository', async (name) => {
-  const origin = await realpath(await mkdtemp(join(tmpdir(), 'dsh-workspace-directory-')))
+  const origin = await realpath(await mkdtemp(join(tmpdir(), 'jan-workspace-directory-')))
   cleanups.push(() => rm(origin, { recursive: true, force: true }))
   const current = join(origin, 'current')
   await mkdir(current)
@@ -66,6 +69,61 @@ it.each(['write', 'edit', 'str_replace_editor'] as const)('captures the resolved
   expect(summary!.snapshot).toBeUndefined()
   expect(await ctx.workspaceChanges.diff(agent.id, announcement!.seq, 0, new AbortController().signal)).toMatchObject({ kind: 'text', hunks: [{ lines: ['-before', '+after'] }] })
 })
+
+it('stops the turn and cancels Git when the first tool is waiting for its workspace snapshot', async () => {
+  const cwd = await scratchDir('jan-workspace-stop-', cleanups)
+  git(cwd, 'init', '-q')
+  await writeFile(join(cwd, 'witness.txt'), 'before\n')
+  git(cwd, 'add', '-A')
+  git(cwd, 'commit', '-qm', 'initial')
+  const ctx = new Context()
+  cleanups.push(() => ctx.fiber.dispose())
+  await mountAgentLoopTestDependencies(ctx, { workingDirectory: true })
+  const harness = await mountAgentLoopTestHarness(ctx)
+  await ctx.plugin(LocalSubprocessRuntime)
+  await ctx.plugin(ToolFs)
+  await ctx.plugin(WorkspaceChanges)
+
+  const gitStarted = Promise.withResolvers<SubprocessHandle>()
+  const releaseGitResult = Promise.withResolvers<undefined>()
+  const spawn = ctx.subprocess.spawn.bind(ctx.subprocess)
+  const spy = vi.spyOn(ctx.subprocess, 'spawn').mockImplementation((spec) => {
+    if (spec.argv[1] !== 'write-tree') return spawn(spec)
+    const handle = spawn({ ...spec, argv: [process.execPath, '-e', 'setInterval(() => {}, 1000)'] })
+    gitStarted.resolve(handle)
+    return { ...handle, done: releaseGitResult.promise.then(() => handle.done) }
+  })
+  const preparing = Promise.withResolvers<undefined>()
+  ctx.on('tools/pre-execute', (_exec, next) => {
+    preparing.resolve(undefined)
+    return next()
+  }, { prepend: true })
+  ctx.llm.registerAdapter(['mock'], new MockAdapter([
+    toolCallResponse('read', 'read', { file_path: 'witness.txt' }),
+  ]))
+  const agent = await harness.create(SessionId('stop-baseline'), { provider: 'mock', model: 'mock' }, { cwd })
+  agent.followup(createUserMessage({ content: [{ type: 'text', text: 'read witness' }], source: { kind: 'user' } }))
+  const handle = await gitStarted.promise
+  cleanups.push(async () => {
+    handle.terminate()
+    releaseGitResult.resolve(undefined)
+    await handle.done
+    spy.mockRestore()
+  })
+  await preparing.promise
+
+  agent.cancel({ kind: 'user' }, { keepInbox: true })
+
+  const nextTick = Promise.withResolvers<string>()
+  setImmediate(nextTick.resolve, 'waiting for Git')
+  expect(await Promise.race([agent.whenIdle().then(() => 'idle'), nextTick.promise])).toBe('idle')
+  expect(agent.status).toBe('idle')
+  expect(agent.session.snapshotEvents().filter(event => event.type === 'tool/result' || event.type === 'turn/end')).toMatchObject([
+    { type: 'tool/result', data: { error: { code: TOOL_ABORTED_BEFORE_DISPATCH } } },
+    { type: 'turn/end', data: { reason: { kind: 'aborted', reason: { kind: 'user' } } } },
+  ])
+  expect(await handle.done).not.toEqual({ exitCode: 0, signal: null })
+}, 5_000)
 
 it('delegates filesystem intents without a recorded tool actor and preserves a rejecting policy', async () => {
   const ctx = new Context()

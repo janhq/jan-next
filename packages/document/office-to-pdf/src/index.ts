@@ -3,24 +3,27 @@ import { randomUUID } from 'node:crypto'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { extname, isAbsolute, join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { createConverter, type Converter, type ConverterOptions } from '@deepseek-ai/libreoffice-kit'
-import z from '@deepseek-ai/schemastery'
-import type { WorkspaceFileScope, WorkspaceFileStat } from '@deepseek-ai/dsh-api-workspace-files'
-import type {} from '@deepseek-ai/dsh-fs'
-import { brandString } from '@deepseek-ai/dsh-brand'
-import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import z from '@janhq/schemastery'
+import type { WorkspaceFileScope, WorkspaceFileStat } from '@janhq/jan-api-workspace-files'
+import type {} from '@janhq/jan-fs'
+import { brandString } from '@janhq/jan-brand'
+import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
 import { OfficeToPdfError } from './errors.ts'
 import { OfficeToPdfGeneration, type OfficeSourceKey } from './identity.ts'
 import type { OfficeExtension, OfficeToPdfRequest, OfficeToPdfResult, OfficeToPdfPriority, RenderedDocumentBytes } from './types.ts'
 import { readPdf } from './output.ts'
 import { ConversionQueue } from './queue.ts'
 
+const OFFICE_EXTENSIONS: ReadonlySet<string> = new Set<OfficeExtension>(['doc', 'docx', 'odt', 'xls', 'xlsx', 'ods', 'ppt', 'pptx', 'odp'])
+const isOfficeExtension = (extension: string): extension is OfficeExtension => OFFICE_EXTENSIONS.has(extension)
+
 export * from './errors.ts'
 export * from './identity.ts'
 export * from './types.ts'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Shared Office conversion and authorized workspace-file rendering. */
     officeToPdf: OfficeToPdf
@@ -45,7 +48,7 @@ export interface Config {
   maxCachedBytes: number
   /** Maximum retained source-version aliases to cached content. */
   maxSourceEntries: number
-  /** Conversion deadline in milliseconds; excludes the DSH queue. */
+  /** Conversion deadline in milliseconds; excludes the Jan queue. */
   timeoutMs: number
   /** Maximum authorized source bytes. */
   maxInputBytes: number
@@ -180,9 +183,8 @@ export class OfficeToPdf extends TypertRemoteService {
     try {
       signal.throwIfAborted()
       const extension = extname(path).slice(1).toLowerCase()
-      if (extension !== 'doc' && extension !== 'docx' && extension !== 'xls'
-        && extension !== 'xlsx' && extension !== 'ppt' && extension !== 'pptx') {
-        throw new OfficeToPdfError('unsupported-format', 'The path must end in doc, docx, xls, xlsx, ppt, or pptx.')
+      if (!isOfficeExtension(extension)) {
+        throw new OfficeToPdfError('unsupported-format', 'The path must end in doc, docx, odt, xls, xlsx, ods, ppt, pptx, or odp.')
       }
       const files = this.ctx.get('workspaceFiles')
       const fs = this.ctx.get('fs')
@@ -245,7 +247,7 @@ export class OfficeToPdf extends TypertRemoteService {
       }
       const converter = await slot.converter
       signal.throwIfAborted()
-      directory = await mkdtemp(join(tmpdir(), 'dsh-office-to-pdf-'))
+      directory = await mkdtemp(join(tmpdir(), 'jan-office-to-pdf-'))
       const inputPath = join(directory, `source.${extension}`)
       const outputPath = join(directory, 'converted.pdf')
       await writeFile(inputPath, bytes, { flag: 'wx', mode: 0o600, signal })

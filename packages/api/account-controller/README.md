@@ -3,9 +3,7 @@ description: "Account screens use authenticated Remote commands and a snapshot s
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-api-account-controller
-
-English | [中文](README.zh.md)
+# @janhq/jan-api-account-controller
 
 ## Summary
 
@@ -56,4 +54,4 @@ No model request prefix changes.
 <a id="dev-note"></a>
 ### Dev Note
 
-The [desktop login decision](../../../.agents/notes/implemented/architecture/2026-09-14-deepseek-account-login.md) records cancellation and storage ownership.
+The [account sign-out decision](../../../.agents/notes/implemented/architecture/2026-09-17-account-provider-signout.md) records cancellation ownership.

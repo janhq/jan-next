@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { deepFreeze } from '@deepseek-ai/dsh-util-values'
+import { Context } from '@janhq/cordis'
+import { deepFreeze } from '@janhq/jan-util-values'
 import SessionStore, {
   appendPluginRecord,
   Session,
   SessionId,
   SessionLogOffset,
   SessionSeq,
-} from '@deepseek-ai/dsh-session'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+} from '@janhq/jan-session'
+import type { SessionEvent } from '@janhq/jan-session'
 
-declare module '@deepseek-ai/dsh-session/types' {
+declare module '@janhq/jan-session/types' {
   interface PluginRecordMap {
     'plugin:test/store-membership': { value: number }
   }

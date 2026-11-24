@@ -2,14 +2,14 @@
 
 import { delimiter, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import type { PluginOperationRunId } from '@deepseek-ai/dsh-plugin-manager/diagnostic'
+import type { PluginOperationRunId } from '@janhq/jan-plugin-manager/diagnostic'
 import { formatFatalDiagnostic } from './fatal-diagnostic.ts'
-import { loadLayeredEnv, loadProfileDirectory, reportSkippedBundles } from '@deepseek-ai/dsh-app-boot'
-import { runProfile } from '@deepseek-ai/dsh/profile-boot'
-import type {} from '@deepseek-ai/dsh-client-connection'
-import type {} from '@deepseek-ai/dsh-host-webserver'
-import type {} from '@deepseek-ai/dsh-deepseek-account'
-import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
+import { loadLayeredEnv, loadProfileDirectory, reportSkippedBundles } from '@janhq/jan-app-boot'
+import { runProfile } from '@janhq/jan/profile-boot'
+import type {} from '@janhq/jan-client-connection'
+import type {} from '@janhq/jan-host-webserver'
+import type {} from '@janhq/jan-tokamak-account'
+import { resolveJanHome } from '@janhq/jan-home-paths'
 import * as desktopOffice from './office.ts'
 import { localDragResource } from './file-drag.ts'
 
@@ -25,11 +25,12 @@ async function main(): Promise<void> {
   const runtimeDir = process.argv[2] as string
   const projectDir = process.argv[3] as string
   installOfficeEngineResolution(runtimeDir)
-  const installAnchor = join(runtimeDir, 'node_modules', '@deepseek-ai', 'dsh', 'package.json')
-  const profile = loadProfileDirectory('dsh', projectDir, installAnchor)
-  reportSkippedBundles('dsh', profile)
+  // The Desktop runtime carries bundles outside the CLI's dependency graph.
+  const installAnchor = join(runtimeDir, 'package.json')
+  const profile = loadProfileDirectory('jan', projectDir, installAnchor)
+  reportSkippedBundles('jan', profile)
   const application = runProfile({
-    environment: loadLayeredEnv('dsh'),
+    environment: loadLayeredEnv('jan'),
     profile: 'desktop',
     resolvedProfile: { profile, installAnchor },
     patchFiles: [],
@@ -40,7 +41,7 @@ async function main(): Promise<void> {
         args: ['--expose-internals', process.argv[5]],
         env: {
           ELECTRON_RUN_AS_NODE: '1',
-          DSH_DESKTOP_NODE_EXECUTABLE: process.execPath,
+          JAN_DESKTOP_NODE_EXECUTABLE: process.execPath,
           PATH: `${process.argv[6] ?? ''}${delimiter}${process.env.PATH ?? ''}`,
         },
       },
@@ -97,6 +98,21 @@ async function main(): Promise<void> {
       void task.finally(() => { dragTasks.delete(task) })
       return
     }
+    if (message.type === 'index-injections') {
+      if (!('requestId' in message) || !Number.isSafeInteger(message.requestId)) return
+      const requestId = message.requestId
+      void (async () => {
+        try {
+          if (stopping !== undefined) throw new Error('desktop boot: Host is stopping')
+          const { ctx } = await application
+          // Read per page load: live rebuilds retire batch URLs, so a copy taken at startup goes stale.
+          await send({ type: 'index-injections', requestId, injections: ctx.webServer.collectIndexInjections(ctx.connection.browserPeer) })
+        } catch (error) {
+          await send({ type: 'index-injections', requestId, injections: [], error: error instanceof Error ? error.message : String(error) })
+        }
+      })().catch((error: unknown) => { console.error(error) })
+      return
+    }
     if (message.type === 'quit-inspection') {
       if (!('requestId' in message) || !Number.isSafeInteger(message.requestId)) return
       const requestId = message.requestId
@@ -134,13 +150,13 @@ async function main(): Promise<void> {
   await ctx.plugin(desktopOffice, {
     runtimeDir,
     source: process.argv[4] ?? join(runtimeDir, '..', 'runtime', 'primary-runtime'),
-    root: join(resolveDshHome(), 'dsh-runtimes', 'dsh-primary-runtime'),
+    root: join(resolveJanHome(), 'jan-runtimes', 'jan-primary-runtime'),
   })
   installPlatformSessionPublisher(ctx, (session) => {
     if (process.connected) process.send?.({ type: 'platform-session', session })
   })
   const url = ctx.connection.authenticatedUrl(`${ctx.webServer.protocol}//127.0.0.1:${String(ctx.webServer.port)}`)
-  if (process.connected) process.send?.({ type: 'ready', url, injections: ctx.webServer.collectIndexInjections(ctx.connection.browserPeer) }, (error) => { if (error !== null) console.error(error) })
+  if (process.connected) process.send?.({ type: 'ready', url }, (error) => { if (error !== null) console.error(error) })
 }
 
 if (import.meta.main) {

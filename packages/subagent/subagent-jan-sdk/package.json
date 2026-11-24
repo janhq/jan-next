@@ -1,0 +1,64 @@
+{
+  "name": "@janhq/jan-subagent-jan-sdk",
+  "description": "Out-of-process SDK subagent backend: drives a child Jan runtime subprocess over stdio JSON-RPC through the TypeScript SDK client",
+  "version": "0.2.2-rc.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/janhq/jan-next.git",
+    "directory": "packages/subagent/subagent-jan-sdk"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "locale/*.json",
+    "lib/index.js",
+    "lib/types/**/*.d.ts"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-sdk-client": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-subagent": "workspace:*",
+    "@janhq/jan-subprocess": "workspace:*"
+  },
+  "dependencies": {
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/schemastery": "workspace:~"
+  },
+  "devDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-agent-instructions": "workspace:*",
+    "@janhq/jan-app-boot": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-loader-smoke": "workspace:*",
+    "@janhq/jan-sdk-client": "workspace:*",
+    "@janhq/jan-sdk-protocol": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-checkpoint-policy": "workspace:*",
+    "@janhq/jan-session-persistence-jsonl": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-skill-filesystem": "workspace:*",
+    "@janhq/jan-subagent": "workspace:*",
+    "@janhq/jan-subprocess": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tool-subagent": "workspace:*"
+  }
+}

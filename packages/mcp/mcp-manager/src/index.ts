@@ -1,5 +1,5 @@
 /**
- * MCP server manager (`ctx.mcpManager`): one fleet of `dsh-mcp-client`
+ * MCP server manager (`ctx.mcpManager`): one fleet of `jan-mcp-client`
  * instances built from two sources. Volatile `Config.servers` holds configured
  * entries, which Settings exposes under the owning Loader entry id with profile
  * inheritance and revision checks; plugins contribute registered entries for
@@ -14,23 +14,23 @@
  * mount under the manager's fiber, so disposing the manager unwinds every
  * instance and its registered tools.
  *
- * @module @deepseek-ai/dsh-mcp-manager
+ * @module @janhq/jan-mcp-manager
  */
 
-import { Context, Service } from '@deepseek-ai/cordis'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import type { Fiber, Volatile, VolatileSnapshot } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import * as McpClient from '@deepseek-ai/dsh-mcp-client'
-import { ReconnectSchema, SERVER_NAME_PATTERN, connectionStatusOf, probeServer, resolveReconnectPolicy } from '@deepseek-ai/dsh-mcp-client'
-import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
-import type { McpCloseResult, McpProbeOptions, McpProbeResult, ReconnectConfig } from '@deepseek-ai/dsh-mcp-client'
-import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
-import { assertTemplateSyntax } from '@deepseek-ai/dsh-mcp-client'
+import { Context, Service } from '@janhq/cordis'
+import { Remote, TypertRemoteService } from '@janhq/jan-typert-protocol'
+import type { Fiber, Volatile, VolatileSnapshot } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import * as McpClient from '@janhq/jan-mcp-client'
+import { ReconnectSchema, SERVER_NAME_PATTERN, connectionStatusOf, probeServer, resolveReconnectPolicy } from '@janhq/jan-mcp-client'
+import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
+import type { McpCloseResult, McpProbeOptions, McpProbeResult, ReconnectConfig } from '@janhq/jan-mcp-client'
+import { deepEqualJson } from '@janhq/jan-util-values'
+import { assertTemplateSyntax } from '@janhq/jan-mcp-client'
 import type { McpManagedServerStatus, McpManagedServerView } from './types.ts'
 // Side-effect type imports: declare the tool service and Loader's volatile events.
-import type {} from '@deepseek-ai/dsh-tools'
-import type {} from '@deepseek-ai/cordis-plugin-loader'
+import type {} from '@janhq/jan-tools'
+import type {} from '@janhq/cordis-plugin-loader'
 
 export type { McpManagedServerStatus, McpManagedServerView } from './types.ts'
 
@@ -178,7 +178,7 @@ interface ManagedRecord {
   detachStatus?: () => void
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** The MCP server manager. */
     mcpManager: McpServerManager
@@ -203,6 +203,8 @@ export default class McpServerManager extends TypertRemoteService {
   private readonly statuses = new Map<string, McpManagedServerStatus>()
   /** Plugin-contributed entries, each owned by its registering plugin's effect. */
   private readonly registrations = new Map<string, ResolvedEntry>()
+  /** The plugin that registered each entry in {@link registrations}. */
+  private readonly registrants = new Map<string, string>()
   /** Wake callbacks of active `watch` streams. */
   private readonly watchers = new Set<() => void>()
   /** Aborted at service dispose so `watch` streams end. */
@@ -268,12 +270,16 @@ export default class McpServerManager extends TypertRemoteService {
    */
   list(): McpManagedServerView[] {
     const entries = this.entries()
-    return [...new Set([...Object.keys(entries), ...this.instances.keys()])].map(name => ({
-      name,
-      configured: Object.hasOwn(entries, name),
-      status: this.statuses.get(name)
-        ?? (entries[name]?.enabled ? { state: 'connecting', attempt: 0 } : { state: 'disabled' }),
-    }))
+    return [...new Set([...Object.keys(entries), ...this.instances.keys()])].map((name) => {
+      const plugin = this.registrants.get(name)
+      return {
+        name,
+        configured: Object.hasOwn(entries, name),
+        origin: plugin === undefined ? { kind: 'config' as const } : { kind: 'plugin' as const, plugin },
+        status: this.statuses.get(name)
+          ?? (entries[name]?.enabled ? { state: 'connecting', attempt: 0 } : { state: 'disabled' }),
+      }
+    })
   }
 
   /**
@@ -294,9 +300,11 @@ export default class McpServerManager extends TypertRemoteService {
         throw new Error(`mcp-manager: server "${name}" is already configured or registered`)
       }
       this.registrations.set(name, resolved)
+      this.registrants.set(name, this.ctx.fiber.name)
       void this.entriesChanged(`registration of "${name}"`)
       return () => {
         this.registrations.delete(name)
+        this.registrants.delete(name)
         // A stopping manager unmounts every instance itself.
         if (!this.stopped) return this.entriesChanged(`removal of "${name}"`)
       }

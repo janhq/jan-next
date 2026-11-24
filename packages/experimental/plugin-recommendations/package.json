@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-plugin-recommendations",
+  "name": "@janhq/jan-plugin-recommendations",
   "description": "Official plugin suggestions with explicit user activation and persistent conversation decisions",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/experimental/plugin-recommendations"
   },
   "type": "module",
@@ -37,27 +37,27 @@
   },
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-skill": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-skill": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-plugin-manager": "workspace:*",
-    "@deepseek-ai/dsh-package-manifest": "workspace:*",
-    "@deepseek-ai/dsh-api-remote-access": "workspace:*",
-    "@deepseek-ai/dsh-skill": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-plugin-manager": "workspace:*",
+    "@janhq/jan-package-manifest": "workspace:*",
+    "@janhq/jan-api-remote-access": "workspace:*",
+    "@janhq/jan-skill": "workspace:*"
   },
   "dependencies": {
-    "zod": "4.4.3",
-    "@deepseek-ai/dsh-client-ui-plugin-recommendations": "workspace:*",
-    "@deepseek-ai/dsh-action-cards": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-action-cards": "workspace:*"
+    "zod": "4.6.6",
+    "@janhq/jan-client-ui-plugin-recommendations": "workspace:*",
+    "@janhq/jan-action-cards": "workspace:*",
+    "@janhq/jan-client-ui-action-cards": "workspace:*"
   },
   "files": [
     "icon.svg",

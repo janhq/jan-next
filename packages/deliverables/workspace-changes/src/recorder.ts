@@ -2,7 +2,7 @@
 import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent } from '@janhq/jan-session'
 import { captureFile, sameCapture, type Capture } from './capture.ts'
 import { compareText } from './compare.ts'
 import {
@@ -69,6 +69,7 @@ interface TurnRecord {
 /** Everything one turn accumulates; a new turn gets a new object so queued work for an older turn keeps its own. */
 interface TurnState {
   readonly turn: number
+  readonly baselineAbort: AbortController
   /**
    * The turn-start snapshot once it exists. `null` means no repository or no git, so the turn summarizes file-tool
    * captures only; `'failed'` means the repository exists but its snapshot failed, so the turn records nothing.
@@ -84,7 +85,10 @@ interface TurnState {
 }
 
 function freshState(turn: number): TurnState {
-  return { turn, baseline: null, captures: new Map(), lastToolResultSeq: -1, attemptedAfterSeq: -1, recordedAfterSeq: -1 }
+  return {
+    turn, baselineAbort: new AbortController(), baseline: null, captures: new Map(),
+    lastToolResultSeq: -1, attemptedAfterSeq: -1, recordedAfterSeq: -1,
+  }
 }
 
 /** A listed file with the sources of its two sides. */
@@ -131,17 +135,20 @@ export class TurnRecorder {
   start(turn: number): void {
     const state = freshState(turn)
     this.state = state
-    void this.enqueue(async (signal) => {
+    void this.enqueue(async (lifetime) => {
+      const signal = AbortSignal.any([lifetime, state.baselineAbort.signal])
       try {
+        signal.throwIfAborted()
         this.paths ??= { cwd: await realpath(this.cwd), home: await canonicalPath(homedir()), temporaryRoots: await temporaryRoots() }
         const repository = await this.locate(this.paths.cwd, signal)
         if (repository === null) return
         const tree = await snapshotTree(repository.git, repository.workspace, signal)
+        signal.throwIfAborted()
         state.baseline = { ...repository, tree }
       } catch (error: unknown) {
         // A repository whose snapshot failed must not be summarized as if it had none.
         state.baseline = 'failed'
-        throw error
+        if (!state.baselineAbort.signal.aborted) throw error
       }
     })
   }
@@ -174,13 +181,15 @@ export class TurnRecorder {
   }
 
   /**
-   * Record the turn's changes inside the turn, before `turn/end` commits.
+   * Record the turn's changes inside the turn, before `turn/end` commits. A
+   * turn without tool results has nothing to record, so it stops at once
+   * instead of waiting for its baseline snapshot.
    * @param turn - the stopping turn.
    * @returns after the event is appended or the attempt failed.
    */
   stopping(turn: number): Promise<void> {
     const state = this.state
-    if (turn !== state.turn) return Promise.resolve()
+    if (turn !== state.turn || state.lastToolResultSeq < 0) return Promise.resolve()
     return this.enqueue(signal => this.record(state, signal))
   }
 
@@ -192,6 +201,42 @@ export class TurnRecorder {
     const state = this.state
     if (turn !== state.turn || state.attemptedAfterSeq >= state.lastToolResultSeq) return
     void this.enqueue(signal => this.record(state, signal))
+  }
+
+  /**
+   * Wait for a safe tool start, or cancel the baseline and leave before Git drains.
+   * A yield (the user steered) also stops the wait, but leaves the baseline
+   * running: the call has not started, so skipping it loses nothing, and the
+   * turn's record still gets its snapshot.
+   * @param signal - the tool call's cancellation.
+   * @param yieldSignal - the owner's request that this call return now.
+   * @returns true once queued work settled, false when either signal fired first.
+   */
+  async waitForTool(signal: AbortSignal, yieldSignal?: AbortSignal): Promise<boolean> {
+    const { baselineAbort } = this.state
+    if (signal.aborted) {
+      baselineAbort.abort(signal.reason)
+      return false
+    }
+    // Read through a call: the signal can fire while the queue is awaited.
+    const yielded = (): boolean => yieldSignal?.aborted === true
+    if (yielded()) return false
+    const stopped = Promise.withResolvers<void>()
+    const onAbort = (): void => {
+      baselineAbort.abort(signal.reason)
+      stopped.resolve()
+    }
+    const onYield = (): void => { stopped.resolve() }
+    signal.addEventListener('abort', onAbort, { once: true })
+    yieldSignal?.addEventListener('abort', onYield, { once: true })
+    try {
+      await Promise.race([this.chain, stopped.promise])
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- the signal can abort while the queue is awaited.
+      return !signal.aborted && !yielded()
+    } finally {
+      signal.removeEventListener('abort', onAbort)
+      yieldSignal?.removeEventListener('abort', onYield)
+    }
   }
 
   /** Resolves once every queued snapshot, capture, and record has settled. */
@@ -267,17 +312,22 @@ export class TurnRecorder {
 
   /** This Session's temporary directory, created on first use. */
   private scratchDir(): Promise<string> {
-    this.scratch ??= mkdtemp(join(this.env.tempRoot, 'dsh-workspace-changes-'))
+    this.scratch ??= mkdtemp(join(this.env.tempRoot, 'jan-workspace-changes-'))
     return this.scratch
   }
 
-  /** The repository enclosing the working directory, located once; null keeps retrying each turn. */
+  /**
+   * The repository enclosing the working directory, located once; null keeps retrying each turn. A repository
+   * rooted at the home directory or above it (a dotfiles repo) is treated as none: snapshotting it means `git add`
+   * over the whole home folder, which stalls every file tool behind the snapshot.
+   */
   private async locate(cwd: string, signal: AbortSignal): Promise<Repository | null> {
     if (this.repository !== null) return this.repository
     const git = await this.env.git
     if (git === null) return null
     const workspace = await locateGitWorkspace(git, cwd, () => this.scratchDir(), signal)
     if (workspace === null) return null
+    if (this.paths !== undefined && isInside(workspace.root, this.paths.home)) return null
     this.repository = { git, workspace }
     return this.repository
   }

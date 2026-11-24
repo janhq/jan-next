@@ -1,35 +1,36 @@
 /** Host BFF entry and Loader shell for the Remote contribution assembly. */
 
-import { homedir } from 'node:os'
-import type { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import { homedir, hostname } from 'node:os'
+import type { Context } from '@janhq/cordis'
+import { launchedThroughSsh, launchEnvironmentOf } from '@janhq/jan-launch-environment'
+import type { Agent } from '@janhq/jan-agent'
 import type {
   TypertRemoteEventDispatch,
   TypertRemoteEventInvocation,
   TypertRemoteEventOutcome,
   TypertRemoteEventSource,
-} from '@deepseek-ai/dsh-api-gateway'
-import { Deque } from '@deepseek-ai/dsh-deque'
-import { carrierKeyOf } from '@deepseek-ai/dsh-scope'
-import { isJsonValue, type JsonValue } from '@deepseek-ai/dsh-util-values'
+} from '@janhq/jan-api-gateway'
+import { Deque } from '@janhq/jan-deque'
+import { carrierKeyOf } from '@janhq/jan-scope'
+import { isJsonValue, type JsonValue } from '@janhq/jan-util-values'
 import { API_REMOTE_FORWARDED_EVENTS } from './remote-events.ts'
 
 // The owner packages' client-safe `./types` exports carry the cordis `Events`
 // declarations for every allowlisted event. Pulling them into this face is what
 // makes the shape assertion below judge real signatures rather than an empty
 // event vocabulary.
-import type {} from '@deepseek-ai/dsh-commands/types'
-import type {} from '@deepseek-ai/dsh-cordis-host-runner/types'
-import type {} from '@deepseek-ai/dsh-credentials/types'
-import type {} from '@deepseek-ai/dsh-goal/types'
-import type {} from '@deepseek-ai/dsh-llm/types'
-import type {} from '@deepseek-ai/dsh-agent-preset-registry/types'
-import type {} from '@deepseek-ai/dsh-permission-presets/types'
-import type {} from '@deepseek-ai/dsh-settings/types'
-import type {} from '@deepseek-ai/dsh-user-approval'
-import type {} from '@deepseek-ai/dsh-user-questions'
-import type {} from '@deepseek-ai/dsh-web/types'
-export type {} from '@deepseek-ai/dsh-api-session-controller/types'
+import type {} from '@janhq/jan-commands/types'
+import type {} from '@janhq/jan-cordis-host-runner/types'
+import type {} from '@janhq/jan-credentials/types'
+import type {} from '@janhq/jan-goal/types'
+import type {} from '@janhq/jan-llm/types'
+import type {} from '@janhq/jan-agent-preset-registry/types'
+import type {} from '@janhq/jan-permission-presets/types'
+import type {} from '@janhq/jan-settings/types'
+import type {} from '@janhq/jan-user-approval'
+import type {} from '@janhq/jan-user-questions'
+import type {} from '@janhq/jan-web/types'
+export type {} from '@janhq/jan-api-session-controller/types'
 
 export { API_REMOTE_FORWARDED_EVENTS } from './remote-events.ts'
 export type { ApiRemoteForwardedEvent } from './types.ts'
@@ -40,9 +41,23 @@ export const inject = ['typertGateway']
 /** Host plugin body registering this application's selected Cordis event source. */
 export function apply(ctx: Context): void {
   ctx.effect(
-    () => ctx.typertGateway.registerRemoteEvents(remoteEventSource(ctx), { home: homedir() }),
+    () => ctx.typertGateway.registerRemoteEvents(remoteEventSource(ctx), {
+      home: homedir(), name: hostDisplayName(ctx), remote: launchedThroughSsh(launchEnvironmentOf(ctx)),
+    }),
     'api-remotes: forwarded Cordis event source',
   )
+}
+
+/**
+ * The computer name a window shows for this Host. A launcher that knows the person's own name
+ * for the machine (Hosts names a Jan it starts over SSH after the saved entry) sets
+ * `JAN_HOST_NAME`; otherwise the OS host name.
+ * @param ctx - Host context carrying the launch environment.
+ * @returns a non-empty display name.
+ */
+function hostDisplayName(ctx: Context): string {
+  const named = launchEnvironmentOf(ctx).getFrom('JAN_HOST_NAME', ['process'])?.value.trim()
+  return named === undefined || named === '' ? hostname() : named
 }
 
 /** Create the sole queue and listener set consumed by the registered Gateway. */

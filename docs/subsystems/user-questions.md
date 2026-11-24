@@ -1,8 +1,6 @@
 # User Interaction
 
-English | [中文](user-questions.zh.md)
-
-The user-questions seam of [dsh-user-questions](../../packages/interaction/user-questions). It is the provider-neutral vocabulary a tool or permission plugin uses when it needs the human to answer before the agent can continue. Agent-scoped waterfall listeners compose the available UI surfaces, including listeners relayed to a connected client.
+The user-questions seam of [jan-user-questions](../../packages/interaction/user-questions). It is the provider-neutral vocabulary a tool or permission plugin uses when it needs the human to answer before the agent can continue. Agent-scoped waterfall listeners compose the available UI surfaces, including listeners relayed to a connected client.
 
 Source: [`packages/interaction/user-questions/src/index.ts`](../../packages/interaction/user-questions/src/index.ts)
 
@@ -117,6 +115,8 @@ interface AskUserQuestionAnswerItem {
 interface AskUserQuestionAnswer {
   /** Structured answers keyed by question id. */
   answers: AskUserQuestionAnswerItem[]
+  /** The answering Client automatically submitted the batch at its deadline. */
+  autoSubmitted?: true
 }
 ```
 
@@ -140,13 +140,15 @@ interface AskUserQuestionRequestEvent {
     callId: ToolCallId
     /** True for a foreground wait that requires a Client claim; absent for indefinite waits. */
     timed?: boolean
+    /** Submit an answer batch instead of returning pending when the Client countdown expires. */
+    autoSubmit?: true
   }
 }
 ```
 
 ## Timed questions and late replies
 
-A timed question waits for a bounded foreground window and then lets the agent continue independent work. If the user answers inside the window, the tool returns the answer batch; otherwise `TimedUserQuestionResult` is `{ pending: true, callId }`. Pending means the question is still answerable; it is not an empty answer, a refusal, a confirmation, or permission.
+A timed question waits for a bounded foreground window and then lets the agent continue independent work. The tool returns a batch when the user submits one or when an answering Client with `autoSubmit` submits one at its deadline. Without a batch, `TimedUserQuestionResult` is `{ pending: true, callId }`. Pending means the question is still answerable; it is not an empty answer, a refusal, a confirmation, or permission.
 
 ```ts type-equiv
 /** Timed ask result returned when the foreground answer window closes. */
@@ -227,7 +229,7 @@ class UserQuestionError extends HarnessError {
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxuserquestions--userquestionservice"></a>
 
@@ -267,12 +269,13 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
  * @param request - Questions, live owner agent, and abort signal.
  * @param callId - Tool call identity the Client card is keyed by.
  * @param timeoutMs - Positive foreground wait in milliseconds.
+ * @param autoSubmit - Whether the Client should submit its draft at expiry instead of returning pending.
  * @returns The answer when it arrives inside the window, otherwise a pending
  *   result, also when no connected Client claimed the request by the deadline.
  * @throws {UserQuestionError} `BAD_TIMEOUT` for a non-integer, non-positive,
  *   or oversized wait.
  */
-async askTimed( request: AskUserQuestionRequest & { agent: Agent }, callId: ToolCallId, timeoutMs: number, ): Promise<TimedUserQuestionResult>
+async askTimed( request: AskUserQuestionRequest & { agent: Agent }, callId: ToolCallId, timeoutMs: number, autoSubmit?: true, ): Promise<TimedUserQuestionResult>
 
 /**
  * Ask the scoped answerer waterfall and wait for the user's answer.
@@ -296,6 +299,21 @@ Types: [Agent](core.md) · [ToolCallId](core.md)
 
 Source: [`packages/interaction/user-questions/src/index.ts`](../../packages/interaction/user-questions/src/index.ts)
 
+<a id="ctxuserquestionsettings--userquestionsettings"></a>
+
+### `ctx.userQuestionSettings` — `UserQuestionSettings`
+
+Live Host preference exposed to presets that opt into automatic answering.
+
+```ts cordis-catalog
+/** Read the current automatic-answer wait for new calls.
+ * @returns The wait in seconds, or zero to wait indefinitely.
+ */
+autoAnswerSeconds(): number
+```
+
+Source: [`packages/interaction/user-questions/src/types.ts`](../../packages/interaction/user-questions/src/types.ts)
+
 <a id="user-questions-events"></a>
 
 ### `user-questions/*` events
@@ -304,13 +322,13 @@ Source: [`packages/interaction/user-questions/src/index.ts`](../../packages/inte
 
 #### `user-questions/request` — waterfall
 
-Ask composed answerers for structured user input. Return an answer to claim the request or call `next()` to delegate. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+Ask composed answerers for structured user input. Return an answer to claim the request or call `next()` to delegate. Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
 
 ```ts cordis-catalog
 /**
  * Ask composed answerers for structured user input. Return an answer to
  * claim the request or call `next()` to delegate. Scope-filtered dispatch
- * (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+ * (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
  * @param request - pending user-question request.
  * @mode waterfall
  */

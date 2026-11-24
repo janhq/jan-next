@@ -3,12 +3,12 @@
  * API. Exports the `LlmRuntime` default, the abstract `LlmAdapter` for
  * provider backends, and `BlockAssembler` for chunk assembly.
  *
- * @module @deepseek-ai/dsh-llm
+ * @module @janhq/jan-llm
  */
 
-import { Context } from '@deepseek-ai/cordis'
-import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import { deepFreeze } from '@deepseek-ai/dsh-util-values'
+import { Context } from '@janhq/cordis'
+import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
+import { deepFreeze } from '@janhq/jan-util-values'
 import type {
   GenerateOptions,
   RequestMessage,
@@ -39,7 +39,7 @@ import { normalizeApiKey } from './api-key.ts'
 import {
   contentHasFile, contentHasImage, fileHandleText, projectFilesToText, projectImagesForTextModel, projectToolUpdates,
 } from './content.ts'
-import type { FileAttachmentRef, ImageAttachmentRef, ImageRequestTarget } from '@deepseek-ai/dsh-attachment'
+import type { FileAttachmentRef, ImageAttachmentRef, ImageRequestTarget } from '@janhq/jan-attachment'
 
 export * from './attribution.ts'
 export * from './brand.ts'
@@ -54,7 +54,7 @@ export { BlockAssembler } from './assembler.ts'
 export { callConfigEquals, isAgentLoopRequest, markAgentLoopRequest } from './call-config.ts'
 export type { ConfigureCall, LlmCallConfig, LlmCallConfigAdapterDefaults, LlmCallControls } from './call-config.ts'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     llm: LlmRuntime
   }
@@ -202,8 +202,8 @@ export interface PreparedAdapterCall {
 /**
  * Provider-wire adapter for the harness message and stream vocabulary. Register implementations
  * with `ctx.llm.registerAdapter(providers, adapter)`. Every provider HTTP request must include
- * `attributionHeaders()`; prove the headers are added in the wire request or library header hook. The direct-fetch
- * DeepSeek and library-backed pi-ai adapters meet this contract through different internals.
+ * `attributionHeaders()`; prove the headers are added in the wire request or library header hook.
+ * Direct-fetch and library-backed adapters meet this contract through different internals.
  */
 export abstract class LlmAdapter {
   /**
@@ -324,6 +324,13 @@ export interface AdapterRegistrationHandle {
    * @param providers - the complete next route set for this registration.
    */
   replace(providers: string[]): void
+  /**
+   * Announce that the models this registration's routes advertise changed
+   * without a route change, by publishing `llm/adapters-updated`. Call it after
+   * the adapter commits the new model set, so observers that re-read
+   * `listModels()` see it. A no-op once the registration has been released.
+   */
+  modelsChanged(): void
 }
 
 /**
@@ -425,6 +432,9 @@ export class LlmRuntime extends TypertRemoteService {
         throw new LlmError('a disposed adapter registration cannot replace its routes', 'REGISTRATION_DISPOSED')
       }
       this.commitRoutes(owned, this.prepareRoutes(next, adapter, owned))
+    }
+    handle.modelsChanged = (): void => {
+      if (!released) this.emitAdaptersUpdated()
     }
     return handle
   }
@@ -728,6 +738,7 @@ export class LlmRuntime extends TypertRemoteService {
         || typeof model.name !== 'string'
         || model.name.length === 0
         || (model.description !== undefined && typeof model.description !== 'string')
+        || (model.toolUse !== undefined && typeof model.toolUse !== 'boolean')
         || seen.has(model.id)
       ) {
         throw new LlmError(`adapter returned invalid or duplicate model metadata for provider "${provider}"`, 'INVALID_CATALOG')
@@ -741,6 +752,7 @@ export class LlmRuntime extends TypertRemoteService {
         name: model.name,
         ...model.description === undefined ? {} : { description: model.description },
         ...inputModalities === undefined ? {} : { inputModalities },
+        ...model.toolUse === undefined ? {} : { toolUse: model.toolUse },
         ...badge === undefined ? {} : {
           badge: { text: typeof badge.text === 'string' ? badge.text : { ...badge.text }, tone: badge.tone },
         },
@@ -835,6 +847,7 @@ export class LlmRuntime extends TypertRemoteService {
       name: resolved.name,
       ...resolved.description === undefined ? {} : { description: resolved.description },
       ...inputModalities === undefined ? {} : { inputModalities },
+      ...typeof resolved.toolUse === 'boolean' ? { toolUse: resolved.toolUse } : {},
       ...context === undefined ? {} : { context: { contextWindow: context.contextWindow } },
       ...defaultMaxTokens === undefined ? {} : { defaultMaxTokens },
       ...resolved.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: resolved.systemPromptUpdate },
@@ -1054,7 +1067,7 @@ export class LlmRuntime extends TypertRemoteService {
       return undefined
     }
     if (hostPath === undefined) return undefined
-    // Structural face: dsh-llm cannot depend on the filesystem package, and
+    // Structural face: jan-llm cannot depend on the filesystem package, and
     // only this one mapping method is consumed.
     const fs = this.ctx.get('fs') as { processPathFromHostPath(hostPath: string): string | undefined } | undefined
     return fs?.processPathFromHostPath(hostPath)

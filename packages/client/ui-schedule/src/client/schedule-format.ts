@@ -1,8 +1,8 @@
 /** Browser-safe formatting shared by Session and Host reminder catalogs. */
-import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ScheduleRecord } from '@deepseek-ai/dsh-schedule/client'
+import type { Translate } from '@janhq/jan-client-ui-slots'
+import type { ScheduleRecord } from '@janhq/jan-schedule/client'
 import { hostFrequencyKind, ruleFields, taskNextRunAt } from './task-record.ts'
-import { assertNever } from '@deepseek-ai/dsh-util-values'
+import { assertNever } from '@janhq/jan-util-values'
 import type { CronDescriptionKey } from './task-cron.ts'
 import { cronPreview, parseCronExpression } from './task-cron.ts'
 
@@ -493,6 +493,20 @@ export function formatScheduleRelative(
     : Math.floor(absoluteSeconds / selected.seconds))
   const unit = unitLabel(selected.unit, value, t)
   return t(difference > 0 ? 'relative.future' : 'relative.overdue', { value, unit })
+}
+
+/**
+ * Format a past instant as locale-worded elapsed time in its largest natural unit.
+ * @param at - durable UTC instant at or before `now`.
+ * @param now - current epoch milliseconds.
+ * @param locale - BCP-47 locale owning the wording.
+ * @returns for example `15 hours ago` or `yesterday`.
+ */
+export function formatScheduleAgo(at: string, now: number, locale: string): string {
+  const seconds = Math.max(0, (now - Date.parse(at)) / SECOND_MS)
+  const selected = UNIT_SECONDS.find(candidate => seconds >= candidate.seconds) ?? SECOND_UNIT
+  return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+    .format(-Math.floor(seconds / selected.seconds), selected.unit)
 }
 
 /**

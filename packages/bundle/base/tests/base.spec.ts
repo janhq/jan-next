@@ -1,5 +1,5 @@
 /**
- * The bundle's substance is its patch file: the `dsh.bundle.patch` manifest
+ * The bundle's substance is its patch file: the `jan.bundle.patch` manifest
  * field must name a real, parseable patch list.
  */
 
@@ -8,21 +8,31 @@ import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as yaml from 'js-yaml'
-import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
-import { evaluate } from '@deepseek-ai/cordis-plugin-loader'
+import { entryListSchema } from '@janhq/cordis-plugin-include'
+import { evaluate } from '@janhq/cordis-plugin-loader'
 
-describe('dsh-base bundle', () => {
-  it('declares a parseable patch list through the dsh.bundle.patch manifest field', () => {
+describe('jan-base bundle', () => {
+  it('exposes background monitoring in the reviewer preset, not the scout', () => {
+    const parsed = yaml.load(readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf8'), { schema: entryListSchema })
+    const rows = (parsed as { insert?: { id?: string; config?: { toolAllowlist?: string[] } }[] }[])
+      .flatMap(patch => patch.insert ?? [])
+    expect(rows.find(row => row.id === 'preset-reviewer')?.config?.toolAllowlist)
+      .toEqual(expect.arrayContaining(['job_output', 'job_kill', 'job_watch', 'wake_after']))
+    expect(rows.find(row => row.id === 'preset-scout')?.config?.toolAllowlist)
+      .not.toContain('wake_after')
+  })
+
+  it('declares a parseable patch list through the jan.bundle.patch manifest field', () => {
     const root = fileURLToPath(new URL('..', import.meta.url))
     const manifest = JSON.parse(
       readFileSync(resolve(root, 'package.json'), 'utf8'),
     ) as {
       dependencies?: Record<string, string>
-      dsh?: { bundle?: { patch?: string } }
+      jan?: { bundle?: { patch?: string } }
     }
-    expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
+    expect(manifest.jan?.bundle?.patch).toBe('./cordis.patch.yml')
     const parsed = yaml.load(
-      readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'),
+      readFileSync(resolve(root, manifest.jan!.bundle!.patch!), 'utf8'),
       { schema: entryListSchema },
     )
     expect(Array.isArray(parsed)).toBe(true)
@@ -35,37 +45,40 @@ describe('dsh-base bundle', () => {
     // tokamak-harness: telemetry is never mounted.
     expect(rows.find(row => row.id === 'session-telemetry-otel')?.disabled).toBe(true)
     expect(rows.find(row => row.id === 'otel')?.disabled).toBe(true)
-    expect(rows.find(row => row.id === 'session-log-deepseek')?.config).toEqual({ enabled: false })
     expect(rows.find(row => row.id === 'session-telemetry-otel')?.config?.['mode']).toEqual({
-      __jsExpr: "process.env.DSH_TELEMETRY_MODE || 'FEEDBACK_ONLY'",
+      __jsExpr: "process.env.JAN_TELEMETRY_MODE || 'FEEDBACK_ONLY'",
     })
     expect(rows.find(row => row.id === 'hmr')).toMatchObject({
       config: { root: [] },
     })
     expect(rows.filter(row => row.id === 'subagent-codex')).toHaveLength(0)
     expect(rows.filter(row => row.id === 'subagent-claude-code')).toHaveLength(0)
-    // tokamak-harness: DeepSeek search is unmounted in favor of keyless Exa; the account seam and default model are Tokamak.
-    expect(rows.find(row => row.id === 'web')?.config).toEqual({ searchProvider: 'exa', fetchProvider: 'http' })
-    expect(rows.find(row => row.id === 'web-search-exa')).toMatchObject({ name: '@deepseek-ai/dsh-web-search-exa' })
-    expect(manifest.dependencies).toHaveProperty('@deepseek-ai/dsh-web-search-exa')
-    expect(rows.find(row => row.id === 'web-deepseek-api')).toMatchObject({ name: '@deepseek-ai/dsh-web-deepseek-api', disabled: true })
+    // tokamak-harness: search and fetch prefer Tokamak while signed in, else keyless Exa and local HTTP;
+    // the account seam and default model are Tokamak.
+    expect(rows.find(row => row.id === 'web')?.config).toEqual({ searchProvider: ['tokamak', 'exa'], fetchProvider: ['tokamak', 'http'] })
+    expect(rows.find(row => row.id === 'web-search')).toMatchObject({ name: '@janhq/jan-web-search' })
+    // Both rows derive the API base from one expression, so the account releases its key to web search.
+    expect((rows.find(row => row.id === 'web-search')?.config?.['tokamak'] as Record<string, unknown>)['apiUrl'])
+      .toEqual(rows.find(row => row.id === 'tokamak-account')?.config?.['apiBaseURL'])
+    expect(manifest.dependencies).toHaveProperty('@janhq/jan-web-search')
     expect(rows.find(row => row.id === 'web-fetch-http')).toBeDefined()
-    expect(rows.find(row => row.id === 'web-search-deepseek')).toMatchObject({
-      name: '@deepseek-ai/dsh-web-search-deepseek', disabled: true, config: { apiKeyEnv: 'DEEPSEEK_API_KEY' },
+    expect(rows.find(row => row.id === 'tokamak-account')).toMatchObject({ name: '@janhq/jan-tokamak-account' })
+    expect(rows.find(row => row.id === 'agent-default-model')?.config).toEqual({ provider: 'tokamak', model: 'tokamak/auto' })
+    // The router, not this file, decides which models the route serves.
+    const tokamak = (rows.find(row => row.id === 'llm-pi-ai')?.config?.['providers'] as Record<string, Record<string, unknown>>)['tokamak']
+    expect(tokamak).toMatchObject({
+      api: 'openai-completions',
+      apiKeyEnv: 'TOKAMAK_API_KEY',
+      modelListing: { refreshIntervalMs: 600000, timeoutMs: 15000, preferredDefaults: ['tokamak/auto'], exclude: ['openai/gpt-image-*'] },
     })
-    expect(rows.find(row => row.id === 'deepseek-account')).toMatchObject({ name: '@deepseek-ai/dsh-tokamak-account' })
-    expect(rows.find(row => row.id === 'agent-default-model')?.config).toEqual({ provider: 'tokamak', model: 'tokamak-1-preview' })
-    expect(rows.find(row => row.id === 'llm-pi-ai')?.config).toMatchObject({
-      providers: { tokamak: { api: 'openai-completions', apiKeyEnv: 'TOKAMAK_API_KEY' } },
-    })
-    expect(rows.find(row => row.id === 'llm-deepseek-account')?.disabled).toBe(true)
-    expect(manifest.dependencies).toHaveProperty('@deepseek-ai/dsh-tokamak-account')
+    // Undeclared router models read images; entries only mark the text-only ones and the router still decides the served set.
+    expect(tokamak?.['defaultInput']).toEqual(['text', 'image'])
+    expect(tokamak?.['models']).toEqual(['deepseek-flash', 'deepseek-v4-pro', 'openai/gpt-oss-120b-medium'].map(id => ({ id, input: ['text'] })))
+    expect(manifest.dependencies).toHaveProperty('@janhq/jan-tokamak-account')
     expect(rows.find(row => row.id === 'tool-web')?.config).toMatchObject({ fetch: true })
-    expect(manifest.dependencies).not.toHaveProperty('@deepseek-ai/dsh-subagent-codex')
-    expect(manifest.dependencies).not.toHaveProperty('@deepseek-ai/dsh-subagent-claude-code')
-    expect(manifest.dependencies).toHaveProperty('@deepseek-ai/dsh-web-fetch-http')
-    expect(manifest.dependencies).toHaveProperty('@deepseek-ai/dsh-web-deepseek-api')
-    expect(manifest.dependencies).toHaveProperty('@deepseek-ai/dsh-web-search-deepseek')
+    expect(manifest.dependencies).not.toHaveProperty('@janhq/jan-subagent-codex')
+    expect(manifest.dependencies).not.toHaveProperty('@janhq/jan-subagent-claude-code')
+    expect(manifest.dependencies).toHaveProperty('@janhq/jan-web-fetch-http')
   })
 
   it('gates each shell stack by platform with a symmetric disabled expression', () => {

@@ -7,12 +7,12 @@
  * only the source roster. One controller per session scope; the service
  * disposes it with the scope fiber.
  */
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { Context as ClientContext } from '@janhq/cordis'
+import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
 import type {
   ArbitrateKey, ArbitrateOutcome, CommandClaim, PickOutcome, ReferenceInsert,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+} from '@janhq/jan-client-ui-conversation/client'
+import type { SessionId } from '@janhq/jan-session/types'
 import { detectTrigger } from '../core/detect.ts'
 import { MENU_CLOSED, menuReduce, seedGroups } from '../core/menu.ts'
 import type { MenuEvent, MenuState, TriggerHit } from '../core/contract.ts'
@@ -75,8 +75,7 @@ export class InputTriggerController {
   readonly headers: SnapshotStore<ReadonlyMap<string, readonly InputTriggerCrumb[]>> =
     createSnapshotStore<ReadonlyMap<string, readonly InputTriggerCrumb[]>>(new Map())
   /**
-   * Aggregated hot reference lexicon, grouped by trigger (plain-text-reference decision;
-   * see .agents/notes/archived/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md):
+   * Aggregated hot reference lexicon, grouped by trigger (plain-text-reference decision):
    * sources implementing the lexicon hook are polled with the session
    * projection; undefined answers (roll not hot yet) are skipped; multiple
    * sources on one trigger concatenate in registration order. A snapshot

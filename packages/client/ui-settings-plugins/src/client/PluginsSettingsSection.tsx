@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type {
   HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime,
-} from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-slots'
 import type { PluginsSettingsLocaleKey } from './locales.ts'
 import css from './PluginsSettingsSection.module.css'
 
@@ -52,7 +52,6 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
 
   return (
     <div className={css.section}>
-      <h2 className={css.heading}>{t('title')}</h2>
       <p className={css.intro}>{t('intro')}</p>
       {rows.length === 0 ? <p className={css.empty}>{t('empty')}</p> : single !== undefined ? (
         <div className={css.panel}>{renderSlot('settings.plugins.tab', {}, { only: single.id })}</div>
@@ -118,7 +117,7 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
   )
 }
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Built-in plugins section and plugin configuration page copy. */
     'settings.plugins': PluginsSettingsLocaleKey

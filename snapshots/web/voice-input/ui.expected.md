@@ -1,12 +1,13 @@
-- banner:
-  - button "Open right sidebar"
+- button "Active (0)"
+- button "Open right sidebar"
 - text: Into the Unknown Preview
-- button "Choose workspace": workspace
-- button "Standard mode"
 - textbox "Describe what you want to build, / commands, @ files or sessions":
   - paragraph: "Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop."
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
+- 'button "Access mode, current: Project Write"': Project Write
+- button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Start recording"
 - button "Send message"
+- button "Choose project": Default project
+- button "Standard mode"
+- button "8% of context used": 8%

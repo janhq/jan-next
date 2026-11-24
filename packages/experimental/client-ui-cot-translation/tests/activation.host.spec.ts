@@ -4,15 +4,15 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
+import { Context } from '@janhq/cordis'
+import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@janhq/jan-agent-loop-testkit'
 import { createSessionTestController } from '../../../api/session-controller/tests/test-remote.ts'
-import Translator from '@deepseek-ai/dsh-experimental-translator'
-import { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
-import * as JsonlPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import SessionQuery from '@deepseek-ai/dsh-session-query'
-import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+import Translator from '@janhq/jan-experimental-translator'
+import { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@janhq/jan-session'
+import * as JsonlPersistence from '@janhq/jan-session-persistence-jsonl'
+import SessionQuery from '@janhq/jan-session-query'
+import TypertRegistry from '@janhq/jan-typert-registry'
+import { RemoteError } from '@janhq/jan-typert-protocol'
 import { afterEach, expect, it, vi } from 'vitest'
 import CotTranslationController from '../src/index.ts'
 
@@ -29,7 +29,7 @@ afterEach(async () => {
 })
 
 async function fixture(origin?: 'subagent') {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-cot-activation-'))
+  const root = await mkdtemp(join(tmpdir(), 'jan-cot-activation-'))
   cleanups.push(async () => { await rm(root, { recursive: true, force: true }) })
   const requests: string[] = []
   const server = createServer((request, response) => {

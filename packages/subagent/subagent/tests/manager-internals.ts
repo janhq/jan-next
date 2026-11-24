@@ -1,8 +1,8 @@
 /** Package-private manager state used to place deterministic lifecycle races. */
 
-import type { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import type { Context } from '@janhq/cordis'
+import type { Agent } from '@janhq/jan-agent'
+import type { SessionId } from '@janhq/jan-session'
 import { SubagentRunId, type SubagentResult } from '../src/types.ts'
 import type { LocalActivation } from '../src/activation.ts'
 import type SubagentManager from '../src/manager.ts'
@@ -50,7 +50,6 @@ export function bindSubagentActivation(
     structured: undefined,
     failureAt: undefined,
     poke: Promise.withResolvers(),
-    omitClosingText: false,
     delivery: 'caller',
     result,
     closing: undefined,

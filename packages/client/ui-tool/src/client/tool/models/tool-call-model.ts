@@ -5,13 +5,14 @@
  * output, and errors use the settled result. A supported terminal
  * call gets its expanded body from `terminalCardModel` instead.
  */
-import type { ToolArgs, ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { LocaleKeysOf } from '@deepseek-ai/dsh-client-ui-slots'
-import { parsePatch, PatchParseError, type PatchOperation } from '@deepseek-ai/dsh-fs-patch'
-import { abbreviateHomePath, isAbsoluteWorkspacePath, relativizeToCwd } from '@deepseek-ai/dsh-util-workspace-path'
+import type { ToolArgs, ToolCallBlock, ToolResultNode } from '@janhq/jan-client-ui-chat/client'
+import type { LocaleKeysOf } from '@janhq/jan-client-ui-slots'
+import { parsePatch, PatchParseError, type PatchOperation } from '@janhq/jan-fs-patch'
+import { abbreviateHomePath, isAbsoluteWorkspacePath, relativizeToCwd } from '@janhq/jan-util-workspace-path'
+import { isToolImageReference } from './image-card-model.ts'
 import { recordedAbsolutePath } from './recorded-path.ts'
 
-export type { ToolCallBlock } from '@deepseek-ai/dsh-client-ui-chat/client'
+export type { ToolCallBlock } from '@janhq/jan-client-ui-chat/client'
 
 /** Tool-call row variants selected by the generic atomic renderer. */
 export type ToolRowVariant = 'search' | 'read' | 'bash' | 'write' | 'edit' | 'code' | 'others'
@@ -201,9 +202,9 @@ function deriveAutoReviewDenial(block: ToolCallBlock): AutoReviewDenial | null {
 }
 
 /**
- * Flatten a settled result's content blocks to display text: text blocks
- * verbatim, other block shapes as pretty JSON. Empty content on a failed call
- * falls back to the structured error's `name: code` line.
+ * Flatten a result's text and non-image blocks for the output card. Valid
+ * image attachments render in the call tree instead of being printed as JSON.
+ * Empty content on a failed call falls back to its structured error.
  * @param node - the settled result node.
  * @returns the flattened result text (may be empty).
  */
@@ -211,6 +212,7 @@ export function resultText(node: ToolResultNode): string {
   const parts: string[] = []
   for (const block of node.content) {
     if (block.type === 'text') parts.push(block.text)
+    else if (block.type === 'image' && isToolImageReference(block.attachment)) continue
     else parts.push(JSON.stringify(block, null, 2))
   }
   if (parts.length === 0 && node.error !== undefined) {

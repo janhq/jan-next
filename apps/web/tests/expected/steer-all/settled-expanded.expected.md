@@ -12,8 +12,8 @@
 - status: Completed
 - button "Completed in {{duration}}" [disabled]
 - button "Asked questions" [expanded]
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - button "Think The user wants me to ask them a checkpoint question first, then continue with whatever they interject. Let me do exactly that."
 - button "Ask question 1/1 answered"
 - group "Questions and answers":
@@ -31,8 +31,8 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
+- 'button "Access mode, current: Project Write"': Project Write
+- button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
 - button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
 - button "40 tok · Cache hit 0%": 40 tokCache hit 0%

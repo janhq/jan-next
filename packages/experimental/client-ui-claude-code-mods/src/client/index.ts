@@ -1,7 +1,7 @@
 /** Browser entry: mounts the bridge's Remote and registers the band above the prompt. */
 
-import type { Context } from '@deepseek-ai/cordis'
-import modsRemote from '@deepseek-ai/dsh-experimental-claude-code-mods/remote'
+import type { Context } from '@janhq/cordis'
+import modsRemote from '@janhq/jan-experimental-claude-code-mods/remote'
 import { mountModsBand } from './mount.ts'
 
 export { inject } from './mount.ts'

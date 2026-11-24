@@ -17,9 +17,9 @@
   background: transparent;
   color: var(--dsw-alias-label-tertiary);
   font-family: inherit;
-  font-size: var(--dsh-content-font-size-secondary, 13px);
+  font-size: var(--jan-content-font-size-secondary, 13px);
   font-variant-numeric: tabular-nums;
-  line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
+  line-height: calc(20px + var(--jan-content-font-delta-secondary, 0px));
   white-space: nowrap;
   cursor: pointer;
 }
@@ -66,17 +66,17 @@
   color: var(--dsw-alias-label-secondary);
   cursor: default;
   max-width: calc(100vw - 24px);
-  max-height: calc(100dvh - 12px - max(12px, var(--dsh-frame-overlay-top, 12px)));
+  max-height: calc(100dvh - 12px - max(12px, var(--jan-frame-overlay-top, 12px)));
   overflow-x: hidden;
   overflow-y: auto;
-  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
-  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+  --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
   position-area: none;
-  top: max(12px, var(--dsh-frame-overlay-top, 12px));
+  top: max(12px, var(--jan-frame-overlay-top, 12px));
   bottom: max(12px, calc(anchor(top) + 8px));
   left: max(12px, anchor(left));
   right: 12px;
-  position-try-fallbacks: --dsh-context-window, --dsh-context-opposite, --dsh-context-wide-opposite, --dsh-context-tall, --dsh-context-viewport;
+  position-try-fallbacks: --jan-context-window, --jan-context-opposite, --jan-context-wide-opposite, --jan-context-tall, --jan-context-viewport;
   align-self: end;
   justify-self: start;
   height: fit-content;
@@ -176,9 +176,92 @@
   color: var(--dsw-alias-label-primary);
 }
 
-@position-try --dsh-context-window {
+/* What the Session runs with: one expandable row per kind, its names listed below. */
+.inventory {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.inventoryTitle {
+  margin-bottom: 2px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.inventoryRow summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  margin: 0 -4px;
+  border-radius: var(--dsw-radius-sm);
+  list-style: none;
+  cursor: pointer;
+}
+
+.inventoryRow summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (hover: hover) {
+  .inventoryRow summary:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.chevron {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  transition: transform 120ms ease;
+}
+
+.inventoryRow[open] .chevron {
+  transform: rotate(90deg);
+}
+
+.inventoryLabel {
+  flex: 1;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.inventoryCount {
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-primary);
+}
+
+.inventoryList {
+  margin: 0 0 4px;
+  padding: 0 0 0 18px;
+  list-style: none;
+  max-height: 160px;
+  overflow-y: auto;
+  color: var(--dsw-alias-label-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.inventoryEmpty {
+  margin: 0 0 4px;
+  padding-left: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Where a skill or MCP tool comes from, read before its name. */
+.origin {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 4px;
+  border-radius: var(--dsw-radius-xs, 3px);
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+@position-try --jan-context-window {
   position-area: none;
-  top: max(12px, var(--dsh-frame-overlay-top, 12px));
+  top: max(12px, var(--jan-frame-overlay-top, 12px));
   bottom: max(12px, calc(anchor(top) + 8px));
   left: 12px;
   right: 12px;
@@ -187,13 +270,13 @@
   justify-self: safe end;
 }
 
-@position-try --dsh-context-opposite {
+@position-try --jan-context-opposite {
   top: max(12px, calc(anchor(bottom) + 8px));
   bottom: 12px;
   align-self: start;
 }
 
-@position-try --dsh-context-wide-opposite {
+@position-try --jan-context-wide-opposite {
   top: max(12px, calc(anchor(bottom) + 8px));
   bottom: 12px;
   left: 12px;
@@ -202,9 +285,9 @@
   justify-self: safe end;
 }
 
-@position-try --dsh-context-tall {
+@position-try --jan-context-tall {
   position-area: none;
-  top: max(12px, var(--dsh-frame-overlay-top, 12px));
+  top: max(12px, var(--jan-frame-overlay-top, 12px));
   bottom: 12px;
   left: max(12px, anchor(left));
   right: 12px;
@@ -213,9 +296,9 @@
   justify-self: start;
 }
 
-@position-try --dsh-context-viewport {
+@position-try --jan-context-viewport {
   position-area: none;
-  inset: max(12px, var(--dsh-frame-overlay-top, 12px)) 12px 12px;
+  inset: max(12px, var(--jan-frame-overlay-top, 12px)) 12px 12px;
   margin: 0;
   align-self: safe start;
   justify-self: safe end;

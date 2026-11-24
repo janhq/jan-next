@@ -1,16 +1,16 @@
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import { agentPresetProjectionDefinition } from '@deepseek-ai/dsh-agent-preset-registry'
-import SessionStore, { SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
-import type { SessionHeader } from '@deepseek-ai/dsh-session'
-import { SessionAlreadyOwnedError } from '@deepseek-ai/dsh-session-persistence'
-import type { SessionObservation } from '@deepseek-ai/dsh-session-query'
-import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
+import { Context } from '@janhq/cordis'
+import AgentRegistry from '@janhq/jan-agent'
+import type { Agent } from '@janhq/jan-agent'
+import { agentPresetProjectionDefinition } from '@janhq/jan-agent-preset-registry'
+import SessionStore, { SESSION_FORMAT_VERSION, SessionId } from '@janhq/jan-session'
+import type { SessionHeader } from '@janhq/jan-session'
+import { SessionAlreadyOwnedError } from '@janhq/jan-session-persistence'
+import type { SessionObservation } from '@janhq/jan-session-query'
+import TypertRegistry from '@janhq/jan-typert-registry'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ApiSessionAgentController,
@@ -255,7 +255,7 @@ describe('ApiSession creation', () => {
 
   it('surfaces directory creation failure', async () => {
     const { agents } = await harness()
-    const parent = mkdtempSync(join(tmpdir(), 'dsh-session-controller-file-'))
+    const parent = mkdtempSync(join(tmpdir(), 'jan-session-controller-file-'))
     tempDirs.push(parent)
     const file = join(parent, 'file')
     writeFileSync(file, 'not a directory')

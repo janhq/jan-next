@@ -11,21 +11,22 @@
  * and undercount cancelled steps (aborted before the message assembles).
  *
  * The wall-time folds mirror the client window fold field by field
- * (`deriveStats` in dsh-client-ui-conversation, that fold's whole-window
+ * (`deriveStats` in jan-client-ui-conversation, that fold's whole-window
  * fallback role): model time is `step/start` → `assistant/message`, first
  * token is the first non-empty delta chunk and survives an in-step
- * `llm/retry`, decode spans first token → assembled message on steps that
- * also report output tokens, and tool time pairs `tool/call` → `tool/result`
+ * `llm/retry`, decode spans first token → assembled message (from `step/start` when the output
+ * count outgrows the streamed content, which hidden reasoning does; see `measuredDecodeMs`) on
+ * steps that also report output tokens and span at least `MIN_DECODE_SPAN_MS`, and tool time pairs `tool/call` → `tool/result`
  * by callId. A cancelled step assembles no message, so its partial stream
  * time stays uncounted in every time figure — matching the window, which
  * renders it as an untimed interrupted node.
  *
- * @module @deepseek-ai/dsh-session-stats/projection
+ * @module @janhq/jan-session-stats/projection
  */
 
 import { z } from 'zod'
-import { assistantStreamFirstTokenTime } from '@deepseek-ai/dsh-llm'
-import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
+import { assistantStreamFirstTokenTime, contentChars, measuredDecodeMs } from '@janhq/jan-llm'
+import type { ProjectionDefinition } from '@janhq/jan-session-projection'
 
 
 /** Accumulated whole-log figures (the view is exactly these totals). */
@@ -42,7 +43,7 @@ interface SessionStatsTotals {
   ttftMs: number
   /** Steps carrying a recorded first token. */
   ttftSteps: number
-  /** Summed decode wall time over usage-reporting steps, ms. */
+  /** Summed decode wall time over usage-reporting steps with a measurable span, ms. */
   decodeMs: number
   /** Summed provider output tokens over the same steps. */
   decodeTokens: number
@@ -106,7 +107,8 @@ function usageOutputTokens(usage: unknown): number | null {
 /** The `sessionStats` unit registered on `ctx.sessionProjections` (exported for the unit spec). */
 export const sessionStatsProjectionDefinition = {
   key: 'sessionStats',
-  stateVersion: 1,
+  // 2: steps whose tokens arrived in one burst no longer count toward decode time.
+  stateVersion: 2,
   stateSchema: sessionStatsStateSchema,
   init: () => ({
     turns: 0,
@@ -151,8 +153,13 @@ export const sessionStatsProjectionDefinition = {
           next.ttftMs += Math.max(0, firstToken - open.startTime)
           next.ttftSteps += 1
           const outputTokens = usageOutputTokens(event.data.usage)
-          if (outputTokens !== null) {
-            next.decodeMs += Math.max(0, event.time - firstToken)
+          // A burst-delivered step (a buffered Tool call) has no decode span to measure speed from.
+          const span = outputTokens === null ? undefined : measuredDecodeMs({
+            stepStartTime: open.startTime, firstTokenTime: firstToken, completedTime: event.time,
+            outputTokens, streamedChars: contentChars(event.data.message.content),
+          })
+          if (outputTokens !== null && span !== undefined) {
+            next.decodeMs += span
             next.decodeTokens += outputTokens
           }
         }

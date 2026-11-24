@@ -1,19 +1,15 @@
-# Keyless generic ACP v1 control-surface patch over `dsh --profile acp`.
-
-- id: llm-deepseek
-  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
-  disabled: true
+# Keyless generic ACP v1 control-surface patch over `jan --profile acp`.
 
 - id: acp
-  name: '@deepseek-ai/dsh-acp'
+  name: '@janhq/jan-acp'
   config:
     provider: control-fixture
     model: alpha
 
 - id: session-persistence-jsonl
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@janhq/jan-session-persistence-jsonl'
   config:
-    root: !!js process.env.DSH_CONFORMANCE_PERSISTENCE_ROOT
+    root: !!js process.env.JAN_CONFORMANCE_PERSISTENCE_ROOT
     compression: none
 
 - insert:

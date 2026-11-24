@@ -12,6 +12,12 @@ export interface ModelFacts {
   contextLength?: number
   /** Whether the file embeds `tokenizer.chat_template`; without one llama.cpp falls back to a generic template. */
   hasChatTemplate: boolean
+  /**
+   * Whether the chat template renders the request's `tools` list, which is what lets the worker
+   * (`--jinja`) declare tools to the model and parse its calls. False without a template, or with
+   * one that never reads `tools`; absent in records written before this fact was read.
+   */
+  toolCalls?: boolean
   /** `<arch>.expert_count`; 0 for a dense model. */
   expertCount: number
   /** `general.file_type` name, e.g. `Q4_K_M`; absent when undeclared or unknown. */
@@ -43,6 +49,9 @@ function positive(value: MetadataValue | undefined): number | undefined {
     : typeof value === 'number' || typeof value === 'bigint' ? Number(value) : undefined
   return scalar !== undefined && Number.isFinite(scalar) && scalar > 0 ? Math.floor(scalar) : undefined
 }
+
+/** A chat template that reads the request's tool list names the `tools` variable. */
+const TEMPLATE_TOOLS = /\btools\b/
 
 /**
  * Derive the recorded facts from parsed metadata.
@@ -83,6 +92,7 @@ export function modelFacts(metadata: Readonly<Record<string, MetadataValue>>): M
     architecture,
     ...contextLength === undefined ? {} : { contextLength },
     hasChatTemplate: typeof template === 'string' && template.trim() !== '',
+    toolCalls: typeof template === 'string' && TEMPLATE_TOOLS.test(template),
     expertCount: positive(key('expert_count')) ?? 0,
     ...fileType === undefined ? {} : { fileType },
     ...kvElementsPerToken === undefined ? {} : { kvElementsPerToken },

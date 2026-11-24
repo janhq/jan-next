@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-08-27-adjacent-agent-steer-messaging.zh.md)
-
 The adjacency, discovery, and parent-lifetime restrictions below are superseded by [tree-wide communication](2026-10-16-tree-wide-agent-communication.md); the remaining decisions stay active. The tool identity marker and initial-task communication guidance below are superseded by [tool-owned communication](2026-10-22-subagent-tool-owned-communication.md).
 
 ## Problem
@@ -25,7 +23,7 @@ Every accepted message uses `Agent.steer()`. A running target receives it at the
 Every direction uses one durable source. The service derives `senderSessionId` from the exact live sender and frames content as `Agent <sender-id> sent a message:`.
 
 ```ts
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@janhq/jan-session'
 
 interface AgentMessageSource {
   readonly kind: 'agent-message'
@@ -53,7 +51,7 @@ Human browser prompts are not model-authored Agent messages. The remote prompt p
 
 ### Complete removal and reintroduction condition
 
-The standalone `@deepseek-ai/dsh-tool-subagent-report` package, `report` schema, `tool:report` prompt section, `reportDelivery` configuration, report-specific message source, catalog entries, composition rows, and supported-behavior snapshots are absent. The unified tool gives up the recipient-free child shortcut and the old ability for a structural return tool to survive an explicit child allow-list. Those capabilities return only if a concrete use case requires semantics that a tree member’s `agent` reference and fixed Steer cannot express; reintroducing them requires a distinct model operation and prefix-cost evidence, not an alias over `sendMessage()`.
+The standalone `@janhq/jan-tool-subagent-report` package, `report` schema, `tool:report` prompt section, `reportDelivery` configuration, report-specific message source, catalog entries, composition rows, and supported-behavior snapshots are absent. The unified tool gives up the recipient-free child shortcut and the old ability for a structural return tool to survive an explicit child allow-list. Those capabilities return only if a concrete use case requires semantics that a tree member’s `agent` reference and fixed Steer cannot express; reintroducing them requires a distinct model operation and prefix-cost evidence, not an alias over `sendMessage()`.
 
 ## Alternatives considered
 
@@ -78,4 +76,4 @@ The standalone `@deepseek-ai/dsh-tool-subagent-report` package, `report` schema,
 - The initial task carries JSON-encoded dynamic parent addressing after a fork prefix, while the request-head system prompt and tool ordering remain reusable.
 - Human prompts, settlement notices, QueueDock, and the base bundle's one-shot fork policy remain separate decisions.
 
-This decision consolidates and removes the fully superseded report-tool and child-report-obligation records. It supersedes the `followup` naming choice in [Intent-named subagent continuation operations](../../archived/simplification/2026-07-27-intent-named-subagent-continuation-operations.md) and retains the accepted-order guarantee in [Child Agent messages precede their settlement notices](../../../../packages/subagent/subagent/README.md).
+This decision consolidates and removes the fully superseded report-tool and child-report-obligation records. It retains the accepted-order guarantee in [Child Agent messages precede their settlement notices](../../../../packages/subagent/subagent/README.md).

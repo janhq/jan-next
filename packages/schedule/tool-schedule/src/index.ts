@@ -4,27 +4,27 @@
  * plugin registers them in the mounting scope, so a preset decides which
  * agents receive them. Tasks belong to the Host, not to a Session: the tools
  * read and change any task by id, and only the delivery target names a Session.
- * @module @deepseek-ai/dsh-tool-schedule
+ * @module @janhq/jan-tool-schedule
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { Context } from '@janhq/cordis'
+import type { Agent } from '@janhq/jan-agent'
 // Type-only: make `ctx.get('agentPresets')` resolve to the preset roster when
 // composed. A rosterless deployment records no preset for a created Session.
-import type {} from '@deepseek-ai/dsh-agent-preset-registry'
-import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import { delegationDepthOf } from '@deepseek-ai/dsh-subagent'
-import type {} from '@deepseek-ai/dsh-system-prompt'
-import { defineTool } from '@deepseek-ai/dsh-tools'
-import type { GenericCallView, ToolRunContext } from '@deepseek-ai/dsh-tools'
+import type {} from '@janhq/jan-agent-preset-registry'
+import type { ContentBlock } from '@janhq/jan-llm'
+import { delegationDepthOf } from '@janhq/jan-subagent'
+import type {} from '@janhq/jan-system-prompt'
+import { defineTool } from '@janhq/jan-tools'
+import type { GenericCallView, ToolRunContext } from '@janhq/jan-tools'
 import {
   DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT, MAX_TITLE_LENGTH, MIN_EVERY_INTERVAL_SECONDS, ScheduleId, ScheduleInputError,
   formatScheduleLocalTime,
-} from '@deepseek-ai/dsh-schedule'
+} from '@janhq/jan-schedule'
 import type {
   InternalScheduleError, ScheduleEditRequest, ScheduleTargetRequest, ScheduleToolError,
   ScheduleCatalogEntry, ScheduleDeliveryReceipt, ScheduleRecord, SubagentSessionError,
-} from '@deepseek-ai/dsh-schedule'
+} from '@janhq/jan-schedule'
 
 /** Plugin name registered with the Loader. */
 export const name = 'tool-schedule'
@@ -70,6 +70,10 @@ const TARGET_SCHEMA = {
         create: { ...SESSION_CREATE_SCHEMA, required: true },
       },
     },
+    {
+      type: 'object', additionalProperties: false,
+      properties: { kind: { type: 'string', required: true, const: 'plugin' }, owner: { type: 'string', required: true } },
+    },
   ],
 } as const
 
@@ -79,7 +83,9 @@ const DELIVERY_SCHEMA = {
   properties: {
     scheduledAt: { type: 'string', required: true },
     deliveredAt: { type: 'string', required: true },
-    targetSessionId: { type: 'string', required: true },
+    targetSessionId: { type: 'string' },
+    owner: { type: 'string' },
+    outcome: { type: 'string', const: 'accepted' },
   },
 } as const
 
@@ -261,18 +267,17 @@ function renderValue(_args: unknown, value: unknown): ContentBlock[] {
 /** Authoritative timing and management fields, without Host delivery bookkeeping. */
 type ModelTask = ScheduleRecord & Pick<ScheduleCatalogEntry, 'target' | 'status' | 'updatedAt'> & {
   readonly scheduledAtLocal: string
-  readonly lastDelivery?: Pick<ScheduleDeliveryReceipt, 'scheduledAt' | 'deliveredAt' | 'targetSessionId'>
+  readonly lastDelivery?: Omit<ScheduleDeliveryReceipt, 'messageId'>
 }
 
 /** Preserve timing, destination, and edit revision while withholding Host bookkeeping. */
 function modelTask(task: ScheduleCatalogEntry): ModelTask {
   const { involvedSessionIds: _involved, createdAt: _created, executionActive: _execution,
     deliveryFloorEndsAt: _floor, lastDelivery, ...record } = task
+  const { messageId: _, ...receipt } = lastDelivery ?? {}
   return {
     ...record, scheduledAtLocal: formatScheduleLocalTime(task, task.scheduledAt),
-    ...lastDelivery === undefined ? {} : { lastDelivery: {
-      scheduledAt: lastDelivery.scheduledAt, deliveredAt: lastDelivery.deliveredAt, targetSessionId: lastDelivery.targetSessionId,
-    } },
+    ...(lastDelivery === undefined ? {} : { lastDelivery: receipt as Omit<ScheduleDeliveryReceipt, 'messageId'> }),
   }
 }
 

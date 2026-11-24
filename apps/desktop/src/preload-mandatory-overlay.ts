@@ -12,7 +12,7 @@ export function installMandatoryUpdateOverlay(): void {
   let frame: HTMLIFrameElement | undefined
   let port: MessagePort | undefined
   let closing: ReturnType<typeof setTimeout> | undefined
-  const publish = (): void => { port?.postMessage({ type: 'dsh-mandatory-state', state }) }
+  const publish = (): void => { port?.postMessage({ type: 'jan-mandatory-state', state }) }
   const remove = (): void => { port?.close(); port = undefined; host?.remove(); host = undefined; frame = undefined }
   const render = (): void => {
     if (state === undefined || document.readyState === 'loading') return
@@ -31,7 +31,7 @@ export function installMandatoryUpdateOverlay(): void {
       frame = document.createElement('iframe')
       frame.title = state.locale.messages.mandatoryTitle
       frame.style.cssText = 'display:block;width:100%;height:100%;border:0;background:transparent'
-      frame.src = 'dsh-app://shell/mandatory-update.html'
+      frame.src = 'jan-app://shell/mandatory-update.html'
       shadow.append(frame)
       document.documentElement.append(host)
       frame.addEventListener('load', () => {
@@ -39,7 +39,7 @@ export function installMandatoryUpdateOverlay(): void {
         const channel = new MessageChannel()
         port = channel.port1
         port.onmessage = message
-        frame?.contentWindow?.postMessage({ type: 'dsh-mandatory-connect' }, 'dsh-app://shell', [channel.port2])
+        frame?.contentWindow?.postMessage({ type: 'jan-mandatory-connect' }, 'jan-app://shell', [channel.port2])
         publish()
         frame?.focus()
       })
@@ -50,13 +50,13 @@ export function installMandatoryUpdateOverlay(): void {
   const message = (event: MessageEvent<unknown>): void => {
     const value = event.data
     if (typeof value !== 'object' || value === null || !('type' in value)) return
-    if (value.type !== 'dsh-mandatory-action' || !('id' in value) || !Number.isSafeInteger(value.id)
+    if (value.type !== 'jan-mandatory-action' || !('id' in value) || !Number.isSafeInteger(value.id)
       || !('action' in value) || !('version' in value) || !('revision' in value)) return
     const target = port
     if (target === undefined) return
     void ipcRenderer.invoke(MANDATORY_IPC.action, value.action, value.version, value.revision).then(
-      () => { target.postMessage({ type: 'dsh-mandatory-result', id: value.id, ok: true }) },
-      () => { target.postMessage({ type: 'dsh-mandatory-result', id: value.id, ok: false }) },
+      () => { target.postMessage({ type: 'jan-mandatory-result', id: value.id, ok: true }) },
+      () => { target.postMessage({ type: 'jan-mandatory-result', id: value.id, ok: false }) },
     )
   }
   const blockBackgroundKey = (event: KeyboardEvent): void => {
@@ -67,10 +67,11 @@ export function installMandatoryUpdateOverlay(): void {
     frame.focus()
   }
   ipcRenderer.on(MANDATORY_IPC.state, receive)
-  void ipcRenderer.invoke(MANDATORY_IPC.status).then((initial: MandatoryUpdateView) => {
-    if (!disposed && state === undefined) { state = initial; render() }
-  }, () => {
-    // Development may omit policy configuration; a later main-frame load still resynchronizes configured policy.
+  // Null means this run has no mandatory-update policy, so no block can appear.
+  void ipcRenderer.invoke(MANDATORY_IPC.status).then((initial: MandatoryUpdateView | null) => {
+    if (!disposed && state === undefined && initial !== null) { state = initial; render() }
+  }, (_closedChannel: unknown) => {
+    // A failed read leaves no block; a later main-frame load resynchronizes configured policy.
   })
   window.addEventListener('keydown', blockBackgroundKey, true)
   window.addEventListener('DOMContentLoaded', render, { once: true })

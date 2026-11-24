@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-cua-bundle",
+  "name": "@janhq/jan-cua-bundle",
   "description": "Optional macOS Computer Use and permission setup",
   "version": "0.2.2-rc.1",
   "icon": "./icon.svg",
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/experimental/cua-bundle"
   },
   "type": "module",
@@ -33,7 +33,7 @@
     "lib/types/**/*.d.ts"
   ],
   "license": "MIT",
-  "dsh": {
+  "jan": {
     "bundle": {
       "patch": "./cordis.patch.yml",
       "platforms": [
@@ -42,19 +42,19 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh-computer-use": "workspace:*",
-    "@deepseek-ai/dsh-cua": "workspace:*"
+    "@janhq/jan-computer-use": "workspace:*",
+    "@janhq/jan-cua": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-include": "workspace:~",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-include": "workspace:~",
     "js-yaml": "^4.2.0",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~"
+    "@janhq/cordis-plugin-loader": "workspace:~"
   },
   "optionalDependencies": {
-    "@deepseek-ai/dsh-experimental-cua-macos": "workspace:*"
+    "@janhq/jan-experimental-cua-macos": "workspace:*"
   }
 }

@@ -8,27 +8,28 @@
  *
  * TODO(permissions): deployment policy belongs in `tools/pre-execute` and
  * sandboxing executors; see docs/architecture.md § Where new behavior goes.
- * @module @deepseek-ai/dsh-tool-bash
+ * @module @janhq/jan-tool-bash
  */
 
-import type {} from '@deepseek-ai/dsh-working-directory'
-import { FiberState } from '@deepseek-ai/cordis'
-import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import type {} from '@janhq/jan-working-directory'
+import { FiberState } from '@janhq/cordis'
+import type { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
 import { isAbsolute, sep } from 'node:path'
-import { defineTool, TOOL_ABORTED } from '@deepseek-ai/dsh-tools'
-import type { GenericCallView, TerminalCallView, ToolDefinition, ToolExecution, ToolResult, ToolResultView } from '@deepseek-ai/dsh-tools'
-import { HarnessError } from '@deepseek-ai/dsh-llm'
-import type { JobId, JobRegistry, JobView } from '@deepseek-ai/dsh-jobs'
-import type {} from '@deepseek-ai/dsh-user-approval'
-import type {} from '@deepseek-ai/dsh-shell-env'
-import type { SandboxExecutionPolicy, SandboxMode } from '@deepseek-ai/dsh-sandbox'
-import { ESCALATION_TARGETS, approveEscalation, sandboxPermissionsDescription, validateEscalationArgs } from '@deepseek-ai/dsh-sandbox'
-import type { SandboxPolicyService } from '@deepseek-ai/dsh-sandbox-policy'
-import { DSH_ENV_PREFIX } from '@deepseek-ai/dsh-shell'
-import type { ShellExecRequest, ShellExecSpec, ShellExecution, ShellRunResult } from '@deepseek-ai/dsh-shell'
+import { defineTool, TOOL_ABORTED } from '@janhq/jan-tools'
+import type { GenericCallView, TerminalCallView, ToolDefinition, ToolExecution, ToolResult, ToolResultView } from '@janhq/jan-tools'
+import { HarnessError } from '@janhq/jan-llm'
+import type { JobId, JobRegistry, JobView } from '@janhq/jan-jobs'
+import type {} from '@janhq/jan-user-approval'
+import type {} from '@janhq/jan-shell-env'
+import type { SandboxExecutionPolicy, SandboxMode } from '@janhq/jan-sandbox'
+import { ESCALATION_TARGETS, approveEscalation, sandboxPermissionsDescription, validateEscalationArgs } from '@janhq/jan-sandbox'
+import type { SandboxPolicyService } from '@janhq/jan-sandbox-policy'
+import { JAN_ENV_PREFIX } from '@janhq/jan-shell'
+import type { ShellExecRequest, ShellExecSpec, ShellExecution, ShellRunResult } from '@janhq/jan-shell'
 import { processJob, processOutcome, processSources, ringDelta } from './background.ts'
 import { parseExitStatus, renderJobRead, renderPromoted, renderResult } from './render.ts'
+import { isReadOnlyCommand } from './read-only-command.ts'
 
 export const name = 'tool-bash'
 export const inject = ['tools', 'shell', 'systemPrompt', 'shellEnv', 'workingDirectory']
@@ -90,7 +91,7 @@ function validateBashArgs(args: BashToolArgs, effectiveMode: SandboxMode | undef
 function bashDescription(): string {
   return 'Execute a bash command (`bash -c`) and return its stdout/stderr. '
     + 'Each call runs in a fresh shell; pass `workdir` instead of using `cd`. '
-    + `Managed \`$${DSH_ENV_PREFIX}*\` variables expose current harness environment facts. `
+    + `Managed \`$${JAN_ENV_PREFIX}*\` variables expose current harness environment facts. `
     + 'Long output is truncated to its tail; the full output is saved to a file whose path is reported when available. '
     + 'Provide `description` before `command` in the arguments. '
     + 'Before any delete or move, verify that the resolved absolute target path is the intended one; never run it against a computed path you have not checked. '
@@ -309,17 +310,26 @@ export function apply(ctx: Context, config: Config = {}): void {
         if (settled.status !== 'running' && settled.status !== 'stopping') registry.remove(attached.id, owner)
         return settled
       }
+      // A steer releases the wait the same way the timeout does: the command
+      // keeps running as a job and the model reads the steered input now.
+      const yieldSignal = exec.yieldSignal
+      const waitSignal = yieldSignal === undefined ? exec.signal : AbortSignal.any([exec.signal, yieldSignal])
       let view: JobView
       try {
-        view = await registry.wait(attached.id, timeoutMs, owner, exec.signal)
+        view = await registry.wait(attached.id, timeoutMs, owner, waitSignal)
       } catch {
-        // A wait on the caller's own live job rejects only for the caller's
-        // abort: the model's call is over, so the command goes with it, as
-        // under the deadline kill.
-        await stop('tool call aborted')
-        throw toolAborted()
+        if (!exec.signal.aborted && yieldSignal?.aborted === true) {
+          view = registry.get(attached.id, owner)
+        } else {
+          // A wait on the caller's own live job rejects only for the caller's
+          // abort: the model's call is over, so the command goes with it, as
+          // under the deadline kill.
+          await stop('tool call aborted')
+          throw toolAborted()
+        }
       }
-      if ((view.status === 'running' || view.status === 'stopping') && attached.process() === undefined) {
+      const steered = !exec.signal.aborted && yieldSignal?.aborted === true
+      if ((view.status === 'running' || view.status === 'stopping') && attached.process() === undefined && !steered) {
         // The wait expired while preparation still ran: nothing is running
         // to keep, so this is the deadline's preparation timeout, with the
         // settled empty result the executor's own deadline would have given.
@@ -347,6 +357,7 @@ export function apply(ctx: Context, config: Config = {}): void {
           cwd: spec.workdir,
           jobId: attached.id,
           timeoutMs,
+          ...steered ? { steered: true } : {},
           output: renderJobRead(
             ringDelta(read.chunks), read.lossy, read.job.output.spillPaths ?? [], attached.process()?.sandbox, escalationModes,
           ),
@@ -416,6 +427,7 @@ export function apply(ctx: Context, config: Config = {}): void {
                 cwd: { type: 'string', required: true },
                 jobId: { type: 'string', required: true },
                 timeoutMs: { type: 'number', required: true },
+                steered: { type: 'boolean' },
                 output: { type: 'string', required: true },
               },
             },
@@ -475,6 +487,10 @@ export function apply(ctx: Context, config: Config = {}): void {
         }],
         presentationMeta: (_args, value) => ({ cwd: value.cwd }),
       },
+      // A foreground command that only reads may overlap sibling read-only calls. Background
+      // jobs, sandbox escalation (an approval prompt) and every write stay ordered barriers.
+      isConcurrencySafe: (args: BashToolArgs) => args.run_in_background !== true
+        && args.sandbox_permissions === undefined && isReadOnlyCommand(args.command),
       async execute(args: BashToolArgs, exec) {
         // Description is display metadata; workdir defaults to the caller's session.
         const standingPolicy = resolveSandboxPolicy(exec)
@@ -487,12 +503,12 @@ export function apply(ctx: Context, config: Config = {}): void {
           : { ...(standingPolicy as SandboxExecutionPolicy), mode: approvedMode }
         const cwd = exec.agent === undefined ? undefined : await ctx.workingDirectory.ensure(exec.agent, exec.signal)
         const workdir = resolveWorkdir(args.workdir, cwd)
-        const dshEnv = ctx.shellEnv.collect(exec)
+        const janEnv = ctx.shellEnv.collect(exec)
         const request: ShellExecRequest = {
           command: args.command,
           ...workdir !== undefined ? { workdir } : {},
           ...args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {},
-          dshEnv,
+          janEnv,
           ...policy !== undefined ? { sandboxPolicy: policy } : {},
         }
         if (args.run_in_background === true) {
@@ -501,7 +517,7 @@ export function apply(ctx: Context, config: Config = {}): void {
             throw new Error('run_in_background is disabled for this deployment (enableRunInBackground: false)')
           }
           if (jobs === undefined) {
-            throw new Error('background jobs unavailable: load @deepseek-ai/dsh-jobs and @deepseek-ai/dsh-tool-jobs')
+            throw new Error('background jobs unavailable: load @janhq/jan-jobs and @janhq/jan-tool-jobs')
           }
           // The caller owns cancellation until ctx.jobs commits detached ownership.
           if (exec.signal.aborted) throw toolAborted()

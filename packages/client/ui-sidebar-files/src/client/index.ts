@@ -1,19 +1,19 @@
-import type {} from '@deepseek-ai/dsh-client-ui-context-menu/client'
+import type { } from '@janhq/jan-client-ui-context-menu/client'
 /**
  * Browser half: register `files` as a right-Sidebar tab type, and the
  * workspace navigator beside every file preview. The navigator, the page body,
  * and the toggle share one store and one face per store instance. The package
  * README lists the registrations.
  */
-import type { ShortcutCommandId } from '@deepseek-ai/dsh-client-shortcuts/client'
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type { BoundActions } from '@deepseek-ai/dsh-client-store'
-import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
+import type { Context as ClientContext } from '@janhq/cordis'
+import type { } from '@janhq/jan-api-remotes/client'
+import type { } from '@janhq/jan-client-ui-renderer/client'
+import type { } from '@janhq/jan-client-ui-session/client'
+import type { } from '@janhq/jan-client-ui-sidebar-right/client'
+import type { BoundActions } from '@janhq/jan-client-store'
+import type { TabId } from '@janhq/jan-client-ui-dockkit'
+import type { SessionId } from '@janhq/jan-session/types'
 import { FILES_ID, FILES_KIND, filesDefinition } from './definition.tsx'
 import { canOpenOf, createList, createWatch, filesFace, type FilesInjected } from './face.ts'
 import { FileTree } from './FileTree.tsx'
@@ -33,7 +33,7 @@ export type { TreeEntry, TreeEntryMeta, TreeEntryKind, TreeDirectoryState, FileT
 export type { FileNavigatorInput } from './FileNavigator.tsx'
 export type { NavigatorToggleInput } from './NavigatorToggle.tsx'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     /** Workspace directory actions after the `files` page's reload control. */
     'sidebar.right.tab.files.actions': {
@@ -122,9 +122,10 @@ export function apply(ctx: ClientContext): void {
     ctx.effect(() => ctx.shortcuts.register({
       id: 'workspace.files' as ShortcutCommandId, label: () => t('guide.title'), aliases: ['workspace files', 'files'],
       defaults: {
-        'desktop:macos': { code: 'KeyP', modifiers: ['primary'] },
-        'desktop:windows': { code: 'KeyP', modifiers: ['primary'] },
-        'desktop:linux': { code: 'KeyP', modifiers: ['primary'] },
+        // Mod+P belongs to universal Search, as in VS Code's Quick Open.
+        'desktop:macos': { code: 'KeyP', modifiers: ['primary', 'alt'] },
+        'desktop:windows': { code: 'KeyP', modifiers: ['primary', 'alt'] },
+        'desktop:linux': { code: 'KeyP', modifiers: ['primary', 'alt'] },
         'web:macos': { code: 'KeyP', modifiers: ['primary', 'alt'] },
         'web:windows': { code: 'KeyP', modifiers: ['primary', 'alt'] },
       },
@@ -135,17 +136,20 @@ export function apply(ctx: ClientContext): void {
         const target = ctx.sidebarRight.commandTarget(element)
         if (target === undefined) return { status: 'blocked', reason: t('shortcut.noSession') }
         /* jscpd:ignore-end */
-        return { status: 'handled', run: () => {
-          // A docked tab with a navigator beside its content that can draw a tree keeps it: the navigator is shown and takes the keyboard.
-          const placed = target.tabId === undefined ? undefined : beside.get(target.sessionId)?.get(target.tabId)
-          if (target.host === 'dock' && placed !== undefined) {
-            if (!ctx.sidebarRight.isExpanded()) ctx.sidebarRight.toggleExpanded()
-            placed.face.focus(target.paneId)
-            return
-          }
-          // Elsewhere the files page opens or is revealed and focused; its tree always shows.
-          ctx.sidebarRight.openTabFromTarget(FILES_KIND, target)
-        } }
+        return {
+          status: 'handled', run: () => {
+            // A docked tab with a navigator beside its content that can draw a tree keeps it:
+            // the navigator is shown and takes the keyboard.
+            const placed = target.tabId === undefined ? undefined : beside.get(target.sessionId)?.get(target.tabId)
+            if (target.host === 'dock' && placed !== undefined) {
+              if (!ctx.sidebarRight.isExpanded()) ctx.sidebarRight.toggleExpanded()
+              placed.face.focus(target.paneId)
+              return
+            }
+            // Elsewhere the files page opens or is revealed and focused; its tree always shows.
+            ctx.sidebarRight.openTabFromTarget(FILES_KIND, target)
+          },
+        }
       },
     }), 'ui-sidebar-files: shortcut')
   })

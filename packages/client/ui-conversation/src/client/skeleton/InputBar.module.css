@@ -7,16 +7,32 @@
      the sides narrow with the shared width axis); the bottom gradient mask
      is owned by the chat scroller. No top pad: the composer stack's gap owns
      the space above; the status strip still carries its own margin. */
-  padding: 0 var(--dsh-composer-side-clearance) 4px;
+  padding: 0 var(--jan-composer-side-clearance) 4px;
 }
 
+/* An anonymous size container (CSS modules hash container names per module),
+   so the row's extras can drop out before they collide in a narrow pane
+   (ConversationRoot `.heroOptions`, whose nearest container this is). Full
+   width, because an inline-size container cannot size to its content; the
+   items stay centered. */
 .dock {
+  container-type: inline-size;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
+  width: 100%;
   max-width: 100%;
   padding-top: 4px;
+}
+
+/* Owner content at the row start (the hero's Workspace and preset pickers); it takes the
+   free space so the readings stay at the end, wherever the dock justifies them. */
+.dockStart {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-inline-end: auto;
 }
 
 /* The docked composer reserves one statistics row before its readings
@@ -25,7 +41,7 @@
    padding (ui-chat StatsPills `.pill`, ContextMeter `.trigger`). A minimum,
    not a fixed height, so taller readings still size the row. */
 .root:not(.hero) > .dock {
-  min-height: calc(22px + var(--dsh-content-font-delta-secondary, 0px));
+  min-height: calc(22px + var(--jan-content-font-delta-secondary, 0px));
 }
 
 .hero .dock:empty {
@@ -36,12 +52,12 @@
   /* No bottom pad in the centered hero, but the side clearance must survive:
      the hero wrapper is full-width on narrow viewports, so this padding is
      the only thing keeping the card off the edges there. */
-  padding: 0 var(--dsh-composer-side-clearance);
+  padding: 0 var(--jan-composer-side-clearance);
 }
 
 .notice {
   width: 100%;
-  max-width: var(--dsh-composer-card-max-width);
+  max-width: var(--jan-composer-card-max-width);
   margin-bottom: 6px;
   padding: 4px 8px;
   border-radius: var(--dsw-radius-md);
@@ -49,6 +65,48 @@
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;
   line-height: 18px;
+}
+
+/* Large-paste offer: the notice strip with an inline action and a dismiss. */
+.pasteOffer {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pasteOfferText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pasteOfferAction,
+.pasteOfferDismiss {
+  flex: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pasteOfferAction {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.pasteOfferDismiss {
+  display: inline-flex;
+  align-items: center;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+@media (hover: hover) {
+  .pasteOfferAction:hover { text-decoration: underline; }
+  .pasteOfferDismiss:hover { color: var(--dsw-alias-label-secondary); }
 }
 
 .card {
@@ -60,7 +118,7 @@
      card's top pad before .InputText tightened from the drawn 10 to 8. */
   gap: 12px;
   width: 100%;
-  max-width: var(--dsh-composer-card-max-width);
+  max-width: var(--jan-composer-card-max-width);
   padding-top: 8px;
   /* Input stroke: the light neutral (l2, one step above the menus' l1),
      drawn as the elevation hairline so it costs no layout; the shadow is the
@@ -74,20 +132,20 @@
      mirror, and backdrop all inherit from here, so the three layers stay in
      step); the line height keeps the default 10px leading via the shared px
      delta. */
-  font-size: var(--dsh-content-font-size, 14px);
-  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
+  font-size: var(--jan-content-font-size, 14px);
+  line-height: calc(24px + var(--jan-content-font-delta, 0px));
   /* Elevated surface in dark, same as the menus: the draft scrollport inside
      scrolls once the composer hits its height cap, so the thumb takes the l2
      pair. Declared on the card because the elevation belongs to the surface,
      and the custom properties inherit down to the box that actually scrolls
      (see ui-theme styles/scrollbar.css for the rebinding contract). */
-  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
-  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+  --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
 @media (pointer: coarse) {
   .card {
-    font-size: max(16px, var(--dsh-content-font-size, 14px));
+    font-size: max(16px, var(--jan-content-font-size, 14px));
   }
 }
 
@@ -143,7 +201,7 @@
    contenteditable grows with its content inside; the 14-line cap lives here
    because this is the box the cap describes. */
 .scroll {
-  max-height: var(--dsh-composer-text-max-height);
+  max-height: var(--jan-composer-text-max-height);
   overflow-y: auto;
   /* Keeps the bar off the card's right border; .input's right pad gives the
      4px back so the text column is unchanged. */
@@ -208,10 +266,10 @@
 }
 
 /* Claim ghost hint as generated content after the last paragraph: the bar
-   sets --dsh-composer-hint (a quoted string) while the claim's args are
+   sets --jan-composer-hint (a quoted string) while the claim's args are
    blank; without the variable the declaration is invalid and nothing shows. */
 .input p:last-child::after {
-  content: var(--dsh-composer-hint);
+  content: var(--jan-composer-hint);
   color: var(--dsw-alias-label-caption);
 }
 
@@ -289,8 +347,8 @@
 }
 
 .row[data-model-compact] {
-  --dsh-composer-model-text-display: none;
-  --dsh-composer-model-icon-display: block;
+  --jan-composer-model-text-display: none;
+  --jan-composer-model-icon-display: block;
 }
 
 .tools,
@@ -332,7 +390,7 @@
   }
 }
 
-/* Attach circle (figma + control): 28px, selector fill, primary glyph. */
+/* Attach control: 28px ghost circle, primary glyph; the fill appears only on hover or while its menu is open. */
 .add {
   display: grid;
   place-items: center;
@@ -342,9 +400,13 @@
   border: none;
   border-radius: 999px;
   corner-shape: round;
-  background: var(--dsw-specific-selector);
+  background: transparent;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
+}
+
+.add[aria-expanded='true'] {
+  background: var(--dsw-specific-selector);
 }
 
 @media (hover: hover) {
@@ -425,6 +487,10 @@
   .primary:hover:not(:disabled) {
     background: var(--dsw-alias-button-info-hover);
   }
+}
+
+.primary:active:not(:disabled) {
+  background: var(--dsw-alias-button-info-active);
 }
 
 .primary:disabled {

@@ -13,8 +13,8 @@ export function installWindowsMenu(): { update(): void; dispose(): void } {
   const shadow = host.attachShadow({ mode: 'open' })
   const style = document.createElement('style')
   style.textContent = `
-    :host { position: fixed; top: 0; left: var(--dsh-windows-menu-start, 48px); z-index: 1100;
-      height: var(--dsh-windows-titlebar-height); display: flex; align-items: center;
+    :host { position: fixed; top: 0; left: var(--jan-windows-menu-start, 48px); z-index: 1100;
+      height: var(--jan-windows-titlebar-height); display: flex; align-items: center;
       font-family: var(--dsw-font-family); -webkit-app-region: no-drag; }
     [role=menubar] { display: flex; gap: 2px; }
     button { height: 28px; padding: 0 10px; border: 0; border-radius: 6px;
@@ -27,7 +27,7 @@ export function installWindowsMenu(): { update(): void; dispose(): void } {
   `
   const bar = document.createElement('div')
   bar.setAttribute('role', 'menubar')
-  let restoreEditor = (): void => {}
+  let restoreEditor = (): void => { }
   const rememberEditor = (event: FocusEvent): void => {
     const target = event.composedPath()[0]
     if (!(target instanceof HTMLElement) || target === host || shadow.contains(target)) return
@@ -86,11 +86,26 @@ export function installWindowsMenu(): { update(): void; dispose(): void } {
   }
   const buttons = [createButton('application', 0), createButton('edit', 1)] as const
   shadow.append(style, bar)
+  // Back and Forward sit after the menus. The label width follows the language, and the start moves when
+  // the sidebar collapses (a CSS variable change that resizes nothing), so both are re-read.
+  let end = ''
+  const publishEnd = (): void => {
+    const { right } = host.getBoundingClientRect()
+    const next = right > 0 ? `${String(Math.ceil(right))}px` : ''
+    if (next === '' || next === end) return
+    end = next
+    document.documentElement.style.setProperty('--jan-windows-menu-end', end)
+  }
+  const resize = new ResizeObserver(publishEnd)
+  const collapse = new MutationObserver(publishEnd)
   const mount = (): void => {
     // AppFrame owns this seat; boot readiness alone precedes the rendered application.
     if (document.querySelector('[data-shell-overlay]') === null) return
     document.body.append(host)
     observer.disconnect()
+    resize.observe(host)
+    collapse.observe(document.body, { subtree: true, attributeFilter: ['data-sidebar-collapsed'] })
+    publishEnd()
   }
   const observer = new MutationObserver(mount)
   observer.observe(document.body, { childList: true, subtree: true })
@@ -100,13 +115,17 @@ export function installWindowsMenu(): { update(): void; dispose(): void } {
     bar.setAttribute('aria-label', messages.menuBar)
     buttons[0].textContent = messages.application
     buttons[1].textContent = messages.edit
+    publishEnd()
   }
   update()
   return {
     update,
     dispose: () => {
       observer.disconnect()
+      resize.disconnect()
+      collapse.disconnect()
       document.removeEventListener('focusout', rememberEditor, true)
+      document.documentElement.style.removeProperty('--jan-windows-menu-end')
       host.remove()
     },
   }

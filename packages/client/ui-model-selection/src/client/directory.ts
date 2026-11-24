@@ -4,15 +4,15 @@
  * Session's durable selection projection, then submit through the same
  * selectModel call. A switch made in either entry updates this shared state.
  */
-import type { ModelSelectionProjection } from '@deepseek-ai/dsh-agent/types'
-import type { TrackProductEvent } from '@deepseek-ai/dsh-client-product-analytics/client'
+import type { ModelSelectionProjection } from '@janhq/jan-agent/types'
+import type { TrackProductEvent } from '@janhq/jan-client-product-analytics/client'
 import type {
   ModelCatalogFailure, ModelProviderGroup, ModelSelection,
-} from '@deepseek-ai/dsh-api-session-controller/types'
-import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
-import type { RemoteResult, TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
-import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+} from '@janhq/jan-api-session-controller/types'
+import type { SessionId } from '@janhq/jan-api-remotes/client'
+import type { RemoteResult, TypertClientRemote } from '@janhq/jan-typert-protocol'
+import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import type { ModelCatalogDirectory } from './catalog.ts'
 
 /** Directory snapshot both entries render from. */

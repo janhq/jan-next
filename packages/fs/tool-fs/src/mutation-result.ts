@@ -1,8 +1,8 @@
 /** Shared observation and result fields for successful file mutations. */
 
-import type { Context } from '@deepseek-ai/cordis'
-import type { FsTarget, FsVersion } from '@deepseek-ai/dsh-fs'
-import type { ToolExecution } from '@deepseek-ai/dsh-tools'
+import type { Context } from '@janhq/cordis'
+import type { FsTarget, FsVersion } from '@janhq/jan-fs'
+import type { ToolExecution } from '@janhq/jan-tools'
 
 /**
  * Record the new file version and expose the mutation result with its canonical path.

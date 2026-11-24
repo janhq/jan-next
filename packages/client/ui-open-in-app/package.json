@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-client-ui-open-in-app",
+  "name": "@janhq/jan-client-ui-open-in-app",
   "description": "Session application submenus and native opening controls for directories and previewed files",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/client/ui-open-in-app"
   },
   "type": "module",
@@ -37,58 +37,58 @@
     "watch": "tsdown --watch"
   },
   "license": "MIT",
-  "dsh": {
+  "jan": {
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-api-gateway",
-        "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-api-session-controller",
-        "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-shortcuts",
-        "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-ui-layout",
-        "@deepseek-ai/dsh-client-ui-renderer",
-        "@deepseek-ai/dsh-client-ui-session",
-        "@deepseek-ai/dsh-client-ui-sidebar-documentpreview",
-        "@deepseek-ai/dsh-client-ui-context-menu",
-        "@deepseek-ai/dsh-client-ui-sidebar-right",
-        "@deepseek-ai/dsh-api-workspace-files",
-        "@deepseek-ai/dsh-client-ui-workspace"
+        "@janhq/jan-api-gateway",
+        "@janhq/jan-api-remotes",
+        "@janhq/jan-api-session-controller",
+        "@janhq/jan-client-locale",
+        "@janhq/jan-client-shortcuts",
+        "@janhq/jan-client-ui-conversation",
+        "@janhq/jan-client-ui-layout",
+        "@janhq/jan-client-ui-renderer",
+        "@janhq/jan-client-ui-session",
+        "@janhq/jan-client-ui-sidebar-documentpreview",
+        "@janhq/jan-client-ui-context-menu",
+        "@janhq/jan-client-ui-sidebar-right",
+        "@janhq/jan-api-workspace-files",
+        "@janhq/jan-client-ui-workspace"
       ],
       "platform": "web"
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-api-gateway": "workspace:*",
-    "@deepseek-ai/dsh-api-remotes": "workspace:*",
-    "@deepseek-ai/dsh-api-session-controller": "workspace:*",
-    "@deepseek-ai/dsh-client-locale": "workspace:*",
-    "@deepseek-ai/dsh-client-store": "workspace:*",
-    "@deepseek-ai/dsh-client-test-runtime": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-conversation": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-layout": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-primitives": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-renderer": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-session": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-sidebar-documentpreview": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-sidebar-files": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-slots": "workspace:*",
-    "@deepseek-ai/dsh-host-open-in-app": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-api-gateway": "workspace:*",
+    "@janhq/jan-api-remotes": "workspace:*",
+    "@janhq/jan-api-session-controller": "workspace:*",
+    "@janhq/jan-client-locale": "workspace:*",
+    "@janhq/jan-client-store": "workspace:*",
+    "@janhq/jan-client-test-runtime": "workspace:*",
+    "@janhq/jan-client-ui-conversation": "workspace:*",
+    "@janhq/jan-client-ui-layout": "workspace:*",
+    "@janhq/jan-client-ui-primitives": "workspace:*",
+    "@janhq/jan-client-ui-renderer": "workspace:*",
+    "@janhq/jan-client-ui-session": "workspace:*",
+    "@janhq/jan-client-ui-sidebar-documentpreview": "workspace:*",
+    "@janhq/jan-client-ui-sidebar-files": "workspace:*",
+    "@janhq/jan-client-ui-slots": "workspace:*",
+    "@janhq/jan-host-open-in-app": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
     "react": "^18.2.0",
-    "@deepseek-ai/dsh-client-ui-deliverables": "workspace:*",
-    "@deepseek-ai/dsh-native-command": "workspace:*",
-    "@deepseek-ai/dsh-client-shortcuts": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-context-menu": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-file-actions": "workspace:*",
-    "@deepseek-ai/dsh-util-workspace-path": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-sidebar-right": "workspace:*",
-    "@deepseek-ai/dsh-api-workspace-files": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-sidebar-browser": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-workspace": "workspace:*"
+    "@janhq/jan-client-ui-deliverables": "workspace:*",
+    "@janhq/jan-native-command": "workspace:*",
+    "@janhq/jan-client-shortcuts": "workspace:*",
+    "@janhq/jan-client-ui-context-menu": "workspace:*",
+    "@janhq/jan-client-ui-file-actions": "workspace:*",
+    "@janhq/jan-util-workspace-path": "workspace:*",
+    "@janhq/jan-client-ui-sidebar-right": "workspace:*",
+    "@janhq/jan-api-workspace-files": "workspace:*",
+    "@janhq/jan-client-ui-sidebar-browser": "workspace:*",
+    "@janhq/jan-client-ui-workspace": "workspace:*"
   }
 }

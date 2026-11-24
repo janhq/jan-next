@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-09-10-desktop-web-wrapper.zh.md)
-
 Desktop uses Electron as its Node runtime under the [current runtime reference](../../../../apps/desktop/README.md); other decisions in this note remain applicable.
 
 ## Problem
@@ -26,7 +24,7 @@ Shared `initProfile` creates missing profile files and preserves existing conten
 
 This partially supersedes the private composition and portless transport in the [packaging decision](2026-08-25-electron-desktop-packaging-and-updates.md). That design avoided listening ports and used framed byte pipes to avoid Base64 expansion and cross-version V8 serialization. Shared HTTP gives up the portless guarantee and assigns serving and authentication to the existing Web implementation. Release identity, signing, process ownership, and native shell features remain active decisions.
 
-Native directory selection in the local application uses a narrow preload IPC call to Electron’s window-owned dialog. Main admits only the current application window’s main frame at `dsh-app://app`; shell, remote, and child frames cannot request it. Concurrent requests share the pending dialog and destroyed windows discard selections. Web backend selection and Host browse are shared.
+Native directory selection in the local application uses a narrow preload IPC call to Electron’s window-owned dialog. Main admits only the current application window’s main frame at `jan-app://app`; shell, remote, and child frames cannot request it. Concurrent requests share the pending dialog and destroyed windows discard selections. Web backend selection and Host browse are shared.
 
 ## Alternatives considered
 

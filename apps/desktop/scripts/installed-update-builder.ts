@@ -15,25 +15,25 @@ import { verifyDesktopRuntime } from '../src/runtime-tree.ts'
 export async function createInstalledUpdateBuilderConfig(manifest: string, version: string, environment: NodeJS.ProcessEnv) {
   const run = await readInstalledUpdateRun(manifest)
   if (!run.versions.includes(version)) throw new Error('installed update: package version is outside the qualification run')
-  if (environment.DSH_DESKTOP_AUTO_UPDATE_ENV !== 'test' || environment.DSH_DESKTOP_UNSIGNED === '1'
+  if (environment.JAN_DESKTOP_AUTO_UPDATE_ENV !== 'test' || environment.JAN_DESKTOP_UNSIGNED === '1'
     || environment.DOWNLOAD_TEST_ORIGIN !== run.origin || environment.DOWNLOAD_TEST_COS_BUCKET !== run.bucket) {
     throw new Error('installed update: signed ordinary-update qualification requires matching test deployment settings')
   }
   const application = await verifyInstalledUpdateApplication(run.root)
-  const dsh = join(run.root, version, 'dsh')
-  await verifyDesktopRuntime(dsh, version, { platform: 'win32', arch: 'x64' })
-  const config = createElectronBuilderConfig({ ...environment, DSH_DESKTOP_APP_ID: run.appId,
-    DSH_DESKTOP_TARGET_PLATFORM: 'win32', DSH_DESKTOP_TARGET_ARCH: 'x64', DSH_DESKTOP_UNSIGNED: '0' }, 'win32', 'x64', dsh, version)
+  const jan = join(run.root, version, 'jan')
+  await verifyDesktopRuntime(jan, version, { platform: 'win32', arch: 'x64' })
+  const config = createElectronBuilderConfig({ ...environment, JAN_DESKTOP_APP_ID: run.appId,
+    JAN_DESKTOP_TARGET_PLATFORM: 'win32', JAN_DESKTOP_TARGET_ARCH: 'x64', JAN_DESKTOP_UNSIGNED: '0' }, 'win32', 'x64', jan, version)
   return { ...config,
     productName: run.productName,
     directories: { ...config.directories, output: join(run.root, version, 'installer') },
-    extraMetadata: { ...config.extraMetadata, name: `dsh-update-test-${run.id}`, version, main: 'qualification-bootstrap.mjs' },
+    extraMetadata: { ...config.extraMetadata, name: `jan-update-test-${run.id}`, version, main: 'qualification-bootstrap.mjs' },
     files: [
       { from: application, to: '.', filter: ['lib/*.js', 'lib/*.cjs', 'lib/welcome/design-platform.css', 'renderer/**/*', 'qualification-bootstrap.mjs', 'installed-update-identity.mjs'] },
       'package.json',
       ...config.files.filter((file): file is string => typeof file === 'string' && file.startsWith('!')),
-      { from: dsh, to: 'dsh', filter: ['**/*'] },
-      { from: join(dsh, 'node_modules'), to: 'dsh/node_modules', filter: ['**/*'] },
+      { from: jan, to: 'jan', filter: ['**/*'] },
+      { from: join(jan, 'node_modules'), to: 'jan/node_modules', filter: ['**/*'] },
     ],
     publish: [{ provider: 'generic' as const, url: `${run.origin}/${run.feedKey.slice(0, -'nightly.yml'.length)}`, channel: 'nightly' }],
   }

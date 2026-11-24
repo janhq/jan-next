@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-09-18-plugin-install-registries.zh.md)
-
 ## Problem
 
 The install dialog handed the spec to `pnpm add` with no registry of its own, so pnpm resolved packages from whatever its configuration named, which for a person who never wrote an `.npmrc` is `registry.npmjs.org`. On a network that cannot reach it, every install failed with a network error after pnpm's own retries, which take over a minute for a registry that does not answer; the check before the install failed the same way, and nothing offered a mirror. A mirror is the ordinary answer in mainland China, but pnpm's `--registry` is a CLI flag the dialog could not pass, and an `.npmrc` is not something the dialog's audience edits.
@@ -24,7 +22,7 @@ The install dialog handed the spec to `pnpm add` with no registry of its own, so
 
 **Write the chosen registry into the profile's `.npmrc` or `pnpm-workspace.yaml`.** Rejected: the choice belongs to one install, not to every later pnpm command in the profile, and a file pnpm reads on every run would have to be rewritten and restored around each attempt.
 
-**Keep the last choice in Host settings.** Rejected for now: a settings namespace, its controller write path, and its catalog entry buy a choice shared across browsers and with the CLI, which `dsh plugin add --registry` already takes on its command line; the dialog's choice is passed to each call explicitly, so the Host holds no state for it and the browser remembers it.
+**Keep the last choice in Host settings.** Rejected for now: a settings namespace, its controller write path, and its catalog entry buy a choice shared across browsers and with the CLI, which `jan plugin add --registry` already takes on its command line; the dialog's choice is passed to each call explicitly, so the Host holds no state for it and the browser remembers it.
 
 **Retry through every registry on any failure.** Rejected: a blocked build script, a full disk, or a package that declares no bundle fails the same way everywhere, and a git host that cannot be reached is not reached through any registry; retrying those costs the person a wait and hides the cause.
 

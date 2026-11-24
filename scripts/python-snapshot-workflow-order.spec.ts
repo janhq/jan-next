@@ -1,16 +1,15 @@
 import { getEventListeners } from 'node:events'
-import { Context } from '@deepseek-ai/cordis'
-import { agentEvents, type Agent, type PreStepDecision } from '@deepseek-ai/dsh-agent'
-import { createToolResultMessage, createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import { WorkflowRunId } from '@deepseek-ai/dsh-workflow'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import SubagentRuntime from '@deepseek-ai/dsh-subagent'
-import * as spawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
+import { Context } from '@janhq/cordis'
+import { agentEvents, type Agent, type PreStepDecision } from '@janhq/jan-agent'
+import { createToolResultMessage, createUserMessage, ToolCallId } from '@janhq/jan-llm'
+import SessionStore, { SessionId, type Session } from '@janhq/jan-session'
+import { WorkflowRunId } from '@janhq/jan-workflow'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import SubagentRuntime from '@janhq/jan-subagent'
+import * as spawn from '@janhq/jan-subagent-spawn-in-process'
 import { MockAdapter, textResponse } from '../packages/core/agent-loop/tests/mock-adapter.ts'
-import type {} from '@deepseek-ai/dsh-tool-workflow/types'
-import type {} from '@deepseek-ai/dsh-session-log-deepseek'
+import type {} from '@janhq/jan-tool-workflow/types'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 // @ts-expect-error Scenario plugins are runtime JavaScript without declaration artifacts.
 import * as fixtureModule from './fixtures/python-snapshot-workflow-order.mjs'
@@ -110,23 +109,26 @@ describe('advanced Python snapshot workflow ordering', () => {
     expect(getEventListeners(h.controller.signal, 'abort')).toHaveLength(0)
   })
 
-  it('waits for the parent to consume the direct start and acknowledge its request log', async () => {
+  it('waits for the parent to consume the direct start and prepare its next request', async () => {
     const h = await harness(true)
+    const route = { provider: 'mock', model: 'mock' }
+    const request = (session: Session, step: number) => agentEvents(h.ctx, { id: session.id, session } as Agent)
+      .waterfall('agent/request', { turn: 1, step, signal: h.controller.signal }, async () => route)
     const pending = h.step()
     h.parent.append('turn/start', { turn: 1 })
     h.parent.append('step/start', { turn: 1, step: 1 })
+    expect(await request(h.parent, 1)).toBe(route)
     const callId = ToolCallId('direct-child')
     h.parent.append('tool/call', { turn: 1, step: 1, callId, name: 'subagent', arguments: '{}' })
-    const result = h.parent.append('tool/result', {
+    h.parent.append('tool/result', {
       turn: 1, step: 1,
       message: createToolResultMessage({ callId, content: [{ type: 'text', text: 'started subagent child' }], isError: false }),
     }, { surfaceOp: 'append' })
     h.parent.append('step/start', { turn: 1, step: 2 })
+    expect(await request(h.other, 1)).toBe(route)
     await Promise.resolve()
     expect(h.next).not.toHaveBeenCalled()
-    h.parent.append('session-log-deepseek/delivery-accepted', {
-      sessionId: h.parent.id, sessionFormatVersion: h.parent.header.version, throughSeq: result.seq,
-    })
+    expect(await request(h.parent, 2)).toBe(route)
     expect(await pending).toBe(h.decision)
     expect(h.next).toHaveBeenCalledOnce()
   })

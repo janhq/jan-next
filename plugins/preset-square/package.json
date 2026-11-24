@@ -1,0 +1,26 @@
+{
+  "name": "@janhq/jan-preset-square",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "description": "Browse and install agent presets from the Preset Square gallery.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@janhq/jan-plugin-api": "workspace:*",
+    "js-yaml": "^4.3.2",
+    "yauzl": "3.4.0"
+  },
+  "devDependencies": {
+    "fflate": "^0.8.3"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  }
+}

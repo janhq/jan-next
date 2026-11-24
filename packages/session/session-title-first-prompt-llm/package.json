@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-session-title-first-prompt-llm",
+  "name": "@janhq/jan-session-title-first-prompt-llm",
   "description": "First-message LLM provider plugin for Jan session titles",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/session/session-title-first-prompt-llm"
   },
   "type": "module",
@@ -28,28 +28,26 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-title": "workspace:*",
-    "@deepseek-ai/dsh-session-title-llm": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-title": "workspace:*",
+    "@janhq/jan-session-title-llm": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~"
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/schemastery": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis-plugin-include": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-llm-deepseek": "workspace:*",
-    "@deepseek-ai/dsh-llm-deepseek-api-key": "workspace:*",
-    "@deepseek-ai/dsh-llm-pi-ai": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-title": "workspace:*",
-    "@deepseek-ai/dsh-session-title-llm": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop": "workspace:*"
+    "@janhq/cordis-plugin-include": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-llm-pi-ai": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-title": "workspace:*",
+    "@janhq/jan-session-title-llm": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-agent-loop": "workspace:*"
   }
 }

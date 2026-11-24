@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
-import { Context, symbols } from '@deepseek-ai/cordis'
-import { apply as applyConnection, inject as connectionInject } from '@deepseek-ai/dsh-client-connection'
+import { Context, symbols } from '@janhq/cordis'
+import { apply as applyConnection, inject as connectionInject } from '@janhq/jan-client-connection'
 import RemoteAccessService, {
   type RemoteAccessAction,
   type RemoteAccessBinding,
@@ -8,7 +8,7 @@ import RemoteAccessService, {
   type RemoteAccessResource,
   type RemoteAccessResourceKind,
   type RemoteAccessRole,
-} from '@deepseek-ai/dsh-api-remote-access'
+} from '@janhq/jan-api-remote-access'
 import {
   Remote,
   RemoteScope,
@@ -22,10 +22,10 @@ import {
   type TypertLookup,
   type TypertResource,
   type TypertResourceResolveInput,
-} from '@deepseek-ai/dsh-typert-protocol'
-import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
+} from '@janhq/jan-typert-protocol'
+import TypertRegistry from '@janhq/jan-typert-registry'
 import { z } from 'zod'
-import TypertGatewayService, { type TypertRemoteEventDispatch } from '@deepseek-ai/dsh-api-gateway'
+import TypertGatewayService, { type TypertRemoteEventDispatch } from '@janhq/jan-api-gateway'
 import { callResources, eventResources } from '../src/access.ts'
 import { provideBrowserCredentials } from './browser-credentials.ts'
 import { ownerPeer, peerFor } from './peer.ts'
@@ -34,7 +34,7 @@ interface AccessAgent {
   readonly id: string
 }
 
-declare module '@deepseek-ai/dsh-typert-protocol' {
+declare module '@janhq/jan-typert-protocol' {
   interface PrincipalMap {
     /** Test-only non-owner caller shared by the access specs. */
     'test-guest': { readonly kind: 'test-guest'; readonly guest: string }
@@ -681,7 +681,7 @@ function eventSource(ctx: Context): (dispatch: TypertRemoteEventDispatch) => voi
         signal.addEventListener('abort', () => { resolve() }, { once: true })
       })
     }
-  }, { home: '/fixture' }))
+  }, { home: '/fixture', name: 'fixture-host', remote: false }))
   return (dispatch) => {
     queue.push(dispatch)
     wake?.()
@@ -721,13 +721,13 @@ describe('Gateway forwarded events for non-owner Peers', () => {
     const push = eventSource(ctx)
     const guest = ctx.connection.createPeer({ principal: GUEST })
     const abort = new AbortController()
-    const guestEvents = (await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), guest, abort.signal))[Symbol.asyncIterator]()
+    const guestEvents = (await ctx.typertGateway.wireStream.open('$events', { args: { hostInfo: true } }, (async function* () {})(), guest, abort.signal))[Symbol.asyncIterator]()
     const guestReady = await guestEvents.next()
     // A non-owner stream receives the same Host facts but cannot answer, so it does not count as a live Client.
-    expect(guestReady.value).toMatchObject({ type: 'ready', host: { home: '/fixture' } })
+    expect(guestReady.value).toMatchObject({ type: 'ready', host: { home: '/fixture', name: 'fixture-host', remote: false } })
     expect(ctx.typertGateway.hasLiveClient()).toBe(false)
-    const ownerEvents = (await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), ctx.connection.browserPeer, abort.signal))[Symbol.asyncIterator]()
-    await expect(ownerEvents.next()).resolves.toMatchObject({ value: { type: 'ready', host: { home: '/fixture' } } })
+    const ownerEvents = (await ctx.typertGateway.wireStream.open('$events', { args: { hostInfo: true } }, (async function* () {})(), ctx.connection.browserPeer, abort.signal))[Symbol.asyncIterator]()
+    await expect(ownerEvents.next()).resolves.toMatchObject({ value: { type: 'ready', host: { home: '/fixture', name: 'fixture-host', remote: false } } })
     expect(ctx.typertGateway.hasLiveClient()).toBe(true)
 
     expect(ctx.typertGateway.getPendingRemoteEvents()).toEqual([])

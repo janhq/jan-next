@@ -2,13 +2,11 @@
 
 Status: implemented
 
-English | [中文](2026-08-05-context-form-vocabulary.zh.md)
-
 ## Problem
 
 Every logged non-user `user/message` rendered through one body: the whole message serialized as inline JSON. A reader opening a row met `{ "content": [ { "type": "text", "text": "…\n\n…" } ], "source": { … } }`, where the escaping had collapsed the only thing worth reading — the model-facing prose — into a single line, and the producer fields sat inside the same blob.
 
-Naming the producer in the header (the [source and steer marks decision](../../archived/feature/2026-08-04-web-context-source-and-steer-marks.md)) fixed *who added this*. It could not fix *what kind of thing was added*, because nothing in the log said so. Injected context is not one shape: a reconciled `AGENTS.md`, a catalog of available skills, a runtime policy snapshot, and a subagent's report are as different from each other as a terminal card is from a diff card, yet all four presented as the same wall of escaped JSON.
+Naming the producer in the header fixed *who added this*. It could not fix *what kind of thing was added*, because nothing in the log said so. Injected context is not one shape: a reconciled `AGENTS.md`, a catalog of available skills, a runtime policy snapshot, and a subagent's report are as different from each other as a terminal card is from a diff card, yet all four presented as the same wall of escaped JSON.
 
 The tool surface already solved this shape. `ToolCallView` has three cards, not one per tool, and a tool declares which card its call is. Context had no equivalent: no vocabulary of shapes, and no way for a producer to say which one it emits.
 
@@ -23,7 +21,7 @@ The vocabulary is semantic, never visual. A value states that the content is a f
 
 **`instructions`** — instructions read out of workspace files. `agent-instructions` declares it on both the startup baseline and later deltas; its existing `changes[]` already carried the paths, actions, and digests the presentation needs, so no field was added. The body lists the reconciled files above the text, and keeps the `<system-reminder>` framing verbatim: the framing is part of what the model read, so hiding it would misreport the request.
 
-**`catalog`** — a catalog of items available this session, republished as it changes. `dsh-tool-skill` moves off the shared `plugin` kind to its own `skill-catalog` source carrying `entries` (the exact `name`/`description` pairs published) and `update` on a replacement, which the body renders as a replacement notice. The body lists those entries instead of re-parsing the `<available_skills>` block out of the prose.
+**`catalog`** — a catalog of items available this session, republished as it changes. `jan-tool-skill` moves off the shared `plugin` kind to its own `skill-catalog` source carrying `entries` (the exact `name`/`description` pairs published) and `update` on a replacement, which the body renders as a replacement notice. The body lists those entries instead of re-parsing the `<available_skills>` block out of the prose.
 
 Entries record the published fact **unescaped**. The pseudo-XML escaping belongs to the `<available_skills>` frame, which exists for the model, so it is applied when rendering that frame and never stored; otherwise a consumer would have to know the frame's encoding to display a description containing `<`, and the same frame knowledge this decision removes would leak back in another shape. `escapeText` is deterministic and injective, so digesting the unescaped entries preserves republish semantics exactly, and the model-facing text stays byte-identical.
 
@@ -49,7 +47,7 @@ The tool presentation contract pairs its vocabulary with `presentCall(args)`, a 
 
 ## Alternatives considered
 
-**Map source kinds to renderers in the client.** Cheapest to write and requires no format change, but it puts producer knowledge back in the client: every new kind then needs a client release to render as anything but opaque, and a foreign log cannot be classified at all. It also reintroduces exactly the coupling the [source and steer marks decision](../../archived/feature/2026-08-04-web-context-source-and-steer-marks.md) removed for labels.
+**Map source kinds to renderers in the client.** Cheapest to write and requires no format change, but it puts producer knowledge back in the client: every new kind then needs a client release to render as anything but opaque, and a foreign log cannot be classified at all. It also reintroduces exactly the coupling that naming the producer removed for labels.
 
 **Reuse `kind` as the form.** One discriminant is simpler, and `agent-instructions` is already 1:1 with its form. This design loses information when several producers share one form: three shipped producers emit runtime snapshots, and combining them into one kind would make it impossible to tell which producer supplied each message. Separate `kind` and `form` fields record the producer while allowing several producers to share one presentation.
 

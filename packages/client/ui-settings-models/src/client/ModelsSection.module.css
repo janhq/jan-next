@@ -11,14 +11,6 @@
   color: var(--dsw-alias-label-primary);
 }
 
-.title {
-  margin: 0;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 500;
-  color: var(--dsw-alias-label-primary);
-}
-
 .intro {
   margin: 0;
   font-size: 14px;
@@ -111,16 +103,6 @@
 
 .credentialDotMissing {
   background: var(--dsw-alias-state-error-primary);
-}
-
-.accountStatus {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--dsw-alias-state-success-primary);
 }
 
 .rowActions {
@@ -391,8 +373,7 @@
   display: none;
 }
 
-.addCard,
-.setupCard {
+.addCard {
   border-radius: var(--dsw-radius-lg);
   background: var(--dsw-alias-bg-module-platform);
   padding: 14px 16px;
@@ -403,8 +384,7 @@
 }
 
 /* Nested in a card that already carries the module chrome. */
-.addCard .editor,
-.setupCard .editor {
+.addCard .editor {
   background: none;
   padding: 0;
 }
@@ -722,10 +702,6 @@
   gap: 6px;
 }
 
-.modelReasoningRow .selectInput {
-  max-width: none;
-}
-
 .modelReasoningValueInput {
   font-family: var(--ds-font-family-code);
   font-size: 13px;
@@ -836,18 +812,11 @@ select.input {
   cursor: default;
 }
 
-/* Select variant of .input: replaces the OS arrow (which sits flush against
-   the right edge) with the shared 12px chevron inset like the composer's
-   .select chips; the right pad reserves its cell. */
-.selectInput {
-  appearance: none;
-  padding-right: 32px;
-  /* Data-URI SVGs cannot resolve CSS variables; #81858C is the caption gray
-     shared by both themes. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2381858C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 12px 12px;
+/* SelectMenu stretched to the field width, label left and chevron right. */
+.selectMenu {
+  width: 100%;
+  max-width: none;
+  justify-content: space-between;
 }
 
 .error {
@@ -862,7 +831,7 @@ select.input {
 }
 
 .deleteConfirm:not(:disabled) {
-  --dsh-button-outline-color: var(--dsw-alias-state-error-primary);
+  --jan-button-outline-color: var(--dsw-alias-state-error-primary);
   color: var(--dsw-alias-state-error-primary);
 }
 
@@ -897,8 +866,8 @@ select.input {
      scrollbar indirection is rebound here rather than on the scrolling child:
      the elevation choice belongs with the surface and inherits down (see
      ui-theme styles/scrollbar.css for the contract). */
-  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
-  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+  --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
 .candidateToolbar {

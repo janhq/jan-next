@@ -1,7 +1,5 @@
 # Remote and API rules
 
-English | [中文](remote-and-api.zh.md)
-
 Rules for the `packages/api` layer and the remote methods it exposes. [api-gateway.md](../api-gateway.md) describes the call model itself. Each section below states the requirement, how a reviewer judges it, what it does not cover, which exception applies and who approves it, and a correct and a wrong example.
 
 ## A new remote capability gets its own service
@@ -16,7 +14,7 @@ A new remote business capability is a new service — its own package or its own
 The subagent capability owns its own service, and every remote method is a concrete method of that service:
 
 ```ts ignore-check
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { Remote, TypertRemoteService } from '@janhq/jan-typert-protocol'
 
 interface SubagentList { ids: string[] }
 interface PromptRequest { text: string }
@@ -57,7 +55,7 @@ One object then answers for both domains, so a change to either capability's act
 The generated map is the only source for Client-facing types, the decorator sits on the concrete method, and the payload stays JSON:
 
 ```ts ignore-check
-import { Remote, TypertRemoteService, type TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
+import { Remote, TypertRemoteService, type TypertClientRemote } from '@janhq/jan-typert-protocol'
 
 // Client-facing types come from the generated map, never from a second hand-written set.
 type SessionRemote = TypertClientRemote['session']

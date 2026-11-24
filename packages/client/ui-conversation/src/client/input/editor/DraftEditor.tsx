@@ -2,7 +2,7 @@
 import type { CSSProperties, KeyboardEventHandler, ReactNode, RefObject } from 'react'
 import type { LexicalEditor } from 'lexical'
 import clsx from 'clsx'
-import { HoverCardGroup } from '@deepseek-ai/dsh-client-ui-primitives'
+import { HoverCardGroup } from '@janhq/jan-client-ui-primitives'
 import type { InputState } from '../../contract/input.ts'
 import { ComposerContentEditable } from './ComposerContentEditable.tsx'
 import { DecoratorPortals } from './DecoratorPortals.tsx'
@@ -16,10 +16,12 @@ export interface DraftEditorProps {
   readonly editorDisabled: boolean
   readonly phase: InputState['phase'] | 'inert'
   readonly placeholderText: string
+  readonly placeholderContent?: ReactNode
   readonly ariaLabel: string
   readonly workspaceTrigger: boolean
   readonly workspacePickerOpen: boolean
   readonly onWorkspaceKeyDown: KeyboardEventHandler<HTMLDivElement>
+  readonly onDraftInteraction?: ((element: HTMLDivElement) => void) | undefined
   readonly hint: string | null
   readonly showPlaceholder: boolean
 }
@@ -31,7 +33,7 @@ export interface DraftEditorProps {
  */
 export function DraftEditor({
   classNames: css, editor, scrollRef, editable, editorDisabled, phase, placeholderText, ariaLabel,
-  workspaceTrigger, workspacePickerOpen, onWorkspaceKeyDown, hint, showPlaceholder,
+  workspaceTrigger, workspacePickerOpen, onWorkspaceKeyDown, onDraftInteraction, hint, showPlaceholder, placeholderContent,
 }: DraftEditorProps): ReactNode {
   return (
     <div ref={scrollRef} className={css.scroll} data-input-scroll>
@@ -50,11 +52,13 @@ export function DraftEditor({
           aria-expanded={workspaceTrigger ? workspacePickerOpen : undefined}
           tabIndex={workspaceTrigger ? 0 : undefined}
           onKeyDown={workspaceTrigger ? onWorkspaceKeyDown : undefined}
-          style={hint === null ? undefined : { '--dsh-composer-hint': JSON.stringify(hint) } as CSSProperties}
+          onFocus={onDraftInteraction === undefined ? undefined : (event) => { onDraftInteraction(event.currentTarget) }}
+          onInput={onDraftInteraction === undefined ? undefined : (event) => { onDraftInteraction(event.currentTarget) }}
+          style={hint === null ? undefined : { '--jan-composer-hint': JSON.stringify(hint) } as CSSProperties}
         />
         {showPlaceholder && (
           <div aria-hidden className={css.placeholder} data-composer-placeholder>
-            {placeholderText}
+            {placeholderContent ?? placeholderText}
           </div>
         )}
         <DecoratorPortals editor={workspaceTrigger ? null : editor} />

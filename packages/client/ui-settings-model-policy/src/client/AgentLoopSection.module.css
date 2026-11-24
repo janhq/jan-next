@@ -1,0 +1,9 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.section > :global([data-slot='settings.agentLoop.item']) > :last-child:not(section) {
+  border-bottom: none;
+}

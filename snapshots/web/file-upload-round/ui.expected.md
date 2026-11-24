@@ -17,12 +17,12 @@
 - paragraph: UPLOAD_ROUND_OK
 - button "Copy"
 - button "Branch into a new conversation"
-- button "Usage 17.3K tok"
+- button "Turn usage"
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash-Vision-Exp, reasoning effort high": DeepSeek-V4-Flash-Vision-Exp high
+- 'button "Access mode, current: Project Write"': Project Write
+- button "Select model, current Tokamak 1 Vision Experimental, reasoning effort high": Tokamak 1 Vision Experimental high
 - button "Send message" [disabled]
 - button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
 - button "17.3K tok · Cache hit 51%": 17.3K tokCache hit 51%

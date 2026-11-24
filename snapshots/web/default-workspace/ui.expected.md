@@ -1,12 +1,8 @@
 - banner:
   - navigation "Session hierarchy": Use the bash tool to
-  - text: Standard mode
+  - 'button "Switch the agent preset for this task: Standard mode"': Standard mode
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
 - text: "Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop. {{clock}}"
 - button "Copy"
 - status: Completed
@@ -17,9 +13,9 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
+- 'button "Access mode, current: Project Write"': Project Write
+- button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
-- button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
+- button "1 turns 2 steps"
 - button "15.8K tok · Cache hit 99%": 15.8K tokCache hit 99%
 - button "6% of context used": 6%

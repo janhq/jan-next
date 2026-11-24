@@ -9,21 +9,23 @@ import { MenuSurface } from './MenuSurface.tsx'
 import css from './Menu.module.css'
 
 /** Name the parent card anchor, and hide the child card until its layout is known. */
-function anchors(submenu: ReturnType<typeof useMenuSubmenu>, hidden: boolean): CSSProperties & Record<`--dsh-submenu-${string}`, string> {
-  return { '--dsh-submenu-parent': submenu.parentAnchor, ...hidden ? { visibility: 'hidden' } : {} }
+function anchors(submenu: ReturnType<typeof useMenuSubmenu>, hidden: boolean): CSSProperties & Record<`--jan-submenu-${string}`, string> {
+  return { '--jan-submenu-parent': submenu.parentAnchor, ...hidden ? { visibility: 'hidden' } : {} }
 }
 
 /** Render one child list with a non-selecting back row in single-page placement.
  * @param props - active entry, submenu operations, and shared row presentation options.
  * @returns a body portal that preserves child DOM identity across placement changes.
  */
-export function SubmenuPanel({ entry, submenu, compact, dense, contextual, backLabel, onSelect, onClose, afterSelection }: {
+export function SubmenuPanel({ entry, submenu, compact, dense, contextual, backLabel, selected, onSelect, onClose, afterSelection }: {
   entry: NonNullable<ReturnType<typeof useMenuSubmenu>['entry']>
   submenu: ReturnType<typeof useMenuSubmenu>
   compact: boolean
   dense: boolean
   contextual: boolean
   backLabel: ReactNode
+  /** Whether a child row is the selected one (the root menu's selection marks children too). */
+  selected: (id: string) => boolean
   onSelect: ((id: string) => void) | undefined
   onClose: () => void
   afterSelection: () => void
@@ -45,7 +47,8 @@ export function SubmenuPanel({ entry, submenu, compact, dense, contextual, backL
     <div className={css.viewport} role="presentation">
       {entry.submenu.map(sub => 'type' in sub ? renderMenuDecoration(sub)
         : <MenuRow key={sub.id} icon={sub.icon} reserveIcon={columns.has(sub)} disabled={sub.disabled}
-          danger={sub.danger} shortcut={sub.shortcut} onClick={() => { onSelect?.(sub.id) }}>{sub.label}</MenuRow>)}
+          danger={sub.danger} shortcut={sub.shortcut} selected={selected(sub.id)}
+          onClick={() => { onSelect?.(sub.id) }}>{sub.label}</MenuRow>)}
     </div>
   </MenuSurface>, document.body)
 }

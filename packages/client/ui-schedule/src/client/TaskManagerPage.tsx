@@ -1,14 +1,14 @@
 /** Cross-session retained reminders with local search and selection. */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import clsx from 'clsx'
 import {
-  Button, IconClockOutlineRegular, IconCloseOutlineRegular, IconEllipsisOutlineRegular, IconPlusOutlineRegular,
-  IconSearchOutlineRegular, IconTrashOutlineRegular, IconChevronDownOutlineRegular, IconEditOutlineRegular,
+  Button, IconChevronDownOutlineRegular, IconClockOutlineRegular, IconCloseOutlineRegular, IconEditOutlineRegular,
+  IconEllipsisOutlineRegular, IconPlusOutlineRegular, IconScheduledTaskOutlineRegular, IconSearchOutlineRegular, IconTrashOutlineRegular,
   Input, Menu, MenuItemButton, Modal, ReferenceIconRegular, Tooltip,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type { ScheduleId, ScheduleCatalogEntry, ScheduleCreateRequest } from '@deepseek-ai/dsh-schedule/client'
+} from '@janhq/jan-client-ui-primitives'
+import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type { } from '@janhq/jan-client-ui-layout/client'
+import type { ScheduleId, ScheduleCatalogEntry, ScheduleCreateRequest } from '@janhq/jan-schedule/client'
 import type { TaskCreateOutcome } from './TaskDetail.tsx'
 import type { TaskEditorStoreProps } from './editor-store.ts'
 import { taskNextRunAt, taskSessionId } from './task-record.ts'
@@ -16,10 +16,29 @@ import type { CatalogSnapshot } from './catalog-source.ts'
 import { CatalogFeedback } from './CatalogFeedback.tsx'
 import { TaskDetail, useTaskDetail, type TaskDetailInjected } from './TaskDetail.tsx'
 import { useRelativeClock } from './relative-clock.ts'
-import { formatScheduleFrequency, nextRunParts, taskName, zoneLabel } from './schedule-format.ts'
+import { formatScheduleAgo, formatScheduleFrequency, nextRunParts, taskName, zoneLabel } from './schedule-format.ts'
 import type { FrequencyZone } from './schedule-format.ts'
-import { ScheduleEmptyIllustration } from './ScheduleEmptyIllustration.tsx'
+import type { TaskEditorDraft } from './TaskEditorFields.tsx'
+import { TASK_TEMPLATES, templateDraft, templateSchedule, type TaskTemplate, type TaskTemplateId } from './task-templates.ts'
+import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
 import css from './TaskManagerPage.module.css'
+
+/** The detail's share of the page, in percent: bounds, default, and the key that keeps it between visits. */
+const DETAIL_MIN = 30
+const DETAIL_MAX = 70
+const DETAIL_DEFAULT = 47
+const DETAIL_WIDTH_KEY = 'jan.schedule.detailWidth'
+const clampDetailWidth = (width: number): number => Math.min(DETAIL_MAX, Math.max(DETAIL_MIN, width))
+function readDetailWidth(): number {
+  if (typeof localStorage === 'undefined') return DETAIL_DEFAULT
+  const stored = Number(localStorage.getItem(DETAIL_WIDTH_KEY))
+  return Number.isFinite(stored) && stored > 0 ? clampDetailWidth(stored) : DETAIL_DEFAULT
+}
+function saveDetailWidth(width: number): number {
+  const next = clampDetailWidth(width)
+  if (typeof localStorage !== 'undefined') localStorage.setItem(DETAIL_WIDTH_KEY, String(Math.round(next * 10) / 10))
+  return next
+}
 
 /** Injected catalog and task actions for the management page. */
 export interface TaskManagerInjected extends TaskDetailInjected {
@@ -61,6 +80,12 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
   const { useCatalog, onNewTask, onClearEnded, onRetry, onCreateTask, t } = props
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const [manualOpen, setManualOpen] = useState(false)
+  const [view, setView] = useState<'yours' | 'templates'>('yours')
+  // A chosen template seeds the create form; a new choice remounts it.
+  const [template, setTemplate] = useState<{ readonly id: TaskTemplateId; readonly draft: TaskEditorDraft } | null>(null)
+  const workspaces = props.useWorkspaces(snapshot => snapshot.items)
+  const projectsByPath = useMemo(() => new Map(workspaces.map(item => [item.path, item])), [workspaces])
+  const sessions = props.useSessions(snapshot => snapshot.byId)
   const catalog = useCatalog(snapshot => snapshot)
   const { records, status } = catalog
   const [search, setSearch] = useState('')
@@ -135,8 +160,11 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
     setSelectedId(null)
     setManualOpen(false)
   }
-  const createManually = (trigger: HTMLButtonElement | null): void => {
+  const createManually = (trigger: HTMLButtonElement | null, from: TaskTemplate | null = null): void => {
     rowRef.current = trigger
+    // The create form keeps an unsaved draft under one key; a template starts it over.
+    if (from !== null) props.actions.clearDraft('new')
+    setTemplate(from === null ? null : { id: from.id, draft: templateDraft(from, t) })
     setSelectedId(null); setManualOpen(true); setTab('rule')
   }
 
@@ -164,6 +192,30 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
     headingRef.current?.focus()
   }, [clearConfirm, endedCount])
 
+  const pageRef = useRef<HTMLElement>(null)
+  const [detailWidth, setDetailWidth] = useState(readDetailWidth)
+  // Dragging the detail's left border sets its share of the page; the last width is kept for the next visit.
+  const startResize = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    const page = pageRef.current
+    if (page === null || event.button !== 0) return
+    event.preventDefault()
+    const bounds = page.getBoundingClientRect()
+    const widthAt = (x: number): number => clampDetailWidth((bounds.right - x) / bounds.width * 100)
+    // Window listeners keep the drag alive when the pointer leaves the 8px strip.
+    const move = (moved: PointerEvent): void => { setDetailWidth(widthAt(moved.clientX)) }
+    const end = (ended: PointerEvent): void => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+      document.body.style.removeProperty('cursor')
+      setDetailWidth(saveDetailWidth(widthAt(ended.clientX)))
+    }
+    document.body.style.cursor = 'col-resize'
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+  }
+
   const confirmClearEnded = (): void => {
     // The confirmation button stays focusable while the removal runs, so a
     // second press has to be ignored here instead of by `disabled`.
@@ -176,9 +228,12 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
     })
   }
 
+  const detailOpen = selected !== undefined || manualOpen
   return (
     <section
-      className={clsx(css.page, (selected !== undefined || manualOpen) && css.hasDetails)}
+      ref={pageRef}
+      className={clsx(css.page, detailOpen && css.hasDetails)}
+      style={{ '--task-detail-width': `${detailWidth}%` } as CSSProperties}
       aria-label={t('title')}
       data-testid="task-manager-page"
       onKeyDown={(event) => {
@@ -219,122 +274,179 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
                 </span>
               </div>
             </div>
-            <div className={css.filters}>
-              <div className={css.filterTabs} role="group" aria-label={t('statusFilter.label')}>
-                {(['active', 'paused', 'ended', 'all'] as const).map(value => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={clsx(css.filterTab, statusFilter === value && css.filterTabActive)}
-                    aria-pressed={statusFilter === value}
-                    onClick={() => { setStatusFilter(value) }}
-                  >
-                    {t(value === 'all' ? 'statusFilter.all' : `status.${value}`)}
+            <div className={css.viewTabs} role="tablist" aria-label={t('view.label')}>
+              {(['yours', 'templates'] as const).map(value => (
+                <button key={value} type="button" role="tab" aria-selected={view === value}
+                  className={clsx(css.filterTab, view === value && css.filterTabActive)}
+                  onClick={() => { setView(value) }}>
+                  {t(`view.${value}`)}
+                </button>
+              ))}
+            </div>
+            {view === 'templates' ? <ul className={css.templateGrid} aria-label={t('view.templates')}>
+              {TASK_TEMPLATES.map(item => (
+                <li key={item.id}>
+                  <button type="button" className={css.templateCard}
+                    onClick={(event) => { createManually(event.currentTarget, item) }}>
+                    <span className={css.templateGlyph} aria-hidden>{item.icon()}</span>
+                    <span className={css.rowContent}>
+                      <span className={css.rowTitle}>{t(`template.${item.id}.title`)}</span>
+                      <span className={css.templateDescription}>{t(`template.${item.id}.description`)}</span>
+                      <span className={css.templateSchedule}>
+                        <IconClockOutlineRegular size={14} />{templateSchedule(item, t)}
+                      </span>
+                    </span>
                   </button>
-                ))}
+                </li>
+              ))}
+            </ul> : <>
+              <div className={css.filters}>
+                <div className={css.filterTabs} role="group" aria-label={t('statusFilter.label')}>
+                  {(['active', 'paused', 'ended', 'all'] as const).map(value => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={clsx(css.filterTab, statusFilter === value && css.filterTabActive)}
+                      aria-pressed={statusFilter === value}
+                      onClick={() => { setStatusFilter(value) }}
+                    >
+                      {t(value === 'all' ? 'statusFilter.all' : `status.${value}`)}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className={css.searchTools}>
-              <div className={css.searchField}>
-                <Input
-                  type="search"
-                  icon={<IconSearchOutlineRegular />}
-                  aria-label={t('search.label')}
-                  placeholder={t('search.placeholder')}
-                  value={search}
-                  onChange={(event) => { setSearch(event.target.value) }}
-                />
-                {search !== '' && <Button size="sm" className={css.searchClear} aria-label={t('search.clear')} onClick={() => { setSearch('') }}>
-                  <IconCloseOutlineRegular />
-                </Button>}
+              <div className={css.searchTools}>
+                <div className={css.searchField}>
+                  <Input
+                    type="search"
+                    icon={<IconSearchOutlineRegular />}
+                    aria-label={t('search.label')}
+                    placeholder={t('search.placeholder')}
+                    value={search}
+                    onChange={(event) => { setSearch(event.target.value) }}
+                  />
+                  {search !== '' && <Button size="sm" className={css.searchClear} aria-label={t('search.clear')} onClick={() => { setSearch('') }}>
+                    <IconCloseOutlineRegular />
+                  </Button>}
+                </div>
+                {statusFilter !== 'active' && endedCount > 0 && <Menu
+                  open={clearMenu}
+                  onClose={() => { setClearMenu(false) }}
+                  align="end"
+                  portal
+                  items={[{
+                    id: 'clear-inactive', label: t(clearing ? 'clear.pending' : 'clear.action'),
+                    icon: <IconTrashOutlineRegular />, danger: true,
+                    disabled: clearing || status !== 'ready',
+                  }]}
+                  onSelect={() => {
+                    setClearMenu(false)
+                    clearFocusPending.current = true
+                    setClearConfirm(true)
+                  }}
+                  anchor={<Tooltip label={t('list.more')} side="bottom" portal disabled={clearMenu}>
+                    <Button
+                      ref={clearTriggerRef}
+                      variant="outline"
+                      className={css.catalogMore}
+                      aria-label={t('list.more')}
+                      aria-haspopup="menu"
+                      aria-expanded={clearMenu}
+                      aria-busy={clearing}
+                      onClick={() => { setClearMenu(value => !value) }}
+                    >
+                      <IconEllipsisOutlineRegular />
+                    </Button>
+                  </Tooltip>}
+                />}
               </div>
-              {statusFilter !== 'active' && endedCount > 0 && <Menu
-                open={clearMenu}
-                onClose={() => { setClearMenu(false) }}
-                align="end"
-                portal
-                items={[{
-                  id: 'clear-inactive', label: t(clearing ? 'clear.pending' : 'clear.action'),
-                  icon: <IconTrashOutlineRegular />, danger: true,
-                  disabled: clearing || status !== 'ready',
-                }]}
-                onSelect={() => {
-                  setClearMenu(false)
-                  clearFocusPending.current = true
-                  setClearConfirm(true)
-                }}
-                anchor={<Tooltip label={t('list.more')} side="bottom" portal disabled={clearMenu}>
-                  <Button
-                    ref={clearTriggerRef}
-                    variant="outline"
-                    className={css.catalogMore}
-                    aria-label={t('list.more')}
-                    aria-haspopup="menu"
-                    aria-expanded={clearMenu}
-                    aria-busy={clearing}
-                    onClick={() => { setClearMenu(value => !value) }}
-                  >
-                    <IconEllipsisOutlineRegular />
+              <div className={css.list}>
+                {selected === undefined && <CatalogFeedback status={status} populated={rows.length > 0} onRetry={onRetry} t={t} />}
+                {status === 'ready' && rows.length === 0 && <div className={css.empty} role="status">
+                  <IconScheduledTaskOutlineRegular size={48} className={css.emptyGlyph} />
+                  <h2>{t(emptyTitle)}</h2>
+                  <Button variant="outline" className={css.emptyAction} onClick={(event) => { createManually(event.currentTarget) }}>
+                    {t('empty.action')}
                   </Button>
-                </Tooltip>}
-              />}
-            </div>
-            <div className={css.list}>
-              {selected === undefined && <CatalogFeedback status={status} populated={rows.length > 0} onRetry={onRetry} t={t} />}
-              {status === 'ready' && rows.length === 0 && <div className={css.empty} role="status">
-                <ScheduleEmptyIllustration className={css.emptyIllustration} />
-                <h2>{t(emptyTitle)}</h2>
-                <Button variant="outline" className={css.emptyAction} onClick={(event) => { createManually(event.currentTarget) }}>
-                  {t('empty.action')}
-                </Button>
-              </div>}
-              <ul className={css.listRows} aria-label={t('list.label')} aria-busy={status === 'loading'}>
-                {rows.map((record) => {
-                  // One pair per row: the same absolute stamp and distance reach
-                  // both halves, from one formatting call.
-                  const nextRunAt = taskNextRunAt(record)
-                  const nextRun = nextRunParts(nextRunAt, t('time.locale'), now, t)
-                  return (
-                    <li key={record.id}>
-                      <Button
-                        className={clsx(css.row, selectedId === record.id && css.selectedRow,
-                          record.status !== 'active' && css.endedRow)}
-                        aria-label={taskName(record)}
-                        aria-describedby={`${detailId}-metadata-${record.id}`}
-                        aria-expanded={selectedId === record.id}
-                        aria-controls={selectedId === record.id ? detailId : undefined}
-                        onClick={(event) => {
-                          rowRef.current = event.currentTarget
-                          setManualOpen(false)
-                          setSelectedId(record.id)
-                          setTab('rule')
-                        }}
-                      >
-                        <IconClockOutlineRegular className={css.rowGlyph} />
-                        <span className={css.rowContent}>
-                          <span className={css.rowTitle}>{taskName(record)}</span>
-                          <span className={css.rowSummary} id={`${detailId}-metadata-${record.id}`}>
-                            {record.status !== 'active'
-                              && <span className={css.metadata}>{t(`status.${record.status}`)}</span>}
-                            <span className={css.metadata}>{formatScheduleFrequency(record, t, frequencyZone)}</span>
-                            {record.status === 'active' && <span className={css.metadata}>
-                              {t('list.nextPrefix')}<time dateTime={nextRunAt}>
-                                {nextRun.absolute}
-                              </time>
-                              {' '}<span className={css.nextRunRelative}>{nextRun.relative}</span>
-                            </span>}
+                </div>}
+                <ul className={css.listRows} aria-label={t('list.label')} aria-busy={status === 'loading'}>
+                  {rows.map((record) => {
+                    // One pair per row: the same absolute stamp and distance reach
+                    // both halves, from one formatting call.
+                    const nextRunAt = taskNextRunAt(record)
+                    const nextRun = nextRunParts(nextRunAt, t('time.locale'), now, t)
+                    const target = record.target
+                    const cwd = target.kind === 'session' ? sessions[target.sessionId]?.cwd : target.kind === 'plugin' ? undefined : target.create.cwd
+                    const project = cwd === undefined ? undefined : projectsByPath.get(cwd)
+                    const workspace = project === undefined
+                      ? (cwd === undefined ? t('host.ungrouped') : cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? cwd)
+                      : workspaceDisplayTitle(project, t('host.defaultProject'))
+                    const lastRun = record.lastDelivery
+                    const lastSession = lastRun?.targetSessionId === undefined ? undefined : sessions[lastRun.targetSessionId]
+                    // A run's Session ends its turn in an error the conversation can continue; that is the failed state shown here.
+                    const lastFailed = lastRun !== undefined
+                      && typeof lastSession?.projectionValues?.conversationContinuation === 'number'
+                    return (
+                      <li key={record.id}>
+                        <Button
+                          className={clsx(css.row, selectedId === record.id && css.selectedRow,
+                            record.status !== 'active' && css.endedRow)}
+                          aria-label={taskName(record)}
+                          aria-describedby={`${detailId}-metadata-${record.id}`}
+                          aria-expanded={selectedId === record.id}
+                          aria-controls={selectedId === record.id ? detailId : undefined}
+                          onClick={(event) => {
+                            rowRef.current = event.currentTarget
+                            setManualOpen(false)
+                            setSelectedId(record.id)
+                            setTab('rule')
+                          }}
+                        >
+                          <IconClockOutlineRegular className={css.rowGlyph} />
+                          <span className={css.rowContent}>
+                            <span className={css.rowTitle}>{taskName(record)}</span>
+                            <span className={css.rowSummary} id={`${detailId}-metadata-${record.id}`}>
+                              {record.status !== 'active'
+                                && <span className={css.metadata}>{t(`status.${record.status}`)}</span>}
+                              <span className={css.metadata}>{formatScheduleFrequency(record, t, frequencyZone)}</span>
+                              {record.status === 'active' && <span className={css.metadata}>
+                                {t('list.nextPrefix')}<time dateTime={nextRunAt}>
+                                  {nextRun.absolute}
+                                </time>
+                                {' '}<span className={css.nextRunRelative}>{nextRun.relative}</span>
+                              </span>}
+                            </span>
+                            <span className={css.rowSummary}>
+                              <span className={css.metadata}>{target.kind === 'plugin' ? t('host.pluginOwner', { owner: target.owner })
+                                : workspace}</span>
+                              <span className={clsx(css.metadata, lastFailed && css.lastRunFailed)}>
+                                {lastRun === undefined ? t('list.neverRun') : t(lastFailed ? 'list.lastRunFailed' : 'list.lastRun', {
+                                  time: formatScheduleAgo(lastRun.deliveredAt, now, t('time.locale')),
+                                })}
+                              </span>
+                            </span>
                           </span>
-                        </span>
-                      </Button>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
+                        </Button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            </>}
           </div>
         </div>
+        {detailOpen && <div className={css.detailHandle} role="separator" aria-orientation="vertical" tabIndex={0}
+          aria-label={t('detail.resize')} aria-valuemin={DETAIL_MIN} aria-valuemax={DETAIL_MAX} aria-valuenow={Math.round(detailWidth)}
+          onPointerDown={startResize}
+          onKeyDown={(event) => {
+            const step = event.key === 'ArrowLeft' ? 2 : event.key === 'ArrowRight' ? -2 : 0
+            if (step === 0) return
+            event.preventDefault()
+            setDetailWidth(width => saveDetailWidth(width + step))
+          }} />}
       </div>
-      {manualOpen ? <TaskDetail {...detail.props} onCreateTask={onCreateTask} onClose={closeDetails} onDeleted={closeDetails}
+      {manualOpen ? <TaskDetail key={template?.id ?? 'blank'} {...detail.props} template={template?.draft}
+        onCreateTask={onCreateTask} onClose={closeDetails} onDeleted={closeDetails}
         onCreated={(task) => {
           setManualOpen(false); setSearch(''); setStatusFilter('all'); setSelectedId(task.id); setTab('rule')
         }} /> : selected !== undefined && <TaskDetail

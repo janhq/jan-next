@@ -1,7 +1,5 @@
 # Voice input
 
-English | [中文](voice-input.zh.md)
-
 Experimental speech recognition has three roles: the [Service Definition](../../packages/experimental/speech-to-text/README.md) routes named providers, the [SenseVoice provider](../../packages/experimental/speech-to-text-sensevoice/README.md) owns local inference, and the [Remote consumer](../../packages/experimental/api-speech-to-text/README.md) serves the browser. The [optional bundle](../../packages/experimental/voice-input-bundle/README.md) composes them with the microphone UI.
 
 ## Provider selection
@@ -24,7 +22,9 @@ The Host provider owns one preparation task across page and Session changes. The
 
 Failed preparation can include `SpeechDownloadFailure` with the asset, source origin, classified reason and optional diagnostic code or HTTP status. The Client localizes recovery advice; raw download causes remain on the Host.
 
-The microphone occupies `conversation.input.activity`, between the model selector and Send. Clicking starts capture and expands the toolbar; Stop transcribes and inserts into the draft. The activity preserves the editor and submit action, owns local feedback, and releases expansion on unmount. Cancel, Escape or hiding the page discards capture. Waveform history displays measured microphone amplitude. Bundle details contain recognition preferences, preparation state and progress. Explicit enablement uses `plugins.bundle.activation` to guide users with missing models to setup; the list shows only the bundle description and switch.
+On Jan Desktop the microphone occupies `conversation.input.draftActivity`, between the model selector and Send, even before the first Session or Voice Input enablement. The first click opens a setup dialog with language selection and local preparation progress. After preparation, the dialog saves preferences, enables the existing Voice Input bundle through Plugins, and begins capture. Closing the dialog discards pending preferences and cancels only the preparation it started; verified artifacts may be reused. The optional `voice-input.options` slot keeps alternate modes such as Talk to Jan beside the microphone in an open draft.
+
+Once set up, the microphone starts capture and expands the toolbar. Stop transcribes and inserts into the draft. The activity preserves editing and submission, owns local feedback, and releases expansion on unmount. Cancel, Escape or hiding the page discards capture. Waveform history displays measured microphone amplitude only during dictation. Bundle details still contain device and recognizer preferences, preparation state and progress.
 
 ## Design rationale
 
@@ -36,7 +36,7 @@ The [voice input decision](../../.agents/notes/implemented/architecture/2026-09-
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxspeechcontroller--speechcontroller"></a>
 

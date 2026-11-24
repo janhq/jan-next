@@ -1,23 +1,23 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session/types'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime, { TOOL_ABORTED } from '@deepseek-ai/dsh-tools'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import { unsupportedModel, provideWorkingDirectoryFixture, unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
-import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
-import * as ToolTasks from '@deepseek-ai/dsh-tool-jobs'
-import { ShellExecutor } from '@deepseek-ai/dsh-shell'
-import type { ShellExecRequest, ShellExecSpec, ShellExecution, ShellProcess } from '@deepseek-ai/dsh-shell'
+import { Context } from '@janhq/cordis'
+import { ToolCallId } from '@janhq/jan-llm'
+import { Session, SessionId } from '@janhq/jan-session'
+import { SESSION_FORMAT_VERSION } from '@janhq/jan-session/types'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime, { TOOL_ABORTED } from '@janhq/jan-tools'
+import AgentRegistry from '@janhq/jan-agent'
+import type { Agent } from '@janhq/jan-agent'
+import { unsupportedModel, provideWorkingDirectoryFixture, unsupportedInbox } from '@janhq/jan-agent-loop-testkit'
+import LocalJobRegistry from '@janhq/jan-jobs-local'
+import * as ToolTasks from '@janhq/jan-tool-jobs'
+import { ShellExecutor } from '@janhq/jan-shell'
+import type { ShellExecRequest, ShellExecSpec, ShellExecution, ShellProcess } from '@janhq/jan-shell'
 import { renderPwshPromoted } from '../src/render.ts'
-import * as ToolPwsh from '@deepseek-ai/dsh-tool-pwsh'
-import * as BashEnvPlugin from '@deepseek-ai/dsh-shell-env'
+import * as ToolPwsh from '@janhq/jan-tool-pwsh'
+import * as BashEnvPlugin from '@janhq/jan-shell-env'
 import { processSources, ringDelta } from '../src/background.ts'
 
 const testToolSignal = new AbortController().signal
@@ -68,7 +68,7 @@ class FakePwsh extends ShellExecutor {
       onExpiry: request.onExpiry ?? 'kill',
       stdoutMaxBytes: request.stdoutMaxBytes ?? 64_000,
       ...request.signal ? { signal: request.signal } : {},
-      ...request.dshEnv !== undefined ? { dshEnv: request.dshEnv } : {},
+      ...request.janEnv !== undefined ? { janEnv: request.janEnv } : {},
       sandboxPolicy: request.sandboxPolicy,
     }
   }
@@ -456,7 +456,7 @@ describe('foreground commands as jobs (pwsh)', () => {
   })
 
   it('runs under the deadline kill when no job controller serves the owner', async () => {
-    // The same composition minus dsh-tool-jobs: the registry exists, so the
+    // The same composition minus jan-tool-jobs: the registry exists, so the
     // job-backed variant is registered, but admission refuses at the start
     // and the call runs under the executor's deadline instead.
     const ctx = new Context()

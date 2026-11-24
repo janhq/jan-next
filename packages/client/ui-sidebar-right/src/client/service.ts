@@ -34,12 +34,12 @@
  * forwards the seats' reports; callers use the service's navigation methods.
  */
 import { sidebarTargetFromElement, type SidebarRightTarget } from './focus.ts'
-import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
-import { createSnapshotStore, type ObservableSnapshot, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { FloatRect, LayoutState, PaneId, TabId, TabRecord } from '@deepseek-ai/dsh-client-ui-dockkit'
-import { activeDockPaneId, canSplit, findContentTab, findPaneContentTab, dockPaneIds, findTabPane, getPane } from '@deepseek-ai/dsh-client-ui-dockkit'
-import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { randomUUID } from '@janhq/jan-util-crypto'
+import { createSnapshotStore, type ObservableSnapshot, type SnapshotStore } from '@janhq/jan-client-store'
+import type { FloatRect, LayoutState, PaneId, TabId, TabRecord } from '@janhq/jan-client-ui-dockkit'
+import { activeDockPaneId, canSplit, findContentTab, findPaneContentTab, dockPaneIds, findTabPane, getPane } from '@janhq/jan-client-ui-dockkit'
+import type { BoundActions } from '@janhq/jan-client-ui-slots'
+import type { SessionId } from '@janhq/jan-session/types'
 import type { SidebarRightNavigationParams, SidebarRightResourceParams, SidebarRightTabParamsFor } from './contract/params.ts'
 import { pageAddress } from './contract/seed.ts'
 import type { SidebarRightDestination } from './contract/slots.ts'
@@ -48,6 +48,7 @@ import { canCloseTab, findHostContentTab, type SidebarRightState, type SurfaceSt
 import type { createSidebarRightStore } from './stores.ts'
 import { TabDomain, type PinResource } from './tab-domain.ts'
 import { SidebarTabInventory } from './tab-inventory.ts'
+import { InlineEmbeds, type InlineViewer } from './inline-embeds.ts'
 
 /** The seat's bound action set. */
 export type SurfaceActions = BoundActions<ReturnType<typeof createSidebarRightStore>>
@@ -88,11 +89,12 @@ interface SidebarRightSessions {
  * @param tabs - registered tab types.
  * @param pin - resource retention for an occurrence's lifetime.
  * @param host - the viewport rule and focus continuity the commands use.
- * @returns the controller; store adoption and scope removal; naming the on-screen Session; and recording a seat's room rule.
+ * @returns the controller; store adoption, idle release and scope removal; naming the on-screen Session; and recording a seat's room rule.
  */
 export function createSidebarRightController(tabs: SidebarRightTabRegistry, pin: PinResource, host: SidebarRightHost): {
   controller: SidebarRightController
   adopt: (sessionId: SessionId, store: SidebarRightSurfaceStore) => () => void
+  releaseIdle: (sessionId: SessionId, store: SidebarRightSurfaceStore) => boolean
   forget: (sessionId: SessionId) => void
   show: (sessionId: SessionId | undefined) => void
   measure: (sessionId: SessionId, canSplitPane: RoomRule) => void
@@ -103,12 +105,25 @@ export function createSidebarRightController(tabs: SidebarRightTabRegistry, pin:
   const inventory = new SidebarTabInventory()
   const flashes = new Map<SessionId, SnapshotStore<SidebarRightFlash | undefined>>()
   const controller = new SidebarRightController(tabs, pin, host, { adopted, rooms, onScreen, openTabs: inventory.source, flashes })
+  const forget = (sessionId: SessionId): void => {
+    inventory.remove(sessionId)
+    rooms.delete(sessionId)
+    flashes.delete(sessionId)
+  }
   return {
     controller,
-    forget: (sessionId) => {
-      inventory.remove(sessionId)
-      rooms.delete(sessionId)
-      flashes.delete(sessionId)
+    forget,
+    // The runtime dropped a Session's store. With no tabs it holds nothing
+    // worth keeping: its layout is saved and the next seat adopts a fresh store.
+    // With tabs, background tab actions keep using it.
+    releaseIdle: (sessionId, store) => {
+      const adoption = adopted.get(sessionId)
+      if (adoption?.store !== store || Object.keys(store.getSnapshot().bySession[sessionId]?.layout.tabs ?? {}).length > 0) return false
+      adoption.unsubscribe()
+      adopted.delete(sessionId)
+      controller.tabDomain.forget(sessionId)
+      forget(sessionId)
+      return true
     },
     show: (sessionId) => { if (onScreen.getSnapshot() !== sessionId) onScreen.set(sessionId) },
     measure: (sessionId, canSplitPane) => { rooms.set(sessionId, canSplitPane) },
@@ -201,7 +216,7 @@ export interface SidebarRightOpenTabOptions<K extends string = string> extends S
 }
 
 /** The scheme every resource address carries; anything else is not a resource this face opens. */
-const RESOURCE_SCHEME = 'dsh-resource://'
+const RESOURCE_SCHEME = 'jan-resource://'
 
 /** A request to highlight the pane holding a revealed tab; `serial` changes on every request, so a repeat restarts the highlight. */
 export interface SidebarRightFlash {
@@ -230,14 +245,14 @@ export interface ISidebarRight {
    * Without `options.kind` the registry ranks the types whose globs and
    * `canOpen` accept the address and the best band wins; with it, that kind's
    * type in force opens the address (its `canOpen` still applies). An address
-   * outside `dsh-resource://`, or one no type will open, is a wiring mistake,
+   * outside `jan-resource://`, or one no type will open, is a wiring mistake,
    * not a user error, so it throws. A docked tab expands the column in the
    * same step, because content the user cannot see is not opened; an open
    * that settles in a floating panel leaves the column as it is.
    * `options.destination` selects the host explicitly and takes precedence
    * over the placement fields; the whole open, including a move between hosts,
    * is one recorded intent.
-   * @param address - a `dsh-resource://<type>/…` address.
+   * @param address - a `jan-resource://<type>/…` address.
    * @param options - placement or an explicit host, the opening type, and navigation parameters.
    */
   openResource(address: string, options?: SidebarRightOpenResourceOptions): void
@@ -295,6 +310,29 @@ export interface ISidebarRight {
    * @param paneId - the floating pane; one that is missing or docked is left alone.
    */
   dock(paneId: PaneId): void
+  /**
+   * Which viewer would draw a resource in place, outside the column.
+   * @param address - a `jan-resource://` address.
+   * @returns `dedicated` for a type made for the content, `fallback` for the generic file preview, or undefined.
+   */
+  inlineViewer(address: string): InlineViewer
+  /**
+   * The page a Turn's tool calls are changing, to show in place while they run.
+   * @param tools - the wire names of the Turn's tool calls.
+   * @returns an address `embed` draws, or undefined when no page follows those tools.
+   */
+  inlinePageForTools(tools: readonly string[]): string | undefined
+  /**
+   * Draw the type that claims a resource into a container outside the column,
+   * with the same body it shows in a pane. Only a Session's highest-ranked
+   * embed is drawn; the others leave their containers empty.
+   * @param sessionId - the Session the body belongs to.
+   * @param address - a `jan-resource://` address.
+   * @param container - the element to draw into.
+   * @param rank - precedence among that Session's embeds (a turn number, say).
+   * @returns withdraws the embed.
+   */
+  embed(sessionId: SessionId, address: string, container: HTMLElement, rank: number): () => void
 }
 
 /** Cross-plugin right-Sidebar face (ctx.sidebarRight). */
@@ -325,6 +363,8 @@ export class SidebarRightController implements ISidebarRight {
    * store's commits, read by the seat for each body's owner share.
    */
   readonly tabDomain: TabDomain
+  /** Bodies drawn outside the column; the Session's seat portals them. */
+  readonly inline: InlineEmbeds
 
   /**
    * @param tabs - the tab-type registry consulted to claim an address.
@@ -344,6 +384,7 @@ export class SidebarRightController implements ISidebarRight {
     this.openTabs = sessions.openTabs
     this.flashes = sessions.flashes
     this.tabDomain = new TabDomain(this, pin)
+    this.inline = new InlineEmbeds(tabs, this)
   }
 
   /**
@@ -374,7 +415,7 @@ export class SidebarRightController implements ISidebarRight {
 
   /**
    * Open a resource: claim it, place it, reveal the column, record the navigation.
-   * @param address - a `dsh-resource://<type>/…` address.
+   * @param address - a `jan-resource://<type>/…` address.
    * @param options - placement, the opening type, and navigation parameters.
    */
   openResource(address: string, options: SidebarRightOpenResourceOptions = {}): void {
@@ -397,7 +438,7 @@ export class SidebarRightController implements ISidebarRight {
    * for a session whose store was never adopted or whose adoption was released.
    * Not part of `ISidebarRight`: the Tab domain's path.
    * @param sessionId - the session the acting tab is in.
-   * @param address - a `dsh-resource://<type>/…` address.
+   * @param address - a `jan-resource://<type>/…` address.
    * @param options - placement, the opening type, and navigation parameters.
    */
   openResourceIn(sessionId: SessionId, address: string, options: SidebarRightOpenResourceOptions = {}): void {
@@ -798,6 +839,18 @@ export class SidebarRightController implements ISidebarRight {
     const node = this.mountedSurface()?.layout.nodes[paneId]
     if (node === undefined || node.kind !== 'pane' || node.host !== 'float') return
     actions.unfloatPane(sessionId, paneId)
+  }
+
+  inlineViewer(address: string): InlineViewer {
+    return this.inline.viewer(address)
+  }
+
+  inlinePageForTools(tools: readonly string[]): string | undefined {
+    return this.inline.pageForTools(tools)
+  }
+
+  embed(sessionId: SessionId, address: string, container: HTMLElement, rank: number): () => void {
+    return this.inline.add(sessionId, address, container, rank)
   }
 
   /**

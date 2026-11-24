@@ -23,7 +23,7 @@
  * so a configuration change rebuilds the collection without forgetting who is
  * signed in.
  *
- * @module dsh-llm-pi-ai/adapter
+ * @module jan-llm-pi-ai/adapter
  */
 
 import type {
@@ -43,7 +43,7 @@ import {
   LlmAdapter,
   LlmError,
   ReasoningEffortId,
-} from '@deepseek-ai/dsh-llm'
+} from '@janhq/jan-llm'
 import type {
   GenerateOptions,
   ImageAttachmentAccess,
@@ -55,12 +55,14 @@ import type {
   ResolvedRetryPolicy,
   StreamChunk,
   ToolSchema,
-} from '@deepseek-ai/dsh-llm'
-import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
-import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import { idleWatchdog, timeoutOf } from '@deepseek-ai/dsh-timeout'
+} from '@janhq/jan-llm'
+import type { CredentialRef } from '@janhq/jan-credentials'
+import type { AttachmentStore, ImageAttachmentRef } from '@janhq/jan-attachment'
+import { idleWatchdog, timeoutOf } from '@janhq/jan-timeout'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { requestImageTarget, toPiContext } from './context.ts'
+import { isListingProfile } from './listing.ts'
+import type { ListingProfile } from './listing.ts'
 import { conversationUpdates, createModels, getSupportedThinkingLevels } from './models.ts'
 import { toStreamChunks } from './stream.ts'
 import type { PiAiRequestHeaderContext } from './types.ts'
@@ -124,6 +126,30 @@ export interface PiAiAdapterOptions {
    * @returns headers to pass to pi-ai after applying Harness attribution.
    */
   prepareHeaders?: (request: PiAiRequestHeaderContext, headers: Headers) => Headers
+  /**
+   * Bring the model listing of a route with `modelListing` up to date before
+   * its models are read. Called by `listModels`, `resolveModel`, and
+   * `prepareCall` for such a route only, before the operation captures its
+   * snapshot. `listModels` reports a rejection, including `MISSING_CREDENTIAL`,
+   * instead of offering no models.
+   */
+  ensureModels?: (provider: string, profile: ListingProfile) => Promise<void>
+  /**
+   * Whether a route with `modelListing` holds a listing for its current
+   * endpoint and credential, answered without waiting for a listing request;
+   * a missing or stale listing may be refreshed in the background. Called by
+   * `resolveModel` and `prepareCall`, which use {@link provisionalProfile}
+   * when it answers false or is omitted.
+   */
+  holdsListing?: (provider: string, profile: ListingProfile) => Promise<boolean>
+  /**
+   * The listing route's profile serving `model` alone, for one `resolveModel`
+   * or `prepareCall` while no listing for the current credential is held:
+   * catalog membership is advisory, so the request itself then reports
+   * whether the endpoint and credential serve the model. Undefined, or
+   * omitted, fails the operation with `UNKNOWN_MODEL`.
+   */
+  provisionalProfile?: (provider: string, model: string) => ResolvedPiAiProviderProfile | undefined
   /** Resolve the optional durable attachment service at request time. */
   resolveAttachments?: () => AttachmentStore | undefined
   /** Bridge one attachment reference into the current model-tool execution world. */
@@ -133,6 +159,34 @@ export interface PiAiAdapterOptions {
    * conversion because its stored replay state is unusable by this build.
    */
   onReplayDegrade?: (detail: { provider: string; model: string; reason: string }) => void
+  /** Observe llama.cpp prompt-processing progress on a route whose profile sets `promptProgress`. */
+  onPromptProgress?: (progress: PiAiPromptProgress) => void
+}
+
+/** How far a server got reading one request's prompt, from llama.cpp's `prompt_progress`. */
+export interface PiAiPromptProgress {
+  readonly provider: string
+  readonly model: string
+  readonly sessionId?: string
+  /** Prompt tokens read so far, including {@link cache}. */
+  readonly processed: number
+  readonly total: number
+  /** Prompt tokens reused from the server's cache, which need no reading. */
+  readonly cache: number
+}
+
+/**
+ * Read llama.cpp's `prompt_progress` from one raw completions chunk.
+ * @param chunk - parsed provider stream event.
+ * @returns the counters, or undefined for any other chunk.
+ */
+function promptProgressOf(chunk: unknown): { processed: number; total: number; cache: number } | undefined {
+  if (typeof chunk !== 'object' || chunk === null || !('prompt_progress' in chunk)) return undefined
+  const value: unknown = chunk.prompt_progress
+  if (typeof value !== 'object' || value === null) return undefined
+  const { processed, total, cache } = value as Record<string, unknown>
+  if (typeof processed !== 'number' || typeof total !== 'number' || total <= 0) return undefined
+  return { processed, total, cache: typeof cache === 'number' ? cache : 0 }
 }
 
 /** The two auth injectables a pi-ai collection is built with. */
@@ -300,12 +354,37 @@ export class PiAiAdapter extends LlmAdapter {
   private current(): PiAiSnapshot {
     const profiles = this.config.profiles()
     if (this.snapshot?.profiles === profiles) return this.snapshot
+    this.snapshot = this.build(profiles)
+    return this.snapshot
+  }
+
+  /** A new collection serving exactly `profiles`. */
+  private build(profiles: ReadonlyMap<string, ResolvedPiAiProviderProfile>): PiAiSnapshot {
     const models: MutableModels = createModels(this.config.auth)
     for (const profile of profiles.values()) {
       if (profile.piProvider !== undefined) models.setProvider(profile.piProvider)
     }
-    this.snapshot = { profiles, models }
-    return this.snapshot
+    return { profiles, models }
+  }
+
+  /**
+   * The snapshot one exact-model operation captures, without waiting for a
+   * listing request. A listing route without a listing for its current
+   * credential serves `model` provisionally in an operation-local snapshot,
+   * leaving the shared one and the listing alone.
+   */
+  private async snapshotFor(provider: string, model: string): Promise<PiAiSnapshot> {
+    const profile = this.profileOf(this.current(), provider)
+    if (!isListingProfile(profile)) return this.current()
+    if (await this.config.holdsListing?.(provider, profile) === true) return this.current()
+    const provisional = this.config.provisionalProfile?.(provider, model)
+    if (provisional === undefined) {
+      throw new LlmError(
+        `pi-ai provider "${provider}" holds no model listing for its current credential to resolve "${model}"`,
+        'UNKNOWN_MODEL',
+      )
+    }
+    return this.build(new Map([...this.current().profiles, [provider, provisional]]))
   }
 
   /** The profile for one route within one snapshot, or the not-owned failure. */
@@ -351,11 +430,25 @@ export class PiAiAdapter extends LlmAdapter {
     return this.current().profiles.get(provider)?.retryPolicy
   }
 
+  /**
+   * Bring a listing route's models up to date; a no-op for any other route.
+   * @returns true when the route takes its models from a runtime listing.
+   */
+  private async listed(provider: string): Promise<boolean> {
+    const profile = this.profileOf(this.current(), provider)
+    if (!isListingProfile(profile)) return false
+    await this.config.ensureModels?.(provider, profile)
+    return true
+  }
+
   override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
     return Promise.resolve().then(async () => {
+      // A listing route has already authenticated its listing request, and
+      // reports a missing credential so a selector can ask for one.
+      const listing = await this.listed(provider)
       const snapshot = this.current()
       const profile = this.profileOf(snapshot, provider)
-      try {
+      if (!listing) try {
         await this.config.resolveApiKey(provider, profile)
         await this.endpointOf(provider, profile)
       }
@@ -364,12 +457,16 @@ export class PiAiAdapter extends LlmAdapter {
         if (error instanceof LlmError && error.code === 'MISSING_CREDENTIAL') return []
         throw error
       }
-      return snapshot.models.getModels(provider).map(model => ({
-        provider,
-        id: model.id,
-        name: model.name,
-        inputModalities: [...model.input],
-      }))
+      return snapshot.models.getModels(provider).map((model) => {
+        const toolUse = profile.declaredToolUse?.get(model.id)
+        return {
+          provider,
+          id: model.id,
+          name: model.name,
+          inputModalities: [...model.input],
+          ...toolUse === undefined ? {} : { toolUse },
+        }
+      })
     })
   }
 
@@ -378,10 +475,7 @@ export class PiAiAdapter extends LlmAdapter {
     model: string,
     _signal?: AbortSignal,
   ): Promise<LlmResolvedModelInfo> {
-    return Promise.resolve().then(() => {
-      const snapshot = this.current()
-      return this.modelInfo(snapshot, provider, model)
-    })
+    return Promise.resolve().then(async () => this.modelInfo(await this.snapshotFor(provider, model), provider, model))
   }
 
   private modelInfo(snapshot: PiAiSnapshot, provider: string, model: string): LlmResolvedModelInfo {
@@ -391,11 +485,13 @@ export class PiAiAdapter extends LlmAdapter {
     // Only a cap the deployment configured is a request default; the
     // catalog's `maxTokens` sizes the model and stops there.
     const configuredMaxTokens = profile.configuredMaxTokens.get(model)
+    const toolUse = profile.declaredToolUse?.get(model)
     return {
       provider,
       id: model,
       name: resolvedModel.name,
       inputModalities: [...resolvedModel.input],
+      ...toolUse === undefined ? {} : { toolUse },
       context: { contextWindow: resolvedModel.contextWindow },
       ...configuredMaxTokens === undefined ? {} : { defaultMaxTokens: configuredMaxTokens },
       ...reasoningInfo(resolvedModel, defaultLevel),
@@ -403,12 +499,12 @@ export class PiAiAdapter extends LlmAdapter {
     }
   }
 
-  override prepareCall(provider: string, model: string, _signal?: AbortSignal): Promise<PreparedAdapterCall> {
-    const snapshot = this.current()
-    return Promise.resolve({
+  override async prepareCall(provider: string, model: string, _signal?: AbortSignal): Promise<PreparedAdapterCall> {
+    const snapshot = await this.snapshotFor(provider, model)
+    return {
       model: this.modelInfo(snapshot, provider, model),
       stream: options => this.streamWithSnapshot(options, snapshot),
-    })
+    }
   }
 
   stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
@@ -416,7 +512,7 @@ export class PiAiAdapter extends LlmAdapter {
   }
 
   private async * streamWithSnapshot(
-    options: GenerateOptions,
+    options: GenerateOptions<string>,
     snapshot: PiAiSnapshot,
   ): AsyncIterable<StreamChunk> {
     if (options.stop !== undefined) {
@@ -479,6 +575,23 @@ export class PiAiAdapter extends LlmAdapter {
             maxBytes: profile.requestImageMaxBytes,
           },
         }, onReplayDegrade, updates.systemPromptUpdate === 'in-history')
+      const onPromptProgress = profile.promptProgress === true ? this.config.onPromptProgress : undefined
+      // The conversation names its Session as the thread, in slot 0 as Jan pins chat. An auxiliary
+      // request (title, compaction) names no thread, so it parks nothing over the Session's saved
+      // state, and runs in slot 1 beside the conversation instead of queueing it behind slot 0;
+      // with one slot llama.cpp wraps the index back to 0, which only costs prefix reuse.
+      const thread = profile.threadCache !== true || options.sessionId === undefined
+        ? undefined
+        : options.purpose === undefined ? { thread_id: String(options.sessionId), id_slot: 0 } : { id_slot: 1 }
+      const samplingParams = onPromptProgress === undefined && thread === undefined
+        ? undefined
+        : { ...onPromptProgress === undefined ? {} : { return_progress: true }, ...thread }
+      const progressRoute = {
+        provider: options.provider, model: options.model,
+        ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
+      }
+      /** The last report whose prompt was not yet read; a call ending first reports it read. */
+      let unread: { processed: number; total: number; cache: number } | undefined
       const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
         ...options.temperature === undefined ? {} : { temperature: options.temperature },
@@ -486,6 +599,15 @@ export class PiAiAdapter extends LlmAdapter {
         ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
         signal: watchdog.signal,
         headers: requestHeaders(profile.headers, options, model.baseUrl, this.config.prepareHeaders),
+        ...samplingParams === undefined ? {} : { samplingParams },
+        ...onPromptProgress === undefined ? {} : {
+          onProviderStreamEvent: (chunk: unknown) => {
+            const progress = promptProgressOf(chunk)
+            if (progress === undefined) return
+            unread = progress.processed < progress.total ? progress : undefined
+            onPromptProgress({ ...progressRoute, ...progress })
+          },
+        },
       })
       const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]()
       let exhausted = false
@@ -499,6 +621,7 @@ export class PiAiAdapter extends LlmAdapter {
           yield result.value
         }
       } finally {
+        if (unread !== undefined) onPromptProgress?.({ ...progressRoute, ...unread, processed: unread.total })
         if (!exhausted) {
           consumer.abort('pi-ai stream consumer stopped')
           // A demand the deadline abandoned can stay pending forever, and this

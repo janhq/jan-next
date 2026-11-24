@@ -1,12 +1,12 @@
 /** Keyed recorded-result rows sharing the compact detail body. */
 import { useMemo } from 'react'
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context } from '@janhq/cordis'
 import {
   IconAgentPresetOutlineRegular, IconBranchOutlineRegular, IconChecklistOutlineRegular, IconClockOutlineRegular,
   IconCodeOutlineRegular, IconCordisPluginOutlineRegular, IconGoalOutlineRegular, IconSearchOutlineRegular,
   IconUsersOutlineRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-primitives'
+import type { PropsLocale } from '@janhq/jan-client-ui-slots'
 import type { ToolCallViewProps } from '../../contract/slots.ts'
 import { CONVERSATION_NS as NS } from '../../locale.ts'
 import { ToolRow } from '../components/ToolRow.tsx'
@@ -51,7 +51,7 @@ function subagentSummary(block: ToolCallViewProps['block']): string {
  * @param props - Tool call, row actions, and locale supplied by the keyed slot.
  * @returns A Tool row with structured details or generic input/output.
  */
-export function DetailsRow({ toolName, block, cwd, home, openFile, inspect, useDisclosure, t }: DetailsRowProps) {
+export function DetailsRow({ toolName, block, cwd, home, openFile, inspect, useDisclosure, titles, t }: DetailsRowProps) {
   const model = toolRowModel(toolName, block, cwd, home)
   const locale = document.documentElement.lang
   const taskSummary = toolName === 'subagent' || toolName === 'subagent_fork' ? subagentSummary(block) : undefined
@@ -64,7 +64,9 @@ export function DetailsRow({ toolName, block, cwd, home, openFile, inspect, useD
   const operation = toolName === 'lsp' ? parsedToolCall(block)?.args.operation : undefined
   const titleKey = typeof operation === 'string' && Object.hasOwn(LSP_TITLE_KEYS, operation)
     ? LSP_TITLE_KEYS[operation as keyof typeof LSP_TITLE_KEYS]
-    : model.titleKey
+    : toolName === 'job_output' && model.state === 'running' && block.args.value('wait') === true
+      ? 'tool.title.waitForJob'
+      : model.titleKey
   const isWait = toolName === 'wait_agent'
   return (
     <ToolRow
@@ -82,6 +84,7 @@ export function DetailsRow({ toolName, block, cwd, home, openFile, inspect, useD
       state={model.state}
       inspect={inspect}
       onOpenFile={openFile}
+      titles={titles}
     />
   )
 }

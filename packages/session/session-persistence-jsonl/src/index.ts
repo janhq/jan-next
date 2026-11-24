@@ -3,16 +3,16 @@
  * events in immutable generation files under one directory per session and serves the handle-based
  * `SessionPersistence` API: `create`/`open` return per-session handles, and
  * every read validates the same fail-closed storage contract.
- * @module @deepseek-ai/dsh-session-persistence-jsonl
+ * @module @janhq/jan-session-persistence-jsonl
  */
 
-import { Context, type Fiber } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import { Context, type Fiber } from '@janhq/cordis'
+import z from '@janhq/schemastery'
 import {
   createSessionFormatCatalogWithChildren,
   SessionFormatUnsupportedMigrationError,
   sessionFormatCatalog,
-} from '@deepseek-ai/dsh-session-format-catalog'
+} from '@janhq/jan-session-format-catalog'
 import { readdirSync, type Dirent } from 'node:fs'
 import { open, mkdir, readdir, realpath, link, rm, stat, truncate } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -31,11 +31,11 @@ import {
   type SessionPersistenceListOptions, type SessionPersistenceOpenOptions,
   type SessionPersistenceSnapshot, type SessionPersistenceStatOptions,
   type SessionPersistenceRevision as PersistenceRevision,
-} from '@deepseek-ai/dsh-session-persistence'
+} from '@janhq/jan-session-persistence'
 import { JsonlBackendTracker, JsonlSessionHandle, type StorageHandleState } from './storage.ts'
 import { SessionWriteLease } from './lease.ts'
-import { SESSION_FORMAT_VERSION, SessionId as makeSessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
-import type { SessionEvent, SessionId, SessionHeader, SessionLogOffset as SessionLogOffsetType } from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, SessionId as makeSessionId, SessionLogOffset } from '@janhq/jan-session'
+import type { SessionEvent, SessionId, SessionHeader, SessionLogOffset as SessionLogOffsetType } from '@janhq/jan-session'
 import {
   assertNoRetiredHeaderFields, encodeSegment, eventLines, generationLogFilename, generationLogPath, logPath, logSuffix,
   parseGenerationLogFilename, projectDir, scanLog, sessionDir, SessionLogScanner, toHeaderLine,
@@ -312,6 +312,11 @@ class JsonlSessionPersistence extends SessionPersistence {
   private readonly coldLogMemo = new Map<SessionId, StoredLog>()
   /** One joinable decode/migration operation per selected historical Session file revision. */
   private readonly migrationPreparations = new Map<SessionId, MigrationPreparation>()
+  /**
+   * Project directory each Session id was last found in. Only a starting point:
+   * a hint that no longer holds the id falls back to the full scan.
+   */
+  private readonly projectHints = new Map<SessionId, string>()
 
   constructor(ctx: Context, public config: Config, private readonly tracker: JsonlBackendTracker) {
     super(ctx)
@@ -1165,6 +1170,8 @@ class JsonlSessionPersistence extends SessionPersistence {
       ids.add(metadata.header.id)
       artifacts.push({ ...metadata, path: selected.sourcePath, sourceVersion: selected.sourceVersion })
     }
+    // The listing proved each id unique; remember where each one lives for later lookups.
+    for (const artifact of artifacts) this.projectHints.set(artifact.header.id, dirname(dirname(artifact.path)))
     signal?.throwIfAborted()
     return artifacts
   }
@@ -1278,6 +1285,7 @@ class JsonlSessionPersistence extends SessionPersistence {
     } else {
       await this.materializePosix(project, dir, finalPath, meta.id, content)
     }
+    this.projectHints.set(meta.id, project)
   }
 
   /* v8 ignore start -- Windows uses the Win32 durable-publish path; POSIX coverage exercises this peer. */
@@ -1571,22 +1579,44 @@ class JsonlSessionPersistence extends SessionPersistence {
     }
   }
 
-  /** Find the unique authoritative generation for an id across project directories. */
+  /**
+   * Find the unique authoritative generation for an id across project directories.
+   * A project directory where the id was last found is tried first, so opening a
+   * known Session costs one directory read instead of one per project. The full
+   * scan, and every listing, still refuse an id stored in two projects.
+   */
   private async findLog(id: SessionId, signal?: AbortSignal): Promise<ResolvedJsonlGeneration | undefined> {
-    const matches: ResolvedJsonlGeneration[] = []
+    const hinted = this.projectHints.get(id)
+    if (hinted !== undefined) {
+      const selected = await this.findLogInProject(hinted, id, signal)
+      if (selected !== undefined) return selected
+      this.projectHints.delete(id)
+    }
+    const matches: Array<{ project: string; selected: ResolvedJsonlGeneration }> = []
     for (const project of await this.listProjectDirs(signal)) {
-      signal?.throwIfAborted()
-      await this.rejectLegacyFlatArtifact(project, id, signal)
-      signal?.throwIfAborted()
-      const dir = join(project, encodeSegment(id))
-      const selected = await this.resolveGenerationInDirectory(dir, signal)
-      if (selected !== undefined) matches.push(selected)
+      const selected = await this.findLogInProject(project, id, signal)
+      if (selected !== undefined) matches.push({ project, selected })
     }
     if (matches.length > 1) {
       throw new Error(`duplicate JSONL session id "${id}" appears in multiple project directories`)
     }
     signal?.throwIfAborted()
-    return matches[0]
+    const [match] = matches
+    if (match === undefined) return undefined
+    this.projectHints.set(id, match.project)
+    return match.selected
+  }
+
+  /** The id's generation inside one project directory, refusing a legacy flat artifact there. */
+  private async findLogInProject(
+    project: string,
+    id: SessionId,
+    signal?: AbortSignal,
+  ): Promise<ResolvedJsonlGeneration | undefined> {
+    signal?.throwIfAborted()
+    await this.rejectLegacyFlatArtifact(project, id, signal)
+    signal?.throwIfAborted()
+    return this.resolveGenerationInDirectory(join(project, encodeSegment(id)), signal)
   }
 
   /** Require an existing configured root to be a readable directory. */

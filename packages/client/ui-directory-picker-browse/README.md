@@ -3,9 +3,7 @@ description: "In-app directory-browsing surface: the Miller-column Select Worksp
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-directory-picker-browse
-
-English | [中文](README.zh.md)
+# @janhq/jan-client-ui-directory-picker-browse
 
 ## Summary
 
@@ -25,7 +23,7 @@ This package provides the in-app directory-browsing surface for the Web GUI: a S
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount this plugin alongside `ui-workspace` and the host backend [`dsh-host-directory-picker-browse`](../../host/directory-picker-browse/README.md); one cordis.yml row then composes the whole browse picking interaction. When a workspace flow opens a directory request, the user sees the in-app dialog: a header with the path breadcrumb and an editable path zone, then a single full-width level until a row is selected, after which the row splits into level and children columns.
+Mount this plugin alongside `ui-workspace` and the host backend [`jan-host-directory-picker-browse`](../../host/directory-picker-browse/README.md); one cordis.yml row then composes the whole browse picking interaction. When a workspace flow opens a directory request, the user sees the in-app dialog: a header with the path breadcrumb and an editable path zone, then a single full-width level until a row is selected, after which the row splits into level and children columns.
 
 ### Navigating and creating
 
@@ -39,7 +37,7 @@ Step through folders, edit the path directly, or filter the last pane by prefix;
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The dialog is a 680×500 Miller-column view (clamped on short or narrow viewports), driven by the host `listDirectory` and `createDirectory` primitives through `ctx.workspaces`. Both registrations install as one transactional effect through nested `ctx.slots.inject()` calls, because either declaring entry may activate later or replace its declaration; the dialog's copy lives in this package's own locale namespace so the two dictionaries land as a unit. Browse failures stay inside the dialog's own alert surfaces, so this occupant never drives the owner's `onError` arm. The node half is an empty `apply` that keeps the plugin on the host roster.
+The dialog itself is `DirectoryBrowser`, which [`ui-workspace`](../ui-workspace/README.md) offers on its injected `uiWorkspace` service and also uses to choose a folder on another connected computer; it is a 680×500 Miller-column view (clamped on short or narrow viewports), driven by the host `listDirectory` and `createDirectory` primitives through `ctx.uiWorkspace`. Both registrations install as one transactional effect through nested `ctx.slots.inject()` calls, because either declaring entry may activate later or replace its declaration; the dialog's copy lives in this package's own locale namespace so the two dictionaries land as a unit. Browse failures stay inside the dialog's own alert surfaces, so this occupant never drives the owner's `onError` arm. The node half is an empty `apply` that keeps the plugin on the host roster.
 
 The New folder and Cancel actions use the shared [Button](../ui-primitives/README.md)'s inset hairline, which preserves their layout border and keeps the stroke complete at fractional button widths.
 
@@ -52,7 +50,7 @@ The New folder and Cancel actions use the shared [Button](../ui-primitives/READM
 
 Read these pages when the picking surface is not enough. They move from the browser half to the host backend and the slots it fills.
 
-- [dsh-host-directory-picker-browse](../../host/directory-picker-browse/README.md) — the directory-listing backend this surface drives.
+- [jan-host-directory-picker-browse](../../host/directory-picker-browse/README.md) — the directory-listing backend this surface drives.
 - [ui-workspace](../ui-workspace/README.md) — declares the directory-flow slots and owns the picking conversation.
 - [ui-directory-picker-native](../ui-directory-picker-native/README.md) — the native OS-chooser alternative for local deployments.
 - [Web client architecture](../../../docs/subsystems/web-client.md) — how browser plugin rows load and register slots.

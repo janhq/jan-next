@@ -1,11 +1,11 @@
 /** Register the HTTP(S) Browser tab type in the right Sidebar. */
-import type { ShortcutCommandId } from '@deepseek-ai/dsh-client-shortcuts/client'
-import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
+import type { Context } from '@janhq/cordis'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-session/client'
+import type {} from '@janhq/jan-client-ui-sidebar-right/client'
+import type {} from '@janhq/jan-api-workspace-controller/client'
 import { BrowserBody, type BrowserBodyProps } from './view/BrowserBody.tsx'
 import { BrowserTitle } from './view/BrowserTitle.tsx'
 import { createBrowserControllers } from './browser/BrowserController.ts'
@@ -29,10 +29,24 @@ export type { SidebarBrowserKey } from './locales.ts'
 export type { BrowserState } from './browser/store.ts'
 export type { BrowserAddressFailure, BrowserAddressResult, BrowserTarget } from './browser/url.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-sidebar-right/client' {
+declare module '@janhq/jan-client-ui-sidebar-right/client' {
   interface SidebarRightTabParamsMap {
     /** Optional initial Browser URL. */
     browser: { readonly url?: string }
+  }
+}
+
+declare module '@janhq/jan-client-ui-slots' {
+  interface SlotMap {
+    /** Controls for the currently displayed Browser page, independent of its presentation adapter. */
+    'sidebar.right.tab.browser.actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: {
+        /** @returns the mounted page element when the tab is visible, or null. */
+        readonly getSurface: () => Element | null
+      }
+    }
   }
 }
 
@@ -67,8 +81,8 @@ export function apply(ctx: Context): void {
   const store = createBrowserStore()
   const openTabs = ctx.sidebarRight.openTabs
   const carrier = (globalThis as typeof globalThis & {
-    dshDesktop?: { readonly protocolVersion: number; readonly browser?: DesktopBrowserBridge }
-  }).dshDesktop
+    janDesktop?: { readonly protocolVersion: number; readonly browser?: DesktopBrowserBridge }
+  }).janDesktop
   const desktop = carrier?.protocolVersion === 1 ? carrier.browser : undefined
   ctx.effect(() => ctx.locale.register(namespace, { zh, en, ja, es, fr, de, ru, pt }), 'ui-sidebar-browser.copy')
   ctx.effect(() => ctx.sidebarRightTabs.register({ ...browserDefinition(t), keepMounted: desktop !== undefined }), 'ui-sidebar-browser.type')
@@ -81,6 +95,7 @@ export function apply(ctx: Context): void {
     }, 'ui-sidebar-browser.frames')
     scope.effect(() => scope.slots.inject('sidebar.right.pane.tab', () => scope.slots.register({
       name: 'sidebar.right.pane.tab', key: BROWSER_ID, locale: namespace, store,
+      children: { 'sidebar.right.tab.browser.actions': { kind: 'list', scope: 'session' } },
       inject: (sessionId, actions) => {
         const existing = controllers.get(sessionId)
         if (existing !== undefined) {

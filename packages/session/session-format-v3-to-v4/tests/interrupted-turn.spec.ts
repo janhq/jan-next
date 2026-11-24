@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { SessionFormatEventCollector, type SessionFormatEvent, type SessionFormatJsonObject } from '@deepseek-ai/dsh-session-format'
-import { createSessionFormatCatalogWithChildren, sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import { Session, SessionId, SessionLogOffset, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
-import { imageOffloadProjection } from '@deepseek-ai/dsh-compaction-image-offload/projection'
+import { SessionFormatEventCollector, type SessionFormatEvent, type SessionFormatJsonObject } from '@janhq/jan-session-format'
+import { createSessionFormatCatalogWithChildren, sessionFormatCatalog } from '@janhq/jan-session-format-catalog'
+import { Session, SessionId, SessionLogOffset, type SessionEvent, type SessionHeader } from '@janhq/jan-session'
+import { imageOffloadProjection } from '@janhq/jan-compaction-image-offload/projection'
 import { createSessionFormatV3ToV4 } from '../src/index.ts'
 import { remapV3References } from '../src/references.ts'
 
@@ -13,7 +13,7 @@ const row = (type: string, data: SessionFormatJsonObject) => ({ type, data })
 const splice = () => row('agent/inbox/spliced', { target: 'next-turn', inserted: [user('next')] })
 const start = (turn: number) => row('turn/start', { turn })
 const end = (turn: number) => row('turn/end', { turn, reason: { kind: 'completed' } })
-const titleMessage = { ...user('captured seq 4'), source: { kind: 'dsh-session-title-llm' } }
+const titleMessage = { ...user('captured seq 4'), source: { kind: 'jan-session-title-llm' } }
 const prefix = () => [start(1), row('step/start', { turn: 1, step: 1 }), row('step/end', { turn: 1, step: 1 }), splice()]
 function events(rows: readonly object[]): SessionFormatEvent[] {
   return rows.map((event, seq) => ({ ...event, seq, time: seq + 10 }) as SessionFormatEvent)
@@ -78,7 +78,6 @@ describe('V3 interrupted-turn migration', () => {
       row('command/done', { commandId: 'cmd', kind: 'success', sourceEventSeq: 7 }),
       row('session/title', { title: 'title', source: { kind: 'generated' }, messageSeqs: [1, 4] }),
       row('session/title-llm-request', { messageSeqs: [1, 4], messages: [titleMessage] }),
-      row('session-log-deepseek/delivery-accepted', { sessionId: header.id, sessionFormatVersion: 3, throughSeq: 12 }),
       { ...row('user/message', { ...user('capture'), source: { kind: 'plugin', plugin: 'session-reference', sessionId: 'other', seq: 4, sessionFormatVersion: 3 } }), surfaceOp: 'append' },
       { ...row('external/opaque', { seq: 4 }), ignorable: true, sourceEventSeqs: [4], surfaceOp: { opaque: 4 } },
       end(2),
@@ -90,9 +89,8 @@ describe('V3 interrupted-turn migration', () => {
     expect(artifact.events[11]).toMatchObject({ data: { sourceEventSeq: 8 } })
     expect(artifact.events[12]).toMatchObject({ data: { messageSeqs: [1, 5] } })
     expect(artifact.events[13]).toMatchObject({ data: { messageSeqs: [1, 5], messages: [titleMessage] } })
-    expect(artifact.events[14]?.data).toEqual(source[13]?.data)
-    expect(artifact.events[15]).toMatchObject({ data: { source: { kind: 'session-reference', sessionId: 'other', seq: 4, sessionFormatVersion: 3 } } })
-    expect(artifact.events[16]).toEqual({ ...source[15], type: 'plugin:external/opaque', seq: 16 })
+    expect(artifact.events[14]).toMatchObject({ data: { source: { kind: 'session-reference', sessionId: 'other', seq: 4, sessionFormatVersion: 3 } } })
+    expect(artifact.events[15]).toEqual({ ...source[14], type: 'plugin:external/opaque', seq: 15 })
     expect(artifact.header).toEqual(nativeHeader)
     const session = Session.fromRestore(nativeHeader.id, artifact.events as SessionEvent[], nativeHeader, SessionLogOffset(0), 'detached')
     expect(session.deriveMessages().map(message => message.id)).toEqual(['checkpoint', 'capture'])
@@ -111,15 +109,14 @@ describe('V3 interrupted-turn migration', () => {
     expect(session.deriveMessages()).toMatchObject([{ id: 'picture', content: [{ type: 'image', attachment: image.attachment, offloaded: true }] }])
   })
 
-  it('remaps the final inherited cut and validates delivery ownership in source coordinates', () => {
+  it('remaps the final inherited cut in source coordinates', () => {
     const seeded = { ...header, isSeeded: true, parentSession: 'parent' }
     const marker = row('session/end-seed', { inherited: true })
-    const foreign = row('session-log-deepseek/delivery-accepted', { sessionId: 'parent', throughSeq: 4, sessionFormatVersion: 3 })
+    const foreign = row('feedback/record', {})
     const source = events([...prefix(), start(2), foreign, end(2), marker])
     expect(restore(source, seeded).inheritedEventCount).toBe(8)
     expect(restore(events([...prefix(), start(2), marker, foreign, marker]), seeded).inheritedEventCount).toBe(8)
     expect(restore(events([...prefix(), end(1), marker, start(2), splice(), start(3)]), seeded).inheritedEventCount).toBe(5)
-    expect(() => restore(events([...prefix(), start(2), marker, foreign]), seeded)).toThrow('wrong Session')
     const current = createSessionFormatV3ToV4([]).createStage({ sourceHeader: seeded, targetHeader: { ...seeded, version: 4 }, sourceKind: 'decoded', sourceInheritedEventCount: 7 })
     const output = new SessionFormatEventCollector()
     current.transformRun({ runType: 'restart', eventCount: source.length, firstSeq: 0, *expand() { yield* source } }, output)

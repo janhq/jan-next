@@ -29,30 +29,55 @@
   min-width: 0;
   overflow: hidden;
   color: var(--dsw-alias-label-tertiary);
-  font-size: var(--dsh-content-font-size-secondary, 13px);
-  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
+  font-size: var(--jan-content-font-size-secondary, 13px);
+  line-height: calc(24px + var(--jan-content-font-delta, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* A notice's one-line account: the reason it rarely needs expanding. */
+/* A notice or relay preview stays on one line without expanding. */
 .summary {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   color: var(--dsw-alias-label-tertiary);
-  font-size: var(--dsh-content-font-size-secondary, 13px);
-  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
+  font-size: var(--jan-content-font-size-secondary, 13px);
+  line-height: calc(24px + var(--jan-content-font-delta, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Estimated token cost: trailing caption, kept whole while the summary ellipsizes. */
+.tokens {
+  flex: none;
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--dsw-alias-label-caption);
+  font-size: var(--jan-content-font-size-secondary, 13px);
+  font-variant-numeric: tabular-nums;
+  line-height: calc(24px + var(--jan-content-font-delta, 0px));
+  white-space: nowrap;
+}
+
+/* Disclosure affordance at the row's end: right while closed, down while open. */
+.trailingChevron {
+  flex: none;
+  display: inline-flex;
+  margin-left: 6px;
+  color: var(--dsw-alias-label-caption);
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.trailingChevron[data-open] {
+  transform: rotate(90deg);
 }
 
 .body {
   box-sizing: border-box;
   /* Indent under the title, which starts at leading (16 + delta) + gap 6. */
-  width: calc(100% - 22px - var(--dsh-content-font-delta, 0px));
+  width: calc(100% - 22px - var(--jan-content-font-delta, 0px));
   max-height: 141px;
-  margin: 4px 0 0 calc(22px + var(--dsh-content-font-delta, 0px));
+  margin: 4px 0 0 calc(22px + var(--jan-content-font-delta, 0px));
   overflow: auto;
   padding: 10px 16px 12px 12px;
   border: none;

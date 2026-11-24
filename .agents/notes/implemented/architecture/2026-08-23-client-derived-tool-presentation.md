@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-08-23-client-derived-tool-presentation.zh.md)
-
 ## Problem
 
 Session history is a durable journal interface, while tool cards are Client presentation. Computing card views during `page` or `follow` would couple history reads to the Tools registry, Agent presets, restored scopes, presenter execution, and transient UI types.
@@ -166,7 +164,7 @@ This path retains one durable metadata projection because it runs while the cano
 
 `SessionToolCallView`, `SessionToolView`, and `SessionEventEntry.view` are deleted.
 
-The Client connection stops re-exporting `ToolCallView` and `ToolResultView` from `dsh-tools/presentation` for Session consumers.
+The Client connection stops re-exporting `ToolCallView` and `ToolResultView` from `jan-tools/presentation` for Session consumers.
 
 Generated catalogs and graphs derive the narrowed Remote types and package dependencies from their owning sources.
 
@@ -551,7 +549,7 @@ This change does not promise to preserve differences expressed only through a Ho
 ### Static and documentation
 
 - Production code contains no `SessionToolView` or `SessionToolCallView`.
-- Session history does not reference `dsh-tools/presentation`, `ctx.tools`, `presenterScopeFor`, or `backscanArgs`.
+- Session history does not reference `jan-tools/presentation`, `ctx.tools`, `presenterScopeFor`, or `backscanArgs`.
 - Client Conversation does not reference `ToolCallView` or `ToolResultView`.
 - Client models do not read `callView` or `resultView`.
 - The fixture defines no presenter mirror.
@@ -561,7 +559,7 @@ This change does not promise to preserve differences expressed only through a Ho
 
 ## Verification Commands
 
-Changes to this decision use `dsh-pre-push-checks` to select commands for the final diff. Required evidence includes:
+Changes to this decision use `jan-pre-push-checks` to select commands for the final diff. Required evidence includes:
 
 - focused Session Controller history/transport tests;
 - ui-chat and ui-trajectory Tool Definition tests;
@@ -571,7 +569,7 @@ Changes to this decision use `dsh-pre-push-checks` to select commands for the fi
 - affected Host and Client TypeScript faces;
 - lint and duplication;
 - per-file 100% coverage for affected source files;
-- `DSH_SNAPSHOT=replay pnpm run test:web`, without refreshing existing presentation goldens;
+- `JAN_SNAPSHOT=replay pnpm run test:web`, without refreshing existing presentation goldens;
 - authored Remote type and TypeScript checks;
 - `pnpm run doc-sync`;
 - `git diff --check`.
@@ -689,9 +687,9 @@ The absence of optional `view` is a prerelease wire-type decision shared by all 
 
 The current [terminal-card rules](../../../../packages/client/ui-tool/README.md) permit nested terminal cards, replacing only the terminal child-card prohibition and its visual-equivalence requirement. This note remains active for raw-journal ownership, Client derivation, and the diff/read/search/web child restrictions.
 
-This note partially supersedes the implementation fact in [Client tool presentation ownership](../../archived/architecture/2026-08-08-client-tool-presentation-ownership.md) that “card models receive Host views.” Its core decisions remain: `ui-tool` owns presentation, business plugins use keyed slots, and Conversation owns only lifecycle and topology.
+This note partially supersedes the implementation fact in Client tool presentation ownership that “card models receive Host views.” Its core decisions remain: `ui-tool` owns presentation, business plugins use keyed slots, and Conversation owns only lifecycle and topology.
 
-This note preserves [toolview dissolution](../../archived/architecture/2026-07-23-toolview-dissolution.md): the Client still has one slot registration model and does not restore `ToolViewRegistry`.
+This note preserves toolview dissolution: the Client still has one slot registration model and does not restore `ToolViewRegistry`.
 
 This note narrows the consumer scope of the [render-intent union](2026-07-02-tool-render-intent-union.md). The Host APIs and types remain, while the Session Remote and Web Client do not consume them. This note owns the transport split without rewriting that presenter decision.
 

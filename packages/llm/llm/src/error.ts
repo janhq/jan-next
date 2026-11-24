@@ -1,7 +1,7 @@
 /**
  * Harness error base with a stable machine-routable code and chained cause.
  * Package errors extend it so tool results and replay can retain failure class.
- * @module @deepseek-ai/dsh-llm/error
+ * @module @janhq/jan-llm/error
  */
 
 /**
@@ -49,6 +49,15 @@ export const EMPTY_RESPONSE_CODE = 'EMPTY_RESPONSE'
  * a malformed credential fails identically on every attempt.
  */
 export const INVALID_CREDENTIAL_CODE = 'INVALID_CREDENTIAL'
+
+/**
+ * Canonical provider-neutral code for a request the provider's safety layer
+ * refused or filtered: a refusal stop, a content filter, or a sensitive-content
+ * stop. The same route usually refuses the same request again, so it is
+ * outside the default retryable set; deployment policy may route it to
+ * another model instead.
+ */
+export const CONTENT_REFUSED_CODE = 'REFUSAL'
 
 /** Structured codes and plain phrases that explicitly name a context bound being exceeded. */
 const STRUCTURED_CONTEXT_OVERFLOW = new RegExp(
@@ -169,7 +178,7 @@ export function isHarnessError(value: unknown): value is HarnessError {
  * Canonical code for a request an image-capable route cannot send until more
  * of its images are offloaded. The failure's `offloadImages` names how many
  * more of the oldest retained occurrences must be offloaded;
- * `dsh-compaction-image-offload` records an `image/offload` selection before
+ * `jan-compaction-image-offload` records an `image/offload` selection before
  * the agent or summarizer retries with freshly derived input.
  */
 export const IMAGE_OFFLOAD_REQUIRED_CODE = 'IMAGE_OFFLOAD_REQUIRED'

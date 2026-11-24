@@ -3,13 +3,11 @@ description: "Native-OS-chooser backend of the directory-picker seam: opens one 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-host-directory-picker-native
-
-English | [中文](README.zh.md)
+# @janhq/jan-host-directory-picker-native
 
 ## Summary
 
-An operator at the host's display picks a workspace directory through a native OS chooser: `dsh-host-directory-picker-native` opens one platform directory chooser per pick and resolves the chosen absolute path (`null` on cancel). macOS drives a scripted AppKit panel that carries the standard Edit menu, Linux uses Zenity with a KDialog fallback, and Windows opens the modern `IFileOpenDialog` in a spawned child process. Only viable when the operator sits at the host's display — remote deployments compose the [browse backend](../directory-picker-browse/README.md) instead. One composition row also registers the matching browser-side interaction in the workspace flow, so it selects both sides.
+An operator at the host's display picks a workspace directory through a native OS chooser: `jan-host-directory-picker-native` opens one platform directory chooser per pick and resolves the chosen absolute path (`null` on cancel). macOS drives a scripted AppKit panel that carries the standard Edit menu, Linux uses Zenity with a KDialog fallback, and Windows opens the modern `IFileOpenDialog` in a spawned child process. Only viable when the operator sits at the host's display — remote deployments compose the [browse backend](../directory-picker-browse/README.md) instead. One composition row also registers the matching browser-side interaction in the workspace flow, so it selects both sides.
 
 ## Table of Contents
 
@@ -49,7 +47,7 @@ A cancel returns `null`, not an error. Missing platform tooling, a failed choose
 
 ### Design concept
 
-The backend is a thin service over a platform chooser: `NativeDirectoryPicker` registers the `native` capability whose `pick` forwards to `pickNativeDirectory`, and the chooser runs as a subprocess so the host process never blocks on the dialog. The command boundary (`DirectoryPickerRunner`) and platform facts are injectable, and the shared no-shell subprocess runner lives in [`dsh-native-command`](../../util/native-command/README.md).
+The backend is a thin service over a platform chooser: `NativeDirectoryPicker` registers the `native` capability whose `pick` forwards to `pickNativeDirectory`, and the chooser runs as a subprocess so the host process never blocks on the dialog. The command boundary (`DirectoryPickerRunner`) and platform facts are injectable, and the shared no-shell subprocess runner lives in [`jan-native-command`](../../util/native-command/README.md).
 
 ### Platform mechanics
 
@@ -73,7 +71,6 @@ Platform tools run without a shell: on macOS one `osascript -l JavaScript` scrip
 Read these when the backend contract is not enough: the seam definition first, then the alternative backend and the chooser that selects between them.
 
 - [Directory-picker seam](../directory-picker/README.md) — the `native` capability contract and the typed error vocabulary.
-- [Directory-picker capability seam decision](../../../.agents/notes/archived/architecture/2026-07-28-directory-picker-capability-seam.md) — why backends differ in interaction shape.
 - [Browse backend](../directory-picker-browse/README.md) — the in-app alternative for remote clients.
 - [Adaptive chooser](../directory-picker-auto/README.md) — boot-time resolution between native and browse.
 - [No-shell subprocess runner](../../util/native-command/README.md) — the shared subprocess primitive the chooser runs on.

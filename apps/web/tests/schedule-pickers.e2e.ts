@@ -2,7 +2,7 @@
 import type { Browser, CDPSession, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type {} from '@deepseek-ai/dsh-schedule'
+import type {} from '@janhq/jan-schedule'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { revealNavigationDrawer, saveFailureShot } from './support.ts'
 
@@ -70,8 +70,8 @@ async function expectEllipsisStyle(labels: Locator): Promise<void> {
 }
 
 describe.each([
-  { locale: 'en-US', tasks: 'Automation tasks', time: 'Time', second: 'Second', zone: 'Time zone', repeat: 'Repeat' },
-  { locale: 'zh-CN', tasks: '自动化任务', time: '时间', second: '秒', zone: '时区', repeat: '重复' },
+  { locale: 'en-US', tasks: 'Scheduled', time: 'Time', second: 'Second', zone: 'Time zone', repeat: 'Repeat' },
+  { locale: 'zh-CN', tasks: '定时任务', time: '时间', second: '秒', zone: '时区', repeat: '重复' },
 ])('automation pickers ($locale)', (copy) => {
   it('keeps the repeat menu inside the short layout viewport before and after zoom', async () => {
     const context = await browser.newContext({

@@ -15,26 +15,26 @@
  * The General-settings row separately writes the default preset for sessions
  * created later through the host Settings API.
  */
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { SessionFace } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
-import type { PermissionCatalog, PermissionSelection } from '@deepseek-ai/dsh-permission-presets/client'
+import type { Context as ClientContext } from '@janhq/cordis'
+import type { SessionFace } from '@janhq/jan-api-session-controller/client'
+import type { SessionId } from '@janhq/jan-api-remotes/client'
+import type { PermissionCatalog, PermissionSelection } from '@janhq/jan-permission-presets/client'
 // Direct dependency: catalog settlements are fenced by the actual connection
 // generation rather than by a parallel domain counter.
-import type {} from '@deepseek-ai/dsh-client-connection/client'
+import type {} from '@janhq/jan-client-connection/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
-import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@janhq/jan-client-locale/client'
 // Type-only: the settings slot types (this package registers a General row).
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@janhq/jan-client-ui-settings/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-session/client'
+import type {} from '@janhq/jan-client-ui-conversation/client'
 // Type-only: pulls the ctx.remote merge and the forwarded-event key face
 // (the settings invalidation rides the allowlist) into this program.
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { CommandUiContract, SelectOption } from '@deepseek-ai/dsh-client-ui-commands/client'
-import type { ClientSessionContext } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
-import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@janhq/jan-api-remotes/client'
+import type { CommandUiContract, SelectOption } from '@janhq/jan-client-ui-commands/client'
+import type { ClientSessionContext } from '@janhq/jan-client-ui-input-trigger/client'
+import type { TranslateNS } from '@janhq/jan-client-ui-slots'
 import { PermissionCatalogDirectory } from './catalog.ts'
 import { PermissionSelect } from './PermissionSelect.tsx'
 import type { PermissionSelectInjected } from './PermissionSelect.tsx'
@@ -62,7 +62,7 @@ export const inject = [
   'configForms', 'settingsSchema',
 ]
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Current-session permission picker and confirmation copy. */
     'permission.access': keyof typeof accessEn
@@ -104,6 +104,8 @@ function optionsOf(
         : {}),
     }))
 }
+
+const FULL_ACCESS_NOTICE_KEY = 'jan.permission.fullAccessNoticeSeen'
 
 /**
  * Client plugin body: register the /permission popup picker over the
@@ -174,12 +176,26 @@ export function apply(ctx: ClientContext): void {
     inject: injected,
   }, PermissionRow))
 
+  // One device-wide flag: the Full access default is explained in the first chat that uses it, never again.
+  const noticeSeen = (): boolean => {
+    try { return globalThis.localStorage.getItem(FULL_ACCESS_NOTICE_KEY) === '1' } catch { return true }
+  }
+  const dismissNotice = (): void => {
+    try { globalThis.localStorage.setItem(FULL_ACCESS_NOTICE_KEY, '1') } catch { /* storage refused: the notice may show again */ }
+  }
+
   ctx.slots.inject('conversation.input.permission', () => ctx.slots.register({
     name: 'conversation.input.permission',
     locale: PERMISSION_ACCESS_NS,
     inject: (sessionId: SessionId): PermissionSelectInjected => ({
       hooks: { permissionCatalog: catalog.store },
       select: preset => submit(sessionId, preset),
+      noticeSeen,
+      dismissNotice,
+      // Resolved per render: settings navigation may mount after this plugin.
+      ...ctx.get('settingsNavigation') === undefined ? {} : {
+        openDefaultSettings: () => { (ctx.get('settingsNavigation') as { open(section: string): void } | undefined)?.open('general') },
+      },
     }),
   }, PermissionSelect))
 

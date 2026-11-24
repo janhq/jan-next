@@ -21,15 +21,17 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  FishLogo, IconAppsAddOutlineRegular, IconNewChatOutlineMedium, IconNewChatOutlineRegular,
+  FishLogo, IconAppsAddOutlineMedium, IconAppsAddOutlineRegular, IconNewChatOutlineMedium, IconNewChatOutlineRegular,
   IconPanelLeftOutlineRegular, IconPinFillRegular, focusWithoutRing, isBehindModal, isDarwinDesktop, Menu, ShortcutKeys, Toast,
   Tooltip, useModalLayer, writeClipboard,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsRenderFactories, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-primitives'
+import type { InjectFace, PropsRenderFactories, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type {
   SidebarPanelActionsOwnerProps, SidebarPanelMetadata, SidebarRootComponentProps, SidebarRootInjected, SidebarSectionHookContext,
   SidebarSectionOwnerProps,
 } from './contract/slots.ts'
+import { NavigationButton } from './NavigationButton.tsx'
+import { useChromeControls } from './chrome-controls.ts'
 import { FIXED_PANEL_ID } from './panel-pins.ts'
 import { createScrollHandoff } from './scroll-handoff.ts'
 import css from './SidebarRoot.module.css'
@@ -47,12 +49,12 @@ const SCROLLBAR_LINGER_MS = 2000
 
 /** Format complete-build metadata for the local brand badge. */
 function localBuildVersion(): string | undefined {
-  const version = process.env.DSH_CLIENT_VERSION
+  const version = process.env.JAN_CLIENT_VERSION
   if (version === undefined) return undefined
-  const commit = process.env.DSH_CLIENT_COMMIT_HASH
+  const commit = process.env.JAN_CLIENT_COMMIT_HASH
   return version
     + (commit === undefined ? '' : `-${commit}`)
-    + (process.env.DSH_CLIENT_GIT_DIRTY === 'true' ? '-dirty' : '')
+    + (process.env.JAN_CLIENT_GIT_DIRTY === 'true' ? '-dirty' : '')
 }
 
 type PanelRowProps =
@@ -133,7 +135,7 @@ function PanelMoreMenu({ wide, label, entries, onOpen, onPinnedChange, trackEntr
               trackEntryClick({ menu_name: 'more', position: 'sidebar' })
               setOpen(value => !value)
             }}>
-            <span className={css.panelGlyph} aria-hidden="true"><IconAppsAddOutlineRegular size={wide ? 16 : 18} /></span>
+            <span className={css.panelGlyph} aria-hidden="true">{wide ? <IconAppsAddOutlineMedium size={16} /> : <IconAppsAddOutlineRegular size={18} />}</span>
             {wide && <span className={clsx(css.panelTitle, css.wide)}>{label}</span>}
           </button>
         </Tooltip>
@@ -154,6 +156,8 @@ export function SidebarRoot({
   drawer,
   startSession,
   toggleSidebar,
+  goBack,
+  goForward,
   selectPanel,
   setPinned,
   trackEntryClick,
@@ -162,6 +166,7 @@ export function SidebarRoot({
   useEntryPins,
   useEntryActions,
   useShortcuts,
+  useNavigationHistory,
   usePanelInfo,
   t,
   renderSlot,
@@ -171,8 +176,9 @@ export function SidebarRoot({
   const unpinned = useEntryPins(ids => ids)
   const activePanelId = usePanelInfo(info => info.activePanelId)
   const hasEntryActions = useEntryActions(registered => registered)
-  const shortcut = useShortcuts(rows => rows.find(row => row.id === 'sidebar.left.toggle'))
-  const newShortcut = useShortcuts(rows => rows.find(row => row.id === 'session.new'))
+  const {
+    shortcut, newShortcut, backShortcut, forwardShortcut, canGoBack, canGoForward,
+  } = useChromeControls({ useShortcuts, useNavigationHistory })
   // A page whose access snapshot excludes starting a Session offers no New Session affordance.
   const canStartSession = useRemoteAccess('session/create')
   const toggleLabel = collapsed ? t('toggle.open') : t('toggle.collapse')
@@ -196,9 +202,9 @@ export function SidebarRoot({
     trackEntryClick({ menu_name: 'new_session', position: windowsTitlebar && collapsed ? 'titlebar' : 'sidebar' })
     startSession()
   }
-  // The Windows caption menus occupy the strip to the right of these controls
-  // (that is what --dsh-windows-menu-start reserves), so a right-side bubble
-  // lands under their text. Below the caption is the only clear side.
+  // The Windows caption strip packs these controls and the caption menus side
+  // by side (--jan-windows-menu-start and --jan-windows-menu-end), so a
+  // right-side bubble lands under a neighbour. Below the caption is the only clear side.
   const captionTooltipSide = windowsTitlebar ? 'bottom' : 'right'
   // Freeze the content at its expanded width while it fades out (collapsed
   // && wide): the sliding column then clips it instead of reflowing it. The
@@ -304,6 +310,27 @@ export function SidebarRoot({
     </Tooltip>
   )
 
+  // Back and Forward follow the toggle wherever it sits: the macOS strip, the logo row, or (rail only) below it.
+  const navigationButtons = (tooltipSide: 'right' | 'bottom') => (['back', 'forward'] as const).map(direction => (
+    <NavigationButton
+      key={direction}
+      direction={direction}
+      label={t(direction === 'back' ? 'navigation.back' : 'navigation.forward')}
+      shortcut={direction === 'back' ? backShortcut : forwardShortcut}
+      disabled={!(direction === 'back' ? canGoBack : canGoForward)}
+      onClick={direction === 'back' ? goBack : goForward}
+      className={clsx(css.iconButton, css.navButton, direction === 'back' ? css.navBack : css.navForward)}
+      size={wide || windowsTitlebar ? 16 : 18}
+      tooltipSide={tooltipSide}
+      portal={drawer}
+    />
+  ))
+
+  // Occupant buttons (Downloads, for one) sit before the toggle while the column is wide.
+  const toggleActions = renderSlot('sidebar.toggle.actions', {
+    className: css.iconButton, iconSize: 16, tooltipSide: 'bottom', portal: drawer, activePanelId, openPanel: selectPanel,
+  })
+
   return (
     <div
       ref={column}
@@ -326,7 +353,7 @@ export function SidebarRoot({
     >
       {/* macOS hiddenInset titlebar: the strip shares the row with the
           traffic lights and keeps the toggle at the sidebar's top-right. */}
-      {darwinDesktop && <div className={css.topStrip} data-window-drag>{toggle}</div>}
+      {darwinDesktop && <div className={css.topStrip} data-window-drag>{wide && toggleActions}{toggle}{navigationButtons('bottom')}</div>}
       <div className={css.logoRow} data-window-drag>
         {/* Expanded, the brand doubles as a New Session shortcut while the
             access snapshot allows `session/create` — except on
@@ -375,31 +402,45 @@ export function SidebarRoot({
               </button>
             )
         })()}
+        {!darwinDesktop && wide && toggleActions}
         {!darwinDesktop && toggle}
+        {!darwinDesktop && (wide || windowsTitlebar) && navigationButtons('bottom')}
       </div>
+      {/* The 56px rail has no row beside the toggle, so Back and Forward stack below it. */}
+      {!darwinDesktop && !wide && !windowsTitlebar && (
+        <div className={css.railNavigation}>{navigationButtons(captionTooltipSide)}</div>
+      )}
 
       {/* The label fades before the hover/focus shortcut, including on translucent backgrounds. */}
-      {canStartSession && (
-        <Tooltip label={t('session.new.label')} shortcutKeys={newShortcut?.keys} delayMs={500} side={captionTooltipSide} disabled={wide}>
-          <button
-            type="button"
-            className={css.newSession}
-            aria-label={t('session.new.label')}
-            aria-keyshortcuts={newShortcut?.aria}
-            onClick={openNewSession}
-          >
-            <span className={css.newSessionLabelMask}><span className={css.newSessionContent}>
-              {wide
-                ? <IconNewChatOutlineMedium size={14} />
-                : <IconNewChatOutlineRegular size={windowsTitlebar ? 16 : 18} />}
-              {wide && <span className={clsx(css.newSessionLabel, css.wide)}>{t('session.new')}</span>}
-            </span></span>
-            {wide && newShortcut !== undefined && newShortcut.keys.length > 0 && <span className={css.newSessionShortcut} aria-hidden="true">
-              <ShortcutKeys keys={newShortcut.keys} />
-            </span>}
-          </button>
-        </Tooltip>
-      )}
+      {canStartSession && renderSlot('sidebar.session.new', {
+        wide, label: t('session.new'), ariaLabel: t('session.new.label'),
+        shortcutKeys: newShortcut?.keys, shortcutAria: newShortcut?.aria, onStart: openNewSession,
+      }, {
+        fallback: (
+          <Tooltip label={t('session.new.label')} shortcutKeys={newShortcut?.keys} delayMs={500} side={captionTooltipSide} disabled={wide}>
+            <button
+              type="button"
+              className={css.newSession}
+              aria-label={t('session.new.label')}
+              aria-keyshortcuts={newShortcut?.aria}
+              onClick={openNewSession}
+            >
+              <span className={css.newSessionLabelMask}><span className={css.newSessionContent}>
+                {wide
+                  ? <IconNewChatOutlineMedium size={14} />
+                  : <IconNewChatOutlineRegular size={windowsTitlebar ? 16 : 18} />}
+                {wide && <span className={clsx(css.newSessionLabel, css.wide)}>{t('session.new')}</span>}
+              </span></span>
+              {wide && newShortcut !== undefined && newShortcut.keys.length > 0 && <span className={css.newSessionShortcut} aria-hidden="true">
+                <ShortcutKeys keys={newShortcut.keys} />
+              </span>}
+            </button>
+          </Tooltip>
+        ),
+      })}
+      {renderSlot('sidebar.workspaces.primary', {
+        wide, expandSidebar: () => { if (collapsed) toggleSidebar() },
+      })}
 
       <div className={css.scrollRegion}>
         <div

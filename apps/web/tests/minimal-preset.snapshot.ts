@@ -1,18 +1,18 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import type { AgentHandle } from '@deepseek-ai/dsh-agent'
-import type { SessionAttachmentValue } from '@deepseek-ai/dsh-api-session-controller'
-import { ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import type { Session } from '@deepseek-ai/dsh-session'
-import type {} from '@deepseek-ai/dsh-agent-preset-registry'
-import type {} from '@deepseek-ai/dsh-system-prompt'
+import type { AgentHandle } from '@janhq/jan-agent'
+import type { SessionAttachmentValue } from '@janhq/jan-api-session-controller'
+import { ToolCallId, createUserMessage } from '@janhq/jan-llm'
+import type { GenerateOptions } from '@janhq/jan-llm'
+import { SessionId } from '@janhq/jan-session'
+import type { Session } from '@janhq/jan-session'
+import type {} from '@janhq/jan-agent-preset-registry'
+import type {} from '@janhq/jan-system-prompt'
 import {
   assertFixtureInventory,
   captureStableAria,
@@ -59,7 +59,7 @@ describe('minimal agent preset', () => {
     agentHandle = await scaffold.ctx.agents.create({
       sessionId: SessionId('minimal-preset-smoke'),
       meta: { cwd: scaffold.workspaceCwd, agentPreset: 'minimal' },
-      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      agentOptions: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
       setup: agentCtx => scaffold.ctx.agentPresets.mount(agentCtx, 'minimal').then(() => undefined),
     })
     agentHandle.agent.followup(createUserMessage({
@@ -107,14 +107,14 @@ describe('minimal agent preset', () => {
       signal,
       callId: ToolCallId('minimal-bash-state-setup'),
       name: 'bash',
-      arguments: { command: `cd ${JSON.stringify(stateDir)} && export DSH_MINIMAL_STATE=PERSISTED` },
+      arguments: { command: `cd ${JSON.stringify(stateDir)} && export JAN_MINIMAL_STATE=PERSISTED` },
       agent: agentHandle.agent,
     })
     const bash = await executeToolFixture(scaffold.ctx, {
       signal,
       callId: ToolCallId('minimal-bash-state-read'),
       name: 'bash',
-      arguments: { command: 'printf \'%s:%s\n\' "$DSH_MINIMAL_STATE" "$PWD"' },
+      arguments: { command: 'printf \'%s:%s\n\' "$JAN_MINIMAL_STATE" "$PWD"' },
       agent: agentHandle.agent,
     })
     const text = (result: typeof bash): string => result.content
@@ -137,6 +137,7 @@ describe('minimal agent preset', () => {
         "prompt": "You are a helpful software engineer assistant.",
         "tools": [
           "bash",
+          "read_chat",
           "read_image",
           "working_directory",
         ],
@@ -228,7 +229,7 @@ describe('minimal manual compaction', () => {
     handle = await scaffold.ctx.agents.create({
       sessionId: SessionId('minimal-compact-smoke'),
       meta: { cwd: scaffold.workspaceCwd, agentPreset: 'minimal' },
-      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      agentOptions: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
       setup: agentCtx => scaffold.ctx.agentPresets.mount(agentCtx, 'minimal').then(() => undefined),
     })
     handle.agent.followup(createUserMessage({
@@ -325,6 +326,7 @@ describe('minimal manual compaction', () => {
 describe('minimal image reading', () => {
   const snapshotDir = fileURLToPath(new URL('../../../snapshots/web/minimal-read-image', import.meta.url))
   const prompt = 'Use read_image to inspect red.png. Then reply exactly MINIMAL_IMAGE_OK and stop.'
+  const imageCall = '[data-chat-call-id="minimal-image-read"]'
   let scaffold: WebScaffold
   let handle: AgentHandle
   let browser: Browser | undefined
@@ -341,7 +343,7 @@ describe('minimal image reading', () => {
   }
 
   async function imageCard(current: Page): Promise<Locator> {
-    const card = current.locator('[data-tool="read_image"]').first()
+    const card = current.locator(imageCall)
     await card.waitFor({ state: 'attached' })
     await expandOwningTurnProcess(current, card)
     const row = card.locator('[data-disclosure-row]')
@@ -372,7 +374,7 @@ describe('minimal image reading', () => {
     handle = await scaffold.ctx.agents.create({
       sessionId: SessionId('minimal-image-smoke'),
       meta: { cwd: scaffold.workspaceCwd, agentPreset: 'minimal' },
-      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash-vision-exp' },
+      agentOptions: { provider: 'tokamak-official', model: 'tokamak-1-vision' },
       setup: agentCtx => scaffold.ctx.agentPresets.mount(agentCtx, 'minimal').then(() => undefined),
     })
     handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: prompt }], source: { kind: 'user' } }))
@@ -392,7 +394,7 @@ describe('minimal image reading', () => {
 
   it('logs a durable image with the minimal tool roster', async () => {
     const session = handle.agent.session
-    expect(session.requestHeader()?.tools?.map(tool => tool.name)).toEqual(['bash', 'read_image', 'working_directory'])
+    expect(session.requestHeader()?.tools?.map(tool => tool.name)).toEqual(['bash', 'read_chat', 'read_image', 'working_directory'])
     const result = session.snapshotEvents().find(event => event.type === 'tool/result')
     expect(result?.data.message.isError).toBe(false)
     expect(result?.data.meta).toEqual({ path: join(scaffold.workspaceCwd, 'red.png') })
@@ -545,7 +547,7 @@ describe('minimal image reading', () => {
       expect(await card.locator('[aria-busy="true"]').count()).toBe(0)
       expect(await card.locator('img').count()).toBe(0)
       await compareOrRefreshGolden(join(snapshotDir, 'missing-image.expected.md'),
-        await captureStableAria(page, '[data-tool="read_image"]', scaffold.workspaceCwd), MODE)
+        await captureStableAria(page, imageCall, scaffold.workspaceCwd), MODE)
     } finally {
       await scaffold.ctx.attachments.saveImage({ data: stored.data, mediaType: stored.ref.mediaType })
     }

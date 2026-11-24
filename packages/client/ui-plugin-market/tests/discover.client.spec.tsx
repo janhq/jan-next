@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { MarketListingEntry, MarketListingVersion, MarketSearchResult } from '@deepseek-ai/dsh-api-remotes/client'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { LocaleSnapshot } from '@deepseek-ai/dsh-client-locale/client'
+import type { MarketListingEntry, MarketListingVersion, MarketSearchResult } from '@janhq/jan-api-remotes/client'
+import { bindSnapshotSelector } from '@janhq/jan-client-test-runtime'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { LocaleSnapshot } from '@janhq/jan-client-locale/client'
 import { DiscoverSection, type DiscoverSectionProps } from '../src/client/DiscoverSection.tsx'
 import type { DetailsState, DiscoverState, ListingState } from '../src/client/market-store.ts'
 import { INITIAL_QUERY, type DiscoverQuery } from '../src/client/presentation.ts'
@@ -28,7 +28,7 @@ function release(name: string, version: string, fields: Partial<MarketListingVer
   }
 }
 
-const INCOMPATIBLE = { compatible: false, runtimeVersion: '0.2.0', requirements: { 'engines.dsh': '0.1.0' } } as const
+const INCOMPATIBLE = { compatible: false, runtimeVersion: '0.2.0', requirements: { 'engines.jan': '0.1.0' } } as const
 
 function entry(
   name: string, fields: Partial<MarketListingEntry> = {}, metadata: Partial<MarketListingEntry['metadata']> = {},
@@ -57,19 +57,19 @@ const LISTING: MarketSearchResult = {
     sortKeys: { downloads: { title: 'Downloads', order: 'desc' } },
   },
   entries: [
-    entry('dsh-a', {
+    entry('jan-a', {
       title: { en: 'Alpha', zh: '甲' }, description: 'Does A', author: 'Jane', icon: 'https://cdn.example/a.png',
       homepage: 'https://example.com/alpha#readme', repository: { url: 'https://github.com/o/plugins', directory: 'packages/a' },
     }, { category: 'tools', labels: ['official', 'beta'], sortKeys: { downloads: 1 } }, {
-      source: { type: 'npm', registry: 'https://r.example/' }, install: { spec: 'dsh-a@1.0.0', registry: 'https://r.example/' },
+      source: { type: 'npm', registry: 'https://r.example/' }, install: { spec: 'jan-a@1.0.0', registry: 'https://r.example/' },
     }),
-    entry('dsh-b', { installation: { status: 'installed', installedVersion: '1.0.0' } }, { category: 'themes', labels: ['official'], sortKeys: { downloads: 9 } }, {
+    entry('jan-b', { installation: { status: 'installed', installedVersion: '1.0.0' } }, { category: 'themes', labels: ['official'], sortKeys: { downloads: 9 } }, {
       publishTimestamp: 1790000000, source: { type: 'git', url: 'https://github.com/o/r', commit: COMMIT, path: 'packages/b' },
     }),
-    entry('dsh-c', { installation: { status: 'update-available', installedVersion: '0.9.0' }, repository: { url: 'https://git.example/o/c' } }),
-    entry('dsh-f', { installation: { status: 'provided' } }, {}, { source: { type: 'git', url: 'https://github.com/o/f', commit: COMMIT } }),
-    entry('dsh-g', {}, {}, { compatibility: { ...INCOMPATIBLE, exempted: false } }),
-    entry('dsh-h', {}, {}, { compatibility: { ...INCOMPATIBLE, exempted: true } }),
+    entry('jan-c', { installation: { status: 'update-available', installedVersion: '0.9.0' }, repository: { url: 'https://git.example/o/c' } }),
+    entry('jan-f', { installation: { status: 'provided' } }, {}, { source: { type: 'git', url: 'https://github.com/o/f', commit: COMMIT } }),
+    entry('jan-g', {}, {}, { compatibility: { ...INCOMPATIBLE, exempted: false } }),
+    entry('jan-h', {}, {}, { compatibility: { ...INCOMPATIBLE, exempted: true } }),
   ],
 }
 
@@ -85,7 +85,7 @@ function renderTab(state: Partial<DiscoverState> = {}, dictionary: Record<Plugin
   const actions = {
     ensure: vi.fn(), reload: vi.fn(), select: vi.fn(), search: vi.fn(), more: vi.fn(), refresh: vi.fn(), retry: vi.fn(),
     toggleSources: vi.fn(),
-    editDraft: vi.fn(), addSource: vi.fn(), removeSource: vi.fn(),
+    editDraft: vi.fn(), addSource: vi.fn(), removeSource: vi.fn(), addSuggested: vi.fn(),
     loadDetail: vi.fn(), retryDetail: vi.fn(), detailImage: vi.fn(() => undefined),
   }
   const install = vi.fn()
@@ -122,43 +122,54 @@ describe('DiscoverSection', () => {
     expect(actions.reload).toHaveBeenCalledOnce()
   })
 
-  it('offers adding a first source when none is configured', () => {
+  it('shows a decorative plugin index glyph and offers to add the first source', () => {
     const { actions } = renderTab({ indexes: [], selected: null, listing: null })
     expect(screen.getByText(en.emptyTitle)).toBeTruthy()
+    expect(document.querySelector('[data-icon="dsw-icon-plugin-index-outline-regular"][aria-hidden="true"]')).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { name: en.addFirstSource }))
     expect(actions.toggleSources).toHaveBeenCalledOnce()
   })
 
+  it('offers the public DSH index in one click until it is added', () => {
+    const { actions, set } = renderTab({ indexes: [], selected: null, listing: null })
+    const suggested = within(screen.getByRole('list', { name: en.suggestedLabel }))
+    expect(suggested.getByText(en.suggestedDsh)).toBeTruthy()
+    fireEvent.click(suggested.getByRole('button', { name: 'Add awesome-dsh-plugins' }))
+    expect(actions.addSuggested).toHaveBeenCalledWith('https://dsh.works/awesome-dsh-plugins/market/index.json')
+    set({ indexes: [{ url: 'https://dsh.works/awesome-dsh-plugins/market/index.json' }] })
+    expect(screen.queryByRole('list', { name: en.suggestedLabel })).toBeNull()
+  })
+
   it('lists entries with one action each: install after confirmation, or open the installed bundle', () => {
     const { install, openPackage } = renderTab()
-    expect(names()).toEqual(['dsh-a', 'dsh-b', 'dsh-c', 'dsh-f', 'dsh-g', 'dsh-h'])
-    expect(card('dsh-a').getByText('Official')).toBeTruthy()
-    expect(card('dsh-a').getByText('Does A')).toBeTruthy()
-    expect(card('dsh-a').getByText(/^1\.0\.0 · Jane · /)).toBeTruthy()
-    expect(card('dsh-c').getByText(/^1\.0\.0 · Sep/)).toBeTruthy()
-    fireEvent.click(card('dsh-a').getByRole('button', { name: 'Install Alpha' }))
+    expect(names()).toEqual(['jan-a', 'jan-b', 'jan-c', 'jan-f', 'jan-g', 'jan-h'])
+    expect(card('jan-a').getByText('Official')).toBeTruthy()
+    expect(card('jan-a').getByText('Does A')).toBeTruthy()
+    expect(card('jan-a').getByText(/^1\.0\.0 · Jane · /)).toBeTruthy()
+    expect(card('jan-c').getByText(/^1\.0\.0 · Sep/)).toBeTruthy()
+    fireEvent.click(card('jan-a').getByRole('button', { name: 'Install Alpha' }))
     const dialog = within(screen.getByRole('dialog', { name: 'Install "Alpha"?' }))
-    expect(dialog.getByText('dsh-a@1.0.0')).toBeTruthy()
+    expect(dialog.getByText('jan-a@1.0.0')).toBeTruthy()
     expect(dialog.getByText('https://r.example/')).toBeTruthy()
     expect(dialog.getByText('Jane')).toBeTruthy()
     expect(dialog.getByText(en.installTrust)).toBeTruthy()
     fireEvent.click(dialog.getByRole('button', { name: en.cancel }))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(install).not.toHaveBeenCalled()
-    fireEvent.click(card('dsh-a').getByRole('button', { name: 'Install Alpha' }))
+    fireEvent.click(card('jan-a').getByRole('button', { name: 'Install Alpha' }))
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: en.install }))
-    expect(install).toHaveBeenCalledWith({ spec: 'dsh-a@1.0.0', registry: 'https://r.example/', title: 'Alpha', version: '1.0.0' })
+    expect(install).toHaveBeenCalledWith({ spec: 'jan-a@1.0.0', registry: 'https://r.example/', title: 'Alpha', version: '1.0.0' })
     expect(screen.queryByRole('dialog')).toBeNull()
-    for (const [name, label] of [['dsh-b', en.statusInstalled], ['dsh-c', en.statusUpdate], ['dsh-f', en.statusProvided]] as const) {
+    for (const [name, label] of [['jan-b', en.statusInstalled], ['jan-c', en.statusUpdate], ['jan-f', en.statusProvided]] as const) {
       fireEvent.click(card(name).getByRole('button', { name: `View ${name} in Installed` }))
       expect(card(name).getByText(label)).toBeTruthy()
       expect(openPackage).toHaveBeenLastCalledWith(name)
     }
     // An incompatible entry cannot be installed; an exempted one can, and its dialog says why.
-    fireEvent.click(card('dsh-g').getByRole('button', { name: 'Install dsh-g' }))
+    fireEvent.click(card('jan-g').getByRole('button', { name: 'Install jan-g' }))
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(card('dsh-g').getByRole('button', { name: 'Install dsh-g' }).getAttribute('aria-disabled')).toBe('true')
-    fireEvent.click(card('dsh-h').getByRole('button', { name: 'Install dsh-h' }))
+    expect(card('jan-g').getByRole('button', { name: 'Install jan-g' }).getAttribute('aria-disabled')).toBe('true')
+    fireEvent.click(card('jan-h').getByRole('button', { name: 'Install jan-h' }))
     expect(within(screen.getByRole('dialog')).getByText(en.exempted)).toBeTruthy()
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: en.close }))
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -166,10 +177,10 @@ describe('DiscoverSection', () => {
 
   it('falls back to the default artwork when an icon fails to load', () => {
     renderTab()
-    const image = document.querySelector('[data-market-entry="dsh-a"] img') as HTMLImageElement
+    const image = document.querySelector('[data-market-entry="jan-a"] img') as HTMLImageElement
     expect(image.getAttribute('loading')).toBe('lazy')
     fireEvent.error(image)
-    expect(document.querySelector('[data-market-entry="dsh-a"] img')).toBeNull()
+    expect(document.querySelector('[data-market-entry="jan-a"] img')).toBeNull()
   })
 
   it('sends typed text after a pause, ordered by relevance, and offers that order only with text', () => {
@@ -185,7 +196,7 @@ describe('DiscoverSection', () => {
       const typed = { ...INITIAL_QUERY, text: 'does a', sort: { kind: 'relevance' } } as const
       expect(actions.search).toHaveBeenCalledExactlyOnceWith(typed)
       answer(typed, { entries: LISTING.entries.slice(0, 1), total: 1 })
-      expect(names()).toEqual(['dsh-a'])
+      expect(names()).toEqual(['jan-a'])
       openMenu(/^Sort: Best match/)
       pick(en.sortDefault)
       expect(actions.search).toHaveBeenLastCalledWith({ ...typed, sort: { kind: 'index' } })
@@ -282,13 +293,13 @@ describe('DiscoverSection', () => {
 
   it('opens an entry page with its source facts and actions, and returns to the list', () => {
     const { install, openPackage, actions } = renderTab()
-    fireEvent.click(card('dsh-a').getByRole('button', { name: 'View Alpha' }))
-    const detail = within(document.querySelector('[data-market-detail="dsh-a"]') as HTMLElement)
-    expect(actions.loadDetail).toHaveBeenCalledWith({ url: A, name: 'dsh-a', version: '1.0.0', npm: true }, 'en')
+    fireEvent.click(card('jan-a').getByRole('button', { name: 'View Alpha' }))
+    const detail = within(document.querySelector('[data-market-detail="jan-a"]') as HTMLElement)
+    expect(actions.loadDetail).toHaveBeenCalledWith({ url: A, name: 'jan-a', version: '1.0.0', npm: true }, 'en')
     expect(detail.getByRole('status', { name: en.detailLoading })).toBeTruthy()
     expect(detail.getByRole('heading', { name: 'Alpha' })).toBeTruthy()
-    expect(detail.getByText('dsh-a')).toBeTruthy()
-    for (const value of ['Jane', 'dsh-a@1.0.0', 'https://r.example/', 'Tools', 'Official', 'Beta', 'Alpha index']) expect(detail.getByText(value)).toBeTruthy()
+    expect(detail.getByText('jan-a')).toBeTruthy()
+    for (const value of ['Jane', 'jan-a@1.0.0', 'https://r.example/', 'Tools', 'Official', 'Beta', 'Alpha index']) expect(detail.getByText(value)).toBeTruthy()
     const homepage = detail.getByRole('link', { name: 'https://example.com/alpha#readme' })
     expect([homepage.getAttribute('href'), homepage.getAttribute('target'), homepage.getAttribute('rel')])
       .toEqual(['https://example.com/alpha#readme', '_blank', 'noopener noreferrer'])
@@ -300,30 +311,30 @@ describe('DiscoverSection', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: en.install }))
     expect(install).toHaveBeenCalledOnce()
     fireEvent.click(detail.getByRole('button', { name: en.backToList }))
-    fireEvent.click(card('dsh-b').getByRole('button', { name: 'View dsh-b' }))
-    const git = within(document.querySelector('[data-market-detail="dsh-b"]') as HTMLElement)
-    expect(actions.loadDetail).toHaveBeenLastCalledWith({ url: A, name: 'dsh-b', version: '1.0.0', npm: false }, 'en')
+    fireEvent.click(card('jan-b').getByRole('button', { name: 'View jan-b' }))
+    const git = within(document.querySelector('[data-market-detail="jan-b"]') as HTMLElement)
+    expect(actions.loadDetail).toHaveBeenLastCalledWith({ url: A, name: 'jan-b', version: '1.0.0', npm: false }, 'en')
     expect(git.queryByRole('link')).toBeNull()
     for (const value of ['https://github.com/o/r', COMMIT, 'packages/b', 'Themes']) expect(git.getByText(value)).toBeTruthy()
-    fireEvent.click(git.getByRole('button', { name: 'View dsh-b in Installed' }))
-    expect(openPackage).toHaveBeenCalledWith('dsh-b')
+    fireEvent.click(git.getByRole('button', { name: 'View jan-b in Installed' }))
+    expect(openPackage).toHaveBeenCalledWith('jan-b')
     fireEvent.click(git.getByRole('button', { name: en.backToList }))
-    fireEvent.click(card('dsh-g').getByRole('button', { name: 'View dsh-g' }))
+    fireEvent.click(card('jan-g').getByRole('button', { name: 'View jan-g' }))
     expect(screen.getAllByText('This version is not compatible with the running Jan 0.2.0; it requires Jan 0.1.0.')).toHaveLength(2)
     fireEvent.click(screen.getByRole('button', { name: en.backToList }))
-    fireEvent.click(card('dsh-h').getByRole('button', { name: 'View dsh-h' }))
+    fireEvent.click(card('jan-h').getByRole('button', { name: 'View jan-h' }))
     expect(screen.getAllByText(en.exempted)).toHaveLength(2)
   })
 
   it('links a repository without a directory', () => {
     renderTab()
-    fireEvent.click(card('dsh-c').getByRole('button', { name: 'View dsh-c' }))
-    const detail = within(document.querySelector('[data-market-detail="dsh-c"]') as HTMLElement)
+    fireEvent.click(card('jan-c').getByRole('button', { name: 'View jan-c' }))
+    const detail = within(document.querySelector('[data-market-detail="jan-c"]') as HTMLElement)
     expect(detail.getByRole('link', { name: 'https://git.example/o/c' }).closest('dd')?.querySelector('code')).toBeNull()
   })
 
   it('lists every version on the entry page and installs the one chosen', () => {
-    const name = 'dsh-v'
+    const name = 'jan-v'
     const versions = [
       release(name, '3.0.0-rc.1'),
       release(name, '2.0.0', { compatibility: { ...INCOMPATIBLE, exempted: false } }),
@@ -350,17 +361,17 @@ describe('DiscoverSection', () => {
     expect(row('1.0.0+build.1').queryByRole('button')).toBeNull()
     fireEvent.click(list.getByRole('button', { name: `Install ${name} 3.0.0-rc.1` }))
     const dialog = within(screen.getByRole('dialog'))
-    expect(dialog.getByText('dsh-v@3.0.0-rc.1')).toBeTruthy()
+    expect(dialog.getByText('jan-v@3.0.0-rc.1')).toBeTruthy()
     fireEvent.click(dialog.getByRole('button', { name: en.install }))
-    expect(install).toHaveBeenCalledWith({ spec: 'dsh-v@3.0.0-rc.1', title: 'dsh-v', version: '3.0.0-rc.1' })
+    expect(install).toHaveBeenCalledWith({ spec: 'jan-v@3.0.0-rc.1', title: 'jan-v', version: '3.0.0-rc.1' })
   })
 
-  it('marks exempted versions and offers no version of a bundle DSH provides', () => {
-    const name = 'dsh-x'
+  it('marks exempted versions and offers no version of a bundle Jan provides', () => {
+    const name = 'jan-x'
     const exempted = release(name, '2.0.0', { compatibility: { ...INCOMPATIBLE, exempted: true } })
     const entries: MarketListingEntry[] = [
       { name, versions: [exempted], installation: { status: 'not-installed' }, metadata: { keywords: [], labels: [], sortKeys: {} } },
-      entry('dsh-p', { installation: { status: 'provided', installedVersion: '0.9.0' } }),
+      entry('jan-p', { installation: { status: 'provided', installedVersion: '0.9.0' } }),
     ]
     renderTab({ listing: { url: A, query: INITIAL_QUERY, status: 'ready', value: { ...LISTING, entries }, answered: INITIAL_QUERY, failure: null } })
     fireEvent.click(card(name).getByRole('button', { name: `View ${name}` }))
@@ -369,12 +380,12 @@ describe('DiscoverSection', () => {
     expect(row.getAllByText(en.exempted).length).toBeGreaterThan(0)
     expect(row.getByRole('button', { name: `Install ${name} 2.0.0` })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: en.backToList }))
-    fireEvent.click(card('dsh-p').getByRole('button', { name: 'View dsh-p' }))
+    fireEvent.click(card('jan-p').getByRole('button', { name: 'View jan-p' }))
     expect(within(document.querySelector('[data-market-version="1.0.0"]') as HTMLElement).queryByRole('button')).toBeNull()
   })
 
   it('asks for the next page while the Host has more', () => {
-    const many = Array.from({ length: 50 }, (_, index) => entry(`dsh-${String(index).padStart(3, '0')}`))
+    const many = Array.from({ length: 50 }, (_, index) => entry(`jan-${String(index).padStart(3, '0')}`))
     const { actions, set } = renderTab({
       listing: { url: A, query: INITIAL_QUERY, status: 'ready', value: { ...LISTING, metadata: { categories: {}, labels: {}, sortKeys: {} }, entries: many, total: 120, nextOffset: 50 }, answered: INITIAL_QUERY, failure: null },
     })
@@ -393,9 +404,9 @@ describe('DiscoverSection', () => {
 
   it('keeps an opened entry page when a reload no longer includes it, and shows its latest state when it does', () => {
     const { answer } = renderTab()
-    fireEvent.click(card('dsh-a').getByRole('button', { name: 'View Alpha' }))
+    fireEvent.click(card('jan-a').getByRole('button', { name: 'View Alpha' }))
     answer(INITIAL_QUERY, { entries: LISTING.entries.slice(1) })
-    expect(document.querySelector('[data-market-detail="dsh-a"]')).toBeTruthy()
+    expect(document.querySelector('[data-market-detail="jan-a"]')).toBeTruthy()
     const installed = { ...LISTING.entries[0] as MarketListingEntry, installation: { status: 'installed', installedVersion: '1.0.0' } } as const
     answer(INITIAL_QUERY, { entries: [installed] })
     expect(screen.getByRole('button', { name: 'View Alpha in Installed' })).toBeTruthy()
@@ -455,8 +466,8 @@ describe('DiscoverSection', () => {
   it('renders the Chinese copy and dates', () => {
     renderTab({}, zh)
     expect(screen.getByRole('button', { name: '切换插件索引，当前为 甲索引' })).toBeTruthy()
-    expect(card('dsh-a').getByText('甲')).toBeTruthy()
-    expect(card('dsh-a').getByText(/^1\.0\.0 · Jane · 2026年9月/)).toBeTruthy()
-    expect(card('dsh-b').getByText(zh.statusInstalled)).toBeTruthy()
+    expect(card('jan-a').getByText('甲')).toBeTruthy()
+    expect(card('jan-a').getByText(/^1\.0\.0 · Jane · 2026年9月/)).toBeTruthy()
+    expect(card('jan-b').getByText(zh.statusInstalled)).toBeTruthy()
   })
 })

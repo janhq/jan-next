@@ -1,6 +1,6 @@
 /**
  * Keyless real-server e2e: drives the real `typescript-language-server` through the full
- * `ctx.lsp` → `dsh-lsp-stdio` stack over the base protocol, exercising all four operations. No API
+ * `ctx.lsp` → `jan-lsp-stdio` stack over the base protocol, exercising all four operations. No API
  * key needed — the server is a local dev dependency. This establishes one compatibility floor
  * (TypeScript), not a cross-language claim.
  */
@@ -9,11 +9,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { mkdtemp, mkdir, rm, writeFile, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
-import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
-import Lsp, { type LspQueryRequest, type LspQueryResult } from '@deepseek-ai/dsh-lsp'
-import * as LspLocal from '@deepseek-ai/dsh-lsp-stdio'
+import { Context } from '@janhq/cordis'
+import LocalSubprocessRuntime from '@janhq/jan-subprocess-local'
+import LocalFileSystem from '@janhq/jan-fs-local'
+import Lsp, { type LspQueryRequest, type LspQueryResult } from '@janhq/jan-lsp'
+import * as LspLocal from '@janhq/jan-lsp-stdio'
 
 // The server binary is a dev dependency of this package; resolve its pnpm-hoisted .bin path.
 const serverBin = join(

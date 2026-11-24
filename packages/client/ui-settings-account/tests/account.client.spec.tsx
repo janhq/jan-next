@@ -2,9 +2,9 @@
 import { cleanup, fireEvent, render, screen, act, within } from '@testing-library/react'
 import { useMemo, useSyncExternalStore } from 'react'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
-import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import type { AccountDetails, AccountView, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
-import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
+import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
+import type { AccountDetails, AccountView, SignInAttemptId } from '@janhq/jan-tokamak-account/types'
+import type { ThemeSnapshot } from '@janhq/jan-client-ui-theme/client'
 import type { PlatformBridge } from '../src/client/PlatformOverlay.tsx'
 import { createPlatformPages, type PlatformPages } from '../src/client/platform-pages.ts'
 import { AccountPlatformHost } from '../src/client/AccountPlatformHost.tsx'
@@ -134,7 +134,6 @@ it.each([en, zh].flatMap(copy => ([false, true, 'unknown'] as const).map(running
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={openSettings}
     t={key => key in copy ? copy[key as AccountKey] : key} />)
   fireEvent.click(screen.getByRole('button', { name: copy.menu }))
-  // tokamak-harness: the third-party DeepSeek feedback form is not offered.
   expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([copy.settings, copy.signOut])
   await expect(`${screen.getByRole('menu').textContent}\n`).toMatchFileSnapshot(`./expected/menu-${copy === en ? 'en' : 'zh'}.txt`)
   fireEvent.click(screen.getByRole('menuitem', { name: copy.settings }))
@@ -186,9 +185,12 @@ it.each([en, zh])('offers settings, contact and sign-in from the signed-out acco
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={openSettings}
     t={key => key in copy ? copy[key as AccountKey] : key} />)
+  // Signed out, the wide footer leads with Log in, which starts sign-in at once;
+  // the gear beside it opens the account menu.
+  fireEvent.click(screen.getByRole('button', { name: copy.logIn }))
+  expect(operations.start).toHaveBeenCalledOnce()
   const trigger = screen.getByRole('button', { name: copy.menu })
-  expect(trigger.textContent).toBe(copy.more)
-  expect(trigger.querySelector('svg')).not.toBeNull()
+  expect(trigger.textContent).toBe('')
   fireEvent.click(trigger)
   expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([copy.settings, copy.signIn])
   await expect(`${screen.getByRole('menu').textContent}\n`).toMatchFileSnapshot(`./expected/menu-signed-out-${copy === en ? 'en' : 'zh'}.txt`)
@@ -244,10 +246,10 @@ it('reports a failed start in the login dialog, not as a sidebar alert', async (
     useAccount={selector => selector(snapshot)} useTheme={selector => selector(operations.hooks.theme.getSnapshot())}
     wide openOnboarding={() => {}} openSettings={() => {}}
     t={key => key in en ? en[key as AccountKey] : key} />)
-  expect(screen.getByRole('dialog').textContent).toContain(en.failed)
+  expect(screen.getByRole('dialog').textContent).toContain(en.failureGeneric)
   expect(screen.queryByRole('alert')).toBeNull()
   // The dialog is the only place that reports the failure, so its copy appears once.
-  expect(document.body.textContent.split(en.failed)).toHaveLength(2)
+  expect(document.body.textContent.split(en.failureGeneric)).toHaveLength(2)
   await expect(`${document.body.textContent}\n`).toMatchFileSnapshot('./expected/login-failed-en.txt')
 })
 
@@ -422,7 +424,7 @@ it.each([
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())}
     wide openSettings={() => {}} openOnboarding={() => {}} t={key => en[key as AccountKey]} />)
-  expect(screen.getByRole('button', { name: en.menu }).textContent).toBe(expected)
+  expect(screen.getByRole('button', { name: en.menu }).textContent).toBe(`${expected}${en.tokamak}`)
 })
 
 it('shows the same shared picture outcome in settings and the sidebar', async () => {
@@ -529,17 +531,17 @@ it.each(['initializing', 'waiting-browser', 'exchanging'] as const)('shows %s an
 })
 
 it('opens the authorization link with the active application palette and follows later switches', () => {
-  const authorizeUrl = 'https://platform.deepseek.com/dsh/authorize?state=example'
+  const authorizeUrl = 'https://tokamak.sh/cli/authorize?state=example'
   const operations = operationsOf({ status: 'signed-out', attempt: { id: 'attempt' as SignInAttemptId, phase: 'waiting-browser', authorizeUrl } })
   const element = (theme: ThemeSnapshot) => <AccountSection {...({} as GlobalStandardProps)} {...operations}
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(theme)} close={() => {}} t={key => key in en ? en[key as AccountKey] : key} />
   const view = render(element(themeOf('dark')))
   expect(screen.getByRole('link', { name: en.open }).getAttribute('href'))
-    .toBe('https://platform.deepseek.com/dsh/authorize?state=example&theme=dark')
+    .toBe('https://tokamak.sh/cli/authorize?state=example&theme=dark')
   view.rerender(element(themeOf('light')))
   expect(screen.getByRole('link', { name: en.open }).getAttribute('href'))
-    .toBe('https://platform.deepseek.com/dsh/authorize?state=example&theme=light')
+    .toBe('https://tokamak.sh/cli/authorize?state=example&theme=light')
 })
 
 it.each(['failed', 'expired'] as const)('allows a new sign-in after the attempt is %s', (phase) => {
@@ -616,7 +618,7 @@ it('dismisses a collapsed menu and hands its login dialog to Settings for an API
   fireEvent.click(screen.getByRole('button', { name: en.close }))
   expect(operations.showLogin).toHaveBeenLastCalledWith(false)
   fireEvent.click(screen.getByRole('button', { name: en.addApiKey }))
-  // tokamak-harness: the DeepSeek onboarding step is gone; Settings → Models saves TOKAMAK_API_KEY.
+  // Settings → Models saves TOKAMAK_API_KEY; no onboarding step opens.
   expect(openSettings).toHaveBeenCalledOnce()
   expect(openOnboarding).not.toHaveBeenCalled()
   snapshot = { ...snapshot, onboarding: true }

@@ -13,15 +13,15 @@ import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import type { StreamChunk } from '@deepseek-ai/dsh-llm'
-import { ToolCallId, createAssistantMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { ReplayEntry } from '@deepseek-ai/dsh-llm-replay'
+import type { StreamChunk } from '@janhq/jan-llm'
+import { ToolCallId, createAssistantMessage, createUserMessage } from '@janhq/jan-llm'
+import type { ReplayEntry } from '@janhq/jan-llm-replay'
 import {
   SESSION_FORMAT_VERSION, SessionId, SessionLogOffset, SessionSeq, type SessionEvent, type SessionHeader,
-} from '@deepseek-ai/dsh-session'
-import type {} from '@deepseek-ai/dsh-system-prompt'
-import { sessionFixtureName } from '@deepseek-ai/dsh-session-snapshot'
-import { snapshotSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
+} from '@janhq/jan-session'
+import type {} from '@janhq/jan-system-prompt'
+import { sessionFixtureName } from '@janhq/jan-session-snapshot'
+import { snapshotSubagentDescriptor } from '@janhq/jan-subagent'
 import { createChatScrollFixture, type ChatScrollFixture } from './chat-scroll-fixture.ts'
 import { launchWebScaffold, parseSeedFixture, seedSession, watchConsole, webSnapshotMode, type WebScaffold } from './scaffold.ts'
 import { newEnglishPage, openSettings } from './support.ts'
@@ -536,7 +536,7 @@ async function createChild(scaffold: WebScaffold, parentId: SessionId, scenario:
   const ordered = [
     ...parsed.events.slice(0, firstUser + 1),
     { type: 'subagent/descriptor', data: snapshotSubagentDescriptor({
-      mode: 'continuable', provider: 'spawn', label: CHILD_LABEL, agentProvider: 'deepseek-official', agentModel: 'deepseek-v4-flash',
+      mode: 'continuable', provider: 'spawn', label: CHILD_LABEL, agentProvider: 'tokamak-official', agentModel: 'tokamak-1-preview',
     }) },
     ...parsed.events.slice(firstUser + 1),
   ]
@@ -844,7 +844,7 @@ describe.skipIf(MODE === 'record')('web e2e: blank area after next-message foldi
 
   for (const scenario of CASES) {
     it(scenario.id, async () => {
-      const replayDir = await mkdtemp(join(tmpdir(), 'dsh-fold-matrix-'))
+      const replayDir = await mkdtemp(join(tmpdir(), 'jan-fold-matrix-'))
       let world: World | undefined
       try {
         world = await openWorld(browser, scenario, replayDir)

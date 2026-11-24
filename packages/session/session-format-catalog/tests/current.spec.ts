@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
-import type { SessionFormatArtifact, SessionFormatHeader } from '@deepseek-ai/dsh-session-format'
+import { SESSION_FORMAT_VERSION } from '@janhq/jan-session'
+import type { SessionFormatArtifact, SessionFormatHeader } from '@janhq/jan-session-format'
 import {
   validateInstalledCurrentSessionArtifact,
   validateInstalledCurrentSessionHeader,

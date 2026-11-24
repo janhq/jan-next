@@ -8,8 +8,8 @@
  * select one by name.
  *
  * This package owns the Service Definition role of the capability seam. Service Providers
- * (`@deepseek-ai/dsh-subagent-spawn-in-process`, `-fork`, `-acp`) and the model-facing
- * consumer (`@deepseek-ai/dsh-tool-subagent`) are separate packages.
+ * (`@janhq/jan-subagent-spawn-in-process`, `-fork`, `-acp`) and the model-facing
+ * consumer (`@janhq/jan-tool-subagent`) are separate packages.
  *
  * `startActivation` establishes every child under the activation manager, which
  * owns execution, result delivery, and resource release. Local providers seed
@@ -25,23 +25,23 @@
  * serialization and hostile-input validation belong at real process, worker,
  * persistence, and model boundaries.
  *
- * @module @deepseek-ai/dsh-subagent
+ * @module @janhq/jan-subagent
  */
-import type { Volatile } from '@deepseek-ai/cordis'
+import type { Volatile } from '@janhq/cordis'
 
-import { Context, Service } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import type {} from '@deepseek-ai/dsh-working-directory'
-import type {} from '@deepseek-ai/dsh-attachment'
-import { brandString } from '@deepseek-ai/dsh-brand'
-import { scopeTarget } from '@deepseek-ai/dsh-scope'
-import type { Scoped } from '@deepseek-ai/dsh-scope'
-import { assertObjectJsonSchema } from '@deepseek-ai/dsh-tools'
-import type { ContentBlock, MessageId } from '@deepseek-ai/dsh-llm'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { SessionId } from '@deepseek-ai/dsh-session'
-import { canonicalClientTimeZone } from '@deepseek-ai/dsh-util-time'
-import { Remote, RemoteError, TypertRemoteService, principalOf, type Principal } from '@deepseek-ai/dsh-typert-protocol'
+import { Context, Service } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import type {} from '@janhq/jan-working-directory'
+import type {} from '@janhq/jan-attachment'
+import { brandString } from '@janhq/jan-brand'
+import { scopeTarget } from '@janhq/jan-scope'
+import type { Scoped } from '@janhq/jan-scope'
+import { assertObjectJsonSchema } from '@janhq/jan-tools'
+import type { ContentBlock, MessageId } from '@janhq/jan-llm'
+import type { Agent } from '@janhq/jan-agent'
+import type { SessionId } from '@janhq/jan-session'
+import { canonicalClientTimeZone } from '@janhq/jan-util-time'
+import { Remote, RemoteError, TypertRemoteService, principalOf, type Principal } from '@janhq/jan-typert-protocol'
 import {
   rejectPrompt, validateControlRequest,
 } from './control.ts'
@@ -71,6 +71,7 @@ import SubagentManager from './manager.ts'
 import { listDescendants as listSubagentDescendants, resolveAgentPath } from './list-children.ts'
 import type { SubagentDescendantListEntry } from './list-children.ts'
 import { subagentIdentityProjectionDefinition, subagentTimingProjectionDefinition } from './projection.ts'
+import { subagentActivityProjectionDefinition } from './activity-projection.ts'
 import { subagentCatalogProjectionDefinition } from './catalog.ts'
 import { ROOT_AGENT_NAME } from './names.ts'
 
@@ -126,9 +127,11 @@ export type { AgentMessageSource, SubagentSettledMessageSource } from './continu
 export type * from './control-types.ts'
 export type { SubagentDescendantListEntry } from './list-children.ts'
 export type { SubagentRunEndInfo, SubagentRunInfo } from './types.ts'
-export type { SubagentCatalogEntry, SubagentIdentityProjection, SubagentTimingProjection } from './projection-types.ts'
+export type {
+  SubagentActivityEntry, SubagentActivityProjection, SubagentCatalogEntry, SubagentIdentityProjection, SubagentTimingProjection,
+} from './projection-types.ts'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     subagents: SubagentRuntime
   }
@@ -215,6 +218,7 @@ export class SubagentRuntime extends TypertRemoteService {
     const ctx = this.ctx
     const catalogProjection = await ctx.sessionProjections.register(subagentCatalogProjectionDefinition)
     await ctx.sessionProjections.register(subagentTimingProjectionDefinition)
+    await ctx.sessionProjections.register(subagentActivityProjectionDefinition)
     const identityProjection = await ctx.sessionProjections.register(subagentIdentityProjectionDefinition)
     if (ctx.fiber.uid === null) return
     ctx.inject(['agents'], (childCtx: Context) => {

@@ -1,13 +1,13 @@
 /** Compiled worker for Client history folding, live Assistant text, and tool preparation. */
 
 import { performance } from 'node:perf_hooks'
-import { Context } from '@deepseek-ai/cordis'
-import { AssistantStreamAccumulator } from '@deepseek-ai/dsh-llm/assistant-stream'
-import { LlmAttemptId, ToolCallId } from '@deepseek-ai/dsh-llm/brand'
-import type { StreamChunk } from '@deepseek-ai/dsh-llm'
-import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
-import type { ChatNode, ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { SessionEventLikeEntry } from '@deepseek-ai/dsh-api-session-controller/client'
+import { Context } from '@janhq/cordis'
+import { AssistantStreamAccumulator } from '@janhq/jan-llm/assistant-stream'
+import { LlmAttemptId, ToolCallId } from '@janhq/jan-llm/brand'
+import type { StreamChunk } from '@janhq/jan-llm'
+import type { SessionEvent } from '@janhq/jan-session/types'
+import type { ChatNode, ChatSnapshot } from '@janhq/jan-client-ui-chat/client'
+import type { SessionEventLikeEntry } from '@janhq/jan-api-session-controller/client'
 // These Client-only fold modules have no plain-Node package export and are compiled into this worker.
 import { ConversationNodeAssembler } from '../../packages/client/ui-conversation/src/client/conversation/assembler.ts'
 import { ConversationEventRegistry } from '../../packages/client/ui-conversation/src/client/conversation/event-registry.ts'
@@ -340,12 +340,12 @@ function streamingText(assembler: ConversationNodeAssembler, blockType: Streamin
 }
 
 assertBuiltBenchmarkRuntime(import.meta.url, {
-  '@deepseek-ai/dsh-brand': import.meta.resolve('@deepseek-ai/dsh-brand'),
-  '@deepseek-ai/dsh-client-store': import.meta.resolve('@deepseek-ai/dsh-client-store'),
-  '@deepseek-ai/dsh-llm/assistant-stream': import.meta.resolve('@deepseek-ai/dsh-llm/assistant-stream'),
-  '@deepseek-ai/dsh-session/surface': import.meta.resolve('@deepseek-ai/dsh-session/surface'),
-  '@deepseek-ai/dsh-token-meter/client': import.meta.resolve('@deepseek-ai/dsh-token-meter/client'),
-  '@deepseek-ai/dsh-util-values': import.meta.resolve('@deepseek-ai/dsh-util-values'),
+  '@janhq/jan-brand': import.meta.resolve('@janhq/jan-brand'),
+  '@janhq/jan-client-store': import.meta.resolve('@janhq/jan-client-store'),
+  '@janhq/jan-llm/assistant-stream': import.meta.resolve('@janhq/jan-llm/assistant-stream'),
+  '@janhq/jan-session/surface': import.meta.resolve('@janhq/jan-session/surface'),
+  '@janhq/jan-token-meter/client': import.meta.resolve('@janhq/jan-token-meter/client'),
+  '@janhq/jan-util-values': import.meta.resolve('@janhq/jan-util-values'),
 })
 const scope = new Context()
 try {

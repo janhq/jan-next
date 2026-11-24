@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo } from 'react'
-import type { InjectFace, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { ChatFileMentions, ChatNodeViewProps, PresentationInjected, TurnTailOwnerProps } from '../contract/slots.ts'
 import { AssistantMarkdown } from './AssistantMarkdown.tsx'
 
@@ -48,12 +48,13 @@ export const AssistantNodeView = memo(function AssistantNodeView({
   const revealProcess = useCallback(() => { turnProcess?.setOpen(true) }, [turnProcess])
   return (
     <AssistantMarkdown
+      replyIdentity={`${sessionId}:${data.turn}:${data.step}`}
       blocks={data.blocks}
       groupPart={groupPart}
       useDisclosure={useDisclosure}
       streaming={data.status === 'running'}
       textInteractionSource={data.status === 'settled' && data.finalNode?.messageId !== undefined}
-      interrupted={data.status === 'interrupted'}
+      interrupted={data.status === 'interrupted' ? data.finalNode?.steered === true ? 'steered' : 'stopped' : undefined}
       loadImage={loadImage}
       reasoningHidden={reasoningHidden}
       useGroupAction={useGroupAction}

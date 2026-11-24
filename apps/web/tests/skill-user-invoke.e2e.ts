@@ -11,7 +11,7 @@ import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import type { ReplayOverrideDoc } from '@deepseek-ai/dsh-llm-replay'
+import type { ReplayOverrideDoc } from '@janhq/jan-llm-replay'
 import {
   assertFixtureInventory,
   captureExpandedTurnProcessAria,
@@ -68,7 +68,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {
-    replayDir = await mkdtemp(join(tmpdir(), 'dsh-skill-user-invoke-replay-'))
+    replayDir = await mkdtemp(join(tmpdir(), 'jan-skill-user-invoke-replay-'))
     const replayOverride = join(replayDir, 'replay.override.json')
     await writeFile(replayOverride, JSON.stringify(REPLAY))
     scaffold = await launchWebScaffold({
@@ -133,7 +133,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     // The loaded instructions stay out of the bubble as their own collapsed Context row.
     // The folded Turn process holds it, so match the row without requiring it to be visible.
     const skillContext = page.locator('[data-chat-flow-kind="context"] [data-disclosure-row]')
-      .filter({ hasText: new RegExp(`^Context injection${SKILL_NAME}`) })
+      .filter({ hasText: new RegExp(`^Inject context${SKILL_NAME}`) })
     expect(await skillContext.count()).toBe(1)
     expect(await skillContext.getAttribute('aria-expanded')).toBe('false')
     const session = scaffold.ctx.sessions.get(sessionId)

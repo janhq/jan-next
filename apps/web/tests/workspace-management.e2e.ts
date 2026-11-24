@@ -17,7 +17,7 @@ import { join, sep } from 'node:path'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import { SessionId } from '@janhq/jan-session'
 import { logPath } from '../../../packages/session/session-persistence-jsonl/src/format.ts'
 import {
   acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
@@ -51,7 +51,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
    * the click lands in the dialog with no menu in between.
    */
   async function browseTo(path: string): Promise<Locator> {
-    await page.getByRole('button', { name: 'Add workspace' }).click()
+    await page.getByRole('button', { name: 'Add project' }).click()
     const dialog = page.getByRole('dialog', { name: 'Select Workspace Directory' })
     await dialog.waitFor({ timeout: 10_000 })
     await dialog.getByRole('button', { name: 'Edit path' }).click()
@@ -186,11 +186,11 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
   it('renames a workspace over the wire with a duplicate-name pre-check', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-ws-rename'))
     const alphaRow = page.locator('[role="treeitem"]').filter({ hasText: 'alpha-ws' }).first()
-    await clickHoverAction(alphaRow, 'Workspace actions for alpha-ws')
+    await clickHoverAction(alphaRow, 'Project actions for alpha-ws')
     await page.getByRole('menuitem', { name: 'Rename' }).click()
-    const dialog = page.getByRole('dialog', { name: 'Rename workspace' })
+    const dialog = page.getByRole('dialog', { name: 'Rename project' })
     await dialog.waitFor({ timeout: 10_000 })
-    const input = dialog.getByLabel('Workspace name')
+    const input = dialog.getByLabel('Project name')
     // Client pre-check: a name colliding with another live workspace raises
     // the inline alert and blocks the primary button before any wire call.
     await input.fill('beta-ws')
@@ -200,7 +200,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     await input.fill('gamma-ws')
     await expect.poll(() => dialog.getByRole('alert').count(), { timeout: 5_000 }).toBe(0)
     await dialog.getByRole('button', { name: 'Rename' }).click()
-    await expect.poll(() => page.getByRole('dialog', { name: 'Rename workspace' }).count(), { timeout: 10_000 }).toBe(0)
+    await expect.poll(() => page.getByRole('dialog', { name: 'Rename project' }).count(), { timeout: 10_000 }).toBe(0)
     await expect.poll(() => page.getByText('gamma-ws', { exact: true }).count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(1)
     expect(await page.getByText('alpha-ws', { exact: true }).count()).toBe(0)
     // Host durability, then reload: the projection is rebuilt from the wire.
@@ -226,18 +226,18 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
         slotConsoleErrors.push(message.text())
       }
     })
-    await page.exposeFunction('recordDshSlotError', (key: string) => {
+    await page.exposeFunction('recordJanSlotError', (key: string) => {
       if (!transientSlotErrors.includes(key)) transientSlotErrors.push(key)
     })
     await page.evaluate(() => {
-      const target = window as unknown as { recordDshSlotError(key: string): Promise<void> }
+      const target = window as unknown as { recordJanSlotError(key: string): Promise<void> }
       const seen = new Set<string>()
       const collect = (): void => {
         for (const node of document.querySelectorAll<HTMLElement>('[data-slot-error]')) {
           const key = node.dataset.slotError ?? ''
           if (!seen.has(key)) {
             seen.add(key)
-            void target.recordDshSlotError(key)
+            void target.recordJanSlotError(key)
           }
         }
       }
@@ -279,20 +279,20 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     await seededRow.click({ timeout: 10_000 })
     await expect.poll(() => seededRow.getAttribute('aria-selected'), { timeout: 10_000 }).toBe('true')
 
-    await clickHoverAction(groupRow, `Workspace actions for ${workspace.title}`)
-    await page.getByRole('menuitem', { name: 'Delete workspace' }).click()
-    const dialog = page.getByRole('dialog', { name: 'Delete workspace' })
+    await clickHoverAction(groupRow, `Project actions for ${workspace.title}`)
+    await page.getByRole('menuitem', { name: 'Remove project' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Remove project' })
     await dialog.waitFor({ timeout: 10_000 })
     const copy = await dialog.textContent()
-    expect(copy).toContain('workspace list')
-    expect(copy).toContain('folder and session logs will be kept')
+    expect(copy).toContain('project list')
+    expect(copy).toContain('folder on disk and its session logs are kept')
     expect(copy).toContain('sessions will appear under Ungrouped')
-    await dialog.getByRole('button', { name: 'Delete workspace' }).click()
+    await dialog.getByRole('button', { name: 'Remove project' }).click()
     await expect.poll(() => dialog.count(), { timeout: 10_000 }).toBe(0)
 
     expect(scaffold.ctx.workspaceRegistry.get(workspace.id)).toBeUndefined()
     await expect.poll(
-      () => page.getByRole('button', { name: `Workspace actions for ${workspace.title}` }).count(),
+      () => page.getByRole('button', { name: `Project actions for ${workspace.title}` }).count(),
       { timeout: 10_000 },
     ).toBe(0)
     await expect.poll(() => page.getByText('Ungrouped', { exact: true }).count(), { timeout: 10_000 })
@@ -333,7 +333,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     if (reregistered === undefined) throw new Error('same-path re-registration did not materialize')
     await scaffold.ctx.workspaceRegistry.delete(reregistered.id)
     await expect.poll(
-      () => page.getByRole('button', { name: `Workspace actions for ${reregistered.title}` }).count(),
+      () => page.getByRole('button', { name: `Project actions for ${reregistered.title}` }).count(),
       { timeout: 10_000 },
     ).toBe(0)
 
@@ -367,17 +367,17 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     page.on('console', (message) => {
       if (message.type() === 'error') consoleErrors.push(message.text())
     })
-    await page.exposeFunction('recordDshTransientWorkspaceError', (message: string) => {
+    await page.exposeFunction('recordJanTransientWorkspaceError', (message: string) => {
       if (!transientErrors.includes(message)) transientErrors.push(message)
     })
     await page.evaluate(() => {
       const target = window as unknown as {
-        recordDshTransientWorkspaceError(message: string): Promise<void>
+        recordJanTransientWorkspaceError(message: string): Promise<void>
       }
       const collect = (): void => {
         for (const node of document.querySelectorAll<HTMLElement>('[data-slot-error], [role="alert"]')) {
           const message = node.dataset.slotError ?? node.textContent?.trim() ?? ''
-          if (message !== '') void target.recordDshTransientWorkspaceError(message)
+          if (message !== '') void target.recordJanTransientWorkspaceError(message)
         }
       }
       new MutationObserver(collect).observe(document.documentElement, { childList: true, subtree: true })
@@ -393,10 +393,10 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     if (oldWorkspace === undefined) throw new Error('old same-name Workspace was not registered')
 
     const oldRow = page.locator('[role="treeitem"]').filter({ hasText: title }).first()
-    await clickHoverAction(oldRow, `Workspace actions for ${title}`)
-    await page.getByRole('menuitem', { name: 'Delete workspace' }).click()
-    await page.getByRole('dialog', { name: 'Delete workspace' })
-      .getByRole('button', { name: 'Delete workspace' }).click()
+    await clickHoverAction(oldRow, `Project actions for ${title}`)
+    await page.getByRole('menuitem', { name: 'Remove project' }).click()
+    await page.getByRole('dialog', { name: 'Remove project' })
+      .getByRole('button', { name: 'Remove project' }).click()
     await expect.poll(() => scaffold.ctx.workspaceRegistry.get(oldWorkspace.id), { timeout: 10_000 }).toBeUndefined()
 
     await addNewFolderWorkspace(scaffold.workspaceCwd, title)
@@ -413,7 +413,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     onTestFailed(() => saveFailureShot(page, 'web-e2e-ws-flat'))
     // Grouped default: workspace group rows render (the seeded session sits
     // under Ungrouped; the created workspaces are empty groups).
-    await expect.poll(() => page.getByText('Workspaces', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
+    await expect.poll(() => page.getByText('Projects', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
     // Grouping and ordering moved into the View options menu.
     await page.getByRole('button', { name: 'View options' }).click()
     await page.getByRole('menuitem', { name: 'In one list' }).click()
@@ -422,7 +422,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     await expect.poll(() => page.getByText('Sessions', { exact: true }).count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(1)
     await expect.poll(() => page.getByText('Ungrouped', { exact: true }).count(), { timeout: 5_000 }).toBe(0)
     await expect.poll(() => page.locator('[role="treeitem"]').count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(1)
-    expect(await page.evaluate(() => localStorage.getItem('dsh.workspace.view.v5'))).toContain('flat')
+    expect(await page.evaluate(() => localStorage.getItem('jan.workspace.view.v5'))).toContain('flat')
     // Persisted across reload; then restore grouped for inter-spec hygiene.
     const warningStart = tripwire.warnings.length
     await page.reload({ waitUntil: 'load' })
@@ -430,7 +430,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     acknowledgeReloadConnectionLoss(tripwire, warningStart)
     await expect.poll(() => page.getByText('Ungrouped', { exact: true }).count(), { timeout: 15_000 }).toBe(0)
     await page.getByRole('button', { name: 'View options' }).click()
-    await page.getByRole('menuitem', { name: 'WorkSpace', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Project', exact: true }).click()
     await expect.poll(() => page.getByText('Ungrouped', { exact: true }).count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(1)
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)
@@ -719,7 +719,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
       await seedSession(hoverScaffold, seed, 'hover-second')
       await hoverScaffold.ctx.sessionController.rename({ sessionId: SessionId('hover-first'), title: 'Hover first' })
       await hoverScaffold.ctx.sessionController.rename({ sessionId: SessionId('hover-second'), title: 'Hover second' })
-      for (const layout of ['In one list', 'Workspace Tree']) {
+      for (const layout of ['In one list', 'Project tree']) {
         // Each page owns a browser context, so layout preferences and paused clocks cannot leak between layouts.
         const ui = await newEnglishPage(browser)
         try {
@@ -871,7 +871,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     await page.reload({ waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     acknowledgeReloadConnectionLoss(tripwire, warningStart)
-    await expect.poll(() => page.getByText('Workspaces', { exact: true }).count(), { timeout: 15_000 }).toBe(1)
+    await expect.poll(() => page.getByText('Projects', { exact: true }).count(), { timeout: 15_000 }).toBe(1)
     // The last Session can leave the new-session page with no selected row.
     // Wait for composer focus so reconnection cannot steal the next editor's focus.
     await expect.poll(
@@ -901,7 +901,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     expect(matchingWorkspaces.map(workspace => workspace.path).sort())
       .toEqual([firstPath, secondPath].sort())
     await expect.poll(
-      () => page.locator('button[aria-label="Workspace actions for xx"]').count(),
+      () => page.locator('button[aria-label="Project actions for xx"]').count(),
       { timeout: 10_000 },
     ).toBe(2)
     expect(tripwire.pageErrors).toEqual([])
@@ -917,7 +917,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     const workspaceCount = scaffold.ctx.workspaceRegistry.list().length
     const agentCount = scaffold.ctx.agents.list().length
     await adoptDirectory(parentPath, { waitForAgent: true })
-    expect(await page.getByRole('dialog', { name: 'Add workspace', exact: true }).count()).toBe(0)
+    expect(await page.getByRole('dialog', { name: 'Select Workspace Directory', exact: true }).count()).toBe(0)
     expect(scaffold.ctx.workspaceRegistry.list()).toHaveLength(workspaceCount + 1)
     expect(scaffold.ctx.agents.list()).toHaveLength(agentCount + 1)
     expect([...childWorkspace.sessionIds]).toEqual(childSessionIds)
@@ -930,7 +930,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     await page.getByRole('button', { name: 'View options', exact: true }).click()
     const optionsExpected = fileURLToPath(new URL('./expected/workspace-management/grouping-options.expected.md', import.meta.url))
     await compareOrRefreshGolden(optionsExpected, await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd), MODE)
-    await page.getByRole('menuitem', { name: 'Workspace Tree', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Project tree', exact: true }).click()
     await section.getByText('project-one', { exact: true }).waitFor()
     await addNewFolderWorkspace(parentPath, 'project-two')
     const project = section.getByRole('treeitem', { name: 'project-two', exact: true })
@@ -947,7 +947,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     expect(projectLabel.x - parentLabel.x).toBeCloseTo(12, 0)
     const expected = fileURLToPath(new URL('./expected/workspace-management/parent-folders.expected.md', import.meta.url))
     await compareOrRefreshGolden(expected, await captureStableAria(
-      page, '[aria-label="Workspace actions for folder-group"] >> xpath=ancestor::*[contains(@class, "groupSection")][1]',
+      page, '[aria-label="Project actions for folder-group"] >> xpath=ancestor::*[contains(@class, "groupSection")][1]',
       scaffold.workspaceCwd,
     ), MODE)
     const sourceWorkspace = scaffold.ctx.workspaceRegistry.list().find(workspace => workspace.title === 'xx')!
@@ -982,11 +982,11 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     await parent.click()
     await section.getByText('project-two', { exact: true }).waitFor()
     await page.getByRole('button', { name: 'View options', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'WorkSpace', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Project', exact: true }).click()
     await page.getByRole('tree', { name: 'Sessions', exact: true }).getByText('project-two', { exact: true }).waitFor()
     expect(await section.getByText('project-two', { exact: true }).count()).toBe(0)
     await page.getByRole('button', { name: 'View options', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Workspace Tree', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Project tree', exact: true }).click()
     await section.getByText('project-two', { exact: true }).waitFor()
     const previousParentSessionIds = [...parentWorkspace.sessionIds]
     const newParentSession = page.waitForResponse('**/api/session/create')

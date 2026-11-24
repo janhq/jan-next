@@ -1,15 +1,13 @@
 ---
-description: "Settings shell, ownerless copy, and durable product-onboarding namespace for the dsh web client: the General section, trigger chrome, and onboarding ledger projection."
+description: "Settings shell, ownerless copy, and durable product-onboarding namespace for the jan web client: the General section, trigger chrome, and onboarding ledger projection."
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-settings-general
-
-English | [中文](README.zh.md)
+# @janhq/jan-client-ui-settings-general
 
 ## Summary
 
-Use this package to give the dsh web client a Settings panel, connection-recovery control, feature-contributed navigation, and sequential first-run onboarding. Users can open it from the sidebar, retry a failed connection immediately, and access a local configuration file when the Host makes one available on a loopback browser. Feature packages supply their own settings rows, sections, and onboarding steps; this package supplies their shared presentation and the Coding Tools switch without adding onboarding copy.
+Use this package to give the jan web client a Settings panel, connection-recovery control, feature-contributed navigation, and sequential first-run onboarding. Users can open it from the sidebar, retry a failed connection immediately, and access a local configuration file when the Host makes one available on a loopback browser. Feature packages supply their own settings rows, sections, and onboarding steps; this package supplies their shared presentation and the Coding Tools switch without adding onboarding copy.
 
 ## Table of Contents
 
@@ -45,7 +43,7 @@ Settings visibility and section selection live in the shell owner store. The she
 
 ### The General section
 
-The current release version appears at the bottom of General Settings in Web and Desktop, using the build’s `DSH_CLIENT_VERSION` metadata and the active language. Partial builds without version metadata omit the row.
+The current release version appears at the bottom of General Settings in Web and Desktop, using the build’s `JAN_CLIENT_VERSION` metadata and the active language. Partial builds without version metadata omit the row.
 
 The Coding Tools switch controls the shared `ui-settings.enabled` preference described by [ui-settings](../ui-settings/README.md#use-this-package). It is available in both Web and desktop, follows accepted changes immediately, and disables duplicate input while a write settles. A failed write displays localized retry guidance. On Desktop, a change made with this switch reports `code_work_view_toggle` with the new value through the optional [product analytics](../product-analytics/README.md) service, timestamped at the click. Only a write that changes a known value and leaves the preference at the requested value reports; requesting the current value, an unknown previous value, a failed write, and preference updates made elsewhere report nothing.
 
@@ -79,9 +77,13 @@ The shell owns the chrome and the projections; it contributes the Coding Tools a
 
 The navigation is a projection of the `settings.section` ledger; nav labels may be locale-following thunks, resolved through `resolveSlotLabel` and re-rendered on the section ledger bump or the locale revision (an optional `ctx.get('locale')` read; no hard locale dependency). Each row renders its matching `settings.section.icon` contribution; without one, known built-in sections use their own glyph and other ids use the settings gear. The onboarding ledger projects in ascending order; the active registrant receives its id, `complete()`, and an `openSection(id)` callback, and completing or skipping transfers ownership to the next entry.
 
+Client features may call `ctx.settingsNavigation.open('models')` to open the Settings dialog directly at the registered Models section; it returns `false` when Settings is unavailable. The service's `availability` source follows access changes so callers hide unavailable actions. Components receive an injected callback and availability hook instead of accessing the shell store.
+
 ### Connection recovery
 
 The shell is an explicit recovery consumer, so it injects Connection directly rather than adding lifecycle controls to `ctx.remote`. Its private hooks compartment binds `ctx.connection.state`, while the component receives only the selected state and an injected callback for `ctx.connection.reconnect()`. `ConnectionIndicator` owns the inline presentation and receives all visible and accessible copy from the `settings` locale namespace; the shell owns the 800ms minimum-visible hold for the connecting state and the two-second recovered-state timer, which starts when the recovered pill becomes visible after the hold.
+
+A window whose Host was started over SSH (`ctx.remote.$host.remote`) also shows `HostStatusChip` in `sidebar.toggle.actions`: the Host's computer name with a green, amber, or red dot for connected, reconnecting, and disconnected. While the link is down the chip is a button that calls `ctx.connection.reconnect()`. A window on this computer renders no chip.
 
 ### Host release changes
 
@@ -106,7 +108,7 @@ These pages cover the settings surface family and the composition model.
 
 - [ui-settings](../ui-settings/README.md) — the domain base whose slot types and scope service this shell builds on.
 - [ui-sidebar](../ui-sidebar/README.md) — the sidebar shell hosting the `sidebar.settings` seat.
-- [ui-settings-models](../ui-settings-models/README.md) — the feature package contributing the DeepSeek onboarding step.
+- [ui-settings-models](../ui-settings-models/README.md) — the feature package contributing the onboarding step.
 - [settings](../../settings/README.md) — the durable user-settings seam and its file provider.
 - [Slot system standard](../../../.agents/notes/implemented/architecture/2026-07-22-slot-type-chain-implementation.md) — the composition model behind the ledgers.
 

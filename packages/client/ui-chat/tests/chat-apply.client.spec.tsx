@@ -1,31 +1,31 @@
 // @vitest-environment jsdom
-import { apply as applyMenus, inject as injectMenus } from '@deepseek-ai/dsh-client-ui-context-menu/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { apply as applyMenus, inject as injectMenus } from '@janhq/jan-client-ui-context-menu/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { act, fireEvent, render } from '@testing-library/react'
 import { useRef } from 'react'
 import {
   SlotTestRuntime, stubConfigForm, usePinnedBrowserLanguages,
-} from '@deepseek-ai/dsh-client-test-runtime'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { SessionBinding } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+} from '@janhq/jan-client-test-runtime'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
+import type { SessionBinding } from '@janhq/jan-api-session-controller/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
 import {
   apply as applyConversation, inject as injectConversation,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+} from '@janhq/jan-client-ui-conversation/client'
 import type {
   ConversationLocationDataSource, ConversationLocationDataStore, ConversationTurnDataMap,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+} from '@janhq/jan-client-ui-conversation/client'
 import {
   apply as applyChat, EMPTY_CHAT_SNAPSHOT, inject as injectChat,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
+} from '@janhq/jan-client-ui-chat/client'
 import type {
   ChatFlowInjected, ChatNodeInjected, ChatSnapshot, TranscriptViewRowInjected, UseChatNodeTurnData, UseDisclosure,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { QuotaNoticeInjected } from '@deepseek-ai/dsh-client-ui-chat/client'
+} from '@janhq/jan-client-ui-chat/client'
+import type { QuotaNoticeInjected } from '@janhq/jan-client-ui-chat/client'
 import type { PerformanceUsageRowInjected } from '../src/client/settings/PerformanceUsageRow.tsx'
 import { CHAT_SETTINGS_NAMESPACE, type ChatSettings } from '../src/chat-settings.ts'
 import { ActivityPill, UsagePill } from '../src/client/chat/StatsPills.tsx'
@@ -33,7 +33,7 @@ import { createFlowMotion, type InputFoldDriver } from '../src/client/chat/flow-
 import { CHAT_FLOW_INJECT, CHAT_NODE_INJECT } from '../src/client/apply.ts'
 import { UserContent } from '../src/client/chat/UserContent.tsx'
 
-declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
+declare module '@janhq/jan-client-ui-conversation/client' {
   interface ConversationTurnDataMap {
     metric: number
   }
@@ -45,7 +45,7 @@ const SID = 'session-1' as SessionId
 
 async function bench() {
   const runtime = await SlotTestRuntime.create()
-  runtime.ctx.provide('fileDrag', { actions: { prepare: async () => ({ start: () => true, release: () => {} }), reportFailure: () => {} }, read: () => undefined } satisfies import('@deepseek-ai/cordis').Context['fileDrag'])
+  runtime.ctx.provide('fileDrag', { actions: { prepare: async () => ({ start: () => true, release: () => {} }), reportFailure: () => {} }, read: () => undefined } satisfies import('@janhq/cordis').Context['fileDrag'])
   const chatSettings = stubConfigForm<ChatSettings>()
   runtime.ctx.provide('configForms', {
     developerTools: { enabled: createSnapshotStore(true) },
@@ -110,7 +110,7 @@ describe('Chat apply wiring', () => {
     expect(entry).not.toHaveProperty('UserContent')
   })
 
-  it('registers the frame-wide quota notice host and keeps the failure row injection-free', async () => {
+  it('registers the frame-wide quota notice host and gives the failure row only its recovery face', async () => {
     const b = await bench()
     try {
       const host = b.runtime.slots.entries('shell.overlay').find(entry => entry.options.id === 'chat.quota-notice')
@@ -124,10 +124,12 @@ describe('Chat apply wiring', () => {
       expect(notice.getSnapshot()).toBeNull()
       ;(face.dismissNotice as QuotaNoticeInjected['dismissNotice'])()
       expect(notice.getSnapshot()).toBeNull()
-      // The turn-error row carries neither a transient notice nor a chain child.
+      // The turn-error row carries no transient notice, only the failed-turn recovery face and its plugin actions list.
       const row = b.runtime.slots.entries('conversation.chat.node').find(entry => entry.options.key === 'turn-error')!
-      expect(row.inject).toBeUndefined()
-      expect(row.children).toBeUndefined()
+      expect(row.children).toEqual({ 'conversation.chat.turn-error-actions': { kind: 'list', scope: 'session' } })
+      const rowFace = (row.inject as (sessionId: never) => { hooks: Record<string, unknown>; recovery: Record<string, unknown> })('session-1' as never)
+      expect(Object.keys(rowFace.hooks).sort()).toEqual(['continuation', 'settingsAvailability'])
+      expect(Object.keys(rowFace.recovery).sort()).toEqual(['compact', 'contextFor', 'increase', 'modelFor', 'retry'])
     } finally {
       await b.runtime.dispose()
     }
@@ -143,7 +145,7 @@ describe('Chat apply wiring', () => {
     expect(b.runtime.slots.entries('conversation.composer.dock').map(row => row.options.id))
       .toEqual(['activity', 'usage'])
     expect(b.runtime.slots.entries('settings.general.item').map(row => row.options.id))
-      .toEqual(['transcript-view', 'link-opening', 'composer-enter', 'performance-usage'])
+      .toEqual(['transcript-view', 'link-opening', 'performance-usage'])
     await b.runtime.dispose()
   })
 
@@ -209,7 +211,7 @@ describe('Chat apply wiring', () => {
     { desktop: true, initial: 'standard', choice: 'detailed' },
   ] as const)('mirrors the Host transcript preference into its Settings row (desktop: $desktop)', async ({ desktop, initial, choice }) => {
     if (desktop) {
-      vi.stubGlobal('dshDesktop', {})
+      vi.stubGlobal('janDesktop', {})
       onTestFinished(() => { vi.unstubAllGlobals() })
     }
     const b = await bench()
@@ -245,7 +247,7 @@ describe('Chat apply wiring', () => {
       expect(hooks.transcriptView.getSnapshot()).toBe('standard')
       expect(hooks.collapseTiming.getSnapshot()).toBe('next-input')
       expect(b.runtime.slots.entries('settings.general.item').map(entry => entry.options.id))
-        .toEqual(['transcript-view', 'link-opening', 'composer-enter', 'performance-usage'])
+        .toEqual(['transcript-view', 'link-opening', 'performance-usage'])
 
       await b.chat.dispose()
       expect(b.runtime.slots.entries('settings.general.item').some(entry => entry.options.id === 'transcript-view')).toBe(false)
@@ -259,7 +261,7 @@ describe('Chat apply wiring', () => {
       expect(remountedHooks.transcriptView.getSnapshot()).toBe('standard')
       expect(b.chatSettings.set).toHaveBeenCalledExactlyOnceWith('collapseTiming', 'next-input')
       expect(b.runtime.slots.entries('settings.general.item').map(entry => entry.options.id))
-        .toEqual(['transcript-view', 'link-opening', 'composer-enter', 'performance-usage'])
+        .toEqual(['transcript-view', 'link-opening', 'performance-usage'])
     } finally {
       await b.runtime.dispose()
     }

@@ -5,10 +5,10 @@ import { dirname, extname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { JSDOM } from 'jsdom'
 import ts from 'typescript'
-import { applyEntryPatches, type PatchOptions } from '@deepseek-ai/cordis-plugin-include'
-import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
+import { applyEntryPatches, type PatchOptions } from '@janhq/cordis-plugin-include'
+import type { EntryOptions } from '@janhq/cordis-plugin-loader'
 import { bundlePatchPaths, composeEntries, loadOverlayPatches } from '../packages/boot/app-boot/src/index.ts'
-import type { DshBundleManifest } from '../packages/util/package-manifest/src/types.ts'
+import type { JanBundleManifest } from '../packages/util/package-manifest/src/types.ts'
 import { assertNever } from '../packages/util/values/src/index.ts'
 import { isAgentPresetEntry, isCordisGroupEntry, loadCordisYaml } from './cordis-yaml.ts'
 import { PRODUCT_PACKAGE_POLICY, type ProductPackagePolicy } from './product-package-policy.ts'
@@ -24,9 +24,11 @@ const DYNAMIC_MOUNTS: Readonly<Record<string, readonly string[]>> = {
 interface Package {
   directory: string
   name: string
-  bundle?: DshBundleManifest
+  bundle?: JanBundleManifest
   client: boolean
   generatedRemote: boolean
+  /** Export subpaths whose target is an authored source file, as in the hand-written JS plugins under plugins/. */
+  sourceExports: ReadonlyMap<string, string>
 }
 
 interface Reachability {
@@ -74,19 +76,26 @@ export function verifyProductUse(
   if (converted.errors.length > 0) throw new Error(converted.errors.map(error => ts.flattenDiagnosticMessageText(error.messageText, '\n')).join('\n'))
   const host: ts.ModuleResolutionHost = { ...ts.sys, getCurrentDirectory: () => root }
   const resolutionCache = ts.createModuleResolutionCache(root, path => path, converted.options)
-  for (const path of globSync(['apps/*/package.json', 'packages/*/*/package.json', 'vendor/*/package.json'], { cwd: root }).map(path => path.replaceAll('\\', '/')).sort()) {
+  // plugins/* holds the hand-written desktop plugins and bundle that pnpm-workspace.yaml lists beside packages/*/*.
+  for (const path of globSync(['apps/*/package.json', 'packages/*/*/package.json', 'plugins/*/package.json', 'vendor/*/package.json'], { cwd: root }).map(path => path.replaceAll('\\', '/')).sort()) {
     const manifest = JSON.parse(readFileSync(resolve(root, path), 'utf8')) as {
       name: string
       exports?: Record<string, unknown>
-      dsh?: { bundle?: DshBundleManifest; client?: unknown }
+      jan?: { bundle?: JanBundleManifest; client?: unknown }
     }
     if (typeof manifest.name !== 'string' || manifest.name === '') throw new Error(`${path}: missing package name`)
     if (packages.has(manifest.name)) throw new Error(`${path}: duplicate package name ${manifest.name}`)
     const remote = manifest.exports?.['./remote']
-    const pkg: Package = { directory: dirname(path), name: manifest.name, client: manifest.dsh?.client !== undefined,
+    const directory = dirname(path)
+    const sourceExports = new Map<string, string>()
+    for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
+      const file = typeof target === 'string' && !target.startsWith('./lib/') ? sourceFile(resolve(root, directory, target)) : undefined
+      if (file !== undefined) sourceExports.set(subpath, file)
+    }
+    const pkg: Package = { directory, name: manifest.name, client: manifest.jan?.client !== undefined, sourceExports,
       generatedRemote: isRecord(remote) && remote.default === './lib/typert.remote-client.js'
         && remote.types === './lib/typert.remote-client.d.ts',
-      ...(manifest.dsh?.bundle === undefined ? {} : { bundle: manifest.dsh.bundle }) }
+      ...(manifest.jan?.bundle === undefined ? {} : { bundle: manifest.jan.bundle }) }
     packages.set(pkg.name, pkg)
     directories.set(resolve(root, pkg.directory), pkg)
   }
@@ -115,7 +124,8 @@ export function verifyProductUse(
     for (const specifier of collectRuntimeSourceSpecifiers(path, source)) reference(specifier, path, reach)
     for (const specifier of collectRuntimeLocalSourceSpecifiers(path, source, true)) {
       const resolved = specifier.startsWith('/')
-        ? sourceFile(resolve(root, 'apps/web', `.${specifier}`)) : resolveModule(specifier, path)
+        ? sourceFile(resolve(root, 'apps/web', `.${specifier}`))
+        : resolveModule(specifier, path) ?? (specifier.startsWith('.') ? sourceFile(resolve(dirname(path), specifier)) : undefined)
       if (resolved !== undefined) scanSource(resolved, reach)
       else if (/\.[cm]?[jt]sx?$/.test(specifier)) failures.push(`${display(path)}: source import ${specifier} does not resolve to source`)
     }
@@ -151,10 +161,11 @@ export function verifyProductUse(
     // Typert Remote contributions contain generated descriptors and external codecs, with no workspace runtime imports.
     if (pkg?.generatedRemote && specifier === `${pkg.name}/remote`) return
     const target = resolveModule(normalized, from)
+      ?? (pkg === undefined ? undefined : pkg.sourceExports.get(specifier === pkg.name ? '.' : `.${specifier.slice(pkg.name.length)}`))
     if (target !== undefined) scanSource(target, reach)
     else if (pkg !== undefined && !/\.(?:json|css|svg|ya?ml)$/.test(specifier)) {
       failures.push(`${display(from)}: ${specifier} does not resolve to workspace source; add a tsconfig.base.json paths mapping`)
-    } else if (pkg === undefined && specifier.startsWith('@deepseek-ai/dsh-')) {
+    } else if (pkg === undefined && specifier.startsWith('@janhq/jan-')) {
       failures.push(`${display(from)}: unknown workspace package ${specifier}`)
     }
   }
@@ -171,7 +182,7 @@ export function verifyProductUse(
         scanEntries(row.config as unknown[], from, reach, stack)
       }
       if (isAgentPresetEntry(row)) scanEntries(row.config.plugins, from, reach, stack)
-      if ((row.name !== '@deepseek-ai/cordis-plugin-include' && row.name !== 'cordis:include') || !isRecord(row.config)) continue
+      if ((row.name !== '@janhq/cordis-plugin-include' && row.name !== 'cordis:include') || !isRecord(row.config)) continue
       const path = row.config.path
       if (typeof path !== 'string') { failures.push(`${display(from)}: Include path must be a literal string`); continue }
       const filename = path.startsWith('file:') ? fileURLToPath(path) : resolve(dirname(from), path)
@@ -195,7 +206,7 @@ export function verifyProductUse(
   for (const name of PROFILES) if (!isRecord(templates[name])) failures.push(`${PROFILE_SOURCE}: missing shipped ${name} profile`)
   const layers = (names: readonly string[], reach: Reachability): PatchOptions[][] => names.flatMap((name) => {
     const pkg = packages.get(name)
-    if (pkg?.bundle === undefined) { failures.push(`${PROFILE_SOURCE}: ${name} must declare dsh.bundle.patch`); return [] }
+    if (pkg?.bundle === undefined) { failures.push(`${PROFILE_SOURCE}: ${name} must declare jan.bundle.patch`); return [] }
     reach.packages.add(pkg.directory)
     return [bundlePatchPaths(resolve(root, pkg.directory), pkg.bundle).flatMap((path) => {
       configs.add(path)

@@ -3,13 +3,11 @@ description: "Historical Cordis cards and controls for process-local runner defi
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-cordis
-
-English | [中文](README.zh.md)
+# @janhq/jan-client-ui-cordis
 
 ## Summary
 
-`dsh-client-ui-cordis` renders historical generated-plugin cards and a control panel for process-local definitions. Users can operate definitions supplied by programmatic consumers; persisted cards remain readable after restart without recreating those definitions. New Creator plugins use Plugin Manager.
+`jan-client-ui-cordis` renders historical generated-plugin cards and a control panel for process-local definitions. Users can operate definitions supplied by programmatic consumers; persisted cards remain readable after restart without recreating those definitions. New Creator plugins use Plugin Manager.
 
 ## Table of Contents
 

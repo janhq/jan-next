@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-09-06-frontend-performance-budgets.zh.md)
-
 ## Problem
 
 A fast Node conversation fold does not prove that a browser paints a long conversation or remains responsive while a response streams. Active reconnect also reconstructs a different representation from settled history: a compact prefix becomes public per-chunk Client entries. The [Session performance policy](2026-09-04-session-open-performance-gate.md) supplies an isolated CI job but does not measure these user paths.
@@ -40,7 +38,7 @@ Draft typing spans 124.97–504.96 ms across the three isolated samples; the ref
 
 ### Actual CI runs
 
-Run 34020120425, benchmark job 101451135853 passes the complete benchmark inventory. The runner is `VM-7-113-ubuntu-ci-19` in `dsh-selfhosted-ci`, using x64 Node 24.19.0 and Chromium 149.0.7827.55. Attempt 2, benchmark job 101453296071 (run 34020120425) also passes the complete inventory at the same commit, on `VM-7-113-ubuntu-ci-25` with the same Node and Chromium versions. The following medians use three fresh samples per scenario in each run and leave the local reference table and source budgets unchanged.
+Run 34020120425, benchmark job 101451135853 passes the complete benchmark inventory. The runner is `VM-7-113-ubuntu-ci-19` in `jan-selfhosted-ci`, using x64 Node 24.19.0 and Chromium 149.0.7827.55. Attempt 2, benchmark job 101453296071 (run 34020120425) also passes the complete inventory at the same commit, on `VM-7-113-ubuntu-ci-25` with the same Node and Chromium versions. The following medians use three fresh samples per scenario in each run and leave the local reference table and source budgets unchanged.
 
 | Endpoint | First CI median | Second CI median |
 |---|---:|---:|

@@ -2,16 +2,16 @@
 /** Model-list editing, endpoint interrogation, and hand-declared provider creation. */
 import { act, within, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import Schema from '@deepseek-ai/schemastery'
-import { Context } from '@deepseek-ai/cordis'
-import { bindSnapshotSelector, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
-import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+import Schema from '@janhq/schemastery'
+import { Context } from '@janhq/cordis'
+import { bindSnapshotSelector, RemoteError } from '@janhq/jan-client-test-runtime'
+import type { SettingsNamespaceView } from '@janhq/jan-api-remotes/client'
+import type { JsonValue } from '@janhq/jan-util-values'
 import { ModelsSection, providerCopy } from '../src/client/ModelsSection.tsx'
 import type { ModelsSectionInjected, ModelsSectionProps } from '../src/client/ModelsSection.tsx'
 import { CustomProviderCard } from '../src/client/CustomProviderCard.tsx'
-import { formatCapacity, parseCapacity } from '../src/client/DeepSeekModelsEditor.tsx'
-import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
+import { formatCapacity, parseCapacity } from '../src/client/model-drafts.ts'
+import { SettingsDescribeMirror } from '@janhq/jan-client-ui-settings/src/client/settings-mirror.ts'
 import { ModelsSettingsStore, deriveKeyRef, protocolChoices, reasoningLevelChoices } from '../src/client/store.ts'
 import { createModelsOperations } from '../src/client/operations.ts'
 import type { ModelsOperations } from '../src/client/operations.ts'
@@ -159,9 +159,7 @@ const contexts = new WeakMap<object, PageContext>()
 function ctxWith(face: object): PageContext {
   const existing = contexts.get(face)
   if (existing !== undefined) return existing
-  const ctx = Object.assign(new Context(), { remote: { ...face,
-    session: { initializeDefaultModel: async () => ({ ok: true, value: undefined }) },
-  } })
+  const ctx = Object.assign(new Context(), { remote: { ...face } })
   contexts.set(face, ctx)
   return ctx
 }
@@ -975,9 +973,8 @@ describe('hand-declared providers', () => {
     return { ...scripted, onClose }
   }
 
-  it('creates a custom provider without changing the default model', async () => {
-    const { face, mutate, set, onClose } = mountCard()
-    const initialize = vi.spyOn(ctxWith(face).remote.session, 'initializeDefaultModel')
+  it('creates a custom provider', async () => {
+    const { mutate, set, onClose } = mountCard()
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme-gateway' } })
     fireEvent.change(screen.getByLabelText(en.baseUrl), { target: { value: 'https://gateway.example/v1' } })
     fireEvent.change(screen.getByLabelText(en.keyInput), { target: { value: 'test-key' } })
@@ -987,7 +984,6 @@ describe('hand-declared providers', () => {
     await waitFor(() => { expect(onClose).toHaveBeenCalledWith(true) })
     expect(mutate).toHaveBeenCalledOnce()
     expect(set).toHaveBeenCalledOnce()
-    expect(initialize).not.toHaveBeenCalled()
   })
 
   it('writes the whole profile and the key under the derived reference', async () => {
@@ -1030,7 +1026,7 @@ describe('hand-declared providers', () => {
     // control could only be set to a value some of them reject — which would
     // take the whole provider out of the picker. The composer's model picker
     // owns the choice, and a switch there records provider+model+effort together.
-    const fields = () => [...document.querySelectorAll('input,select')]
+    const fields = () => [...document.querySelectorAll('input,button[aria-haspopup="menu"]')]
       .map(el => el.getAttribute('aria-label')).filter(Boolean)
 
     mountCard()
@@ -1155,9 +1151,10 @@ describe('hand-declared providers', () => {
     })
     openEditor('acme-gateway')
 
-    const protocol = screen.getByLabelText<HTMLSelectElement>(en.customApi)
-    expect(protocol.value).toBe('openai-completions')
-    fireEvent.change(protocol, { target: { value: 'anthropic-messages' } })
+    const protocol = screen.getByRole('button', { name: en.customApi })
+    expect(protocol.textContent).toBe(en.protocolOpenAiCompletions)
+    fireEvent.click(protocol)
+    fireEvent.click(screen.getByRole('menuitem', { name: en.protocolAnthropicMessages }))
     fireEvent.click(screen.getByText(en.apply))
 
     await waitFor(() => { expect(mutate).toHaveBeenCalledTimes(1) })
@@ -1180,7 +1177,7 @@ describe('hand-declared providers', () => {
     })
     openEditor('acme-gateway')
 
-    expect(screen.getByLabelText<HTMLSelectElement>(en.customApi).value).toBe('')
+    expect(screen.getByRole('button', { name: en.customApi }).textContent).toBe(en.customApiUnset)
   })
 
   it.each([
@@ -1540,15 +1537,19 @@ describe('hand-declared providers', () => {
   it('creates with the chosen protocol and no display name', async () => {
     const { mutate, onClose } = mountCard()
     const baseUrl = screen.getByLabelText<HTMLInputElement>(en.baseUrl)
-    const protocol = screen.getByLabelText(en.customApi)
+    const protocol = screen.getByRole('button', { name: en.customApi })
+    const choose = (label: string) => {
+      fireEvent.click(protocol)
+      fireEvent.click(screen.getByRole('menuitem', { name: label }))
+    }
 
     expect(baseUrl.placeholder).toBe('https://gateway.example/v1')
-    fireEvent.change(protocol, { target: { value: 'openai-responses' } })
+    choose(en.protocolOpenAiResponses)
     expect(baseUrl.placeholder).toBe('https://gateway.example/v1')
 
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
     fireEvent.change(baseUrl, { target: { value: 'https://acme.test/anthropic' } })
-    fireEvent.change(protocol, { target: { value: 'anthropic-messages' } })
+    choose(en.protocolAnthropicMessages)
     expect(baseUrl.placeholder).toBe('https://gateway.example')
     expect(baseUrl.value).toBe('https://acme.test/anthropic')
     fireEvent.click(screen.getByRole('button', { name: en.addModel }))
@@ -1569,7 +1570,7 @@ describe('hand-declared providers', () => {
 
   it('offers no protocol when the namespace declares none', () => {
     mountCard({ protocols: [] })
-    expect(screen.getByLabelText<HTMLSelectElement>(en.customApi).value).toBe('')
+    expect(screen.getByRole('button', { name: en.customApi }).textContent).toBe('')
   })
 
   it('closes without writing on cancel, and honors a read-only deployment', () => {
@@ -1610,13 +1611,12 @@ describe('hand-declared providers', () => {
 
   it('names each protocol by its product name and falls back to the identifier of an unknown one', () => {
     mountCard({ protocols: [...PROTOCOLS, 'google-generative-ai'] })
-    const protocol = screen.getByLabelText<HTMLSelectElement>(en.customApi)
-    const labels = [...protocol.options].map(option => [option.value, option.textContent])
-    expect(labels).toEqual([
-      ['openai-completions', en.protocolOpenAiCompletions],
-      ['openai-responses', en.protocolOpenAiResponses],
-      ['anthropic-messages', en.protocolAnthropicMessages],
-      ['google-generative-ai', 'google-generative-ai'],
+    fireEvent.click(screen.getByRole('button', { name: en.customApi }))
+    expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([
+      en.protocolOpenAiCompletions,
+      en.protocolOpenAiResponses,
+      en.protocolAnthropicMessages,
+      'google-generative-ai',
     ])
   })
 

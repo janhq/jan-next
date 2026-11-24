@@ -3,9 +3,7 @@ description: "Declare accessible files as deliverables with present; configurati
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-tool-present
-
-English | [中文](README.zh.md)
+# @janhq/jan-tool-present
 
 ## Summary
 
@@ -25,7 +23,7 @@ Use `present` to declare final files accessible through the Session filesystem, 
 <a id="use-this-package"></a>
 ## Use this package
 
-Shared output and file-link guidance comes from [`dsh-deliverable-file-references`](../deliverable-file-references/README.md), mounted separately by Web and SDK bundles.
+Shared output and file-link guidance comes from [`jan-deliverable-file-references`](../deliverable-file-references/README.md), mounted separately by Web and SDK bundles.
 
 `present` validates paths against the Session's current working directory and records absolute paths, so later directory changes do not redirect delivered files.
 
@@ -34,9 +32,16 @@ The `standard`, `ptc`, and `cordis` agent presets mount this plugin. Call `prese
 Mount it in an agent's Cordis composition with `tools`, `fs`, and the `turnBoundary` Session projection available:
 
 ```yaml
-- name: '@deepseek-ai/dsh-tool-present'
+- name: '@janhq/jan-tool-present'
   config:
     maxFiles: 8
+```
+
+Mount the `./projection` entry once on the Host, next to the `sessionProjections` registry, so the Session list carries each chat's presented files without an agent:
+
+```yaml
+- id: presented-files-projection
+  name: '@janhq/jan-tool-present/projection'
 ```
 
 | Field | Default | Meaning |
@@ -56,6 +61,8 @@ The file-count limit is validated at mount. The tool requires an agent Session w
 The tool resolves paths through the configured filesystem provider and checks regular-file metadata without reading contents. Successful final `tools/result` notifications append `deliverables/presented`, including nested calls. A later enclosing program failure does not revoke an already completed declaration. Blocked results publish none. Each plugin instance records only calls it executed; scoped tools with the same name cannot publish through another instance.
 
 The pure `./types` entry declares `PresentedFile` and the Session event without importing Host runtime code. The Web consumer validates persisted declarations before displaying or opening them. New declarations store absolute paths. Legacy relative declarations retain the viewed Session's original workspace as their base.
+
+The `./projection` entry is a separate Host plugin that registers the `presentedFiles` Session projection: one entry per distinct path, `{ path, description?, turn, seq, index, time }`, addressed by the latest declaring event (`seq` and `index` are the coordinates the Host's file-open routes take). The tool is mounted per agent, so it does not register the projection itself; the always-mounted entry does, which lets a cold Session list read it without an agent. Events inside a fork's inherited prefix are skipped.
 
 </details>
 

@@ -2,13 +2,13 @@
  * The Peer: one party admitted to this Host. Its creator fixes the principal
  * it speaks for and owns its lifetime; Gateway hands it to each Remote call as
  * `invocation.peer`.
- * @module @deepseek-ai/dsh-client-connection/src/peer
+ * @module @janhq/jan-client-connection/src/peer
  */
 
 import { randomUUID } from 'node:crypto'
-import type { Context } from '@deepseek-ai/cordis'
-import { createScope, type Scope } from '@deepseek-ai/dsh-scope'
-import type { PeerId, PeerScope, Principal } from '@deepseek-ai/dsh-typert-protocol'
+import type { Context } from '@janhq/cordis'
+import { createScope, type Scope } from '@janhq/jan-scope'
+import type { PeerId, PeerScope, Principal } from '@janhq/jan-typert-protocol'
 
 /** Construction options for one {@link Peer}. */
 export interface PeerOptions {
@@ -16,6 +16,8 @@ export interface PeerOptions {
   readonly principal: Principal
   /** Omission permits an event stream; non-owner Peers still cannot answer waterfalls. */
   readonly interactions?: 'answer' | 'none'
+  /** Omission lets the Gateway forwarder route calls to other Hosts; `local` keeps them on this Host. */
+  readonly forward?: 'all' | 'local'
 }
 
 /**
@@ -28,6 +30,7 @@ export class Peer implements PeerScope {
   readonly ctx: Context
   readonly principal: Principal
   readonly interactions: 'answer' | 'none'
+  readonly forward: 'all' | 'local'
   readonly signal: AbortSignal
   private readonly scope: Scope
 
@@ -38,6 +41,7 @@ export class Peer implements PeerScope {
   constructor(owner: Context, options: PeerOptions) {
     this.principal = options.principal
     this.interactions = options.interactions ?? 'answer'
+    this.forward = options.forward ?? 'all'
     this.scope = createScope(owner, this)
     this.ctx = this.scope.ctx
     const lifetime = new AbortController()

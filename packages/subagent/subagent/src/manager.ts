@@ -3,22 +3,22 @@
  * One child lock orders input acceptance and closure; one activation map owns
  * capacity, runtime ownership, and resource release across all providers.
  *
- * @module @deepseek-ai/dsh-subagent/manager
+ * @module @janhq/jan-subagent/manager
  */
 
 import { randomUUID } from 'node:crypto'
 import { isAbsolute, resolve } from 'node:path'
-import type {} from '@deepseek-ai/dsh-working-directory'
-import type { Context } from '@deepseek-ai/cordis'
-import type { Agent, AgentOptions, CreateAgentOptions } from '@deepseek-ai/dsh-agent'
-import { brandString } from '@deepseek-ai/dsh-brand'
-import { ReasoningEffortId, contentHasImage, createUserMessage, errorChain } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, MessageId, MessageSource } from '@deepseek-ai/dsh-llm'
-import { SessionLogOffset } from '@deepseek-ai/dsh-session'
-import type { Session, SessionId, SessionEvent, UserMessage } from '@deepseek-ai/dsh-session'
-import type { SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
-import type { SessionObservation, SessionQueryEngine } from '@deepseek-ai/dsh-session-query'
-import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
+import type {} from '@janhq/jan-working-directory'
+import type { Context } from '@janhq/cordis'
+import type { Agent, AgentOptions, CreateAgentOptions } from '@janhq/jan-agent'
+import { brandString } from '@janhq/jan-brand'
+import { ReasoningEffortId, contentHasImage, createUserMessage, errorChain } from '@janhq/jan-llm'
+import type { ContentBlock, MessageId, MessageSource } from '@janhq/jan-llm'
+import { SessionLogOffset } from '@janhq/jan-session'
+import type { Session, SessionId, SessionEvent, UserMessage } from '@janhq/jan-session'
+import type { SessionPersistence } from '@janhq/jan-session-persistence'
+import type { SessionObservation, SessionQueryEngine } from '@janhq/jan-session-query'
+import type { ObjectJsonSchema } from '@janhq/jan-tools'
 import {
   appendDelegatedPolicyOverrides, applyChildComposition, captureDelegatedPolicyOverrides,
   childSessionMeta, resolveChildAgentOptions, resolveChildDepth,
@@ -55,8 +55,6 @@ type ChildDeliveryOptions = {
   readonly signal: AbortSignal
   /** Recheck the original model caller at final inbox admission. */
   readonly authorize?: () => void
-  /** Record successful inbox admission before another asynchronous operation can intervene. */
-  readonly onAccepted?: () => void
 }
 
 /** Package-private hooks supplied by the owning service. */
@@ -564,15 +562,9 @@ export class SubagentManager {
     if (sender.id === targetId) throw new SubagentError('send_message requires another agent in the subagent tree', 'UNAUTHORIZED')
     this.assertAdmitting(sender)
     const message = createAgentMessage(sender, agentAddress(this.pathOf(sender, root), sender.id), content)
-    const activation = this.resident.get(sender.id)
     return this.deliverToMember(root, targetId, [...message.content], {
       signal: options.signal, delivery: 'steer', source: message.source,
       authorize: () => { this.assertAdmitting(sender) },
-      onAccepted: () => {
-        if (activation?.kind === 'local' && activation.ancestors.at(-1) === targetId) {
-          activation.omitClosingText = true
-        }
-      },
     })
   }
 
@@ -823,12 +815,33 @@ export class SubagentManager {
         if (inputs.composition.agentPreset !== undefined) {
           await applyChildComposition(childCtx, create?.parent, inputs.composition)
         }
+        const inheritedReadOnly = inputs.composition.agentPreset === undefined && create !== undefined
+          && create.parent.ctx.get('agentPresets')?.requiresReadOnlyDelegation(create.parent.ctx) === true
+        const readOnly = inheritedReadOnly || childCtx.get('agentPresets')?.requiresReadOnlyDelegation(childCtx) === true
+        const sandboxPolicy = readOnly ? childCtx.get('sandboxPolicy') : undefined
+        if (readOnly) {
+          if (sandboxPolicy === undefined || childCtx.get('approval') === undefined) {
+            throw new SubagentError('this preset requires sandbox policy and approval services', 'PRESET_UNAVAILABLE')
+          }
+          // Fail closed if a host surface changes the standing policy.
+          childCtx.tools.guard((exec) => {
+            const args = exec.arguments
+            if (sandboxPolicy.resolve({ session: child.session }).mode !== 'read-only'
+              || (typeof args === 'object' && args !== null && 'sandbox_permissions' in args
+                && args.sandbox_permissions !== undefined && args.sandbox_permissions !== 'read-only')) {
+              return 'This subagent preset requires a read-only sandbox.'
+            }
+            return undefined
+          })
+        }
         if (create !== undefined) {
           if (inputs.composition.agentPreset !== undefined) {
             child.session.append('agent-preset/selected', { agentPreset: inputs.composition.agentPreset })
           }
           child.session.append('subagent/descriptor', create.descriptor)
-          appendDelegatedPolicyOverrides(child.session, create.delegatedPolicies)
+          appendDelegatedPolicyOverrides(child.session, readOnly
+            ? { sandboxMode: 'read-only', approvalPolicy: 'never', permissionPreset: undefined }
+            : create.delegatedPolicies)
           const workingDirectory = childCtx.get('workingDirectory')
           if (workingDirectory === undefined) throw new Error('local subagents require the working-directory service')
           await workingDirectory.set(child, create.cwd, inputs.signal)
@@ -865,7 +878,6 @@ export class SubagentManager {
         structured,
         failureAt: undefined,
         poke: Promise.withResolvers<void>(),
-        omitClosingText: false,
       }
     }
     const childId = resource.kind === 'local' ? resource.handle.agent.id : resource.run.id
@@ -892,19 +904,8 @@ export class SubagentManager {
       if (activation.kind === 'local') {
         observeLocalFailure(activation, wakeSettlement)
         activation.handle.agent.ctx.on('agent/inbox/inserted', wakeSettlement)
-        activation.handle.agent.ctx.on('agent/inbox/claimed', () => {
-          // Claimed input means the closing text may report work the child's
-          // last message to its parent did not.
-          activation.omitClosingText = false
-          wakeSettlement()
-        })
+        activation.handle.agent.ctx.on('agent/inbox/claimed', wakeSettlement)
         activation.handle.agent.ctx.on('agent/inbox/discarded', wakeSettlement)
-        // A tool call logged after the message also voids it; logged calls
-        // cannot be skipped by tool policy. `send_message` is not concurrency
-        // safe, so a later call in its step is logged after it executes.
-        activation.handle.agent.ctx.on('session/event', (_session, event) => {
-          if (event.type === 'tool/call') activation.omitClosingText = false
-        })
       }
       // Listeners may read the resident Agent or drain it immediately. Publish
       // after residency and inbox listeners, as the last rollback-protected step.
@@ -1114,7 +1115,7 @@ export class SubagentManager {
       if (parent === undefined || this.rootOf(parent) !== activation.root) return
       const message = createSettlementMessage(
         activation.childId, agentAddress(activation.path, activation.childId), terminal,
-        activation.kind === 'local', activation.kind === 'local' && activation.omitClosingText,
+        activation.kind === 'local',
       )
       if (this.closingTeardownFor(parent) !== undefined) {
         parent.inject(message)
@@ -1166,7 +1167,6 @@ export class SubagentManager {
           this.assertAdmitting(root)
           const message = createUserMessage({ content, source: options.source })
           this.sendWaking(root, message, options.delivery)
-          options.onAccepted?.()
           return { messageId: message.id }
         }
         const activation = this.resident.get(childId)
@@ -1297,7 +1297,6 @@ export class SubagentManager {
     } finally {
       this.wake(activation)
     }
-    options.onAccepted?.()
     return message.id
   }
 
@@ -1325,7 +1324,7 @@ export class SubagentManager {
     const persistence = this.ctx.get('sessionPersistence')
     if (persistence === undefined) {
       throw new SubagentError(
-        'continuable subagents require session persistence (load a dsh-session-persistence backend)',
+        'continuable subagents require session persistence (load a jan-session-persistence backend)',
         'PERSISTENCE_UNAVAILABLE',
       )
     }
@@ -1337,7 +1336,7 @@ export class SubagentManager {
     const query = this.ctx.get('sessionQuery')
     if (query === undefined) {
       throw new SubagentError(
-        'continuable subagents require session query (load @deepseek-ai/dsh-session-query)',
+        'continuable subagents require session query (load @janhq/jan-session-query)',
         'CONTINUATION_UNAVAILABLE',
       )
     }

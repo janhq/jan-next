@@ -1,8 +1,6 @@
 # User Credentials
 
-English | [中文](credentials.zh.md)
-
-The credential seam of [dsh-credentials](../../packages/credentials/credentials) keeps secrets out of configuration: settings sections and `cordis.yml` entries carry *references* (environment-variable names), providers such as [dsh-credentials-local](../../packages/credentials/credentials-local) own the values, and consumers resolve a reference once per operation — the LLM adapters resolve once per model request, so a rotated credential reaches the very next request without any restart. One seam-wide rule binds every provider: an empty stored value is absent everywhere.
+The credential seam of [jan-credentials](../../packages/credentials/credentials) keeps secrets out of configuration: settings sections and `cordis.yml` entries carry *references* (environment-variable names), providers such as [jan-credentials-local](../../packages/credentials/credentials-local) own the values, and consumers resolve a reference once per operation — the LLM adapters resolve once per model request, so a rotated credential reaches the very next request without any restart. One seam-wide rule binds every provider: an empty stored value is absent everywhere.
 
 Source: [`packages/credentials/credentials/src/index.ts`](../../packages/credentials/credentials/src/index.ts)
 
@@ -56,7 +54,7 @@ interface CredentialInfo {
 
 ## Embedded Platform credentials
 
-PlatformSession is a Host-only snapshot from getPlatformSession: origin names the configured Platform issuer and token contains its stored account credential. userId repeats the stable account ID from the most recent successful getProfile, and is null until one succeeds or when that profile carries no ID. The snapshot reuses that ID without issuing a profile request of its own, so an unknown ID leaves userId null instead of delaying the caller; a profile read whose stable ID first becomes available or changes notifies only Host subscribers using `watch(signal, true)`, which lets identity consumers re-read the snapshot. Consumers key persistent browser storage by origin and userId and fall back to temporary storage for null. Signed-out accounts and credentials changed during the credential read return no snapshot; a mismatched issuer fails. Native consumers own document invalidation when credentials change. This snapshot is excluded from account-controller RPC, AccountView, and AccountDetails.
+TokamakPlatformSession is a Host-only snapshot from getPlatformSession: origin names the configured Platform issuer and token contains its stored account credential. userId repeats the stable account ID from the most recent successful getProfile, and is null until one succeeds or when that profile carries no ID. The snapshot reuses that ID without issuing a profile request of its own, so an unknown ID leaves userId null instead of delaying the caller; a profile read whose stable ID first becomes available or changes notifies only Host subscribers using `watch(signal, true)`, which lets identity consumers re-read the snapshot. Consumers key persistent browser storage by origin and userId and fall back to temporary storage for null. Signed-out accounts and credentials changed during the credential read return no snapshot; a mismatched issuer fails. Native consumers own document invalidation when credentials change. This snapshot is excluded from account-controller RPC, AccountView, and AccountDetails.
 
 AccountDetails.balance projects recharge wallets in value and promotional wallets in bonusWallets, with independent currency and decimal balance strings. Failed queries contain no wallet arrays.
 
@@ -68,7 +66,7 @@ Bonus notification queries return an AccountBonusBatch with the current Platform
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxauthorization--authorizationservice"></a>
 
@@ -261,9 +259,9 @@ Host service backing the generated `ctx.remote.credentials` namespace. It carrie
 
 Source: [`packages/api/settings-controller/src/credentials.ts`](../../packages/api/settings-controller/src/credentials.ts)
 
-<a id="ctxdeepseekaccount--deepseekaccount-abstract-seam"></a>
+<a id="ctxtokamakaccount--tokamakaccount-abstract-seam"></a>
 
-### `ctx.deepseekAccount` — `DeepSeekAccount` (abstract seam)
+### `ctx.tokamakAccount` — `TokamakAccount` (abstract seam)
 
 Account operations; only Host consumers can obtain a request credential.
 
@@ -356,7 +354,7 @@ abstract rejectToken(token: string): Promise<void>
  * pair them with the account ID from the last successful profile read; no profile request is made.
  * @returns a Host-only snapshot, or null while signed out or when the credential changed during the read.
  */
-abstract getPlatformSession(): Promise<PlatformSession | null>
+abstract getPlatformSession(): Promise<TokamakPlatformSession | null>
 
 /**
  * Read existing login identity without creating a device or returning credentials.
@@ -365,7 +363,7 @@ abstract getPlatformSession(): Promise<PlatformSession | null>
 abstract getDeviceIdentity(): Promise<{ deviceId?: string; userId?: AccountUserId; osVersion: string }>
 ```
 
-Source: [`packages/credentials/deepseek-account/src/index.ts`](../../packages/credentials/deepseek-account/src/index.ts)
+Source: [`packages/credentials/tokamak-account/src/account.ts`](../../packages/credentials/tokamak-account/src/account.ts)
 
 <a id="authorization-events"></a>
 
@@ -438,13 +436,13 @@ Committed change to a provider-managed credential source: a `set`, an `unset`, o
 
 Source: [`packages/credentials/credentials/src/types.ts`](../../packages/credentials/credentials/src/types.ts)
 
-<a id="deepseek-account-events"></a>
+<a id="tokamak-account-events"></a>
 
-### `deepseek-account/*` events
+### `tokamak-account/*` events
 
-<a id="deepseek-accountmodel-sign-in-required--emit"></a>
+<a id="tokamak-accountmodel-sign-in-required--emit"></a>
 
-#### `deepseek-account/model-sign-in-required` — emit
+#### `tokamak-account/model-sign-in-required` — emit
 
 An account model request requires the user to sign in.
 
@@ -452,14 +450,14 @@ An account model request requires the user to sign in.
 /** An account model request requires the user to sign in.
  * @mode emit
  */
-'deepseek-account/model-sign-in-required'(): void
+'tokamak-account/model-sign-in-required'(): void
 ```
 
-Source: [`packages/credentials/deepseek-account/src/types.ts`](../../packages/credentials/deepseek-account/src/types.ts)
+Source: [`packages/credentials/tokamak-account/src/types.ts`](../../packages/credentials/tokamak-account/src/types.ts)
 
-<a id="deepseek-accountsession-expired--emit"></a>
+<a id="tokamak-accountsession-expired--emit"></a>
 
-#### `deepseek-account/session-expired` — emit
+#### `tokamak-account/session-expired` — emit
 
 Server rejection removed the current account credential; this notification is not replayed.
 
@@ -467,14 +465,14 @@ Server rejection removed the current account credential; this notification is no
 /** Server rejection removed the current account credential; this notification is not replayed.
  * @mode emit
  */
-'deepseek-account/session-expired'(): void
+'tokamak-account/session-expired'(): void
 ```
 
-Source: [`packages/credentials/deepseek-account/src/types.ts`](../../packages/credentials/deepseek-account/src/types.ts)
+Source: [`packages/credentials/tokamak-account/src/types.ts`](../../packages/credentials/tokamak-account/src/types.ts)
 
-<a id="deepseek-accountsigned-out--emit"></a>
+<a id="tokamak-accountsigned-out--emit"></a>
 
-#### `deepseek-account/signed-out` — emit
+#### `tokamak-account/signed-out` — emit
 
 Local grant removal has completed.
 
@@ -482,12 +480,12 @@ Local grant removal has completed.
 /** Local grant removal has completed.
  * @mode emit
  */
-'deepseek-account/signed-out'(): void
+'tokamak-account/signed-out'(): void
 ```
 
-Source: [`packages/credentials/deepseek-account/src/index.ts`](../../packages/credentials/deepseek-account/src/index.ts)
+Source: [`packages/credentials/tokamak-account/src/account.ts`](../../packages/credentials/tokamak-account/src/account.ts)
 <!-- END GENERATED cordis-surface -->
 
-The account Service Definition exposes getState, getProfile, getBalance, getUnnotifiedBonuses, ackBonusNotified, startSignIn, cancelSignIn, signOut, watch, and Host-only resolveToken and getPlatformSession. The platform provider implements it with an AuthorizationFlow and a private GrantRecord. AccountView distinguishes stored presence from server validation; attempt IDs bind cancellation to one local flow. See [the account package](../../packages/credentials/deepseek-account/README.md).
+The account Service Definition exposes getState, getProfile, getBalance, getUnnotifiedBonuses, ackBonusNotified, startSignIn, cancelSignIn, signOut, watch, and Host-only resolveToken and getPlatformSession. [jan-tokamak-account](../../packages/credentials/tokamak-account) declares it and implements it with Tokamak device sign-in. AccountView distinguishes stored presence from server validation; attempt IDs bind cancellation to one local flow.
 
-`AccountClientMetadata` carries `version` from the caller’s `DSH_CLIENT_VERSION`, its active UI `locale`, and `timezoneOffsetSeconds` sampled when the operation begins. The offset is local time minus UTC in seconds: UTC+8 is `28800`. It contains no credentials. Login attempts retain their initiating metadata through exchange and cancellation; sign-out retains its metadata for revocation retries.
+`AccountClientMetadata` carries `version` from the caller’s `JAN_CLIENT_VERSION`, its active UI `locale`, and `timezoneOffsetSeconds` sampled when the operation begins. The offset is local time minus UTC in seconds: UTC+8 is `28800`. It contains no credentials. Login attempts retain their initiating metadata through exchange and cancellation; sign-out retains its metadata for revocation retries.

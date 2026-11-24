@@ -1,18 +1,18 @@
 /** Authorized Host PDFs remain binary through Client reuse and disposal. */
-import type { OfficeToPdfGeneration } from '@deepseek-ai/dsh-office-to-pdf/types'
-import { Context } from '@deepseek-ai/cordis'
+import type { OfficeToPdfGeneration } from '@janhq/jan-office-to-pdf/types'
+import { Context } from '@janhq/cordis'
 import { expect, it, vi } from 'vitest'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
-import type {} from '@deepseek-ai/dsh-office-to-pdf/remote'
-import { makeTranslate, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { ClientRemote } from '@janhq/jan-api-remotes/client'
+import type {} from '@janhq/jan-office-to-pdf/remote'
+import { makeTranslate, RemoteError } from '@janhq/jan-client-test-runtime'
 import { DocumentPreviewRegistry } from '../src/client/document/registry.ts'
 import { apply } from '../src/client/office/index.ts'
 import { officeFace } from '../src/client/office/face.ts'
 import { Config } from '../src/config.ts'
 import { OfficeBody, type OfficeBodyInjected } from '../src/client/office/OfficeBody.tsx'
 import type { OfficeStore } from '../src/client/office/store.ts'
-import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
+import type { TabId } from '@janhq/jan-client-ui-dockkit'
 import { en, ja, zh, es, fr, de, ru, pt } from '../src/client/office/locales.ts'
 import { en as documentEn } from '../src/client/locales.ts'
 
@@ -92,8 +92,8 @@ it.each(['remote', 'render', 'files'] as const)('keeps Word and PowerPoint regis
   const h = await harness(undefined, missing)
   try {
     expect(h.locale.register).toHaveBeenCalledWith('sidebarOffice', { zh, en, ja, es, fr, de, ru, pt })
-    for (const path of ['a.DOC', 'b.DOCX', 'c.PPT', 'd.pptx']) {
-      expect(h.registry.candidates(path)[0]!.binaryExtensions).toEqual(['doc', 'docx', 'ppt', 'pptx'])
+    for (const path of ['a.DOC', 'b.DOCX', 'c.PPT', 'd.pptx', 'e.odt', 'f.ODP', 'g.ods']) {
+      expect(h.registry.candidates(path)[0]!.binaryExtensions).toEqual(['doc', 'docx', 'odt', 'ppt', 'pptx', 'odp', 'ods'])
       expect(h.registry.candidates(path)[0]!.title()).toBe(en.title)
       expect(h.registry.candidates(path)[0]!.loading).toBe('renderer')
       expect(h.registry.candidates(path)[0]).not.toHaveProperty('read')
@@ -105,7 +105,7 @@ it.each(['remote', 'render', 'files'] as const)('keeps Word and PowerPoint regis
   expect(h.registry.getSnapshot()).toEqual([])
   expect(h.removeLocale).toHaveBeenCalledOnce()
   expect(h.register).toHaveBeenCalledWith(expect.objectContaining({
-    name: 'sidebar.right.tab.document', key: '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/office', locale: 'sidebarOffice',
+    name: 'sidebar.right.tab.document', key: '@janhq/jan-client-ui-sidebar-documentpreview/office', locale: 'sidebarOffice',
   }), OfficeBody)
   expect(h.removeNotice).toHaveBeenCalledTimes(3)
 })

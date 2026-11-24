@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { apply as applyMenus, inject as injectMenus } from '@deepseek-ai/dsh-client-ui-context-menu/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { apply as applyMenus, inject as injectMenus } from '@janhq/jan-client-ui-context-menu/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 /**
  * Host home reaches the browsing region through the assembled renderer, which
  * memoizes a root entry's inject result for the whole registration — so a home
@@ -10,11 +10,11 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, screen } from '@testing-library/react'
-import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { SlotTestRuntime, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { apply, inject } from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { WorkspaceId } from '@janhq/jan-api-workspace-controller/client'
+import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import { SlotTestRuntime, usePinnedBrowserLanguages } from '@janhq/jan-client-test-runtime'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { apply, inject } from '@janhq/jan-client-ui-workspace/client'
 import { SECTION_HOOK_CONTEXT, SECTION_INJECT } from './section-scroller.client.ts'
 
 usePinnedBrowserLanguages('zh-CN')
@@ -33,7 +33,7 @@ async function bench() {
   const runtime = await SlotTestRuntime.create()
   runtime.ctx.provide('shortcuts', { register: () => () => {}, catalog: createSnapshotStore([]) })
   runtime.ctx.provide('uiConversation', {})
-  runtime.ctx.provide('layout', { selectPanel: vi.fn(), beginNavigation: () => new AbortController().signal })
+  runtime.ctx.provide('layout', { selectPanel: vi.fn(), beginNavigation: () => new AbortController().signal, panelInfo: createSnapshotStore({ activePanelId: null }) })
   runtime.releaseWorkspaceSource()
   const directoryPicker = {}
   const { remote } = runtime
@@ -75,7 +75,7 @@ describe('Host home in the assembled browsing region', () => {
     // First render precedes the ready frame: the shell mounts while the carrier
     // is still handshaking, so the Host reports no home yet.
     const { runtime, remote } = await bench()
-    remote.$host = { home: undefined, isLoopback: true }
+    remote.$host = { home: undefined, name: undefined, remote: false, isLoopback: true }
     runtime.renderRoot()
     vi.useFakeTimers()
     try {
@@ -85,7 +85,7 @@ describe('Host home in the assembled browsing region', () => {
 
       // The ready frame lands: `$host.home` now answers, and the generation is
       // announced through the reset every consumer already listens to.
-      remote.$host = { home: '/home/u', isLoopback: true }
+      remote.$host = { home: '/home/u', name: 'fixture-host', remote: false, isLoopback: true }
       act(() => { runtime.ctx.emit('connection/reset') })
       openHoverCard()
 

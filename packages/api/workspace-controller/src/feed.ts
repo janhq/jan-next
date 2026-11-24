@@ -1,19 +1,20 @@
 /** Reconnect-safe Workspace baseline and increment producer. */
 
-import type { Context } from '@deepseek-ai/cordis'
-import { Deque } from '@deepseek-ai/dsh-deque'
-import type { DomainChanged } from '@deepseek-ai/dsh-storage-domain'
-import type { Workspace, WorkspaceRecord } from '@deepseek-ai/dsh-workspace'
+import type { Context } from '@janhq/cordis'
+import { Deque } from '@janhq/jan-deque'
+import type { DomainChanged } from '@janhq/jan-storage-domain'
+import type { Workspace, WorkspaceRecord } from '@janhq/jan-workspace'
 import {
   workspaceDomainState,
   workspaceRecord,
   WorkspaceId,
-} from '@deepseek-ai/dsh-workspace'
+} from '@janhq/jan-workspace'
 import type {
   WorkspaceBaseline,
   WorkspaceFollowFrame,
   WorkspaceView,
 } from './types.ts'
+import { githubOwnerOf } from './github-owner.ts'
 
 /** The frames the feed produces: every follow frame except `replace`, which only access filtering sends. */
 type WorkspaceFeedFrame = Exclude<WorkspaceFollowFrame, { readonly type: 'replace' }>
@@ -21,29 +22,45 @@ type WorkspaceFeedFrame = Exclude<WorkspaceFollowFrame, { readonly type: 'replac
 /**
  * Project one authoritative Workspace entity into its Remote value.
  * @param workspace - authoritative registry entity.
+ * @param defaultId - identity of the registered default, if any.
  * @returns detached Workspace projection for Remote consumers.
  */
-export function workspaceView(workspace: Workspace): WorkspaceView {
+export function workspaceView(workspace: Workspace, defaultId: Workspace['id'] | undefined): Promise<WorkspaceView> {
+  return withGithubOwner(projectWorkspace(workspace, defaultId))
+}
+
+function projectWorkspace(workspace: Workspace, defaultId: Workspace['id'] | undefined): WorkspaceView {
   return {
     workspaceId: workspace.id,
+    ...(workspace.id === defaultId ? { isDefault: true } : {}),
     path: workspace.path,
     title: workspace.title,
+    ...(workspace.color === undefined ? {} : { color: workspace.color }),
+    ...(workspace.avatar === undefined ? {} : { avatar: { ...workspace.avatar } }),
     sessionIds: [...workspace.sessionIds],
     createdAt: workspace.createdAt,
     updatedAt: workspace.updatedAt,
   }
 }
 
-function changedWorkspaceView(workspaceId: string, value: unknown): WorkspaceView {
+function changedWorkspaceView(workspaceId: string, value: unknown, defaultId: Workspace['id'] | undefined): WorkspaceView {
   const record: WorkspaceRecord = workspaceRecord.parse(value)
   return {
     workspaceId: WorkspaceId(workspaceId),
+    ...(workspaceId === defaultId ? { isDefault: true } : {}),
     path: record.path,
     title: record.title,
+    ...(record.color === undefined ? {} : { color: record.color }),
+    ...(record.avatar === undefined ? {} : { avatar: record.avatar }),
     sessionIds: [...record.sessionIds],
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   }
+}
+
+async function withGithubOwner(workspace: WorkspaceView): Promise<WorkspaceView> {
+  const githubOwner = await githubOwnerOf(workspace.path)
+  return githubOwner === undefined ? workspace : { ...workspace, githubOwner }
 }
 
 /** Owns Workspace domain observation and all active follow generations. */
@@ -53,6 +70,7 @@ export class WorkspaceFeed {
   private order: readonly string[]
   private archived: readonly string[]
   private pinned: readonly string[]
+  private defaultId: WorkspaceId | undefined
 
   /** @param ctx - Host context containing the authoritative Workspace registry. */
   constructor(private readonly ctx: Context) {
@@ -61,6 +79,7 @@ export class WorkspaceFeed {
     this.order = baseline.map(workspace => String(workspace.id))
     this.archived = ctx.workspaceRegistry.archivedSessionIds.map(String)
     this.pinned = ctx.workspaceRegistry.pinnedSessionIds.map(String)
+    this.defaultId = ctx.workspaceRegistry.defaultWorkspace?.id
     ctx.on('domain/changed', (change: DomainChanged) => { this.changed(change) })
     ctx.effect(() => () => {
       for (const follower of this.followers) follower.close()
@@ -69,15 +88,18 @@ export class WorkspaceFeed {
   }
 
   /**
-   * Read the complete current projection synchronously.
+   * Capture the current projection before enriching it with optional Git metadata.
    * @returns all active Workspaces plus archived and pinned Session identities.
    */
-  baseline(): WorkspaceBaseline {
-    return {
-      items: this.ctx.workspaceRegistry.list().map(workspaceView),
-      archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds],
-      pinnedSessionIds: [...this.ctx.workspaceRegistry.pinnedSessionIds],
+  async baseline(): Promise<WorkspaceBaseline> {
+    const registry = this.ctx.workspaceRegistry
+    const defaultId = registry.defaultWorkspace?.id
+    const baseline = {
+      items: registry.list().map(workspace => projectWorkspace(workspace, defaultId)),
+      archivedSessionIds: [...registry.archivedSessionIds],
+      pinnedSessionIds: [...registry.pinnedSessionIds],
     }
+    return { ...baseline, items: await Promise.all(baseline.items.map(withGithubOwner)) }
   }
 
   /**
@@ -90,8 +112,10 @@ export class WorkspaceFeed {
     const follower = new WorkspaceFollower()
     this.followers.add(follower)
     try {
-      yield { type: 'baseline', value: this.baseline() }
-      yield* follower.read(signal)
+      yield { type: 'baseline', value: await this.baseline() }
+      for await (const frame of follower.read(signal)) {
+        yield frame.type === 'upsert' ? { ...frame, workspace: await withGithubOwner(frame.workspace) } : frame
+      }
     } finally {
       this.followers.delete(follower)
       follower.close()
@@ -106,14 +130,15 @@ export class WorkspaceFeed {
       const nextOrder = state.workspaceIds.map(String)
       const orderChanged = !sameStrings(this.order, nextOrder)
       for (const id of state.workspaceIds) {
-        if (this.knownIds.has(id)) continue
+        if (this.knownIds.has(id) && (id === this.defaultId) === (id === state.defaultWorkspaceId)) continue
         const workspace = this.ctx.workspaceRegistry.get(id)
         if (workspace === undefined) {
           throw new Error(`committed Workspace registry references missing Workspace "${id}"`)
         }
         this.knownIds.add(id)
-        this.publish({ type: 'upsert', workspace: workspaceView(workspace) })
+        this.publish({ type: 'upsert', workspace: projectWorkspace(workspace, state.defaultWorkspaceId) })
       }
+      this.defaultId = state.defaultWorkspaceId
       this.order = nextOrder
       if (orderChanged) this.publish({ type: 'order', workspaceIds: [...state.workspaceIds] })
       const nextArchived = state.archivedSessionIds.map(String)
@@ -137,7 +162,7 @@ export class WorkspaceFeed {
     if (!this.knownIds.has(change.key)) return
     this.publish({
       type: 'upsert',
-      workspace: changedWorkspaceView(change.key, change.value),
+      workspace: changedWorkspaceView(change.key, change.value, this.ctx.workspaceRegistry.defaultWorkspace?.id),
     })
   }
 

@@ -5,8 +5,6 @@ kind: persistence-change
 
 # 2026-09-21-user-question-reply
 
-English | [中文](2026-09-21-user-question-reply.zh.md)
-
 ## Summary
 
 Adds a qualified user-question-reply message source for a late answer to a continued ask_user_question call.
@@ -47,12 +45,12 @@ changes:
 <a id="compatibility"></a>
 ## Compatibility
 
-Existing logs contain no such source and remain valid. The new source is qualified attribution on an ordinary user message; readers without dsh-user-questions preserve the message and derive history from its content. Only the userQuestions projection reads this source to close the named question and record its answers. The answer RPC is its only producer and writes outcome answered; closing the Client panel persists no reply. No event type or Session header changes.
+Existing logs contain no such source and remain valid. The new source is qualified attribution on an ordinary user message; readers without jan-user-questions preserve the message and derive history from its content. Only the userQuestions projection reads this source to close the named question and record its answers. The answer RPC is its only producer and writes outcome answered; closing the Client panel persists no reply. No event type or Session header changes.
 
 <a id="verification"></a>
 ## Verification
 
-pnpm exec vitest run packages/interaction/user-questions/tests packages/interaction/tool-ask-user/tests: 81 tests passed. The focused projection, reply, view, and process-group suite passed 70 tests. pnpm run typecheck passed. pnpm run doc-sync passed all 42 gates, including persistence history and translation pairing.
+pnpm exec vitest run packages/interaction/user-questions/tests packages/interaction/tool-ask-user/tests: 81 tests passed. The focused projection, reply, view, and process-group suite passed 70 tests. pnpm run typecheck passed. pnpm run doc-sync passed all 42 gates, including persistence history.
 
 <a id="dev-note"></a>
 ## Dev Note

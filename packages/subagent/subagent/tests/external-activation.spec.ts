@@ -3,9 +3,9 @@ import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
 /** External execution ownership, result delivery, and process cleanup. */
 
 import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { Context } from '@janhq/cordis'
+import { SessionId } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import SubagentRuntime from '../src/index.ts'
 import { TestSessionQuery } from './test-session-query.ts'
 import type { SubagentStartRequest, SubagentCapabilities, SubagentResult, SubagentRun } from '../src/types.ts'
@@ -300,7 +300,8 @@ describe('external subagent activations', () => {
       const text = notice.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n')
       expect(text).toContain('Reviewed three files.')
       expect(text).toContain('Structured result: {"files":3}')
-      expect(text).toContain('External transport failed.')
+      expect(text).toContain('Status: failed')
+      expect(text).toContain('Blockers: External transport failed.')
       expect(text).not.toContain('follow-up')
     }
   })

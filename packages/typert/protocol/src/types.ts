@@ -1,11 +1,11 @@
 /**
  * Compiler-independent Typert protocol shared by business packages, generated
  * Remote artifacts, the Host Gateway, and Client API implementations.
- * @module @deepseek-ai/dsh-typert-protocol/types
+ * @module @janhq/jan-typert-protocol/types
  */
 
-import type { Context, Events } from '@deepseek-ai/cordis'
-import type { Branded } from '@deepseek-ai/dsh-brand'
+import type { Context, Events } from '@janhq/cordis'
+import type { Branded } from '@janhq/jan-brand'
 import type { ZodType } from 'zod'
 import type { TypertOwnedValue } from './owned-value.ts'
 
@@ -476,6 +476,12 @@ export interface PeerScope {
   /** Whether the Peer may open a forwarded-event stream; this does not grant business permissions. */
   readonly interactions: 'answer' | 'none'
   /**
+   * `'local'` when the Peer is another Host that federates this one: its calls are answered by
+   * this Host alone and never handed to a registered forwarder, so two Hosts that federate each
+   * other do not echo lists and streams back and forth. Absent means `'all'`.
+   */
+  readonly forward?: 'all' | 'local'
+  /**
    * Tear down every registration made through `ctx`.
    * @returns settles once the scope has quiesced; racing calls share one completion.
    */
@@ -944,7 +950,7 @@ export interface TypertRegistryContract {
   readonly resources: TypertResourceRegistry
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     typert: TypertRegistryContract
     /**

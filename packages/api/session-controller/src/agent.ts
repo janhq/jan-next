@@ -1,17 +1,18 @@
 /** Agent activation, composition, and initial model route owned by API Session. */
 
 import { randomUUID } from 'node:crypto'
-import { mkdir } from 'node:fs/promises'
-import type { Context } from '@deepseek-ai/cordis'
-import type { Agent, AgentOptions, AgentSetup } from '@deepseek-ai/dsh-agent'
-import type {} from '@deepseek-ai/dsh-agent-default-model'
-import { installModelSelection } from '@deepseek-ai/dsh-agent'
-import type {} from '@deepseek-ai/dsh-agent-preset-registry'
-import { brandString } from '@deepseek-ai/dsh-brand'
-import type { Session, SessionId } from '@deepseek-ai/dsh-session'
-import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
-import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
-import type {} from '@deepseek-ai/dsh-typert-registry'
+import { mkdir, stat } from 'node:fs/promises'
+import type { Context } from '@janhq/cordis'
+import type { Agent, AgentOptions, AgentSetup } from '@janhq/jan-agent'
+import type {} from '@janhq/jan-agent-default-model'
+import { installModelSelection } from '@janhq/jan-agent'
+import type {} from '@janhq/jan-agent-preset-registry'
+import { brandString } from '@janhq/jan-brand'
+import type { Session, SessionId } from '@janhq/jan-session'
+import { SessionQueryError, type SessionObservation } from '@janhq/jan-session-query'
+import { RemoteError, remoteErrorOf } from '@janhq/jan-typert-protocol'
+import type {} from '@janhq/jan-typert-registry'
+import { realpathNormalize, type WorkspaceId } from '@janhq/jan-workspace'
 
 /** Cold Session identity absent from persistence. */
 export class ApiSessionNotFound extends Error {}
@@ -58,6 +59,8 @@ export interface ApiSessionCreateRequest {
   readonly sessionId?: SessionId
   /** Directory the Session owns. */
   readonly cwd: string
+  /** Registered project target, when the caller does not own directory creation. */
+  readonly workspaceId?: WorkspaceId
   /** Preset the Session runs; the configured default when omitted. */
   readonly agentPreset?: string
   /**
@@ -115,7 +118,6 @@ export function apiSessionSubagentOwnershipError(sessionId: SessionId): ApiSessi
 /** Owns every operation that may create, resume, or configure a Web Agent. */
 export class ApiSessionAgentController {
   private readonly resumes = new Map<SessionId, Promise<Agent>>()
-  private readonly claims = new Map<SessionId, Promise<void>>()
   private readonly imageAdmissionChains = new WeakMap<Agent, Promise<void>>()
 
   /** @param ctx - Host context carrying Agent, model, persistence, and Typert services. */
@@ -212,13 +214,12 @@ export class ApiSessionAgentController {
   /**
    * Create a Session for a new conversation, reusing the named blank Session
    * while it is still reusable. A reused Session runs the requested preset, or
-   * the configured default when the request names none; the preset it recorded
+   * the default for the Session's model provider when the request names none; the preset it recorded
    * is not resolved, and a change is logged as `agent-preset/selected` before
    * the Agent is published. A named Session that has started a turn, fails the
    * caller's placement rule, or is written by another owner stays unchanged,
-   * and a new Session is created instead. Requests naming one identity run in
-   * arrival order, including their preset resolution, and check the named
-   * Session's directory and ownership before resolving the preset.
+   * and a new Session is created instead. The named Session's directory and
+   * ownership are checked before resolving the preset.
    * @param request - optional Session to reuse, directory, preset, and placement rule.
    * @returns the reused or created Session and the preset it ran when this request finished.
    * @throws ApiSessionCwdConflict when the named Session belongs to another directory.
@@ -228,8 +229,8 @@ export class ApiSessionAgentController {
    */
   async createSession(request: ApiSessionCreateRequest): Promise<ApiSessionCreated> {
     const named = request.sessionId
-    if (named === undefined) return this.created(await this.createMinted(request.cwd, await this.composeAgent(request.agentPreset)))
-    return this.inOrder(named, async () => this.created(await this.claim(named, request)))
+    if (named === undefined) return this.created(await this.createMinted(request))
+    return this.created(await this.claim(named, request))
   }
 
   /**
@@ -317,17 +318,6 @@ export class ApiSessionAgentController {
     })).agent
   }
 
-  private async inOrder<Value>(sessionId: SessionId, operation: () => Promise<Value>): Promise<Value> {
-    const result = (this.claims.get(sessionId) ?? Promise.resolve()).then(operation)
-    const settled = result.then(() => undefined, () => undefined)
-    this.claims.set(sessionId, settled)
-    try {
-      return await result
-    } finally {
-      if (this.claims.get(sessionId) === settled) this.claims.delete(sessionId)
-    }
-  }
-
   /** @returns the reused Session, a new Session under `sessionId` when none is stored, or a new Session under a minted identity. */
   private async claim(sessionId: SessionId, request: ApiSessionCreateRequest): Promise<Agent> {
     const attached = this.ctx.sessions.get(sessionId)
@@ -339,15 +329,14 @@ export class ApiSessionAgentController {
       if (live.session.header.cwd !== request.cwd) {
         throw new ApiSessionCwdConflict(live.id, request.cwd, live.session.header.cwd)
       }
-      const composition = await this.composeAgent(request.agentPreset)
-      return await this.reuseLive(live, request, composition) ?? this.createMinted(request.cwd, composition)
+      return await this.reuseLive(live, request) ?? this.createMinted(request)
     }
     let observation: SessionObservation
     try {
       observation = await this.ctx.sessionQuery.observeSession(sessionId)
     } catch (error: unknown) {
       if (!(error instanceof SessionQueryError) || error.code !== 'SESSION_QUERY_SESSION_NOT_FOUND') throw error
-      return this.createAgent(sessionId, request.cwd, await this.composeAgent(request.agentPreset))
+      return this.createAgent(sessionId, request)
     }
     let reusable: boolean
     {
@@ -360,21 +349,21 @@ export class ApiSessionAgentController {
       }
       reusable = request.reusable(sessionId) && !observed.events.some(event => event.type === 'turn/start')
     }
-    const composition = await this.composeAgent(request.agentPreset)
-    if (!reusable) return this.createMinted(request.cwd, composition)
+    if (!reusable) return this.createMinted(request)
     this.assertPresetApplicable(sessionId, request.agentPreset)
+    const explicit = request.agentPreset === undefined ? undefined : await this.composeAgent(request.agentPreset)
     try {
       return (await this.ctx.agents.resume({
         resumeSessionId: sessionId,
         agentOptions: this.agentOptions(),
-        setup: this.reuseSetup(composition),
+        setup: this.reuseSetup(explicit),
       })).agent
     } catch (error: unknown) {
-      if (error instanceof ApiSessionStartedSinceObserved) return this.createMinted(request.cwd, composition)
+      if (error instanceof ApiSessionStartedSinceObserved) return this.createMinted(request)
       if (!(error instanceof Error) || error.name !== 'SessionAlreadyOwnedError') throw error
       // Another resume in this process may hold the writer for the Agent it published.
       return this.ctx.agents.get(sessionId) === undefined
-        ? this.createMinted(request.cwd, composition)
+        ? this.createMinted(request)
         : this.claim(sessionId, request)
     }
   }
@@ -383,16 +372,19 @@ export class ApiSessionAgentController {
   private async reuseLive(
     live: Agent,
     request: ApiSessionCreateRequest,
-    composition: ApiSessionComposition,
   ): Promise<Agent | undefined> {
     if (!request.reusable(live.id) || !this.isBlank(live.session)) return undefined
     this.assertPresetApplicable(live.id, request.agentPreset)
-    const current = this.presetForSession(live.session)
     const presets = this.ctx.get('agentPresets')
+    if (presets === undefined) return live
+    const routeDefault = request.agentPreset === undefined
+    const composition = await this.composeAgent(request.agentPreset ?? presets.defaultFor(live.model.current()?.provider))
     const target = composition.agentPreset
-    if (presets === undefined || target === undefined || target === current) return live
+    if (target === undefined || !this.isBlank(live.session)) return undefined
+    if (this.presetForSession(live.session) === target && presets.followsRouteDefault(live.session) === routeDefault) return live
     try {
-      await presets.select(live, target)
+      if (routeDefault) await presets.selectRouteDefault(live, target)
+      else await presets.select(live, target)
     } catch (error: unknown) {
       if (remoteErrorOf(error)?.code !== 'agent-preset/locked') throw error
       return undefined
@@ -401,13 +393,17 @@ export class ApiSessionAgentController {
   }
 
   /** Setup that re-checks blankness under the acquired writer, then records a preset change before publication. */
-  private reuseSetup(composition: ApiSessionComposition): AgentSetup {
+  private reuseSetup(explicit: ApiSessionComposition | undefined): AgentSetup {
     return async (agentCtx, agent) => {
       if (!this.isBlank(agent.session)) throw new ApiSessionStartedSinceObserved()
+      // Read the route under the acquired writer: it may differ from the earlier observation.
+      const composition = explicit ?? await this.composeRouteDefault(agent.model.current()?.provider)
       const commit = await composition.setup(agentCtx, agent)
       const target = composition.agentPreset
-      if (target !== undefined && this.presetForSession(agent.session) !== target) {
-        agent.session.append('agent-preset/selected', { agentPreset: target })
+      const routeDefault = explicit === undefined
+      if (target !== undefined && (this.presetForSession(agent.session) !== target
+        || this.ctx.get('agentPresets')?.followsRouteDefault(agent.session) !== routeDefault)) {
+        agent.session.append('agent-preset/selected', { agentPreset: target, ...(routeDefault ? { source: 'route-default' } : {}) })
       }
       return commit
     }
@@ -417,6 +413,24 @@ export class ApiSessionAgentController {
   private isBlank(session: Session): boolean {
     const boundary = this.ctx.agents.turnBoundaryOf(session)
     return boundary.openTurnStartSeq === null && boundary.lastTurn === 0
+  }
+
+  /**
+   * Move a blank Session to the new route's default preset only when its
+   * current preset follows the old route's default. A failed switch keeps the current preset.
+   * @param agent - Session whose model selection just changed.
+   * @param from - provider route before the change.
+   * @param to - provider route after the change.
+   */
+  async followRouteDefault(agent: Agent, from: string | undefined, to: string): Promise<void> {
+    const presets = this.ctx.get('agentPresets')
+    if (presets === undefined || from === to || !this.isBlank(agent.session)) return
+    const target = presets.defaultFor(to)
+    try {
+      await presets.selectRouteDefault(agent, target, presets.defaultFor(from))
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`session-controller: kept preset "${this.presetForSession(agent.session)}" after the model moved to ${to}: ${String(error)}`)
+    }
   }
 
   /** Without a roster, reuse cannot apply a named preset. */
@@ -429,15 +443,33 @@ export class ApiSessionAgentController {
     return { agent, agentPreset: this.presetForSession(agent.session) }
   }
 
-  private createMinted(cwd: string, composition: ApiSessionComposition): Promise<Agent> {
-    return this.createAgent(brandString<SessionId>(`session-${randomUUID()}`), cwd, composition)
+  private createMinted(request: ApiSessionCreateRequest): Promise<Agent> {
+    return this.createAgent(brandString<SessionId>(`session-${randomUUID()}`), request)
   }
 
-  private async createAgent(sessionId: SessionId, cwd: string, composition: ApiSessionComposition): Promise<Agent> {
-    try {
-      await mkdir(cwd, { recursive: true })
-    } catch (error: unknown) {
-      throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
+  private async createAgent(sessionId: SessionId, request: ApiSessionCreateRequest): Promise<Agent> {
+    const composition = request.agentPreset === undefined
+      ? await this.composeRouteDefault(undefined)
+      : await this.composeAgent(request.agentPreset)
+    const routeDefault = request.agentPreset === undefined ? composition.agentPreset : undefined
+    const { cwd, workspaceId } = request
+    if (workspaceId === undefined) {
+      try {
+        await mkdir(cwd, { recursive: true })
+      } catch (error: unknown) {
+        throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
+      }
+    } else {
+      try {
+        if (await realpathNormalize(cwd) !== cwd || !(await stat(cwd)).isDirectory()) {
+          throw new RemoteError('workspace/project-folder-missing', 'The registered project folder is unavailable.', { workspaceId })
+        }
+      } catch (error: unknown) {
+        if (error instanceof Error && 'code' in error && (error.code === 'ENOENT' || error.code === 'ENOTDIR')) {
+          throw new RemoteError('workspace/project-folder-missing', 'The registered project folder is unavailable.', { workspaceId })
+        }
+        throw error
+      }
     }
     return (await this.ctx.agents.create({
       sessionId,
@@ -446,8 +478,17 @@ export class ApiSessionAgentController {
         cwd,
         ...(composition.agentPreset === undefined ? {} : { agentPreset: composition.agentPreset }),
       },
-      setup: composition.setup,
+      setup: routeDefault === undefined ? composition.setup : async (agentCtx, agent) => {
+        const commit = await composition.setup(agentCtx, agent)
+        agent.session.append('agent-preset/selected', { agentPreset: routeDefault, source: 'route-default' })
+        return commit
+      },
     })).agent
+  }
+
+  private composeRouteDefault(provider: string | undefined): Promise<ApiSessionComposition> {
+    const presets = this.ctx.get('agentPresets')
+    return this.composeAgent(presets?.defaultFor(provider ?? this.ctx.agentDefaultModel.currentSelection().provider))
   }
 
   private agentOptions(): AgentOptions {

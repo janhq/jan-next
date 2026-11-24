@@ -1,15 +1,13 @@
 ---
-description: "Web ask_user_question feature for the dsh web client: the attached question card, timed wait, drafts, late replies, and the plan-review approval card."
+description: "Web ask_user_question feature for the jan web client: the attached question card, timed wait, drafts, late replies, and the plan-review approval card."
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-user-questions
-
-English | [中文](README.zh.md)
+# @janhq/jan-client-ui-user-questions
 
 ## Summary
 
-The Web client shows an agent's question beside the chat input. Users choose options, enter text, skip questions, and submit one answer batch. A timed card counts down; focus pauses it, editing or `Take time` holds it, and expiry lets the agent continue while the question stays answerable. Closing a card linked to a tool call hides it; its tool row reopens it and later shows recorded answers. The Host preserves the question across restart, while this browser preserves unfinished input across reload.
+Answer an agent's question beside the chat input: choose options, enter text, skip questions, and submit one batch. **Settings > Agent loop > Answer questions automatically after** is Off by default. When enabled, the countdown submits recommended choices and skips questions without one. Focus pauses it; editing or choosing Take time holds it until you answer. Closing a card linked to a tool call hides it; the tool row reopens it and shows recorded answers. The Host preserves the question across restart, and this browser preserves unfinished input across reload.
 
 ## Table of Contents
 
@@ -41,7 +39,7 @@ A question that already settled opens as a read-only card: the same pager over t
 
 ### The plan-review card
 
-A `plan-review` intent — set by `dsh-plan-mode` on the `exit_plan_mode` review — renders a compact approval card: a `Plan review` strip with a `View full plan` link, the plan title and a two-line plain-text summary, and `Request changes` / `Approve` actions. The strip uses the shared warning dot and changes it to the ongoing loader while either action settles. The complete plan opens in the sidebar through the link or its permanent Chat card. Approve answers with the asker's approval label; `Request changes` rejects the wait as `ASK_CANCELLED`, returning the composer for the user's feedback without submitting an approval. The card has no separate refusal button.
+A `plan-review` intent — set by `jan-plan-mode` on the `exit_plan_mode` review — renders a compact approval card: a `Plan review` strip with a `View full plan` link, the plan title and a two-line plain-text summary, and `Request changes` / `Approve` actions. The strip uses the shared warning dot and changes it to the ongoing loader while either action settles. The complete plan opens in the sidebar through the link or its permanent Chat card. Approve answers with the asker's approval label; `Request changes` rejects the wait as `ASK_CANCELLED`, returning the composer for the user's feedback without submitting an approval. The card has no separate refusal button.
 
 ### Failure and recovery
 
@@ -49,7 +47,7 @@ An answer field autofocuses only when its answer channel is ready and no countdo
 
 Returning a local answer does not release its foreground claim: the Host closes that stream after accepting the waterfall outcome. The plugin owns the claim through this delivery interval. Explicit delegation releases it before calling the next answerer, and plugin disposal cancels any remaining claims.
 
-The card has two sources. A live Host request creates it and carries the answer back. For a timed request, the Client first opens the question-owned `attachWait` stream and derives a local deadline from its remaining-duration frame. The card remains live while that first frame is pending. The claim lasts until the request settles or the Client disconnects, including while the panel is hidden. The card owns the countdown; at zero it rejects with `ASK_TIMED_OUT` and stays available. Once the projection lists the call as continued, answers use the `answer` Remote method. Card removal follows the projection, and plugin teardown releases its requests and claims.
+The card has two sources. A live Host request creates it and carries the answer back. For a timed request, the Client first opens the question-owned `attachWait` stream and derives a local deadline from its remaining-duration frame. The claim lasts until the request settles or the Client disconnects, including while the panel is hidden. At zero, a user-enabled countdown submits the recommended choices and skips unanswered questions with no recommendation. A separately configured `mode: timed` request instead rejects with `ASK_TIMED_OUT` and stays available. Once the projection lists the call as continued, answers use the `answer` Remote method. Card removal follows the projection, and plugin teardown releases its requests and claims.
 
 A submission through the pending request is sent, not confirmed: when another browser settled the same request first, the gateway drops the late outcome silently. The card therefore keeps its draft until the projection closes it, and if the call turns continued while a submission is in flight, the controls re-arm with a hint so the same draft goes through the Remote path. An accepted Remote answer steers the agent at its nearest step. While its steer waits in the durable Inbox, the editable card closes and the question row shows the submitted answers read-only, including after a browser reconnect. Multiple pending steers are admitted together at that boundary; an active tool wait must finish before the agent can read them. Discarding a pending steer leaves the question answerable, and the user can reopen its row to submit again. A second answer while the first remains pending reports `REPLY_QUEUED`. Pristine focus freezes this browser's remaining countdown and blur resumes that remainder. The first answer mutation changes the local wait to indefinite, and `Take time` does the same explicitly. Those choices persist with this browser's draft across Session navigation and, for tool-call-keyed requests, reload. Another browser has its own countdown and can still settle the shared request; the Host projection remains the authority for whether the question is open or continued.
 
@@ -71,7 +69,7 @@ The package is one ownership rule: rendering a question is a host UI capability,
 
 ### Reopening a panel
 
-This package fills `userQuestionPanels`, the optional capability `dsh-client-ui-tool` declares for its `ask_user_question` row. `reveal(sessionId, callId)` republishes that call's card as the last equal-precedence pending interaction, so the composer seat shows it again, and returns `false` when this Client holds no card for the call — a legacy unkeyed request, another browser's question, or a card the projection already closed. Whether a question still takes an answer comes from the `userQuestions` Session projection, which the row reads directly, so the capability carries no state of its own.
+This package fills `userQuestionPanels`, the optional capability `jan-client-ui-tool` declares for its `ask_user_question` row. `reveal(sessionId, callId)` republishes that call's card as the last equal-precedence pending interaction, so the composer seat shows it again, and returns `false` when this Client holds no card for the call — a legacy unkeyed request, another browser's question, or a card the projection already closed. Whether a question still takes an answer comes from the `userQuestions` Session projection, which the row reads directly, so the capability carries no state of its own.
 
 `review(sessionId, callId, record)` builds a card from the questions and answers the row parsed out of its own transcript, because the projection lists only answerable calls. That card has no answer channel and no countdown, the projection sweep leaves it alone, and closing it removes it rather than parking it in the registry. A call that still holds a live card shows the live one, so a stale copy never replaces a standing request; for the same reason a review card renders the record itself and takes only the page position from a draft its live card left behind.
 
@@ -81,7 +79,7 @@ The card accepts one question declaring the intent, carrying the plan as `detail
 
 ### Copy and locale
 
-Composer chrome copy (pager, buttons, placeholders, validation feedback) is bilingual: the plugin registers zh/en dictionaries under the `question` namespace of `dsh-client-locale` and hands the entry its bound translator plus the locale snapshot source through the inject face, so a locale switch re-renders a mounted composer. Question and option text arrives from the model and renders verbatim; carrier failure messages also display untranslated.
+Composer chrome copy (pager, buttons, placeholders, validation feedback) is bilingual: the plugin registers zh/en dictionaries under the `question` namespace of `jan-client-locale` and hands the entry its bound translator plus the locale snapshot source through the inject face, so a locale switch re-renders a mounted composer. Question and option text arrives from the model and renders verbatim; carrier failure messages also display untranslated.
 
 </details>
 
@@ -103,11 +101,11 @@ These pages cover the composer host, the tool seam, and the plan-mode consumer.
 <a id="model-experience"></a>
 ## Model Experience
 
-Indirectly, through `dsh-tool-ask-user`, whose model-visible schema and answer rendering this package presents in the Web client.
+Indirectly, through `jan-tool-ask-user`, whose model-visible schema and answer rendering this package presents in the Web client.
 
 #### KV Cache effect
 
-No direct invalidation; `dsh-tool-ask-user` owns the model-visible tool call and result.
+No direct invalidation; `jan-tool-ask-user` owns the model-visible tool call and result.
 
 ## Known Limitations and Deferred Work
 

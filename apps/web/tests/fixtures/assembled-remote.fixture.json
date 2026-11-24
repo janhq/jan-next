@@ -35,20 +35,17 @@
       "hasDocument": true,
       "namespaces": [
         {
-          "ns": "llm-deepseek",
+          "ns": "llm-pi-ai",
           "schema": {},
           "value": {
-            "apiKeyEnv": "DEEPSEEK_API_KEY"
+            "providers": {
+              "tokamak": {
+                "apiKeyEnv": "TOKAMAK_API_KEY"
+              }
+            }
           },
           "applies": "live",
-          "secrets": [
-            {
-              "path": [
-                "apiKey"
-              ],
-              "set": false
-            }
-          ],
+          "secrets": [],
           "revision": 0
         }
       ]
@@ -57,7 +54,7 @@
   "credentialsDescribe": {
     "ok": true,
     "value": {
-      "DEEPSEEK_API_KEY": {
+      "TOKAMAK_API_KEY": {
         "configured": true,
         "source": "file",
         "writable": true
@@ -68,22 +65,22 @@
     "ok": true,
     "value": {
       "default": {
-        "provider": "deepseek-official",
-        "model": "deepseek-v4-flash"
+        "provider": "tokamak-official",
+        "model": "tokamak-1-preview"
       },
       "routableProviders": [
-        "deepseek-official",
+        "tokamak-official",
         "openai",
         "acme-gateway"
       ],
       "groups": [
         {
-          "id": "deepseek-official",
-          "name": "DeepSeek",
+          "id": "tokamak-official",
+          "name": "Tokamak",
           "models": [
             {
-              "id": "deepseek-v4-flash",
-              "name": "DeepSeek-V4-Flash",
+              "id": "tokamak-1-preview",
+              "name": "Tokamak 1 Preview",
               "description": "快速响应",
               "reasoning": {
                 "efforts": [
@@ -104,8 +101,8 @@
               }
             },
             {
-              "id": "deepseek-v4-pro",
-              "name": "DeepSeek-V4-Pro",
+              "id": "tokamak-1-pro",
+              "name": "Tokamak 1 Pro",
               "description": "复杂任务",
               "reasoning": {
                 "efforts": [
@@ -199,7 +196,7 @@
         }
       },
       {
-        "definitionId": "@deepseek-ai/dsh-command-goal",
+        "definitionId": "@janhq/jan-command-goal",
         "name": "goal",
         "description": "Set or view the goal for a long-running task",
         "input": {
@@ -208,7 +205,7 @@
         }
       },
       {
-        "definitionId": "@deepseek-ai/dsh-permission-presets",
+        "definitionId": "@janhq/jan-permission-presets",
         "name": "permission",
         "description": "Switch the permission preset (sandbox mode + approval policy)",
         "input": {
@@ -216,7 +213,7 @@
         }
       },
       {
-        "definitionId": "@deepseek-ai/dsh-plan-mode",
+        "definitionId": "@janhq/jan-plan-mode",
         "name": "plan",
         "description": "Enter or leave plan mode",
         "input": {
@@ -4837,11 +4834,11 @@
               "isError": false
             },
             "meta": {
-              "answer": "DeepSeek Harness is a plugin-based agent harness on vendored Cordis where **every capability is a plugin**.",
+              "answer": "Jan is a plugin-based agent harness on vendored Cordis where **every capability is a plugin**.",
               "sources": [
                 {
-                  "url": "https://github.com/deepseek-ai/deepseek-harness",
-                  "title": "DeepSeek Harness — plugin-based agent harness",
+                  "url": "https://github.com/janhq/jan-next",
+                  "title": "Jan — plugin-based agent harness",
                   "snippet": "Everything is a plugin: session, tools, agent-loop, and LLM adapters all mount on the same Cordis context.",
                   "publishedAt": "2026-07-01"
                 },

@@ -8,18 +8,20 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import SandboxedFileSystem from '@deepseek-ai/dsh-fs-sandbox'
-import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import SandboxPolicyService, { setSandboxMode } from '@deepseek-ai/dsh-sandbox-policy'
-import { Session, SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
-import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
-import ApprovalService from '@deepseek-ai/dsh-user-approval'
+import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import AgentPresets from '@janhq/jan-agent-preset-registry'
+import type { Agent } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import SandboxedFileSystem from '@janhq/jan-fs-sandbox'
+import type { ContentBlock } from '@janhq/jan-llm'
+import SandboxPolicyService, { setSandboxMode } from '@janhq/jan-sandbox-policy'
+import { Session, SessionId, type SessionEvent } from '@janhq/jan-session'
+import * as ToolFs from '@janhq/jan-tool-fs'
+import ApprovalService from '@janhq/jan-user-approval'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
-import SubagentRuntime from '@deepseek-ai/dsh-subagent'
+import SubagentRuntime from '@janhq/jan-subagent'
 import { mountLocalActivations, startPreparedActivation } from './local-activation.ts'
 
 type Script = ConstructorParameters<typeof MockAdapter>[0]
@@ -29,7 +31,7 @@ const contexts: Context[] = []
 let workspace: string
 
 beforeEach(async () => {
-  workspace = await realpath(await mkdtemp(join(tmpdir(), 'dsh-inherit-')))
+  workspace = await realpath(await mkdtemp(join(tmpdir(), 'jan-inherit-')))
 })
 
 afterEach(async () => {
@@ -77,8 +79,29 @@ function toolResultTexts(agent: Agent): string[] {
 }
 
 describe('in-process policy inheritance', () => {
+  it('pins a read-only preset before dispatch even when its parent has full access', async () => {
+    const filePath = join(workspace, 'reviewer-must-not-write.txt')
+    const { ctx, parent } = await setupWalled([
+      toolCallResponse('forced-write', 'write', { file_path: filePath, content: 'must not land' }),
+      textResponse('review completed'),
+    ])
+    await ctx.plugin(Loader)
+    await ctx.plugin(AgentPresets, { default: 'reviewer' })
+    await ctx.agentPresets.register({ id: 'reviewer', readOnlyDelegation: true, plugins: [] })
+    setSandboxMode(parent.session, 'danger-full-access')
+    const run = await startPreparedActivation({ ...spawnRequest(parent), agentPreset: 'reviewer' }, {})
+    try {
+      await run.result
+      expect(toolResultTexts(run.localAgent)).toEqual([expect.stringContaining(READ_ONLY_DENIAL)])
+      await expect(readFile(filePath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+      expect(ctx.sandboxPolicy.overrideOf(run.localAgent.session)).toBe('read-only')
+    } finally {
+      await run.dispose()
+    }
+  })
+
   it.each(['auto', 'danger-full-access'] as const)(
-    'records the parent %s identity before publishing a DSH in-process child',
+    'records the parent %s identity before publishing a Jan in-process child',
     async (preset) => {
       const { ctx, parent } = await setupWalled([textResponse('child done')])
       parent.session.append('permission/preset', { preset })
@@ -181,7 +204,7 @@ describe('in-process policy inheritance', () => {
         .filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text')
         .map(block => block.text)
         .join('\n')
-      expect(contextText).toContain('Current DSH file policy: read-only')
+      expect(contextText).toContain('Current Jan file policy: read-only')
       expect(contextText).toContain('Approval prompts are disabled')
       // The statement rides runtime context; the system node (surface node 0) stays uniform.
       expect(contextText).toContain('You are a delegated subagent')

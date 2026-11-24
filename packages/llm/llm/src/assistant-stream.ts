@@ -5,7 +5,7 @@
  * path for records read at a durable boundary.
  */
 
-import { assertNever, deepFreeze, snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
+import { assertNever, deepFreeze, snapshotJsonValue } from '@janhq/jan-util-values'
 import { BlockAssembler } from './assembler.ts'
 import type { ToolCallId } from './brand.ts'
 import type { ContentBlock, StreamChunk } from './types.ts'
@@ -338,6 +338,81 @@ export function assistantStreamFirstTokenTime(stream: readonly AssistantStreamRe
     if (time !== undefined) return time
   }
   return undefined
+}
+
+/**
+ * Shortest first-token-to-message span an output speed is read from. A provider that buffers
+ * a step, typically a Tool call whose arguments arrive in one chunk at the end, delivers its
+ * tokens in one burst; dividing thousands of tokens by that burst reads as hundreds of
+ * thousands of tokens per second, which measures the network, not generation.
+ */
+export const MIN_DECODE_SPAN_MS = 1_000
+
+/** Fewest characters a streamed token carries; prose runs about four, code and CJK nearer one to three. */
+const MIN_CHARS_PER_TOKEN = 3
+
+/** One settled step's recorded boundaries, output count and how much the stream carried. */
+export interface DecodeReading {
+  /** The step's step/start time, or null when it is outside the event window. */
+  readonly stepStartTime: number | null
+  readonly firstTokenTime: number
+  /** Time the step's message assembled. */
+  readonly completedTime: number
+  readonly outputTokens: number
+  /** Characters of text, reasoning and Tool-call name and arguments the message carried ({@link contentChars}). */
+  readonly streamedChars: number
+}
+
+/**
+ * Characters a message carried as text, reasoning and Tool-call name and arguments: what its
+ * stream delivered to the reader.
+ * @param content - the assembled message content.
+ * @returns the character count.
+ */
+export function contentChars(content: readonly ContentBlock[]): number {
+  let chars = 0
+  for (const block of content) {
+    if (block.type === 'text' || block.type === 'reasoning') chars += block.text.length
+    else if (block.type === 'tool-call') chars += block.name.length + block.arguments.length
+  }
+  return chars
+}
+
+type StreamedBlock =
+  | { readonly kind: 'text' | 'reasoning'; readonly text: string }
+  | { readonly kind: 'tool-call'; readonly name: string; readonly argsRaw: string }
+  | { readonly kind: 'image' | 'other' }
+
+/**
+ * Count streamed characters after content has been projected into display blocks.
+ * @param blocks - projected assistant content.
+ * @returns characters of text, reasoning, and tool names and arguments.
+ */
+export function streamedBlockChars(blocks: readonly StreamedBlock[]): number {
+  let chars = 0
+  for (const block of blocks) {
+    if (block.kind === 'text' || block.kind === 'reasoning') chars += block.text.length
+    else if (block.kind === 'tool-call') chars += block.name.length + block.argsRaw.length
+  }
+  return chars
+}
+
+/**
+ * The span a step's output tokens were generated over, when it is long enough to measure speed
+ * from. Usually first token to message; but a provider that reasons without streaming the
+ * reasoning counts those tokens in the output while the stream starts at the answer, and dividing
+ * by the answer's span alone overstates the speed many times over. When the output count is more
+ * than the streamed characters could hold, the span starts at the step's start instead.
+ * @param reading - the step's boundaries, output tokens and streamed characters.
+ * @returns the span in ms, or undefined when it is shorter than {@link MIN_DECODE_SPAN_MS}
+ * or starts outside the recorded window.
+ */
+export function measuredDecodeMs(reading: DecodeReading): number | undefined {
+  const hidden = reading.outputTokens * MIN_CHARS_PER_TOKEN > reading.streamedChars
+  const start = hidden ? reading.stepStartTime : reading.firstTokenTime
+  if (start === null) return undefined
+  const span = reading.completedTime - start
+  return span >= MIN_DECODE_SPAN_MS ? span : undefined
 }
 
 /**

@@ -1,4 +1,4 @@
-/** Select and copy the local npm tarball closures that supply Desktop dsh and its private Host. */
+/** Select and copy the local npm tarball closures that supply Desktop jan and its private Host. */
 
 import { createHash } from 'node:crypto'
 import {
@@ -25,10 +25,10 @@ import {
 } from '../src/core-package-set.ts'
 import { capture } from '../../../scripts/release/process.ts'
 import { tarballFiles } from '../../../scripts/release/tarball.ts'
-import { desktopTargetPlatform, resolveDesktopBuildTarget, resolveDesktopTargetBuildPaths, type DesktopReleasePlatform } from './desktop-build-paths.mjs'
+import { desktopTargetPlatform, resolveDesktopBuildTarget, resolveDesktopTargetBuildPaths, type DesktopBuildPlatform } from './desktop-build-paths.mjs'
 
-const DSH_PACKAGE = '@deepseek-ai/dsh'
-const ROOT_PACKAGES = [DSH_PACKAGE, DESKTOP_HOST_PACKAGE] as const
+const JAN_PACKAGE = '@janhq/jan'
+const ROOT_PACKAGES = [JAN_PACKAGE, DESKTOP_HOST_PACKAGE] as const
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
 
@@ -62,7 +62,7 @@ function dependencyNames(manifest: Readonly<Record<string, unknown>>, section: s
 }
 
 /**
- * Select workspace dependencies rooted at dsh and its private Host; npm resolves external packages.
+ * Select workspace dependencies rooted at jan and its private Host; npm resolves external packages.
  * Reads the repository workspace manifest and package manifests to distinguish required local packages from npm-resolved externals.
  * @param available - Packed packages indexed by package name.
  * @param target - Platform and architecture of the installer payload.
@@ -70,7 +70,7 @@ function dependencyNames(manifest: Readonly<Record<string, unknown>>, section: s
  */
 export function selectDesktopPackageClosure(
   available: ReadonlyMap<string, PackedDesktopPackage>,
-  target: DesktopReleasePlatform,
+  target: DesktopBuildPlatform,
 ): PackedDesktopPackage[] {
   const workspace = yaml.load(readFileSync(join(REPOSITORY_ROOT, 'pnpm-workspace.yaml'), 'utf8')) as { packages: string[] }
   const workspaceNames = new Set(globSync(workspace.packages.map(pattern => `${pattern}/package.json`), { cwd: REPOSITORY_ROOT })
@@ -149,7 +149,7 @@ export function assertDesktopHostPackageFiles(files: readonly string[]): void {
  * @param target - Platform and architecture of the installer payload.
  */
 export function prepareDesktopPackageSet(
-  inputs: readonly string[], output: string, target: DesktopReleasePlatform,
+  inputs: readonly string[], output: string, target: DesktopBuildPlatform,
 ): void {
   const selected = selectDesktopPackageClosure(packedPackages(inputs), target)
   const host = selected.find(packed => packed.manifest.name === DESKTOP_HOST_PACKAGE)
@@ -183,7 +183,7 @@ export function prepareDesktopPackageSet(
 function main(): void {
   const buildPaths = resolveDesktopTargetBuildPaths()
   const defaultInputs = [
-    buildPaths.packedDsh,
+    buildPaths.packedJan,
     buildPaths.packedVendor,
     buildPaths.packedLandlock,
   ]

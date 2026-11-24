@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { createDevelopmentProjectMetadata, createPluginProfile } from '../src/project-manager.ts'
 import { removeOwnedDirectory } from '../src/owned-directory.ts'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
-import { desktopTargetPlatform, developmentRuntimeDirectory, resolveDesktopDevelopmentTarget } from './desktop-build-paths.mjs'
+import { desktopTargetPlatform, developmentRuntimeDirectory, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
 
 const repo = resolve(import.meta.dirname, '../../..')
 const interactive = process.argv.includes('--interactive')
@@ -28,12 +28,12 @@ try {
     nodeVersion: execFileSync(electron, ['-p', 'process.versions.node'],
       { encoding: 'utf8', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, windowsHide: true }).trim(),
     pnpmVersion: pnpm.version, hostProtocolVersion: DESKTOP_HOST_PROTOCOL_VERSION }
-  const target = resolveDesktopDevelopmentTarget()
+  const target = resolveDesktopBuildTarget()
   createDevelopmentProjectMetadata(project, release)
   createPluginProfile(profile)
   await writeFile(join(project, 'desktop-runtime.json'), JSON.stringify({
     schemaVersion: 1, release, ...desktopTargetPlatform(target), files: [],
-    sharedPackages: ['@deepseek-ai/dsh', '@deepseek-ai/dsh-desktop-host']
+    sharedPackages: ['@janhq/jan', '@janhq/jan-desktop-host']
       .map(name => ({ name, version: manifest.version, path: `node_modules/${name}` })),
   }))
   await cp(join(repo, 'apps/desktop/lib/types'), join(application, 'lib'), { recursive: true })
@@ -51,7 +51,7 @@ try {
     process.platform === 'win32' ? 'junction' : 'dir')
   await writeFile(join(profile, 'cordis.patch.yml'), JSON.stringify([
     { id: 'webserver', config: { host: '127.0.0.1', port: 0 } },
-    { id: 'llm-deepseek', disabled: true }, { id: 'session-title-llm', disabled: true },
+    { id: 'session-title-llm', disabled: true },
     { id: 'session-telemetry-otel', disabled: true },
     { id: 'agent-preset-registry', config: { default: 'standard' } },
     { insert: [{ id: 'update-control', name: new URL('../tests/fixtures/workspace-update-host.mjs', import.meta.url).href }] },
@@ -60,9 +60,9 @@ try {
     /^(?:path|systemroot|windir|comspec|pathext)$/iu.test(name)))
   const child = spawn(electron, [fileURLToPath(new URL('../tests/fixtures/workspace-updates.mjs', import.meta.url)), '--lang=zh-CN',
     ...(interactive ? ['--interactive'] : [])], {
-    cwd: root, env: { ...environment, DSH_HOME: join(root, 'home'), USERPROFILE: root, HOME: root,
-      TEMP: root, TMP: root, TMPDIR: root, DSH_WORKSPACE_UPDATE_ROOT: root, DSH_WORKSPACE_UPDATE_TOKEN: randomUUID(),
-      DSH_DESKTOP_PRIMARY_RUNTIME_DIR: developmentRuntimeDirectory(), DSH_DESKTOP_OPEN_DEVTOOLS: '0' },
+    cwd: root, env: { ...environment, JAN_HOME: join(root, 'home'), USERPROFILE: root, HOME: root,
+      TEMP: root, TMP: root, TMPDIR: root, JAN_WORKSPACE_UPDATE_ROOT: root, JAN_WORKSPACE_UPDATE_TOKEN: randomUUID(),
+      JAN_DESKTOP_PRIMARY_RUNTIME_DIR: developmentRuntimeDirectory(), JAN_DESKTOP_OPEN_DEVTOOLS: '0' },
     // Hiding the GUI process suppresses its first window and can suspend renderer frame callbacks.
     stdio: 'inherit', windowsHide: false,
   })

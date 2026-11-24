@@ -1,17 +1,17 @@
 /** Shortcut reference plugin; commands and entry points share one declared store. */
-import type { Context } from '@deepseek-ai/cordis'
-import type { ShortcutCommandId } from '@deepseek-ai/dsh-client-shortcuts/client'
-import { closeTopModal } from '@deepseek-ai/dsh-client-ui-primitives'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { Context } from '@janhq/cordis'
+import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
+import { closeTopModal } from '@janhq/jan-client-ui-primitives'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-layout/client'
+import type {} from '@janhq/jan-client-ui-settings/client'
 import { createShortcutsStore } from './store.ts'
 import { ShortcutReference, ShortcutsRow } from './Reference.tsx'
 import { en, ja, es, fr, de, ru, pt, zh } from './locales.ts'
-import { fixedCommands } from './fixed.ts'
+import { fixedCommands, zoomCommands } from './fixed.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Shortcut reference and settings entry copy. */
     shortcuts: keyof typeof zh
@@ -34,7 +34,8 @@ export function apply(ctx: Context): void {
   const edit: typeof ctx.shortcuts.edit = (...args) => ctx.shortcuts.edit(...args)
   const recording = (active: boolean) => ctx.shortcuts.recording(active)
   const describeBinding: typeof ctx.shortcuts.describeBinding = binding => ctx.shortcuts.describeBinding(binding)
-  for (const command of fixedCommands(t)) {
+  const zoom = ctx.shortcuts.runtime === 'desktop' ? zoomCommands(t, describeBinding) : []
+  for (const command of [...fixedCommands(t), ...zoom]) {
     ctx.effect(() => ctx.shortcuts.registerFixed(command), `shortcuts: ${command.id}`)
   }
   const injected = () => ({ platform: ctx.shortcuts.platform, runtime: ctx.shortcuts.runtime, edit, recording, describeBinding,

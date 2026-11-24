@@ -3,9 +3,7 @@ description: "Tool-result retention with a shared text/image token budget and re
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-spill-policy
-
-English | [中文](README.zh.md)
+# @janhq/jan-spill-policy
 
 ## Summary
 
@@ -32,8 +30,8 @@ Mount the policy alongside a spill backend. Text and images share the configured
 Load a spill backend and set `maxInlineTokens` in estimated tokens:
 
 ```yaml
-- name: '@deepseek-ai/dsh-spill-local'
-- name: '@deepseek-ai/dsh-spill-policy'
+- name: '@janhq/jan-spill-local'
+- name: '@janhq/jan-spill-policy'
   config:
     maxInlineTokens: 12500
 ```
@@ -42,7 +40,7 @@ Load a spill backend and set `maxInlineTokens` in estimated tokens:
 |---|---|---|
 | `maxInlineTokens` | omitted | Estimated token cap for retained text, images, image descriptions, and notices; omission disables retention |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-spill-policy) is the exhaustive source for every accepted field. A negative or fractional cap fails plugin load rather than corrupting per-call behavior.
+The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-spill-policy) is the exhaustive source for every accepted field. A negative or fractional cap fails plugin load rather than corrupting per-call behavior.
 
 ### What the model sees
 
@@ -80,7 +78,7 @@ This section explains the design decisions behind the policy; the observable beh
 
 ### Design philosophy
 
-The pure retention function selects ordered content by cost; the plugin owns policy, recovery text, and storage calls. Text uses the existing token-meter estimate. Images use the active route's `imageRequestPricing`, including descriptor text. DeepSeek routes reuse the provider's image-dimension calculator. The budget is an estimate, not an exact tokenizer guarantee.
+The pure retention function selects ordered content by cost; the plugin owns policy, recovery text, and storage calls. Text uses the existing token-meter estimate. Images use the active route's `imageRequestPricing`, including descriptor text. The budget is an estimate, not an exact tokenizer guarantee.
 
 ### The two arms
 
@@ -113,7 +111,7 @@ Recovery or pricing failures preserve the input and log the reason. Negative, fr
 Read these pages when the package-level contract is not enough.
 
 - [Spill storage service](../spill/README.md) — the `saveText` contract behind the policy's replacement.
-- [dsh-spill-local](../spill-local/README.md) — the local backend that stores the spilled text.
+- [jan-spill-local](../spill-local/README.md) — the local backend that stores the spilled text.
 - [Token meter](../../llm/token-meter/README.md) — shared text estimates and route image accounting.
 - [Tool output spill decision](../../../.agents/notes/implemented/architecture/2026-07-08-tool-output-spill-files.md) — the capability boundary and design rationale.
 

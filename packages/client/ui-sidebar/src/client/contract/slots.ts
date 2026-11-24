@@ -10,14 +10,14 @@
 import type { RefCallback } from 'react'
 import type {
   InjectFace, PropsLocale, PropsRenderFactories, PropsRenderSlots, PropsRuntime, SlotHookFactory,
-} from '@deepseek-ai/dsh-client-ui-slots'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
-import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
-import type { ProductEventMap } from '@deepseek-ai/dsh-client-product-analytics/client'
+} from '@janhq/jan-client-ui-slots'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
+import type { WorkspaceId } from '@janhq/jan-api-workspace-controller/client'
+import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
+import type { MainPanelId } from '@janhq/jan-client-ui-layout/client'
+import type { ProductEventMap } from '@janhq/jan-client-product-analytics/client'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface SlotFactoryMap {
     /** Reuse a registered panel icon in navigation rows and menus. */
     'sidebar.panel.icon': {
@@ -27,8 +27,18 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     }
   }
   interface SlotMap {
+    /** New-session control, with access and analytics retained by the shell. */
+    'sidebar.session.new': { kind: 'single'; scope: 'root'; owner: SidebarNewSessionOwnerProps }
+    /** Workspace primary navigation before global panel extras. */
+    'sidebar.workspaces.primary': { kind: 'single'; scope: 'root'; owner: SidebarSectionOwnerProps }
     /** Non-interactive notification inside the collapsed sidebar expand button. */
     'sidebar.toggle.badge': { kind: 'single'; scope: 'root'; owner: Record<never, never> }
+    /**
+     * Icon buttons before the sidebar toggle in the expanded column's top row
+     * (the macOS strip beside the traffic lights, or the logo row elsewhere).
+     * Each occupant renders one button with the supplied class and icon size.
+     */
+    'sidebar.toggle.actions': { kind: 'list'; scope: 'root'; owner: SidebarToggleActionOwnerProps }
     /**
      * Brand mark rendered in the expanded brand row and collapsed rail.
      * Declared by this package's `sidebar` entry; deployments may replace
@@ -74,6 +84,16 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      */
     'sidebar.footer.action': { kind: 'list'; scope: 'root'; owner: SidebarFooterActionOwnerProps }
   }
+}
+
+/** Presentation and invocation of the access-gated New Session action. */
+export interface SidebarNewSessionOwnerProps {
+  wide: boolean
+  label: string
+  ariaLabel: string
+  shortcutKeys: ShortcutCatalogEntry['keys'] | undefined
+  shortcutAria: string | undefined
+  onStart: () => void
 }
 
 /** Geometry supplied to the sidebar brand-mark occupant. */
@@ -189,6 +209,26 @@ export interface SidebarFooterActionOwnerProps {
   wide: boolean
 }
 
+/** Styling and panel routing handed to a button beside the sidebar toggle. */
+export interface SidebarToggleActionOwnerProps {
+  /** The toggle's icon-button class, so the action matches its size and hover. */
+  className: string | undefined
+  iconSize: number
+  tooltipSide: 'right' | 'bottom'
+  /** Render tooltips under document.body, past a clipping drawer. */
+  portal: boolean
+  /** Id of the main panel on screen, or null. */
+  activePanelId: MainPanelId | null
+  /** Open a registered main panel by id. */
+  openPanel: (id: MainPanelId) => void
+}
+
+/** Whether the Back and Forward controls have somewhere to go; mirrors the Workspace navigation history. */
+export interface SidebarNavigationAvailability {
+  readonly canGoBack: boolean
+  readonly canGoForward: boolean
+}
+
 /**
  * Registrant-private injected share (arrives via the register inject
  * factory). The renderer binds the panel metadata source to usePanels.
@@ -202,6 +242,10 @@ export type SidebarRootInjected = {
   startSession: (workspaceId?: WorkspaceId) => void
   /** Toggle the sidebar column through the layout service. */
   toggleSidebar: () => void
+  /** Return to the previous main-view location (Back); a no-op while `navigationHistory.canGoBack` is false. */
+  goBack: () => void
+  /** Undo the latest Back (Forward); a no-op while `navigationHistory.canGoForward` is false. */
+  goForward: () => void
   /** Select the global panel addressed by a sidebar row. */
   selectPanel: (id: MainPanelId) => void
   /**
@@ -220,6 +264,8 @@ export type SidebarRootInjected = {
     entryPins: ObservableSnapshot<readonly string[]>
     /** Whether `sidebar.panellist.actions` has registrations. */
     entryActions: ObservableSnapshot<boolean>
+    /** Whether Back and Forward have an entry, from the Workspace navigation history. */
+    navigationHistory: ObservableSnapshot<SidebarNavigationAvailability>
   }
 }
 
@@ -231,9 +277,12 @@ export type SidebarRootInjected = {
 export type SidebarRootComponentProps =
   PropsRuntime<'sidebar'>
   & PropsRenderSlots<
+    | 'sidebar.session.new'
+    | 'sidebar.workspaces.primary'
     | 'sidebar.brand.mark'
     | 'sidebar.brand.name'
     | 'sidebar.toggle.badge'
+    | 'sidebar.toggle.actions'
     | 'sidebar.panellist.actions'
     | 'sidebar.workspaces'
     | 'sidebar.settings'

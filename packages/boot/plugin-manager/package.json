@@ -1,13 +1,13 @@
 {
-  "name": "@deepseek-ai/dsh-plugin-manager",
-  "description": "Current-profile plugin and bundle management shared by dsh CLI, Web and agent tools",
+  "name": "@janhq/jan-plugin-manager",
+  "description": "Current-profile plugin and bundle management shared by jan CLI, Web and agent tools",
   "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/boot/plugin-manager"
   },
   "type": "module",
@@ -64,63 +64,63 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/dsh-app-boot": "workspace:*",
-    "@deepseek-ai/dsh-atomic-write": "workspace:*",
-    "@deepseek-ai/dsh-official-bundles": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~",
+    "@janhq/jan-app-boot": "workspace:*",
+    "@janhq/jan-atomic-write": "workspace:*",
+    "@janhq/jan-official-bundles": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
     "execa": "^10.0.1",
     "semver": "^7.8.5",
     "yaml": "^2.9.0",
-    "zod": "4.4.3",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/dsh-plugin-detail": "workspace:*",
-    "@deepseek-ai/dsh-timeout": "workspace:*",
+    "zod": "4.6.6",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/jan-plugin-detail": "workspace:*",
+    "@janhq/jan-timeout": "workspace:*",
     "hosted-git-info": "^9.0.3"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-host-plugin-inventory": "workspace:*",
-    "@deepseek-ai/dsh-subprocess": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-hmr": "workspace:*",
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-policy": "workspace:*",
-    "@deepseek-ai/dsh-sandbox": "workspace:*",
-    "@deepseek-ai/dsh-user-approval": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-host-plugin-inventory": "workspace:*",
+    "@janhq/jan-subprocess": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-hmr": "workspace:*",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-sandbox-policy": "workspace:*",
+    "@janhq/jan-sandbox": "workspace:*",
+    "@janhq/jan-user-approval": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/dsh-hmr": {
+    "@janhq/jan-hmr": {
       "optional": true
     },
-    "@deepseek-ai/dsh-user-approval": {
+    "@janhq/jan-user-approval": {
       "optional": true
     }
   },
   "devDependencies": {
     "chokidar": "^4.0.3",
     "@types/semver": "^7.8.0",
-    "@deepseek-ai/dsh-package-manifest": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-host-plugin-inventory": "workspace:*",
-    "@deepseek-ai/dsh-subprocess": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/dsh-tool-executor-native": "workspace:*",
-    "@deepseek-ai/dsh-tool-testkit": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
-    "@deepseek-ai/dsh-hmr": "workspace:*",
-    "@deepseek-ai/cordis-plugin-timer": "workspace:~",
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-policy": "workspace:*",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-sandbox": "workspace:*",
-    "@deepseek-ai/dsh-user-approval": "workspace:*",
-    "@deepseek-ai/dsh-client-connection": "workspace:*",
+    "@janhq/jan-package-manifest": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-host-plugin-inventory": "workspace:*",
+    "@janhq/jan-subprocess": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/jan-tool-executor-native": "workspace:*",
+    "@janhq/jan-tool-testkit": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-hmr": "workspace:*",
+    "@janhq/cordis-plugin-timer": "workspace:~",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-sandbox-policy": "workspace:*",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-sandbox": "workspace:*",
+    "@janhq/jan-user-approval": "workspace:*",
+    "@janhq/jan-client-connection": "workspace:*",
     "@types/hosted-git-info": "^3.0.5"
   }
 }

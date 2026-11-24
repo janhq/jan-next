@@ -1,7 +1,7 @@
 /**
  * Default Agent driver over queued turns and step-boundary input. Every request
  * is derived from the session log.
- * @module dsh-agent-loop/agent
+ * @module jan-agent-loop/agent
  */
 
 import type {
@@ -17,26 +17,26 @@ import type {
   InboxState,
   PreStepDecision,
   RequestErrorAction,
-} from '@deepseek-ai/dsh-agent'
-import { AgentModel, agentEvents, assembleContextFor } from '@deepseek-ai/dsh-agent'
-import type { GenerateOptions, LlmCallConfig, Message, PreparedLlmCall } from '@deepseek-ai/dsh-llm'
+} from '@janhq/jan-agent'
+import { AgentModel, agentEvents, assembleContextFor } from '@janhq/jan-agent'
+import type { GenerateOptions, LlmCallConfig, Message, PreparedLlmCall } from '@janhq/jan-llm'
 import {
   LlmError,
   createAssistantMessage,
   createDeveloperMessage,
   errorChain,
   markAgentLoopRequest,
-} from '@deepseek-ai/dsh-llm'
-import { assertNever, deepFreeze } from '@deepseek-ai/dsh-util-values'
-import type { Scope } from '@deepseek-ai/dsh-scope'
-import { createScope } from '@deepseek-ai/dsh-scope'
-import type { EpochHeader, RequestContext, Session, SessionId, SessionSeq, TurnEndReason, UserMessage } from '@deepseek-ai/dsh-session'
-import { canonicalHeader, headerEquals, ToolCallRecovery } from '@deepseek-ai/dsh-session'
-import { joinContextSections, renderContextSections, renderPrompt } from '@deepseek-ai/dsh-system-prompt'
-import type { PromptAssembly } from '@deepseek-ai/dsh-system-prompt'
-import { ToolActivationError, ToolBatchExecutionError } from '@deepseek-ai/dsh-tools'
-import type { ResolvedToolSet } from '@deepseek-ai/dsh-tools'
-import type { Context } from '@deepseek-ai/cordis'
+} from '@janhq/jan-llm'
+import { assertNever, deepFreeze } from '@janhq/jan-util-values'
+import type { Scope } from '@janhq/jan-scope'
+import { createScope } from '@janhq/jan-scope'
+import type { EpochHeader, RequestContext, Session, SessionId, SessionSeq, TurnEndReason, UserMessage } from '@janhq/jan-session'
+import { canonicalHeader, headerEquals, ToolCallRecovery } from '@janhq/jan-session'
+import { joinContextSections, renderContextSections, renderPrompt } from '@janhq/jan-system-prompt'
+import type { PromptAssembly } from '@janhq/jan-system-prompt'
+import { ToolActivationError, ToolBatchExecutionError } from '@janhq/jan-tools'
+import type { ResolvedToolSet } from '@janhq/jan-tools'
+import type { Context } from '@janhq/cordis'
 import { ReactLoopInbox } from './inbox.ts'
 import { RuntimeContextProjection } from './runtime-context.ts'
 import { AssistantStreamAttempt } from './assistant-stream.ts'
@@ -58,7 +58,18 @@ type Phase =
     lastTurn: number
     wakeRequested: boolean
   }
-  | { kind: 'running'; abort: AbortController; turn: number; step: number; wakeRequested: boolean }
+  | {
+    kind: 'running'
+    abort: AbortController
+    /**
+     * Raised by steering while a step is in flight; armed when the step
+     * starts, so steering that arrives before then simply waits for that step.
+     */
+    yielding?: AbortController
+    turn: number
+    step: number
+    wakeRequested: boolean
+  }
 
 type StepEndReason = Extract<TurnEndReason, { kind: 'completed' | 'max-tokens' }>
 
@@ -182,6 +193,9 @@ export class ReactLoopAgent implements Agent {
 
   steer(input: UserMessage): void {
     this.send(input, 'next-step', true)
+    // The step in flight claimed its input before this message: ask it to
+    // yield so the message lands now instead of after its stream and tools.
+    if (this.phase.kind === 'running' && !this.phase.abort.signal.aborted) this.phase.yielding?.abort()
   }
 
   inject(input: UserMessage): void {
@@ -267,7 +281,16 @@ export class ReactLoopAgent implements Agent {
 
   private async kick(): Promise<void> {
     try {
-      while (await this.turn()) {}
+      while (await this.turn()) {
+        /* v8 ignore next -- only this driver changes the running phase */
+        if (this.phase.kind !== 'running') break
+        // Check at the driver boundary, not inside turn(): input can arrive
+        // after turn/end but before the promise returns to this driver.
+        if (this.phase.abort.signal.aborted || !this.inbox.hasPending) break
+        this.phase.abort = new AbortController()
+        this.phase.wakeRequested = false
+        this.phase.step = 0
+      }
     } catch (_error) {
       // Reported failures and cancellation are contained at the driver boundary.
     } finally {
@@ -298,9 +321,12 @@ export class ReactLoopAgent implements Agent {
         (): Promise<PreStepDecision> => {
           const sections = renderContextSections(assembly)
           const context = this.runtimeContext.project(joinContextSections(sections), sections)
+          // The snapshot goes ahead of the claimed input so the person's message
+          // stays last: models answer the final user message, and small local
+          // ones otherwise reply to the snapshot instead of the question.
           return Promise.resolve<PreStepDecision>({
             kind: 'enter',
-            messages: context === undefined ? claimed : [...claimed, context],
+            messages: context === undefined ? claimed : [context, ...claimed],
           })
         },
       )
@@ -424,25 +450,49 @@ export class ReactLoopAgent implements Agent {
         this.throwError(error)
       }
     }
-    if (!this.inbox.hasPending) return false
-    phase.abort = new AbortController()
-    // A fresh controller makes a latch set on the old one stale: the live driver claims the queue itself.
-    phase.wakeRequested = false
-    phase.step = 0
     return true
   }
 
   private async step(decision: Extract<PreparedStep, { kind: 'enter' }>): Promise<StepEndReason | null> {
     /* v8 ignore next -- private callers establish the running phase before executing a step */
     if (this.phase.kind !== 'running') throw new Error(`agent "${this.id}": step outside running phase`)
+    const yielding = new AbortController()
+    this.phase.yielding = yielding
     const { turn, step, abort: { signal } } = this.phase
+    const yielded = yielding.signal
+    try {
+      return await this.stepUnderYield(decision, turn, step, signal, yielded)
+    } finally {
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- the phase can change while the step is awaited.
+      if (this.phase.kind === 'running' && this.phase.yielding === yielding) delete this.phase.yielding
+    }
+  }
+
+  private async stepUnderYield(
+    decision: Extract<PreparedStep, { kind: 'enter' }>,
+    turn: number,
+    step: number,
+    signal: AbortSignal,
+    yielded: AbortSignal,
+  ): Promise<StepEndReason | null> {
     signal.throwIfAborted()
 
     const { assembly } = decision
     const renderedPrompt = renderPrompt(assembly)
     let firstAttempt = true
     while (true) {
-      const { config, preparedCall } = await this.prepareRequest(turn, step, decision.selection, signal)
+      let prepared: { config: LlmCallConfig; preparedCall?: PreparedLlmCall } | undefined
+      let preparationError: unknown
+      try {
+        prepared = await this.prepareRequest(turn, step, decision.selection, signal)
+      } catch (error: unknown) {
+        // Cancellation commits neither the prompt nor the claimed batch. A failed
+        // first preparation still admits the batch as an unbound route would, so
+        // claimed input stays in history above the turn error instead of vanishing.
+        if (!firstAttempt || signal.aborted) throw error
+        preparationError = error
+      }
+      const preparedCall = prepared?.preparedCall
       const currentContext = this.loopCtx.systemPrompt.refreshContext(assembly, {
         ...assembleContextFor(this, signal), modelSelection: decision.selection,
       })
@@ -461,6 +511,12 @@ export class ReactLoopAgent implements Agent {
       }
       let contextAdmitted = false
       if (firstAttempt) {
+        // A late snapshot has no position reserved by pre-step. Admit it
+        // before the new batch so it does not become the final user message.
+        if (context !== undefined && !decision.messages.some(message => message.source.kind === 'runtime-context')) {
+          this.session.append('user/message', context, { surfaceOp: 'append' })
+          contextAdmitted = true
+        }
         for (const message of decision.messages) {
           if (message.source.kind === 'runtime-context') {
             if (context !== undefined && !contextAdmitted) {
@@ -475,8 +531,9 @@ export class ReactLoopAgent implements Agent {
       if (context !== undefined && !contextAdmitted) {
         this.session.append('user/message', context, { surfaceOp: 'append' })
       }
+      if (prepared === undefined) throw preparationError
       firstAttempt = false
-      const request = this.buildRequest(config, preparedCall, assembly.tools, { turn, step }, startsRequestSeries, signal)
+      const request = this.buildRequest(prepared.config, preparedCall, assembly.tools, { turn, step }, startsRequestSeries, signal)
       const live = new AssistantStreamAttempt(
         this.session.id,
         ++this.assistantAttemptCounter,
@@ -489,17 +546,40 @@ export class ReactLoopAgent implements Agent {
       try {
         const stream = preparedCall?.stream(request) ?? this.loopCtx.llm.stream(request)
         signal.throwIfAborted()
+        yielded.throwIfAborted()
         live.start()
         started = true
-        for await (const chunk of stream) {
-          signal.throwIfAborted()
-          live.push(chunk)
+        // A steer ends this request early, even mid-thought with no chunk in
+        // flight; leaving the loop returns the iterator, which closes the
+        // request. The turn's own signal stays live, so the step closes and
+        // the next one carries the steered input.
+        const iterator = stream[Symbol.asyncIterator]()
+        const yieldGate = new Promise<'yielded'>((resolve) => {
+          if (yielded.aborted) resolve('yielded')
+          else yielded.addEventListener('abort', () => { resolve('yielded') }, { once: true })
+        })
+        try {
+          while (true) {
+            const next = await Promise.race([iterator.next(), yieldGate])
+            if (next === 'yielded') yielded.throwIfAborted()
+            else if (next.done === true) break
+            else {
+              signal.throwIfAborted()
+              live.push(next.value)
+            }
+          }
+        } finally {
+          if (yielded.aborted) void iterator.return?.().catch(() => {})
         }
         signal.throwIfAborted()
       } catch (error: unknown) {
-        if (!started) throw error
+        const yieldedOnly = yielded.aborted && !signal.aborted
+        if (!started) {
+          if (yieldedOnly) return null
+          throw error
+        }
         try {
-          if (signal.aborted) {
+          if (signal.aborted || yieldedOnly) {
             const content = live.interruptedBlocks()
             if (content.length > 0) {
               live.settle('assistant/message', () => this.session.append('assistant/message', {
@@ -514,6 +594,7 @@ export class ReactLoopAgent implements Agent {
                   },
                 }),
                 interrupted: true,
+                ...yieldedOnly ? { steered: true as const } : {},
                 ...live.usage === undefined ? {} : { usage: live.usage },
                 stream: live.stream,
               }, { surfaceOp: 'append' }).seq)
@@ -536,6 +617,7 @@ export class ReactLoopAgent implements Agent {
             { cause: error },
           )
         }
+        if (yieldedOnly) return null
         throw error
       }
       try {
@@ -560,6 +642,11 @@ export class ReactLoopAgent implements Agent {
           if (action?.kind !== 'retry') {
             throw new LlmError(finish.failure.message, finish.failure.code, finish.failure)
           }
+          // Recovery that recorded another route (a model fallback) retries on
+          // it: close this failed step so the next one prepares the new selection.
+          const reselected = this.model.current()
+          if (reselected !== undefined && (reselected.provider !== decision.selection.provider
+            || reselected.model !== decision.selection.model)) return null
           continue
         }
 
@@ -588,7 +675,7 @@ export class ReactLoopAgent implements Agent {
         const maxParallelToolCalls = this.loopCtx.agentLoop.config.maxParallelToolCalls.get()
         try {
           const result = await this.loopCtx.tools.execute({
-            calls: toolCalls, signal, agent: this, log: { turn, step },
+            calls: toolCalls, signal, yieldSignal: yielded, agent: this, log: { turn, step },
             maxParallelToolCalls, toolSet: decision.toolSet,
           })
           for (const context of result.additionalContexts) {

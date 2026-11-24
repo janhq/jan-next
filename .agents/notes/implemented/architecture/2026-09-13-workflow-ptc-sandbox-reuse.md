@@ -2,15 +2,13 @@
 
 Status: implemented
 
-English | [中文](2026-09-13-workflow-ptc-sandbox-reuse.zh.md)
-
 ## Problem
 
 Dynamic workflows evaluate model-written JavaScript and start subagents. A worker thread keeps script execution off the host event loop, but code escaping its VM can use Node with the host process's file authority. PTC already owns a Node process implementation with OS file confinement, isolated program state, bounded output and control traffic, and managed cleanup. Maintaining a second launcher would duplicate those responsibilities.
 
 ## Decision
 
-`dsh-workflow-ptc` implements `WorkflowEngine` through the shared Node `PtcRuntime`. Each run keeps the existing VM and workflow helpers inside one PTC process. Host bindings connect the guest to the configured subagent provider and workflow observers; the host supplies the calling Agent and resolves its Session's standing file policy and cwd.
+`jan-workflow-ptc` implements `WorkflowEngine` through the shared Node `PtcRuntime`. Each run keeps the existing VM and workflow helpers inside one PTC process. Host bindings connect the guest to the configured subagent provider and workflow observers; the host supplies the calling Agent and resolves its Session's standing file policy and cwd.
 
 The VM defines the helper API and cooperative concurrency, total-agent and item caps. It is not a security boundary, and those counters are not host-enforced security quotas. File enforcement, V8 heap limits, output and control limits, and managed process cleanup remain owned by PTC and its sandbox/subprocess providers. Network access and provider-specific containment limits remain the same as PTC.
 

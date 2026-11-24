@@ -1,12 +1,10 @@
-- banner:
-  - navigation "Session hierarchy": "Remember the project requirements: imple"
-  - text: Minimal mode
+- tablist "Chat tabs":
+  - 'tab "Remember the project requirements: imple Close chat tab" [selected]':
+    - text: "Remember the project requirements: imple"
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
 - navigation "Turn navigation":
   - button "Jump to turn 1"
   - button "Jump to turn 2"
@@ -30,9 +28,16 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
+- 'button "Access mode, current: Full access"': Full access
+- dialog "New chats use Full access":
+  - heading "New chats use Full access" [level=2]
+  - button "Got it"
+  - text: "New chats start with Full access: the agent can change files and run commands without asking. Change the default for new chats in Settings > General, or switch this chat here."
+  - button "Change default"
+- button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]
+- 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
 - button "2 turns 2 steps"
 - button "28 tok · Cache hit 0%": 28 tokCache hit 0%
 - button "0% of context used": 0%

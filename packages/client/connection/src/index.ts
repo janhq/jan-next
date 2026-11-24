@@ -1,11 +1,11 @@
 /** Host HTTP bridge for browser-client RPC. */
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context } from '@janhq/cordis'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import z from '@deepseek-ai/schemastery'
-import type {} from '@deepseek-ai/dsh-attachment'
-import type {} from '@deepseek-ai/dsh-credentials'
+import z from '@janhq/schemastery'
+import type {} from '@janhq/jan-attachment'
+import type {} from '@janhq/jan-credentials'
 // Activates the webServer Context merge used below.
-import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
+import type { WebRoute } from '@janhq/jan-host-webserver'
 import { API_PATH } from './api-path.ts'
 import { CONNECT_PATH } from './connect-protocol.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
@@ -38,11 +38,11 @@ export type {
   RpcMessage,
   ServerResponse,
 } from './rpc.ts'
-export type { PeerId, PeerScope, Principal, RemoteInvocation } from '@deepseek-ai/dsh-typert-protocol'
+export type { PeerId, PeerScope, Principal, RemoteInvocation } from '@janhq/jan-typert-protocol'
 export { RpcId, transportError } from './rpc.ts'
 export { Peer } from './peer.ts'
 export type { PeerOptions } from './peer.ts'
-export { CONNECT_PATH, type ConnectionInteractions } from './connect-protocol.ts'
+export { CONNECT_PATH, type ConnectionForward, type ConnectionInteractions } from './connect-protocol.ts'
 export {
   clientRequestSchema,
   rpcErrorSchema,
@@ -58,7 +58,7 @@ export { API_PATH } from './api-path.ts'
 /** Stable Cordis plugin name. */
 export const name = 'client-connection'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Events {
     /**
      * Admit or wrap an authenticated shared API request, including body transfer.
@@ -141,7 +141,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   ctx.inject(['webServer'], (webCtx) => {
     assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
     webCtx.on('webserver/index-inject', (table) => {
-      table.push({ kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: recovery })
+      table.push({ kind: 'global', name: '__JAN_CONNECTION_RECOVERY__', value: recovery })
     })
     const fetchHandler = connection.createSharedFetchHandler(API_PATH)
     const route: WebRoute = {

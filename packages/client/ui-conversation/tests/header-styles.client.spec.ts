@@ -11,17 +11,17 @@ describe('conversation header geometry', () => {
     expect(narrow).toContain('padding-left: 0')
   })
 
-  it('keeps the single-line header at the shared 76px height', () => {
-    expect(css.match(/\.header\s*\{([^}]*)\}/)?.[1]).toContain('min-height: 76px')
+  it('keeps the single-line header 66px below the shared title inset (76px at the 10px default)', () => {
+    expect(css.match(/\.header\s*\{([^}]*)\}/)?.[1]).toContain('min-height: calc(66px + var(--jan-frame-title-inset, 10px))')
     expect(css.match(/\.viewTabs\s*\{([^}]*)\}/)?.[1]).toContain('min-height: 25px')
     // The tab's 35px press target sits 10px above its 25px row through a negative top margin.
     expect(css.match(/\.tab\s*\{([^}]*)\}/)?.[1]).toContain('min-height: 35px')
-    expect(css.match(/\.tab\s*\{([^}]*)\}/)?.[1]).toContain('margin: -10px calc(-1 * var(--dsh-tab-hit-inline)) 0')
-    expect(css.match(/\.tab\s*\{([^}]*)\}/)?.[1]).toContain('padding: 10px var(--dsh-tab-hit-inline) 9px')
+    expect(css.match(/\.tab\s*\{([^}]*)\}/)?.[1]).toContain('margin: -10px calc(-1 * var(--jan-tab-hit-inline)) 0')
+    expect(css.match(/\.tab\s*\{([^}]*)\}/)?.[1]).toContain('padding: 10px var(--jan-tab-hit-inline) 9px')
   })
 
   it('clips overflowing title actions and fades them inside the gap before the next control', () => {
-    const cluster = css.match(/\.titleCluster\s*\{([^}]*)\}/)?.[1]
+    const cluster = css.match(/^\.titleCluster\s*\{([^}]*)\}/m)?.[1]
     expect(cluster).toContain('overflow: clip')
     expect(cluster).toContain('--title-cluster-fade: 20px')
     expect(cluster).toContain('margin: -4px calc(-1 * var(--title-cluster-fade)) -4px -4px')

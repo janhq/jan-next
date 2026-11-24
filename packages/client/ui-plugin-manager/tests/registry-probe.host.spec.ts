@@ -1,14 +1,15 @@
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
-import { NPMMIRROR_REGISTRY, OFFICIAL_NPM_REGISTRY } from '@deepseek-ai/dsh-plugin-manager/registry'
+import { NPMMIRROR_REGISTRY, OFFICIAL_NPM_REGISTRY } from '@janhq/jan-plugin-manager/registry'
 import PluginRegistryProbe, { type Config } from '../src/index.ts'
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
 
-async function mount(config: Partial<Config> = {}) {
+async function mount(config: Partial<Omit<Config, 'customize'>> = {}) {
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
-  await ctx.plugin(PluginRegistryProbe, PluginRegistryProbe.Config(config))
+  // Cordis resolves the Config itself, as the Loader does; parsing it twice would wrap volatile fields twice.
+  await ctx.plugin(PluginRegistryProbe, config)
   return { ctx, probe: ctx.pluginRegistryProbe }
 }
 

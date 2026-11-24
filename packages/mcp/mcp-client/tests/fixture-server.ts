@@ -1,5 +1,5 @@
 /**
- * Minimal MCP server over stdio for e2e testing of the dsh-mcp-client plugin.
+ * Minimal MCP server over stdio for e2e testing of the jan-mcp-client plugin.
  * Registers controlled tools with predictable behavior for asserting edge cases.
  *
  * Run: node fixture-server.ts
@@ -63,7 +63,7 @@ function createFixtureServer(): McpServer {
     return { content: [{ type: 'text', text: 'crashing' }] }
   })
 
-  // Dotted name: legal in MCP, illegal in the DeepSeek function-name contract.
+  // Dotted name: legal in MCP, illegal in the model function-name contract.
   // Exercises the bridge's normalize-and-hash public-name path end to end.
   server.registerTool('admin.reset', {
     title: 'Admin Reset Tool',

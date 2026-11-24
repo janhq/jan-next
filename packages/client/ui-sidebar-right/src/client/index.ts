@@ -1,7 +1,7 @@
-import { IconCloseOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ShortcutCommandId } from '@deepseek-ai/dsh-client-shortcuts/client'
+import { IconCloseOutlineRegular } from '@janhq/jan-client-ui-primitives'
+import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
 import { TabMenuContent } from './shell/TabMenuContent.tsx'
-import type {} from '@deepseek-ai/dsh-client-ui-context-menu/client'
+import type {} from '@janhq/jan-client-ui-context-menu/client'
 /**
  * Browser half: fill the frame's right column with the panel, put the expand
  * button in the conversation header, and own the seats a tab type registers
@@ -24,21 +24,22 @@ import type {} from '@deepseek-ai/dsh-client-ui-context-menu/client'
  * guide registers through those stages unmodified, exactly as a type shipped
  * from another package does — `ui-sidebar-documentpreview` is the live proof.
  */
-import type {} from '@deepseek-ai/dsh-client-shortcuts/client'
+import type {} from '@janhq/jan-client-shortcuts/client'
 import { observeSidebarFocus } from './focus.ts'
 import { registerSidebarShortcuts } from './shortcuts.ts'
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-client-resources/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-import type { ILayout } from '@deepseek-ai/dsh-client-ui-layout/client'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { Context as ClientContext } from '@janhq/cordis'
+import type {} from '@janhq/jan-client-resources/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-session/client'
+import type { ILayout } from '@janhq/jan-client-ui-layout/client'
+import type {} from '@janhq/jan-client-ui-layout/client'
+import type {} from '@janhq/jan-client-ui-conversation/client'
+import type { SessionId } from '@janhq/jan-session/types'
 import type {} from './contract/slots.ts'
 import { GuideBody, type GuideInjected } from './tabs/guide/GuideBody.tsx'
 import { GuideTitle } from './tabs/guide/GuideTitle.tsx'
 import { ExpandButton } from './shell/ExpandButton.tsx'
+import { NewTabItems, type NewTabItemsInjected } from './shell/NewTabItems.tsx'
 import { RightbarSeat, type SidebarRightInjected } from './shell/SidebarRight.tsx'
 import { closeWithPaneFocus, openWithPaneFocus } from './shell/close-focus.ts'
 import { RightbarRoot, type RightbarRootInjected } from './shell/RightbarRoot.tsx'
@@ -50,7 +51,7 @@ import { en, ja, es, fr, de, ru, pt, zh } from './locales.ts'
 import { GUIDE_ID, guideDefinition } from './tabs/guide/definition.ts'
 import { createGuidePins } from './tabs/guide/guide-pins.ts'
 import { guideTabInfoFactory, tabInfoFactory } from './tab-info.ts'
-import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
+import type { TabId } from '@janhq/jan-client-ui-dockkit'
 import { defaultSeed } from './contract/seed.ts'
 
 export type { SidebarRightTarget } from './focus.ts'
@@ -58,6 +59,7 @@ export type { RightbarSeatProps, SidebarRightInjected, SidebarRightPresentation 
 export type { GuideBodyProps, GuideInjected } from './tabs/guide/GuideBody.tsx'
 export type { ExpandButtonProps } from './shell/ExpandButton.tsx'
 export type { SidebarRightState, SurfaceState } from './stores.ts'
+export type { InlineViewer } from './inline-embeds.ts'
 export type {
   ISidebarRight, SidebarRightOpenResourceOptions, SidebarRightOpenTabOptions,
   SidebarRightPlacement, SidebarRightCloseHandler, SurfaceActions,
@@ -69,14 +71,14 @@ export type {
 export type {
   SidebarRightTabInfo, SidebarRightTabInjected, UseSidebarRightTabInfo, SidebarRightTabActions,
   SidebarRightTabMenuOwnerProps, SidebarRightTabNavigation, SidebarRightTabPlacement, SidebarRightGuideEntryOwnerProps,
-  SidebarRightGuideActionEntry, SidebarRightGuideActionsOwnerProps,
+  SidebarRightGuideActionEntry, SidebarRightGuideActionsOwnerProps, SidebarRightTabActionsOwnerProps,
 } from './contract/slots.ts'
 export type {
   SidebarRightNavigationParams, SidebarRightResourceParams, SidebarRightResourceParamsMap,
   SidebarRightTabParams, SidebarRightTabParamsFor, SidebarRightTabParamsMap,
 } from './contract/params.ts'
 // The layout ids and rectangle the navigation face takes, so a caller needs no import from the kit.
-export type { FloatRect, PaneId, TabId, TabRecord } from '@deepseek-ai/dsh-client-ui-dockkit'
+export type { FloatRect, PaneId, TabId, TabRecord } from '@janhq/jan-client-ui-dockkit'
 export type { PinResource, SidebarRightNavigator, TabOccurrence, SidebarRightOccurrenceId } from './tab-domain.ts'
 export type { SidebarRightKey } from './locales.ts'
 export type { OpenContentIntent } from './stores.ts'
@@ -88,7 +90,7 @@ const NS = 'sidebarRight'
 /** Required browser services: the slot registry, the frame's panel actions, copy, and the resource model. */
 export const inject = ['contextMenus', 'slots', 'layout', 'locale', 'resources', 'sessions', 'uiSession', 'shortcuts']
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Right-Sidebar navigation and presentation face. */
     sidebarRight: SidebarRightController
@@ -126,7 +128,7 @@ export function apply(ctx: ClientContext): void {
   // The automatic fullscreen rule as the seats last rendered it: the frame
   // hands them its width as owner props, and every seat reports the same rule.
   let autoFullscreen = false
-  const { controller, adopt, forget, show, measure } = createSidebarRightController(
+  const { controller, adopt, releaseIdle, forget, show, measure } = createSidebarRightController(
     tabs,
     (address, signal) => { ctx.resources.pin(address, signal) },
     {
@@ -200,21 +202,28 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => {
     const handle = createSidebarRightStore(() => defaultSeed(tabs))
     // Each Session Context generation owns one Store. Background tab actions
-    // use the latest adoption for that Session.
+    // use the latest adoption for that Session; when the runtime drops a store
+    // with no tabs, its adoption goes too, so memory follows the open Sessions.
     const adoptions = new Map<SessionId, () => void>()
     const store: typeof handle = {
       ...handle,
       create: (scopeKey) => {
         const instance = handle.create(scopeKey)
-        if (scopeKey !== undefined) {
-          const sessionId = scopeKey as SessionId
-          adoptions.get(sessionId)?.()
-          adoptions.set(sessionId, adopt(sessionId, instance))
+        if (scopeKey === undefined) return instance
+        const sessionId = scopeKey as SessionId
+        adoptions.get(sessionId)?.()
+        const release = adopt(sessionId, instance)
+        adoptions.set(sessionId, release)
+        return {
+          ...instance,
+          clearPersisted() {
+            instance.clearPersisted()
+            forget(sessionId)
+          },
+          dispose() {
+            if (adoptions.get(sessionId) === release && releaseIdle(sessionId, instance)) adoptions.delete(sessionId)
+          },
         }
-        return { ...instance, clearPersisted() {
-          instance.clearPersisted()
-          if (scopeKey !== undefined) forget(scopeKey as SessionId)
-        } }
       },
     }
     const injected: Omit<SidebarRightInjected, 'keyedHooks' | 'occurrence' | 'closeTab' | 'measureRoom' | 'hooks'> = {
@@ -245,12 +254,14 @@ export function apply(ctx: ClientContext): void {
         children: {
           'sidebar.right.pane.tab': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: tabInfoFactory } } },
           'sidebar.right.pane.tab.title': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: tabInfoFactory } } },
+          'sidebar.right.pane.tab.actions': { kind: 'list', scope: 'session' },
         },
         store,
         inject: (sessionId): SidebarRightInjected => ({
           ...injected,
           hooks: {
             contextMenuTarget: ctx.contextMenus.active, shortcuts: ctx.shortcuts.catalog, tabTypes, flash: controller.flashOf(sessionId),
+            inlineEmbeds: controller.inline.source,
           },
           measureRoom: (canSplitPane) => { measure(sessionId, canSplitPane) },
           closeTab: (tabId) => {
@@ -286,6 +297,10 @@ export function apply(ctx: ClientContext): void {
         },
       },
       setPinned: guidePins.setPinned,
+      ownerOf: (providerId) => {
+        const owner = ctx.slots.entries('sidebar.right.pane.tab').find(entry => entry.options.key === providerId)?.owner
+        return owner === undefined || owner.startsWith('@janhq/') ? undefined : owner
+      },
     }
     const disposeGuide = ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
       name: 'sidebar.right.pane.tab',
@@ -316,4 +331,23 @@ export function apply(ctx: ClientContext): void {
       adoptions.clear()
     }
   }, 'ui-sidebar-right: seats and shipped tab type')
+
+  // The chat tab strip's `+` menu lists every type the guide offers; a pick
+  // opens it in that pane's chat sidebar. The pane is focused while the menu
+  // is open, so its chat is normally the one on screen and the open takes focus.
+  ctx.effect(() => {
+    const injected: NewTabItemsInjected = {
+      hooks: {
+        guideEntries: { subscribe: listener => tabs.subscribe(listener), getSnapshot: () => tabs.guide() },
+        shortcuts: ctx.shortcuts.catalog,
+      },
+      openIn: (sessionId, kind) => {
+        if (controller.mounted.getSnapshot() === sessionId) controller.openTab(kind)
+        else controller.openTabIn(sessionId, kind)
+      },
+    }
+    return ctx.slots.inject('conversation.desk.new-tab.item', () => ctx.slots.register({
+      name: 'conversation.desk.new-tab.item', id: 'sidebar-right', locale: NS, inject: () => injected,
+    }, NewTabItems))
+  }, 'ui-sidebar-right: new tab menu rows')
 }

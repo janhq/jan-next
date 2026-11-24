@@ -20,6 +20,9 @@
     },
     {
       "path": "../../typert/protocol"
+    },
+    {
+      "path": "../../settings/settings"
     }
   ]
 }

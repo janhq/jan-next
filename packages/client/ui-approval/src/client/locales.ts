@@ -9,6 +9,8 @@ export const zh = {
   allow: '允许',
   allowOnce: '允许一次',
   allowAlways: '始终允许',
+  allowAll: '在此对话中全部允许',
+  allowAllHint: '将此对话切换为完全访问：Jan 将不再询问，直接执行所有命令和操作。',
 } satisfies Record<string, string>
 
 /** Approval dictionary key union. */
@@ -23,6 +25,8 @@ export const en = {
   allow: 'Allow',
   allowOnce: 'Allow once',
   allowAlways: 'Always allow',
+  allowAll: 'Allow all in this chat',
+  allowAllHint: 'Switches this chat to Full access: Jan runs every command and action without asking.',
 } satisfies Record<ApprovalKey, string>
 
 /** Japanese copy, checked against the English keys. */
@@ -34,6 +38,8 @@ export const ja = {
   'allow': '許可',
   'allowOnce': '1 回だけ許可',
   'allowAlways': '常に許可',
+  'allowAll': 'このチャットではすべて許可',
+  'allowAllHint': 'このチャットをフルアクセスに切り替えます。Jan は確認せずにすべてのコマンドと操作を実行します。',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -45,6 +51,8 @@ export const es = {
   allow: 'Permitir',
   allowOnce: 'permitir una vez',
   allowAlways: 'Permitir siempre',
+  allowAll: 'Permitir todo en este chat',
+  allowAllHint: 'Cambia este chat a Acceso completo: Jan ejecuta cada comando y acción sin preguntar.',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
@@ -56,6 +64,8 @@ export const fr = {
   allow: 'Autoriser',
   allowOnce: 'Autoriser une fois',
   allowAlways: 'Toujours autoriser',
+  allowAll: 'Tout autoriser dans ce chat',
+  allowAllHint: 'Passe ce chat en Accès complet : Jan exécute chaque commande et action sans demander.',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
@@ -67,6 +77,8 @@ export const de = {
   allow: 'Erlauben',
   allowOnce: 'Einmal zulassen',
   allowAlways: 'Immer zulassen',
+  allowAll: 'In diesem Chat alles erlauben',
+  allowAllHint: 'Stellt diesen Chat auf Vollzugriff um: Jan führt jeden Befehl und jede Aktion ohne Nachfrage aus.',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -78,6 +90,8 @@ export const ru = {
   allow: 'Разрешить',
   allowOnce: 'Разрешить один раз',
   allowAlways: 'Всегда разрешать',
+  allowAll: 'Разрешить всё в этом чате',
+  allowAllHint: 'Переключает этот чат на полный доступ: Jan выполняет все команды и действия без запроса.',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -89,4 +103,6 @@ export const pt = {
   allow: 'Permitir',
   allowOnce: 'Permitir uma vez',
   allowAlways: 'Sempre permitir',
+  allowAll: 'Permitir tudo neste chat',
+  allowAllHint: 'Muda este chat para Acesso total: o Jan executa cada comando e ação sem perguntar.',
 } satisfies Record<keyof typeof en, string>

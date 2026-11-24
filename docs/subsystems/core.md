@@ -1,7 +1,5 @@
 # Core
 
-English | [中文](core.zh.md)
-
 The **core** subsystem is [`packages/core`](../../packages/core/README.md) — the packages every composition boots: the event-sourced session log, system-prompt assembly, the tool registry, the agent types, and the concrete loop that drives them. This page explains what the `agent`/`agent-loop` pair declares — how an agent is created and owned, and the `Agent` handle's delivery, cancellation, and interception contracts — plus the two type patterns every subsystem follows. The group's dedicated pages and the rest of the folder are indexed in the [subsystems README](README.md).
 
 ## The spine, package by package
@@ -17,7 +15,7 @@ A turn flows through the six packages in one loop: the driver in [`agent-loop`](
 | `agent-loop/` | The concrete driver implementing the public `Agent` contract (`ctx.agentLoop`) | this page |
 | `scope/` | The scoped-registration primitive the registries and loop build per-agent scoping on | [scope.md](scope.md) |
 
-`scope/` is the one non-service package: a dependency-free library (`createScope`/`scopeOf`/`scopeTarget`) that sits below `session/` and `system-prompt/` in the module graph precisely so they can consume it without a cycle. `agent-loop` is the one concrete implementation of the public `Agent` contract and lives here because it is the harness's default product loop; it runs each driver inside `ctx.agents.withInitiator()`. Extension plugins depend on `agent` — including when they need the initiating Agent — and never on `agent-loop` directly, so the loop stays swappable. [`dsh-base`](../../packages/bundle/base/README.md) is the default product composition, while [`dsh-sdk-minimal`](../../packages/bundle/sdk-minimal/README.md) declares a smaller standalone tree.
+`scope/` is the one non-service package: a dependency-free library (`createScope`/`scopeOf`/`scopeTarget`) that sits below `session/` and `system-prompt/` in the module graph precisely so they can consume it without a cycle. `agent-loop` is the one concrete implementation of the public `Agent` contract and lives here because it is the harness's default product loop; it runs each driver inside `ctx.agents.withInitiator()`. Extension plugins depend on `agent` — including when they need the initiating Agent — and never on `agent-loop` directly, so the loop stays swappable. [`jan-base`](../../packages/bundle/base/README.md) is the default product composition, while [`jan-sdk-minimal`](../../packages/bundle/sdk-minimal/README.md) declares a smaller standalone tree.
 
 ## Creation and ownership
 
@@ -52,7 +50,7 @@ interface AgentHandle {
 
 ## The agent handle
 
-`Agent` is the surface every plugin (UI, hooks, orchestrators) programs against; `ctx.agents.get(id)` returns it, and the [initiator scope](#initiating-agent) carries it. The concrete implementation is package-internal to dsh-agent-loop; nothing outside the loop depends on it. The unified `send` method exposes target and wakeup routing directly; `followup`, `steer`, and `inject` are fixed-preset aliases.
+`Agent` is the surface every plugin (UI, hooks, orchestrators) programs against; `ctx.agents.get(id)` returns it, and the [initiator scope](#initiating-agent) carries it. The concrete implementation is package-internal to jan-agent-loop; nothing outside the loop depends on it. The unified `send` method exposes target and wakeup routing directly; `followup`, `steer`, and `inject` are fixed-preset aliases.
 
 Source: [`packages/core/agent/src/types.ts`](../../packages/core/agent/src/types.ts)
 
@@ -124,7 +122,10 @@ interface Agent {
 
   /**
    * Submit steering for the nearest step. An idle driver starts a turn;
-   * a running driver consumes it at its next step boundary.
+   * a running driver consumes it at its next step boundary, and asks the
+   * step in flight to yield: its model stream ends early (the reply is
+   * logged as interrupted and steered) and its tool calls receive
+   * `yieldSignal`. The turn goes on with the steering as the next step.
    * A rejected step leaves steering parked in the inbox until the next
    * wake; cancellation or disposal may discard pending steering.
    * @param message - identified steering content and the source that supplied it.
@@ -340,7 +341,7 @@ interface Inbox {
 type InboxTarget = 'next-turn' | 'next-step'
 ```
 
-Every pending occurrence is its `UserMessage`; `MessageId` is the sole identity. The structural `Inbox` methods record normalized durable `agent/inbox/spliced` mutations and reject duplicate pending ids. `replace(messageId, newMessage)` and `remove(messageId)` locate the pending message across both lists; replacement may change identity and emits the old message as discarded followed by the new message as inserted. Ordinary removals and `clear()` are cancellations. At a step boundary, dsh-agent-loop's package-internal `ReactLoopInbox` removes the proposed batch — all `next-step` input plus, at a turn boundary, one `next-turn` message — through pure deletion splices without discarded notifications, then emits per-message claimed notifications. Loop-only pending detection and claiming are not part of `Agent.inbox`. The `AgentLoop` service registers the standard `inbox` projection before publishing its factory; its cell is the sole live state, and the same fold serves cold consumers even when no Agent exists. The fold rejects unsafe or out-of-range splice coordinates and duplicate identities across both lists, identifying malformed durable history by event seq. Consumers following one message use the exact `agent/inbox/inserted`, `claimed`, and `discarded` notifications.
+Every pending occurrence is its `UserMessage`; `MessageId` is the sole identity. The structural `Inbox` methods record normalized durable `agent/inbox/spliced` mutations and reject duplicate pending ids. `replace(messageId, newMessage)` and `remove(messageId)` locate the pending message across both lists; replacement may change identity and emits the old message as discarded followed by the new message as inserted. Ordinary removals and `clear()` are cancellations. At a step boundary, jan-agent-loop's package-internal `ReactLoopInbox` removes the proposed batch — all `next-step` input plus, at a turn boundary, one `next-turn` message — through pure deletion splices without discarded notifications, then emits per-message claimed notifications. Loop-only pending detection and claiming are not part of `Agent.inbox`. The `AgentLoop` service registers the standard `inbox` projection before publishing its factory; its cell is the sole live state, and the same fold serves cold consumers even when no Agent exists. The fold rejects unsafe or out-of-range splice coordinates and duplicate identities across both lists, identifying malformed durable history by event seq. Consumers following one message use the exact `agent/inbox/inserted`, `claimed`, and `discarded` notifications.
 
 Cancellation:
 
@@ -443,7 +444,7 @@ type ThingKind = keyof ThingMap          // 'a' | 'b'
 type Thing = ThingMap[keyof ThingMap]    // the discriminated union
 
 // A plugin extends it without touching the source package:
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface ThingMap {
     'c': { kind: 'c'; /* … */ }
   }
@@ -454,12 +455,12 @@ Six canonical maps use this pattern; a plugin author extends these:
 
 | Map | Package | Derives | Catalog |
 |---|---|---|---|
-| `ContentBlockMap` | dsh-llm | `ContentBlock` | [llm-streaming.md](llm-streaming.md#content-blocks-and-messages) |
-| `MessageSourceMap` | dsh-llm | `MessageSource` | [llm-streaming.md](llm-streaming.md#content-blocks-and-messages) |
-| `LlmRequestPurposeMap` | dsh-llm | `LlmRequestPurpose` | [llm-streaming.md](llm-streaming.md#the-model-request-and-result) |
-| `FinishReasonMap` | dsh-llm | `FinishReason` | [llm-streaming.md](llm-streaming.md#the-model-request-and-result) |
-| `TurnEndReasonMap` | dsh-session | `TurnEndReason` | [session.md](session.md) |
-| `SessionEventMap` | dsh-session | `SessionEvent` | [session.md](session.md) |
+| `ContentBlockMap` | jan-llm | `ContentBlock` | [llm-streaming.md](llm-streaming.md#content-blocks-and-messages) |
+| `MessageSourceMap` | jan-llm | `MessageSource` | [llm-streaming.md](llm-streaming.md#content-blocks-and-messages) |
+| `LlmRequestPurposeMap` | jan-llm | `LlmRequestPurpose` | [llm-streaming.md](llm-streaming.md#the-model-request-and-result) |
+| `FinishReasonMap` | jan-llm | `FinishReason` | [llm-streaming.md](llm-streaming.md#the-model-request-and-result) |
+| `TurnEndReasonMap` | jan-session | `TurnEndReason` | [session.md](session.md) |
+| `SessionEventMap` | jan-session | `SessionEvent` | [session.md](session.md) |
 
 Two large discriminated unions are the ones consumers `switch` over most: **`StreamChunk`** (the streaming protocol) and **`SessionEvent`** (the log entry). Per the repo convention, `switch` on the tag — don't chain `if`s — so each arm narrows and a typo'd tag fails to compile.
 
@@ -467,7 +468,7 @@ Two large discriminated unions are the ones consumers `switch` over most: **`Str
 
 IDs passed between packages are **branded** — structurally strings, but non-interchangeable at the type level (a `SessionId` cannot be passed where a `ToolCallId` is expected). Construction uses the shared `brandString<T>()` helper or an owner-defined validating factory; comparison, logging, and JSON behave as ordinary strings.
 
-The `Branded<B>` primitive and stateless constructor live in [dsh-brand](../../packages/util/brand), which has no harness capability dependency. `brandString<T>()` applies a compile-time-only string brand.
+The `Branded<B>` primitive and stateless constructor live in [jan-brand](../../packages/util/brand), which has no harness capability dependency. `brandString<T>()` applies a compile-time-only string brand.
 
 Source: [`packages/util/brand/src/index.ts`](../../packages/util/brand/src/index.ts)
 
@@ -476,7 +477,7 @@ Source: [`packages/util/brand/src/index.ts`](../../packages/util/brand/src/index
 type Branded<B extends string> = string & { readonly [BRAND]: B }
 ```
 
-The two core IDs are `ToolCallId` (correlates a tool call with its result; dsh-llm) and `SessionId` (the shared live agent and durable session identity; dsh-session). Capability packages brand their own ids too, such as `JobId` in [jobs.md](jobs.md).
+The two core IDs are `ToolCallId` (correlates a tool call with its result; jan-llm) and `SessionId` (the shared live agent and durable session identity; jan-session). Capability packages brand their own ids too, such as `JobId` in [jobs.md](jobs.md).
 
 ## `TurnBoundaryProjection`
 
@@ -504,7 +505,7 @@ interface TurnBoundaryProjection {
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxagentdefaultmodel--agentdefaultmodelconfig"></a>
 
@@ -579,11 +580,43 @@ Registry of YAML-declared presets and the revisions live Agents retain.
 
 ```ts cordis-catalog
 /**
+ * Default preset for a new Session on one provider route. A default picked
+ * in Settings applies to every route; otherwise a route listed in
+ * `routeDefaults` (a small local model, say) gets its lighter preset.
+ * @param provider - provider route of the Session's model.
+ * @returns the preset identity a Session on that route starts with.
+ */
+defaultFor(provider: string | undefined): string
+
+/**
  * Read the preset recorded for a Session, including selections no longer in the roster.
  * @param session - Session whose committed preset selection is read.
  * @returns the recorded preset, or null when none was selected.
  */
 presetForSession(session: Session): string | null
+
+/**
+ * Read one declaration's composed definition without mounting it.
+ * Registrants that derive a preset (a custom composition based on a shipped
+ * one) need the child plugin rows the declaration was registered with,
+ * including profile overrides; the read-only `readDocument` view is YAML.
+ * @param id - preset identity.
+ * @returns The registered definition; plugin rows are copied so a caller
+ * cannot mutate the registry's declaration.
+ */
+definitionFor(id: string): PresetDefinition
+
+/** Read one preset's description without copying its plugin tree.
+ * @param id Preset identity.
+ * @returns The description, or undefined if the preset has none or is unknown.
+ */
+descriptionFor(id: string): string | undefined
+
+/** Check the preset revision retained by an agent's scope.
+ * @param ctx The agent's scoped context.
+ * @returns Whether that revision requires read-only delegation.
+ */
+requiresReadOnlyDelegation(ctx: Context): boolean
 
 /** Register and eagerly load a definition; activation failure remains visible in the roster.
  * @param definition Parsed configuration supplied by the declaring plugin.
@@ -653,14 +686,30 @@ serviceFor<K extends string & keyof Context>(agent: { ctx: Context }, name: K): 
  */
 async recompose(ctx: Context, id: string): Promise<AgentPreset>
 
-/** Select a preset before a session starts its first turn. A Session whose
- * log records the preset and whose Agent runs its current revision keeps its
- * composition; nothing is logged or announced.
+/** Select and pin a preset at a turn boundary. Pinning a preset already in
+ * use records the choice without replacing its composition.
  * @param agent Target Agent.
  * @param agentPreset Requested identity.
  * @returns Committed preset identity.
  */
-@Remote('select') async select(agent: Agent, agentPreset: string): Promise<string>
+@Remote('select') select(agent: Agent, agentPreset: string): Promise<string>
+
+/**
+ * Read whether a Session follows the default for its model provider.
+ * @param session - Session whose latest preset choice is read.
+ * @returns whether the preset was assigned automatically.
+ */
+followsRouteDefault(session: Session): boolean
+
+/**
+ * Apply a route default. On a model change, leave the preset alone unless
+ * the blank Session still follows the previous provider's default.
+ * @param agent - Session running the preset.
+ * @param agentPreset - default for the target provider route.
+ * @param previousDefault - previous provider's default for a conditional route change; omit for blank reuse.
+ * @returns the recorded preset, or undefined if a conditional change was skipped.
+ */
+selectRouteDefault(agent: Agent, agentPreset: string, previousDefault?: string): Promise<string | undefined>
 
 /** Read current registrations for cold transcript presentation.
  * @param id Preset identity or the default.
@@ -682,7 +731,7 @@ Source: [`packages/preset/agent-preset-registry/src/index.ts`](../../packages/pr
 
 ### `ctx.agents` — `AgentRegistry`
 
-Agent service (`ctx.agents`): tracks live agents and carries the initiating Agent through one process-local asynchronous driver chain. Agent *creation* is provided by whichever plugin implements the AgentFactory (`@deepseek-ai/dsh-agent-loop`), registered via setFactory.
+Agent service (`ctx.agents`): tracks live agents and carries the initiating Agent through one process-local asynchronous driver chain. Agent *creation* is provided by whichever plugin implements the AgentFactory (`@janhq/jan-agent-loop`), registered via setFactory.
 
 Initiator methods provide same-process causal attribution only. Ambient presence is neither liveness proof nor authorization; subjects and owners remain explicit, as does identity at worker, process, persistence, and wire boundaries. Returned Promise boundaries drain during teardown, except a nested lineage that starts an owning-fiber unload is excluded from its own drain.
 
@@ -825,6 +874,15 @@ enter(agent: Agent): () => void
 async announce(agent: Agent, source: SessionStartSource, signal?: AbortSignal): Promise<void>
 
 /**
+ * Read whether this exact live Agent's creation listeners are still running.
+ * A factory-created Agent stays in its creation maintenance until they settle,
+ * so an awaited listener's work completes before the first turn can start.
+ * @param agent - the Agent to check.
+ * @returns true from {@link announce} dispatch start until its listeners settle.
+ */
+isAnnouncing(agent: Agent): boolean
+
+/**
  * Look up a live agent.
  * @param id - the shared agent/session id to look up.
  * @returns the agent, or undefined when no live agent has that id.
@@ -859,7 +917,7 @@ Process-local assistant-stream publication. Chunk frames are transient; the loop
  * with the same stream before a committed end frame.
  * @param payload.agent - the agent whose attempt produced the frame.
  * @param payload.frame - one ordered start, chunk, or end publication.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
  * @mode emit
  */
 'agent/assistant-stream'(this: Scoped<Agent>, payload: { agent: Agent; frame: AssistantStreamFrame }): void
@@ -886,7 +944,7 @@ An entered agent is ready for per-agent initialization after factory setup. List
  * @param payload.agent - the newly registered agent with its live session and completed setup.
  * @param payload.source - fresh creation, resume, clear, or compaction source.
  * @param payload.signal - factory initialization cancellation signal, when provided.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
  * @mode serial
  */
 'agent/created'(this: Scoped<Agent>, payload: { agent: Agent; source: SessionStartSource; signal?: AbortSignal }): undefined | Promise<undefined>
@@ -908,7 +966,7 @@ An agent left the registry; AgentLoop emits this after driver quiescence and sco
  * and scoped-registration unwind, but before session detachment. Custom
  * registry users own their driver-ordering contract.
  * @param payload.agent - the exact agent removed from the registry.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
  * @mode emit
  */
 'agent/disposed'(this: Scoped<Agent>, payload: { agent: Agent }): void
@@ -932,7 +990,7 @@ A step or turn errored. The machine reports a failure here even when the error h
  * @param payload.turn - the turn in which the failure surfaced.
  * @param payload.step - the step at which the failure surfaced.
  * @param payload.error - the failure, verbatim.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
  * @mode emit
  */
 'agent/error'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; error: unknown }): void
@@ -956,7 +1014,7 @@ One message left the inbox inside its open turn. If the proposed step is rejecte
  * @param payload.agent - the agent whose inbox changed.
  * @param payload.message - the claimed message.
  * @param payload.turn - the owning turn.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
  * @mode emit
  */
 'agent/inbox/claimed'(this: Scoped<Agent>, payload: { agent: Agent; message: UserMessage; turn: number }): void
@@ -977,7 +1035,7 @@ One message was discarded from the live inbox.
  * One message was discarded from the live inbox.
  * @param payload.agent - the agent whose inbox changed.
  * @param payload.message - the discarded message.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
  * @mode emit
  */
 'agent/inbox/discarded'(this: Scoped<Agent>, payload: { agent: Agent; message: UserMessage }): void
@@ -998,7 +1056,7 @@ One message entered the live inbox.
  * One message entered the live inbox.
  * @param payload.agent - the agent whose inbox changed.
  * @param payload.message - the inserted message.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
  * @mode emit
  */
 'agent/inbox/inserted'(this: Scoped<Agent>, payload: { agent: Agent; message: UserMessage }): void
@@ -1024,7 +1082,7 @@ Reject a proposed step or replace the messages that enter it. Calling `next()` p
  * @param payload.step - the step proposed by the loop.
  * @param payload.signal - the current turn's cancellation signal.
  * @param payload.modelSelection - captured step selection, retained across retries; omitted effort uses adapter defaults.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
  * @mode waterfall
  */
 'agent/pre-step'(this: Scoped<Agent>, payload: { agent: Agent; messages: UserMessage[]; turn: number; step: number; signal: AbortSignal; modelSelection: Readonly<ModelSelection> }, next: () => Promise<PreStepDecision>): Promise<PreStepDecision>
@@ -1034,18 +1092,47 @@ Types: [Scoped](scope.md) · [UserMessage](session.md)
 
 Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
 
+<a id="agentreload--waterfall"></a>
+
+#### `agent/reload` — waterfall
+
+The user asked to re-read context that lives outside the Session, such as instruction files and skill folders, after editing it outside Jan. A listener re-reads its source, queues any change as a message appended after the conversation (never an edit to sent messages), and returns `[...await next(), ...its report lines]`.
+
+```ts cordis-catalog
+/**
+ * The user asked to re-read context that lives outside the Session, such as
+ * instruction files and skill folders, after editing it outside Jan. A
+ * listener re-reads its source, queues any change as a message appended
+ * after the conversation (never an edit to sent messages), and returns
+ * `[...await next(), ...its report lines]`.
+ * @param payload.agent - the agent whose context is re-read.
+ * @param payload.signal - the dispatching command's cancellation signal.
+ * @returns one human-readable report line per listener that re-read something.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
+ * @mode waterfall
+ */
+'agent/reload'(this: Scoped<Agent>, payload: { agent: Agent; signal: AbortSignal }, next: () => Promise<string[]>): Promise<string[]>
+```
+
+Types: [Scoped](scope.md)
+
+Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
+
 <a id="agentrequest-error--waterfall"></a>
 
 #### `agent/request-error` — waterfall
 
-Handle one failed model-request attempt before the loop retries or closes its step. A listener returns `{ kind: 'retry' }` without calling `next()` when it owns recovery, or calls `next()` to delegate. The default `undefined` leaves the failure terminal.
+Handle one failed model-request attempt before the loop retries or closes its step. A listener returns `{ kind: 'retry' }` without calling `next()` when it owns recovery, or calls `next()` to delegate. The default `undefined` leaves the failure terminal. A retry re-runs the failed step on its route, unless the listener recorded a different provider/model with `agent.model.select()`: the loop then closes the failed step and retries in a fresh step prepared for that selection (model fallback).
 
 ```ts cordis-catalog
 /**
  * Handle one failed model-request attempt before the loop retries or closes
  * its step. A listener returns `{ kind: 'retry' }` without calling `next()`
  * when it owns recovery, or calls `next()` to delegate. The default
- * `undefined` leaves the failure terminal.
+ * `undefined` leaves the failure terminal. A retry re-runs the failed step
+ * on its route, unless the listener recorded a different provider/model
+ * with `agent.model.select()`: the loop then closes the failed step and
+ * retries in a fresh step prepared for that selection (model fallback).
  * @param payload.agent - the agent whose request failed.
  * @param payload.turn - the turn containing the failed request.
  * @param payload.step - the step containing the failed request attempt.
@@ -1053,7 +1140,7 @@ Handle one failed model-request attempt before the loop retries or closes its st
  * @param payload.failure - serializable facts normalized at the final adapter boundary.
  * @param payload.retryPolicy - the policy of the adapter registration that served the failed request.
  * @param payload.signal - the turn abort signal.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
  * @mode waterfall
  */
 'agent/request-error'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; provider: string; failure: LlmFailure; retryPolicy: ResolvedRetryPolicy | undefined; signal: AbortSignal }, next: () => Promise<RequestErrorAction>): Promise<RequestErrorAction>
@@ -1076,7 +1163,7 @@ Agent status changed (`idle` ⇄ `running`). A waking delivery enters `running` 
  * driver remains scheduled or active.
  * @param payload.agent - the agent whose status flipped.
  * @param payload.status - the status just entered (the transition's destination).
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
  * @mode emit
  */
 'agent/status'(this: Scoped<Agent>, payload: { agent: Agent; status: AgentStatus }): void
@@ -1107,7 +1194,7 @@ The turn is about to close: the model owes no response (no live tool calls, no f
  * @param payload.agent - the agent whose turn is at its stop boundary.
  * @param payload.turn - the turn about to close.
  * @param payload.signal - the current turn's explicit abort signal.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
  * @mode serial
  */
 'agent/turn-stopping'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; signal: AbortSignal }): Promise<void> | void

@@ -3,15 +3,15 @@ import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join, relative } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import Storage from '@deepseek-ai/dsh-storage'
-import type { StorageBackend } from '@deepseek-ai/dsh-storage'
-import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
-import type { DomainChanged } from '@deepseek-ai/dsh-storage-domain'
-import SessionStore, { SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
-import type { SessionHeader } from '@deepseek-ai/dsh-session'
-import { SessionPersistenceRevision } from '@deepseek-ai/dsh-session-persistence'
-import type { SessionPersistenceSnapshot } from '@deepseek-ai/dsh-session-persistence'
+import { Context } from '@janhq/cordis'
+import Storage from '@janhq/jan-storage'
+import type { StorageBackend } from '@janhq/jan-storage'
+import { DomainFacility } from '@janhq/jan-storage-domain'
+import type { DomainChanged } from '@janhq/jan-storage-domain'
+import SessionStore, { SESSION_FORMAT_VERSION, SessionId } from '@janhq/jan-session'
+import type { SessionHeader } from '@janhq/jan-session'
+import { SessionPersistenceRevision } from '@janhq/jan-session-persistence'
+import type { SessionPersistenceSnapshot } from '@janhq/jan-session-persistence'
 import { MemoryMediaPool, MemoryStorageBackend } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
 import WorkspaceRegistry, {
   WorkspaceId,
@@ -55,7 +55,10 @@ async function harness(options: HarnessOptions = {}) {
   const list = vi.fn(async (): Promise<SessionPersistenceSnapshot[]> =>
     listed.map(header => ({ header, revision: SessionPersistenceRevision(`rev-${header.id}`) })))
   const open = vi.fn(() => { throw new Error('event bodies must not be opened') })
-  const stat = vi.fn(() => { throw new Error('per-session stat must not be needed') })
+  const stat = vi.fn(async (id: SessionId): Promise<SessionPersistenceSnapshot | undefined> => {
+    const header = listed.find(header => header.id === id)
+    return header === undefined ? undefined : { header, revision: SessionPersistenceRevision(`rev-${id}`) }
+  })
   ctx.provide('sessionPersistence', { list, open, stat } as never)
 
   if (options.sessionStore === true) {
@@ -180,7 +183,7 @@ let base: string
 const tempDirs: string[] = []
 
 async function makeDir(name: string): Promise<string> {
-  base ??= await realpath(await mkdtemp(join(tmpdir(), 'dsh-workspace-')))
+  base ??= await realpath(await mkdtemp(join(tmpdir(), 'jan-workspace-')))
   if (tempDirs.length === 0) tempDirs.push(base)
   const dir = join(base, name)
   await mkdir(dir, { recursive: true })
@@ -401,11 +404,12 @@ describe('WorkspaceRegistry create and lookup', () => {
     const dir = await makeDir('concurrent')
     const { registry, pool } = await harness()
     const [left, right] = await Promise.all([
-      registry.create(dir, 'Winner'),
-      registry.create(dir, 'Loser'),
+      registry.adopt(dir, 'Winner'),
+      registry.adopt(dir, 'Loser'),
     ])
-    expect(left).toBe(right)
-    expect(registry.list()).toEqual([left])
+    expect(left.workspace).toBe(right.workspace)
+    expect(Number(left.created) + Number(right.created)).toBe(1)
+    expect(registry.list()).toEqual([left.workspace])
     expect(pool.media.get('workspace')!.tables.get('workspaces')!.size).toBe(1)
   })
 
@@ -665,6 +669,8 @@ describe('Workspace session ordering', () => {
     await workspace.attachSession(SessionId('s1'))
     await workspace.attachSession(SessionId('s2'))
     expect(workspace.sessionIds).toEqual(['s2', 's1'])
+    expect(result.list).toHaveBeenCalledTimes(1)
+    expect(result.stat.mock.calls).toEqual([[SessionId('s1')], [SessionId('s2')]])
     await workspace.attachSession(SessionId('s1'))
     expect(workspace.sessionIds).toEqual(['s2', 's1'])
     expect(storedRecord(result.pool, workspace.id).sessionIds).toEqual(['s2', 's1'])
@@ -1444,37 +1450,51 @@ describe('first-use Workspace preparation', () => {
     expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
   })
 
-  it('keeps the initialization marker across deletion and restart', async () => {
+  it('restores a missing default directory without changing its registered identity', async () => {
     const h = await firstUse()
-    const workspace = (await h.registry.initializeDefault(h.resolveDirectory))!
+    const workspace = await h.registry.initializeDefault(h.resolveDirectory)
+    await rm(workspace.path, { recursive: true })
+    expect(h.registry.defaultWorkspace).toBe(workspace)
+    await expect(realpath(workspace.path)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(await h.registry.initializeDefault(h.resolveDirectory)).toBe(workspace)
+    expect(await realpath(workspace.path)).toBe(workspace.path)
+    expect(h.resolveDirectory).toHaveBeenCalledOnce()
+  })
+
+  it('recreates a deleted default with a fresh identity after restart, including an old opt-out marker', async () => {
+    const h = await firstUse()
+    const workspace = await h.registry.initializeDefault(h.resolveDirectory)
     await workspace.setTitle('Renamed')
     expect((await h.registry.initializeDefault(h.resolveDirectory))?.title).toBe('Renamed')
     await h.registry.delete(workspace.id)
     await h.ctx.fiber.dispose()
+    h.pool.media.get('workspace')!.global = { ...storedState(h.pool), defaultWorkspaceId: workspace.id }
     const restarted = await firstUse({ pool: h.pool })
-    await expect(restarted.registry.initializeDefault(restarted.resolveDirectory)).resolves.toBeUndefined()
-    expect(storedState(h.pool).defaultWorkspaceId).toBe(workspace.id)
-    expect(restarted.registry.list()).toEqual([])
-    expect(restarted.resolveDirectory).not.toHaveBeenCalled()
+    const recreated = await restarted.registry.initializeDefault(restarted.resolveDirectory)
+    expect(recreated?.id).not.toBe(workspace.id)
+    expect(storedState(h.pool).defaultWorkspaceId).toBe(recreated?.id)
+    expect(restarted.registry.list()).toEqual([recreated])
   })
 
-  it.each(['persisted', 'live', 'archived'] as const)('refuses automatic creation for a %s cwd-less Session', async (kind) => {
+  it.each(['persisted', 'live', 'archived'] as const)('creates a default without reassigning a %s cwd-less Session', async (kind) => {
     const history = header('old')
     const h = await firstUse(kind === 'persisted' ? { sessions: [history] } : { liveSessions: [history] })
     if (kind === 'archived') await h.registry.archiveSession(history.id)
-    await expect(h.registry.initializeDefault(h.resolveDirectory)).resolves.toBeUndefined()
-    expect(h.registry.list()).toEqual([])
-    expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
-    expect(h.resolveDirectory).not.toHaveBeenCalled()
+    const project = await h.registry.initializeDefault(h.resolveDirectory)
+    expect(project?.sessionIds).toEqual([])
+    expect(storedState(h.pool).defaultWorkspaceId).toBe(project?.id)
   })
 
-  it('refuses a non-empty Workspace list and newly persisted history', async () => {
+  it('designates the existing registration when its path already owns the default directory', async () => {
     const h = await firstUse()
-    const explicit = await h.registry.create(h.directoryRoot)
-    await expect(h.registry.initializeDefault(h.resolveDirectory)).resolves.toBeUndefined()
-    await h.registry.delete(explicit.id)
-    h.setSessions([header('arrived')])
-    await expect(h.registry.initializeDefault(h.resolveDirectory)).resolves.toBeUndefined()
+    const path = await h.resolveDirectory()
+    await mkdir(path, { recursive: true })
+    const existing = await h.registry.create(path, 'Keep this title')
+    const project = await h.registry.initializeDefault(h.resolveDirectory)
+    expect(project).toBe(existing)
+    expect(project?.title).toBe('Keep this title')
+    expect(storedState(h.pool).defaultWorkspaceId).toBe(existing.id)
+    expect(h.registry.list()).toEqual([existing])
   })
 
   it('fails on a same-path file and remains eligible after it is removed', async () => {
@@ -1503,30 +1523,6 @@ describe('first-use Workspace preparation', () => {
     expect(workspace?.title).toBe('Workspace')
   })
 
-  it.each(['persisted', 'live'] as const)('refuses registration when a %s Session appears during directory preparation', async (kind) => {
-    const h = await firstUse()
-    const arrived = header('arrived-during-preparation')
-    if (kind === 'persisted') {
-      h.list.mockResolvedValueOnce([]).mockResolvedValueOnce([
-        { header: arrived, revision: SessionPersistenceRevision('arrived-revision') },
-      ])
-    } else {
-      vi.spyOn(h.ctx.sessions, 'list').mockReturnValueOnce([]).mockReturnValueOnce([{ header: arrived }] as never)
-    }
-    await expect(h.registry.initializeDefault(h.resolveDirectory)).resolves.toBeUndefined()
-    expect(h.registry.list()).toEqual([])
-    expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
-  })
-
-  it('does not infer an empty live Session store when the peer is unavailable', async () => {
-    const h = await harness()
-    contexts.push(h.ctx)
-    const resolveDirectory = vi.fn(async () => { throw new Error('unexpected directory lookup') })
-    await expect(h.registry.initializeDefault(resolveDirectory)).rejects.toThrow('Session store')
-    expect(resolveDirectory).not.toHaveBeenCalled()
-    expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
-  })
-
   it('rolls back a failed final marker write and allows a retry', async () => {
     const pool = new MemoryMediaPool()
     const h = await firstUse({ pool, backend: selectiveFailureBackend(pool, { globalAt: 3 }) })
@@ -1539,7 +1535,7 @@ describe('first-use Workspace preparation', () => {
 })
 
 // The registry knows no family: the providers merge theirs, and this suite merges its own.
-declare module '@deepseek-ai/dsh-workspace/types' {
+declare module '@janhq/jan-workspace/types' {
   interface SessionActivityKindMap {
     probe: true
     'probe-items': true

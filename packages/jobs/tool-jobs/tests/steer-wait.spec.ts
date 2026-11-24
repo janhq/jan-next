@@ -1,18 +1,18 @@
 import { setImmediate } from 'node:timers/promises'
 import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import LlmRuntime, { createUserMessage, ToolCallId, type StreamChunk } from '@deepseek-ai/dsh-llm'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { defineContentToolFixture, executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
-import type { JobId, JobOutcome } from '@deepseek-ai/dsh-jobs'
-import * as ToolJobs from '@deepseek-ai/dsh-tool-jobs'
+import { Context } from '@janhq/cordis'
+import LlmRuntime, { createUserMessage, ToolCallId, type StreamChunk } from '@janhq/jan-llm'
+import SessionStore, { SessionId } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import { defineContentToolFixture, executeToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import AgentRegistry from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import LocalJobRegistry from '@janhq/jan-jobs-local'
+import type { JobId, JobOutcome } from '@janhq/jan-jobs'
+import * as ToolJobs from '@janhq/jan-tool-jobs'
 import { ScriptedAdapter, type ScriptedCall } from './scripted-adapter.ts'
 
 const message = (text: string) => createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })
@@ -39,7 +39,7 @@ function toolCallChunks(callId: string, name: string, args: object): StreamChunk
   ]
 }
 
-async function setup(build?: (id: JobId) => ScriptedCall[]) {
+async function setup(build?: (id: JobId) => ScriptedCall[], completionDelivery: ToolJobs.CompletionDelivery = 'quiet') {
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(SessionStore)
@@ -50,7 +50,7 @@ async function setup(build?: (id: JobId) => ScriptedCall[]) {
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(LocalJobRegistry)
-  await ctx.plugin(ToolJobs, { completionDelivery: 'quiet' })
+  await ctx.plugin(ToolJobs, { completionDelivery })
   // The job's id is opaque, and the scripted model call must name it, so the
   // script is appended once the registry has issued it.
   const adapter = new ScriptedAdapter([])
@@ -84,6 +84,36 @@ async function setup(build?: (id: JobId) => ScriptedCall[]) {
     await ctx.fiber.dispose()
   } }
 }
+
+describe('timer jobs through the agent loop', () => {
+  it('admits one reminder in a new turn after the creating turn has gone idle', async () => {
+    const h = await setup(() => [
+      toolCallChunks('timer', 'wake_after', { seconds: 1, note: 'Check the deployment status' }),
+      textChunks('I will check again shortly'),
+      textChunks('Deployment checked'),
+    ], 'wakeup')
+    vi.useFakeTimers()
+    try {
+      h.agent.followup(message('Check back after a second'))
+      await h.agent.whenIdle()
+      expect(h.adapter.requests).toHaveLength(2)
+      expect(h.agent.status).toBe('idle')
+
+      await vi.advanceTimersByTimeAsync(1_000)
+      await h.agent.whenIdle()
+
+      expect(h.adapter.requests).toHaveLength(3)
+      const events = h.agent.session.snapshotEvents()
+      expect(events.filter(event => event.type === 'turn/start')).toHaveLength(2)
+      const reminder = events.filter(event => event.type === 'user/message' && event.data.source.kind === 'tool-jobs')
+      expect(reminder).toHaveLength(1)
+      expect(JSON.stringify(h.adapter.requests[2]?.messages)).toContain('Check the deployment status')
+    } finally {
+      vi.useRealTimers()
+      await h.dispose()
+    }
+  })
+})
 
 describe('next-step input during a background result wait', () => {
   it('releases a registered wait before producer settlement and admits steering after step end', async () => {

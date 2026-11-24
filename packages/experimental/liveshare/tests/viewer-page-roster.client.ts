@@ -8,37 +8,37 @@
  * factory. It must be imported only after {@link prepareViewerRemoteFaces} answered the generated
  * `/remote` faces these plugins import.
  *
- * @module @deepseek-ai/dsh-experimental-liveshare/tests/viewer-page-roster
+ * @module @janhq/jan-experimental-liveshare/tests/viewer-page-roster
  */
 
-import * as apiGateway from '@deepseek-ai/dsh-api-gateway/client'
-import * as apiRemoteAccess from '@deepseek-ai/dsh-api-remote-access/client'
-import * as apiRemotes from '@deepseek-ai/dsh-api-remotes/client'
-import * as apiSessionController from '@deepseek-ai/dsh-api-session-controller/client'
-import * as apiWorkspaceController from '@deepseek-ai/dsh-api-workspace-controller/client'
-import * as clientConnection from '@deepseek-ai/dsh-client-connection/client'
-import * as clientFileUpload from '@deepseek-ai/dsh-client-file-upload/client'
-import * as clientLocale from '@deepseek-ai/dsh-client-locale/client'
-import * as clientModules from '@deepseek-ai/dsh-client-modules/client'
-import * as clientResources from '@deepseek-ai/dsh-client-resources/client'
-import * as clientShortcuts from '@deepseek-ai/dsh-client-shortcuts/client'
-import * as uiAttachment from '@deepseek-ai/dsh-client-ui-attachment/client'
-import * as uiChat from '@deepseek-ai/dsh-client-ui-chat/client'
-import * as uiContextMenu from '@deepseek-ai/dsh-client-ui-context-menu/client'
-import * as uiConversation from '@deepseek-ai/dsh-client-ui-conversation/client'
-import * as uiDeliverables from '@deepseek-ai/dsh-client-ui-deliverables/client'
-import * as uiFileDrag from '@deepseek-ai/dsh-client-ui-file-drag/client'
-import * as uiLayout from '@deepseek-ai/dsh-client-ui-layout/client'
-import * as uiRenderer from '@deepseek-ai/dsh-client-ui-renderer/client'
-import * as uiSession from '@deepseek-ai/dsh-client-ui-session/client'
-import * as uiSettings from '@deepseek-ai/dsh-client-ui-settings/client'
-import * as uiSidebar from '@deepseek-ai/dsh-client-ui-sidebar/client'
-import * as uiSidebarRight from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import * as uiTheme from '@deepseek-ai/dsh-client-ui-theme/client'
-import * as uiTool from '@deepseek-ai/dsh-client-ui-tool/client'
-import * as uiTrajectory from '@deepseek-ai/dsh-client-ui-trajectory/client'
-import * as uiWorkspace from '@deepseek-ai/dsh-client-ui-workspace/client'
-import * as typertRegistry from '@deepseek-ai/dsh-typert-registry/client'
+import * as apiGateway from '@janhq/jan-api-gateway/client'
+import * as apiRemoteAccess from '@janhq/jan-api-remote-access/client'
+import * as apiRemotes from '@janhq/jan-api-remotes/client'
+import * as apiSessionController from '@janhq/jan-api-session-controller/client'
+import * as apiWorkspaceController from '@janhq/jan-api-workspace-controller/client'
+import * as clientConnection from '@janhq/jan-client-connection/client'
+import * as clientFileUpload from '@janhq/jan-client-file-upload/client'
+import * as clientLocale from '@janhq/jan-client-locale/client'
+import * as clientModules from '@janhq/jan-client-modules/client'
+import * as clientResources from '@janhq/jan-client-resources/client'
+import * as clientShortcuts from '@janhq/jan-client-shortcuts/client'
+import * as uiAttachment from '@janhq/jan-client-ui-attachment/client'
+import * as uiChat from '@janhq/jan-client-ui-chat/client'
+import * as uiContextMenu from '@janhq/jan-client-ui-context-menu/client'
+import * as uiConversation from '@janhq/jan-client-ui-conversation/client'
+import * as uiDeliverables from '@janhq/jan-client-ui-deliverables/client'
+import * as uiFileDrag from '@janhq/jan-client-ui-file-drag/client'
+import * as uiLayout from '@janhq/jan-client-ui-layout/client'
+import * as uiRenderer from '@janhq/jan-client-ui-renderer/client'
+import * as uiSession from '@janhq/jan-client-ui-session/client'
+import * as uiSettings from '@janhq/jan-client-ui-settings/client'
+import * as uiSidebar from '@janhq/jan-client-ui-sidebar/client'
+import * as uiSidebarRight from '@janhq/jan-client-ui-sidebar-right/client'
+import * as uiTheme from '@janhq/jan-client-ui-theme/client'
+import * as uiTool from '@janhq/jan-client-ui-tool/client'
+import * as uiTrajectory from '@janhq/jan-client-ui-trajectory/client'
+import * as uiWorkspace from '@janhq/jan-client-ui-workspace/client'
+import * as typertRegistry from '@janhq/jan-typert-registry/client'
 import * as liveshare from '../src/client/index.ts'
 
 /** One module-table row: the entry id the Loader creates, and that plugin's client exports. */
@@ -48,37 +48,37 @@ export interface ViewerPageRosterRow {
 }
 
 /** Entry id of the module-system bootstrap whose exports the facade hands to the module system. */
-export const VIEWER_PAGE_BOOTSTRAP_ID = '@deepseek-ai/dsh-client-modules'
+export const VIEWER_PAGE_BOOTSTRAP_ID = '@janhq/jan-client-modules'
 
 /** The viewer page roster; Cordis composes these entries by service injection, so order is irrelevant. */
 export const VIEWER_PAGE_ROSTER: readonly ViewerPageRosterRow[] = [
-  { id: '@deepseek-ai/dsh-typert-registry', exports: typertRegistry },
-  { id: '@deepseek-ai/dsh-experimental-liveshare', exports: liveshare },
+  { id: '@janhq/jan-typert-registry', exports: typertRegistry },
+  { id: '@janhq/jan-experimental-liveshare', exports: liveshare },
   { id: VIEWER_PAGE_BOOTSTRAP_ID, exports: clientModules },
-  { id: '@deepseek-ai/dsh-client-connection', exports: clientConnection },
-  { id: '@deepseek-ai/dsh-api-gateway', exports: apiGateway },
-  { id: '@deepseek-ai/dsh-api-remote-access', exports: apiRemoteAccess },
-  { id: '@deepseek-ai/dsh-api-remotes', exports: apiRemotes },
-  { id: '@deepseek-ai/dsh-api-session-controller', exports: apiSessionController },
-  { id: '@deepseek-ai/dsh-api-workspace-controller', exports: apiWorkspaceController },
-  { id: '@deepseek-ai/dsh-client-file-upload', exports: clientFileUpload },
-  { id: '@deepseek-ai/dsh-client-locale', exports: clientLocale },
-  { id: '@deepseek-ai/dsh-client-resources', exports: clientResources },
-  { id: '@deepseek-ai/dsh-client-shortcuts', exports: clientShortcuts },
-  { id: '@deepseek-ai/dsh-client-ui-renderer', exports: uiRenderer },
-  { id: '@deepseek-ai/dsh-client-ui-theme', exports: uiTheme },
-  { id: '@deepseek-ai/dsh-client-ui-settings', exports: uiSettings },
-  { id: '@deepseek-ai/dsh-client-ui-layout', exports: uiLayout },
-  { id: '@deepseek-ai/dsh-client-ui-session', exports: uiSession },
-  { id: '@deepseek-ai/dsh-client-ui-sidebar', exports: uiSidebar },
-  { id: '@deepseek-ai/dsh-client-ui-conversation', exports: uiConversation },
-  { id: '@deepseek-ai/dsh-client-ui-chat', exports: uiChat },
-  { id: '@deepseek-ai/dsh-client-ui-context-menu', exports: uiContextMenu },
-  { id: '@deepseek-ai/dsh-client-ui-tool', exports: uiTool },
-  { id: '@deepseek-ai/dsh-client-ui-attachment', exports: uiAttachment },
-  { id: '@deepseek-ai/dsh-client-ui-file-drag', exports: uiFileDrag },
-  { id: '@deepseek-ai/dsh-client-ui-sidebar-right', exports: uiSidebarRight },
-  { id: '@deepseek-ai/dsh-client-ui-trajectory', exports: uiTrajectory },
-  { id: '@deepseek-ai/dsh-client-ui-deliverables', exports: uiDeliverables },
-  { id: '@deepseek-ai/dsh-client-ui-workspace', exports: uiWorkspace },
+  { id: '@janhq/jan-client-connection', exports: clientConnection },
+  { id: '@janhq/jan-api-gateway', exports: apiGateway },
+  { id: '@janhq/jan-api-remote-access', exports: apiRemoteAccess },
+  { id: '@janhq/jan-api-remotes', exports: apiRemotes },
+  { id: '@janhq/jan-api-session-controller', exports: apiSessionController },
+  { id: '@janhq/jan-api-workspace-controller', exports: apiWorkspaceController },
+  { id: '@janhq/jan-client-file-upload', exports: clientFileUpload },
+  { id: '@janhq/jan-client-locale', exports: clientLocale },
+  { id: '@janhq/jan-client-resources', exports: clientResources },
+  { id: '@janhq/jan-client-shortcuts', exports: clientShortcuts },
+  { id: '@janhq/jan-client-ui-renderer', exports: uiRenderer },
+  { id: '@janhq/jan-client-ui-theme', exports: uiTheme },
+  { id: '@janhq/jan-client-ui-settings', exports: uiSettings },
+  { id: '@janhq/jan-client-ui-layout', exports: uiLayout },
+  { id: '@janhq/jan-client-ui-session', exports: uiSession },
+  { id: '@janhq/jan-client-ui-sidebar', exports: uiSidebar },
+  { id: '@janhq/jan-client-ui-conversation', exports: uiConversation },
+  { id: '@janhq/jan-client-ui-chat', exports: uiChat },
+  { id: '@janhq/jan-client-ui-context-menu', exports: uiContextMenu },
+  { id: '@janhq/jan-client-ui-tool', exports: uiTool },
+  { id: '@janhq/jan-client-ui-attachment', exports: uiAttachment },
+  { id: '@janhq/jan-client-ui-file-drag', exports: uiFileDrag },
+  { id: '@janhq/jan-client-ui-sidebar-right', exports: uiSidebarRight },
+  { id: '@janhq/jan-client-ui-trajectory', exports: uiTrajectory },
+  { id: '@janhq/jan-client-ui-deliverables', exports: uiDeliverables },
+  { id: '@janhq/jan-client-ui-workspace', exports: uiWorkspace },
 ]

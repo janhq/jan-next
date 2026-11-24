@@ -2,10 +2,10 @@
  * Per-server runtime status, list views, and the MCP manager's Cordis event.
  * Types only — no runtime code.
  *
- * @module @deepseek-ai/dsh-mcp-manager/types
+ * @module @janhq/jan-mcp-manager/types
  */
 
-import type { McpCloseResult, McpConnectionStatus } from '@deepseek-ai/dsh-mcp-client/types'
+import type { McpCloseResult, McpConnectionStatus } from '@janhq/jan-mcp-client/types'
 
 /**
  * Status of one managed server. Extends the mcp-client connection status with
@@ -26,11 +26,13 @@ export interface McpManagedServerView {
   name: string
   /** Whether a configured or registered entry still exists; false for retained cleanup failures after removal. */
   configured: boolean
+  /** Where the entry comes from: the profile's `servers` config, or a plugin that registered it. */
+  origin: { kind: 'config' } | { kind: 'plugin'; plugin: string }
   /** Current runtime status. */
   status: McpManagedServerStatus
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Events {
     /**
      * One managed server's status transitioned. Emitted for every published

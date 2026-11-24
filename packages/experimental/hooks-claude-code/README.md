@@ -3,13 +3,11 @@ description: "Run your existing Claude Code hooks.json or settings hook config d
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-hooks-claude-code
-
-English | [中文](README.zh.md)
+# @janhq/jan-hooks-claude-code
 
 ## Summary
 
-`dsh-hooks-claude-code` runs command hooks from your existing Claude Code `hooks.json` or settings file during agent runs, without requiring a rewrite. Supported hooks can run when sessions, prompts, tools, stops, or subagents reach matching moments. They can block prompts or tool calls with model-visible reasons, add conversation context, or force another model turn. Choose this package to reuse Claude Code command hooks in the harness; use a native plugin for behavior that has no Claude Code equivalent.
+`jan-hooks-claude-code` runs command hooks from your existing Claude Code `hooks.json` or settings file during agent runs, without requiring a rewrite. Supported hooks can run when sessions, prompts, tools, stops, or subagents reach matching moments. They can block prompts or tool calls with model-visible reasons, add conversation context, or force another model turn. Choose this package to reuse Claude Code command hooks in the harness; use a native plugin for behavior that has no Claude Code equivalent.
 
 ## Table of Contents
 
@@ -36,7 +34,7 @@ Use it when you own a Claude Code `hooks.json` (or a settings file whose `hooks`
 ### Smallest working setup
 
 ```yaml
-- name: '@deepseek-ai/dsh-hooks-claude-code'
+- name: '@janhq/jan-hooks-claude-code'
   config:
     configPath: ./.claude/hooks.json
     pluginRoot: ./.claude/plugins/my-plugin
@@ -51,7 +49,7 @@ Use it when you own a Claude Code `hooks.json` (or a settings file whose `hooks`
 | `defaultTimeoutMs` | `600,000` | Per-hook timeout when a hook sets none (the Claude Code default) |
 | `stderrSummaryMaxChars` | `500` | Character cap on the persisted `hook/result` stderr summary |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-hooks-claude-code) is the exhaustive source for every accepted field.
+The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-hooks-claude-code) is the exhaustive source for every accepted field.
 
 ### What your hooks can do
 
@@ -98,7 +96,7 @@ The matcher subject is the tool name (`PreToolUse` / `PostToolUse`), the session
 
 ### Detached runs and disposal
 
-The three emit points (`SessionStart`, `SubagentStart`, `SubagentStop`) run detached — no extension point awaits them. Each run chain is tracked, and disposing the bridge aborts still-running hook processes, then drains the continuations before the dispose resolves (`createDetachedRuns` in `dsh-hook-protocol`).
+The three emit points (`SessionStart`, `SubagentStart`, `SubagentStop`) run detached — no extension point awaits them. Each run chain is tracked, and disposing the bridge aborts still-running hook processes, then drains the continuations before the dispose resolves (`createDetachedRuns` in `jan-hook-protocol`).
 
 ### Design philosophy
 
@@ -107,8 +105,6 @@ The three emit points (`SessionStart`, `SubagentStart`, `SubagentStop`) run deta
 - **Containment at every failure.** Config read/parse failures and invalid matchers register nothing; a throwing detached inject is caught and logged instead of breaking session boot or the loop.
 - **Dispose reaches quiescence.** Detached runs are tracked and drained on disposal so no hook process or late callback outlives the fiber.
 - **Serial, not concurrent.** Matched hooks run serially in config order: each `hook/invoked` / `hook/result` pair stays adjacent in the log, and the decision fold is order-independent, so the outcome matches the reference engines' concurrent launch at the cost of serialized latency.
-
-The [hook-bridges Agent Note](../../../.agents/notes/archived/feature/2026-06-30-hook-bridges.md) records the bridge design and the deferred gaps; the [hook-protocol-lib Agent Note](../../../.agents/notes/archived/feature/2026-06-30-hook-protocol-lib.md) records the shared-versus-per-dialect split.
 
 ### Source map
 
@@ -124,13 +120,12 @@ The [hook-bridges Agent Note](../../../.agents/notes/archived/feature/2026-06-30
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the package-level contract is not enough. They move from the shared protocol to the bridge design and the extension points it programs against.
+Read these pages when the package-level contract is not enough. They move from the shared protocol to the extension points it programs against.
 
 - [Hooks group map](../README.md) — the sibling group page and its package table.
 - [Hook protocol library](../hook-protocol/README.md) — the shared hook rules this bridge applies.
-- [Hook bridges Agent Note](../../../.agents/notes/archived/feature/2026-06-30-hook-bridges.md) — the bridge design, decision mapping, and deferred gaps.
 - [Interception extension-points reference](../../../docs/tool-execution-pipeline.md) — the typed-Decision surface the bridge maps onto.
-- [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-hooks-claude-code) — every accepted config field and its source declaration.
+- [Generated configuration catalog](../../../docs/config-catalog.md#janhqjan-hooks-claude-code) — every accepted config field and its source declaration.
 
 -----
 

@@ -1,9 +1,9 @@
 /** Model tool descriptions and complete batch execution owned by plugins. @module */
-import { HarnessError } from '@deepseek-ai/dsh-llm'
-import type { ToolCallBlock, ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { UserMessage } from '@deepseek-ai/dsh-session'
-import type { PromptSection, ToolProviderResult } from '@deepseek-ai/dsh-system-prompt'
+import { HarnessError } from '@janhq/jan-llm'
+import type { ToolCallBlock, ToolCallId } from '@janhq/jan-llm'
+import type { Agent } from '@janhq/jan-agent'
+import type { UserMessage } from '@janhq/jan-session'
+import type { PromptSection, ToolProviderResult } from '@janhq/jan-system-prompt'
 import type { ResolvedToolSet, ToolDefinition, ToolExecutionResult } from './contracts.ts'
 
 /** Model-call schemas produced by an executor. */
@@ -19,6 +19,8 @@ export interface ToolPromptSection extends Pick<PromptSection, 'name' | 'order' 
 export interface ToolBatchInput {
   readonly calls: readonly ToolCallBlock[]
   readonly signal: AbortSignal
+  /** Owner's request that long-running calls return early; see `ToolExecutionInput.yieldSignal`. */
+  readonly yieldSignal?: AbortSignal
   /**
    * Positive integer overriding the executor's concurrency limit for this batch.
    * Applies to concurrency-safe root calls; program subcall limits remain separate.

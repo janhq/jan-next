@@ -1,8 +1,8 @@
 /** Provider-owned preparation steps and persisted recognition preferences. */
 import { useEffect, useState } from 'react'
-import { Button, DisclosureRow, IconChevronDownOutlineRegular, StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SpeechPreparationState, SpeechProviderId, SpeechProviderView, SpeechSelectionPatch } from '@deepseek-ai/dsh-experimental-speech-to-text/types'
+import { Button, DisclosureRow, IconChevronDownOutlineRegular, StateDot, type StateDotState } from '@janhq/jan-client-ui-primitives'
+import type { InjectFace, PropsLocale } from '@janhq/jan-client-ui-slots'
+import type { SpeechPreparationState, SpeechProviderId, SpeechProviderView, SpeechSelectionPatch } from '@janhq/jan-experimental-speech-to-text/types'
 import type { VoiceInputInjected } from './VoiceInput.tsx'
 import { MicrophonePicker } from './MicrophonePicker.tsx'
 import { NS } from './locales.ts'
@@ -63,6 +63,9 @@ export function PreparationCard({ provider, connected, prepare, cancelPreparatio
     try { await action() } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)) }
     finally { setSubmitting(false) }
   }
+  // Beside the setup estimate the idle summary repeats it, and its lone hollow dot reads as an unlabeled radio.
+  const quiet = state.phase === 'unprepared' && provider.location === 'host-local' && provider.setupEstimate !== undefined
+    && current === undefined
   const metric = state.phase === 'downloading' ? byteText(state, t)
     : preparing && startedAt !== undefined ? t('elapsed', { seconds: String(Math.max(0, Math.floor((now - startedAt) / 1000))) }) : ''
   const summary = !connected ? t('reconnecting') : preparing && current ? t(`step.${current.kind}`, { name: provider.name })
@@ -87,7 +90,7 @@ export function PreparationCard({ provider, connected, prepare, cancelPreparatio
       </dl>
       <small>{t('setup.estimateNote')}</small>
     </div>}
-    <DisclosureRow icon={<StateDot state={preparationTone(state)} size={16} appearance="step" />}
+    {!quiet && <DisclosureRow icon={<StateDot state={preparationTone(state)} size={16} appearance="step" />}
       title={expanded ? t('preparationSteps') : summary} open={expanded} expandable={(state.steps?.length ?? 0) > 0} expandOnRowClick previewChevron={false}
       onToggle={() => { setExpanded(value => !value) }} rowClassName={css.summaryRow} titleClassName={css.summaryTitle}
       collapsedContent={<><span className={css.metric} role="status">{metric}</span>{state.steps && <IconChevronDownOutlineRegular />}</>}>
@@ -104,7 +107,7 @@ export function PreparationCard({ provider, connected, prepare, cancelPreparatio
           </div>
         </li>)}
       </ol>
-    </DisclosureRow>
+    </DisclosureRow>}
     {!expanded && <DownloadProgress state={state} t={t} />}
     {state.phase === 'failed' && <PreparationFailure state={state} t={t} />}
     {canPrepare && sources.length > 0 && <div className={css.sourceChoice}>
@@ -119,7 +122,7 @@ export function PreparationCard({ provider, connected, prepare, cancelPreparatio
       <small className={css.metric}>{t(selectedSource === '' ? 'sourceAutoHelp' : 'sourceManualHelp')}</small>
     </div>}
     <div className={css.preparationActions}>
-      {canPrepare && <Button variant="outline" size="sm" disabled={!connected || submitting}
+      {canPrepare && <Button variant={state.phase === 'unprepared' ? 'primary' : 'outline'} size="sm" disabled={!connected || submitting}
         onClick={() => { void run(() => selectedSource === '' ? prepare(provider.id) : prepare(provider.id, { downloadSource: selectedSource })) }}>{t(state.phase === 'unprepared' ? 'prepare' : 'retryPrepare')}</Button>}
       {preparing && state.phase !== 'waking' && <Button variant="ghost" size="sm" disabled={!connected || submitting || state.phase === 'cancelling'}
         onClick={() => { void run(() => cancelPreparation(provider.id)) }}>{t('cancelPrepare')}</Button>}
@@ -128,10 +131,25 @@ export function PreparationCard({ provider, connected, prepare, cancelPreparatio
   </section>
 }
 
+/**
+ * Localize a recognizer's advertised language in setup and settings.
+ * @param language - Recognition language identifier.
+ * @param t - Active voice translator.
+ * @returns The display name, or the identifier for an unlisted language.
+ */
+export function languageName(language: string, t: PropsLocale<typeof NS>['t']): string {
+  switch (language) {
+    case 'auto': case 'zh': case 'en': case 'yue': case 'ja': case 'es': case 'fr': case 'de': case 'ru': case 'pt': case 'ko': return t(language)
+    default: return language
+  }
+}
+
 /** Recognition preferences and preparation cards shared by plugin details and Settings. */
-export function VoicePreparation({ useSpeechReadiness, ...props }: Pick<InjectFace<VoiceInputInjected>,
-  'useSpeechReadiness' | 'configure' | 'prepare' | 'cancelPreparation' | 'createRecording' | 'useMicrophoneDevice' | 'selectMicrophone'> & PropsLocale<typeof NS>) {
+export function VoicePreparation({ useSpeechReadiness, connectReadiness, ...props }: Pick<InjectFace<VoiceInputInjected>,
+  'useSpeechReadiness' | 'connectReadiness' | 'configure' | 'prepare' | 'cancelPreparation'
+  | 'createRecording' | 'useMicrophoneDevice' | 'selectMicrophone'> & PropsLocale<typeof NS>) {
   const readiness = useSpeechReadiness(value => value), catalog = readiness.catalog
+  useEffect(connectReadiness, [connectReadiness])
   const [saving, setSaving] = useState(false), [error, setError] = useState('')
   const configure = async (patch: SpeechSelectionPatch): Promise<void> => {
     setSaving(true); setError('')
@@ -139,9 +157,6 @@ export function VoicePreparation({ useSpeechReadiness, ...props }: Pick<InjectFa
     finally { setSaving(false) }
   }
   const selected = catalog?.providers.find(provider => provider.id === catalog.selection.providerId)
-  const languageNames: Readonly<Record<string, string>> = {
-    auto: props.t('auto'), zh: props.t('zh'), en: props.t('en'), yue: props.t('yue'), ja: props.t('ja'), es: props.t('es'), fr: props.t('fr'), de: props.t('de'), ru: props.t('ru'), pt: props.t('pt'), ko: props.t('ko'),
-  }
   return <div>
     {catalog && <div className={css.preferences}>
       <MicrophonePicker {...props} />
@@ -151,8 +166,9 @@ export function VoicePreparation({ useSpeechReadiness, ...props }: Pick<InjectFa
       </select></label>
       <label>{props.t('language')}<select value={catalog.selection.language} disabled={!readiness.connected || saving}
         onChange={(event) => { void configure({ language: event.target.value }) }}>
-        {selected?.languages.map(language =>
-          <option key={language} value={language}>{languageNames[language] ?? language}</option>)}
+        {selected?.languages.map(language => (
+          <option key={language} value={language}>{languageName(language, props.t)}</option>
+        ))}
       </select></label>
       <p>{props.t(selected?.location === 'cloud' ? 'cloud' : 'local')}</p>
       {error && <p role="alert">{props.t('failed', { message: error })}</p>}

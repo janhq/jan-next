@@ -1,18 +1,18 @@
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import LlmRuntime, { type RequestMessage, createUserMessage, ToolCallId, LlmError, MessageSource, ProviderRequestId, StreamChunk  } from '@deepseek-ai/dsh-llm'
-import type { ContextFormed } from '@deepseek-ai/dsh-llm'
-import SessionStore, { Session, SessionEvent, SessionId, TurnEndReason, type UserMessage } from '@deepseek-ai/dsh-session'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime, { type PostToolDecision } from '@deepseek-ai/dsh-tools'
-import { defineContentToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { Context } from '@janhq/cordis'
+import LlmRuntime, { type RequestMessage, createUserMessage, ToolCallId, LlmError, MessageSource, ProviderRequestId, StreamChunk  } from '@janhq/jan-llm'
+import type { ContextFormed } from '@janhq/jan-llm'
+import SessionStore, { Session, SessionEvent, SessionId, TurnEndReason, type UserMessage } from '@janhq/jan-session'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime, { type PostToolDecision } from '@janhq/jan-tools'
+import { defineContentToolFixture } from '@janhq/jan-tool-testkit'
+import AgentRegistry, { type Agent } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import { MockAdapter, textResponse, toolCallResponse } from './mock-adapter.ts'
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'test': { kind: 'test' } & ContextFormed
   }
@@ -341,6 +341,40 @@ describe('steering from late extension points is never stranded', () => {
     // the default decision was false (no tools), but steering forced step 2
     expect(adapter.requests).toHaveLength(2)
     expect(JSON.stringify(adapter.requests[1]!.messages)).toContain('one more thing')
+  })
+
+  it('admits a completion notice injected between the closing turn and driver retirement exactly once', async () => {
+    const adapter = new MockAdapter([textResponse('initial reply'), textResponse('notice reply')])
+    const ctx = await harness(adapter)
+    const agent = await ctx.agentLoop.create(SessionId('late-completion'), { provider: 'mock', model: 'mock' })
+    const notice = createUserMessage({
+      content: [{ type: 'text', text: 'The background job finished' }],
+      source: { kind: 'test', form: 'notice', summary: 'Background job finished' },
+    })
+    const delivered = Promise.withResolvers<typeof agent.status>()
+    const stop = ctx.on('session/event', (session, event) => {
+      if (session !== agent.session || event.type !== 'turn/end' || event.data.turn !== 1) return
+      queueMicrotask(() => {
+        const status = agent.status
+        // Match the background controller's waking delivery lanes.
+        if (status === 'running') agent.inject(notice)
+        else agent.followup(notice)
+        delivered.resolve(status)
+      })
+    })
+    try {
+      send(agent, 'start')
+      expect(await delivered.promise).toBe('running')
+      await agent.whenIdle()
+
+      expect(adapter.requests).toHaveLength(2)
+      expect(JSON.stringify(adapter.requests[1]?.messages)).toContain('The background job finished')
+      expect(agent.session.snapshotEvents().filter(event => event.type === 'user/message' && event.data.id === notice.id)).toHaveLength(1)
+      expect(agent.inbox.nextStep).toEqual([])
+    } finally {
+      stop()
+      await ctx.fiber.dispose()
+    }
   })
 
 })

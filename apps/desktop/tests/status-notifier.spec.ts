@@ -13,12 +13,12 @@ function runner(outcomes: Record<string, DesktopCommandOutcome>) {
 describe('resolveDesktopStatusNotifierConfig', () => {
   it('defaults the query deadline and reads an override', () => {
     expect(resolveDesktopStatusNotifierConfig({})).toEqual({ timeoutMs: 2_000 })
-    expect(resolveDesktopStatusNotifierConfig({ DSH_DESKTOP_STATUS_NOTIFIER_TIMEOUT_MS: '5000' })).toEqual({ timeoutMs: 5_000 })
+    expect(resolveDesktopStatusNotifierConfig({ JAN_DESKTOP_STATUS_NOTIFIER_TIMEOUT_MS: '5000' })).toEqual({ timeoutMs: 5_000 })
   })
 
   it('rejects an invalid override', () => {
-    expect(() => resolveDesktopStatusNotifierConfig({ DSH_DESKTOP_STATUS_NOTIFIER_TIMEOUT_MS: '10' }))
-      .toThrow('DSH_DESKTOP_STATUS_NOTIFIER_TIMEOUT_MS must be an integer from 1000 through 2147483647')
+    expect(() => resolveDesktopStatusNotifierConfig({ JAN_DESKTOP_STATUS_NOTIFIER_TIMEOUT_MS: '10' }))
+      .toThrow('JAN_DESKTOP_STATUS_NOTIFIER_TIMEOUT_MS must be an integer from 1000 through 2147483647')
   })
 })
 
@@ -72,7 +72,7 @@ describe.skipIf(process.platform === 'win32')('runDesktopCommand', () => {
   })
 
   it('distinguishes a missing executable from a failing one', async () => {
-    await expect(runDesktopCommand('dsh-status-notifier-missing-command', [], 5_000)).resolves.toEqual({ kind: 'missing' })
+    await expect(runDesktopCommand('jan-status-notifier-missing-command', [], 5_000)).resolves.toEqual({ kind: 'missing' })
     await expect(runDesktopCommand('false', [], 5_000)).resolves.toEqual({ kind: 'failed', reason: 'exit 1' })
   })
 

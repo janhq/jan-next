@@ -7,7 +7,7 @@
   height: 100%;
   min-height: 0;
   color: var(--dsw-alias-label-primary);
-  font-size: var(--dsh-content-font-size-secondary, 13px);
+  font-size: var(--jan-content-font-size-secondary, 13px);
   line-height: 1.5;
 }
 
@@ -37,7 +37,7 @@
   min-width: 0;
   min-height: 0;
   color: var(--dsw-alias-label-primary);
-  font-size: var(--dsh-content-font-size-secondary, 13px);
+  font-size: var(--jan-content-font-size-secondary, 13px);
   line-height: 1.5;
   background: var(--dsw-alias-bg-base);
   border-left: 0.5px solid var(--dsw-alias-border-l3);
@@ -72,14 +72,17 @@
   border-left: 0;
 }
 
-/* Covered content stays laid out but cannot receive keyboard focus. */
-:has(> .navigator.fill) > :not(.navigator) {
+/* Covered content stays laid out but cannot receive keyboard focus. Hosts place the navigator after
+   the content of their marked row, so the covered parts are its preceding siblings. Matching them by a
+   sibling `:has()` keeps it cheap: a row-level `:has(> …) > *` made every element insertion anywhere
+   in the window restyle the whole document. */
+[data-files-navigator-row] > :not(.navigator):has(~ .navigator.fill) {
   visibility: hidden;
 }
 
 /* navigator-layout `FULLSCREEN_QUERY`: every layout fills the row. */
 @media (width < 768px) {
-  :has(> .navigator:not(.wholePage)) > :not(.navigator) {
+  [data-files-navigator-row] > :not(.navigator):has(~ .navigator:not(.wholePage)) {
     visibility: hidden;
   }
 
@@ -111,8 +114,8 @@
     box-shadow: var(--dsw-elevation-prominent);
     /* Elevated surface: the tree's scrollbar takes the l2 thumb pair (ui-theme
        styles/scrollbar.css). */
-    --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
-    --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+    --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+    --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
   }
 
   /* From store `PUSH_FROM` on: a flex item of the row that narrows the body.
@@ -209,7 +212,7 @@
 .statusLine {
   margin: 0;
   color: var(--dsw-alias-label-secondary);
-  font-size: var(--dsh-content-font-size-secondary, 13px);
+  font-size: var(--jan-content-font-size-secondary, 13px);
   line-height: 1.6;
 }
 

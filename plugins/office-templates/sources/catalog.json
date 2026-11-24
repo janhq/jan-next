@@ -1,0 +1,247 @@
+[
+  {
+    "id": "meeting-minutes",
+    "title": "Meeting minutes: launch preparation",
+    "description": "Four-page minutes for a launch preparation meeting: five topics, fifteen action items and follow-ups, keeping owners, relative deadlines and source references.",
+    "prompt": "Use the structure and layout of the \"Meeting minutes: launch preparation\" example to turn my meeting notes into editable Word minutes. Keep the key discussion, decisions and items to confirm, plus each task with its owner, due date and deliverable.",
+    "mode": "word",
+    "sampleFile": "example.docx",
+    "revision": "20261012.1",
+    "category": "Meeting Minutes",
+    "businessSkill": "meeting-recap",
+    "source": "curated/meeting-minutes",
+    "previewPages": null
+  },
+  {
+    "id": "coffee-market",
+    "title": "China freshly made coffee market report",
+    "description": "A 2024 market study built on public disclosures: brand networks, same-store performance, consumption occasions and store economics, as a 7-page report with a source index.",
+    "prompt": "Use the structure and layout of the \"China freshly made coffee market report\" example to research [market or industry] for [audience]. Produce an editable Word report with charts and a source index, and mark any figure the sources do not support.",
+    "mode": "word",
+    "sampleFile": "example.docx",
+    "revision": "20260911.6",
+    "category": "Market Research",
+    "businessSkill": "research-writer",
+    "source": "legacy/coffee-market",
+    "previewPages": null
+  },
+  {
+    "id": "equity-research",
+    "title": "Xiaomi EV research report",
+    "description": "Investment thesis, operating data and risk analysis with charts and source notes. Sample document.",
+    "prompt": "Use the chapter structure and research-report style of the \"Xiaomi EV research report\" example to research [company or industry] for [reader], focusing on [key question]. Produce a Word report with charts and source notes.",
+    "mode": "word",
+    "sampleFile": "example.docx",
+    "revision": "20260911.5",
+    "category": "Market Research",
+    "businessSkill": "research-writer",
+    "source": "legacy/equity-research",
+    "previewPages": null
+  },
+  {
+    "id": "official-memo",
+    "title": "Official notice: holiday service arrangements",
+    "description": "An organizational notice example: letterhead, notice number, divider, title, To and From block, numbered sections, signing office and date, cc list and page numbers.",
+    "prompt": "Use the layout of the \"Official notice: holiday service arrangements\" example to turn my notes into an editable Word notice. Keep the issuing office, notice number, title, To and From lines, numbered sections, signature, date and cc list.",
+    "mode": "word",
+    "sampleFile": "example.docx",
+    "revision": "20261030.1",
+    "category": "Official Documents",
+    "businessSkill": "official-notice-writer",
+    "source": "curated/official-memo",
+    "previewPages": null
+  },
+  {
+    "id": "annual-business",
+    "title": "Annual business and customer analysis",
+    "description": "Six linked worksheets covering annual results, growth forecast, revenue quality and customer retention, with daily swings, native charts and calculation detail. Simulated data.",
+    "prompt": "Use the structure and layout of the \"Annual business and customer analysis\" example to build an Excel workbook from my business data: annual metrics, monthly and daily trends, revenue mix, retention cohorts and a scenario forecast, with native formulas and charts.",
+    "mode": "excel",
+    "sampleFile": "example.xlsx",
+    "revision": "20260914.1",
+    "category": "Business Analysis",
+    "businessSkill": "saas-metrics-coach",
+    "source": "legacy/annual-business",
+    "previewPages": [
+      {
+        "sheet": "Overview",
+        "range": "A1:P51",
+        "aspectRatio": 0.7821946169772257
+      },
+      {
+        "sheet": "Overview",
+        "range": "A52:P101",
+        "aspectRatio": 0.9797717842323651
+      },
+      {
+        "sheet": "Overview",
+        "range": "A102:P149",
+        "aspectRatio": 0.94214463840399
+      },
+      {
+        "sheet": "Overview",
+        "range": "A150:P197",
+        "aspectRatio": 0.9449724862431216
+      },
+      {
+        "sheet": "Overview",
+        "range": "A198:P245",
+        "aspectRatio": 0.9449724862431216
+      },
+      {
+        "sheet": "Overview",
+        "range": "A246:P293",
+        "aspectRatio": 0.9449724862431216
+      },
+      {
+        "sheet": "Overview",
+        "range": "A294:P341",
+        "aspectRatio": 0.9449724862431216
+      },
+      {
+        "sheet": "Overview",
+        "range": "A342:P389",
+        "aspectRatio": 0.9449724862431216
+      },
+      {
+        "sheet": "Overview",
+        "range": "A390:P437",
+        "aspectRatio": 0.9449724862431216
+      },
+      {
+        "sheet": "Overview",
+        "range": "A438:P468",
+        "aspectRatio": 1.4519600307455802
+      },
+      {
+        "sheet": "Growth Forecast",
+        "range": "A1:P44",
+        "aspectRatio": 0.9319190922545634
+      },
+      {
+        "sheet": "Growth Forecast",
+        "range": "A45:P94",
+        "aspectRatio": 0.8259728902492348
+      },
+      {
+        "sheet": "Growth Forecast",
+        "range": "A95:P138",
+        "aspectRatio": 0.9310004928536225
+      },
+      {
+        "sheet": "Growth Quality",
+        "range": "A1:P44",
+        "aspectRatio": 0.9319190922545634
+      },
+      {
+        "sheet": "Growth Quality",
+        "range": "A45:P95",
+        "aspectRatio": 0.8103818103818103
+      },
+      {
+        "sheet": "Growth Quality",
+        "range": "A96:P134",
+        "aspectRatio": 1.0529542920847268
+      },
+      {
+        "sheet": "Retention",
+        "range": "A1:P42",
+        "aspectRatio": 0.9692149820420729
+      },
+      {
+        "sheet": "Retention",
+        "range": "A43:P88",
+        "aspectRatio": 0.9603457041179461
+      },
+      {
+        "sheet": "Monthly Data",
+        "range": "A1:P48",
+        "aspectRatio": 0.9386834986474302
+      },
+      {
+        "sheet": "Cohort Data",
+        "range": "A1:P29",
+        "aspectRatio": 1.3708272859216255
+      }
+    ]
+  },
+  {
+    "id": "port-cargo",
+    "title": "Port cargo flow and handling efficiency",
+    "description": "365 days and 2,190 simulated handling records: throughput swings, inbound and outbound mix, routes and handling efficiency. Five worksheets.",
+    "prompt": "Use the structure and layout of the \"Port cargo flow and handling efficiency\" example to analyze my operations records in Excel: daily throughput, inbound and outbound mix, routes, berth waiting and efficiency, with native formulas and charts.",
+    "mode": "excel",
+    "sampleFile": "example.xlsx",
+    "revision": "20260911.6",
+    "category": "Logistics Analysis",
+    "businessSkills": [
+      "dataset-health-audit",
+      "data-viz-gen"
+    ],
+    "source": "legacy/port-cargo",
+    "previewPages": [
+      {
+        "sheet": "Port Overview",
+        "range": "A1:P54",
+        "aspectRatio": 0.7068620919387075
+      },
+      {
+        "sheet": "Cargo and Routes",
+        "range": "A1:L52",
+        "aspectRatio": 1.414703110273327
+      },
+      {
+        "sheet": "Efficiency",
+        "range": "A1:L52",
+        "aspectRatio": 1.414703110273327
+      },
+      {
+        "sheet": "Daily Summary",
+        "range": "A1:H46",
+        "aspectRatio": 0.7068620919387075
+      },
+      {
+        "sheet": "Operation Detail",
+        "range": "A1:L46",
+        "aspectRatio": 0.7068620919387075
+      }
+    ]
+  },
+  {
+    "id": "bio-assay",
+    "title": "Fluorescent enzyme screen and batch QC",
+    "description": "3 batches and 288 simulated wells: dose response, technical replicate CV, cross-batch statistics and three plate heat maps. Four worksheets.",
+    "prompt": "Use the structure and layout of the \"Fluorescent enzyme screen and batch QC\" example to analyze my assay readings in Excel: normalized dose response, replicate CV, cross-batch statistics and plate heat maps, with native formulas and charts.",
+    "mode": "excel",
+    "sampleFile": "example.xlsx",
+    "revision": "20260911.6",
+    "category": "Lab Data",
+    "businessSkills": [
+      "dataset-health-audit",
+      "data-viz-gen"
+    ],
+    "source": "legacy/bio-assay",
+    "previewPages": [
+      {
+        "sheet": "Assay Overview",
+        "range": "A1:P54",
+        "aspectRatio": 0.7068620919387075
+      },
+      {
+        "sheet": "Dose Response",
+        "range": "A1:H52",
+        "aspectRatio": 0.7068620919387075
+      },
+      {
+        "sheet": "Plate QC",
+        "range": "A1:M57",
+        "aspectRatio": 0.7068620919387075
+      },
+      {
+        "sheet": "Raw Readings",
+        "range": "A1:G46",
+        "aspectRatio": 0.7068620919387075
+      }
+    ]
+  }
+]

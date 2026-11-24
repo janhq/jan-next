@@ -3,8 +3,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { Service, type Context } from '@deepseek-ai/cordis'
-import type { PluginLocalizedMeta } from '@deepseek-ai/dsh-package-manifest'
+import { Service, type Context } from '@janhq/cordis'
+import type { PluginLocalizedMeta } from '@janhq/jan-package-manifest'
 import {
   barePackageName,
   installRuntimeInterception,
@@ -14,7 +14,7 @@ import {
 import { ProfileRuntimeResolution, type RuntimeResolution } from '../profile.ts'
 import { readPluginMeta } from '../package-meta.ts'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Deterministic package lookup for configured plugin specifiers. */
     pluginPackages: PluginPackages
@@ -59,6 +59,9 @@ function readPackage(dir: string, fallbackName: string): PluginPackage | undefin
 /** Package lookup shared by metadata consumers in one profile process. */
 export class PluginPackages extends Service {
   private packages = new Map<string, PluginPackage | undefined>()
+  // Display metadata reads locale files and base64-encodes icons; the plugin list
+  // asks for every entry on each refresh, so it is kept for one generation.
+  private metas = new Map<string, PluginLocalizedMeta | undefined>()
   private readonly interception: RuntimeInterception | undefined
   private disposeWorkerResolution: (() => void) | undefined
   private current: RuntimeResolution | undefined
@@ -93,6 +96,7 @@ export class PluginPackages extends Service {
     this.interception.replace(successor)
     this.current = successor
     this.packages = new Map()
+    this.metas = new Map()
     this.disposeWorkerResolution?.()
     this.disposeWorkerResolution = registerWorkerResolution(successor)
   }
@@ -135,7 +139,9 @@ export class PluginPackages extends Service {
    * @returns local display metadata or its diagnostic; undefined for non-package requests or absent metadata.
    */
   metaOf(specifier: string, parentURL: string): PluginLocalizedMeta | undefined {
-    return readPluginMeta(specifier, parentURL)
+    const key = `${parentURL}\n${specifier}`
+    if (!this.metas.has(key)) this.metas.set(key, readPluginMeta(specifier, parentURL))
+    return this.metas.get(key)
   }
 }
 

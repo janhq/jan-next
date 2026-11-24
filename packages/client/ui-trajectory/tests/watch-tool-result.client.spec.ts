@@ -1,7 +1,7 @@
 /** Selected-result transport releases values on carrier loss and closes on inspector disposal. */
 import { expect, it, onTestFinished, vi } from 'vitest'
-import { RemoteStream, RemoteStreamCarrierError } from '@deepseek-ai/dsh-api-gateway/client'
-import { SessionId } from '@deepseek-ai/dsh-session/types'
+import { RemoteStream, RemoteStreamCarrierError } from '@janhq/jan-api-gateway/client'
+import { SessionId } from '@janhq/jan-session/types'
 import type { SessionToolResultValue } from '../src/types.ts'
 import { createToolResultWatcher } from '../src/client/watch-tool-result.ts'
 
@@ -13,7 +13,7 @@ function deferred() {
 
 const connection = {
   generation: {
-    getSnapshot: () => ({ id: 1, host: { home: '/fixture' } }),
+    getSnapshot: () => ({ id: 1, host: { home: '/fixture', name: 'fixture-host', remote: false } }),
     subscribe: () => () => {},
   },
 }

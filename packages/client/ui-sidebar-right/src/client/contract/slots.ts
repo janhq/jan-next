@@ -20,19 +20,19 @@
  * registering into one already depends on it for the declaration. The types
  * therefore live with their declarer.
  */
-import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
-import type {} from '@deepseek-ai/dsh-client-ui-slots'
-import type { RightbarOwnerProps } from '@deepseek-ai/dsh-client-ui-layout/client'
+import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
+import type {} from '@janhq/jan-client-ui-slots'
+import type { RightbarOwnerProps } from '@janhq/jan-client-ui-layout/client'
 // The locale plugin's own merge carries the shared `common` vocabulary that the
 // lookup chain consults after this namespace misses.
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type { PaneId, TabId, TabRecord } from '@deepseek-ai/dsh-client-ui-dockkit'
-import type { SlotHookFactory } from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@janhq/jan-client-locale/client'
+import type { PaneId, TabId, TabRecord } from '@janhq/jan-client-ui-dockkit'
+import type { SlotHookFactory } from '@janhq/jan-client-ui-slots'
 import type { TabHookContext } from '../tab-info.ts'
 import type { SidebarRightKey } from '../locales.ts'
 import type { SidebarRightNavigationParams, SidebarRightResourceParams, SidebarRightTabParamsFor } from './params.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Right-Sidebar chrome, docking-kit vocabulary, and guide copy. */
     sidebarRight: SidebarRightKey
@@ -76,6 +76,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
       hookContext: TabHookContext
       inject: SidebarRightTabInjected
     }
+    /**
+     * Controls for the tab a pane shows, at the end of its strip (a floating
+     * panel's header for a float), in registration order, for every tab kind.
+     * An entry acts on what the tab shows through `getSurface`, never on the
+     * tab type's internals.
+     */
+    'sidebar.right.pane.tab.actions': { kind: 'list'; scope: 'session'; owner: SidebarRightTabActionsOwnerProps }
     /**
      * The guide tab's body. Selectors run in chain order and the first
      * non-declining entry replaces the shipped guide entirely; with no entry, or
@@ -164,7 +171,7 @@ export interface SidebarRightTabActions {
    * Open a resource from this tab; see `ISidebarRight.openResource`. With
    * `destination`, the open ignores this tab's pane and every placement field,
    * and never closes this tab.
-   * @param address - a `dsh-resource://` address.
+   * @param address - a `jan-resource://` address.
    * @param options - placement, an explicit host, and the resource's navigation parameters.
    */
   openResource(address: string, options?: SidebarRightTabPlacement & {
@@ -231,6 +238,14 @@ export interface SidebarRightTabMenuOwnerProps {
    * over content the action may have just replaced.
    */
   dismiss: () => void
+}
+
+/** Owner share of one tab-actions entry. */
+export interface SidebarRightTabActionsOwnerProps {
+  /** The tab its pane shows. */
+  readonly tab: TabRecord
+  /** @returns the tab's rendered body while it is mounted, or null. */
+  readonly getSurface: () => Element | null
 }
 
 /** Resolved guide copy and entry identity supplied to a provider's card renderer. */

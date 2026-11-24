@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-10-21-when-access.zh.md)
-
 ## Problem
 
 Client plugins need to switch their own registrations on and off with the current Peer's access: sidebar entries, main panels, overlays, and data streams. The existing Client access surface covers only rendering:
@@ -28,7 +26,7 @@ The JS side has a `whenAccess` for each of the three access Hooks, from the pack
 | `ctx.uiWorkspace.whenAccess(workspaceId, action, callback)` | ui-workspace | `useWorkspaceAccess(workspaceId, action)` |
 
 ```ts ignore-check
-import type { AccessEffect, RemoteEndpoint } from '@deepseek-ai/dsh-api-remote-access/client'
+import type { AccessEffect, RemoteEndpoint } from '@janhq/jan-api-remote-access/client'
 
 /** The global-resource member; the Session and Workspace versions take the resource id first. */
 export interface WhenAccess {
@@ -81,7 +79,7 @@ export interface WhenAccess {
 | Registrations follow access changes | Without a grant, a migrated plugin registers none of the corresponding entries for a non-owner; they appear after a grant and disappear after a revocation; the owner's answer is always true, so its registrations match direct registration |
 | The callback must hand back disposers | An effect registered through the plugin's `ctx` inside the callback also hangs on the plugin fiber; a registration whose disposer is not yielded does not dispose on access loss, only when the plugin unloads |
 | Readers receive all plugin code | Plugins load as before; the Gateway decides each call, and `whenAccess` and the Hooks control the UI |
-| Test stand-ins | [`dsh-client-test-runtime`](../../../../packages/test-support/client-runtime/README.md) replaces remote-access with fixed answers through `StaticRemoteAccess`, `staticAccessPlugin`, and `TestClientOptions.access`, so plugin specs cover the refused path |
+| Test stand-ins | [`jan-client-test-runtime`](../../../../packages/test-support/client-runtime/README.md) replaces remote-access with fixed answers through `StaticRemoteAccess`, `staticAccessPlugin`, and `TestClientOptions.access`, so plugin specs cover the refused path |
 
 ## Related
 

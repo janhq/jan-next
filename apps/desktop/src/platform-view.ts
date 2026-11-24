@@ -2,20 +2,20 @@
 import type { EventEmitter } from 'node:events'
 import { createHash, randomUUID } from 'node:crypto'
 import { WebContentsView, session, shell, type Session, type View, type WebFrameMain } from 'electron'
-import { mergePlatformCookies, platformClientHeaders, type PlatformSession } from '@deepseek-ai/dsh-deepseek-account'
+import { mergePlatformCookies, platformClientHeaders, type TokamakPlatformSession } from '@janhq/jan-tokamak-account'
 import { desktopClientMetadata } from './client-metadata.ts'
 
 import { PLATFORM_IPC, type PlatformLocale } from './platform-ipc.ts'
 
 export { PLATFORM_IPC } from './platform-ipc.ts'
 
-/** Bounds in desktop content coordinates, supplied by the owned application renderer. */
+/** Bounds in workspace CSS pixels, supplied by the owned application renderer. */
 export interface PlatformBounds { x: number; y: number; width: number; height: number }
 
 /**
  * Decode the renderer rectangle before allocating a native view.
  * @param value - IPC payload.
- * @returns finite, nonnegative integer coordinates.
+ * @returns finite, nonnegative coordinates in CSS pixels.
  */
 export function platformBounds(value: unknown): PlatformBounds {
   if (typeof value !== 'object' || value === null) throw new Error('Invalid Platform bounds')
@@ -24,13 +24,13 @@ export function platformBounds(value: unknown): PlatformBounds {
   for (const key of ['x', 'y', 'width', 'height'] as const) {
     const n = row[key]
     if (typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 100_000) throw new Error('Invalid Platform bounds')
-    result[key] = Math.round(n)
+    result[key] = n
   }
   return result
 }
 
 type PlatformOwner = Pick<EventEmitter, 'on' | 'removeListener'> & {
-  webContents: Pick<EventEmitter, 'on' | 'removeListener'>
+  webContents: Pick<EventEmitter, 'on' | 'removeListener'> & { getZoomFactor(): number }
   contentView: Pick<View, 'addChildView' | 'removeChildView'>
   isDestroyed(): boolean
 }
@@ -39,9 +39,10 @@ type PlatformSender = { sender: object; senderFrame: Pick<WebFrameMain, 'url'> |
 
 /** Native view and its credential snapshot are discarded together. */
 export class DesktopPlatformView {
-  private account: PlatformSession | null = null
+  private account: TokamakPlatformSession | null = null
   private view: WebContentsView | undefined
   private owner: PlatformOwner | undefined
+  private bounds: PlatformBounds | undefined
   private releaseOwner: (() => void) | undefined
   private generation = 0
   private readonly storageCleanup = new Map<Session, Promise<{ error: unknown } | null>>()
@@ -57,7 +58,7 @@ export class DesktopPlatformView {
     private readonly platform: 'darwin' | 'win32' | null, private readonly blocked: (owner: PlatformOwner) => boolean) {}
 
   /** @param next - private Host credentials; identity enrichment preserves an already open temporary document. */
-  setSession(next: PlatformSession | null): void {
+  setSession(next: TokamakPlatformSession | null): void {
     if (next?.token === this.account?.token && next?.origin === this.account?.origin
       && next?.embeddedPageDist === this.account?.embeddedPageDist
       && JSON.stringify(next?.requestHeaders) === JSON.stringify(this.account?.requestHeaders)) {
@@ -87,6 +88,7 @@ export class DesktopPlatformView {
     if (owner.isDestroyed()) return
     const generation = this.generation
     this.owner = owner
+    this.bounds = bounds
     const closeOwnedView = () => { if (generation === this.generation) this.close() }
     const navigateOwner = (_event: Electron.Event, _url: string, isInPlace: boolean, isMainFrame: boolean) => {
       if (isMainFrame && !isInPlace) closeOwnedView()
@@ -101,8 +103,8 @@ export class DesktopPlatformView {
       owner.webContents.removeListener('destroyed', closeOwnedView)
       owner.removeListener('closed', closeOwnedView)
     }
-    const partition = account.userId === null ? `dsh-platform-${randomUUID()}`
-      : `persist:dsh-platform-${createHash('sha256').update(JSON.stringify([account.origin, account.userId])).digest('hex')}`
+    const partition = account.userId === null ? `jan-platform-${randomUUID()}`
+      : `persist:jan-platform-${createHash('sha256').update(JSON.stringify([account.origin, account.userId])).digest('hex')}`
     const browserSession = session.fromPartition(partition)
     // Sanitize persisted authentication even after an unclean previous process exit.
     const failure = await this.cleanStorage(browserSession)
@@ -141,7 +143,7 @@ export class DesktopPlatformView {
     })
     const view = new WebContentsView({ webPreferences: {
       session: browserSession, preload: this.preload, sandbox: true, contextIsolation: true,
-      additionalArguments: [`--dsh-platform-origin=${account.origin}`],
+      additionalArguments: [`--jan-platform-origin=${account.origin}`],
       nodeIntegration: false, webSecurity: true,
     } })
     this.view = view
@@ -168,7 +170,7 @@ export class DesktopPlatformView {
     view.webContents.on('render-process-gone', () => { if (this.view === view) this.close() })
     view.setVisible(false)
     owner.contentView.addChildView(view)
-    view.setBounds(bounds)
+    this.refreshBounds()
     try {
       const url = new URL(page === 'usage' ? '/usage' : '/top_up', account.origin)
       if (account.embeddedPageDist) url.searchParams.set('dist', account.embeddedPageDist)
@@ -186,15 +188,33 @@ export class DesktopPlatformView {
     if (generation === this.generation && this.view === view) view.setVisible(true)
   }
 
-  /** @param bounds - current application viewport rectangle. */
-  setBounds(bounds: PlatformBounds): void { this.view?.setBounds(bounds) }
+  /** @param owner - posting window. @param bounds - current application viewport in CSS pixels. */
+  setBounds(owner: PlatformOwner, bounds: PlatformBounds): void {
+    if (owner !== this.owner) return
+    this.bounds = bounds
+    this.refreshBounds()
+  }
+
+  /** Keep the native view aligned when the workspace zoom changes without a new renderer rectangle. */
+  refreshBounds(): void {
+    const { view, owner, bounds } = this
+    if (view === undefined || owner === undefined || bounds === undefined || owner.isDestroyed()) return
+    const zoom = owner.webContents.getZoomFactor()
+    // Electron positions native views in DIP. Round the edges after converting from CSS pixels.
+    const x = Math.round(bounds.x * zoom)
+    const y = Math.round(bounds.y * zoom)
+    view.setBounds({ x, y,
+      width: Math.round((bounds.x + bounds.width) * zoom) - x,
+      height: Math.round((bounds.y + bounds.height) * zoom) - y,
+    })
+  }
 
   /**
    * Return prepared credentials and resolved language only to the current Platform main frame.
    * @param event - Electron-provided sender identity.
    * @returns credentials and current language copied into the isolated preload.
    */
-  bootstrap(event: PlatformSender): Pick<PlatformSession, 'origin' | 'token'> & { locale: PlatformLocale } {
+  bootstrap(event: PlatformSender): Pick<TokamakPlatformSession, 'origin' | 'token'> & { locale: PlatformLocale } {
     const view = this.view
     const account = this.account
     if (view === undefined || account === null || event.sender !== view.webContents
@@ -221,6 +241,7 @@ export class DesktopPlatformView {
     this.releaseOwner = undefined
     const owner = this.owner
     this.owner = undefined
+    this.bounds = undefined
     if (view === undefined) return
     if (owner !== undefined && !owner.isDestroyed()) owner.contentView.removeChildView(view)
     const browserSession = view.webContents.session

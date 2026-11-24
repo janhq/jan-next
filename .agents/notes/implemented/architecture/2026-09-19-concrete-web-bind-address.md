@@ -2,15 +2,13 @@
 
 Status: implemented
 
-English | [中文](2026-09-19-concrete-web-bind-address.zh.md)
-
 ## Problem
 
 The Web listener accepted `127.0.0.1` or `0.0.0.0`. A wildcard bind exposed every interface of the machine, so the bundle sampled the LAN IPv4 addresses at bind time into a `webRuntime` service and appended them to `trustedHosts`, granting authorities for interfaces the operator never named and mixing inferred reachability into configured trust. A container or workstation that should expose exactly one address had no way to say so, IPv6 addresses were not accepted at all, and a browser dialing the exposed address sent it as `Host` only to be refused unless the sampled list happened to contain it.
 
 ## Decision
 
-`webserver.config.host` accepts one concrete IPv4 or IPv6 address literal, loopback by default; the unspecified address in every spelling (`0.0.0.0`, `::`, `::ffff:0.0.0.0`, and their expansions) is rejected when the config loads, and the shipped `dsh web` command refuses the same spellings for `--host` before any consumer activates. An IPv6 `%zone` is kept for `listen`; classification through the exported `isWildcardHost` and `isLoopbackHost` reads the address alone.
+`webserver.config.host` accepts one concrete IPv4 or IPv6 address literal, loopback by default; the unspecified address in every spelling (`0.0.0.0`, `::`, `::ffff:0.0.0.0`, and their expansions) is rejected when the config loads, and the shipped `jan web` command refuses the same spellings for `--host` before any consumer activates. An IPv6 `%zone` is kept for `listen`; classification through the exported `isWildcardHost` and `isLoopbackHost` reads the address alone.
 
 The browser Host/Origin fence accepts the listener's own bind IP literal as `Host` on any port, independently of `trustedHosts` and ignoring the zone. A browser dialing that literal presents it as `Host`, the literal is no rebinding target, and the Origin and cross-site checks still apply. DNS names resolving to the address, other interfaces, and proxy authorities still require `--trusted-host`. Connection reads the invocation authorities directly from the `webStartup` provider; the `webRuntime` service and LAN sampling no longer exist.
 

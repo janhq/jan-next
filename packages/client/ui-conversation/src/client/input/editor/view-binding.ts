@@ -2,7 +2,7 @@
 import type { MouseEvent, MutableRefObject, RefObject } from 'react'
 import type { LexicalEditor } from 'lexical'
 import { $getRoot } from 'lexical'
-import { focusWithoutRing, isMobileDevice } from '@deepseek-ai/dsh-client-ui-primitives'
+import { focusWithoutRing, isMobileDevice } from '@janhq/jan-client-ui-primitives'
 import type { ComposerKeyboard } from '../../contract/draft-editor.ts'
 import type { BusyEnterBehavior } from '../../contract/composer-submission.ts'
 import { resolveSubmitMode } from '../submission-policy.ts'
@@ -40,6 +40,8 @@ interface DraftViewGate {
   uploadsHeldText: string
   showToast: (text: string) => void
   canAcceptDrop: boolean
+  /** Insert clipboard text and optionally offer to attach that edit instead. */
+  pastedText: (text: string) => void
 }
 
 /**
@@ -158,10 +160,7 @@ export function installDraftKeymap(
       ), 'enter')
     },
     intakeFiles: (files, directories) => { gate.current.intakeFiles(files, directories) },
-    pasteText: (text) => {
-      if (gate.current.machineBusy || gate.current.locked) return
-      keyboard.paste(text)
-    },
+    pasteText: (text) => { gate.current.pastedText(text) },
   })
 }
 

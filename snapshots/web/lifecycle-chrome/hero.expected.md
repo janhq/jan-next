@@ -1,28 +1,33 @@
 - button "New session"
 - button "Collapse sidebar"
+- button "Back" [disabled]
+- button "Forward" [disabled]
 - button "New session": New Session
 - navigation "Global panels":
   - button "Plugins"
-  - button "Automation tasks"
-  - button "Unpin Automation tasks from sidebar"
+  - button "Scheduled"
+  - button "Unpin Scheduled from sidebar"
+  - button "Artifacts"
+  - button "Unpin Artifacts from sidebar"
   - button "More"
-- text: Workspaces
+- text: Projects
 - button "Search sessions"
 - textbox "Search session names"
 - button "View options"
-- button "Add workspace"
+- button "Add project"
 - tree "Sessions":
   - treeitem "workspace" [expanded]
   - treeitem "New Session" [selected]
-- button "Account menu": More
+- button "Account menu": Jan ·Local
 - banner:
   - button "Open right sidebar"
 - text: Into the Unknown Preview
-- button "Choose workspace": workspace
+- button "Choose project": workspace
 - button "Standard mode"
 - textbox "Describe what you want to build, / commands, @ files or sessions":
   - paragraph
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
+- 'button "Access mode, current: Project Write"': Project Write
+- button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "8% of context used": 8%

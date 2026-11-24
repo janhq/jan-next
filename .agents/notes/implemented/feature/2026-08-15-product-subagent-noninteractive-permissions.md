@@ -2,13 +2,11 @@
 
 Status: implemented
 
-English | [中文](2026-08-15-product-subagent-noninteractive-permissions.zh.md)
-
 ## Problem
 
 The [Claude Code and Codex product providers](../../../../packages/subagent/subagent-codex/README.md) run without a human interface. Native permission prompts, user dialogs, or MCP elicitation therefore cannot wait for a person, but relying on either product's ambient default can still select an interactive mode. A deployment also needs to choose broader native modes without giving the parent model or one tool call a way to raise its own authority.
 
-A failed product run previously reached the [subagent seam](../../../../packages/subagent/subagent/README.md) only as a stop reason. Logs could retain the product error, but the foreground parent and a [one-shot background Job](../../archived/feature/2026-08-12-product-subagent-one-shot-background-tasks.md) could not distinguish a permission refusal from another failure. Reusing assistant output for that fact would misattribute infrastructure detail to the child model.
+A failed product run previously reached the [subagent seam](../../../../packages/subagent/subagent/README.md) only as a stop reason. Logs could retain the product error, but the foreground parent and a one-shot background Job could not distinguish a permission refusal from another failure. Reusing assistant output for that fact would misattribute infrastructure detail to the child model.
 
 ## Decision
 
@@ -44,7 +42,7 @@ The Provider overrides only those permission and sandbox fields. An optional ins
 
 ### Failure diagnostic
 
-`SubagentResult` carries an optional `diagnostic` for provider-authored, non-assistant failure detail. A Provider removes tool inputs, file contents, environment values, credentials, and raw protocol payloads before producing it. The shared out-of-process result boundary limits the complete text to 4096 UTF-8 bytes and marks truncation without splitting a character. The [minimal-diagnostics decision](../../archived/simplification/2026-08-21-product-subagent-minimal-diagnostics.md) owns both products' non-permission action categories, lifecycle stages, HTTP facts, and process outcomes carried by the same field.
+`SubagentResult` carries an optional `diagnostic` for provider-authored, non-assistant failure detail. A Provider removes tool inputs, file contents, environment values, credentials, and raw protocol payloads before producing it. The shared out-of-process result boundary limits the complete text to 4096 UTF-8 bytes and marks truncation without splitting a character. The same field carries both products' non-permission action categories, lifecycle stages, HTTP facts, and process outcomes.
 
 Each product's permission fact contains only the effective mode, request category, unattended decision, and a fixed safe reason. Claude Code derives those facts from SDK callbacks and `permission_denied` messages. Codex derives them from app-server requests, declined items, and structured `sandboxError` terminals. Raw stderr is forwarded to the Host but is neither classified nor copied into the diagnostic. Both Providers place their failure line before the latest contributing permission fact. A successful result returns only the strict final answer; local cancellation remains `aborted` without permission detail; an unpublished startup failure still rejects `start()`. The Provider never adds either diagnostic fact to assistant output, structured output, or `subagent/end.lastAssistantMessage`.
 
@@ -57,9 +55,9 @@ The foreground consumer presents the stop-reason headline, then the optional dia
 | Profile permission choice | Each product Provider Config | Invalid, interactive, or unknown values fail during configuration. |
 | Permission and sandbox semantics | Claude Code Agent SDK or Codex app-server | Each Provider passes one native mode and does not mirror product policy. |
 | Interaction decisions and safe diagnostic | One product run | Concurrent runs keep independent mode, protocol, and diagnostic state. |
-| Diagnostic type and byte limit | `dsh-subagent` | Consumers receive a bounded optional field separate from assistant output. |
-| Foreground and Job presentation | `dsh-tool-subagent` and the generic Job runtime | Scheduling choice does not change the underlying failure fact. |
-| Process cancellation and quiescence | Product Provider and `dsh-subprocess` | Result settlement still precedes idempotent whole-tree disposal. |
+| Diagnostic type and byte limit | `jan-subagent` | Consumers receive a bounded optional field separate from assistant output. |
+| Foreground and Job presentation | `jan-tool-subagent` and the generic Job runtime | Scheduling choice does not change the underlying failure fact. |
+| Process cancellation and quiescence | Product Provider and `jan-subprocess` | Result settlement still precedes idempotent whole-tree disposal. |
 
 ## Verification
 

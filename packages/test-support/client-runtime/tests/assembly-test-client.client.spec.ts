@@ -5,20 +5,20 @@
  * `RemoteMock` bound to that client's Connection instance, mount, HMR-style reload,
  * unload, and fail-loud teardown.
  */
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { RemoteMock, ok, openStream } from '@deepseek-ai/dsh-remote-mock'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import { RemoteMock, ok, openStream } from '@janhq/jan-remote-mock'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { AssemblyPlan, ClientPluginModule, TestClientOptions } from '../src/assembly/index.ts'
 import { ClientRoster, TestClient, remoteDefaultResponses, webApp } from '../src/assembly/index.ts'
 
 /** The Gateway client and what it injects: the Typert registry and the Connection. */
-const API_ROSTER = webApp.closure(['@deepseek-ai/dsh-api-gateway'])
-const MODULES = '@deepseek-ai/dsh-client-modules'
-const SIDEBAR = '@deepseek-ai/dsh-client-ui-sidebar'
-const PARALLEL_PROBE = '@deepseek-ai/dsh-client-test-parallel-probe'
+const API_ROSTER = webApp.closure(['@janhq/jan-api-gateway'])
+const MODULES = '@janhq/jan-client-modules'
+const SIDEBAR = '@janhq/jan-client-ui-sidebar'
+const PARALLEL_PROBE = '@janhq/jan-client-test-parallel-probe'
 /** Declared by ui-sidebar, whose SlotMap merge is outside this package's compilation face. */
 const SIDEBAR_SETTINGS = 'sidebar.settings' as never
-const BRAND = '@deepseek-ai/dsh-client-ui-brand-official'
+const BRAND = '@janhq/jan-client-ui-brand-official'
 const globals = globalThis as { EventSource?: unknown; ResizeObserver?: unknown; matchMedia?: typeof window.matchMedia }
 /** The whole roster's first boot pays the cold module transform of every plugin package. */
 const COLD_BOOT_TIMEOUT_MS = 60_000
@@ -43,7 +43,7 @@ describe('TestClient (jsdom)', () => {
     const container = client.container!
     expect(document.body.contains(container)).toBe(true)
     expect(container.childElementCount).toBeGreaterThan(0)
-    expect('__DSH_TRANSPORT__' in globalThis).toBe(false)
+    expect('__JAN_TRANSPORT__' in globalThis).toBe(false)
     expect(globals.EventSource).toBeDefined()
     expect(globals.ResizeObserver).toBeDefined()
     const query = globals.matchMedia!('(pointer: coarse)')
@@ -56,7 +56,7 @@ describe('TestClient (jsdom)', () => {
     expect(document.fonts).toBeInstanceOf(EventTarget)
     await client.dispose()
     expect(document.body.contains(container)).toBe(false)
-    expect('__DSH_TRANSPORT__' in globalThis).toBe(false)
+    expect('__JAN_TRANSPORT__' in globalThis).toBe(false)
     expect(globals.EventSource).toBeUndefined()
     expect(globals.ResizeObserver).toBeUndefined()
     expect(globals.matchMedia).toBeUndefined()
@@ -111,17 +111,17 @@ describe('TestClient (jsdom)', () => {
     await expect(rename(b)).resolves.toEqual({ ok: true, value: { title: 'b', seq: 1 } })
     expect(mockA.log.calls('session/rename')).toHaveLength(1)
     expect(mockB.log.calls('session/rename')).toHaveLength(1)
-    await a.reload('@deepseek-ai/dsh-client-connection')
+    await a.reload('@janhq/jan-client-connection')
     await vi.waitFor(() => { expect(a.connection.state.getSnapshot()).toBe('connected') })
     await expect(rename(a)).resolves.toEqual({ ok: true, value: { title: 'a', seq: 1 } })
     expect(mockA.log.calls('session/rename')).toHaveLength(2)
     expect(mockB.log.calls('session/rename')).toHaveLength(1)
     await a.dispose()
-    expect('__DSH_TRANSPORT__' in globalThis).toBe(false)
+    expect('__JAN_TRANSPORT__' in globalThis).toBe(false)
     expect(globals.EventSource).toBeDefined()
     expect(document.fonts).toBeInstanceOf(EventTarget)
     await b.dispose()
-    expect('__DSH_TRANSPORT__' in globalThis).toBe(false)
+    expect('__JAN_TRANSPORT__' in globalThis).toBe(false)
     expect(globals.EventSource).toBeUndefined()
     expect(document.fonts).toBeUndefined()
   })
@@ -193,10 +193,10 @@ describe('TestClient (jsdom)', () => {
   })
 
   it('creates no mount element when the roster cannot be loaded', async () => {
-    const roster = ClientRoster.of([{ name: '@deepseek-ai/dsh-client-test-runtime-missing', inject: [], immediately: true }])
+    const roster = ClientRoster.of([{ name: '@janhq/jan-client-test-runtime-missing', inject: [], immediately: true }])
     const before = document.body.childElementCount
     await expect(TestClient.start({ roster }, RemoteMock.create(), { mount: true }))
-      .rejects.toThrow('client-test-runtime: cannot import @deepseek-ai/dsh-client-test-runtime-missing/client')
+      .rejects.toThrow('client-test-runtime: cannot import @janhq/jan-client-test-runtime-missing/client')
     expect(document.body.childElementCount).toBe(before)
   })
 
@@ -262,7 +262,7 @@ describe('TestClient (jsdom)', () => {
       setTimeout(() => {
         if (first) stream.fail(new Error('flap'))
         // Branded on the Gateway side; the test mints a plain string.
-        else stream.push({ type: 'ready', clientId: 'reconnected' as never, host: { home: '/home/mock' } })
+        else stream.push({ type: 'ready', clientId: 'reconnected' as never, host: { home: '/home/mock', name: 'fixture-host', remote: false } })
       }, 20)
     })
     const client = await TestClient.start({ roster: API_ROSTER }, mock)
@@ -274,7 +274,7 @@ describe('TestClient (jsdom)', () => {
   it('reports the log when the connection never becomes ready', async () => {
     // No fixtures: workspace-controller's follow has no rule, so the proxy dispatches it as a unary call the mock
     // logs as unmatched, while $events never sends ready.
-    const roster = webApp.closure(['@deepseek-ai/dsh-api-workspace-controller'])
+    const roster = webApp.closure(['@janhq/jan-api-workspace-controller'])
     const mock = RemoteMock.create().stream('$events', openStream([]))
     await expect(TestClient.start({ roster }, mock, { connectTimeoutMs: 300 }))
       .rejects.toThrow(/connection state is \S+ after 300ms; unmatched: \[unary workspace\/follow\]; streams: \[.*\$events \(open\).*\]/)

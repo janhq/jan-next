@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /** Structured draft import, persistence, and reference restoration through the real input shell. */
 import { setImmediate } from 'node:timers/promises'
-import { Context } from '@deepseek-ai/cordis'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { Context } from '@janhq/cordis'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { $getRoot, $nodesOfType, REDO_COMMAND, UNDO_COMMAND } from 'lexical'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { DraftReference, DraftSnapshot, Occurrence } from '../src/client/contract/draft-editor.ts'
@@ -26,8 +26,8 @@ const folder: ReferenceContent = {
   source: 'reference', ref: '@src/', label: 'src/', appearance: 'folder', clipboardText: '@src/',
 }
 const session: ReferenceContent = {
-  source: 'reference', ref: '@[研究记录](dsh-session:c291cmNl)', label: '研究记录', appearance: 'session',
-  clipboardText: '@[研究记录](dsh-session:c291cmNl)',
+  source: 'reference', ref: '@[研究记录](jan-session:c291cmNl)', label: '研究记录', appearance: 'session',
+  clipboardText: '@[研究记录](jan-session:c291cmNl)',
 }
 
 function documentOf(...parts: readonly (string | ReferenceContent)[]): DraftSnapshot {
@@ -516,6 +516,17 @@ describe('draft documents in the input shell', () => {
     expect(chips(shell)).toHaveLength(1)
     expect(shell.requestDraftInitialization({ prompt: 'fresh', whenDraftExists: 'replace' })).toBe('applied')
     expect(shell.draftSnapshot).toEqual({ text: 'fresh', references: [] })
+  })
+
+  it('does not append a prompt the draft already contains', () => {
+    const shell = makeShell()
+    expect(shell.requestDraftInitialization({ prompt: '/create-plugin Build a timer. ', whenDraftExists: 'append' })).toBe('applied')
+    shell.setDraft(documentOf(`${shell.snapshot.draft}\nwith a reset button`))
+    const typed = shell.draftSnapshot
+    expect(shell.requestDraftInitialization({ prompt: '/create-plugin Build a timer. ', whenDraftExists: 'append' })).toBe('applied')
+    expect(shell.draftSnapshot).toEqual(typed)
+    expect(shell.requestDraftInitialization({ prompt: 'Build a clock.', whenDraftExists: 'append' })).toBe('applied')
+    expect(shell.snapshot.draft).toBe(`${typed.text}\nBuild a clock.`)
   })
 
   it('appends to an attachment-only draft as its whole text', () => {

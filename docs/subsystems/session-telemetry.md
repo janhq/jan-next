@@ -1,7 +1,5 @@
 # SessionTelemetryBackend
 
-English | [中文](session-telemetry.zh.md)
-
 The [capture service](../../packages/session/session-telemetry/README.md) owns canonical-event capture, redaction, and handoff cursors. The [feedback backend](../../packages/session/session-telemetry-otel/README.md) authorizes Session prefixes and owns their independent queue, per-request scheduling, and 4,000,000-byte ceiling. No reporting data reaches model requests.
 
 Source: [`packages/session/session-telemetry/src/index.ts`](../../packages/session/session-telemetry/src/index.ts)
@@ -149,7 +147,7 @@ Every record passes the `session-telemetry/record` [waterfall](../cordis-primer.
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxsessiontelemetry--sessiontelemetrybackend-abstract-seam"></a>
 

@@ -1,30 +1,23 @@
 # Keyless PTC mode combines the runtime/registry changes with the
-# DeepSeek-to-replay swap in one profile patch.
+# replay model swap in one profile patch.
 - insert:
     - id: literal-sdk
       name: '../../../packages/core/tools/tests/fixtures/literal-sdk.ts'
 
-- id: llm-deepseek
-  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
-  disabled: true
-
-- id: plugin-package-inventory-deepseek
-  disabled: true
-
 - id: agent-default-model
-  name: '@deepseek-ai/dsh-agent-default-model'
+  name: '@janhq/jan-agent-default-model'
   config:
-    provider: deepseek-official
-    model: deepseek-v4-flash
+    provider: tokamak-official
+    model: tokamak-1-preview
 
 - id: session-persistence-jsonl
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@janhq/jan-session-persistence-jsonl'
   config:
-    root: !!js dshHomePath('sessions')
+    root: !!js janHomePath('sessions')
     compression: none
 
 - id: agent-instructions
-  name: '@deepseek-ai/dsh-agent-instructions'
+  name: '@janhq/jan-agent-instructions'
   config:
     maxBytes: 65536
 
@@ -35,7 +28,7 @@
   disabled: false
 
 - id: system-prompt
-  name: '@deepseek-ai/dsh-system-prompt'
+  name: '@janhq/jan-system-prompt'
   config:
     personaPrefix: |
       You are a coding assistant powered by the {{model}} model.
@@ -44,14 +37,14 @@
 
 - insert:
     - id: llm-replay
-      name: '@deepseek-ai/dsh-llm-replay'
+      name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-v4-flash
-              - id: deepseek-v4-pro
+              - id: tokamak-1-preview
+              - id: tokamak-1-pro
 
 - id: ptc-runtime
   config:

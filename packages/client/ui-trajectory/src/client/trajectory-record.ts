@@ -1,8 +1,8 @@
 /** Shared trajectory record data and formatting contracts. */
 
 import type { HTMLAttributes } from 'react'
-import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type { ConversationPromptSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { FileAttachmentRef, ImageAttachmentRef } from '@janhq/jan-attachment'
+import type { ConversationPromptSnapshot } from '@janhq/jan-client-ui-conversation/client'
 import type { TrajectoryTranslate } from './locales.ts'
 
 /** Closed set of trajectory record kinds. */
@@ -23,6 +23,8 @@ export interface AssistantMetricDetail {
   completedTime: number | null
   usageProvided: boolean
   outputTokens: number | null
+  /** Characters the message carried as text, reasoning and Tool-call arguments. */
+  streamedChars: number
 }
 
 /** One source content block preserved in model order for the details panel. */

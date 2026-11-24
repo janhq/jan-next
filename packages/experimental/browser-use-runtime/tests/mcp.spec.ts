@@ -1,31 +1,31 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import * as PtcToolExecutor from '@deepseek-ai/dsh-tool-executor-ptc'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import * as PtcToolExecutor from '@janhq/jan-tool-executor-ptc'
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import Include from '@deepseek-ai/cordis-plugin-include'
-import BrowserUse from '@deepseek-ai/dsh-browser-use'
-import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
-import Tools from '@deepseek-ai/dsh-tools'
-import McpResources from '@deepseek-ai/dsh-mcp-resources'
-import { PtcRuntime } from '@deepseek-ai/dsh-ptc-runtime'
-import Llm, { LlmAdapter, ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
-import Sessions, { SessionId } from '@deepseek-ai/dsh-session'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import Agents from '@deepseek-ai/dsh-agent'
-import type { Agent, AgentHandle } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
-import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
-import Projections from '@deepseek-ai/dsh-session-projection'
-import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
-import { bindScopeParent } from '@deepseek-ai/dsh-scope'
+import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import Include from '@janhq/cordis-plugin-include'
+import BrowserUse from '@janhq/jan-browser-use'
+import SystemPrompt, { renderPrompt } from '@janhq/jan-system-prompt'
+import Tools from '@janhq/jan-tools'
+import McpResources from '@janhq/jan-mcp-resources'
+import { PtcRuntime } from '@janhq/jan-ptc-runtime'
+import Llm, { LlmAdapter, ToolCallId, createUserMessage } from '@janhq/jan-llm'
+import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@janhq/jan-llm'
+import Sessions, { SessionId } from '@janhq/jan-session'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
+import Agents from '@janhq/jan-agent'
+import type { Agent, AgentHandle } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { provideWorkingDirectoryFixture } from '@janhq/jan-agent-loop-testkit'
+import LocalFileSystem from '@janhq/jan-fs-local'
+import Projections from '@janhq/jan-session-projection'
+import WorkingDirectory from '@janhq/jan-working-directory'
+import { bindScopeParent } from '@janhq/jan-scope'
 import { BrowserMcpConfig, mountSessionMcp, validateBrowserMcpConfig } from '../src/mcp.ts'
 
 const fixture = fileURLToPath(new URL('./mcp-fixture.mjs', import.meta.url))
@@ -81,7 +81,7 @@ class PresentationRuntime extends PtcRuntime {
 }
 
 async function load(exclusive = false, mode?: string, toolCallTimeoutMs?: number, toolOrder?: string[]) {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-browser-mcp-'))
+  const root = await mkdtemp(join(tmpdir(), 'jan-browser-mcp-'))
   roots.push(root)
   const model = new FixtureModel()
   const modules = new Map<string, unknown>([

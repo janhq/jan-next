@@ -1,4 +1,4 @@
-# The dsh-base bundle patch: the shared core of each base-backed profile, applied as
+# The jan-base bundle patch: the shared core of each base-backed profile, applied as
 # ONE insert over the empty profile root. Later bundle patches and the user's
 # profile cordis.patch.yml address these rows by id, with the last write
 # winning per row.
@@ -14,65 +14,56 @@
 
 - insert:
     - id: tool-plugin-manager
-      name: '@deepseek-ai/dsh-plugin-manager/tools'
+      name: '@janhq/jan-plugin-manager/tools'
       disabled: true
 
     # tokamak-harness: install plugins from the public npm registry only (no npmmirror fallback).
     - id: plugin-manager
-      name: '@deepseek-ai/dsh-plugin-manager'
+      name: '@janhq/jan-plugin-manager'
       disabled: !!js "!ctx.get('profileContext')"
       config:
         registry: https://registry.npmjs.org/
         fallbackRegistries: []
 
     - id: timer
-      name: '@deepseek-ai/cordis-plugin-timer'
+      name: '@janhq/cordis-plugin-timer'
 
     # Profile configuration reloads by default; module roots are opt-in.
     - id: hmr
-      name: '@deepseek-ai/dsh-hmr'
+      name: '@janhq/jan-hmr'
       disabled: !!js "!ctx.get('profileContext')"
       config:
         root: []
 
     - id: llm
-      name: '@deepseek-ai/dsh-llm'
-
-    - id: deepseek-llm-api-extensions
-      name: '@deepseek-ai/dsh-deepseek-llm-api-extensions'
+      name: '@janhq/jan-llm'
 
     - id: session
-      name: '@deepseek-ai/dsh-session'
-
-    # tokamak-harness: Session-log upload is opt-in; the Settings switch enables it.
-    - id: session-log-deepseek
-      name: '@deepseek-ai/dsh-session-log-deepseek'
-      config:
-        enabled: false
+      name: '@janhq/jan-session'
 
     - id: typert
-      name: '@deepseek-ai/dsh-typert-registry'
+      name: '@janhq/jan-typert-registry'
 
     - id: typert-loader
-      name: '@deepseek-ai/dsh-typert-loader'
+      name: '@janhq/jan-typert-loader'
 
     - id: typert-gateway
-      name: '@deepseek-ai/dsh-api-gateway'
+      name: '@janhq/jan-api-gateway'
 
     # Method-level access control for non-owner Peers; the Gateway requires it,
     # and its Client half publishes the standard access Hooks.
     - id: remote-access
-      name: '@deepseek-ai/dsh-api-remote-access'
+      name: '@janhq/jan-api-remote-access'
 
     - id: session-title
-      name: '@deepseek-ai/dsh-session-title'
+      name: '@janhq/jan-session-title'
       config:
         fallbackMaxWords: 5
         fallbackMaxBytes: 40
         maxTitleBytes: 80
 
     - id: session-title-llm
-      name: '@deepseek-ai/dsh-session-title-first-prompt-llm'
+      name: '@janhq/jan-session-title-first-prompt-llm'
       config:
         targetWords: 5
         targetCjkCharacters: 10
@@ -84,62 +75,66 @@
         timeoutMs: 60000
 
     - id: user-questions
-      name: '@deepseek-ai/dsh-user-questions'
+      name: '@janhq/jan-user-questions'
 
     - id: agent
-      name: '@deepseek-ai/dsh-agent'
-
-    - id: plugin-package-inventory-deepseek
-      name: '@deepseek-ai/dsh-plugin-package-inventory-deepseek'
+      name: '@janhq/jan-agent'
 
     # The transport-independent default for Agents created by entry points.
     # Settings may supply a saved selection; consumers read it at creation time.
     - id: agent-default-model
-      name: '@deepseek-ai/dsh-agent-default-model'
+      name: '@janhq/jan-agent-default-model'
       config:
-        # tokamak-harness: default to the Tokamak router (llm-pi-ai `tokamak` route below).
+        # tokamak-harness: default to the Tokamak router's automatic model (llm-pi-ai
+        # `tokamak` route below). When the router does not list the saved default, the
+        # route moves it to a listed model (`modelListing.preferredDefaults`).
         provider: tokamak
-        model: tokamak-1-preview
+        model: tokamak/auto
 
     - id: jobs
-      name: '@deepseek-ai/dsh-jobs-local'
+      name: '@janhq/jan-jobs-local'
 
     - id: llm-retry
-      name: '@deepseek-ai/dsh-llm-retry'
+      name: '@janhq/jan-llm-retry'
+
+    # Jan: continue a rate-limited, out-of-quota or refused reply on the next
+    # model the user listed in Settings > Models; empty chain = off.
+    - id: model-fallback
+      name: '@janhq/jan-llm-fallback'
 
     # Live Config forms persist through the active profile patch.
 
     # Live configuration forms persist through the launcher's profile.
     - id: config-editor
-      name: '@deepseek-ai/dsh-config-editor'
+      name: '@janhq/jan-config-editor'
       disabled: !!js "!ctx.get('profileContext')"
 
     - id: settings
-      name: '@deepseek-ai/dsh-settings'
+      name: '@janhq/jan-settings'
       disabled: !!js "!ctx.get('profileContext')"
 
-    # Credential sources: managed `$DSH_HOME/.credentials.yaml`, then inherited
+    # Credential sources: managed `$JAN_HOME/.credentials.yaml`, then inherited
     # environment, project `.env`, and user `.env` fallbacks.
     # Adapters resolve references per request; the Models page writes only the
     # managed document, which is never materialized into the process environment.
     - id: authorization
-      name: '@deepseek-ai/dsh-authorization'
+      name: '@janhq/jan-authorization'
 
     # tokamak-harness: the account seam is served by Tokamak's CLI device sign-in.
     # The minted key is stored as a grant record and as the TOKAMAK_API_KEY
     # credential the `tokamak` model route reads. TOKAMAK_BASE_URL / TOKAMAK_WEB_URL
     # point it at another deployment (e.g. https://api-stag.tokamak.sh); a bare
     # host gets /v1, identically for this row and the model route.
-    - id: deepseek-account
-      name: '@deepseek-ai/dsh-tokamak-account'
+    - id: tokamak-account
+      name: '@janhq/jan-tokamak-account'
       config:
         apiBaseURL: !!js (process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1').trim().replace(/\/+$/, '').replace(/^(https?:\/\/[^/]+)$/, '$1/v1')
         webOrigin: !!js process.env.TOKAMAK_WEB_URL || ''
         allowLoopbackHttp: !!js "['1', 'true', 'yes'].includes((process.env.TOKAMAK_ALLOW_LOOPBACK_HTTP ?? '').toLowerCase())"
-        clientName: Jan Alpha
+        clientName: Jan Next
 
     - id: credentials
-      name: '@deepseek-ai/dsh-credentials-local'
+      name: '@janhq/jan-credentials-local'
 
     # The pi-ai multi-provider twin, mounted dormant: zero routes (and no extra
     # models in the picker) until a `llm-pi-ai:` settings section supplies provider
@@ -149,28 +144,66 @@
     # adapters exist is composition; which providers run is the user's settings
     # document.
     - id: llm-pi-ai
-      name: '@deepseek-ai/dsh-llm-pi-ai'
+      name: '@janhq/jan-llm-pi-ai'
       config:
         providers:
           # tokamak-harness: Tokamak router, OpenAI-compatible, keyed by the
           # TOKAMAK_API_KEY credential that Tokamak sign-in writes (or the env var).
+          # The router decides which models it serves: the route lists them from
+          # GET {baseURL}/models at startup, after sign-in, and every refreshIntervalMs,
+          # and offers none while signed out or before the first listing succeeds; the
+          # last listing is kept in storage and served after a restart until the launch
+          # refresh replaces it.
           tokamak:
             displayName: Tokamak
             api: openai-completions
-            # Same normalization as the account row: a bare host gets /v1.
-            baseURL: !!js (process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1').trim().replace(/\/+$/, '').replace(/^(https?:\/\/[^/]+)$/, '$1/v1')
+            baseURL: https://api.tokamak.sh/v1
             apiKeyEnv: TOKAMAK_API_KEY
+            # Used only for a listed model whose listing reports no context_length.
             defaultContextWindow: 200000
+            modelListing:
+              refreshIntervalMs: 600000
+              timeoutMs: 15000
+              preferredDefaults: [tokamak/auto]
+              # The router lists image generation models without marking them as non-chat.
+              exclude: [openai/gpt-image-*]
+            # The router's listing reports input modalities only for some models, and
+            # an undeclared model would default to text only, so its Claude, GPT and
+            # Gemini chat models could not read images. Models the router serves read
+            # images unless named below as text only; an entry that declares
+            # `architecture.input_modalities` still answers for itself.
+            defaultInput: [text, image]
+            # The listing reports no reasoning metadata. The router takes `reasoning_effort` and
+            # answers with reasoning tokens for the models below (probed 2026-11-21); the others
+            # (jev, gpt-oss, claude-opus-4-8, claude-fable-5-1, gpt-5.6-terra) returned none and
+            # stay without an effort picker. A model the router adds later needs a row here.
             models:
-              - id: tokamak-1-preview
-              - id: tokamak/auto
-              - id: anthropic/claude-sonnet-5-5[1m]
-                contextWindow: 1000000
-              - id: anthropic/claude-opus-5-5[1m]
-                contextWindow: 1000000
-              - id: anthropic/claude-haiku-5-5[1m]
-                contextWindow: 1000000
-              - id: openai/gpt-6-sol
+              - id: deepseek-flash
+                input: [text]
+              - id: deepseek-v4-pro
+                input: [text]
+              - id: openai/gpt-oss-120b-medium
+                input: [text]
+              - { id: 'anthropic/claude-haiku-5-5[1m]', reasoningEfforts: &tokamak-efforts { low: low, medium: medium, high: high } }
+              - { id: 'anthropic/claude-haiku-4-5-20251001', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-sonnet-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-sonnet-5-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-opus-4-6[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-opus-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-opus-5-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-fable-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-fable-5-2[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'google/gemini-4-argon-high', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-5.6-luna', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-5.6-sol', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6-astra', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6-luna', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6-sol', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6.1-sol', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6.1-terra', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6.2-astra', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6.2-sol', reasoningEfforts: *tokamak-efforts }
+              - { id: 'tokamak/auto', reasoningEfforts: *tokamak-efforts }
           # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key and
           # endpoint (the worker's OS-assigned port) exist only while that worker runs, so
           # otherwise the route offers no models.
@@ -192,15 +225,15 @@
                 maxTokens: 8192
 
     - id: session-persistence-jsonl
-      name: '@deepseek-ai/dsh-session-persistence-jsonl'
+      name: '@janhq/jan-session-persistence-jsonl'
       config:
-        root: !!js dshHomePath('sessions')
+        root: !!js janHomePath('sessions')
 
     # Durable image bytes live outside the append-only session log. Messages
     # keep content-addressed references that this shared backend resolves for
     # provider requests and authorized history reads.
     - id: attachment-local
-      name: '@deepseek-ai/dsh-attachment-local'
+      name: '@janhq/jan-attachment-local'
 
     # Full-text session search is opt-in. `openAt: never` keeps
     # ctx.sessionQuery mounted — exact reads, titles, and lineage traces
@@ -211,7 +244,7 @@
     # `first-search` or `startup` in a later patch layer (profile
     # cordis.patch.yml or a --patch overlay), typically with a durable `path`.
     - id: session-query-sqlite
-      name: '@deepseek-ai/dsh-session-query-sqlite'
+      name: '@janhq/jan-session-query-sqlite'
       config:
         path: ':memory:'
         openAt: never
@@ -220,28 +253,28 @@
     # through its registered units, so the `list_agents` surface below fails
     # loud without it; web layers reuse this same mount for list rows.
     - id: working-directory
-      name: '@deepseek-ai/dsh-working-directory'
+      name: '@janhq/jan-working-directory'
 
     - id: tool-working-directory
-      name: '@deepseek-ai/dsh-tool-working-directory'
+      name: '@janhq/jan-tool-working-directory'
 
     - id: session-projection
-      name: '@deepseek-ai/dsh-session-projection'
+      name: '@janhq/jan-session-projection'
 
     # Durable KV storage: the storage hub, the json backend, and the
     # schema-validated domain form over them. Session-layer persistence (the
     # projection cache below; workspace in web layers)
     # routes through this stack, so it belongs to the shared base.
     - id: storage
-      name: '@deepseek-ai/dsh-storage'
+      name: '@janhq/jan-storage'
 
     - id: storage-json
-      name: '@deepseek-ai/dsh-storage-json'
+      name: '@janhq/jan-storage-json'
       config:
-        root: !!js dshHomePath('storages')
+        root: !!js janHomePath('storages')
 
     - id: storage-domain
-      name: '@deepseek-ai/dsh-storage-domain'
+      name: '@janhq/jan-storage-domain'
       config:
         backend: json
 
@@ -250,22 +283,23 @@
     # checkpoint document per session), serving the session listing's
     # projection column.
     - id: session-projection-cache
-      name: '@deepseek-ai/dsh-session-projection-cache'
+      name: '@janhq/jan-session-projection-cache'
       config:
         writeEveryEvents: 200
         writeIntervalMs: 5000
 
     # tokamak-harness: no exporter consumes OTel channels, so the service is not mounted.
     - id: otel
-      name: '@deepseek-ai/dsh-otel'
+      name: '@janhq/jan-otel'
       disabled: true
 
     # OTel releases a Session-log prefix only after explicit user feedback,
     # regardless of model provider. Ordinary activity never triggers capture.
-    # DSH_TELEMETRY_OTLP_URL overrides the production endpoint. A non-empty
-    # DSH_TELEMETRY_DISABLED — any value, including '0'/'false' — opts the
+    # JAN_TELEMETRY_OTLP_URL supplies the collector endpoint; enabling the row
+    # without it fails at load. A non-empty
+    # JAN_TELEMETRY_DISABLED — any value, including '0'/'false' — opts the
     # process out (the launchers patch the row disabled; config cannot disable
-    # a row). Exports carry the harness home's anonymous user id ($DSH_HOME/.anonymous-user-id,
+    # a row). Exports carry the harness home's anonymous user id ($JAN_HOME/.anonymous-user-id,
     # random UUID; delete the file to reset the identity) as the Resource's
     # user.id. Byte-bounded batching may turn an authorized prefix into
     # several HTTP requests. Requests run serially; each has its own 1s
@@ -273,16 +307,16 @@
     # active request slot. The outer 3s shutdown deadline stops queued sends;
     # large prefixes or an unsettled transport may leave records unsent.
     # Every CLI exit path drains by disposing the root on SIGINT/SIGTERM.
-    # tokamak-harness: telemetry is off. Session-log export to DeepSeek's collector is never mounted.
+    # tokamak-harness: telemetry is off.
     - id: session-telemetry-otel
-      name: '@deepseek-ai/dsh-session-telemetry-otel'
+      name: '@janhq/jan-session-telemetry-otel'
       disabled: true
       config:
-        mode: !!js process.env.DSH_TELEMETRY_MODE || 'FEEDBACK_ONLY'
+        mode: !!js process.env.JAN_TELEMETRY_MODE || 'FEEDBACK_ONLY'
         shutdownTimeoutMillis: 3000
         maxRequestBytes: 4000000
         exporter:
-          url: !!js process.env.DSH_TELEMETRY_OTLP_URL ?? 'https://dsh-otel-collector.deepseeksvc.com/v1/logs'
+          url: !!js process.env.JAN_TELEMETRY_OTLP_URL
           compression: gzip
           timeoutMillis: 1000
         processor:
@@ -292,37 +326,37 @@
           exportTimeoutMillis: 1500
 
     - id: subprocess
-      name: '@deepseek-ai/dsh-subprocess-local'
+      name: '@janhq/jan-subprocess-local'
 
     # Every shipped CLI mode starts with the same file-effect boundary.
     # The environment remains an explicit deployment override; otherwise fresh
     # sessions pin workspace-write + ask through the permission service below.
     - id: sandbox
-      name: '@deepseek-ai/dsh-sandbox-local'
+      name: '@janhq/jan-sandbox-local'
 
     - id: sandbox-policy
-      name: '@deepseek-ai/dsh-sandbox-policy'
+      name: '@janhq/jan-sandbox-policy'
       config:
-        mode: !!js process.env.DSH_PERMISSION_MODE ?? 'workspace-write'
+        mode: !!js process.env.JAN_PERMISSION_MODE ?? 'workspace-write'
         workspaceRoot: !!js process.cwd()
 
     - id: bash-sandbox
-      name: '@deepseek-ai/dsh-bash-sandbox'
+      name: '@janhq/jan-bash-sandbox'
       disabled: !!js process.platform === 'win32'
       config:
         timeoutMs: 60000
 
     - id: pwsh-sandbox
-      name: '@deepseek-ai/dsh-pwsh-sandbox'
+      name: '@janhq/jan-pwsh-sandbox'
       disabled: !!js process.platform !== 'win32'
 
     - id: approval
-      name: '@deepseek-ai/dsh-user-approval'
+      name: '@janhq/jan-user-approval'
       config:
-        policy: !!js "(process.env.DSH_PERMISSION_MODE ?? 'workspace-write') === 'danger-full-access' ? 'never' : 'ask'"
+        policy: !!js "(process.env.JAN_PERMISSION_MODE ?? 'workspace-write') === 'danger-full-access' ? 'never' : 'ask'"
 
     - id: permission
-      name: '@deepseek-ai/dsh-permission-presets'
+      name: '@janhq/jan-permission-presets'
       config:
         presets:
           read-only:
@@ -336,65 +370,65 @@
             approval: never
 
     - id: shell-env
-      name: '@deepseek-ai/dsh-shell-env'
+      name: '@janhq/jan-shell-env'
 
     - id: tool-bash
-      name: '@deepseek-ai/dsh-tool-bash'
+      name: '@janhq/jan-tool-bash'
       disabled: !!js process.platform === 'win32'
 
     - id: tool-pwsh
-      name: '@deepseek-ai/dsh-tool-pwsh'
+      name: '@janhq/jan-tool-pwsh'
       disabled: !!js process.platform !== 'win32'
 
     - id: tool-jobs
-      name: '@deepseek-ai/dsh-tool-jobs'
+      name: '@janhq/jan-tool-jobs'
 
     - id: fs-observation-policy
-      name: '@deepseek-ai/dsh-fs-observation-policy'
+      name: '@janhq/jan-fs-observation-policy'
       disabled: true
 
     - id: tool-fs
-      name: '@deepseek-ai/dsh-tool-fs'
+      name: '@janhq/jan-tool-fs'
       config:
         # Set false to drop the apply_patch tool beside edit.
         applyPatch: false
 
     - id: tool-fs-search
-      name: '@deepseek-ai/dsh-tool-fs-search'
+      name: '@janhq/jan-tool-fs-search'
       config:
         sampleOverCapGlobResults: false
 
     - id: agent-instructions
-      name: '@deepseek-ai/dsh-agent-instructions'
+      name: '@janhq/jan-agent-instructions'
       config:
         maxBytes: 65536
 
     - id: skill
-      name: '@deepseek-ai/dsh-skill'
+      name: '@janhq/jan-skill'
 
     - id: skill-filesystem
-      name: '@deepseek-ai/dsh-skill-filesystem'
+      name: '@janhq/jan-skill-filesystem'
 
     - id: tool-skill
-      name: '@deepseek-ai/dsh-tool-skill'
+      name: '@janhq/jan-tool-skill'
 
     - id: commands
-      name: '@deepseek-ai/dsh-commands'
+      name: '@janhq/jan-commands'
 
     - id: command-feedback
-      name: '@deepseek-ai/dsh-command-feedback'
+      name: '@janhq/jan-command-feedback'
 
     - id: goal
-      name: '@deepseek-ai/dsh-goal'
+      name: '@janhq/jan-goal'
 
     - id: goal-round-driver
-      name: '@deepseek-ai/dsh-goal-round-driver'
+      name: '@janhq/jan-goal-round-driver'
 
     - id: command-goal
-      name: '@deepseek-ai/dsh-command-goal'
+      name: '@janhq/jan-command-goal'
 
     - id: plan-mode
-      name: '@deepseek-ai/dsh-plan-mode'
+      name: '@janhq/jan-plan-mode'
       config:
         section: |
               You are in plan mode. Stay in plan mode until the user approves your plan through exit_plan_mode or switches the session mode. Imperative language to implement changes means plan the implementation, not execute it. A user's conversational agreement — including an answer confirming something you asked — approves nothing and does not end plan mode; fold the confirmed decision into the plan and submit it through exit_plan_mode.
@@ -410,88 +444,166 @@
               When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed with implementation.
 
     - id: token-meter
-      name: '@deepseek-ai/dsh-token-meter'
+      name: '@janhq/jan-token-meter'
 
     - id: compaction-basic
-      name: '@deepseek-ai/dsh-compaction-basic'
+      name: '@janhq/jan-compaction-basic'
 
     # Human `/compact`: one useful reduction below the automatic threshold. Backend
     # independent, so it follows whichever compaction service this leaf mounts.
     - id: command-compact
-      name: '@deepseek-ai/dsh-command-compact'
+      name: '@janhq/jan-command-compact'
 
     - id: subagent
-      name: '@deepseek-ai/dsh-subagent'
+      name: '@janhq/jan-subagent'
+
+    # tokamak-harness: first-class fresh delegation roles in every base profile.
+    - id: agent-preset-registry
+      name: '@janhq/jan-agent-preset-registry'
+      config:
+        default: worker
+
+    - id: preset-scout
+      name: '@janhq/jan-agent-preset'
+      config:
+        id: scout
+        description: Read-only repository discovery; fast, inexpensive model.
+        icon: search-outline
+        toolAllowlist: [read, read_image, glob, grep, send_message, wait_agent, list_agents]
+        plugins:
+          - id: tool-fs
+            name: '@janhq/jan-tool-fs'
+            config: { write: false, edit: false, applyPatch: false }
+          - id: tool-fs-search
+            name: '@janhq/jan-tool-fs-search'
+            config: { sampleOverCapGlobResults: false }
+          - id: tool-subagent-control
+            name: '@janhq/jan-tool-subagent-control'
+            config: { interrupt: false }
+
+    - id: preset-reviewer
+      name: '@janhq/jan-agent-preset'
+      config:
+        id: reviewer
+        description: Read-only diff review and tests that do not write files.
+        icon: inspect-outline
+        toolAllowlist: [read, read_image, glob, grep, bash, pwsh, job_output, job_kill, job_watch, wake_after, send_message, wait_agent, list_agents]
+        readOnlyDelegation: true
+        plugins:
+          - id: tool-fs
+            name: '@janhq/jan-tool-fs'
+            config: { write: false, edit: false, applyPatch: false }
+          - id: tool-fs-search
+            name: '@janhq/jan-tool-fs-search'
+            config: { sampleOverCapGlobResults: false }
+          - id: tool-bash
+            name: '@janhq/jan-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@janhq/jan-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-jobs
+            name: '@janhq/jan-tool-jobs'
+          - id: tool-subagent-control
+            name: '@janhq/jan-tool-subagent-control'
+            config: { interrupt: false }
+
+    - id: preset-worker
+      name: '@janhq/jan-agent-preset'
+      config:
+        id: worker
+        description: Implement changes with read, shell, and full file editing tools.
+        icon: tool-outline
+        plugins:
+          - id: tool-fs
+            name: '@janhq/jan-tool-fs'
+            config: { applyPatch: true }
+          - id: tool-fs-search
+            name: '@janhq/jan-tool-fs-search'
+            config: { sampleOverCapGlobResults: false }
+          - id: tool-bash
+            name: '@janhq/jan-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@janhq/jan-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-jobs
+            name: '@janhq/jan-tool-jobs'
+          - id: tool-subagent-control
+            name: '@janhq/jan-tool-subagent-control'
 
     - id: agent-team
-      name: '@deepseek-ai/dsh-agent-team'
+      name: '@janhq/jan-agent-team'
       config:
         maxTasks: 256
 
     - id: tool-agent-team
-      name: '@deepseek-ai/dsh-tool-agent-team'
+      name: '@janhq/jan-tool-agent-team'
 
     - id: subagent-spawn-in-process
-      name: '@deepseek-ai/dsh-subagent-spawn-in-process'
+      name: '@janhq/jan-subagent-spawn-in-process'
       config:
         providerName: spawn
 
     - id: subagent-fork-in-process
-      name: '@deepseek-ai/dsh-subagent-fork-in-process'
+      name: '@janhq/jan-subagent-fork-in-process'
       config:
         providerName: fork
 
     # Continuable background children are selected per delegation tool. The
     # separately loaded follow-up tool registers the one global `send_message`.
     - id: tool-subagent-control
-      name: '@deepseek-ai/dsh-tool-subagent-control'
+      name: '@janhq/jan-tool-subagent-control'
 
     - id: tool-subagent
-      name: '@deepseek-ai/dsh-tool-subagent'
+      name: '@janhq/jan-tool-subagent'
       config:
         provider: spawn
         toolName: subagent
+        allowedAgentPresets: [scout, reviewer, worker]
+        presetAgentOptions:
+          scout: { provider: tokamak, model: 'anthropic/claude-haiku-5-5[1m]' }
 
     # Fork omits model-selection arguments for KV Cache reuse. Parent and child
     # share the messaging tools; return guidance follows the inherited history.
     # See packages/subagent/tool-subagent/README.md
     # and .agents/notes/implemented/architecture/2026-08-10-fork-children-stay-one-shot.md.
     - id: tool-subagent-fork
-      name: '@deepseek-ai/dsh-tool-subagent'
+      name: '@janhq/jan-tool-subagent'
       config:
         provider: fork
         toolName: subagent_fork
 
     - id: ptc-runtime
-      name: '@deepseek-ai/dsh-ptc-runtime-node'
+      name: '@janhq/jan-ptc-runtime-node'
 
     - id: workflow-ptc
-      name: '@deepseek-ai/dsh-workflow-ptc'
+      name: '@janhq/jan-workflow-ptc'
       config:
         provider: spawn
 
     - id: tool-workflow
-      name: '@deepseek-ai/dsh-tool-workflow'
+      name: '@janhq/jan-tool-workflow'
 
     - id: timeout-policy
-      name: '@deepseek-ai/dsh-tool-call-timeout-policy'
+      name: '@janhq/jan-tool-call-timeout-policy'
 
     - id: spill-local
-      name: '@deepseek-ai/dsh-spill-local'
+      name: '@janhq/jan-spill-local'
 
     - id: spill-policy
-      name: '@deepseek-ai/dsh-spill-policy'
+      name: '@janhq/jan-spill-policy'
       config:
         maxInlineTokens: 12500
 
     # Durability checkpoints before each model request and top-level dispatch.
     - id: session-checkpoint-policy
-      name: '@deepseek-ai/dsh-session-checkpoint-policy'
+      name: '@janhq/jan-session-checkpoint-policy'
 
     # Compacts oversized tool results before the broader conversation compactor
     # runs, preserving the model-visible result within the configured budget.
     - id: tool-result-pruner
-      name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+      name: '@janhq/jan-compaction-tool-result-pruner'
       config:
         thresholdChars: 8192
         headChars: 4096
@@ -500,122 +612,96 @@
     # When an image-capable route rejects a request as over its image budget,
     # replace the oldest images with placeholders on the surface and retry.
     - id: image-offload
-      name: '@deepseek-ai/dsh-compaction-image-offload'
+      name: '@janhq/jan-compaction-image-offload'
 
     - id: tool-todo
-      name: '@deepseek-ai/dsh-tool-todo'
+      name: '@janhq/jan-tool-todo'
       config:
         allowParallelInProgress: true
 
     # Persisted same-session goals reach the model and the slash menu here; the
     # domain, driver, and `/goal` command are above.
     - id: tool-goal
-      name: '@deepseek-ai/dsh-tool-goal'
+      name: '@janhq/jan-tool-goal'
 
     # Consecutive-repeat reminders on the tool chain.
     - id: repeat-tool-reminder
-      name: '@deepseek-ai/dsh-repeat-tool-reminder'
+      name: '@janhq/jan-repeat-tool-reminder'
       config:
         thresholds: [3, 5, 8]
         argumentsPreviewChars: 500
 
     # The shared base enables the stable model-facing web_search and web_fetch
     # tools. The Web app disables this host row and composes both tools per agent
-    # preset; products with a stricter network policy override tool-web. Search
-    # defaults to the DeepSeek Search API (deepseek-search-api) and fetch to the
-    # anonymous local fetcher (http). The DeepSeek Search and Fetch APIs
-    # (deepseek-search-api, deepseek-fetch-api) follow the conversation: on the
-    # deepseek-account route they send the account token to that route's
-    # origin, and otherwise the API key of the DeepSeek API-key route to its
-    # origin, so a DEEPSEEK_API_KEY alone serves both without a sign-in.
-    # searchBaseURL / searchApiKeyEnv (fetch* for Fetch) pin one capability to
-    # its own endpoint and key instead.
-    # Legacy Messages search (deepseek-official) is selectable separately and
-    # uses its own endpoint, with the account token or DEEPSEEK_API_KEY.
-    # Anonymous fetch accepts only public
-    # HTTP(S) destinations, resolves and validates every destination, and pins
-    # every actual connection. This composition gives web_search 60s whichever
-    # provider serves it; the provider-neutral tool default remains 30s. The Web
-    # search provider and Web fetch provider
-    # menus on the Web search and fetch settings page select a provider for each
-    # capability in place of these defaults.
+    # preset; products with a stricter network policy override tool-web.
+    # Anonymous fetch accepts only public HTTP(S) destinations, resolves and
+    # validates every destination, and pins every actual connection. This
+    # composition gives web_search 60s whichever provider serves it; the
+    # provider-neutral tool default remains 30s. The Web search provider and Web
+    # fetch provider menus on the Web search and fetch settings page select a
+    # provider for each capability in place of these defaults.
     - id: web
-      name: '@deepseek-ai/dsh-web'
+      name: '@janhq/jan-web'
       config:
-        # tokamak-harness: keyless Exa search; pages are fetched directly over HTTP.
-        searchProvider: exa
-        fetchProvider: http
-
-    - id: web-search-deepseek
-      name: '@deepseek-ai/dsh-web-search-deepseek'
-      disabled: true
-      config:
-        apiKeyEnv: DEEPSEEK_API_KEY
-
-    - id: web-deepseek-api
-      name: '@deepseek-ai/dsh-web-deepseek-api'
-      disabled: true
+        # tokamak-harness: Tokamak search and fetch while the Tokamak account is
+        # signed in; otherwise Exa search, keyless until EXA_API_KEY is set, and
+        # pages fetched directly over HTTP.
+        searchProvider: [tokamak, exa]
+        fetchProvider: [tokamak, http]
 
     - id: web-fetch-http
-      name: '@deepseek-ai/dsh-web-fetch-http'
+      name: '@janhq/jan-web-fetch-http'
 
-    # tokamak-harness: keyless search (and an alternative fetch) through Exa's
-    # hosted MCP endpoint; queries are sent to Exa.
-    - id: web-search-exa
-      name: '@deepseek-ai/dsh-web-search-exa'
+    # tokamak-harness: Tokamak, Exa, Tavily and You.com search and fetch
+    # (`tokamak`, `exa`, `tavily`, `you`). Tokamak uses the signed-in account's key
+    # on the deployment the tokamak-account row names; Exa and You.com are keyless
+    # until EXA_API_KEY or YDC_API_KEY is set, Tavily needs TAVILY_API_KEY. Queries
+    # go to the selected backend.
+    - id: web-search
+      name: '@janhq/jan-web-search'
+      config:
+        tokamak:
+          apiUrl: !!js (process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1').trim().replace(/\/+$/, '').replace(/^(https?:\/\/[^/]+)$/, '$1/v1')
 
     - id: tool-web
-      name: '@deepseek-ai/dsh-tool-web'
+      name: '@janhq/jan-tool-web'
       config:
         fetch: true
         searchTimeoutMs: 60000
 
     - id: mcp-resources
-      name: '@deepseek-ai/dsh-mcp-resources'
+      name: '@janhq/jan-mcp-resources'
 
     # ── rows every mode mounts, whose values each overlay may state ──────────────
 
     # Shared tool definitions and the deployment’s native executor.
     - id: tools
-      name: '@deepseek-ai/dsh-tools'
+      name: '@janhq/jan-tools'
 
     - id: tool-executor-native
-      name: '@deepseek-ai/dsh-tool-executor-native'
+      name: '@janhq/jan-tool-executor-native'
 
     - id: tool-executor-ptc
-      name: '@deepseek-ai/dsh-tool-executor-ptc'
+      name: '@janhq/jan-tool-executor-ptc'
       disabled: true
 
     # The deployment persona is a deployment choice; plan-mode and tool plugins own
     # their own prompt sections.
     - id: system-prompt
-      name: '@deepseek-ai/dsh-system-prompt'
+      name: '@janhq/jan-system-prompt'
       config:
-        # tokamak-harness: Jan replaces the fixed DeepSeek Harness identity sentence.
+        # tokamak-harness: the persona opener replaces the default harness identity sentence.
         includeHarnessIdentity: false
         personaPrefix: You are Jan, an AI agent.
 
     # Agents created at startup. The base stays empty; raw overlays may create
     # agents, while Web creates sessions on client request.
     - id: agent-loop
-      name: '@deepseek-ai/dsh-agent-loop'
+      name: '@janhq/jan-agent-loop'
       config:
         agents: []
 
     # The sandboxed filesystem provider. `cwd` defaults to `process.cwd()`; an
     # overlay can pin another workspace.
     - id: fs-sandbox
-      name: '@deepseek-ai/dsh-fs-sandbox'
-
-    # The native DeepSeek adapter. No key or endpoint is inlined: both resolve per
-    # request from the `llm-deepseek:` settings section over this entry, with the
-    # key coming from the credential store below. Thinking defaults are a deployment
-    # choice.
-    # tokamak-harness: DeepSeek model routes are kept but not mounted.
-    - id: llm-deepseek
-      name: '@deepseek-ai/dsh-llm-deepseek-api-key'
-      disabled: true
-
-    - id: llm-deepseek-account
-      name: '@deepseek-ai/dsh-llm-deepseek-account'
-      disabled: true
+      name: '@janhq/jan-fs-sandbox'

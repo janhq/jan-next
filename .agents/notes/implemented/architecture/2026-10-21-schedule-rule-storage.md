@@ -2,15 +2,13 @@
 
 Status: implemented
 
-English | [中文](2026-10-21-schedule-rule-storage.zh.md)
-
 ## Problem
 
 Host tasks already use the versioned `schedule` domain. A second domain, importer, and placeholder RRULE duplicate timing and storage authority. Cron and RRULE should be supported timing types rather than separate generations of the task API.
 
 ## Decision
 
-Use `schedule` version 2 with `compatibleVersions: [1]`, retaining its backend routing, envelope, and whole-unit layout. Extend the existing accepted-version policy to authoritative JSON and SQLite units; reads leave storage unchanged, and the next write commits the current stamp with its data. Add `rrule` to the six existing record kinds and evaluate every kind normally. Remove the standalone store importer, import marker, placeholder RRULE, and parallel Session-bound management API. Move reusable Cron and RRULE parsing and bounded occurrence arithmetic into `dsh-util-time`; Schedule owns records, targets, delivery admission, history, and errors.
+Use `schedule` version 2 with `compatibleVersions: [1]`, retaining its backend routing, envelope, and whole-unit layout. Extend the existing accepted-version policy to authoritative JSON and SQLite units; reads leave storage unchanged, and the next write commits the current stamp with its data. Add `rrule` to the six existing record kinds and evaluate every kind normally. Remove the standalone store importer, import marker, placeholder RRULE, and parallel Session-bound management API. Move reusable Cron and RRULE parsing and bounded occurrence arithmetic into `jan-util-time`; Schedule owns records, targets, delivery admission, history, and errors.
 
 An explicit target wins. Without one, read an existing `sessionId` as a Session target; otherwise reserve a stable `new_once` target. Optional new metadata receives read defaults without rewriting storage. Every successful edit writes the current row format without `sessionId`. Custom timing accepts either RRULE or a five-field Cron expression with an explicit zone; UI labels name neither syntax. Model guidance continues to teach RRULE.
 

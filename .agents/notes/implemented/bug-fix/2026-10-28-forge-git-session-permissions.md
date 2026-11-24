@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-10-28-forge-git-session-permissions.zh.md)
-
 ## Problem
 
 The [Forge panel](../feature/2026-10-09-forge-panel.md) forces read-only confinement even when a Session grants full access. On hosts without a usable sandbox, its checkout and local changes remain unavailable while the Session's shell works. Background queries also reach repository-configured executable helpers through working-tree comparisons.
@@ -12,7 +10,7 @@ The [Forge panel](../feature/2026-10-09-forge-panel.md) forces read-only confine
 
 Git inspection uses the Session's resolved sandbox mode and subprocess provider. Full access requires no sandbox backend; confined modes retain their enforcement and never retry unconfined. The Session remains the authority for filesystem permissions, including workspace-write access. Query commands do not request repository mutations.
 
-Local patches and statistics apply command-local Git configuration to disable clean/process filters without changing user configuration. Environment entries preserve subsection names containing equals signs. Existing hook, fsmonitor, external-diff, textconv, optional-lock, and lazy-fetch restrictions remain; submodule queries show commit changes without scanning internal dirty files. Configuration read failure stops the comparison; the changes view reports the filter configuration failure separately from oversized diffs and offers a retry. These restrictions follow the informational-diff approach in Codex while retaining DSH's execution-world and cancellation ownership.
+Local patches and statistics apply command-local Git configuration to disable clean/process filters without changing user configuration. Environment entries preserve subsection names containing equals signs. Existing hook, fsmonitor, external-diff, textconv, optional-lock, and lazy-fetch restrictions remain; submodule queries show commit changes without scanning internal dirty files. Configuration read failure stops the comparison; the changes view reports the filter configuration failure separately from oversized diffs and offers a retry. These restrictions follow the informational-diff approach in Codex while retaining Jan's execution-world and cancellation ownership.
 
 ## Alternatives considered
 

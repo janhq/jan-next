@@ -1,23 +1,36 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ComposerAttachment, ComposerAttachmentsProps, ComposerImageAttachment,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+} from '@janhq/jan-client-ui-conversation/client'
 import {
   IconCloseFillRegular, IconRefreshOutlineRegular, IconWarningOutlineRegular, Tooltip,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+} from '@janhq/jan-client-ui-primitives'
 import { AttachmentRail } from '../AttachmentRail.tsx'
 import type { AttachmentRailItem } from '../AttachmentRail.tsx'
 import { DropOverlay } from '../DropOverlay.tsx'
 import { FileCard } from '../FileCard.tsx'
-import { ImageLightbox } from '@deepseek-ai/dsh-client-ui-primitives'
+import { ImageLightbox } from '@janhq/jan-client-ui-primitives'
 import { attachmentRailLabels, dropOverlayLabels, fileCardLabels, lightboxLabels } from './labels.ts'
 import { installDocumentDropEvents } from './drop-events.ts'
-import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import css from './ComposerAttachments.module.css'
 
 /** Rail item retaining its browser-owned attachment for callbacks. */
 interface ComposerRailItem extends AttachmentRailItem {
   attachment: ComposerAttachment
+}
+
+type ThumbnailActionsSlot = PropsRenderSlots<'conversation.input.attachment.actions'>
+
+/** Plugin actions over one thumbnail; they read the image beside them. */
+function ThumbnailActions({ renderSlot }: Pick<ThumbnailActionsSlot, 'renderSlot'>) {
+  const anchor = useRef<HTMLDivElement | null>(null)
+  const getSurface = useCallback(() => anchor.current?.parentElement?.querySelector('img') ?? null, [])
+  return (
+    <div ref={anchor} className={css.imageActions}>
+      {renderSlot('conversation.input.attachment.actions', { getSurface })}
+    </div>
+  )
 }
 
 /** File transfer lookup injected by this attachment implementation. */
@@ -33,7 +46,8 @@ type ComposerAttachmentsInput = Pick<ComposerAttachmentsProps,
 /** Draft image previews, pending-file cards, drop target, and original-image preview. */
 export function ComposerAttachments({
   attachments, canAcceptDrop, onAddFiles, onRemoveAttachment, uploads, onRetryFile, uploadFailureText, dropLimits, t, readFileDrag,
-}: ComposerAttachmentsInput & InjectFace<ComposerAttachmentsInjected>) {
+  renderSlot,
+}: ComposerAttachmentsInput & InjectFace<ComposerAttachmentsInjected> & Pick<ThumbnailActionsSlot, 'renderSlot'>) {
   const [preview, setPreview] = useState<ComposerImageAttachment | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const dragDepth = useRef(0)
@@ -142,6 +156,7 @@ export function ComposerAttachments({
                       />
                     </span>
                   )}
+                  {upload?.status !== 'error' && <ThumbnailActions renderSlot={renderSlot} />}
                   <button
                     type="button"
                     className={css.remove}

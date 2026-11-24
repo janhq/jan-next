@@ -1,7 +1,7 @@
-import { Context } from '@deepseek-ai/cordis'
-import { SessionId, type SessionHeader } from '@deepseek-ai/dsh-session'
-import { SessionFormatUnsupportedError, SessionPersistenceCorruptionError } from '@deepseek-ai/dsh-session-persistence'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import { Context } from '@janhq/cordis'
+import { SessionId, type SessionHeader } from '@janhq/jan-session'
+import { SessionFormatUnsupportedError, SessionPersistenceCorruptionError } from '@janhq/jan-session-persistence'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -21,7 +21,7 @@ afterEach(async () => {
 
 describe.each(['none', 'zstd'] as const)('historical catalog publication (%s)', (compression) => {
   async function fixture() {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-catalog-migration-'))
+    const root = await mkdtemp(join(tmpdir(), 'jan-catalog-migration-'))
     roots.push(root)
     const ctx = new Context()
     contexts.push(ctx)
@@ -47,16 +47,6 @@ describe.each(['none', 'zstd'] as const)('historical catalog publication (%s)', 
     }
     return { root, ctx, parent, header, descriptor, write, read }
   }
-
-  it.each(['read', 'write'] as const)('refuses foreign native V4 delivery through %s access', async (access) => {
-    const f = await fixture()
-    await f.write(f.parent, [
-      { type: 'feedback/record', seq: 0, time: 1, data: {} },
-      { type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 2,
-        data: { sessionId: 'other', sessionFormatVersion: 4, throughSeq: 0 } },
-    ], false, 4)
-    await expect(f.ctx.sessionPersistence.open(f.parent, access)).rejects.toThrow('wrong Session')
-  })
 
   it.each(compression === 'none' ? ['json'] as const : ['json', 'magic', 'checksum', 'lines'] as const)(
     'opens the parent when another Session header has corrupt %s', async (damage) => {
@@ -377,7 +367,7 @@ describe.each(['none', 'zstd'] as const)('historical catalog publication (%s)', 
   })
 
   it('lists historical headers, prepares read-only membership, and publishes an unchanged-prefix successor', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-catalog-migration-'))
+    const root = await mkdtemp(join(tmpdir(), 'jan-catalog-migration-'))
     roots.push(root)
     const parent = SessionId('parent')
     const child = SessionId('child')

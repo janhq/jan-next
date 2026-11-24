@@ -1,4 +1,4 @@
-/** Recorded-session replay through the shipped headless `dsh` profile. */
+/** Recorded-session replay through the shipped headless `jan` profile. */
 
 import { startHttpMcpFixture } from '../../packages/mcp/mcp-client/tests/http-fixture.ts'
 import { chmod, cp, copyFile, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, utimes, writeFile } from 'node:fs/promises'
@@ -9,9 +9,9 @@ import { basename, delimiter, dirname, isAbsolute, join, relative, sep } from 'n
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import ts from 'typescript'
-import { deriveEventMessage, foldSurface, SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
-import { releasedV0SessionFormatCodec } from '@deepseek-ai/dsh-session-format-v0-to-v1'
-import type { SessionFormatEvent, SessionFormatMigrationContext } from '@deepseek-ai/dsh-session-format'
+import { deriveEventMessage, foldSurface, SESSION_FORMAT_VERSION } from '@janhq/jan-session'
+import { releasedV0SessionFormatCodec } from '@janhq/jan-session-format-v0-to-v1'
+import type { SessionFormatEvent, SessionFormatMigrationContext } from '@janhq/jan-session-format'
 import { assertWorkspaceOutsideTemp, outsideTempWorkspaceParent } from '../../scripts/snapshot-workspace-parent.ts'
 import {
   assertPersistedSessionVersion,
@@ -51,14 +51,14 @@ import {
   type NormalizeContext,
   type SnapshotManifest,
   type WorkspaceSnapshotEntry,
-} from '@deepseek-ai/dsh-session-snapshot'
-import { LOADER_SMOKE_TEST_TIMEOUT_MS, resolveExampleMode, runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
-import { resolvePwshPath } from '@deepseek-ai/dsh-pwsh-local'
-import { parseSessionLog, prepareSessionSnapshotFixtureForComparison } from '@deepseek-ai/dsh-llm-replay'
+} from '@janhq/jan-session-snapshot'
+import { LOADER_SMOKE_TEST_TIMEOUT_MS, resolveExampleMode, runLoaderSmoke } from '@janhq/jan-loader-smoke'
+import { resolvePwshPath } from '@janhq/jan-pwsh-local'
+import { parseSessionLog, prepareSessionSnapshotFixtureForComparison } from '@janhq/jan-llm-replay'
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url))
 const snapshotsRoot = fileURLToPath(new URL('./', import.meta.url))
-const dshBin = join(repoRoot, 'apps/cli/src/bin.ts')
+const janBin = join(repoRoot, 'apps/cli/src/bin.ts')
 const tsconfigPath = join(repoRoot, 'tsconfig.json')
 const editingCordisSkill = join(
   repoRoot,
@@ -74,12 +74,12 @@ function snapshotMode(value: string | undefined): SnapshotMode {
     case 'replay': return 'replay'
     case 'record': return 'record'
     case 'refresh': return 'refresh'
-    default: throw new Error(`unknown DSH_SNAPSHOT mode: ${value}`)
+    default: throw new Error(`unknown JAN_SNAPSHOT mode: ${value}`)
   }
 }
 
-const mode = snapshotMode(process.env.DSH_SNAPSHOT)
-const RUNTIME_WORKSPACE_ENTRIES = ['.agents', '.dsh', '.snapshot-patches'] as const
+const mode = snapshotMode(process.env.JAN_SNAPSHOT)
+const RUNTIME_WORKSPACE_ENTRIES = ['.agents', '.jan', '.snapshot-patches'] as const
 
 interface JsonObject {
   [key: string]: unknown
@@ -103,7 +103,7 @@ interface SessionLog {
 /** Keep the cwd text priced by compaction independent of the platform's temporary-root length. */
 async function compactionWorkspaceOptions(): Promise<{ tempDirParent: string; tempDirPrefix: string }> {
   const tempDirParent = await realpath(tmpdir())
-  const prefix = 'dsh-log-snap-'
+  const prefix = 'jan-log-snap-'
   // mkdtemp appends six characters; JSON quoting is part of the runtime-context text.
   const unpaddedLength = JSON.stringify(join(tempDirParent, `${prefix}XXXXXX`)).length
   const paddingLength = 192 - unpaddedLength
@@ -201,7 +201,7 @@ function contextOf(logs: readonly string[]): NormalizeContext {
 }
 
 async function persistedSessions(cwd: string): Promise<SessionLog[]> {
-  const root = join(cwd, '.dsh', 'sessions')
+  const root = join(cwd, '.jan', 'sessions')
   const files = latestPersistedSessionPaths(await readdir(root, { recursive: true }))
   const logs = await Promise.all(files.map(async (file): Promise<SessionLog> => {
     const content = await readFile(join(root, file), 'utf8')
@@ -393,7 +393,7 @@ function stderrFromSession(log: string): string {
   const appendReasoning = (text: string): void => {
     if (text === '') return
     if (!open) {
-      output += 'dsh: reasoning:\n'
+      output += 'jan: reasoning:\n'
       open = true
     }
     output += text
@@ -470,7 +470,7 @@ function stderrFromSession(log: string): string {
   if (typeof error?.code !== 'string' || typeof error.message !== 'string') {
     throw new Error('headless snapshot error reason has no code and message')
   }
-  return `${output}dsh: ${error.code}: ${error.message}\n`
+  return `${output}jan: ${error.code}: ${error.message}\n`
 }
 
 function modelFromSession(log: string): { provider: string; model: string } {
@@ -501,7 +501,7 @@ async function seedWorkspace(scenario: HeadlessScenario, cwd: string): Promise<v
 }
 
 const WORKTREE_CHECKOUT_FILTER = "printf 'FILTERED CHECKOUT CONTENT\\n'"
-const WORKTREE_CHECKOUT_ATTRIBUTES = 'tracked.txt filter=dsh-snapshot-checkout\n'
+const WORKTREE_CHECKOUT_ATTRIBUTES = 'tracked.txt filter=jan-snapshot-checkout\n'
 
 const workspaceSetups: Record<string, (cwd: string) => Promise<void>> = {
   async 'readonly-patch-directory'(cwd) {
@@ -522,7 +522,7 @@ const workspaceSetups: Record<string, (cwd: string) => Promise<void>> = {
     await copyFile(join(repoRoot, `packages/experimental/cua-macos/${guidanceDirectory}/guidance.${extension}`), join(target, `guidance.${extension}`))
   },
   async 'windows-acl-skill'(cwd) {
-    const target = join(cwd, '.dsh', 'skills', 'diagnose-windows-sandbox-acl', 'SKILL.md')
+    const target = join(cwd, '.jan', 'skills', 'diagnose-windows-sandbox-acl', 'SKILL.md')
     await mkdir(dirname(target), { recursive: true })
     await copyFile(join(repoRoot, 'packages/sandbox/sandbox-windows-acl/assets/diagnose-windows-sandbox-acl/SKILL.md'), target)
   },
@@ -544,14 +544,14 @@ const workspaceSetups: Record<string, (cwd: string) => Promise<void>> = {
     snapshotGit(cwd, ['add', 'tracked.txt'])
     snapshotGit(cwd, ['commit', '-m', 'Snapshot seed'])
     await writeFile(join(cwd, '.git', 'info', 'attributes'), WORKTREE_CHECKOUT_ATTRIBUTES)
-    snapshotGit(cwd, ['config', 'filter.dsh-snapshot-checkout.smudge', WORKTREE_CHECKOUT_FILTER])
+    snapshotGit(cwd, ['config', 'filter.jan-snapshot-checkout.smudge', WORKTREE_CHECKOUT_FILTER])
     await copyFile(join(cwd, '.git', 'config'), join(cwd, '.git', 'config.before-worktree'))
-    await writeFile(join(cwd, '.git', 'info', 'exclude'), '/.dsh/\n/.snapshot-patches/\n')
+    await writeFile(join(cwd, '.git', 'info', 'exclude'), '/.jan/\n/.snapshot-patches/\n')
     await writeFile(join(cwd, 'tracked.txt'), 'DIRTY SOURCE\n')
     await writeFile(join(cwd, 'local.txt'), 'UNTRACKED SOURCE\n')
   },
   async 'editing-cordis-skill'(cwd) {
-    const target = join(cwd, '.dsh', 'skills', 'editing-cordis-compositions', 'SKILL.md')
+    const target = join(cwd, '.jan', 'skills', 'editing-cordis-compositions', 'SKILL.md')
     await mkdir(dirname(target), { recursive: true })
     await copyFile(editingCordisSkill, target)
   },
@@ -644,31 +644,6 @@ function pinOf(scenario: HeadlessScenario): HeadlessScenario {
   const pin = headerPins.get(`${composition}/${header.class}`)
   if (pin === undefined) throw new Error(`${scenario.name}: composition/header class has no pin`)
   return pin
-}
-
-function spillReferenceSource(events: readonly JsonObject[], label: string): JsonObject {
-  const messages = events.filter((event) => {
-    const source = (event.data as JsonObject | undefined)?.source as JsonObject | undefined
-    return event.type === 'user/message' && source?.kind === 'session-reference'
-  })
-  expect(messages, `${label}: reference message count`).toHaveLength(1)
-  const source = (messages[0]!.data as JsonObject).source as JsonObject
-  expect(source).toMatchObject({ kind: 'session-reference', form: 'recall', version: 1 })
-  const references = source.references as JsonObject[]
-  expect(references, `${label}: referenced Session count`).toHaveLength(1)
-  expect(references[0]?.sessionId, `${label}: referenced Session id`).toBe('reference-source')
-  return references[0]!
-}
-
-function sessionReferenceSpillExpected(actual: readonly JsonObject[], expectedLog: string, recordedVersion: number): JsonObject[] {
-  const expected = records(expectedLog)
-  const actualReference = spillReferenceSource(actual, 'actual session-reference-spill')
-  const expectedReference = spillReferenceSource(expected, 'expected session-reference-spill')
-  // source-session.ts creates reference-source anew with Session.create() for each run.
-  expect(actualReference.capturedFormatVersion, 'fresh reference-source generation').toBe(SESSION_FORMAT_VERSION)
-  expect(expectedReference.capturedFormatVersion, 'recorded reference-source generation').toBe(recordedVersion)
-  expectedReference.capturedFormatVersion = SESSION_FORMAT_VERSION
-  return expected
 }
 
 /** Require successful verification and the complete canonical event before refresh can write a fixture. */
@@ -915,7 +890,7 @@ function snapshotGit(cwd: string, args: string[]): string {
     env: {
       ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))),
       GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null',
-      GIT_AUTHOR_NAME: 'DSH Snapshot', GIT_COMMITTER_NAME: 'DSH Snapshot',
+      GIT_AUTHOR_NAME: 'Jan Snapshot', GIT_COMMITTER_NAME: 'Jan Snapshot',
       GIT_AUTHOR_EMAIL: 'snapshot@example.invalid', GIT_COMMITTER_EMAIL: 'snapshot@example.invalid',
       GIT_AUTHOR_DATE: '2000-01-01T00:00:00Z', GIT_COMMITTER_DATE: '2000-01-01T00:00:00Z',
     },
@@ -929,7 +904,7 @@ async function verifyWorktree(log: string, cwd: string): Promise<void> {
   const checkout = join(cwd, '.agents', 'worktrees', 'isolated')
   expect(await readFile(join(cwd, '.git', 'config'))).toEqual(await readFile(join(cwd, '.git', 'config.before-worktree')))
   expect(await readFile(join(cwd, '.git', 'info', 'attributes'), 'utf8')).toBe(WORKTREE_CHECKOUT_ATTRIBUTES)
-  expect(snapshotGit(cwd, ['config', 'filter.dsh-snapshot-checkout.smudge'])).toBe(WORKTREE_CHECKOUT_FILTER)
+  expect(snapshotGit(cwd, ['config', 'filter.jan-snapshot-checkout.smudge'])).toBe(WORKTREE_CHECKOUT_FILTER)
   expect(await readFile(join(checkout, 'tracked.txt'), 'utf8')).toBe('COMMITTED CONTENT\n')
   expect(await readFile(join(checkout, 'result.txt'), 'utf8')).toBe('WORKTREE RESULT\n')
   expect(existsSync(join(checkout, 'local.txt'))).toBe(false)
@@ -955,26 +930,26 @@ async function verifyProviderCwdResume(
   fixture: string,
   task: string,
 ): Promise<void> {
-  const providerCwd = scenario.manifest.environment?.DSH_SNAPSHOT_PROVIDER_CWD
+  const providerCwd = scenario.manifest.environment?.JAN_SNAPSHOT_PROVIDER_CWD
   const primary = initial[0]
   expect(providerCwd).toBeDefined()
   expect(primary?.header.cwd).toBe(providerCwd)
   expect(primary?.header.cwd).not.toBe(cwd)
-  const otherHostCwd = await mkdtemp(join(tmpdir(), 'dsh-provider-resume-'))
+  const otherHostCwd = await mkdtemp(join(tmpdir(), 'jan-provider-resume-'))
   const env = {
     ...REPLAY_CREDENTIAL_ENV,
-    DSH_HOME: join(cwd, '.dsh'),
-    DSH_SNAPSHOT: 'replay',
-    DSH_SNAPSHOT_FILE: fixture,
-    DSH_SNAPSHOT_PROVIDER: model.provider,
-    DSH_SNAPSHOT_MODEL: model.model,
-    DSH_PERMISSION_MODE: 'read-only',
-    DSH_TELEMETRY_DISABLED: '1',
+    JAN_HOME: join(cwd, '.jan'),
+    JAN_SNAPSHOT: 'replay',
+    JAN_SNAPSHOT_FILE: fixture,
+    JAN_SNAPSHOT_PROVIDER: model.provider,
+    JAN_SNAPSHOT_MODEL: model.model,
+    JAN_PERMISSION_MODE: 'read-only',
+    JAN_TELEMETRY_DISABLED: '1',
     NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
   }
   const launch = {
     cwd: otherHostCwd,
-    binScript: dshBin,
+    binScript: janBin,
     configPath: patches[0] as string,
     tsconfigPath,
     binArgs: [
@@ -986,7 +961,7 @@ async function verifyProviderCwdResume(
   try {
     const refused = await runLoaderSmoke({
       ...launch, label: 'provider-cwd mismatched resume', expectedExitCode: 1,
-      env: { ...env, DSH_SNAPSHOT_PROVIDER_CWD: `${providerCwd}/other` },
+      env: { ...env, JAN_SNAPSHOT_PROVIDER_CWD: `${providerCwd}/other` },
     })
     expect(refused.stdout).toBe('')
     expect(refused.stderr).toContain(`was recorded in "${providerCwd}", not "${providerCwd}/other"`)
@@ -994,7 +969,7 @@ async function verifyProviderCwdResume(
     const resumed = await runLoaderSmoke({
       ...launch, label: 'provider-cwd matching resume',
       binArgs: [...launch.binArgs.slice(0, -1), '--json', task],
-      env: { ...env, DSH_SNAPSHOT_PROVIDER_CWD: providerCwd },
+      env: { ...env, JAN_SNAPSHOT_PROVIDER_CWD: providerCwd },
     })
     const output = records(resumed.stdout)
     expect(output[0]).toEqual({ type: 'session', sessionId: primary?.header.id, cwd: providerCwd })
@@ -1157,7 +1132,7 @@ describe('headless recorded-session snapshots', () => {
 
   it('replays original inbox mentions before normalized user messages', () => {
     const message = (text: string) => ({ source: { kind: 'user' }, content: [{ type: 'text', text }] })
-    const original = 'Use @[Research](dsh-session:InJlZmVyZW5jZS1zb3VyY2Ui)'
+    const original = 'Use @[Research](jan-session:InJlZmVyZW5jZS1zb3VyY2Ui)'
     const log = [
       { type: 'agent/inbox/spliced', data: { inserted: [message(original)] } },
       { type: 'user/message', data: message('Use @Research') },
@@ -1178,11 +1153,11 @@ describe('headless recorded-session snapshots', () => {
     ].map(record => JSON.stringify(record)).join('\n')
 
     expect(stderrFromSession(log)).toBe([
-      'dsh: reasoning:',
+      'jan: reasoning:',
       'first',
-      'dsh: reasoning:',
+      'jan: reasoning:',
       'second',
-      'dsh: reasoning:',
+      'jan: reasoning:',
       'third',
       '',
     ].join('\n'))
@@ -1206,7 +1181,7 @@ describe('headless recorded-session snapshots', () => {
         { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } },
       ].map(record => JSON.stringify(record)).join('\n')
 
-      expect(stderrFromSession(log)).toBe('dsh: reasoning:\nfirst thought\n')
+      expect(stderrFromSession(log)).toBe('jan: reasoning:\nfirst thought\n')
     },
   )
 
@@ -1229,11 +1204,11 @@ describe('headless recorded-session snapshots', () => {
       { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } },
     ].map(record => JSON.stringify(record)).join('\n')
 
-    expect(stderrFromSession(log)).toBe('dsh: reasoning:\nfirst thought\ndsh: reasoning:\nsecond\n')
+    expect(stderrFromSession(log)).toBe('jan: reasoning:\nfirst thought\njan: reasoning:\nsecond\n')
   })
 
   it.each([10, 20])('assigns sibling roles by catalog order when the first child timestamp is %i', async (firstCreatedAt) => {
-    const cwd = await mkdtemp(join(tmpdir(), 'dsh-headless-catalog-order-'))
+    const cwd = await mkdtemp(join(tmpdir(), 'jan-headless-catalog-order-'))
     try {
       const logs = [
         [
@@ -1245,7 +1220,7 @@ describe('headless recorded-session snapshots', () => {
         [{ type: 'session', version: SESSION_FORMAT_VERSION, id: 'child-a', createdAt: 10, parentSession: 'parent' }],
       ].map(rows => rows.map(row => JSON.stringify(row)).join('\n') + '\n')
       for (const content of logs) {
-        const directory = join(cwd, '.dsh', 'sessions', String(headerOf(content).id))
+        const directory = join(cwd, '.jan', 'sessions', String(headerOf(content).id))
         await mkdir(directory, { recursive: true })
         await writeFile(join(directory, `session.v${SESSION_FORMAT_VERSION}.jsonl`), content)
       }
@@ -1258,7 +1233,7 @@ describe('headless recorded-session snapshots', () => {
   })
 
   it('writes header sidecars without replacing a retained Session generation', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'dsh-headless-sidecars-'))
+    const directory = await mkdtemp(join(tmpdir(), 'jan-headless-sidecars-'))
     try {
       const scenario: HeadlessScenario = {
         name: 'retained-pin',
@@ -1284,7 +1259,7 @@ describe('headless recorded-session snapshots', () => {
         { type: 'system/message', seq: 2, time: 3, data: {
           turn: 1, step: 1,
           message: { role: 'system', content: [{ type: 'text', text: 'fresh system prompt' }],
-            source: { kind: 'plugin', plugin: '@deepseek-ai/dsh-system-prompt' }, id: 'fresh-msg' },
+            source: { kind: 'plugin', plugin: '@janhq/jan-system-prompt' }, id: 'fresh-msg' },
         }, surfaceOp: 'append' },
         {
           type: 'request/header',
@@ -1319,23 +1294,6 @@ describe('headless recorded-session snapshots', () => {
     }
   })
 
-  it('session-reference-spill validates captured generations before adapting its fresh source expectation', async () => {
-    const fixture = await readFile(join(snapshotsRoot, 'session-reference-spill/session.v3.jsonl'), 'utf8')
-    const recordedVersion = sessionHeaderVersion(fixture, 'session-reference-spill fixture')
-    expect(recordedVersion).toBe(3)
-    const normalized = normalizeSessionSnapshots([fixture], contextOf([fixture]))[0]!
-    const actual = records(normalized)
-    spillReferenceSource(actual, 'fresh source').capturedFormatVersion = SESSION_FORMAT_VERSION
-
-    expect(sessionReferenceSpillExpected(actual, normalized, recordedVersion)).toEqual(actual)
-    expect(() => sessionReferenceSpillExpected(records(normalized), normalized, recordedVersion))
-      .toThrow('fresh reference-source generation')
-    expect(() => sessionReferenceSpillExpected(actual, normalized, SESSION_FORMAT_VERSION))
-      .toThrow('recorded reference-source generation')
-    expect(spillReferenceSource(records(normalized), 'unchanged fixture').capturedFormatVersion).toBe(3)
-    expect(await readFile(join(snapshotsRoot, 'session-reference-spill/session.v3.jsonl'), 'utf8')).toBe(fixture)
-  })
-
   it('rejects a native writer that still emits the recorded tool-result wrapper', async () => {
     const fixture = await readFile(join(snapshotsRoot, 'tool-call-turn/session.v3.jsonl'), 'utf8')
     const unconverted = records(fixture)
@@ -1363,7 +1321,7 @@ describe('headless recorded-session snapshots', () => {
       || mode === 'record' && scenario.manifest.sessionFormat !== undefined
     const scenarioTest = skipped ? it.skip : mode === 'replay' ? it.concurrent : it
     const inputLabel = retainedToolInput === undefined ? '' : ' from retained V3 input'
-    scenarioTest(`${mode}s ${scenario.name}${inputLabel} through dsh --profile headless`, async () => {
+    scenarioTest(`${mode}s ${scenario.name}${inputLabel} through jan --profile headless`, async () => {
       let fixtureFiles = retainedToolInput === undefined
         ? recordingFixtureNames(await readdir(scenario.dir), mode) : [retainedToolInput]
       let fixtures = await fixtureSessions(scenario, fixtureFiles)
@@ -1408,10 +1366,10 @@ describe('headless recorded-session snapshots', () => {
       try {
         result = await runLoaderSmoke({
           label: `${scenario.name} headless snapshot`,
-          tempDirPrefix: 'dsh-log-snap-',
+          tempDirPrefix: 'jan-log-snap-',
           ...(scenario.name === 'compaction-recovery' ? await compactionWorkspaceOptions() : {}),
           ...(scenario.manifest.workspace?.parent === 'outside-temp' ? { tempDirParent: outsideTempWorkspaceParent() } : {}),
-          binScript: dshBin,
+          binScript: janBin,
           sourceImport: 'tsx/esm',
           configPath: join(baseComposition.dir, 'cordis.yml'),
           binArgs: [
@@ -1427,30 +1385,30 @@ describe('headless recorded-session snapshots', () => {
             : 1,
           env: {
             ...(replaying ? REPLAY_CREDENTIAL_ENV : {}),
-            DSH_SNAPSHOT: replaying ? 'replay' : 'record',
+            JAN_SNAPSHOT: replaying ? 'replay' : 'record',
             ...(model === undefined ? {} : {
-              DSH_SNAPSHOT_PROVIDER: model.provider,
-              DSH_SNAPSHOT_MODEL: model.model,
+              JAN_SNAPSHOT_PROVIDER: model.provider,
+              JAN_SNAPSHOT_MODEL: model.model,
             }),
-            DSH_SNAPSHOT_SPILL_ROOT: spillRoot,
-            DSH_SNAPSHOT_SPILL_LOCATOR_ROOT: locatorRoot,
-            DSH_SNAPSHOT_FILE: fixturePath,
+            JAN_SNAPSHOT_SPILL_ROOT: spillRoot,
+            JAN_SNAPSHOT_SPILL_LOCATOR_ROOT: locatorRoot,
+            JAN_SNAPSHOT_FILE: fixturePath,
             ...(replaying && fixtureFiles.length > 1
-              ? { DSH_SNAPSHOT_CHILD_FILES: fixtureFiles.slice(1).map(file => join(scenario.dir, file)).join(delimiter) }
+              ? { JAN_SNAPSHOT_CHILD_FILES: fixtureFiles.slice(1).map(file => join(scenario.dir, file)).join(delimiter) }
               : {}),
             ...(replaying && scenario.manifest.replay?.override === true
-              ? { DSH_SNAPSHOT_OVERRIDE: join(scenario.dir, 'replay.override.json') }
+              ? { JAN_SNAPSHOT_OVERRIDE: join(scenario.dir, 'replay.override.json') }
               : {}),
             ...(scenario.manifest.permission === undefined
               ? {}
-              : { DSH_PERMISSION_MODE: scenario.manifest.permission }),
+              : { JAN_PERMISSION_MODE: scenario.manifest.permission }),
             ...scenario.manifest.environment,
             ...(scenario.name === 'mcp-resources' || scenario.name === 'mcp-resources-ptc' ? {
-              DSH_MCP_RESOURCES_FIXTURE: join(repoRoot, 'packages/mcp/mcp-client/tests/fixtures/resources-server.ts'),
+              JAN_MCP_RESOURCES_FIXTURE: join(repoRoot, 'packages/mcp/mcp-client/tests/fixtures/resources-server.ts'),
             } : {}),
             NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
-            DSH_TELEMETRY_DISABLED: '1',
-            ...(mcpDemo === undefined ? {} : { DSH_MCP_DEMO_URL: mcpDemo.url }),
+            JAN_TELEMETRY_DISABLED: '1',
+            ...(mcpDemo === undefined ? {} : { JAN_MCP_DEMO_URL: mcpDemo.url }),
           },
           prepare: async (cwd) => {
             if (scenario.manifest.workspace?.parent === 'outside-temp') assertWorkspaceOutsideTemp(cwd)
@@ -1459,7 +1417,7 @@ describe('headless recorded-session snapshots', () => {
               materializeProfilePatch(source, cwd, 'headless', join(cwd, patchRoot), index)
             })
             if (scenario.name === 'plugin-manager-mcp') {
-              const profileDir = join(cwd, '.dsh/profiles/headless')
+              const profileDir = join(cwd, '.jan/profiles/headless')
               await mkdir(profileDir, { recursive: true })
               await copyFile(join(scenario.dir, 'profile.patch.yml'), join(profileDir, 'cordis.patch.yml'))
             }
@@ -1486,12 +1444,12 @@ describe('headless recorded-session snapshots', () => {
               expect(log).toContain('mcp__demo__ping')
               expect(log).toContain('pong')
               expect(mcpDemo.calls).toEqual(['ping'])
-              const saved = await readFile(join(cwd, '.dsh/profiles/headless/cordis.patch.yml'), 'utf8')
+              const saved = await readFile(join(cwd, '.jan/profiles/headless/cordis.patch.yml'), 'utf8')
               expect(saved).toContain('id: demo')
               expect(saved).toContain('disabled: false')
             }
             if (scenario.name === 'mcp-template-error' && mcpDemo !== undefined) {
-              const secret = scenario.manifest.environment?.DSH_MCP_TEMPLATE_TOKEN
+              const secret = scenario.manifest.environment?.JAN_MCP_TEMPLATE_TOKEN
               expect(secret).toBeDefined()
               verifyMcpTemplateError(actualLogs[0]!.content, secret!)
               expect(mcpDemo.calls).toEqual(['ping'])
@@ -1614,17 +1572,11 @@ describe('headless recorded-session snapshots', () => {
         }
         expect(await fixtureSessions(scenario), 'historical replay input remains unchanged').toEqual(fixtures)
       }
-      const actualSnapshots = normalizeSessionSnapshots(actualLogs.map(log => log.content), actualContext, { nativeWriterOutput: true })
-      const expectedSnapshots = normalizeSessionSnapshots(expected, contextOf(expected), { nativeWriterOutput: true })
+      const actualSnapshots = normalizeSessionSnapshots(actualLogs.map(log => log.content), actualContext)
+      const expectedSnapshots = normalizeSessionSnapshots(expected, contextOf(expected))
       for (const [index, actual] of actualSnapshots.entries()) {
         const actualRecords = records(actual)
-        const expectedRecords = scenario.name === 'session-reference-spill' && index === 0
-          ? sessionReferenceSpillExpected(
-            actualRecords,
-            expectedSnapshots[index] as string,
-            sessionHeaderVersion(expected[index] as string, 'session-reference-spill fixture'),
-          )
-          : records(expectedSnapshots[index] as string)
+        const expectedRecords = records(expectedSnapshots[index] as string)
         expect(actualRecords, `${scenario.name}: session ${index}`).toEqual(expectedRecords)
       }
       await verifyHeaders(scenario, actualLogs, actualContext)

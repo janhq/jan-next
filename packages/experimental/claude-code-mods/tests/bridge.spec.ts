@@ -1,4 +1,4 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -6,26 +6,26 @@ import { tmpdir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { Context, type Fiber } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import CommandRuntime from '@deepseek-ai/dsh-commands'
-import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
-import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
-import { createAssistantMessage, createUserMessage, ToolCallId as ToolCallIdOf } from '@deepseek-ai/dsh-llm'
-import type { LlmResolvedModelInfo } from '@deepseek-ai/dsh-llm'
-import TokenMeter from '@deepseek-ai/dsh-token-meter'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment/types'
-import { scopeOf } from '@deepseek-ai/dsh-scope'
-import { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
-import Storage from '@deepseek-ai/dsh-storage'
-import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
-import * as StorageJson from '@deepseek-ai/dsh-storage-json'
-import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
-import { defineContentToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import UserQuestionService from '@deepseek-ai/dsh-user-questions'
+import { Context, type Fiber } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import type { Agent } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import CommandRuntime from '@janhq/jan-commands'
+import LocalFileSystem from '@janhq/jan-fs-local'
+import WorkingDirectory from '@janhq/jan-working-directory'
+import { createAssistantMessage, createUserMessage, ToolCallId as ToolCallIdOf } from '@janhq/jan-llm'
+import type { LlmResolvedModelInfo } from '@janhq/jan-llm'
+import TokenMeter from '@janhq/jan-token-meter'
+import type { ImageAttachmentRef } from '@janhq/jan-attachment/types'
+import { scopeOf } from '@janhq/jan-scope'
+import { SessionId, type SessionEvent } from '@janhq/jan-session'
+import Storage from '@janhq/jan-storage'
+import * as StorageDomain from '@janhq/jan-storage-domain'
+import * as StorageJson from '@janhq/jan-storage-json'
+import LocalSubprocessRuntime from '@janhq/jan-subprocess-local'
+import { defineContentToolFixture } from '@janhq/jan-tool-testkit'
+import UserQuestionService from '@janhq/jan-user-questions'
 import ClaudeCodeMods, { defineMod, MODS_API_VERSION, type Config, type ModPlugin, type ModRegister } from '../src/index.ts'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 
@@ -45,7 +45,7 @@ afterEach(async () => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
-function scratch(prefix = 'dsh-cc-mods-'): string {
+function scratch(prefix = 'jan-cc-mods-'): string {
   const dir = mkdtempSync(join(tmpdir(), prefix))
   dirs.push(dir)
   return dir
@@ -108,7 +108,7 @@ async function harness(
   await mountAgentLoopTestDependencies(ctx, { tools: options.tools ?? {} })
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(CommandRuntime)
-  const workspace = scratch('dsh-cc-mods-ws-')
+  const workspace = scratch('jan-cc-mods-ws-')
   await options.services?.(ctx, workspace)
   if (ctx.get('fs') === undefined) await ctx.plugin(LocalFileSystem, { cwd: workspace })
   await ctx.plugin(WorkingDirectory, { defaultDirectory: workspace })
@@ -538,8 +538,9 @@ describe('the mods API over harness services', () => {
         version: MODS_API_VERSION,
         usage: { startedAt: agent.session.header.createdAt, context: { window: 0 }, rateLimits: [] },
         messages: [
-          { role: 'user', text: 'hello', toolUses: [] },
+          // The runtime-context snapshot is written before the person's message it accompanies.
           { role: 'user', text: `Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: ${JSON.stringify(h.workspace)}.`, toolUses: [] },
+          { role: 'user', text: 'hello', toolUses: [] },
           { role: 'assistant', text: 'ok', toolUses: [] },
         ],
       })
@@ -664,7 +665,8 @@ describe('commands and prompts raised by a mod', () => {
     await agent.whenIdle()
     expect(JSON.stringify(adapter.requests[0]?.messages)).toContain('Message from the \\"driver-mod\\" mod:\\nfrom the mod')
     // Claude Code submits a mod's prompt as the user's own; the framing in the text names the mod.
-    const submitted = events(agent).find(e => e.type === 'user/message')
+    // The runtime-context snapshot is its own user/message ahead of the prompt; skip it.
+    const submitted = events(agent).find(e => e.type === 'user/message' && e.data.source?.kind !== 'runtime-context')
     expect(submitted?.type === 'user/message' && submitted.data.source).toEqual({ kind: 'user' })
 
     const relayed = await h.ctx.commands.execute(agent, '/relay', [], signal)

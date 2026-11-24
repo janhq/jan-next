@@ -1,13 +1,13 @@
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'agent-message': { readonly kind: 'agent-message' }
   }
 }
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { SessionEventLike } from '@deepseek-ai/dsh-api-session-controller/client'
-import { TeamId, TeamMessageId } from '@deepseek-ai/dsh-agent-team/types'
-import { AttachmentId } from '@deepseek-ai/dsh-attachment'
+import type { SessionEventLike } from '@janhq/jan-api-session-controller/client'
+import { TeamId, TeamMessageId } from '@janhq/jan-agent-team/types'
+import { AttachmentId } from '@janhq/jan-attachment'
 import {
   LlmAttemptId,
   MessageId,
@@ -20,11 +20,11 @@ import {
   type TokenUsage,
   type ToolResultMessage,
   type UserMessage,
-} from '@deepseek-ai/dsh-llm'
-import { RetryId } from '@deepseek-ai/dsh-llm-retry'
-import type {} from '@deepseek-ai/dsh-llm-retry/types'
-import { SessionId, SessionSeq, type SessionEventMap, type SessionEventType } from '@deepseek-ai/dsh-session/types'
-import type {} from '@deepseek-ai/dsh-tool-executor-ptc/types'
+} from '@janhq/jan-llm'
+import { RetryId } from '@janhq/jan-llm-retry'
+import type {} from '@janhq/jan-llm-retry/types'
+import { SessionId, SessionSeq, type SessionEventMap, type SessionEventType } from '@janhq/jan-session/types'
+import type {} from '@janhq/jan-tool-executor-ptc/types'
 import {
   CALL_LIMIT, fallbackState, foldEvent, isCodeMode, newState, promptOf, stepMetrics, toolSpanUnion, triggerSenderOf,
 } from '../src/client/stats-fold.ts'
@@ -104,7 +104,7 @@ function assistantMessage(content: readonly ContentBlock[] = []): AssistantMessa
     role: 'assistant',
     id: MessageId('assistant-1'),
     content,
-    source: { kind: 'model', provider: 'deepseek', model: 'deepseek-chat' },
+    source: { kind: 'model', provider: 'tokamak', model: 'tokamak-chat' },
   }
 }
 
@@ -162,7 +162,7 @@ function retry(turn: number, step: number, time: number): SessionEventLike {
     turn,
     step,
     retryId: RetryId('retry-1'),
-    provider: 'deepseek',
+    provider: 'tokamak',
     mode: 'normal',
     policyKey: 'default',
     retry: 1,
@@ -1198,8 +1198,9 @@ describe('step metric derivation', () => {
     const metrics = stepMetrics(stateOf({
       startTime: 1_000,
       firstTokenTime: 1_100,
-      messageTime: 1_500,
-      endTime: 2_000,
+      messageTime: 2_100,
+      streamedChars: 160,
+      endTime: 2_600,
       usage,
       toolPairs: 1,
       toolMs: 250,
@@ -1214,16 +1215,16 @@ describe('step metric derivation', () => {
       closeKind: 'interrupted',
     }))
     expect(metrics.ttft).toBe(100)
-    expect(metrics.model).toBe(500)
-    expect(metrics.decode).toBe(400)
-    expect(metrics.tps).toBeCloseTo(40 / 0.4)
+    expect(metrics.model).toBe(1_100)
+    expect(metrics.decode).toBe(1_000)
+    expect(metrics.tps).toBeCloseTo(40)
     expect(metrics.context).toBe(600)
     expect(metrics.output).toBe(40)
     expect(metrics.cacheRead).toBe(400)
     expect(metrics.cacheWrite).toBe(100)
     expect(metrics.cacheHit).toBeCloseTo(400 / 600)
     expect(metrics.tool).toBe(250)
-    expect(metrics.wall).toBe(1_000)
+    expect(metrics.wall).toBe(1_600)
     expect(metrics.aborted).toBe(false)
     expect(metrics.running).toBe(false)
     expect(metrics.interrupted).toBe(true)
@@ -1233,6 +1234,12 @@ describe('step metric derivation', () => {
     expect(metrics.images).toHaveLength(3)
     expect(metrics.closed).toBe(true)
     expect(metrics.closeKind).toBe('interrupted')
+  })
+
+  it('reports no throughput for a step whose tokens arrived in one burst', () => {
+    const metrics = stepMetrics(stateOf({ startTime: 1_000, firstTokenTime: 38_800, messageTime: 38_827, usage }))
+    expect(metrics.decode).toBe(27)
+    expect(metrics.tps).toBeNull()
   })
 
   it('reports a prompt marker through the same metric row', () => {

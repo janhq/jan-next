@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import LlmRuntime, { createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import type { StreamChunk } from '@deepseek-ai/dsh-llm'
+import { Context } from '@janhq/cordis'
+import LlmRuntime, { createUserMessage, ReasoningEffortId } from '@janhq/jan-llm'
+import type { StreamChunk } from '@janhq/jan-llm'
 import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 const configurations = new WeakMap<Context, Awaited<ReturnType<typeof liveConfig>>>()
-import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
-import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
-import type { ContextFormed } from '@deepseek-ai/dsh-llm'
+import * as LlmPiAi from '@janhq/jan-llm-pi-ai'
+import { PiAiAdapter } from '@janhq/jan-llm-pi-ai'
+import type { ContextFormed } from '@janhq/jan-llm'
 import { getAllBuiltinModels, getBuiltinModels, getBuiltinProviders } from '@earendil-works/pi-ai/providers/all'
 import { AssistantMessageEventStream } from '@earendil-works/pi-ai/utils/event-stream'
 import { normalizeContext } from '@earendil-works/pi-ai/utils/transcript'
@@ -19,7 +19,7 @@ import { assemble } from './assemble.ts'
 import { memoryAuth } from './auth-double.ts'
 import { closeMockServers, mockServer, textEvents } from './mock-server.ts'
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'test': { kind: 'test' } & ContextFormed
   }
@@ -250,6 +250,26 @@ describe('hand-declared providers', () => {
     const vision = getBuiltinModels('anthropic').find(model => model.input.includes('image'))
     if (vision === undefined) throw new Error('the installed catalog ships no anthropic vision model')
     expect((await ctx.llm.resolveModelInfo('anthropic', vision.id)).inputModalities).toEqual(vision.input)
+  })
+
+  it('carries a written tool-use answer to the seam, and leaves an unanswered model unknown', async () => {
+    // A selector warns only on a declared `false`; a model the settings say
+    // nothing about must stay unknown rather than materialize as either answer.
+    const ctx = await bootWithSettings({})
+    await configurations.get(ctx)!.update({
+      providers: {
+        'local-gateway': {
+          api: 'openai-completions',
+          baseURL: 'https://local.test/v1',
+          models: [{ id: 'plain' }, { id: 'agentic', toolUse: true }, { id: 'chatty', toolUse: false }],
+        },
+      },
+    })
+
+    const listed = Object.fromEntries((await ctx.llm.listModels('local-gateway')).map(model => [model.id, model.toolUse]))
+    expect(listed).toEqual({ plain: undefined, agentic: true, chatty: false })
+    expect((await ctx.llm.resolveModelInfo('local-gateway', 'chatty')).toolUse).toBe(false)
+    expect('toolUse' in await ctx.llm.resolveModelInfo('local-gateway', 'plain')).toBe(false)
   })
 
   it('reads an entry’s empty modality list as no answer, and the route’s as unserviceable', () => {
@@ -1226,14 +1246,14 @@ describe('configurable-provider directory', () => {
   it('keeps the previous directory when a route collides with another adapter family', async () => {
     const ctx = await bootWithSettings({})
     ctx.llm.registerConfigurableProviders([
-      { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [] },
+      { provider: 'other-route', displayName: 'Other route', settingsNs: 'other-adapter', settingsPath: [] },
     ])
     const before = ctx.llm.listConfigurableProviders().length
     expect(before).toBeGreaterThan(30)
 
     await configurations.get(ctx)!.update({
       providers: {
-        'deepseek-official': {
+        'other-route': {
           api: 'openai-completions',
           baseURL: 'https://acme.test/v1',
           models: [{ id: 'm', contextWindow: 1, maxTokens: 1 }],
@@ -1244,8 +1264,8 @@ describe('configurable-provider directory', () => {
     // The refused swap costs a diagnostic, not the directory: every entry the
     // page needs is still declared.
     expect(ctx.llm.listConfigurableProviders()).toHaveLength(before)
-    expect(ctx.llm.listConfigurableProviders().find(entry => entry.provider === 'deepseek-official')?.settingsNs)
-      .toBe('llm-deepseek')
+    expect(ctx.llm.listConfigurableProviders().find(entry => entry.provider === 'other-route')?.settingsNs)
+      .toBe('other-adapter')
   })
 
   it('replaces its entries atomically as declared routes come and go', async () => {

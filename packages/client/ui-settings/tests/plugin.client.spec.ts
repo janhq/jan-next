@@ -1,8 +1,8 @@
-import { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
-import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
+import type { SettingsNamespaceView } from '@janhq/jan-api-remotes/client'
+import { TestRemote } from '@janhq/jan-client-test-runtime'
 import { apply, inject } from '../src/client/index.ts'
 import { SettingsSchemaService } from '../src/client/schema.ts'
 import { ConfigForms } from '../src/client/config-form.ts'
@@ -27,7 +27,7 @@ function bench() {
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
   const remote = new TestRemote(ctx, { settings: { describe: describeCall } })
-  remote.$host = { home: undefined, isLoopback: false }
+  remote.$host = { home: undefined, name: undefined, remote: false, isLoopback: false }
   return { ctx, describeCall, remote, fiber: ctx.plugin({ inject: [...inject], apply }) }
 }
 

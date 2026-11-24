@@ -11,7 +11,7 @@
  *
  * Each `.svg` beside them draws the same tile and hand, with the hand in the `tray-glyph` group
  * `render:tray-icon` enlarges (it reads `icon-windows.svg`). Rerun with
- * `pnpm --filter @deepseek-ai/dsh-desktop exec tsx scripts/render-jan-icons.ts`.
+ * `pnpm --filter @janhq/jan-desktop exec tsx scripts/render-jan-icons.ts`.
  * @module render-jan-icons
  */
 import { readFile, writeFile } from 'node:fs/promises'

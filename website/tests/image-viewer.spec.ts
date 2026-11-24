@@ -21,7 +21,6 @@ function controller(scale: number) {
 let viewer: ImageViewer | undefined
 let mermaid: MermaidViewer | undefined
 let media: MediaViewer
-let language = 'en-US'
 let overflow: string
 const controllers: ReturnType<typeof controller>[] = []
 const disconnects: ReturnType<typeof vi.fn>[] = []
@@ -35,7 +34,6 @@ beforeEach(() => {
     controllers.push(instance)
     return instance
   })
-  language = 'en-US'
   overflow = document.body.style.overflow
   document.body.innerHTML = '<main id="VPContent" class="vp-doc"></main>'
   document.body.style.overflow = 'auto'
@@ -55,7 +53,7 @@ beforeEach(() => {
     constructor() { disconnects.push(this.disconnect) }
     observe(): void {}
   })
-  media = new MediaViewer(document, () => language)
+  media = new MediaViewer(document)
 })
 
 afterEach(() => {
@@ -94,28 +92,28 @@ function render(complete = true) {
   const container = document.createElement('p')
   const image = document.createElement('img')
   image.src = 'https://docs.example/provider.png'
-  image.alt = 'DeepSeek API settings'
+  image.alt = 'Model API settings'
   container.append(image)
   required(document.querySelector('main')).append(container)
   return { image, container, state: imageState(image, complete) }
 }
 
 function install(): ImageViewer {
-  viewer = new ImageViewer(document, () => language, media)
+  viewer = new ImageViewer(document, media)
   return viewer
 }
 
 function entry(): HTMLElement {
-  return getByRole(document.body, 'button', { name: 'View image fullscreen: DeepSeek API settings' })
+  return getByRole(document.body, 'button', { name: 'View image fullscreen: Model API settings' })
 }
 
 function open(): HTMLDialogElement {
   entry().click()
-  return getByRole(document.body, 'dialog', { name: 'DeepSeek API settings' }) as HTMLDialogElement
+  return getByRole(document.body, 'dialog', { name: 'Model API settings' }) as HTMLDialogElement
 }
 
 function enlarged(dialog: HTMLElement): HTMLImageElement {
-  return required(dialog.querySelector('.dsh-media-paper')?.shadowRoot?.querySelector('img'))
+  return required(dialog.querySelector('.jan-media-paper')?.shadowRoot?.querySelector('img'))
 }
 
 describe('documentation image viewer', () => {
@@ -132,7 +130,7 @@ describe('documentation image viewer', () => {
     state.width = 0
     image.dispatchEvent(new Event('error'))
     expect(queryAllByRole(document.body, 'button')).toHaveLength(0)
-    expect(image.classList.contains('dsh-image-zoomable')).toBe(false)
+    expect(image.classList.contains('jan-image-zoomable')).toBe(false)
     image.click()
     trigger.click()
     expect(queryByRole(document.body, 'dialog')).toBeNull()
@@ -165,12 +163,10 @@ describe('documentation image viewer', () => {
     expect(queryAllByRole(root, 'button')).toHaveLength(0)
   })
 
-  it.each([
-    { locale: 'en-US', title: 'DeepSeek API settings', name: 'View image fullscreen: DeepSeek API settings', trigger: 'image' },
-    { locale: 'zh-CN', title: 'DeepSeek API 配置', name: '全屏查看图片：DeepSeek API 配置', trigger: 'button' },
-  ])('opens the loaded image with accessible controls in $locale', async ({ locale, title, name, trigger }) => {
+  it.each(['image', 'button'])('opens the loaded image with accessible controls from the %s', async (trigger) => {
     const { image, state } = render()
-    language = locale
+    const title = 'Model API settings'
+    const name = `View image fullscreen: ${title}`
     image.alt = title
     state.currentSrc = 'https://docs.example/provider@2x.png'
     install()
@@ -189,7 +185,7 @@ describe('documentation image viewer', () => {
     expect(panzoom.create.mock.calls[0]?.[1]).toMatchObject({ startScale: 0.625, minScale: 0.3125 })
     expect(document.body.style.overflow).toBe('hidden')
     await expect(`${button.outerHTML}\n${dialog.outerHTML}\n${clone.outerHTML}\n`)
-      .toMatchFileSnapshot(`./expected/image-viewer.${locale}.html`)
+      .toMatchFileSnapshot('./expected/image-viewer.html')
     dialog.dispatchEvent(new Event('cancel', { cancelable: true }))
     expect(queryByRole(document.body, 'dialog')).toBeNull()
     expect(document.activeElement).toBe(button)
@@ -208,7 +204,7 @@ describe('documentation image viewer', () => {
     expect(current.zoom).toHaveBeenCalledWith(1, { animate: false })
     expect(current.pan).toHaveBeenCalledWith(0, 0, { animate: false })
     current.getScale.mockReturnValue(1)
-    required(dialog.querySelector('.dsh-media-paper')).dispatchEvent(new Event('panzoomchange'))
+    required(dialog.querySelector('.jan-media-paper')).dispatchEvent(new Event('panzoomchange'))
     expect(original.textContent).toBe('100%')
     expect(original.getAttribute('aria-label')).toBe('Original size (100%), currently 100%')
     const controls = ['Zoom out', 'Original size (100%), currently 100%', 'Zoom in', 'Fit view', 'Viewer help', 'Close']
@@ -229,7 +225,7 @@ describe('documentation image viewer', () => {
     render()
     required(document.querySelector('main')).insertAdjacentHTML('beforeend', '<div class="mermaid"><svg viewBox="0 0 2000 3000"></svg></div>')
     install()
-    mermaid = installMermaidViewer(document, () => language, media)
+    mermaid = installMermaidViewer(document, media)
     const imageTrigger = entry()
     const diagramTrigger = getByRole(document.body, 'button', { name: 'View diagram fullscreen' })
     const [oldTrigger, newTrigger] = first === 'image' ? [imageTrigger, diagramTrigger] : [diagramTrigger, imageTrigger]
@@ -317,8 +313,8 @@ describe('documentation image viewer', () => {
     expect(required(controllers[0]).zoomIn).not.toHaveBeenCalled()
     if (action === 'refresh') expect(document.activeElement).toBe(trigger)
     else {
-      expect(image.classList.contains('dsh-image-zoomable')).toBe(false)
-      expect(container.classList.contains('dsh-image-container')).toBe(false)
+      expect(image.classList.contains('jan-image-zoomable')).toBe(false)
+      expect(container.classList.contains('jan-image-container')).toBe(false)
       image.click()
       trigger.click()
       expect(queryByRole(document.body, 'dialog')).toBeNull()
@@ -327,15 +323,14 @@ describe('documentation image viewer', () => {
     expect(required(controllers[0]).destroy).toHaveBeenCalledOnce()
   })
 
-  it('refreshes localized entry names and stops enhancing new and delayed images after disposal', async () => {
+  it('refreshes entry names and stops enhancing new and delayed images after disposal', async () => {
     const ready = render()
     const pending = render(false)
     install()
     const trigger = entry()
-    language = 'zh-CN'
-    ready.image.alt = 'API 配置'
+    ready.image.alt = 'API settings'
     required(viewer).refresh()
-    expect(getByRole(document.body, 'button', { name: '全屏查看图片：API 配置' })).toBe(trigger)
+    expect(getByRole(document.body, 'button', { name: 'View image fullscreen: API settings' })).toBe(trigger)
     required(viewer).dispose()
     pending.state.complete = true
     pending.image.dispatchEvent(new Event('load'))

@@ -5,16 +5,16 @@ export interface DesktopElectronBuilderConfig {
   readonly appId: string
   readonly copyright: string
   readonly artifactName: string
-  readonly protocols: readonly [{ readonly name: 'DeepSeek Harness'; readonly schemes: readonly ['dsh'] }]
+  readonly protocols: readonly [{ readonly name: 'Jan'; readonly schemes: readonly ['jan'] }]
   readonly directories: {
     readonly output: string
   }
   readonly files: readonly [
     ...string[],
-    { readonly from: string, readonly to: 'dsh', readonly filter: readonly ['**/*'] },
-    { readonly from: string, readonly to: 'dsh/node_modules', readonly filter: readonly ['**/*'] },
+    { readonly from: string, readonly to: 'jan', readonly filter: readonly ['**/*'] },
+    { readonly from: string, readonly to: 'jan/node_modules', readonly filter: readonly ['**/*'] },
   ]
-  readonly extraMetadata: { readonly dshDesktopAppId: string }
+  readonly extraMetadata: { readonly janDesktopAppId: string }
   readonly asarUnpack: readonly string[]
   readonly extraResources: readonly [
     { readonly from: string, readonly to: 'runtime' },
@@ -24,6 +24,7 @@ export interface DesktopElectronBuilderConfig {
   readonly mac: {
     readonly extendInfo: {
       readonly CFBundleLocalizations: readonly string[]
+      readonly NSCameraUsageDescription: string
       readonly NSMicrophoneUsageDescription: string
     }
     readonly entitlements: string
@@ -45,6 +46,10 @@ export interface DesktopElectronBuilderConfig {
       readonly sign: ((configuration: { path: string, hash: string, isNest: boolean }) => Promise<void>) | undefined
       readonly signingHashAlgorithms: readonly string[]
     }
+  }
+  readonly linux: {
+    readonly executableName: 'jan-alpha'
+    readonly target: readonly ['AppImage', 'deb']
   }
   readonly nsis: {
     readonly uninstallDisplayName: '${productName}'

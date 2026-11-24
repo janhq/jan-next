@@ -1,7 +1,7 @@
 /** Browser command service, with one keyboard adapter per plugin lifetime. */
-import { Service } from '@deepseek-ai/cordis'
-import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
+import { Service } from '@janhq/cordis'
+import type { Context } from '@janhq/cordis'
+import type { } from '@janhq/jan-client-locale/client'
 import { ShortcutRegistry } from './registry.ts'
 import { detectEnvironment, installKeyboard } from './dom.ts'
 import { bindingIssue, initialShortcutConfig, normalizeBinding, overlappingBindings, presentBinding } from '../protocol.ts'
@@ -16,7 +16,7 @@ export type { ShortcutCatalogEntry, ShortcutCommand, ShortcutContext, ShortcutGe
 export type { ShortcutFixedInput, ShortcutFixedCommand, ShortcutFixedCatalogEntry } from './types.ts'
 export type { ShortcutBinding, ShortcutCommandId, ShortcutPlatform, ShortcutRuntime } from '../protocol.ts'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Window-local application commands and effective keycap catalog. */
     shortcuts: Shortcuts
@@ -42,13 +42,13 @@ export default class ShortcutsService extends Service implements Shortcuts {
   constructor(ctx: Context) {
     const environment = detectEnvironment(document, navigator)
     const keyboard = environment.runtime === 'desktop'
-      ? (window as Window & { dshDesktop?: { keyboard?: DesktopKeyboardApi } }).dshDesktop?.keyboard : undefined
+      ? (window as Window & { janDesktop?: { keyboard?: DesktopKeyboardApi } }).janDesktop?.keyboard : undefined
     if (environment.runtime === 'desktop' && keyboard === undefined) throw new Error('Desktop keyboard bridge unavailable')
     super(ctx, 'shortcuts')
     this.keyboard = keyboard
     this.runtime = environment.runtime
     this.platform = environment.platform
-    const config = Config((globalThis as { __DSH_SHORTCUTS_CONFIG__?: unknown }).__DSH_SHORTCUTS_CONFIG__ ?? {})
+    const config = Config((globalThis as { __JAN_SHORTCUTS_CONFIG__?: unknown }).__JAN_SHORTCUTS_CONFIG__ ?? {})
     this.stopSequenceMs = config.stopSequenceMs
     this.registry = new ShortcutRegistry(this.runtime, this.platform, initialShortcutConfig())
     this.catalog = this.registry.catalog
@@ -80,6 +80,10 @@ export default class ShortcutsService extends Service implements Shortcuts {
     return () => { off(); this.syncDefinitions() }
   }
 
+  invoke(id: Parameters<Shortcuts['invoke']>[0], context: Parameters<Shortcuts['invoke']>[1]): void {
+    this.registry.invoke(id, context)
+  }
+
   registerFixed(command: Parameters<Shortcuts['registerFixed']>[0]): () => void {
     const off = this.registry.registerFixed(command)
     this.syncDefinitions()
@@ -96,9 +100,11 @@ export default class ShortcutsService extends Service implements Shortcuts {
     for (const listener of [...this.fixedListeners]) {
       if (!this.fixedListeners.has(listener)) continue
       try {
-        listener(input.type === 'reset' ? input : { ...input,
+        listener(input.type === 'reset' ? input : {
+          ...input,
           gesture: { ...input.gesture, defaultPrevented: input.gesture.defaultPrevented || consumed },
-          consume: () => { consumed = true; input.consume() } })
+          consume: () => { consumed = true; input.consume() },
+        })
       } catch (error) {
         console.error('Fixed shortcut handler failed', error)
       }
@@ -107,13 +113,15 @@ export default class ShortcutsService extends Service implements Shortcuts {
 
   describeBinding(binding: Parameters<Shortcuts['describeBinding']>[0]): ReturnType<Shortcuts['describeBinding']> {
     const normalized = binding === null ? null : normalizeBinding(binding, this.platform)
-    return { binding: normalized,
+    return {
+      binding: normalized,
       keys: presentBinding(normalized, this.platform).keys,
       issue: normalized === null ? null : bindingIssue(normalized, this.runtime, this.platform),
       conflicts: normalized === null ? [] : [...this.catalog.getSnapshot().filter(row => row.binding !== null
         && overlappingBindings(row.binding, normalized)).map(row => row.id),
       ...this.fixedCatalog.getSnapshot().filter(row => row.bindings.some(binding => overlappingBindings(binding, normalized)))
-        .map(row => row.id)] }
+        .map(row => row.id)],
+    }
   }
 
   private syncDefinitions(): void {

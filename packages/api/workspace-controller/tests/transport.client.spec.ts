@@ -5,11 +5,11 @@
  */
 
 import { describe, expect, onTestFinished, vi } from 'vitest'
-import { RemoteStreamCarrierError, type ClientRemote } from '@deepseek-ai/dsh-api-gateway/client'
-import { SessionId } from '@deepseek-ai/dsh-session/types'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import { frames, openStream, type RemoteMock, type StreamScript } from '@deepseek-ai/dsh-remote-mock'
-import { createClientTest, type TestClient, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
+import { RemoteStreamCarrierError, type ClientRemote } from '@janhq/jan-api-gateway/client'
+import { SessionId } from '@janhq/jan-session/types'
+import { RemoteError } from '@janhq/jan-typert-protocol'
+import { frames, openStream, type RemoteMock, type StreamScript } from '@janhq/jan-remote-mock'
+import { createClientTest, type TestClient, webApp } from '@janhq/jan-client-test-runtime/src/assembly/index.ts'
 import {
   ClientWorkspaceModel,
   createWorkspaceStateStream,
@@ -21,11 +21,11 @@ import {
 import type { WorkspaceFollowFrame, WorkspaceId } from '../src/types.ts'
 import { FOLLOW, baseline, err, followGenerations, workspace, workspaceWorld } from './remote/workspace.client.ts'
 
-const SELF = '@deepseek-ai/dsh-api-workspace-controller'
+const SELF = '@janhq/jan-api-workspace-controller'
 /** The plugin as the web bundle composes it: itself plus the Gateway client, the Connection, and the Typert registry. */
 const PLUGIN_ROSTER = webApp.closure([SELF])
 /** A stream or model built by hand talks through the Gateway client alone. */
-const API_ROSTER = webApp.closure(['@deepseek-ai/dsh-api-gateway'])
+const API_ROSTER = webApp.closure(['@janhq/jan-api-gateway'])
 const pluginTest = createClientTest({ roster: PLUGIN_ROSTER })
 const it = createClientTest({ roster: API_ROSTER })
 /** The first client boot pays the cold module transform of the plugin cone. */
@@ -343,17 +343,6 @@ describe('Workspace state stream', () => {
 })
 
 describe('WorkspaceController', () => {
-  it('returns no Workspace when startup is ineligible without changing the list', async ({ mock, start }) => {
-    const { remote, client } = await gatewayClient(mock, start)
-    const model = new ClientWorkspaceModel(remote.workspace)
-    model.replaceBaseline({ items: [], archivedSessionIds: [], pinnedSessionIds: [] })
-    const controller = new WorkspaceController(client.ctx, model)
-    const before = model.getSnapshot()
-    mock.remote.workspace.initializeDefault.mockResolvedValueOnce({ ok: true, value: undefined })
-    await expect(controller.initializeDefault()).resolves.toBeUndefined()
-    expect(model.getSnapshot()).toBe(before)
-  })
-
   it('publishes the model source and exposes successful Workspace commands', async ({ mock, start }) => {
     const { remote, client } = await gatewayClient(mock, start)
     const model = new ClientWorkspaceModel(remote.workspace)
@@ -452,7 +441,7 @@ describe('WorkspaceController', () => {
 })
 
 // The wire relays whatever families the Host's providers report; this suite merges its own.
-declare module '@deepseek-ai/dsh-workspace/types' {
+declare module '@janhq/jan-workspace/types' {
   interface SessionActivityKindMap {
     probe: true
     'probe-items': true

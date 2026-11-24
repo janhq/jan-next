@@ -36,7 +36,7 @@
       "path": "../ui-theme/tsconfig.client.json"
     },
     {
-      "path": "../../credentials/deepseek-account"
+      "path": "../../credentials/tokamak-account"
     },
     {
       "path": "../ui-settings-models"
@@ -51,7 +51,16 @@
       "path": "../ui-chat/tsconfig.client.json"
     },
     {
+      "path": "../ui-sidebar-browser/tsconfig.client.json"
+    },
+    {
+      "path": "../ui-sidebar-right"
+    },
+    {
       "path": "../ui-layout"
+    },
+    {
+      "path": "../ui-model-selection"
     },
     {
       "path": "../../settings/settings"

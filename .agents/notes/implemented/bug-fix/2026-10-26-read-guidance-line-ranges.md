@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-10-26-read-guidance-line-ranges.zh.md)
-
 ## Problem
 
 The read guidance named only `cat` as the shell command the read tool replaces, and described `offset`/`limit` as continuing a large file rather than reading a line range. #6057 recorded a long Session reading ranges with `sed -n X,Yp` 60 times. #6054 added `sed`, `head`, `tail`, and the line-range wording; a later prompt revert removed them together with unrelated changes.
@@ -12,7 +10,7 @@ The 2026-10-23 evaluation of the SDK profile (native tools, six benchmarks) meas
 
 ## Decision
 
-Restore the #6054 wording, byte-identical: `Use the read tool — not shell commands like cat, sed, head, or tail — to inspect text files. Use offset and limit to read a line range or continue a large file.` The read tool and its guidance are owned by `@deepseek-ai/dsh-tool-fs`; write and edit guidance are unchanged.
+Restore the #6054 wording, byte-identical: `Use the read tool — not shell commands like cat, sed, head, or tail — to inspect text files. Use offset and limit to read a line range or continue a large file.` The read tool and its guidance are owned by `@janhq/jan-tool-fs`; write and edit guidance are unchanged.
 
 ## Alternatives considered
 

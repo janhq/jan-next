@@ -1,16 +1,18 @@
 /** Account settings registration and reconnecting Remote subscription. */
-import type {} from '@deepseek-ai/dsh-client-product-analytics/client'
-import type { TranscriptViewMode } from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
-import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type {} from '@deepseek-ai/dsh-api-remote-access/client'
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { AccountView, AccountDetails } from '@deepseek-ai/dsh-deepseek-account/types'
+import type {} from '@janhq/jan-client-product-analytics/client'
+import type { TranscriptViewMode } from '@janhq/jan-client-ui-chat/client'
+import type { Context } from '@janhq/cordis'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-settings/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-theme/client'
+import type {} from '@janhq/jan-client-ui-chat/client'
+import type {} from '@janhq/jan-client-ui-layout/client'
+import type {} from '@janhq/jan-client-ui-sidebar-browser/client'
+import type {} from '@janhq/jan-client-ui-sidebar-right/client'
+import type {} from '@janhq/jan-api-remote-access/client'
+import type {} from '@janhq/jan-api-remotes/client'
+import type { AccountView, AccountDetails } from '@janhq/jan-tokamak-account/types'
 import type { OnboardingChange } from './onboarding-contract.ts'
 import type { PlatformBridge } from './PlatformOverlay.tsx'
 import { ContactConfig, CONTACT_CONFIG_GLOBAL } from '../contact-config.ts'
@@ -20,6 +22,7 @@ import { BrowserLogin } from './browser-login.ts'
 import { AccountOnboarding } from './AccountOnboarding.tsx'
 import { AccountPlatformHost, type AccountPlatformHostInjected } from './AccountPlatformHost.tsx'
 import { AccountMenu } from './AccountMenu.tsx'
+import { ModelMenuSignIn } from './ModelMenuSignIn.tsx'
 import { createPlatformPages, type PlatformPages } from './platform-pages.ts'
 import { AccountSection, type AccountSnapshot, type AccountSectionInjected } from './AccountSection.tsx'
 import { createBonusNoticeController } from './bonus-notices.ts'
@@ -29,6 +32,8 @@ import { AccountQuotaNotice, type AccountQuotaNoticeInjected } from './AccountQu
 import { DESKTOP_ONBOARDING_NAMESPACE, type OnboardingSettings } from '../onboarding-settings.ts'
 import { DesktopOnboardingController } from './onboarding-state.ts'
 import { DesktopOnboardingEntry, type DesktopOnboardingInjected } from './DesktopOnboardingEntry.tsx'
+import { OnboardingDetailFactory } from './OnboardingProcessStep.tsx'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { readOnboardingApiKeyPresence } from './onboarding-credentials.ts'
 import { refreshAfterReturn } from './account-refresh.ts'
 import { AccountAvatarLoader } from './account-avatar.ts'
@@ -37,15 +42,22 @@ export type { AccountMenuProps } from './AccountMenu.tsx'
 export type { AccountSnapshot } from './AccountSection.tsx'
 export type { AccountKey } from './locales.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap { 'settings.account': AccountKey }
 }
 
+declare module '@janhq/cordis' {
+  interface Context {
+    /** Opens the account sign-in dialog, for flows outside the account UI (first-run model choice). */
+    accountSignIn: { start(this: void): Promise<void> }
+  }
+}
+
 /** Services required by account settings. */
-export const inject = ['slots', 'locale', 'remote', 'remote.account', 'remote.session', 'theme', 'configForms', 'remoteAccess']
+export const inject = ['slots', 'locale', 'remote', 'remote.account', 'theme', 'configForms', 'remoteAccess']
 /** Register account UI in Desktop and plain Web clients. @param ctx - client plugin context. */
 export function apply(ctx: Context): void {
-  const desktop = 'dshDesktop' in globalThis
+  const desktop = 'janDesktop' in globalThis
   ctx.effect(() => ctx.locale.register('settings.account', { en, zh, ja, es, fr, de, ru, pt }), 'account: dictionaries')
   const t = ctx.locale.bind('settings.account')
   const page = globalThis as Partial<Record<typeof CONTACT_CONFIG_GLOBAL, unknown>>
@@ -61,7 +73,7 @@ export function apply(ctx: Context): void {
   const avatar = new AccountAvatarLoader((value) => { publish({ ...snapshot, avatar: value }) })
   ctx.effect(() => () => { avatar.dispose() }, 'account: profile picture lifetime')
   /** @returns the client identity for one account call, read at call time so it carries the language and zone in effect then. */
-  const client = () => accountClientMetadata(ctx.locale.getSnapshot().active, process.env.DSH_CLIENT_VERSION)
+  const client = () => accountClientMetadata(ctx.locale.getSnapshot().active, process.env.JAN_CLIENT_VERSION)
   // The browser half of the notice lifecycle: reads when the account becomes
   // active and on an explicit refresh, and acknowledges an order only after its
   // card reports a presented frame. The Host owns which bonus is unnotified and
@@ -96,7 +108,7 @@ export function apply(ctx: Context): void {
       let value: AccountDetails[K] | null
       try { value = await query() }
       catch { value = { status: 'failed' } }
-      if (value?.status === 'failed') console.error('[deepseek-account] account read failed', { field })
+      if (value?.status === 'failed') console.error('[tokamak-account] account read failed', { field })
       if (generation === revision && value !== null) publish({ ...snapshot, details: { ...snapshot.details, [field]: value } })
     }
     const request = Promise.all([
@@ -148,8 +160,6 @@ export function apply(ctx: Context): void {
         revision++
         refreshing = undefined
         avatar.reset()
-        const initialize = frame.value.status === 'credential-stored' && frame.value.attempt?.phase === 'succeeded'
-          && snapshot.view?.attempt?.phase !== 'succeeded'
         const { notices: previousNotices, ...previous } = snapshot
         publish({ ...previous, view: frame.value, details: undefined, avatar: undefined, failed: false,
           ...(frame.value.status === 'credential-stored' && previousNotices ? { notices: previousNotices } : {}) })
@@ -157,19 +167,11 @@ export function apply(ctx: Context): void {
         frame.accept()
         if (frame.value.status === 'credential-stored') notices.begin()
         else notices.end()
-        if (initialize) void (async () => {
-          try {
-            const initialized = await ctx.remote.session.initializeDefaultModel()
-            if (!initialized.ok) console.error('[deepseek-account] default model initialization failed', { reason: 'refused' })
-          } catch (_error) {
-            console.error('[deepseek-account] default model initialization failed', { reason: 'disconnected' })
-          }
-        })()
         void refresh()
       }
     })().catch(() => { if (!grant.ended) publish({ ...snapshot, failed: true }) })
   })
-  const nativePlatform = (globalThis as typeof globalThis & { dshPlatform?: PlatformBridge }).dshPlatform
+  const nativePlatform = (globalThis as typeof globalThis & { janPlatform?: PlatformBridge }).janPlatform
   // One request channel for the single native Platform view. It always exists
   // so every entry can observe whether a page is showing; only a native bridge
   // lets an entry request one.
@@ -194,27 +196,58 @@ export function apply(ctx: Context): void {
       onClose(reason)
       if (reason === 'returned' && page === 'top-up') void refreshAfterReturn(refreshing, reRead)
     })
+  type SidebarTabId = Parameters<NonNullable<Context['sidebarRight']>['focus']>[0]
+  // The Browser tab each menu link opened, per chat and page: a repeat click
+  // reveals that tab instead of stacking another copy of the same page.
+  const linkTabs = new Map<string, SidebarTabId>()
   const operations: AccountSectionInjected = {
     avatarFailed: (value) => { avatar.failed(value) },
-    subscribeSessionExpired: listener => ctx.remote.$on('deepseek-account/session-expired', listener),
-    subscribeModelSignInRequired: listener => ctx.remote.$on('deepseek-account/model-sign-in-required', listener),
+    subscribeSessionExpired: listener => ctx.remote.$on('tokamak-account/session-expired', listener),
+    subscribeModelSignInRequired: listener => ctx.remote.$on('tokamak-account/model-sign-in-required', listener),
     ...nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refreshAccount) },
     refreshAccount,
+    openSettingsSection: (section) => { ctx.get('settingsNavigation')?.open(section) },
+    // Jan's own pages open beside the chat on screen, so reading them keeps the
+    // chat and its draft in view; with no chat on screen there is no Sidebar to
+    // hold them and they open in the system browser.
+    openLink: (url) => {
+      const sidebar = ctx.get('sidebarRight')
+      const sessionId = sidebar?.mounted.getSnapshot()
+      if (sidebar === undefined || sessionId === undefined || ctx.get('sidebarRightTabs')?.get('browser') === undefined) {
+        window.open(url, '_blank', 'noopener,noreferrer')
+        return
+      }
+      const key = `${sessionId}\0${url}`
+      const tabs = sidebar.openTabs.getSnapshot()
+      const known = linkTabs.get(key)
+      if (known !== undefined && tabs.some(tab => tab.sessionId === sessionId && tab.tabId === known)) {
+        sidebar.focus(known)
+        if (!sidebar.isExpanded()) sidebar.toggleExpanded()
+        return
+      }
+      const before = new Set(tabs.map(tab => tab.tabId))
+      sidebar.openTab('browser', { params: { url } })
+      // The layout store publishes synchronously, so the new tab is already listed.
+      const added = sidebar.openTabs.getSnapshot()
+        .find(tab => tab.sessionId === sessionId && tab.kind === 'browser' && !before.has(tab.tabId))
+      if (added === undefined) linkTabs.delete(key)
+      else linkTabs.set(key, added.tabId)
+    },
     contactUs() {
       // Sample the account, build and environment before awaiting native information, so
       // a profile the read outlasts cannot replace the UID this click reported.
       const profile = snapshot.details?.profile
       const context = {
         uid: profile?.status === 'ready' ? profile.value.id : null,
-        version: process.env.DSH_CLIENT_VERSION,
+        version: process.env.JAN_CLIENT_VERSION,
         width: window.screen.width, height: window.screen.height, pixelRatio: window.devicePixelRatio,
       }
       const openForm = (deviceInfo: string): void => {
         window.open(contactUrl(config, { ...context, deviceInfo }), '_blank', 'noopener,noreferrer')
       }
       const readDeviceInfo = (globalThis as typeof globalThis & {
-        dshDesktop?: { deviceInfo?: () => Promise<string> }
-      }).dshDesktop?.deviceInfo
+        janDesktop?: { deviceInfo?: () => Promise<string> }
+      }).janDesktop?.deviceInfo
       if (readDeviceInfo === undefined) {
         // A plain browser, or a Desktop bridge without the optional reader, reports the renderer user agent.
         openForm(navigator.userAgent)
@@ -246,8 +279,8 @@ export function apply(ctx: Context): void {
     async start() {
       publish({ ...snapshot, loginVisible: true, loginFailed: false })
       const transport = (globalThis as typeof globalThis & {
-        __DSH_TRANSPORT__?: { streamBaseUrl?: string }
-      }).__DSH_TRANSPORT__
+        __JAN_TRANSPORT__?: { streamBaseUrl?: string }
+      }).__JAN_TRANSPORT__
       const request = async () => {
         const result = await ctx.remote.account.startSignIn(client(),
           desktop && transport?.streamBaseUrl !== undefined ? new URL(transport.streamBaseUrl).origin : window.location.origin,
@@ -275,7 +308,9 @@ export function apply(ctx: Context): void {
       throw result.error
     },
   }
+  ctx.provide('accountSignIn', { start: () => operations.start() })
   if (desktop) {
+    ctx.slots.registerFactory({ name: 'settings.onboarding.detail', scope: 'root', locale: 'settings.account' }, OnboardingDetailFactory)
     const controller = new DesktopOnboardingController(
       ctx.configForms.get<OnboardingSettings>(DESKTOP_ONBOARDING_NAMESPACE),
       ctx.configForms.get<{ transcriptView?: TranscriptViewMode | null; performanceUsage: 'compact' | 'detailed' }>('ui-chat'),
@@ -283,8 +318,15 @@ export function apply(ctx: Context): void {
       operations.hooks.account,
       readOnboardingApiKeyPresence,
       ctx.configForms.describe(),
+      config.disableStockApiKeyShortcut,
     )
     ctx.effect(() => () => { controller.dispose() }, 'account: desktop onboarding lifetime')
+    const customFlow = createSnapshotStore(false)
+    ctx.effect(() => ctx.slots.subscribe('settings.onboarding.flow', () => {
+      const active = ctx.slots.entriesOfSlot('settings.onboarding.flow').length !== 0
+      controller.setCustomFlow(active)
+      customFlow.set(active)
+    }), 'account: replacement onboarding lifetime')
     ctx.effect(() => {
       const refreshCredentials = () => { controller.invalidateCredentials() }
       const disposers = [
@@ -296,8 +338,9 @@ export function apply(ctx: Context): void {
     }, 'account: desktop credential readiness')
     ctx.slots.inject('shell.overlay', () => ctx.slots.register({
       name: 'shell.overlay', id: 'desktop-onboarding', locale: 'settings.account',
+      children: { 'settings.onboarding.flow': { kind: 'single', scope: 'root' } },
       inject: (): DesktopOnboardingInjected => ({
-        hooks: { account: operations.hooks.account, onboarding: controller.state },
+        hooks: { account: operations.hooks.account, onboarding: controller.state, customFlow },
         setVisible: (visible: boolean) => {
           if (snapshot.desktopOnboardingVisible !== visible) publish({ ...snapshot, desktopOnboardingVisible: visible })
         },
@@ -305,6 +348,7 @@ export function apply(ctx: Context): void {
         ...nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refresh) },
         update: (change: OnboardingChange) => controller.update(change),
         complete: (reason: 'completed' | 'skipped') => controller.complete(reason),
+        finishCustomFlow: detail => controller.finishCustomFlow(detail),
         retry: () => controller.retry(),
         track: (name, attributes) => ctx.get('productAnalytics')?.track(name, attributes),
       }),
@@ -333,6 +377,10 @@ export function apply(ctx: Context): void {
   ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('settings.launcher', () => ctx.slots.register({
     name: 'settings.launcher', locale: 'settings.account', inject: () => operations,
   }, AccountMenu)))
+  ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('conversation.input.model.options', () => ctx.slots.register({
+    name: 'conversation.input.model.options', id: 'account.sign-in', order: 20, locale: 'settings.account',
+    inject: () => ({ hooks: operations.hooks, start: operations.start }),
+  }, ModelMenuSignIn)))
   ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('settings.section', () => {
     let unregister: (() => void) | undefined
     const update = () => {

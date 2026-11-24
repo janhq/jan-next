@@ -1,12 +1,12 @@
-/** What the browser half registers, when, which credential it watches, and that it all leaves with the fiber. */
+/** What the browser half registers, when, and that it all leaves with the fiber. */
 
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { describe, expect, it, vi } from 'vitest'
-import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { apply as settingsApply, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
+import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import { RemoteError, TestRemote } from '@janhq/jan-client-test-runtime'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { apply as settingsApply, inject as settingsInject } from '@janhq/jan-client-ui-settings/client'
 import { apply, inject, NS } from '../src/client/index.ts'
 import type { WebSearchCardFace } from '../src/client/index.ts'
 import { apply as hostApply } from '../src/index.ts'
@@ -23,20 +23,16 @@ async function bench(served?: string[]) {
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
-  const describeCredentials = vi.fn(() => Promise.resolve({
-    ok: false, error: new RemoteError('gateway/internal', 'no provider', {}),
-  }))
   const describeSettings = vi.fn(() => Promise.resolve(served === undefined
     ? { ok: false, error: new RemoteError('gateway/internal', 'no provider', {}) }
     : { ok: true, value: { writable: true, hasDocument: true, namespaces: served.map(ns => view(ns)) } }))
   const listProviders = vi.fn(() => Promise.resolve({ ok: true, value: { search: [], fetch: [] } }))
   const remote = new TestRemote(ctx, {
-    credentials: { describe: describeCredentials, set: vi.fn() },
     settings: { describe: describeSettings },
     web: { listProviders },
   })
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
-  return { ctx, slots: ctx.get('slots') as SlotRegistry, describeCredentials, describeSettings, listProviders, remote }
+  return { ctx, slots: ctx.get('slots') as SlotRegistry, describeSettings, listProviders, remote }
 }
 
 /** The Plugins page's item slot, as its owner declares it. */
@@ -53,7 +49,7 @@ describe('ui-settings-web-search apply', () => {
   })
 
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'remote', 'remote.credentials', 'remote.web', 'configForms'])
+    expect(inject).toEqual(['slots', 'locale', 'remote', 'remote.web', 'configForms'])
   })
 
   it('registers the page while the Host serves the web namespace, titled in the active locale', async () => {
@@ -72,31 +68,12 @@ describe('ui-settings-web-search apply', () => {
   })
 
   it('registers nothing while the web namespace is not served', async () => {
-    const { ctx, slots, describeSettings } = await bench(['shell', 'web-deepseek-api'])
+    const { ctx, slots, describeSettings } = await bench(['shell', 'web-search'])
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
     await vi.waitFor(() => { expect(describeSettings).toHaveBeenCalled() })
 
     expect(slots.entries('plugins.item')).toHaveLength(0)
-  })
-
-  it('re-reads the credentials when the Host reports a watched reference changed, and ignores another', async () => {
-    const { ctx, slots, describeCredentials, remote } = await bench()
-    declareRoot(slots)
-    await ctx.plugin({ inject: [...inject], apply }).await()
-    await vi.waitFor(() => { expect(describeCredentials).toHaveBeenCalled() })
-    describeCredentials.mockClear()
-
-    for (const ref of ['UNWATCHED_KEY', 'DEEPSEEK_SEARCH_API_KEY', 'DEEPSEEK_FETCH_API_KEY']) {
-      remote.emit('credentials/reference-updated', [ref])
-    }
-    await Promise.resolve()
-    expect(describeCredentials).not.toHaveBeenCalled()
-
-    // A key written on another surface changes no settings section, so this
-    // event is the only thing that reaches the page.
-    remote.emit('credentials/reference-updated', ['DEEPSEEK_API_KEY'])
-    await vi.waitFor(() => { expect(describeCredentials).toHaveBeenCalledTimes(1) })
   })
 
   it('re-reads the providers when the Host reports a registration change or the connection resets', async () => {

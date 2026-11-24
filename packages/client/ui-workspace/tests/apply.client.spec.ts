@@ -1,20 +1,20 @@
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { MenuRegistry } from '@deepseek-ai/dsh-client-ui-context-menu/src/client/registry.ts'
-import { Context } from '@deepseek-ai/cordis'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { MenuRegistry } from '@janhq/jan-client-ui-context-menu/src/client/registry.ts'
+import { Context } from '@janhq/cordis'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import type {
   ISessions, SessionListState, SessionReference, SessionSnapshot, SessionSummary,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import { SessionForkError } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { WorkspaceId, WorkspaceSnapshot, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type { HostObservable, PropsRenderSlots, StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ShortcutCommand } from '@deepseek-ai/dsh-client-shortcuts/client'
-import { RemoteError, StaticRemoteAccess, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { apply, inject } from '@deepseek-ai/dsh-client-ui-workspace/client'
-import type { WorkspaceBrowserInjected, WorkspacePickerInjected } from '@deepseek-ai/dsh-client-ui-workspace/client'
+} from '@janhq/jan-api-session-controller/client'
+import { SessionForkError } from '@janhq/jan-api-session-controller/client'
+import type { WorkspaceId, WorkspaceSnapshot, WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import type { HostObservable, PropsRenderSlots, StoredEntry } from '@janhq/jan-client-ui-slots'
+import type { ShortcutCommand } from '@janhq/jan-client-shortcuts/client'
+import { RemoteError, StaticRemoteAccess, TestRemote } from '@janhq/jan-client-test-runtime'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { apply, inject } from '@janhq/jan-client-ui-workspace/client'
+import type { WorkspaceBrowserInjected, WorkspacePickerInjected } from '@janhq/jan-client-ui-workspace/client'
 import {
   type ArchiveSessionInjected, menuOpenStateFactory, type PinSessionInjected,
   type RowToastInjected, type SessionArchiveConfirmInjected, type SessionRenameDialogInjected,
@@ -83,7 +83,7 @@ async function bench(access: 'fake' | 'static' = 'fake') {
   }))
   const rename = vi.fn(async () => ({}))
   const selectPanel = vi.fn()
-  ctx.provide('layout', { selectPanel, beginNavigation: () => new AbortController().signal })
+  ctx.provide('layout', { selectPanel, beginNavigation: () => new AbortController().signal, panelInfo: createSnapshotStore({ activePanelId: null }) })
   const search = vi.fn(async () => ({
     ok: true as const,
     value: { items: [{ sessionId: 'session' as never, snippet: 'match' }], hasMore: false },
@@ -282,6 +282,7 @@ describe('ui-workspace apply', () => {
     b.initializeDefault.mockRejectedValueOnce(new Error('denied'))
     declare(b.slots, 'shell.overlay')
     await b.ctx.plugin({ inject: [...inject], apply }).await()
+    b.ctx.uiWorkspace.startSession()
     const face = faceOf(entry(b.slots, 'shell.overlay', 'workspace.row-toast')) as RowToastInjected
     await vi.waitFor(() => {
       expect(face.hooks.toast.getSnapshot()).toMatchObject({ kind: 'defaultWorkspaceFailed' })
@@ -344,7 +345,8 @@ describe('ui-workspace apply', () => {
     expect(rowToastEntry.store).toBeUndefined()
     expect(b.slots.entries('workspace.toast').map(row => row.options.key)).toEqual([
       'sessionIdCopied', 'sessionIdCopyFailed', 'pinFailed', 'unpinFailed', 'archivedNotOpenable',
-      'defaultWorkspaceFailed', 'shortcutForkFailed', 'createFailed', 'forkRequiresOpen', 'archived', 'stoppedAndArchived',
+      'defaultWorkspaceFailed', 'folderAdded', 'folderDropNotFolder', 'folderDropFailed',
+      'shortcutForkFailed', 'createFailed', 'forkRequiresOpen', 'archived', 'stoppedAndArchived',
     ])
     for (const registration of b.slots.entries('workspace.toast')) {
       expect(registration.locale).toBe('workspace')
@@ -939,8 +941,13 @@ it('captures Workspace menu requests, rechecks mutable access, and withdraws reg
   const target = { kind: 'workspace' as const, value: { workspaceId: 'alpha' as WorkspaceId, path: '/projects/alpha', displayTitle: 'Alpha' } }
   const menu = b.ctx.contextMenus.resolve(target)
   await menu.ready
-  expect(menu.source.getSnapshot().map(item => item.id)).toEqual(['workspace.rename/rename', 'workspace.delete/delete'])
-  menu.select('workspace.rename/rename')
+  expect(menu.source.getSnapshot().map(item => item.id)).toEqual(['workspace.edit/edit', 'workspace.rename/rename', 'workspace.delete/delete'])
+  menu.select('workspace.edit/edit')
+  expect(browser.hooks.workspaceActionRequest.getSnapshot()).toEqual({ action: 'update', workspaceId: 'alpha', displayTitle: 'Alpha', storedTitle: 'alpha' })
+  browser.settleWorkspaceAction()
+  const rename = b.ctx.contextMenus.resolve(target)
+  await rename.ready
+  rename.select('workspace.rename/rename')
   expect(browser.hooks.workspaceActionRequest.getSnapshot()).toEqual({ action: 'rename', workspaceId: 'alpha', displayTitle: 'Alpha', storedTitle: 'alpha' })
   browser.settleWorkspaceAction()
   const removed = b.ctx.contextMenus.resolve(target)

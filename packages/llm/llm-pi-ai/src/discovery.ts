@@ -19,12 +19,12 @@
  * Every other protocol reports that it cannot be interrogated so the surface
  * falls back to hand-entry rather than guessing its response fields.
  *
- * @module dsh-llm-pi-ai/discovery
+ * @module jan-llm-pi-ai/discovery
  */
 
-import { INVALID_CREDENTIAL_CODE, LlmError, normalizeApiKey } from '@deepseek-ai/dsh-llm'
-import type { LlmDiscoveredModel, LlmModelDiscoveryOperation } from '@deepseek-ai/dsh-llm'
-import { attributionHeaders } from '@deepseek-ai/dsh-llm'
+import { INVALID_CREDENTIAL_CODE, LlmError, normalizeApiKey } from '@janhq/jan-llm'
+import type { LlmDiscoveredModel, LlmModelDiscoveryOperation, ModelModality } from '@janhq/jan-llm'
+import { attributionHeaders } from '@janhq/jan-llm'
 import { catalogModels } from './catalog.ts'
 
 /**
@@ -36,7 +36,7 @@ import { catalogModels } from './catalog.ts'
  * guessing at either would report an authentication failure as a provider
  * with no models. pi-ai's remaining protocols are absent for the same reason.
  */
-const LISTABLE_PROTOCOLS: ReadonlySet<string> = new Set([
+export const LISTABLE_PROTOCOLS: ReadonlySet<string> = new Set([
   'anthropic-messages',
   'openai-completions',
   'openai-responses',
@@ -51,7 +51,7 @@ const ANTHROPIC_MODEL_LIMIT = 1000
 /**
  * Endpoint replies larger than this are refused. The endpoint is whatever URL
  * the user typed, so the ceiling holds on the bytes actually read rather than
- * on the length the server claims — the same two-stage shape `dsh-web-fetch`
+ * on the length the server claims — the same two-stage shape `jan-web-fetch`
  * uses for its own caller-supplied URLs, except that a truncated model listing
  * is not parseable, so overflow rejects instead of truncating.
  */
@@ -61,6 +61,12 @@ const MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 interface ListingLimit {
   context?: unknown
   output?: unknown
+}
+
+/** Modalities OpenRouter-style listings nest under each entry. */
+interface ListingArchitecture {
+  input_modalities?: unknown
+  output_modalities?: unknown
 }
 
 /** Per-route capacities OpenRouter nests under each entry. */
@@ -82,9 +88,41 @@ interface ListingEntry {
   maxOutputTokens?: unknown
   max_tokens?: unknown
   max_output_tokens?: unknown
+  max_completion_tokens?: unknown
   maxTokens?: unknown
   limit?: ListingLimit | null
   top_provider?: ListingTopProvider | null
+  architecture?: ListingArchitecture | null
+}
+
+/**
+ * The disclosed scalar fields of a listed model, omitting absent ones rather than setting them
+ * to `undefined`.
+ * @param model - the listed model.
+ * @returns its id plus whichever of name, context window and output limit it disclosed.
+ */
+export function disclosedModelFields(model: {
+  readonly id: string
+  readonly name?: string | undefined
+  readonly contextWindow?: number | undefined
+  readonly maxTokens?: number | undefined
+}): Pick<LlmDiscoveredModel, 'id' | 'name' | 'contextWindow' | 'maxTokens'> {
+  return {
+    id: model.id,
+    ...model.name === undefined ? {} : { name: model.name },
+    ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
+    ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
+  }
+}
+
+/**
+ * The modalities a listing entry declares, or `undefined` when it declares
+ * none. Unknown modality names are dropped.
+ */
+function modalities(value: unknown): ModelModality[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const declared = value as readonly unknown[]
+  return (['text', 'image'] as const).filter(modality => declared.includes(modality))
 }
 
 /** A positive integer field of a listing entry, or `undefined` when absent or unusable. */
@@ -173,6 +211,10 @@ async function readBounded(response: Response, url: string): Promise<string> {
  * object-valued map entries are models; primitive properties are ignored
  * because they may be directory metadata rather than model records.
  *
+ * An entry declaring `architecture.output_modalities` without `text` is not
+ * a chat model, which is all this adapter dispatches, and is skipped; its
+ * `architecture.input_modalities` become the model's input modalities.
+ *
  * Entries without a usable id are skipped rather than failing the whole
  * interrogation: a single malformed row should not deny the user the rest of
  * a working endpoint's catalog. Missing names fall back to the adopted id so
@@ -203,6 +245,8 @@ function readListing(body: unknown): LlmDiscoveredModel[] {
     const entry = raw as ListingEntry | null
     const id = label(key, entry?.id)
     if (id === undefined) continue
+    if (modalities(entry?.architecture?.output_modalities)?.includes('text') === false) continue
+    const inputModalities = modalities(entry?.architecture?.input_modalities)
     const name = label(entry?.name, entry?.display_name, entry?.displayName) ?? id
     const contextWindow = capacity(
       entry?.contextWindow,
@@ -214,6 +258,7 @@ function readListing(body: unknown): LlmDiscoveredModel[] {
     const maxTokens = capacity(
       entry?.maxOutputTokens,
       entry?.max_output_tokens,
+      entry?.max_completion_tokens,
       entry?.maxTokens,
       entry?.max_tokens,
       entry?.limit?.output,
@@ -224,6 +269,7 @@ function readListing(body: unknown): LlmDiscoveredModel[] {
       name,
       ...contextWindow === undefined ? {} : { contextWindow },
       ...maxTokens === undefined ? {} : { maxTokens },
+      ...inputModalities === undefined || inputModalities.length === 0 ? {} : { inputModalities },
     })
   }
   return models

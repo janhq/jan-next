@@ -3,13 +3,11 @@ description: "Record speech and insert reviewable transcripts into the conversat
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-experimental-client-ui-voice-input
-
-English | [中文](README.zh.md)
+# @janhq/jan-experimental-client-ui-voice-input
 
 ## Summary
 
-This optional browser plugin adds an outline microphone icon between the model selector and Send. When recognition is ready, clicking it opens a recording toolbar with measured audio levels, Cancel and Stop. The waveform stays shorter than the recording buttons. Stopping transcribes into the draft. Recognition preferences and model preparation live in plugin settings; language choices come from the selected provider.
+Jan Desktop shows a microphone next to Send, including before a chat exists or Voice Input is enabled. Its first-use dialog chooses a language and prepares local models. After setup, clicking the mic opens a recording toolbar with measured input levels, Cancel and Stop. Stopping transcribes into the draft without submitting it.
 
 ## Table of Contents
 
@@ -25,13 +23,13 @@ This optional browser plugin adds an outline microphone icon between the model s
 <a id="use-this-package"></a>
 ## Use this package
 
-Enable the [voice input bundle](../voice-input-bundle/README.md) from Plugins. After cache inspection, missing models trigger a setup prompt with Go to setup and Later actions. Go to setup opens bundle details; Download and prepare starts installation there. Intact cached models need no prompt or repeated installation. Before recognition is ready, guidance appears only on click, with no microphone tooltip. Clicking the microphone opens the same guidance dialog; its action opens the voice bundle details without recording or downloading. Cache inspection, preparation in progress, failures and disconnected services instead offer navigation to status, progress or error details. The dialog moves focus to its navigation action and keeps Tab traversal inside it; Later or Escape restores the previous focus without changing or submitting the draft. Before preparation, local providers can show their estimated disk, memory and setup-time requirements. The preparation summary starts collapsed; expand it to inspect completed, current and pending steps. Once ready, click the microphone, allow access and click Stop to transcribe. Cancel or Escape discards capture. Recognition feedback stays inside the toolbar. Provider and language preferences are saved from bundle details through the Settings service. Browser microphone access requires HTTPS or loopback and operating-system permission.
+Click the microphone, choose a recognition language, and click **Download and prepare** when the model is not already cached. The dialog shows progress and offers retry if preparation fails. Click **Enable and start recording** to enable the [Voice Input bundle](../voice-input-bundle/README.md) and begin recording. Cancel or Escape leaves the bundle and preferences unchanged; verified files can be reused. Subsequent clicks record immediately. Click **Stop and transcribe** to insert into the draft or cancel to discard the capture. Browser microphone access requires HTTPS or loopback and operating-system permission. Voice options beside the mic can offer alternate modes such as Talk to Jan.
 
 Use the native **Input device** selector in bundle details to follow the system default or select a browser microphone. System default shows the current device name when available. While bundle details are active, the selected input's live level remains visible at the right of the field; selecting another input restarts the preview for that device. Hiding or leaving the page, or disabling the plugin, releases the preview, including late permission grants. The browser remembers the device for subsequent recordings independently of Host recognition settings. Device insertion and removal refresh the options without interrupting an available selected input. A disconnected selection retains its name and position as a disabled option with an Unavailable label. Reconnecting while the page is active restores its preview; choosing another input removes the unavailable option. Interrupted recordings require an explicit restart. Permission denial keeps other choices accessible; an explicitly selected device never silently falls back to another input.
 
 Before downloading or retrying, **Model download source** offers Automatic and the origins advertised by the Host. SenseVoice normally offers Hugging Face and HF-Mirror; a fixed private deployment exposes only its configured origin. Manual selection uses only that source, while Automatic preserves the provider’s comparison and fallback policy. The choice is retained for retries in the current card, without changing deployment configuration or recognition preferences. Source controls are unavailable during preparation and hidden when resources are ready.
 
-`pluginNavigation` is optional: the plugin starts without it, and the setup dialog offers the details button only while the service is present.
+You can also enable Voice Input from Plugins and prepare the models from its details. `pluginNavigation` is optional: the plugin starts without it, and the Plugins-page activation prompt only offers its details action while navigation is available.
 
 -----
 

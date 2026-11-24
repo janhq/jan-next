@@ -56,7 +56,7 @@ export function executableTarget(path) {
 export function assertStagedLlamaWorker(platform, arch, stage = LLAMA_WORKER_STAGE) {
   const executable = join(stage, platform === 'win32' ? 'jan-llama-worker.exe' : 'jan-llama-worker')
   if (!existsSync(executable)) {
-    throw new Error(`desktop package: ${executable} is missing; run \`pnpm run stage:llama-worker\` after \`pnpm run build:llama-worker\`, or set DSH_DESKTOP_OMIT_LLAMA_WORKER=1 to package without local models`)
+    throw new Error(`desktop package: ${executable} is missing; run \`pnpm run stage:llama-worker\` after \`pnpm run build:llama-worker\`, or set JAN_DESKTOP_OMIT_LLAMA_WORKER=1 to package without local models`)
   }
   const target = executableTarget(executable)
   if (target?.platform !== platform || !target.archs.includes(arch)) {

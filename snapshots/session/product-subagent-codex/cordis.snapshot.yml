@@ -1,41 +1,34 @@
 # Keyless twin of product-subagent-codex.cordis.yml: keep both named product
 # providers and tools while replacing only the external model adapter.
-- id: llm-deepseek
-  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
-  disabled: true
-
 - insert:
     - id: llm-replay
-      name: '@deepseek-ai/dsh-llm-replay'
+      name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-v4-flash
-              - id: deepseek-v4-pro
+              - id: tokamak-1-preview
+              - id: tokamak-1-pro
     - id: subagent-codex-primary
-      name: '@deepseek-ai/dsh-subagent-codex'
+      name: '@janhq/jan-subagent-codex'
       config:
         providerName: codex-primary
         model: codex-primary-model
     - id: subagent-codex-secondary
-      name: '@deepseek-ai/dsh-subagent-codex'
+      name: '@janhq/jan-subagent-codex'
       config:
         providerName: codex-secondary
         model: codex-secondary-model
     - id: tool-subagent-codex-primary
-      name: '@deepseek-ai/dsh-tool-subagent'
+      name: '@janhq/jan-tool-subagent'
       config:
         provider: codex-primary
         toolName: subagent_codex_primary
         maxDepth: provider-managed
     - id: tool-subagent-codex-secondary
-      name: '@deepseek-ai/dsh-tool-subagent'
+      name: '@janhq/jan-tool-subagent'
       config:
         provider: codex-secondary
         toolName: subagent_codex_secondary
         maxDepth: provider-managed
-
-- id: plugin-package-inventory-deepseek
-  disabled: true

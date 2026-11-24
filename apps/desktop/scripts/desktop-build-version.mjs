@@ -2,11 +2,11 @@
  * Resolve the version one build publishes, which is not always the version the
  * repository declares.
  *
- * Desktop CI version mode `build-number` uses UTC date, workflow run number and attempt as
- * `.YYYYMMDD.run.attempt`; these identify unpublished builds, not release sequences.
+ * Validation also accepts a `.YYYYMMDD.run.attempt` suffix; it identifies an unpublished build,
+ * not a release sequence.
  *
  * A production release publishes the version in the manifests, aligned with the
- * `dsh` npm package. A test build publishes a version that appends a date and a
+ * `jan` npm package. A test build publishes a version that appends a date and a
  * sequence number, so one test feed can carry several builds of a single
  * product version: `0.1.6-alpha.1.20260916.1` from a prerelease base and
  * `0.1.6-test.20260916.1` from a stable one, as the release versions table in
@@ -26,7 +26,7 @@
 import { parse } from 'semver'
 
 /** Environment variable that carries the build version through one packaging and upload run. */
-export const DESKTOP_BUILD_VERSION_ENV = 'DSH_DESKTOP_BUILD_VERSION'
+export const DESKTOP_BUILD_VERSION_ENV = 'JAN_DESKTOP_BUILD_VERSION'
 
 /** Prerelease field that opens a test build's suffix on a stable product version. */
 const STABLE_TEST_FIELD = 'test'

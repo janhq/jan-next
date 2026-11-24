@@ -1,15 +1,15 @@
 /** Client catalog and source-labelled ownership of exact Session generations. */
-import type { Context, Fiber } from '@deepseek-ai/cordis'
-import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
-import { SessionSeq, type SessionId } from '@deepseek-ai/dsh-session/types'
-import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+import type { Context, Fiber } from '@janhq/cordis'
+import type { SubagentAddress } from '@janhq/jan-subagent/client'
+import { SessionSeq, type SessionId } from '@janhq/jan-session/types'
+import { workspaceTitleOf } from '@janhq/jan-util-workspace-path'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
 import { SESSION_SEARCH_RESULT_LIMIT } from '../../types.ts'
-import type { SessionProjectionSummaryValues } from '@deepseek-ai/dsh-session-projection/types'
+import type { SessionProjectionSummaryValues } from '@janhq/jan-session-projection/types'
 import {
   createSnapshotStore, notifySubscribers, type ObservableSnapshot, type SnapshotStore,
-} from '@deepseek-ai/dsh-client-store'
-import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+} from '@janhq/jan-client-store'
+import type { RemoteFailure, RemoteResult } from '@janhq/jan-typert-protocol'
 import type { SessionEventSource } from '../contract/events.ts'
 import type { SessionFace } from '../contract/session.ts'
 import type {
@@ -112,7 +112,7 @@ export interface SessionBinding {
 }
 
 // Scope primitives live in ../scope.ts (the client mirror of host
-// dsh-scope, keyed by Agent identity); re-exported here so existing
+// jan-scope, keyed by Agent identity); re-exported here so existing
 // consumers keep their import site.
 export { scopeOf } from '../scope.ts'
 
@@ -360,9 +360,10 @@ export class ClientSessions implements ISessions {
   /**
    * Read projections without starting migration; retry failed or migration-deferred reads.
    * @param sessionId - Session to inspect without opening its conversation.
+   * @param options - `background` batches the list notification with other background reads.
    */
-  refreshProjections(sessionId: SessionId): Promise<void> {
-    return this.manager.refreshProjections(sessionId)
+  refreshProjections(sessionId: SessionId, options?: { readonly background?: boolean }): Promise<void> {
+    return this.manager.refreshProjections(sessionId, options)
   }
 
   /**

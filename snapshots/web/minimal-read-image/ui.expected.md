@@ -1,34 +1,38 @@
-- banner:
-  - navigation "Session hierarchy": Use read_image to inspect red.png.
-  - text: Minimal mode
+- tablist "Chat tabs":
+  - tab "Use read_image to inspect red.png. Close chat tab" [selected]:
+    - text: Use read_image to inspect red.png.
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
 - text: Use read_image to inspect red.png. Then reply exactly MINIMAL_IMAGE_OK and stop. {{clock}}
 - button "Copy"
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Read images" [expanded]
-- button "Context injection runtime-context"
+- button "Inject context runtime-context"
 - button "Read image red.png" [expanded]:
   - text: Read image
   - button "red.png"
+- text: {{cwd}}/red.png 1x1px, 69 bytes
 - button "red.png, click to view original":
   - img "red.png"
-- text: {{cwd}}/red.png 1x1px, 69 bytes
-- button "Inspect"
 - paragraph: MINIMAL_IMAGE_OK
 - button "Copy"
 - button "Branch into a new conversation"
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash-Vision-Exp, reasoning effort high": DeepSeek-V4-Flash-Vision-Exp high
+- 'button "Access mode, current: Full access"': Full access
+- dialog "New chats use Full access":
+  - heading "New chats use Full access" [level=2]
+  - button "Got it"
+  - text: "New chats start with Full access: the agent can change files and run commands without asking. Change the default for new chats in Settings > General, or switch this chat here."
+  - button "Change default"
+- button "Select model, current Tokamak 1 Vision Experimental, reasoning effort high": Tokamak 1 Vision Experimental high
 - button "Send message" [disabled]
-- button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
+- button "Choose project" [disabled]
+- 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
+- button "1 turns 2 steps"
 - button "28 tok · Cache hit 0%": 28 tokCache hit 0%
 - button "0% of context used": 0%

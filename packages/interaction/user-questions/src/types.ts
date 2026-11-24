@@ -1,10 +1,10 @@
-/** Client-safe question, answer, and event types. @module @deepseek-ai/dsh-user-questions/types */
+/** Client-safe question, answer, and event types. @module @janhq/jan-user-questions/types */
 
-import type { Scoped } from '@deepseek-ai/dsh-scope'
-import type { Agent } from '@deepseek-ai/dsh-agent/types'
-import type { ToolCallId } from '@deepseek-ai/dsh-llm/brand'
-import type {} from '@deepseek-ai/dsh-session/types'
-import type {} from '@deepseek-ai/dsh-session-projection/types'
+import type { Scoped } from '@janhq/jan-scope'
+import type { Agent } from '@janhq/jan-agent/types'
+import type { ToolCallId } from '@janhq/jan-llm/brand'
+import type {} from '@janhq/jan-session/types'
+import type {} from '@janhq/jan-session-projection/types'
 
 /** One selectable answer offered to the user. */
 export interface AskUserQuestionOption {
@@ -83,6 +83,23 @@ export interface AskUserQuestionAnswerItem {
 export interface AskUserQuestionAnswer {
   /** Structured answers keyed by question id. */
   answers: AskUserQuestionAnswerItem[]
+  /** The answering Client automatically submitted the batch at its deadline. */
+  autoSubmitted?: true
+}
+
+/** Live Host preference exposed to presets that opt into automatic answering. */
+export interface UserQuestionSettings {
+  /** Read the current automatic-answer wait for new calls.
+   * @returns The wait in seconds, or zero to wait indefinitely.
+   */
+  autoAnswerSeconds(): number
+}
+
+declare module '@janhq/cordis' {
+  interface Context {
+    /** Live preference, when a UI settings owner is composed. */
+    userQuestionSettings: UserQuestionSettings
+  }
 }
 
 /** `open` while the tool call may still return the answer; `continued` once the answer can only arrive as a new turn. */
@@ -121,11 +138,11 @@ export interface UserQuestionProjectionView {
   readonly settled: readonly SettledUserQuestion[]
 }
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     /**
      * Late reply to a continued `ask_user_question` call, steered into the
-     * agent by `dsh-user-questions` as an answer batch. Closing a question
+     * agent by `jan-user-questions` as an answer batch. Closing a question
      * panel persists no reply. Readers preserve this message without the
      * producer; only the `userQuestions` projection reads the kind to close
      * the question and record its answers.
@@ -135,7 +152,7 @@ declare module '@deepseek-ai/dsh-llm' {
   }
 }
 
-declare module '@deepseek-ai/dsh-session-projection/types' {
+declare module '@janhq/jan-session-projection/types' {
   interface SessionProjectionMap {
     /** Timed questions that remain answerable in this Session, and the ones a late reply settled. */
     userQuestions: UserQuestionProjectionView
@@ -159,15 +176,17 @@ export interface AskUserQuestionRequestEvent {
     callId: ToolCallId
     /** True for a foreground wait that requires a Client claim; absent for indefinite waits. */
     timed?: boolean
+    /** Submit an answer batch instead of returning pending when the Client countdown expires. */
+    autoSubmit?: true
   }
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Events {
     /**
      * Ask composed answerers for structured user input. Return an answer to
      * claim the request or call `next()` to delegate. Scope-filtered dispatch
-     * (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+     * (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
      * @param request - pending user-question request.
      * @mode waterfall
      */

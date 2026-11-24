@@ -1,7 +1,7 @@
 /** Wire messages for Gateway-owned Remote streams and event-result RPCs. */
 
-import type { Branded } from '@deepseek-ai/dsh-brand'
-import { isRemoteJsonValue } from '@deepseek-ai/dsh-typert-protocol'
+import type { Branded } from '@janhq/jan-brand'
+import { isRemoteJsonValue } from '@janhq/jan-typert-protocol'
 
 /** Exact WebSocket route carrying every Typert Remote stream. */
 export const REMOTE_STREAM_MUX_PATH = '/api/remote.mux'
@@ -14,6 +14,9 @@ export const REMOTE_EVENT_RESULT_ENDPOINT = '$events/result'
 
 /** Empty standard Remote payload used to open the forwarded-event stream. */
 export const REMOTE_EVENT_STREAM_PAYLOAD = { args: {} } as const
+
+/** Opt in to the extended Host display facts; older Hosts accept only the empty payload. */
+export const REMOTE_EVENT_STREAM_HOST_INFO_PAYLOAD = { args: { hostInfo: true } } as const
 
 /** Discriminator for the first item proving the Host event source is ready. */
 export const REMOTE_EVENT_STREAM_READY = { type: 'ready' } as const
@@ -28,6 +31,10 @@ export type RemoteEventId = Branded<'RemoteEventId'>
 export interface RemoteEventHostInfo {
   /** Host account home used only to abbreviate displayed filesystem paths. */
   readonly home: string
+  /** Name of the computer the Host runs on, shown so a person can tell which machine a window works on. */
+  readonly name: string
+  /** Whether the Host was started over SSH, so the window works on another computer than the person's own. */
+  readonly remote: boolean
 }
 
 /** Opening item that binds later HTTP results to this active event stream. */
@@ -35,7 +42,7 @@ export interface RemoteEventReadyFrame {
   readonly type: 'ready'
   readonly clientId: RemoteEventClientId
   /** Stable Host facts attached to this connection generation. */
-  readonly host: RemoteEventHostInfo
+  readonly host: Pick<RemoteEventHostInfo, 'home'> | RemoteEventHostInfo
 }
 
 /** Opaque Agent identity carried by one scoped Remote Event. */

@@ -1,22 +1,23 @@
 /** Operations available to the isolated native welcome renderer. */
 
-import type { AccountView, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
-import type { ProductEventMap } from '@deepseek-ai/dsh-client-product-analytics/types'
+import type { AccountView, SignInAttemptId } from '@janhq/jan-tokamak-account/types'
+import type { ProductEventMap } from '@janhq/jan-client-product-analytics/types'
 import type { DesktopLocale } from './locale.ts'
 
 /** Private native welcome channels, installed only while its window exists. */
 export const WELCOME_IPC = {
-  saveApiKey: 'dsh-welcome:save-api-key',
-  analytics: 'dsh-welcome:analytics',
-  analyticsEnabled: 'dsh-welcome:analytics-enabled',
-  skip: 'dsh-welcome:skip',
-  start: 'dsh-welcome:start',
-  cancel: 'dsh-welcome:cancel',
-  copyLink: 'dsh-welcome:copy-link',
-  state: 'dsh-welcome:state',
-  takeNotice: 'dsh-welcome:take-notice',
-  localStart: 'dsh-welcome:local-start',
-  localState: 'dsh-welcome:local-state',
+  saveApiKey: 'jan-welcome:save-api-key',
+  analytics: 'jan-welcome:analytics',
+  analyticsEnabled: 'jan-welcome:analytics-enabled',
+  skip: 'jan-welcome:skip',
+  start: 'jan-welcome:start',
+  cancel: 'jan-welcome:cancel',
+  copyLink: 'jan-welcome:copy-link',
+  state: 'jan-welcome:state',
+  takeNotice: 'jan-welcome:take-notice',
+  localStart: 'jan-welcome:local-start',
+  localState: 'jan-welcome:local-state',
+  localCancel: 'jan-welcome:local-cancel',
 } as const
 
 /**
@@ -46,6 +47,9 @@ export type WelcomeSaveResult = { readonly ok: true } | { readonly ok: false }
 /** One-time notification retained by the main process until Welcome receives it. */
 export type WelcomeNotice = 'session-expired'
 
+/** Workspace page Welcome can open on arrival: the local model Hub. */
+export type WelcomeDestination = 'hub'
+
 type WelcomeEventName = 'auth_page_view' | 'auth_page_click' | 'api_key_save_click'
 
 /** Host-owned operations used by the welcome window. */
@@ -73,11 +77,14 @@ export interface WelcomeOperations {
   startLocalModel(): Promise<WelcomeLocalModel>
   /** @returns the local model state, or undefined when this build has no local model. */
   readLocalModel(): Promise<WelcomeLocalModel | undefined>
+  /** @returns the local model state after the first-run download stopped. */
+  cancelLocalModel(): Promise<WelcomeLocalModel | undefined>
   /**
    * Enter the workspace without writing an onboarding-completion setting.
+   * @param open - workspace page to show on arrival; the chat when omitted.
    * @returns completion after the workspace opens.
    */
-  skip(): Promise<void>
+  skip(open?: WelcomeDestination): Promise<void>
 }
 
 /** The renderer receives localized copy, login operations, and safe account snapshots. */

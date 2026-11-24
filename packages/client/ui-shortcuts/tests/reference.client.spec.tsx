@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { ShortcutCatalogEntry, ShortcutCommandId, ShortcutFixedCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
+import { bindSnapshotSelector, makeTranslate } from '@janhq/jan-client-test-runtime'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { ShortcutCatalogEntry, ShortcutCommandId, ShortcutFixedCatalogEntry } from '@janhq/jan-client-shortcuts/client'
 import { ShortcutReference, ShortcutsRow } from '../src/client/Reference.tsx'
 import { createShortcutsStore } from '../src/client/store.ts'
 import { en, zh } from '../src/client/locales.ts'
-import { initialShortcutConfig, bindingIssue, normalizeBinding, presentBinding } from '@deepseek-ai/dsh-client-shortcuts/protocol'
-import type { ShortcutConfigSnapshot } from '@deepseek-ai/dsh-client-shortcuts/protocol'
+import { initialShortcutConfig, bindingIssue, normalizeBinding, presentBinding } from '@janhq/jan-client-shortcuts/protocol'
+import type { ShortcutConfigSnapshot } from '@janhq/jan-client-shortcuts/protocol'
 import { ShortcutRegistry } from '../../shortcuts/src/client/registry.ts'
 import { apply as hostApply } from '../src/index.ts'
 import { fixedCommands } from '../src/client/fixed.ts'
@@ -143,7 +143,7 @@ it('saves individual edits and disables changes when configuration cannot be rea
   await screen.findByText(en.saved)
   expect(screen.getAllByRole('dialog')).toHaveLength(1)
   act(() => { config.set({ ...config.getSnapshot(), status: 'unreadable', error: null }) })
-  expect(screen.getByRole('alert').textContent).toContain('this site’s localStorage entry dsh.keybindings.v1')
+  expect(screen.getByRole('alert').textContent).toContain('this site’s localStorage entry jan.keybindings.v1')
   expect(screen.getByRole('alert').textContent).toContain('Check access permissions, then reload the page.')
   expect(screen.getByRole('alert').textContent).toContain(en['using-defaults'])
   act(() => { config.set({ ...config.getSnapshot(), error: 'future', usingDefaults: false }) })
@@ -197,14 +197,14 @@ it('keeps core actions in product order across registration, remount and label c
     { ...stop, id: 'fixed.select' as ShortcutCommandId, label: 'Select', keys: ['Enter'], bindings: [{ code: 'Enter', modifiers: [] }], group: 'menus' },
     { ...stop, id: 'fixed.dismiss' as ShortcutCommandId, label: 'Dismiss', group: 'menus' },
     { ...stop, id: 'approval.accept' as ShortcutCommandId, label: 'Approve', keys: ['Enter'], bindings: [{ code: 'Enter', modifiers: [] }], group: 'approval' },
-    { ...stop, id: 'fontSize.increase' as ShortcutCommandId, label: 'Increase font size', keys: ['⌘', '='], bindings: [{ code: 'Equal', modifiers: ['meta'] }], group: 'application' },
-    { ...stop, id: 'fontSize.decrease' as ShortcutCommandId, label: 'Decrease font size', keys: ['⌘', '-'], bindings: [{ code: 'Minus', modifiers: ['meta'] }], group: 'application' },
+    { ...stop, id: 'view.zoomIn' as ShortcutCommandId, label: 'Zoom in', keys: ['⌘', '='], bindings: [{ code: 'Equal', modifiers: ['meta'] }], group: 'application' },
+    { ...stop, id: 'view.zoomOut' as ShortcutCommandId, label: 'Zoom out', keys: ['⌘', '-'], bindings: [{ code: 'Minus', modifiers: ['meta'] }], group: 'application' },
     stop,
   ]
   const labels = (group: string) => within(screen.getByRole('region', { name: group })).getAllByRole('listitem')
     .map(row => row.querySelector(':scope > span')?.textContent)
   const expected = [...core.flatMap(([id, label]) => id === 'settings.open'
-    ? [label, 'Increase font size', 'Decrease font size'] : [label]), 'Zulu extension', 'Alpha extension']
+    ? [label, 'Zoom in', 'Zoom out'] : [label]), 'Zulu extension', 'Alpha extension']
   for (const reversed of [true, false]) {
     act(() => {
       catalog.set(reversed ? [...extensions, ...commands].reverse() : [...extensions, ...commands])
@@ -221,7 +221,7 @@ it('keeps core actions in product order across registration, remount and label c
   expect(screen.queryByRole('button', { name: 'Edit shortcut for Stop reply' })).toBeNull()
   expect(screen.queryByRole('group', { name: 'Stop reply' })).toBeNull()
   act(() => { catalog.set(extensions); fixedCatalog.set(fixed.filter(row => row.id !== stop.id)) })
-  expect(labels(en.application)).toEqual(['Increase font size', 'Decrease font size', 'Zulu extension', 'Alpha extension'])
+  expect(labels(en.application)).toEqual(['Zoom in', 'Zoom out', 'Zulu extension', 'Alpha extension'])
   act(() => { catalog.set([...extensions, ...[...commands].reverse()]); fixedCatalog.set(fixed) })
   expect(labels(en.application)).toEqual(expected)
   act(() => {
@@ -256,7 +256,7 @@ it.each((['web', 'desktop'] as const).flatMap(runtime => (['invalid', 'future'] 
   act(() => { f.config.set({ ...f.config.getSnapshot(), status: 'unreadable', error, usingDefaults: false,
     document: { schemaVersion: 1, profiles: { [`${runtime}:macos`]: { 'settings.open': null } } } }) })
   const text = screen.getByRole('alert').textContent
-  expect(text).toContain(runtime === 'web' ? 'dsh.keybindings.v1' : 'userData/keybindings.json')
+  expect(text).toContain(runtime === 'web' ? 'jan.keybindings.v1' : 'userData/keybindings.json')
   expect(text).toContain(error === 'future'
     ? dictionary === en ? 'Upgrade Harness' : '升级 Harness'
     : dictionary === en ? 'Back up and repair' : '先备份并修复')

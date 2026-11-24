@@ -1,4 +1,4 @@
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { describe, expect, it, vi } from 'vitest'
 import { LayoutController } from '../src/client/service.ts'
 import type { MainPanelId, PanelActions } from '../src/client/service.ts'
@@ -8,6 +8,7 @@ function fakePanels(): PanelActions {
     selectPanel: vi.fn(),
     retainMainPanels: vi.fn(),
     setSidebar: vi.fn(),
+    configureSidebar: vi.fn(),
     toggleSidebar: vi.fn(),
     setViewportWidth: vi.fn(),
     setRightbar: vi.fn(),

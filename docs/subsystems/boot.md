@@ -1,7 +1,5 @@
 # Profile management
 
-English | [中文](boot.zh.md)
-
 The [boot package group](../../packages/boot/README.md) owns launcher-provided profile access and the plugin manager. [Plugin Manager](../../packages/boot/plugin-manager/README.md) documents persistence, reload and package-operation behavior.
 
 ## Management records
@@ -22,11 +20,11 @@ The [boot package group](../../packages/boot/README.md) owns launcher-provided p
 
 ## Market records
 
-[Plugin Market](../../packages/boot/plugin-market/README.md) reads index format 1, validated by [`dsh-plugin-market-index`](../../packages/util/plugin-market-index/README.md).
+[Plugin Market](../../packages/boot/plugin-market/README.md) reads index format 1, validated by [`jan-plugin-market-index`](../../packages/util/plugin-market-index/README.md).
 
 `MarketIndexSummary` carries one configured index URL with the `title` and `description` of its last successful read and, when the last read failed, its `error`.
 
-`MarketQuery` selects one page of an index: fuzzy `text`, a `category`, `labels` that must all be present, a `MarketSort`, `offset`, `limit` up to 100, `refresh` to fetch again instead of using a cached document, and `fetchedAt` to continue the pages of one document. `MarketSearchResult` carries the index URL, `title`, optional `description`, market `metadata`, the document's `fetchedAt`, the page's `entries`, the `total` number of matches, and the `nextOffset`. Each `MarketListingEntry` adds `defaultVersion`, the version installed by default, and `installation`, the profile's status for the package name; each of its `versions` adds `install`, the exact spec and optional first registry for `installBundle`, and `compatibility`, the evaluation of its `engines.dsh` including a version exemption.
+`MarketQuery` selects one page of an index: fuzzy `text`, a `category`, `labels` that must all be present, a `MarketSort`, `offset`, `limit` up to 100, `refresh` to fetch again instead of using a cached document, and `fetchedAt` to continue the pages of one document. `MarketSearchResult` carries the index URL, `title`, optional `description`, market `metadata`, the document's `fetchedAt`, the page's `entries`, the `total` number of matches, and the `nextOffset`. Each `MarketListingEntry` adds `defaultVersion`, the version installed by default, and `installation`, the profile's status for the package name; each of its `versions` adds `install`, the exact spec and optional first registry for `installBundle`, and `compatibility`, the evaluation of its `engines.jan` including a version exemption.
 
 `PluginDetail` is a market entry's long description: `{ status: 'found' }` with its `origin` (`locale`, `readme`, or `repository`), its `markdown`, and a `document` id whose images `GET /api/plugin-market/detail-file` serves, or `{ status: 'none' }`. The [plugin market documents the order](../../packages/boot/plugin-market/README.md#plugin-detail-documents) its sources are read in.
 
@@ -67,7 +65,7 @@ interface PendingModule {
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxactioncards--actioncards"></a>
 
@@ -195,6 +193,105 @@ async reconcileProfile(requiredIds: readonly string[] = []): Promise<ProfileReco
 
 Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)
 
+<a id="ctxplugini18n--plugini18n"></a>
+
+### `ctx.pluginI18n` — `PluginI18n`
+
+Translates plugin text and serves the cached results.
+
+```ts cordis-catalog
+/**
+ * Read the model translations run on: the person's saved pick, else the default model, else a loaded local model,
+ * else any configured model, whichever resolves first.
+ * @returns the provider, model, and why it was chosen.
+ */
+@Remote async route(): Promise<PluginI18nRoute>
+
+/**
+ * Read what the model picker shows: the route in use, the saved pick, the default model, and the models to pick.
+ * @returns the route choices.
+ */
+@Remote async routes(): Promise<PluginI18nRouteChoices>
+
+/**
+ * Save the model translations run on until changed again, or follow the default model again.
+ * @param route - the provider and model to use, or null to follow the default model.
+ * @returns the route choices after the change.
+ * @throws {RemoteError} `plugin-i18n/invalid-route` when no adapter serves the provider or the model is empty.
+ */
+@Remote async setRoute(route: PluginI18nRouteRef | null): Promise<PluginI18nRouteChoices>
+
+/**
+ * Read what is stored and running for one package.
+ * @param pkg - npm package name.
+ * @returns stored locales, the latest job, and whether the person consented to this package.
+ * @throws {RemoteError} `plugin-i18n/invalid-package`.
+ */
+@Remote async status(pkg: string): Promise<PluginI18nStatus>
+
+/**
+ * Read the status of every package that has stored text, a job, or consent.
+ * @returns one status per package, sorted by name.
+ */
+@Remote async statuses(): Promise<PluginI18nStatus[]>
+
+/**
+ * Start translating one package's text into one locale in the Host, so closing the page does not cancel it. Asking
+ * is the person's consent for the package. Entries unchanged since the last run are reused. A job already running
+ * for the package and locale is returned instead of starting another.
+ * @param request - package, locales, and the text to translate.
+ * @returns the running job; `plugin-i18n/changed` announces progress and completion.
+ * @throws {RemoteError} `plugin-i18n/invalid-package`, `plugin-i18n/invalid-locale`, or `plugin-i18n/too-large`.
+ */
+@Remote async translate(request: PluginI18nTranslateRequest): Promise<PluginI18nJob>
+
+/**
+ * Delete a package's generated text and consent and stop its running jobs.
+ * @param pkg - npm package name.
+ * @throws {RemoteError} `plugin-i18n/invalid-package`.
+ */
+@Remote async clear(pkg: string): Promise<void>
+
+/**
+ * Translate runtime strings such as tool titles or text a plugin renders itself, caching each result by its exact
+ * source text. Strings leave the Host only when the person consented to a package or globally; strings attributed
+ * to a package need that package's own consent, which the global switch does not give. A string the model could
+ * not translate acceptably is absent from the result.
+ * @param strings - exact source texts.
+ * @param locale - target locale.
+ * @param pkg - the package whose screen text this is; its translated strings are listed under it.
+ * @param rerun - translate the strings again even when the cache has them; a string the model fails keeps its old translation.
+ * @returns translations by exact source text.
+ * @throws {RemoteError} `plugin-i18n/invalid-locale`, `plugin-i18n/invalid-package`, `plugin-i18n/not-consented`, or
+ * `plugin-i18n/model-failed`.
+ */
+@Remote async translateStrings(strings: string[], locale: string, pkg?: string, rerun?: boolean): Promise<Record<string, string>>
+
+/**
+ * Read everything a client registers at start-up for one locale.
+ * @param locale - target locale.
+ * @returns each package's generated text and, when translation consent exists, cached runtime strings.
+ * @throws {RemoteError} `plugin-i18n/invalid-locale`.
+ */
+@Remote async tables(locale: string): Promise<PluginI18nTables>
+
+/**
+ * Read the consent record.
+ * @returns the global switch and the consenting packages.
+ */
+@Remote async consent(): Promise<PluginI18nConsent>
+
+/**
+ * Change the consent record.
+ * @param change - one package, or the global switch when `pkg` is absent.
+ * @returns the record after the change.
+ * @throws {RemoteError} `plugin-i18n/invalid-package`.
+ */
+@Remote async setConsent(change: PluginI18nConsentChange): Promise<PluginI18nConsent>
+```
+
+Source: [`packages/host/plugin-i18n/src/index.ts`](../../packages/host/plugin-i18n/src/index.ts)
+
 <a id="ctxpluginmanager--pluginmanager"></a>
 
 ### `ctx.pluginManager` — `PluginManager`
@@ -224,7 +321,7 @@ Manage profile files and apply their declared reload lifecycle.
 
 /** Grant or revoke one exact plugin/runtime exemption and reevaluate live plugins.
  * @param packageVersion Exact manifest package name followed by @ and its version; never an installation spec or alias.
- * @param runtimeVersion Exact current DSH version for grants; revocation may name a previous runtime.
+ * @param runtimeVersion Exact current Jan version for grants; revocation may name a previous runtime.
  * @param enabled Whether to grant rather than revoke the exemption.
  * @param acceptRisk Required true for grants after the user accepts possible crashes and data loss.
  * @returns Saved and runtime outcomes. Startup-only profiles require restart.
@@ -257,18 +354,18 @@ Manage profile files and apply their declared reload lifecycle.
 @Remote async inspect(spec: string, options?: InspectOptions, signal?: AbortSignal): Promise<PluginSpecInspection>
 
 /** Read the published versions newer than an installed registry package's version, from the first registry that answers.
- * Official bundles follow the DSH version and are not listed.
+ * Official bundles follow the Jan version and are not listed.
  * @param name Installed profile dependency name.
  * @param options The registry asked first; absent, the one the package was installed from in this process, else the configured one.
  * @param signal Ends the lookups early.
  * @returns At most `versionListLimit` newer versions, newest first, with their tags, deprecation, bundle declaration,
- * and DSH compatibility, and the registry that answered; or why no list could be read, with every registry asked.
+ * and Jan compatibility, and the registry that answered; or why no list could be read, with every registry asked.
  */
 @Remote async listVersions(name: string, options?: ListVersionsOptions, signal?: AbortSignal): Promise<PluginVersionList>
 
 /**
  * Replace an installed registry bundle with a newer published version. The target is checked on the registry first:
- * it must exist, declare a bundle, and accept the running DSH version, or nothing changes. With HMR the installed
+ * it must exist, declare a bundle, and accept the running Jan version, or nothing changes. With HMR the installed
  * version is removed, so its plugins stop, and the target is installed with the same selection; when that
  * installation fails or is cancelled, the removed version is installed again from the registry it came from.
  * Without HMR the target is installed over the running version and the result reports the restart.
@@ -295,7 +392,7 @@ Manage profile files and apply their declared reload lifecycle.
 @Remote setBundleEnabled(name: string, enabled: boolean): Promise<ChangeResult>
 
 /**
- * Install a package using the same pnpm implementation as dsh plugin. GitHub
+ * Install a package using the same pnpm implementation as jan plugin. GitHub
  * repositories get a connection check bounded by githubConnectionTimeoutMs before pnpm starts;
  * only network failures or timeouts stop installation, and a stop streams the check's diagnostic
  * as the installation's install-log run under its request id, while pnpm owns authentication and transport fallback. An
@@ -324,7 +421,7 @@ Manage profile files and apply their declared reload lifecycle.
  */
 @Remote async cancelInstall(requestId: PluginInstallRequestId): Promise<PluginInstallCancellation>
 
-/** Unload and remove a profile-owned bundle dependency through dsh plugin's pnpm path; a selected name no
+/** Unload and remove a profile-owned bundle dependency through jan plugin's pnpm path; a selected name no
  * dependency holds is only deselected.
  * @param name Installed dependency or selected bundle name.
  * @returns Removal diagnostics and the remaining profile state.
@@ -341,6 +438,14 @@ Source: [`packages/boot/plugin-manager/src/index.ts`](../../packages/boot/plugin
 Fetches, validates, and caches configured market indexes; annotates entries with the profile's installation facts.
 
 ```ts cordis-catalog
+/**
+ * Serialize a Downloads-page removal with the repository's fetches.
+ * @param repository - repository whose cached checkout is removed.
+ * @param remove - deletes the checkout once no fetch holds it.
+ * @returns after the removal settles.
+ */
+deleteDownloadCache(repository: string, remove: () => Promise<void>): Promise<void>
+
 /**
  * List the configured index sources without fetching them.
  * @returns every source in order, with the title of its last successful read and, when the last read failed, its error.
@@ -505,6 +610,27 @@ Module replacements have finished loading.
 ```
 
 Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)
+
+<a id="plugin-i18n-events"></a>
+
+### `plugin-i18n/*` events
+
+<a id="plugin-i18nchanged--emit"></a>
+
+#### `plugin-i18n/changed` — emit
+
+Generated text, a job, or the consent record changed.
+
+```ts cordis-catalog
+/**
+ * Generated text, a job, or the consent record changed.
+ * @mode emit
+ * @param change - the package and locale that changed, when one did.
+ */
+'plugin-i18n/changed'(change: PluginI18nChange): void
+```
+
+Source: [`packages/host/plugin-i18n/src/types.ts`](../../packages/host/plugin-i18n/src/types.ts)
 
 <a id="plugin-manager-events"></a>
 

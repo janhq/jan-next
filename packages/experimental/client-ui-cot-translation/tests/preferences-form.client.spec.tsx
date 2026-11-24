@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 /** Preferences remain staged until one explicit Settings save. */
-import type { TranslationProvider } from '@deepseek-ai/dsh-experimental-translator/types'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { TranslationProvider } from '@janhq/jan-experimental-translator/types'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { afterEach, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
-import { bindSnapshotSelector, makeTranslate, stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
+import { bindSnapshotSelector, makeTranslate, stubConfigForm } from '@janhq/jan-client-test-runtime'
 import { TranslationPreferencesForm } from '../src/client/preferences-form.ts'
 import { TranslationSettings, type TranslationSettingsProps } from '../src/client/TranslationSettings.tsx'
 import type { CotTranslationPreferences } from '../src/preferences.ts'
@@ -93,12 +93,12 @@ it('reports provider overrides, rejects an invalid draft, and resets to the inhe
 })
 
 
-it('offers both version-free paid routes only when eligible and keeps selection staged until Save', async () => {
+it('refreshes provider availability on mount and shows the anonymous-endpoint notice', () => {
   const scope = stubConfigForm<CotTranslationPreferences>()
   scope.publish({ status: 'ready', value: { provider: 'bing', targetLanguage: 'auto' },
     base: { provider: 'bing', targetLanguage: 'auto' }, user: {}, writable: true, revision: 4 })
   const form = new TranslationPreferencesForm(scope.scope), { hooks, ...actions } = form.inject()
-  const availability = createSnapshotStore<readonly TranslationProvider[]>(['bing', 'google', 'deepseek-account', 'deepseek-official'])
+  const availability = createSnapshotStore<readonly TranslationProvider[]>(['bing', 'google'])
   const refreshProviders = vi.fn(), t: TranslationSettingsProps['t'] = makeTranslate(en)
   const props = { view: 'page' as const, ...actions, useTranslationForm: bindSnapshotSelector(hooks.translationForm),
     useAvailableProviders: bindSnapshotSelector(availability), refreshProviders, t } as TranslationSettingsProps
@@ -106,52 +106,35 @@ it('offers both version-free paid routes only when eligible and keeps selection 
   try {
     expect(refreshProviders).toHaveBeenCalledOnce()
     expect(view.getByLabelText(en.provider)).toHaveProperty('value', 'bing')
-    expect(view.getByRole('option', { name: en.deepseekAccount })).toBeTruthy()
-    expect(view.getByRole('option', { name: en.deepseekOfficial })).toBeTruthy()
-    expect(en.deepseekAccount).not.toMatch(/v?4\.1/)
     expect(view.getByText(en.anonymousNotice)).toBeTruthy()
-    expect(view.queryByText(en.paidNotice)).toBeNull()
-    fireEvent.change(view.getByLabelText(en.provider), { target: { value: 'deepseek-account' } })
-    expect(view.getByText(en.paidNotice)).toBeTruthy()
-    expect(en.paidNotice).toContain('Each uncached fragment sends a separate paid')
-    expect(en.paidNotice).toContain('Reopening reasoning reuses saved results')
-    expect(zh.paidNotice).toContain('每个未缓存片段')
-    expect(zh.paidNotice).toContain('重新展开会复用已保存的译文')
-    expect(view.queryByText(en.anonymousNotice)).toBeNull()
+    fireEvent.change(view.getByLabelText(en.provider), { target: { value: 'google' } })
+    expect(view.getByText(en.anonymousNotice)).toBeTruthy()
     expect(scope.mutate).not.toHaveBeenCalled()
-    fireEvent.click(view.getByRole('button', { name: en.save }))
-    await vi.waitFor(() => { expect(scope.mutate).toHaveBeenCalledWith([{ op: 'set', path: ['provider'], value: 'deepseek-account' }], 4) })
-    fireEvent.change(view.getByLabelText(en.provider), { target: { value: 'deepseek-official' } })
-    expect(hooks.translationForm.getSnapshot().invalid).toBe(false)
-    expect(view.getByText(en.paidNotice)).toBeTruthy()
   } finally { view.unmount(); form.dispose() }
 })
 
-it('keeps an unavailable paid choice disabled and offers repair or an explicit reset without selecting a free fallback', () => {
+it('keeps an unavailable choice disabled and offers repair or an explicit reset without selecting a fallback', () => {
   const scope = stubConfigForm<CotTranslationPreferences>()
-  scope.publish({ status: 'ready', value: { provider: 'deepseek-official', targetLanguage: 'auto' },
-    base: { provider: 'bing', targetLanguage: 'auto' }, user: { provider: 'deepseek-official' }, writable: true, revision: 6 })
+  scope.publish({ status: 'ready', value: { provider: 'google', targetLanguage: 'auto' },
+    base: { provider: 'bing', targetLanguage: 'auto' }, user: { provider: 'google' }, writable: true, revision: 6 })
   const form = new TranslationPreferencesForm(scope.scope), { hooks, ...actions } = form.inject()
-  const availability = createSnapshotStore<readonly TranslationProvider[]>(['bing', 'google'])
+  const availability = createSnapshotStore<readonly TranslationProvider[]>(['bing'])
   const t: TranslationSettingsProps['t'] = makeTranslate(en)
   const props = { view: 'page' as const, ...actions, useTranslationForm: bindSnapshotSelector(hooks.translationForm),
     useAvailableProviders: bindSnapshotSelector(availability), refreshProviders: vi.fn(), t } as TranslationSettingsProps
   const view = render(<TranslationSettings {...props} />)
   try {
-    expect(view.getByLabelText(en.provider)).toHaveProperty('value', 'deepseek-official')
-    const selected = view.getByRole('option', { name: `${en.deepseekOfficial} — unavailable` })
+    expect(view.getByLabelText(en.provider)).toHaveProperty('value', 'google')
+    const selected = view.getByRole('option', { name: `${en.google} — unavailable` })
     expect(selected).toHaveProperty('disabled', true)
-    expect(view.queryByRole('option', { name: en.deepseekAccount })).toBeNull()
     expect(view.getByText(en.providerUnavailable)).toBeTruthy()
-    expect(view.getByText(en.paidNotice)).toBeTruthy()
     expect(scope.mutate).not.toHaveBeenCalled()
-    act(() => { availability.set(['bing', 'google', 'deepseek-official']) })
-    expect(view.getByLabelText(en.provider)).toHaveProperty('value', 'deepseek-official')
-    expect(view.getByRole('option', { name: en.deepseekOfficial })).toHaveProperty('disabled', false)
+    act(() => { availability.set(['bing', 'google']) })
+    expect(view.getByLabelText(en.provider)).toHaveProperty('value', 'google')
+    expect(view.getByRole('option', { name: en.google })).toHaveProperty('disabled', false)
     expect(view.queryByText(en.providerUnavailable)).toBeNull()
     expect(scope.mutate).not.toHaveBeenCalled()
     fireEvent.click(view.getByRole('button', { name: en.reset }))
     expect(view.getByLabelText(en.provider)).toHaveProperty('value', 'bing')
-    expect(view.getByText(en.anonymousNotice)).toBeTruthy()
   } finally { view.unmount(); form.dispose() }
 })

@@ -1,7 +1,9 @@
-- group "模型与推理等级":
-  - searchbox "搜索模型…": ACMLG
-  - button "清除搜索"
-  - menu "模型":
+- group "Model and reasoning effort":
+  - searchbox "Search models…": acme LARGE
+  - button "Clear search"
+  - text: Sign in to Tokamak or add an API key to load its models
+  - button "Retry"
+  - menu "Model":
     - group "Acme Gateway":
       - text: Acme Gateway
       - menuitemradio "Acme Large"

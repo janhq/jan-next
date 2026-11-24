@@ -2,8 +2,8 @@
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
+import { makeTranslate } from '@janhq/jan-client-test-runtime'
+import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
 import { TurnUsagePanel } from '../src/client/chat/TurnUsagePanel.tsx'
 import type { TurnTokenUsage } from '../src/client/contract/chat-nodes.ts'
 import { en } from '../src/client/locale.ts'
@@ -12,8 +12,18 @@ const t = makeTranslate(en, commonEn)
 
 afterEach(cleanup)
 
+/** Each pill figure's text and the hint its hover shows. */
+function figures(trigger: HTMLElement, view: ReturnType<typeof render>): [string, string][] {
+  return [...trigger.querySelectorAll<HTMLElement>('[data-turn-usage-stat]')].map((stat) => {
+    fireEvent.pointerEnter(stat)
+    const hint = view.getByRole('tooltip').textContent ?? ''
+    fireEvent.pointerLeave(stat)
+    return [stat.textContent ?? '', hint]
+  })
+}
+
 describe('TurnUsagePanel', () => {
-  it('shows an icon-and-total pill and opens the usage dialog on click', () => {
+  it('shows input, output, cache, first-token time and speed, and opens the usage dialog on click', () => {
     const usage: TurnTokenUsage = {
       uncachedInputTokens: 5_060,
       cacheReadTokens: 4_940,
@@ -23,11 +33,16 @@ describe('TurnUsagePanel', () => {
       totalTokens: 15_800,
       routes: [{ provider: 'deepseek', model: 'deepseek-chat' }],
     }
-    const view = render(<TurnUsagePanel usage={usage} t={t} />)
+    const view = render(<TurnUsagePanel usage={usage} timing={{ ttftMs: 2_340, tokensPerSecond: 89.8 }} t={t} />)
 
-    const trigger = view.getByRole('button')
-    expect(trigger.textContent).toBe('Usage 15.8K tok')
-    expect(trigger.querySelector('svg')).not.toBeNull()
+    const trigger = view.getByRole('button', { name: 'Turn usage' })
+    expect(figures(trigger, view)).toEqual([
+      ['5.1K', 'Uncached input · 5,060 tok'],
+      ['5.8K', 'Output · 5,800 tok'],
+      ['4.9K', 'Cached input · 4,940 tok'],
+      ['2.3s', 'Time to first token · 2.3s'],
+      ['90 tok/s', 'Output speed · 90 tok/s'],
+    ])
     expect(trigger.getAttribute('aria-haspopup')).toBe('dialog')
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
     expect(view.queryByRole('dialog')).toBeNull()
@@ -47,7 +62,22 @@ describe('TurnUsagePanel', () => {
     expect(details.textContent).toContain('Cached input4,940 tok')
     expect(details.textContent).toContain('Cache write0 tok')
     expect(details.textContent).toContain('Output5,800 tok (42 tok reasoning)')
+    expect(details.textContent).toContain('Time to first token2.3s')
+    expect(details.textContent).toContain('Output speed90 tok/s')
     expect(details.textContent).not.toContain('Total')
+  })
+
+  it('names a route once when its model id already carries the provider', () => {
+    const usage: TurnTokenUsage = {
+      uncachedInputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
+      routes: [{ provider: 'tokamak', model: 'tokamak/auto' }, { provider: 'deepseek', model: 'deepseek-chat' }],
+    }
+    const view = render(<TurnUsagePanel usage={usage} t={t} />)
+    fireEvent.click(view.getByRole('button', { name: 'Turn usage' }))
+    expect(view.getByRole('dialog').querySelector('[data-turn-usage-details]')?.textContent)
+      .toContain('Provider / modeltokamak/auto, deepseek/deepseek-chat')
   })
 
   it('omits unavailable optional facts instead of inventing values', () => {
@@ -59,13 +89,16 @@ describe('TurnUsagePanel', () => {
     const view = render(<TurnUsagePanel usage={usage} t={t} />)
 
     const trigger = view.getByRole('button')
-    expect(trigger.textContent).toBe('Usage 150 tok')
+    expect(figures(trigger, view).map(([, hint]) => hint))
+      .toEqual(['Uncached input · 120 tok', 'Output · 30 tok'])
     fireEvent.click(trigger)
     expect(view.queryByText('Provider / model')).toBeNull()
     expect(view.queryByText('Cache hit')).toBeNull()
     expect(view.queryByText('Cached input')).toBeNull()
     expect(view.queryByText('Cache write')).toBeNull()
     expect(view.queryByText(/reasoning/)).toBeNull()
+    expect(view.queryByText('Time to first token')).toBeNull()
+    expect(view.queryByText('Output speed')).toBeNull()
   })
 
   it('keeps a partial cache hit below 100 in the dialog and closes on Escape or outside pointerdown', () => {
@@ -77,9 +110,6 @@ describe('TurnUsagePanel', () => {
     }
     const view = render(<TurnUsagePanel usage={usage} t={t} />)
     const trigger = view.getByRole('button')
-    // The pill carries the compact total; cache-hit rate and exact token
-    // counts stay in the dialog.
-    expect(trigger.textContent).toBe('Usage 1.1K tok')
 
     fireEvent.click(trigger)
     const dialog = view.getByRole('dialog')

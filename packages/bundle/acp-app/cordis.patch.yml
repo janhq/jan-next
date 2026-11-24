@@ -1,8 +1,8 @@
-# The automation-only ACP application over dsh-base. Stdout belongs to ACP.
+# The automation-only ACP application over jan-base. Stdout belongs to ACP.
 
 - id: system-prompt
   config:
-    # tokamak-harness: Jan replaces the fixed DeepSeek Harness identity sentence.
+    # tokamak-harness: the persona opener replaces the default harness identity sentence.
     includeHarnessIdentity: false
     personaPrefix: >-
       You are Jan, an AI agent. You are a coding agent powered by the {{model}} model.
@@ -12,15 +12,14 @@
 
 - insert:
     - id: acp-app-startup
-      name: '@deepseek-ai/dsh-acp-app'
+      name: '@janhq/jan-acp-app'
 
     - id: acp
-      name: '@deepseek-ai/dsh-acp'
+      name: '@janhq/jan-acp'
       inject: [acpAppStartup]
       config:
-        # tokamak-harness: DeepSeek routes are unmounted; ACP uses the Tokamak route.
         provider: tokamak
-        model: tokamak-1-preview
+        model: tokamak/auto
 
 - id: hmr
   disabled: true

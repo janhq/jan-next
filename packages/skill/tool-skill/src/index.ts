@@ -1,17 +1,19 @@
 /**
  * Durable session skill catalog and model-facing `skill` loader tool.
  *
- * @module @deepseek-ai/dsh-tool-skill
+ * @module @janhq/jan-tool-skill
  */
 
-import type {} from '@deepseek-ai/dsh-working-directory'
+import type { } from '@janhq/jan-working-directory'
 import { createHash } from 'node:crypto'
-import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
-import { defineTool } from '@deepseek-ai/dsh-tools'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { SessionSeq, type UserMessage } from '@deepseek-ai/dsh-session'
+import type { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import { agentEvents, type Agent, type PreStepDecision } from '@janhq/jan-agent'
+import type { CommandResult } from '@janhq/jan-commands'
+import { CommandDefinitionId } from '@janhq/jan-commands/brand'
+import { defineTool } from '@janhq/jan-tools'
+import { createUserMessage } from '@janhq/jan-llm'
+import { SessionSeq, type UserMessage } from '@janhq/jan-session'
 import {
   escapeText,
   isModelInvocable,
@@ -20,7 +22,7 @@ import {
   renderSkillContent,
   type SkillInvocationSource,
   type SkillSummary,
-} from '@deepseek-ai/dsh-skill'
+} from '@janhq/jan-skill'
 
 export const name = 'tool-skill'
 export const inject = ['agents', 'tools', 'skills', 'workingDirectory']
@@ -43,7 +45,7 @@ export interface SkillCatalogSource {
   readonly entries: readonly { readonly name: string; readonly description: string }[]
 }
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'skill-catalog': SkillCatalogSource
   }
@@ -205,6 +207,31 @@ export function apply(ctx: Context, config: Config = {}): void {
     }
     if (injections.length === 0) return decision
     return { ...decision, messages: [...decision.messages, ...injections] }
+  })
+
+  // Dropping cached catalogs lets the next step's catalog listener publish a replacement catalog,
+  // appended after the conversation, for skills changed outside the providers' change detection.
+  ctx.on('agent/reload', async ({ agent, signal }, next): Promise<string[]> => {
+    const lines = await next()
+    if (ctx.tools.get(skillTool.name, agent) !== skillTool) return lines
+    ctx.skills.refresh()
+    const found = await ctx.skills.list({ cwd: await ctx.workingDirectory.ensure(agent, signal), signal, scope: agent })
+    return [...lines, `Skills: ${String(found.length)} found.`]
+  })
+
+  // `/reload` lives here because every mode that has anything to re-read mounts the skill loader;
+  // other plugins add what they re-read through `agent/reload`.
+  ctx.inject(['commands'], (scope) => {
+    scope.commands.register({
+      definitionId: CommandDefinitionId('@janhq/jan-tool-skill/reload'),
+      name: 'reload',
+      description: 'Reload instruction files and skills without resetting the cache',
+      async handler({ agent, rawInput, signal }): Promise<CommandResult> {
+        if (rawInput.trim().length > 0) return { kind: 'error', text: 'Usage: /reload (no arguments)' }
+        const lines = await agentEvents(ctx, agent).waterfall('agent/reload', { signal }, () => Promise.resolve([]))
+        return { kind: 'success', text: [...lines, 'Changes reach the model with your next message; earlier messages are not resent.'].join(' ') }
+      },
+    })
   })
 
   // Register after the tool so reverse teardown removes guidance first. Exact definition

@@ -1,12 +1,12 @@
 /** Discover: search one plugin market index, read an entry's page, and install a version. */
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
-  Button, IconChevronDownOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular, IconSearchOutlineRegular,
-  IconSlidersTwoOutlineRegular, IconTrashOutlineRegular, IconWarningOutlineRegular, Input, Menu, Modal, Pill,
+  Button, IconChevronDownOutlineRegular, IconPluginIndexOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular,
+  IconSearchOutlineRegular, IconSlidersTwoOutlineRegular, IconTrashOutlineRegular, IconWarningOutlineRegular, Input, Menu, Modal,
   PluginArtworkDefault, StateDot, Tag, Tooltip,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { MarketCompatibility, MarketListingEntry, MarketListingVersion, MarketSearchResult, MarketSort } from '@deepseek-ai/dsh-api-remotes/client'
+} from '@janhq/jan-client-ui-primitives'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type { MarketCompatibility, MarketListingEntry, MarketListingVersion, MarketSearchResult, MarketSort } from '@janhq/jan-api-remotes/client'
 import type { DiscoverFace, DiscoverState, ListingFailure, ListingState, SourceFailure } from './market-store.ts'
 import {
   displayDeclarations, indexLabel, presentedVersion, sourceFacts, withText, type DiscoverQuery, type DisplayDeclaration, type SourceFact,
@@ -26,6 +26,37 @@ type DiscoverActions = Omit<DiscoverFace, 'hooks'>
 const TEXT_DELAY_MS = 250
 /** Artwork size inside the 48px icon frame, as on the Installed tab. */
 const ICON = 36
+
+/** Public indexes offered for one-click adding; nothing is requested until the person adds one. */
+const SUGGESTED_INDEXES = [
+  { url: 'https://dsh.works/awesome-dsh-plugins/market/index.json', title: 'awesome-dsh-plugins', descriptionKey: 'suggestedDsh' },
+] as const
+
+function SuggestedIndexes({ state, t, face }: {
+  readonly state: DiscoverState
+  readonly t: Translate
+  readonly face: DiscoverActions
+}): ReactNode {
+  const open = SUGGESTED_INDEXES.filter(item => !state.indexes.some(index => index.url === item.url))
+  if (open.length === 0) return null
+  return (
+    <ul className={css.sourceList} aria-label={t('suggestedLabel')}>
+      {open.map(item => (
+        <li key={item.url} className={css.sourceRow}>
+          <div className={css.main}>
+            <span className={css.strong}>{item.title}</span>
+            <span className={css.meta}>{t(item.descriptionKey)}</span>
+            <span className={css.meta}>{item.url}</span>
+          </div>
+          <Button variant="outline" size="sm" icon={<IconPlusOutlineRegular size={13} />} disabled={state.saving}
+            aria-label={t('addSuggested', { title: item.title })} onClick={() => { face.addSuggested(item.url) }}>
+            {t('addSource')}
+          </Button>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 const FAILURE_KEYS = {
   fetch: 'readFailed',
@@ -108,12 +139,14 @@ function EntryAction({ entry, title, t, onInstall, onOpenInstalled }: {
   return <Button variant="outline" size="sm" aria-label={t('installTitle', { name: title })} onClick={() => { onInstall(version) }}>{t('install')}</Button>
 }
 
-function EntryCard({ entry, t, face, language, labels, onOpen, onInstall, onOpenInstalled }: {
+function EntryCard({ entry, t, face, language, labels, facts, onOpen, onInstall, onOpenInstalled }: {
   readonly entry: MarketListingEntry
   readonly t: Translate
   readonly face: DiscoverActions
   readonly language: string
   readonly labels: readonly DisplayDeclaration<unknown>[]
+  /** The index's declared sort keys; an entry shows the values it carries, such as its GitHub stars. */
+  readonly facts: readonly DisplayDeclaration<unknown>[]
   readonly onOpen: () => void
   readonly onInstall: (version: MarketListingVersion) => void
   readonly onOpenInstalled: () => void
@@ -135,6 +168,17 @@ function EntryCard({ entry, t, face, language, labels, onOpen, onInstall, onOpen
             ? t('entryMeta', { version: version.version, date })
             : t('entryMetaAuthor', { version: version.version, author: entry.author, date })}
         </span>
+        {facts.some(fact => Object.hasOwn(entry.metadata.sortKeys, fact.id))
+          ? (
+            <span className={css.facts}>
+              {facts.filter(fact => Object.hasOwn(entry.metadata.sortKeys, fact.id)).map(fact => (
+                <span key={fact.id} title={`${fact.title}: ${(entry.metadata.sortKeys[fact.id] as number).toLocaleString(language)}`}>
+                  {fact.title} <strong>{new Intl.NumberFormat(language, { notation: 'compact', maximumFractionDigits: 1 }).format(entry.metadata.sortKeys[fact.id] as number)}</strong>
+                </span>
+              ))}
+            </span>
+          )
+          : null}
       </div>
       <div className={css.cardEnd}>
         <EntryAction entry={entry} title={title} t={t} onInstall={onInstall} onOpenInstalled={onOpenInstalled} />
@@ -153,7 +197,7 @@ function VersionRow({ entry, version, title, t, language, onInstall }: {
   readonly onInstall: (version: MarketListingVersion) => void
 }): ReactNode {
   const current = entry.installation.installedVersion === version.version
-  // DSH ships a provided bundle; the market cannot replace it.
+  // Jan ships a provided bundle; the market cannot replace it.
   const offered = !current && entry.installation.status !== 'provided' && installable(version.compatibility)
   const { compatibility } = version
   return (
@@ -306,6 +350,7 @@ function SourcesDialog({ state, t, face }: {
             ))}
           </ul>
         )}
+        <SuggestedIndexes state={state} t={t} face={face} />
         <form className={css.sourceForm} onSubmit={(event) => { event.preventDefault(); face.addSource() }}>
           <Input className={css.grow as string} value={state.draft} placeholder={t('sourcePlaceholder')} aria-label={t('sourceUrl')}
             aria-invalid={state.sourceFailure !== null} data-modal-autofocus onChange={(event) => { face.editDraft(event.target.value) }} />
@@ -460,6 +505,12 @@ function Browser({ state, listing, t, face, hooks, language, onInstall, openPack
   const busy = listing.status === 'loading' && value !== null
   return (
     <>
+      <div className={css.head}>
+        <p className={css.intro}>{t('intro')}</p>
+        <Button variant="outline" size="sm" icon={<IconSlidersTwoOutlineRegular size={13} />} onClick={face.toggleSources}>
+          {t('manageSources')}
+        </Button>
+      </div>
       <div className={css.toolbar} data-discover-toolbar>
         <Menu open={menu === 'market'} onClose={() => { setMenu(null) }} portal autoFocus selectedId={listing.url}
           items={state.indexes.map(index => ({ id: index.url, label: indexLabel(index, face.resolveText) }))}
@@ -511,15 +562,15 @@ function Browser({ state, listing, t, face, hooks, language, onInstall, openPack
       </div>
       {declarations.categories.length === 0 ? null : (
         <div className={css.categories} role="group" aria-label={t('categoriesLabel')}>
-          <Pill active={query.category === null} aria-pressed={query.category === null}
+          <button type="button" className={css.chip} aria-pressed={query.category === null}
             onClick={() => { face.search({ ...query, category: null }) }}>
             {t('allCategories')}
-          </Pill>
+          </button>
           {declarations.categories.map(item => (
-            <Pill key={item.id} active={query.category === item.id} aria-pressed={query.category === item.id}
+            <button type="button" key={item.id} className={css.chip} aria-pressed={query.category === item.id}
               onClick={() => { face.search({ ...query, category: item.id }) }}>
               {item.title}
-            </Pill>
+            </button>
           ))}
         </div>
       )}
@@ -540,7 +591,8 @@ function Browser({ state, listing, t, face, hooks, language, onInstall, openPack
             <>
               <ul className={css.cards} aria-busy={busy}>
                 {value.entries.map(entry => (
-                  <EntryCard key={entry.name} entry={entry} t={t} face={face} language={language} labels={declarations.labels}
+                  <EntryCard key={entry.name} entry={entry} t={t} face={face} language={language}
+                    labels={declarations.labels} facts={declarations.sortKeys}
                     onOpen={() => { setOpened(entry) }} onInstall={(version) => { onInstall({ entry, version }) }}
                     onOpenInstalled={() => { openPackage(entry.name) }} />
                 ))}
@@ -579,10 +631,11 @@ export function DiscoverSection(props: DiscoverSectionProps): ReactNode {
   } else if (state.listing === null) {
     body = (
       <div className={css.empty}>
-        <PluginArtworkDefault size={48} />
+        <IconPluginIndexOutlineRegular size={48} className={css.emptyGlyph} />
         <p className={css.emptyTitle}>{t('emptyTitle')}</p>
         <p className={css.muted}>{t('emptyDescription')}</p>
-        <Button variant="primary" size="sm" icon={<IconPlusOutlineRegular size={13} />} onClick={props.toggleSources}>
+        <div className={css.emptySuggested}><SuggestedIndexes state={state} t={t} face={face} /></div>
+        <Button variant="outline" size="sm" icon={<IconPlusOutlineRegular size={13} />} onClick={props.toggleSources}>
           {t('addFirstSource')}
         </Button>
       </div>

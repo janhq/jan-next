@@ -5,8 +5,8 @@ import { useState } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import {
   FISH_LOGO_PATH, FISH_LOGO_VIEWBOX, IconChevronDownOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
+} from '@janhq/jan-client-ui-primitives'
+import { workspaceTitleOf } from '@janhq/jan-util-workspace-path'
 import type { ConversationContentProps } from '../contract/slots.ts'
 import css from './HeroShell.module.css'
 
@@ -25,20 +25,23 @@ export function workspaceLabel(cwd: string): string {
 }
 
 /**
- * The workspace chip (folder + label + chevron), always interactive: before
- * the first message the workspace stays switchable — picking another one
- * moves the New Session flow to that workspace's blank session. Without a
- * label the chip renders its placeholder state: closed folder + the
- * "Choose workspace" call to action.
+ * The workspace chip (folder + label + chevron). Before the first message the
+ * workspace stays switchable: picking another one moves the New Session flow
+ * to that workspace's blank session. Once the chat has started it is locked:
+ * a dimmed label that names the chat's project and explains why it cannot
+ * change. Without a label the chip renders its placeholder state: closed
+ * folder + the "Choose workspace" call to action.
  * @param props.label - chip label (see {@link workspaceLabel}); omitted → placeholder.
  * @param props.menuOpen - menu expansion echo.
+ * @param props.locked - the chat has started, so its project is fixed.
  * @param props.onClick - menu toggle.
  * @returns the chip button element.
  */
-export function WorkspaceChip({ buttonRef, label, menuOpen = false, onClick, t }: {
+export function WorkspaceChip({ buttonRef, label, menuOpen = false, locked = false, onClick, t }: {
   buttonRef?: RefObject<HTMLButtonElement>
   label?: string | undefined
   menuOpen?: boolean
+  locked?: boolean
   onClick?: () => void
   t: HeroTranslate
 }) {
@@ -50,13 +53,15 @@ export function WorkspaceChip({ buttonRef, label, menuOpen = false, onClick, t }
       aria-label={t('hero.chooseWorkspace')}
       aria-haspopup="menu"
       aria-expanded={menuOpen}
+      disabled={locked}
+      title={locked ? t('hero.workspaceLocked') : undefined}
       onClick={onClick}
     >
       {label === undefined
         ? <IconFolderCloseRegular className={css.folder} size={16} />
         : <IconFolderOpenRegular className={css.folder} size={16} />}
       <span className={css.workspaceLabel}>{label ?? t('hero.chooseWorkspace')}</span>
-      <IconChevronDownOutlineRegular className={css.chevron} size={12} />
+      <IconChevronDownOutlineRegular className={css.chevron} size={14} />
     </button>
   )
 }
@@ -133,33 +138,35 @@ export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
   const [hovering, setHovering] = useState(false)
   return (
     <div className={css.root}>
-      <div className={css.stack}>
-        <div className={css.headline}>
-          {/* figma 34:10412: fish 34×25 leading the headline, gap 10. */}
-          <span
-            className={css.fishHitbox}
-            onPointerEnter={(event) => {
-              if (event.pointerType !== 'touch'
-                && window.matchMedia('(hover: hover) and (prefers-reduced-motion: no-preference)').matches) {
-                setHovering(true)
-              }
-            }}
-            onPointerLeave={() => { setHovering(false) }}
-          >
-            {renderSlot('conversation.hero.brand.mark', { size: 34, className: css.fish }, {
-              fallback: <HeroFish hovering={hovering} />,
-            })}
-          </span>
-          <span className={css.titleGroup}>
-            {/* Own element: keeps the headline text addressable apart from the badge. */}
-            <span>{t('hero.headline')}</span>
-            <span className={css.previewBadge}>{t('hero.preview')}</span>
-          </span>
-        </div>
-        <div className={css.body}>
-          {/* The composer remains mounted outside this component. */}
-        </div>
-      </div>
+      {renderSlot('conversation.hero.headline', { headline: t('hero.headline'), preview: t('hero.preview') }, {
+        fallback: (<div className={css.stack}>
+          <div className={css.headline}>
+            {/* figma 34:10412: fish 34×25 leading the headline, gap 10. */}
+            <span
+              className={css.fishHitbox}
+              onPointerEnter={(event) => {
+                if (event.pointerType !== 'touch'
+                  && window.matchMedia('(hover: hover) and (prefers-reduced-motion: no-preference)').matches) {
+                  setHovering(true)
+                }
+              }}
+              onPointerLeave={() => { setHovering(false) }}
+            >
+              {renderSlot('conversation.hero.brand.mark', { size: 34, className: css.fish }, {
+                fallback: <HeroFish hovering={hovering} />,
+              })}
+            </span>
+            <span className={css.titleGroup}>
+              {/* Own element: keeps the headline text addressable apart from the badge. */}
+              <span>{t('hero.headline')}</span>
+              <span className={css.previewBadge}>{t('hero.preview')}</span>
+            </span>
+          </div>
+          <div className={css.body}>
+            {/* The composer remains mounted outside this component. */}
+          </div>
+        </div>),
+      })}
       {children}
     </div>
   )

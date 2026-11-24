@@ -1,10 +1,13 @@
 {
-  "name": "@deepseek-ai/dsh-api-llama-cpp-controller",
+  "name": "@janhq/jan-api-llama-cpp-controller",
   "description": "Authenticated browser access to the managed local llama.cpp model",
   "version": "0.2.2-rc.1",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jamesdam/tokamak-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/api/llama-cpp-controller"
   },
   "type": "module",
@@ -30,7 +33,6 @@
   "files": [
     "locale/*.json",
     "lib/index.js",
-    "lib/types/**/*.js",
     "lib/types/**/*.d.ts",
     "lib/typert.host.js",
     "lib/typert.host.d.ts",
@@ -38,15 +40,17 @@
     "lib/typert.remote-client.d.ts"
   ],
   "license": "MIT",
+  "dependencies": {
+    "@janhq/jan-home-paths": "workspace:*"
+  },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-llama-cpp": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-llama-cpp": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-llama-cpp": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*"
-  },
-  "private": true
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-llama-cpp": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*"
+  }
 }

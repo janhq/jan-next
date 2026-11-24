@@ -1,9 +1,9 @@
 /** Host catalog, durable projection caches, and explicitly retained Client instances. */
 
-import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
-import { SessionSeq, type SessionId, type SessionSeqCursor } from '@deepseek-ai/dsh-session/types'
-import type { SessionProjectionMap, SessionProjectionViewValues } from '@deepseek-ai/dsh-session-projection/types'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+import type { SubagentAddress } from '@janhq/jan-subagent/client'
+import { SessionSeq, type SessionId, type SessionSeqCursor } from '@janhq/jan-session/types'
+import type { SessionProjectionMap, SessionProjectionViewValues } from '@janhq/jan-session-projection/types'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
 import type {
   SessionControlBaseline,
   SessionControlFrame,
@@ -12,15 +12,15 @@ import type {
   SessionSummary,
 } from '../../types.ts'
 import { mergeOrderedBaseline } from '../ordered-baseline.ts'
-import { isRemoteFailure } from '@deepseek-ai/dsh-api-gateway/client'
-import { assertNever } from '@deepseek-ai/dsh-util-values'
-import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import { isRemoteFailure } from '@janhq/jan-api-gateway/client'
+import { assertNever } from '@janhq/jan-util-values'
+import type { RemoteFailure, RemoteResult } from '@janhq/jan-typert-protocol'
 import type { SessionListEntry, TitledSessionSummary } from './lineage.ts'
 import { flattenLineage } from './lineage.ts'
 // Type-only merge edge: the title domain's client-namespace outlet declares
 // the 'title' projection key this manager projects into list rows (and any
 // useProjection('title') consumer reads). Zero value imports by construction.
-import type {} from '@deepseek-ai/dsh-session-title/client'
+import type {} from '@janhq/jan-session-title/client'
 import { Notifier } from './notifier.ts'
 import { ProjectionValueStore } from './projection-store.ts'
 import { Session } from './session.ts'
@@ -71,8 +71,10 @@ export interface SessionProjectionSnapshot {
 }
 
 interface ProjectionInflight {
-  readonly promise: Promise<void>
+  promise: Promise<void>
   readonly controller: AbortController
+  /** Nobody waits on this read; a waiting caller who joins it clears the flag. */
+  background: boolean
 }
 
 type ProjectionLoad = Omit<SessionProjectionSnapshot, 'values'>
@@ -325,7 +327,8 @@ export class SessionManager {
         if (projections.values().sessionListMetadata?.blank === false) {
           this.sessions.get(sessionId)?.handleBlank(false)
         }
-        this.notifier.markDirty()
+        if (this.projectionInflight.get(sessionId)?.background === true) this.notifier.markBackgroundDirty()
+        else this.notifier.markDirty()
       })
       this.projectionStores.set(sessionId, store)
     }
@@ -335,17 +338,24 @@ export class SessionManager {
   /**
    * Read projections without starting migration; retry failed or migration-deferred reads.
    * @param sessionId - Session to inspect without opening its conversation.
+   * @param options - `background` batches the list notification with other background reads.
    * @returns completion of the current or newly started read.
    */
-  refreshProjections(sessionId: SessionId): Promise<void> {
+  refreshProjections(sessionId: SessionId, options?: { readonly background?: boolean }): Promise<void> {
     const existing = this.projectionInflight.get(sessionId)
-    if (existing !== undefined) return existing.promise
+    if (existing !== undefined) {
+      // A caller who is waiting promotes a background read it joins.
+      if (options?.background !== true) existing.background = false
+      return existing.promise
+    }
     if (this.projectionLoads.get(sessionId)?.state === 'ready') return Promise.resolve()
     const controller = new AbortController()
     const store = this.projectionStore(sessionId)
     const initialValues = store.values()
+    const inflight: ProjectionInflight = { promise: Promise.resolve(), controller, background: options?.background === true }
     this.projectionLoads.set(sessionId, { state: 'loading', error: null })
-    this.notifier.markDirty()
+    if (inflight.background) this.notifier.markBackgroundDirty()
+    else this.notifier.markDirty()
     const operation = (async () => {
       try {
         const result = await this.remote.session.projections({ sessionId }, controller.signal)
@@ -381,11 +391,13 @@ export class SessionManager {
       } finally {
         if (!controller.signal.aborted) {
           this.projectionInflight.delete(sessionId)
-          this.notifier.markDirty()
+          if (inflight.background) this.notifier.markBackgroundDirty()
+          else this.notifier.markDirty()
         }
       }
     })()
-    this.projectionInflight.set(sessionId, { promise: operation, controller })
+    inflight.promise = operation
+    this.projectionInflight.set(sessionId, inflight)
     return operation
   }
 

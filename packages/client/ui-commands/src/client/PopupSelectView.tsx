@@ -11,12 +11,12 @@
  * null; the overlay slot stays mounted. The card height clamps to the space
  * above the composer.
  */
-import { MenuGroup, MenuSurface, observeStickyMenuGroups } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MenuGroup, MenuSurface, observeStickyMenuGroups } from '@janhq/jan-client-ui-primitives'
 import { Fragment, useEffect, useMemo, useRef } from 'react'
 import { useSyncExternalStore } from 'react'
 import clsx from 'clsx'
-import { IconCheckOutlineRegular, isMobileDevice, RiskConfirmation, useAnchoredMaxHeight } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+import { IconCheckOutlineRegular, isMobileDevice, RiskConfirmation, useAnchoredMaxHeight } from '@janhq/jan-client-ui-primitives'
+import type { PropsLocale } from '@janhq/jan-client-ui-slots'
 import { filterOptions } from './popup.ts'
 import type { SelectOption } from './contract.ts'
 import { groupOptions } from './option-groups.ts'
@@ -48,8 +48,7 @@ export function PopupSelectView({ popup, t }: PopupSelectViewProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
-  const rows = useMemo(() => filterOptions(state.options, state.search, state.searchMode),
-    [state.options, state.search, state.searchMode])
+  const rows = useMemo(() => filterOptions(state.options, state.search), [state.options, state.search])
   const groups = useMemo(() => groupOptions(rows), [rows])
   useEffect(() => {
     const viewport = viewportRef.current

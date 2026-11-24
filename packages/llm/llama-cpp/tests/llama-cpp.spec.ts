@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto'
-import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
-import { tmpdir, totalmem } from 'node:os'
-import { join } from 'node:path'
+import { platform, tmpdir, totalmem } from 'node:os'
+import { dirname, join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { afterEach, expect, it, vi } from 'vitest'
-import { Context, Service } from '@deepseek-ai/cordis'
-import LocalSubprocess from '@deepseek-ai/dsh-subprocess-local'
-import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
+import { Context, Service } from '@janhq/cordis'
+import LocalSubprocess from '@janhq/jan-subprocess-local'
+import { LocalCredentialProvider } from '@janhq/jan-credentials-local'
 import {
   describeExit, download, DownloadError, hostPlatformOf, LlamaCpp, lookupRepo, modelFacts, parseHandshake, parseModelList, parseRepo,
   RateMeter, WorkerProtocolError, type LlamaCppState,
@@ -206,6 +206,48 @@ function alive(pid: number): boolean {
   catch { return false }
 }
 
+it('lists only Jan model artifacts and deletes exactly one listed partial file', async () => {
+  const { home, llama } = await fixture()
+  const directory = join(home, 'data', 'models', 'interrupted')
+  const partial = join(directory, '0123456789abcdef.gguf.partial')
+  const other = join(directory, 'fedcba9876543210.gguf.partial')
+  const personal = join(directory, 'personal.gguf')
+  const outside = join(await temp('llama-outside-'), '0123456789abcdef.gguf.partial')
+  const session = join(home, 'sessions', '0123456789abcdef.gguf.partial')
+  await mkdir(directory, { recursive: true })
+  await mkdir(join(home, 'sessions'))
+  await Promise.all([partial, other, personal, outside, session].map(path => writeFile(path, '1234')))
+  await symlink(dirname(outside), join(home, 'data', 'models', 'linked'), 'junction')
+  await symlink(outside, join(directory, '9876543210abcdef.gguf.partial'), 'file')
+
+  const items = await llama.listStoredDownloads(home)
+  expect(items).toHaveLength(2)
+  expect(items).toContainEqual(expect.objectContaining({ kind: 'partial', bytes: 4, path: 'data/models/interrupted/0123456789abcdef.gguf.partial' }))
+  for (const path of [outside, '../outside', 'sessions/0123456789abcdef.gguf.partial', 'data/models/interrupted/personal.gguf',
+    'data/models/linked/0123456789abcdef.gguf.partial', 'data/models/interrupted/9876543210abcdef.gguf.partial']) {
+    await expect(llama.deleteStoredDownload(home, path)).rejects.toThrow('not a Jan download')
+  }
+  await llama.deleteStoredDownload(home, 'data/models/interrupted/0123456789abcdef.gguf.partial')
+  await expect(stat(partial)).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(await Promise.all([other, personal, outside, session].map(path => readFile(path, 'utf8')))).toEqual(Array(4).fill('1234'))
+})
+
+it('refuses to delete a downloaded model while it is loaded, then removes it once unloaded', async () => {
+  const f = await fixture()
+  await f.until(s => s.phase === 'missing')
+  f.llama.install()
+  await f.until(s => s.models[0]?.status === 'loaded')
+  const [item] = await f.llama.listStoredDownloads(f.home)
+  expect(item).toMatchObject({ name: 'Jan v3.5 4B', kind: 'model', bytes: MODEL.length })
+  await expect(f.llama.deleteStoredDownload(f.home, item!.path)).rejects.toThrow('loaded or in use')
+  expect((await f.events()).filter(e => e.type === 'unload')).toHaveLength(0)
+  await f.llama.unloadModel('jan-v3.5-4b')
+  await f.until(s => s.models[0]?.status === 'unloaded')
+  await f.llama.deleteStoredDownload(f.home, item!.path)
+  expect(f.llama.snapshot().models).toHaveLength(0)
+  await expect(stat(join(f.home, item!.path))).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
 it('installs the model, publishes the worker endpoint and key, and serves the route through them', async () => {
   const f = await fixture()
   await f.until(s => s.phase === 'missing')
@@ -230,22 +272,53 @@ it('installs the model, publishes the worker endpoint and key, and serves the ro
   const [start] = await f.events()
   const preset = join(f.home, 'data', 'run', 'preset.ini')
   expect(start).toMatchObject({ type: 'start', hasKey: true, keyInArgv: false })
-  expect(start?.argv?.slice(1)).toEqual(['--preset', preset, '--port', '0', '--models-max', '1', '--slot-cache-mib', '0'])
+  expect(start?.argv?.slice(1)).toEqual(['--preset', preset, '--port', '0', '--models-max', '1', '--slot-cache-mib', '8192'])
   // macOS reports the realpath of a symlinked tmpdir (/var -> /private/var) as the child's cwd.
   expect(start?.cwd).toBe(await realpath(f.bin))
   expect(start?.preset?.shared).toMatchObject({
-    'ctx-size': '32768', fit: 'on', 'fit-target': '1024', 'flash-attn': 'on', 'cache-type-k': 'q8_0',
+    'ctx-size': '32768', fit: platform() === 'darwin' ? 'off' : 'on', 'flash-attn': 'on', 'cache-type-k': 'q8_0',
     'slot-save-path': join(f.home, 'data', 'slots'),
   })
-  expect(start?.preset?.shared).not.toHaveProperty('n-gpu-layers')
+  if (platform() !== 'darwin') expect(start?.preset?.shared).toMatchObject({ 'fit-target': '1024' })
+  if (platform() !== 'darwin') expect(start?.preset?.shared).not.toHaveProperty('n-gpu-layers')
   expect(start?.preset?.shared).not.toHaveProperty('jinja')
   expect(start?.preset?.models['jan-v3.5-4b']?.model).toBe(join(f.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf`))
   expect(start?.preset?.aliases).toEqual({ local: 'jan-v3.5-4b' })
   expect(running.contextSize).toBe(32768)
 })
 
+it('persists a model context and auto-fit choice, reloads the worker, and restores both after boot', async () => {
+  const f = await fixture()
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  const id = 'jan-v3.5-4b'
+  await f.llama.setModelContext(id, 40960)
+  await f.llama.setModelFit(id, false)
+  expect(f.llama.getModelContext(id)).toMatchObject({ current: 40960, maximum: 40960, fit: false })
+  expect(f.llama.snapshot().models[0]).toMatchObject({ contextSize: 40960, configuredContextSize: 40960, autoFit: false })
+  expect((await f.events()).filter(event => event.type === 'reload').at(-1)?.preset?.models[id]).toMatchObject({ 'ctx-size': '40960', fit: 'off' })
+  const install = JSON.parse(await readFile(join(f.home, 'data', 'install.json'), 'utf8')) as { models: object[] }
+  expect(install.models[0]).toMatchObject({ ctxSize: 40960, autoFit: false })
+  await f.dispose()
+  const restored = await fixture({ home: f.home })
+  await restored.until(s => s.phase === 'running')
+  expect(restored.llama.getModelContext(id)).toMatchObject({ current: 40960, maximum: 40960, fit: false })
+  expect((await restored.events()).filter(event => event.type === 'start').at(-1)?.preset?.models[id]).toMatchObject({ 'ctx-size': '40960', fit: 'off' })
+})
+
+it('increases context to the trained maximum and refuses further increases', async () => {
+  const f = await fixture()
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  expect(await f.llama.increaseModelContext('local')).toBe(40960)
+  expect(f.llama.snapshot().models[0]?.configuredContextSize).toBe(40960)
+  expect(await f.llama.increaseModelContext('jan-v3.5-4b')).toBeNull()
+  await expect(f.llama.setModelContext('jan-v3.5-4b', 40961)).rejects.toThrow(/maximum/)
+  await expect(f.llama.setModelContext('jan-v3.5-4b', -1)).rejects.toThrow(/positive/)
+})
+
 it('lets fit choose the context when ctxSize is 0, and passes the resident model bound', async () => {
-  const f = await fixture({ config: { ctxSize: 0, modelsMax: 3, slotCacheMiB: 512 } })
+  const f = await fixture({ config: { ctxSize: 0, fit: true, modelsMax: 3, slotCacheMiB: 512 } })
   f.llama.install()
   const running = await f.until(s => s.phase === 'running' || s.phase === 'failed')
   const [start] = await f.events()
@@ -412,6 +485,35 @@ it('cancels a download and discards its partial file, so the next install starts
   await f.until(s => s.phase === 'running' || s.phase === 'failed')
   expect(f.llama.snapshot().phase).toBe('running')
   expect(f.server.requests.at(-1)?.range).toBeUndefined()
+}, 30_000)
+
+it('pauses a download keeping its partial file, then resumes it from that byte or discards it on cancel', async () => {
+  const f = await fixture({ throttle: true })
+  const partial = join(f.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf.partial`)
+  f.llama.install()
+  await f.until(s => s.phase === 'downloading' && (s.progress?.receivedBytes ?? 0) > 20_000)
+  f.llama.pause('jan-v3.5-4b')
+  const paused = await f.until(s => s.phase === 'missing')
+  expect(paused.downloads).toMatchObject([{ id: 'jan-v3.5-4b', paused: true, progress: { totalBytes: MODEL.length } }])
+  expect(paused.progress).toBeUndefined()
+  const kept = (await stat(partial)).size
+  expect(kept).toBeGreaterThan(20_000)
+  expect(() => { f.llama.pause('jan-v3.5-4b') }).toThrow(/no running download/)
+
+  f.llama.retry('jan-v3.5-4b')
+  await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  expect(f.llama.snapshot().phase).toBe('running')
+  expect(f.server.requests.at(-1)?.range).toBe(`bytes=${String(kept)}-`)
+
+  // A paused download that is then cancelled leaves no file behind.
+  const g = await fixture({ throttle: true })
+  g.llama.install()
+  await g.until(s => s.phase === 'downloading' && (s.progress?.receivedBytes ?? 0) > 20_000)
+  g.llama.pause('jan-v3.5-4b')
+  await g.until(s => s.phase === 'missing')
+  await g.llama.cancel('jan-v3.5-4b')
+  expect(g.llama.snapshot().downloads).toEqual([])
+  await expect(stat(join(g.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf.partial`))).rejects.toThrow()
 }, 30_000)
 
 it('keeps a download interrupted by shutting down and resumes it on the next launch', async () => {
@@ -791,13 +893,13 @@ it('removes the engine directories earlier builds downloaded', async () => {
 
 /** Settings stand-in holding the `llm-pi-ai` section the route sync reads and writes. */
 class FakeSettings extends Service {
-  value: { providers: Record<string, { models?: unknown }> } = { providers: { local: { models: [{ id: 'jan-v3.5-4b' }] } } }
+  value: { providers: Record<string, Record<string, unknown>> } = { providers: { local: { models: [{ id: 'jan-v3.5-4b' }] } } }
   readonly writes: unknown[] = []
   constructor(ctx: Context) { super(ctx, 'settings') }
   describe(): Array<{ ns: string; value: unknown }> { return [{ ns: 'llm-pi-ai', value: this.value }] }
   mutate(ns: string, ops: Array<{ path: string[]; value: unknown }>): Promise<void> {
     this.writes.push({ ns, ops })
-    for (const op of ops) this.value.providers.local = { models: op.value }
+    for (const op of ops) this.value.providers.local = { ...this.value.providers.local, [op.path[2]!]: op.value }
     return Promise.resolve()
   }
 }
@@ -810,13 +912,18 @@ it('lists every installed model and the default\'s alias on the local route when
   } })
   f.llama.install()
   await f.until(s => s.phase === 'running')
-  const jan = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192, input: ['text'] }
+  const jan = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192, input: ['text'], toolUse: true }
   const alias = { ...jan, id: 'local', name: 'Jan v3.5 4B (local default)' }
-  expect(settings.current?.writes).toEqual([{ ns: 'llm-pi-ai', ops: [{ op: 'set', path: ['providers', 'local', 'models'], value: [alias, jan] }] }])
+  // The first sync also asks the route for prompt-reading progress and per-Session KV state, once.
+  expect(settings.current?.writes).toEqual([{ ns: 'llm-pi-ai', ops: [
+    { op: 'set', path: ['providers', 'local', 'models'], value: [alias, jan] },
+    { op: 'set', path: ['providers', 'local', 'promptProgress'], value: true },
+    { op: 'set', path: ['providers', 'local', 'threadCache'], value: true },
+  ] }])
   const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   await f.until(s => s.models.length === 2)
   // The new model is listed with its planned context, capped at its trained 8192.
-  const tiny = { id, name: 'tiny-Q4_K_M (local)', contextWindow: 8192, maxTokens: 8192, input: ['text'] }
+  const tiny = { id, name: 'tiny-Q4_K_M (local)', contextWindow: 8192, maxTokens: 8192, input: ['text'], toolUse: true }
   expect(settings.current?.value.providers.local?.models).toEqual([alias, jan, tiny])
   await f.llama.setDefault(id)
   expect(settings.current?.value.providers.local?.models).toEqual([{ ...tiny, id: 'local', name: 'tiny-Q4_K_M (local default)' }, jan, tiny])
@@ -913,7 +1020,7 @@ it('downloads one Hugging Face file once however often it is asked for, and retr
   await f.until(s => s.downloads.some(item => item.id === broken && item.error !== undefined))
   f.llama.retry(broken)
   expect(f.llama.snapshot().downloads.filter(item => item.id === broken).map(item => item.error)).toEqual([undefined])
-  expect(() => { f.llama.retry('tiny-q4_k_m') }).toThrow(/no failed download/)
+  expect(() => { f.llama.retry('tiny-q4_k_m') }).toThrow(/no failed or paused download/)
 }, 30_000)
 
 it('keeps curated ids for curated models', async () => {
@@ -1173,4 +1280,25 @@ it('keeps a model whose projector is missing or changed on disk, without the pro
   expect(record.models).toHaveLength(1)
   expect(record.models[0]).not.toHaveProperty('mmproj')
   await expect(stat(changed)).rejects.toThrow()
+}, 20_000)
+
+it('reads tool support again for a model recorded before it was known, and writes it back', async () => {
+  // Installs from earlier builds have header facts without `toolCalls`; without a second read the
+  // route would leave every such model's tool use unknown and the composer could never warn.
+  const home = await temp('llama-tool-facts-')
+  const file = join('models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf`)
+  await mkdir(join(home, 'data', 'models', 'jan-v3.5-4b'), { recursive: true })
+  await writeFile(join(home, 'data', file), MODEL)
+  const { toolCalls: _unknown, ...earlierFacts } = modelFacts(chatModel(40960))
+  await writeFile(join(home, 'data', 'install.json'), JSON.stringify({
+    version: 3, active: 'jan-v3.5-4b',
+    models: [{
+      id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', file, bytes: MODEL.length, sha256: sha(MODEL), source: 'catalog', repo: 'janhq/Jan-v3.5-4B-gguf',
+      facts: earlierFacts,
+    }],
+  }))
+  const f = await fixture({ home })
+  await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  const record = JSON.parse(await readFile(join(home, 'data', 'install.json'), 'utf8')) as { models: Array<{ facts: object }> }
+  expect(record.models[0]?.facts).toMatchObject({ toolCalls: true })
 }, 20_000)

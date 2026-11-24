@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import LlmRuntime, { LlmAdapter, LlmError } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions, LlmConfigurableProvider, StreamChunk } from '@deepseek-ai/dsh-llm'
+import { Context } from '@janhq/cordis'
+import LlmRuntime, { LlmAdapter, LlmError } from '@janhq/jan-llm'
+import type { GenerateOptions, LlmConfigurableProvider, StreamChunk } from '@janhq/jan-llm'
 
 class NoopAdapter extends LlmAdapter {
 
@@ -77,8 +77,8 @@ describe('llm/adapters-updated', () => {
   })
 
   it('replaces a route set in one event, never publishing an empty registry between the two', async () => {
-    // The retry-policy swap in llm-deepseek: disposing and re-registering
-    // would let an observer see the provider disappear and come back.
+    // Disposing and re-registering would let an observer see the provider
+    // disappear and come back.
     const ctx = await setup()
     const observed: string[][] = []
     const registration = ctx.llm.registerAdapter(['a'], new NoopAdapter())
@@ -89,6 +89,20 @@ describe('llm/adapters-updated', () => {
     expect(observed).toEqual([['a']])
   })
 
+  it('announces a changed model set with the routes unchanged, and stays silent once released', async () => {
+    const ctx = await setup()
+    const observed: string[][] = []
+    const registration = ctx.llm.registerAdapter(['a'], new NoopAdapter())
+    ctx.on('llm/adapters-updated', () => {
+      observed.push(ctx.llm.listProviders().map(provider => provider.id))
+    })
+    registration.modelsChanged()
+    expect(observed).toEqual([['a']])
+    registration()
+    registration.modelsChanged()
+    expect(observed).toEqual([['a'], []])
+  })
+
 })
 
 describe('configurable-provider directory', () => {
@@ -97,18 +111,18 @@ describe('configurable-provider directory', () => {
     const events = vi.fn()
     ctx.on('llm/adapters-updated', events)
     ctx.llm.registerConfigurableProviders([
-      entry({ provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [] }),
+      entry({ provider: 'other-route', displayName: 'Other route', settingsNs: 'other-adapter', settingsPath: [] }),
       entry(),
     ])
     expect(events).toHaveBeenCalledTimes(1)
     const listed = ctx.llm.listConfigurableProviders()
     expect(listed).toEqual([
-      { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [] },
+      { provider: 'other-route', displayName: 'Other route', settingsNs: 'other-adapter', settingsPath: [] },
       { provider: 'openai', displayName: 'OpenAI', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'] },
     ])
     listed[0]!.displayName = 'mutated'
     ;(listed[1]!.settingsPath as string[]).push('mutated')
-    expect(ctx.llm.listConfigurableProviders()[0]!.displayName).toBe('DeepSeek')
+    expect(ctx.llm.listConfigurableProviders()[0]!.displayName).toBe('Other route')
     expect(ctx.llm.listConfigurableProviders()[1]!.settingsPath).toEqual(['providers', 'openai'])
   })
 

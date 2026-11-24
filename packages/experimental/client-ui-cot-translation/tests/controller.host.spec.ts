@@ -1,10 +1,10 @@
 /** Remote translation enforces accepted routing and sanitizes provider failures. */
-import { Context } from '@deepseek-ai/cordis'
-import { SessionId } from '@deepseek-ai/dsh-session/types'
+import { Context } from '@janhq/cordis'
+import { SessionId } from '@janhq/jan-session/types'
 import { afterEach, expect, it, vi } from 'vitest'
-import { TranslationError } from '@deepseek-ai/dsh-experimental-translator'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import type { TranslationProvider, TranslationRequest } from '@deepseek-ai/dsh-experimental-translator/types'
+import { TranslationError } from '@janhq/jan-experimental-translator'
+import { RemoteError } from '@janhq/jan-typert-protocol'
+import type { TranslationProvider, TranslationRequest } from '@janhq/jan-experimental-translator/types'
 import type { CotTranslationPreferences } from '../src/preferences.ts'
 import CotTranslationController from '../src/index.ts'
 
@@ -131,10 +131,6 @@ it('does not dispatch after activation resolves at the same time as cancellation
 it.each([
   { accepted: 'bing' as const, requested: 'google' as const },
   { accepted: 'google' as const, requested: 'bing' as const },
-  { accepted: 'bing' as const, requested: 'deepseek-account' as const },
-  { accepted: 'bing' as const, requested: 'deepseek-official' as const },
-  { accepted: 'deepseek-account' as const, requested: 'deepseek-official' as const },
-  { accepted: 'deepseek-official' as const, requested: 'bing' as const },
 ])('rejects $requested when the accepted provider is $accepted before lookup or dispatch', async ({ accepted, requested }) => {
   const b = fixture({ provider: accepted })
   await expect(b.controller.translate({ text: 'private original', targetLanguage: 'ja', provider: requested }, new AbortController().signal))
@@ -182,18 +178,7 @@ it('reports accepted Host preferences and uses them when a request omits its pro
   await expect(b.controller.limits(AbortSignal.abort(new Error('cancelled query')))).rejects.toThrow('cancelled query')
 })
 
-it.each(['deepseek-account', 'deepseek-official'] as const)('keeps accepted %s cache lookup available when new requests are ineligible', async (provider) => {
-  const b = fixture({ provider }), signal = new AbortController().signal
-  expect(await b.controller.limits(signal)).toEqual({ maxTextChars: 32,
-    preferences: { provider, targetLanguage: 'auto' }, availableProviders: ['bing', 'google'] })
-  const request = { text: 'original', provider, targetLanguage: 'zh', sessionId: SessionId('existing-source') }
-  expect(await b.controller.translate(request, signal)).toBe('translated')
-  expect(b.resolve).toHaveBeenCalledWith(request)
-  expect(b.translate).toHaveBeenCalledWith({ sourceLanguage: 'auto', ...request }, signal)
-  expect(b.availableProviders).toHaveBeenCalledOnce()
-})
-
-it('preserves cancellation after a held native route catalog settles', async () => {
+it('preserves cancellation after a held provider catalog settles', async () => {
   const b = fixture(), pending = Promise.withResolvers<readonly TranslationProvider[]>(), caller = new AbortController()
   b.availableProviders.mockImplementationOnce(() => pending.promise)
   const task = b.controller.limits(caller.signal), reason = new Error('catalog cancelled')

@@ -5,11 +5,11 @@
  * Isolated file so vi.mock of the MCP SDK doesn't pollute other test suites.
  */
 import { describe, expect, it, vi, beforeEach, onTestFinished } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import type { Transport } from '@modelcontextprotocol/client'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import type { Config, McpConnectionStatus } from '@deepseek-ai/dsh-mcp-client'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import type { Config, McpConnectionStatus } from '@janhq/jan-mcp-client'
 
 const { mockConnect, mockClose, mockListTools, mockSetNotificationHandler, MockClient, instances } = vi.hoisted(() => {
   const mockConnect = vi.fn<(_options?: { signal?: AbortSignal }) => Promise<void>>()
@@ -64,9 +64,9 @@ vi.mock('@modelcontextprotocol/client/stdio', () => ({
   }),
 }))
 
-import * as McpClient from '@deepseek-ai/dsh-mcp-client/src/index.ts'
-import { Config as ConfigSchema, apply, connectionStatusOf } from '@deepseek-ai/dsh-mcp-client/src/index.ts'
-import { McpStatusCell } from '@deepseek-ai/dsh-mcp-client/src/status.ts'
+import * as McpClient from '@janhq/jan-mcp-client/src/index.ts'
+import { Config as ConfigSchema, apply, connectionStatusOf } from '@janhq/jan-mcp-client/src/index.ts'
+import { McpStatusCell } from '@janhq/jan-mcp-client/src/status.ts'
 
 async function mountRegistry(): Promise<Context> {
   const ctx = new Context()

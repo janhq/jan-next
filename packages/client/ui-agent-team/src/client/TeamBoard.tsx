@@ -1,14 +1,14 @@
 import { useState } from 'react'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { TeamTaskView, TeamTaskId } from '@deepseek-ai/dsh-agent-team/client'
-import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { TeamTaskView, TeamTaskId } from '@janhq/jan-agent-team/client'
+import type {} from '@janhq/jan-api-session-controller/client'
 import {
   IconChecklistOutlineRegular, IconChevronDownOutlineRegular,
   StateDot, Tooltip, type StateDotState,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type {} from '@deepseek-ai/dsh-client-ui-subagent/client'
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+} from '@janhq/jan-client-ui-primitives'
+import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-subagent/client'
+import type {} from '@janhq/jan-client-ui-conversation/client'
 import { NS, type TeamKey } from './locales.ts'
 import css from './TeamBoard.module.css'
 

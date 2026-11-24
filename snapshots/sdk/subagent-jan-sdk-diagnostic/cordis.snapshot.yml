@@ -1,0 +1,11 @@
+# Keyless parent-model overlay for the Jan SDK diagnostic snapshot.
+
+- insert:
+    - id: llm-replay
+      name: '@janhq/jan-llm-replay'
+      config:
+        providers:
+          - id: tokamak-official
+            name: Tokamak
+            models:
+              - id: tokamak-1-preview

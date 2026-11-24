@@ -5,11 +5,11 @@ description: Use when creating, changing, or validating an agent preset or other
 
 # Editing Cordis compositions
 
-Agent presets are ordinary `@deepseek-ai/dsh-agent-preset` declarations carried by bundle patches. Nothing edits a declaration in place: a preset is created or changed by installing a bundle whose patch declares or overrides it. This file states the declaration format; when it leaves a question open, read the `@deepseek-ai/dsh-agent-preset` README and `lib/types` declarations under the `packageDir` that `cordis_inspect_query` `Config.listConfigs` returns when queried with a `preset-<id>` row's `entry` id, or `packages/preset/agent-preset/src` in a source checkout.
+Agent presets are ordinary `@janhq/jan-agent-preset` declarations carried by bundle patches. Nothing edits a declaration in place: a preset is created or changed by installing a bundle whose patch declares or overrides it. This file states the declaration format; when it leaves a question open, read the `@janhq/jan-agent-preset` README and `lib/types` declarations under the `packageDir` that `cordis_inspect_query` `Config.listConfigs` returns when queried with a `preset-<id>` row's `entry` id, or `packages/preset/agent-preset/src` in a source checkout.
 
 ## Where declarations live
 
-The shipped Web presets are `presets/<id>.patch.yml` files of the `@deepseek-ai/dsh-web-app` bundle, ids `standard`, `ptc`, `minimal` and `cordis`. Installed, the bundle resolves from the dsh installation, not the profile; querying `Config.listConfigs` with the `entry` id of any `preset-<id>` row it declares returns that `packageDir`. In a source checkout of DSH it is `packages/bundle/web-app/`. Read one file with the file-read tool when you need a template; `minimal.patch.yml` is the shortest. In Desktop the bundle sits inside `app.asar`, which shell commands cannot open. Load `cordis-composition-reference` for the patch dialect and the list of plugin packages a preset can mount.
+The shipped Web presets are `presets/<id>.patch.yml` files of the `@janhq/jan-web-app` bundle, ids `standard`, `ptc`, `minimal` and `cordis`. Installed, the bundle resolves from the jan installation, not the profile; querying `Config.listConfigs` with the `entry` id of any `preset-<id>` row it declares returns that `packageDir`. In a source checkout of Jan it is `packages/bundle/web-app/`. Read one file with the file-read tool when you need a template; `minimal.patch.yml` is the shortest. In Desktop the bundle sits inside `app.asar`, which shell commands cannot open. Load `cordis-composition-reference` for the patch dialect and the list of plugin packages a preset can mount.
 
 A declaration row has these `config` fields: `id` (required, lowercase letters, digits and hyphens), `plugins` (required Cordis entry list), and optional `name`, `description` and `order` (roster position). The Loader row `id` is `preset-<id>` by convention.
 
@@ -21,11 +21,11 @@ Write a bundle directory in the workspace with exactly two files, then install i
 
 ```json
 {
-  "name": "@local/dsh-review-preset",
+  "name": "@local/jan-review-preset",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
+  "jan": { "bundle": { "patch": "./cordis.patch.yml" } }
 }
 ```
 
@@ -34,20 +34,23 @@ Write a bundle directory in the workspace with exactly two files, then install i
 ```yaml
 - insert:
     - id: preset-review
-      name: '@deepseek-ai/dsh-agent-preset'
+      name: '@janhq/jan-agent-preset'
       config:
         id: review
         name: Review
         description: Reviews changes with the shell only.
+        icon: 🔍
         order: 10
         plugins:
           - id: persona
-            name: '@deepseek-ai/dsh-persona'
+            name: '@janhq/jan-persona'
             config:
               prefix: You review software changes.
           - id: tool-bash
-            name: '@deepseek-ai/dsh-tool-bash'
+            name: '@janhq/jan-tool-bash'
 ```
+
+`icon` is optional: one emoji the user picked, or a Jan glyph name (`chat-outline`, `code-outline`, `api-outline`, `layers-outline`, `plugin-pinwheel-outline`, `inspect-outline`, `skill-outline`, `goal-outline`). Ask the user which they want when they care; otherwise pick one that fits the preset's job.
 
 Install with `plugin_manager`, `action: install_bundle`, `target` set to the absolute bundle directory. It runs package installation and bundle selection itself; do not reproduce those steps with shell commands.
 
@@ -57,7 +60,7 @@ Override the declaration by its Loader row id instead of inserting. The override
 
 ```yaml
 - id: preset-standard
-  name: '@deepseek-ai/dsh-agent-preset'
+  name: '@janhq/jan-agent-preset'
   config:
     id: standard
     order: 1
@@ -67,7 +70,7 @@ Override the declaration by its Loader row id instead of inserting. The override
 
 ## Migrate a legacy preset
 
-Before declaration rows, a user preset was a directory `$DSH_HOME/.agent-presets/<id>/` holding `preset.yml` (display `name`, `description`, `order`) and `agent.cordis.yml` (the plugin entry list). Nothing reads that directory any more. To migrate one, create a bundle as above whose declaration takes `id` from the directory name, `name`, `description`, and `order` from `preset.yml`, and `plugins` from `agent.cordis.yml` verbatim; check each plugin name against `cordis-composition-reference` because packages renamed since the preset was written fail at activation. Install it, verify the row, then delete the legacy directory.
+Before declaration rows, a user preset was a directory `$JAN_HOME/.agent-presets/<id>/` holding `preset.yml` (display `name`, `description`, `order`) and `agent.cordis.yml` (the plugin entry list). Nothing reads that directory any more. To migrate one, create a bundle as above whose declaration takes `id` from the directory name, `name`, `description`, and `order` from `preset.yml`, and `plugins` from `agent.cordis.yml` verbatim; check each plugin name against `cordis-composition-reference` because packages renamed since the preset was written fail at activation. Install it, verify the row, then delete the legacy directory.
 
 ## Verify
 
@@ -81,4 +84,4 @@ A preset plugin that supplies a service must isolate the provider and all its co
 
 ## Extend the Host
 
-For new plugin code or profile-wide capabilities, load `cordis-plugin-development`, author a workspace bundle, and install it with `plugin_manager`. Inspect available APIs through `cordis_inspect_list` and `cordis_inspect_query`, including a mounted plugin's Config schema through the Host `Config` provider; those tools do not invoke Remote methods. Verify the installed capability before reporting completion.
+For new plugin code or profile-wide capabilities, load `create-plugin` (or `create-connector` for an MCP server), author a workspace bundle, and install it with `plugin_manager`. Inspect available APIs through `cordis_inspect_list` and `cordis_inspect_query`, including a mounted plugin's Config schema through the Host `Config` provider; those tools do not invoke Remote methods. Verify the installed capability before reporting completion.

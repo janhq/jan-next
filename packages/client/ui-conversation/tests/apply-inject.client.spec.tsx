@@ -1,36 +1,36 @@
 // @vitest-environment jsdom
-import { apply as applyMenus, inject as injectMenus } from '@deepseek-ai/dsh-client-ui-context-menu/client'
+import { apply as applyMenus, inject as injectMenus } from '@janhq/jan-client-ui-context-menu/client'
 import { render, cleanup } from '@testing-library/react'
 import { $getRoot, $isTextNode, PASTE_COMMAND } from 'lexical'
 import { createUserTextFixture } from './user-text-component-fixture.client.tsx'
 import { registerComposerKeymap } from '../src/client/input/editor/keymap.ts'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import type { CommandContribution, CommandUiContract } from '@deepseek-ai/dsh-client-ui-commands/client'
-import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller/types'
-import type { ISession, SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import * as messageQuotes from '@deepseek-ai/dsh-message-quotes/client'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+import type { CommandContribution, CommandUiContract } from '@janhq/jan-client-ui-commands/client'
+import type { SessionRequestId } from '@janhq/jan-api-session-controller/types'
+import type { ISession, SessionReference } from '@janhq/jan-api-session-controller/client'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import * as messageQuotes from '@janhq/jan-message-quotes/client'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import {
   SlotTestRuntime, stubConfigForm, usePinnedBrowserLanguages,
-} from '@deepseek-ai/dsh-client-test-runtime'
-import type { SessionBehaviorOverrides } from '@deepseek-ai/dsh-client-test-runtime'
+} from '@janhq/jan-client-test-runtime'
+import type { SessionBehaviorOverrides } from '@janhq/jan-client-test-runtime'
 import {
   apply, inject, type ComposerBarInjected, type ConversationInjected,
   type ConversationSessionHeaderInjected, type ConversationSessionInjected, type ViewTab,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+} from '@janhq/jan-client-ui-conversation/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
 import { createConversationStore } from '../src/client/stores.ts'
 import type { SessionInputShell } from '../src/client/input/facade.ts'
-import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import { SessionSeq } from '@deepseek-ai/dsh-session/types'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { InboxWireState } from '@deepseek-ai/dsh-agent/types'
+import { RemoteError } from '@janhq/jan-client-test-runtime'
+import { SessionSeq } from '@janhq/jan-session/types'
+import { createUserMessage } from '@janhq/jan-llm'
+import type { InboxWireState } from '@janhq/jan-agent/types'
 import { continuationTurn } from './continuation-fixture.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     'quote-probe': { kind: 'single'; scope: 'session' }
   }
@@ -227,6 +227,63 @@ describe('Conversation inject API', () => {
     composer.retry!(SessionSeq(5))
     await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledOnce() })
     expect(b.sessionFake.prompt.mock.calls[0]?.[0]).toEqual([])
+  })
+
+  it('retries the failed turn from a recovery action while the composer holds a draft and an attachment, leaving both untouched', async () => {
+    const b = await bench()
+    onTestFinished(() => b.runtime.dispose())
+    await b.runtime.sessions.replaceEvents(ROOT, continuationTurn({ kind: 'error', error: { code: 'CONTEXT_WINDOW_EXCEEDED', message: 'too long' } }))
+    await b.runtime.sessions.setProjection(ROOT, 'conversationContinuation', { overflow: SessionSeq(5) })
+    const composer = b.composerApi(ROOT)
+    const input = b.inputApi(ROOT)
+    input.actions.setDraft('Keep my new instruction')
+    expect(composer.addFiles?.([new File([Uint8Array.of(1)], 'draft.pdf', { type: 'application/pdf' })])).toBeNull()
+    const attachments = input.state.getSnapshot().attachmentIds
+    expect(attachments).toHaveLength(1)
+    // The composer's own retry refuses with a draft; the recovery entry does not consult it.
+    composer.retry!(SessionSeq(5))
+    expect(b.sessionFake.prompt).not.toHaveBeenCalled()
+    const pending = Promise.withResolvers<Awaited<ReturnType<ISession['prompt']>>>()
+    onTestFinished(() => { pending.resolve({ ok: true, value: { accepted: true } }) })
+    b.sessionFake.prompt.mockImplementationOnce(() => pending.promise)
+    const hub = b.runtime.ctx.conversation.input
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledOnce() })
+    expect(b.sessionFake.prompt.mock.calls[0]?.[0]).toEqual([])
+    expect(b.sessionFake.prompt.mock.calls[0]?.[1]).toBe('queue')
+    pending.resolve({ ok: true, value: { accepted: true } })
+    expect(composer.keyboard!.snapshot.phase).toBe('plain')
+    expect(composer.keyboard!.snapshot.draft).toBe('Keep my new instruction')
+    expect(input.state.getSnapshot().attachmentIds).toEqual(attachments)
+  })
+
+  it('releases the recovery retry lock when the Session prompt rejects', async () => {
+    const b = await bench()
+    onTestFinished(() => b.runtime.dispose())
+    await b.runtime.sessions.setProjection(ROOT, 'conversationContinuation', SessionSeq(5))
+    b.sessionFake.prompt.mockRejectedValueOnce(new Error('connection lost'))
+    const hub = b.runtime.ctx.conversation.input
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledOnce() })
+    await Promise.resolve()
+    await Promise.resolve()
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledTimes(2) })
+  })
+
+  it('ignores a recovery retry for a stale failure or while the Session is busy', async () => {
+    const b = await bench()
+    onTestFinished(() => b.runtime.dispose())
+    await b.runtime.sessions.setProjection(ROOT, 'conversationContinuation', SessionSeq(5))
+    const hub = b.runtime.ctx.conversation.input
+    hub.retryKeepingDraft(ROOT, SessionSeq(1))
+    await b.runtime.sessions.updateSessionSnapshot(ROOT, (state) => { state.running = true })
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    await b.runtime.sessions.updateSessionSnapshot(ROOT, (state) => { state.running = false })
+    await b.runtime.sessions.setProjection(ROOT, 'conversationContinuation', null)
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    expect(b.sessionFake.prompt).not.toHaveBeenCalled()
   })
 
   it.each(['next-turn', 'pending', 'block', 'attachment', 'subagent', 'removed', 'closed'] as const)(
@@ -459,7 +516,7 @@ describe('Conversation inject API', () => {
     let removeCustom: (() => void) | undefined
     try {
       await b.runtime.flush()
-      localStorage.setItem(`dsh.conversation.${ROOT}`, JSON.stringify({
+      localStorage.setItem(`jan.conversation.${ROOT}`, JSON.stringify({
         draft: '', view: 'custom', viewRequest: null,
       }))
 
@@ -565,7 +622,7 @@ describe('Conversation inject API', () => {
     await browser.runtime.dispose()
 
     const paths = new Map([['project', '/Users/me/my project'], ['notes.md', '/Users/me/notes.md'], ['shot.png', '/Users/me/shot.png']])
-    vi.stubGlobal('__DSH_HOST_PATHS__', { pathFor: (file: File) => paths.get(file.name) ?? '' })
+    vi.stubGlobal('__JAN_HOST_PATHS__', { pathFor: (file: File) => paths.get(file.name) ?? '' })
     try {
       const desktop = await bench()
       const composer = desktop.composerApi(ROOT)
@@ -590,7 +647,7 @@ describe('Conversation inject API', () => {
   })
 
   it('preserves selected text and file order and restores pasted directory chips from the draft', async () => {
-    vi.stubGlobal('__DSH_HOST_PATHS__', { pathFor: (file: File) => `/proj/${file.name}` })
+    vi.stubGlobal('__JAN_HOST_PATHS__', { pathFor: (file: File) => `/proj/${file.name}` })
     onTestFinished(() => { vi.unstubAllGlobals(); cleanup() })
     const b = await bench()
     onTestFinished(() => b.runtime.dispose())
@@ -626,7 +683,7 @@ describe('Conversation inject API', () => {
   })
 
   it('rejects the whole file batch before changing the draft when a later path is unrepresentable', async () => {
-    vi.stubGlobal('__DSH_HOST_PATHS__', { pathFor: (file: File) => `/proj/${file.name}` })
+    vi.stubGlobal('__JAN_HOST_PATHS__', { pathFor: (file: File) => `/proj/${file.name}` })
     onTestFinished(() => { vi.unstubAllGlobals() })
     const b = await bench()
     onTestFinished(() => b.runtime.dispose())

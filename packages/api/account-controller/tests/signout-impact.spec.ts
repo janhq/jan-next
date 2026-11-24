@@ -1,7 +1,7 @@
 /** Sign-out impact follows the latest logged provider of running tasks. */
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { expect, it } from 'vitest'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { Agent } from '@janhq/jan-agent'
 import { AccountController } from '../src/index.ts'
 
 it('reports running account requests and excludes idle or unbound tasks', async () => {
@@ -11,12 +11,13 @@ it('reports running account requests and excludes idle or unbound tasks', async 
     status, session: { requestContext: () => provider === undefined ? undefined : { provider, model: 'model' } } as Agent['session'],
   })
   ctx.provide('agents', { list: () => active } as Context['agents'])
+  ctx.provide('tokamakAccount', { modelProvider: 'tokamak' } as Context['tokamakAccount'])
   const controller = new AccountController(ctx)
   try {
     expect(controller.hasRunningAccountTasks()).toBe(false)
-    active.push(task('running'), task('running', 'deepseek-official'), task('idle', 'deepseek-account'))
+    active.push(task('running'), task('running', 'other'), task('idle', 'tokamak'))
     expect(controller.hasRunningAccountTasks()).toBe(false)
-    active.push(task('running', 'deepseek-account'))
+    active.push(task('running', 'tokamak'))
     expect(controller.hasRunningAccountTasks()).toBe(true)
     active.pop()
     expect(controller.hasRunningAccountTasks()).toBe(false)

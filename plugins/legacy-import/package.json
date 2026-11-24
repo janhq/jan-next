@@ -1,0 +1,34 @@
+{
+  "name": "@janhq/jan-legacy-import",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "description": "Import chats, MCP servers with credentials, and supported settings into Jan without changing source files.",
+  "type": "module",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@janhq/jan-credentials": "workspace:*",
+    "@janhq/jan-home-paths": "workspace:*",
+    "@janhq/jan-plugin-api": "workspace:*",
+    "@janhq/jan-skill": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
+    "smol-toml": "^1.9.0"
+  },
+  "devDependencies": {
+    "@janhq/jan-session-format-v3-to-v4": "workspace:*"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@janhq/jan-client-ui-layout",
+        "@janhq/jan-client-ui-primitives",
+        "@janhq/jan-client-ui-settings-plugins",
+        "@janhq/jan-client-ui-workspace"
+      ]
+    }
+  }
+}

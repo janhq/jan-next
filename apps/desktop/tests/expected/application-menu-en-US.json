@@ -1,6 +1,6 @@
 [
   {
-    "label": "About Jan Alpha",
+    "label": "About Jan Next",
     "role": "about"
   },
   {
@@ -10,7 +10,7 @@
     "label": "Check for Updates…"
   },
   {
-    "label": "Manage dsh Command…"
+    "label": "Manage jan Command…"
   },
   {
     "type": "separator"
@@ -24,7 +24,7 @@
   },
   {
     "role": "hide",
-    "label": "Hide Jan Alpha"
+    "label": "Hide Jan Next"
   },
   {
     "role": "hideOthers",
@@ -39,6 +39,6 @@
   },
   {
     "role": "quit",
-    "label": "Quit Jan Alpha"
+    "label": "Quit Jan Next"
   }
 ]

@@ -1,41 +1,42 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 
 import type { ProcessGroupData } from '../src/client/contract/process-groups.ts'
-import type { InboxState } from '@deepseek-ai/dsh-agent/types'
-import { MessageId } from '@deepseek-ai/dsh-llm/brand'
-import type { GlobalStandardProps, PropsRenderFactories, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InboxState } from '@janhq/jan-agent/types'
+import { createAssistantMessage, createToolResultMessage, LlmAttemptId, MessageId, ToolCallId, type StreamChunk } from '@janhq/jan-llm'
+import type { GlobalStandardProps, PropsRenderFactories, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useEffect, useMemo } from 'react'
-import { useMarkdownDelegate, type MarkdownMenuTarget } from '@deepseek-ai/dsh-client-ui-primitives'
+import { useMarkdownDelegate, type MarkdownMenuTarget } from '@janhq/jan-client-ui-primitives'
 import type {
   AssistantMessageNode, ChatFlowHookContext, ChatFlowOwnerProps, ChatFlowSlotProps,
   ChatNode, ChatNodeHookContext, ChatNodeOwnerProps, ChatSnapshot, UserBeforeOwnerProps,
   ChatViewSlotProps, CommandNode, CompactionSummaryNode, ContextMessageNode, ConversationNode,
   LegacyConversationSlice, ModelRetryNode, StartedToolCall, SteeringMessageNode,
-  ToolCallBlock, ToolResultNode, TurnErrorNode, TurnMaxTokensNode,
+  ToolCallBlock, ToolResultNode, TurnErrorActionOwnerProps, TurnErrorNode, TurnMaxTokensNode,
   TranscriptViewMode, UserContentInput, UserMessageNode,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
+} from '@janhq/jan-client-ui-chat/client'
 import type {
-  SessionListState, SessionSnapshot,
-} from '@deepseek-ai/dsh-api-session-controller/client'
+  SessionEventLikeEntry,
+  SessionListState, SessionProjectionMap, SessionSnapshot,
+} from '@janhq/jan-api-session-controller/client'
 import type {
   ConversationGroupedView,
   ConversationSnapshot, ConversationViewSnapshotStore, GroupKey, GroupSnapshot,
   MessageImagesOwnerProps, NodeKey, TurnLocation,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import { SessionSeq, type SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
-import type { KeyedSnapshotSelectorHook, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { allowAllAccess, bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { createSnapshotStore, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { ConnectionState } from '@deepseek-ai/dsh-client-connection/client'
-import { EMPTY_CONVERSATION_SNAPSHOT } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
-import { PartialArguments } from '@deepseek-ai/dsh-util-values'
+} from '@janhq/jan-client-ui-conversation/client'
+import type { WorkspaceSnapshot } from '@janhq/jan-api-workspace-controller/client'
+import { SessionSeq, type SessionEvent, type SessionId } from '@janhq/jan-session/types'
+import type { SessionStatusSnapshot } from '@janhq/jan-client-ui-session/client'
+import type { KeyedSnapshotSelectorHook, SnapshotSelectorHook } from '@janhq/jan-client-ui-slots'
+import { allowAllAccess, bindSnapshotSelector, makeTranslate } from '@janhq/jan-client-test-runtime'
+import { createSnapshotStore, type ObservableSnapshot } from '@janhq/jan-client-store'
+import type { ConnectionState } from '@janhq/jan-client-connection/client'
+import { ConversationNodeAssembler, EMPTY_CONVERSATION_SNAPSHOT } from '@janhq/jan-client-ui-conversation/client'
+import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
+import { PartialArguments } from '@janhq/jan-util-values'
 import { createChatStore } from '../src/client/stores.ts'
 import { derivePresentationPolicy, type CollapseTiming, type FoldedReplies } from '../src/client/presentation-policy.ts'
 import { CHAT_FLOW_INJECT, CHAT_NODE_INJECT } from '../src/client/apply.ts'
@@ -52,7 +53,9 @@ import { TurnTailNodeView } from '../src/client/chat/TurnTailNodeView.tsx'
 import { TurnProcessNodeView } from '../src/client/chat/TurnProcessNodeView.tsx'
 import { SystemPromptNodeView } from '../src/client/chat/SystemPromptRow.tsx'
 import { formatRunDuration as durationParts } from '../src/client/chat/message-chrome.ts'
-import { ChatSnapshotBuilder } from '../src/client/conversation-nodes/chat-snapshot-builder.ts'
+import { assistantDefinition } from '../src/client/conversation-nodes/assistant.ts'
+import { ChatSnapshotBuilder, chatViewDefinition } from '../src/client/conversation-nodes/chat-snapshot-builder.ts'
+import { toolDefinition } from '../src/client/conversation-nodes/tool.ts'
 import { ProcessState } from '../src/client/conversation-nodes/process-groups.ts'
 import type { TurnProcessSpec } from '../src/client/contract/turn-process.ts'
 import { chatSnapshotFixture } from './chat-snapshot-fixture.client.ts'
@@ -269,7 +272,12 @@ type ImageRenderer = (owner: MessageImagesOwnerProps) => React.ReactNode
 declare const userChainDispatch: PropsRenderSlots<'conversation.chat.user.before'>['renderSlotChain']
 type UserChainRenderer = typeof userChainDispatch<'conversation.chat.user.before'>
 type UserChainState = { readonly renderer: UserChainRenderer | undefined }
-type HarnessStandardProps = ChatViewSlotProps & PropsRenderFactories & Pick<React.ComponentProps<typeof AssistantNodeView>, 'fileMentions'>
+type HarnessStandardProps = ChatViewSlotProps & PropsRenderFactories & Pick<React.ComponentProps<typeof AssistantNodeView>, 'fileMentions'> & {
+  openModelsSettings: () => void
+  recovery?: NonNullable<React.ComponentProps<typeof TurnErrorNodeView>['recovery']>
+  /** Failed turn/end a retry would answer; null when none. */
+  continuation?: SessionProjectionMap['conversationContinuation']
+}
 
 function isImageOwner(owner: object): owner is MessageImagesOwnerProps {
   return 'images' in owner && Array.isArray(owner.images)
@@ -285,6 +293,13 @@ type ToolOwner = Pick<ChatNodeOwnerProps, 'openFile' | 'inspectCall'> & {
 const renderCommandSlot: React.ComponentProps<typeof CommandNodeView>['renderSlot'] =
   (_key, _owner, opts) => opts?.fallback ?? null
 const renderTurnTailSlot: React.ComponentProps<typeof TurnTailNodeView>['renderSlot'] = () => null
+const renderTurnProcessSlot: React.ComponentProps<typeof TurnProcessNodeView>['renderSlot'] = () => null
+// A plugin action that answers only one failure code, so other failure rows render as shipped.
+// The slot renderer is generic over every Turn error key, so its owner widens to the union.
+const renderTurnErrorSlot: React.ComponentProps<typeof TurnErrorNodeView>['renderSlot'] = (_key, owner) => {
+  const failure: TurnErrorActionOwnerProps = owner as never
+  return failure.code === 'PLUGIN_HANDLED' ? <button type="button">{`Report turn ${String(failure.turn)} at ${String(failure.seq)}`}</button> : null
+}
 
 function HarnessChatFlow({ standard, owner, hookContext, renderSlot, useConnectionState }: {
   readonly standard: HarnessStandardProps
@@ -348,11 +363,13 @@ function HarnessChatNode({
     case 'model-retry':
       return <RetryNodeView {...nodeProps} node={owner.node} />
     case 'turn-error':
-      return <TurnErrorNodeView {...nodeProps} node={owner.node} />
+      return <TurnErrorNodeView {...nodeProps} node={owner.node} useSettingsAvailability={selector => selector(true)}
+        useContinuation={selector => selector(standard.continuation ?? null)}
+        openModelsSettings={standard.openModelsSettings} renderSlot={renderTurnErrorSlot} />
     case 'turn-max-tokens':
       return <TurnMaxTokensNodeView {...nodeProps} node={owner.node} />
     case 'turn-process':
-      return <TurnProcessNodeView {...nodeProps} node={owner.node} />
+      return <TurnProcessNodeView {...nodeProps} node={owner.node} renderSlot={renderTurnProcessSlot} />
     case 'system-prompt':
       return <SystemPromptNodeView {...nodeProps} node={owner.node} />
     case 'turn-tail':
@@ -427,6 +444,7 @@ function makeHarness(
   let outlineValue: unknown
   const openView = vi.fn<(view: string, focus: string) => void>()
   // In-memory scroll memory matching the apply.ts per-session map contract.
+  const openModelsSettings = vi.fn()
   let savedScroll: ReturnType<ChatViewSlotProps['chatScroll']['read']> = null
   const chatScroll: ChatViewSlotProps['chatScroll'] = {
     save: (position) => { savedScroll = position },
@@ -468,6 +486,8 @@ function makeHarness(
     if (key === 'conversation.chat.node') {
       return renderNodeSlot(key, owner as RoutedChatNodeOwner, opts as Parameters<NodeRenderer>[2])
     }
+    // No feature fills the running status or the running tail in this harness: empty list slots.
+    if (key === 'conversation.chat.running-detail' || key === 'conversation.chat.running-tail') return null
     throw new Error(`Undeclared flow child: ${key}`)
   }
   const renderUserChain: PropsRenderSlots<'conversation.chat.user.before'>['renderSlotChain'] = (key, owner, opts) => {
@@ -495,6 +515,7 @@ function makeHarness(
   const props: HarnessStandardProps = {
     fileDrag,
     resolveFilePath: vi.fn((path: string) => path),
+    openModelsSettings,
     renderFactorySlot,
     usePanelInfo: selector => selector({ activePanelId: null }),
     sessionId: SID,
@@ -576,6 +597,7 @@ function makeHarness(
     set, setSession: session.set, setChat: chatSource.set, ChatView, props,
     setConnection: (state: ConnectionState) => { connection.set(state) },
     openFile, openUserFile, loadOlder, loadThrough, openView,
+    openModelsSettings,
     setOutline: (value: unknown) => { outlineValue = value },
     chatScroll, forkAt, toolOwners,
     setPerformanceUsage: (mode: 'compact' | 'detailed') => { performanceUsage.set(mode) },
@@ -926,12 +948,15 @@ describe('ChatView', () => {
     const headers = roots.map(root => root.querySelector<HTMLButtonElement>('[data-process-activity]')!)
     const bodies = roots.map(root => root.querySelector<HTMLElement>('[data-step-process-body]')!)
     expect(roots).toHaveLength(3)
-    expect(bodies.map(body => body.hasAttribute('hidden'))).toEqual([true, true, true])
+    // A running group the reader has not opened peeks at its newest rows instead of hiding them.
+    expect(bodies.map(body => body.hasAttribute('hidden'))).toEqual([true, true, false])
+    expect(bodies.map(body => body.hasAttribute('data-process-peek'))).toEqual([false, false, true])
     fireEvent.click(headers[0]!)
 
     for (const mode of ['standard', 'detailed', 'compact', 'detailed'] as const) {
       act(() => { h.setTranscriptView(mode) })
-      expect(bodies.map(body => body.hasAttribute('hidden'))).toEqual([false, true, mode !== 'detailed'])
+      expect(bodies.map(body => body.hasAttribute('hidden'))).toEqual([false, true, false])
+      expect(bodies[2]!.hasAttribute('data-process-peek')).toBe(mode !== 'detailed')
       expect(headers.map(header => header.closest('[hidden]') !== null)).toEqual([false, false, mode === 'detailed'])
       expect([...view.container.querySelectorAll('[data-chat-group-key]')]).toEqual(roots)
     }
@@ -1080,7 +1105,9 @@ describe('ChatView', () => {
       expect(uncapped(body)).toBe(false)
       fireEvent.click(header)
       expect(header.getAttribute('aria-expanded')).toBe('false')
-      expect(body.hasAttribute('hidden')).toBe(true)
+      // Closed while still running, it returns to the short live preview, never to the uncapped body.
+      expect(body.hasAttribute('hidden')).toBe(false)
+      expect(body.hasAttribute('data-process-peek')).toBe(true)
       expect(uncapped(body)).toBe(false)
     },
   )
@@ -1236,6 +1263,15 @@ describe('ChatView', () => {
     const historical = [...observers].find(observer => observer.targets.has(body))!
     act(() => { historical.callback([], historical) })
     expect(top).toBe(0)
+
+    const groupRoot = header.parentElement!.parentElement!
+    fireEvent.click(within(groupRoot).getByRole('button', { name: '显示完整过程' }))
+    expect(uncapped(body)).toBe(true)
+    expect(observers.has(historical)).toBe(false)
+    fireEvent.click(within(groupRoot).getByRole('button', { name: '限制过程高度' }))
+    expect(uncapped(body)).toBe(false)
+    const limited = [...observers].find(observer => observer.targets.has(body))!
+    act(() => { limited.callback([], limited) })
 
     top = 300
     fireEvent.scroll(body)
@@ -2016,7 +2052,6 @@ describe('ChatView', () => {
     expect(writeText).toHaveBeenCalledWith('interrupt now')
     expect(within(pendingBubble as HTMLElement).queryByRole('button', { name: '在新对话中分支' })).toBeNull()
     expect(turnProcessControl(view.container)).toBeNull()
-    expect(runningContent(view.container)?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···$/)
     // The status stays on the running Turn's tail; the steering waiting for the next Step follows it.
     expect(view.getByRole('status').compareDocumentPosition(view.getByText('interrupt now'))
       & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
@@ -2610,7 +2645,8 @@ describe('ChatView', () => {
   it('renders every terminal failure inline with neutral quota copy and no transient notice', () => {
     const h = makeHarness({ nodes: [
       user(1, 'try'), turnError(2, 'AUTH'), turnError(3), turnError(4, 'QUOTA'), turnError(5, 'ACCOUNT_QUOTA'),
-      turnError(6, 'INTERRUPTED'),
+      turnError(6, 'INTERRUPTED'), turnError(7, 'CONTEXT_WINDOW_EXCEEDED'), turnError(8, 'MISSING_CREDENTIAL'),
+      turnError(9, 'MODEL_SWITCH_COMPACTION_FAILED'), turnError(10, 'NO_ADAPTER'),
     ] })
     const view = render(<h.ChatView {...h.props} />)
     const statuses = view.getAllByRole('status')
@@ -2619,13 +2655,145 @@ describe('ChatView', () => {
       '本轮运行失败plugin exploded',
       '本轮运行失败当前请求的额度已用尽QUOTA',
       '本轮运行失败当前请求的额度已用尽ACCOUNT_QUOTA',
-      '任务已停止DSH 进程在本轮完成前退出（例如被强制结束、崩溃或关闭超时），重新启动后本轮已中止。未完成的工具调用结果未知。',
+      '任务已停止Jan 进程在本轮完成前退出（例如被强制结束、崩溃或关闭超时），重新启动后本轮已中止。未完成的工具调用结果未知。',
+      '本轮运行失败这个对话已超出当前模型的上下文窗口，之后的消息也会失败。请用更短的内容开始新对话，或切换到上下文窗口更大的模型。CONTEXT_WINDOW_EXCEEDED',
+      '本轮运行失败当前模型需要登录或 API 密钥。前往设置 -> 模型下载免费的本地模型（在此电脑上运行，无需账号），或登录 Tokamak 或添加 API 密钥。前往设置 -> 模型MISSING_CREDENTIAL',
+      '本轮运行失败这个对话无法压缩到所选模型的上下文窗口内。请切回之前的模型、开始新对话，或选择上下文窗口更大的模型。MODEL_SWITCH_COMPACTION_FAILED',
+      '本轮运行失败当前模型需要登录或 API 密钥。前往设置 -> 模型下载免费的本地模型（在此电脑上运行，无需账号），或登录 Tokamak 或添加 API 密钥。前往设置 -> 模型NO_ADAPTER',
     ])
     // The transient notice is the frame-wide host's job; the failure row keeps
     // neither a recharge affordance nor a toast of its own.
     expect(view.queryByRole('alert')).toBeNull()
     expect(view.queryByRole('dialog')).toBeNull()
     expect(view.queryByRole('button', { name: '去充值' })).toBeNull()
+    const openModels = view.getAllByRole('button', { name: '前往设置 -> 模型' })
+    expect(openModels).toHaveLength(2)
+    fireEvent.click(openModels[1] as HTMLElement)
+    expect(h.openModelsSettings).toHaveBeenCalledOnce()
+  })
+
+  const overflowRecovery = (overrides: Partial<NonNullable<HarnessStandardProps['recovery']>> = {}): NonNullable<HarnessStandardProps['recovery']> => ({
+    modelFor: () => undefined,
+    contextFor: async () => undefined,
+    increase: vi.fn(),
+    compact: vi.fn(async () => ({ ok: true as const })),
+    retry: vi.fn(),
+    ...overrides,
+  })
+
+  it('offers a local context increase and retries the same failed turn only after reload', async () => {
+    const h = makeHarness({ nodes: [user(1, 'original prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    const reload = Promise.withResolvers<{ ok: true; value: number | null }>()
+    const increase = vi.fn(() => reload.promise)
+    const retry = vi.fn()
+    h.props.continuation = { overflow: SessionSeq(2) }
+    h.props.recovery = overflowRecovery({ modelFor: () => 'jan-v3.5-4b', contextFor: async () => ({ current: 32768, maximum: 131072 }), increase, retry })
+    const view = render(<h.ChatView {...h.props} />)
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.increaseContext'] }))
+    expect(increase).toHaveBeenCalledWith('jan-v3.5-4b')
+    expect(retry).not.toHaveBeenCalled()
+    reload.resolve({ ok: true, value: 49152 })
+    await waitFor(() => { expect(retry).toHaveBeenCalledExactlyOnceWith(2) })
+    expect(view.getByText('original prompt')).toBeTruthy()
+  })
+
+  it('offers compaction instead of another increase at the trained maximum, and retries after it', async () => {
+    const h = makeHarness({ nodes: [user(1, 'prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    const compact = vi.fn(async () => ({ ok: true as const }))
+    const retry = vi.fn()
+    h.props.continuation = { overflow: SessionSeq(2) }
+    h.props.recovery = overflowRecovery({ modelFor: () => 'local', contextFor: async () => ({ current: 32768, maximum: 32768 }), compact, retry })
+    const view = render(<h.ChatView {...h.props} />)
+    expect(await view.findByText(zh['message.failure.contextMaximum'])).toBeTruthy()
+    expect(view.queryByRole('button', { name: zh['message.failure.increaseContext'] })).toBeNull()
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.compactRetry'] }))
+    await waitFor(() => { expect(retry).toHaveBeenCalledExactlyOnceWith(2) })
+    expect(compact).toHaveBeenCalledOnce()
+  })
+
+  it('explains that a cloud window cannot grow and compacts then retries the same turn', async () => {
+    const h = makeHarness({ nodes: [user(1, 'cloud prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    const order: string[] = []
+    const recovery = overflowRecovery({
+      compact: vi.fn(async () => { order.push('compact'); return { ok: true as const } }),
+      retry: vi.fn(() => { order.push('retry') }),
+    })
+    h.props.continuation = { overflow: SessionSeq(2) }
+    h.props.recovery = recovery
+    const view = render(<h.ChatView {...h.props} />)
+    expect(view.getByRole('status').textContent).toContain(zh['message.failure.cloudContextWindow'])
+    expect(view.queryByRole('button', { name: zh['message.failure.increaseContext'] })).toBeNull()
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.compactRetry'] }))
+    await waitFor(() => { expect(recovery.retry).toHaveBeenCalledExactlyOnceWith(2) })
+    expect(order).toEqual(['compact', 'retry'])
+    expect(view.getByText('cloud prompt')).toBeTruthy()
+  })
+
+  it('does not retry when there is nothing to compact or compaction fails, and says why', async () => {
+    const h = makeHarness({ nodes: [user(1, 'big prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    const compact = vi.fn<NonNullable<HarnessStandardProps['recovery']>['compact']>(async () => ({ ok: false, reason: 'empty' }))
+    const retry = vi.fn()
+    h.props.continuation = { overflow: SessionSeq(2) }
+    h.props.recovery = overflowRecovery({ compact, retry })
+    const view = render(<h.ChatView {...h.props} />)
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.compactRetry'] }))
+    expect((await view.findByRole('alert')).textContent).toBe(zh['message.failure.nothingToCompact'])
+    compact.mockResolvedValueOnce({ ok: false, reason: 'failed', error: 'Compaction could not produce a useful summary.' })
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.compactRetry'] }))
+    await waitFor(() => { expect(view.getByRole('alert').textContent).toBe('Compaction could not produce a useful summary.') })
+    expect(retry).not.toHaveBeenCalled()
+    expect(view.getByText('big prompt')).toBeTruthy()
+  })
+
+  it('offers no recovery on a failure a retry no longer answers', () => {
+    const h = makeHarness({ nodes: [user(1, 'old prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    h.props.continuation = null
+    h.props.recovery = overflowRecovery({ modelFor: () => 'local' })
+    const view = render(<h.ChatView {...h.props} />)
+    expect(view.getByRole('status').textContent).toContain(zh['message.failure.contextWindow'])
+    expect(view.queryByRole('button', { name: zh['message.failure.increaseContext'] })).toBeNull()
+    expect(view.queryByRole('button', { name: zh['message.failure.compactRetry'] })).toBeNull()
+  })
+
+  it('does not retry a failed context increase and leaves the user prompt in place', async () => {
+    const h = makeHarness({ nodes: [user(1, 'keep this'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    const retry = vi.fn()
+    h.props.continuation = { overflow: SessionSeq(2) }
+    h.props.recovery = overflowRecovery({ modelFor: () => 'local', increase: async () => ({ ok: false, error: 'Not enough memory' }), retry })
+    const view = render(<h.ChatView {...h.props} />)
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.increaseContext'] }))
+    expect(await view.findByRole('alert')).toHaveProperty('textContent', 'Not enough memory')
+    expect(retry).not.toHaveBeenCalled()
+    expect(view.getByText('keep this')).toBeTruthy()
+  })
+
+  it('explains a model service failure in plain words and retries the same turn from the failure row', () => {
+    const h = makeHarness({ nodes: [user(1, 'ask'), turnError(2, 'SERVER')] })
+    const retry = vi.fn()
+    h.props.continuation = SessionSeq(2)
+    h.props.recovery = overflowRecovery({ retry })
+    const view = render(<h.ChatView {...h.props} />)
+    const row = view.getByRole('status')
+    expect(row.textContent).toContain(zh['message.failure.transient'])
+    expect(row.textContent).not.toContain('API key is invalid')
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.retry'] }))
+    expect(retry).toHaveBeenCalledExactlyOnceWith(2)
+  })
+
+  it('shows plugin actions on the failure they answer, and leaves other failure rows unchanged', () => {
+    const h = makeHarness({ nodes: [user(1, 'ask'), turnError(2, 'PLUGIN_HANDLED'), turnError(3, 'AUTH')] })
+    const view = render(<h.ChatView {...h.props} />)
+    const [handled, other] = view.getAllByRole('status')
+    expect(within(handled as HTMLElement).getByRole('button', { name: 'Report turn 1 at 2' })).toBeTruthy()
+    expect((other as HTMLElement).querySelector('[data-turn-error-actions]')).toBeNull()
+  })
+
+  it('offers no retry on a transient failure a newer turn has already replaced', () => {
+    const h = makeHarness({ nodes: [user(1, 'old'), turnError(2, 'SERVER')] })
+    h.props.continuation = null
+    h.props.recovery = overflowRecovery()
+    const view = render(<h.ChatView {...h.props} />)
+    expect(view.queryByRole('button', { name: zh['message.failure.retry'] })).toBeNull()
   })
 
   it('renders the max-tokens notice with localized guidance, distinct from turn errors', () => {
@@ -2845,7 +3013,6 @@ describe('ChatView', () => {
     const view = render(<h.ChatView {...h.props} />)
     expect(renderedFlowKinds(view.container)).toEqual(['user', 'turn-process', 'context'])
     expect(turnProcessControl(view.container)).toBeNull()
-    expect(runningContent(view.container)?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···$/)
     expect(view.container.querySelector('[data-chat-flow-kind="system-prompt"]')).toBeNull()
 
     act(() => {
@@ -2992,7 +3159,7 @@ describe('ChatView', () => {
     })
     const view = render(<h.ChatView {...h.props} />)
     expect(turnProcessControl(view.container)).toBeNull()
-    expect(runningContent(view.container)?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···$/)
+    expect(runningContent(view.container)).not.toBeNull()
     const processRow = view.getByText('inspect').closest('[data-chat-flow-kind="assistant-step"]') as HTMLElement
     expect(processRow.getAttribute('hidden')).toBeNull()
 
@@ -3531,9 +3698,9 @@ describe('ChatView', () => {
       }]]),
     })
     const view = render(<h.ChatView {...h.props} />)
-    // The usage pill carries the compact total; cache hit stays dialog-only.
-    const trigger = view.getByRole('button', { name: /用量 10\.1K tok/ })
-    expect(trigger.textContent).toBe('用量 10.1K tok')
+    // The usage pill spells out the token buckets; cache hit stays dialog-only.
+    const trigger = view.getByRole('button', { name: '本轮用量' })
+    expect(trigger.textContent).toBe('5.1K1004.9K')
     expect(view.queryByRole('dialog')).toBeNull()
     fireEvent.click(trigger)
     const dialog = view.getByRole('dialog')
@@ -3704,7 +3871,7 @@ describe('ChatView', () => {
     expect(useAccess).toHaveBeenCalledWith('session/fork')
   })
 
-  it('renders assistant Markdown across history, streaming, final, and interrupted states while user text stays literal', () => {
+  it('renders assistant Markdown across history, streaming, final, and interrupted states while user text stays literal', async () => {
     const markdown = '# Rendered\n\n- **one**\n- `two`'
     const h = makeHarness({ nodes: [user(1, markdown), assistant(2, markdown)] })
     const view = render(<h.ChatView {...h.props} />)
@@ -3717,8 +3884,9 @@ describe('ChatView', () => {
     act(() => {
       h.setChat({ partial: { turn: 2, step: 1, blocks: [{ kind: 'text', text: markdown }] } })
     })
+    // A live reply types out over a few frames.
+    await waitFor(() => { expect(view.container.querySelector('[data-streaming="true"] h1')?.textContent).toBe('Rendered') })
     expect(view.container.querySelectorAll('h1')).toHaveLength(2)
-    expect(view.container.querySelector('[data-streaming="true"] h1')?.textContent).toBe('Rendered')
 
     act(() => {
       h.setChat({
@@ -3742,7 +3910,7 @@ describe('ChatView', () => {
     expect(view.container.querySelectorAll('h1')).toHaveLength(2)
   })
 
-  it('streaming partial frames update the tail without replacing a sibling Tool row', () => {
+  it('streaming partial frames update the tail without replacing a sibling Tool row', async () => {
     const h = makeHarness({
       nodes: [user(1, 'q'), assistant(2, 'old answer'), toolResult(3, 'a')],
     })
@@ -3755,7 +3923,8 @@ describe('ChatView', () => {
     act(() => {
       h.setChat({ partial: { turn: 2, step: 1, blocks: [{ kind: 'text', text: 'streaming… more' }] } })
     })
-    expect(view.getByText('streaming… more')).toBeTruthy()
+    // Appended prose is paced onto the screen over a few frames, one reveal span per word.
+    expect(await view.findByText((_, element) => element?.tagName === 'P' && element.textContent === 'streaming… more')).toBeTruthy()
     expect(view.getByTestId('tool-seat-a')).toBe(tool)
     expect(tool.innerHTML).toBe(beforeHtml)
   })
@@ -3793,9 +3962,76 @@ describe('ChatView', () => {
     const view = render(<h.ChatView {...h.props} />)
     expect(view.getByTestId('tool-seat-r1')).toBeTruthy()
     expect(h.toolOwners[0]?.block).toMatchObject({ callId: 'r1', argsRaw: '{"command":"cmd-r1"}' })
-    expect(view.getByRole('status').textContent).toBe('深度求索中')
     expect(turnProcessControl(view.container)).toBeNull()
-    expect(runningContent(view.container)?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···$/)
+  }))
+
+  it('switches the running footer phase with each published step update', withClock(5_000, () => {
+    const assembler = new ConversationNodeAssembler(
+      { entries: () => [assistantDefinition, toolDefinition], fallbackEntry: () => undefined },
+      { entries: () => [chatViewDefinition] },
+    )
+    assembler.activateTarget('chat')
+    const h = makeHarness({ chat: assembler.get('chat')! }, { running: true })
+    const view = render(<h.ChatView {...h.props} />)
+    const footer = runningContent(view.container)
+    const status = view.getByRole('status')
+    const publish = (entry: SessionEventLikeEntry) => {
+      act(() => {
+        assembler.append(entry)
+        assembler.flush()
+        h.set({ chat: assembler.get('chat')! })
+      })
+      expect(runningContent(view.container)).toBe(footer)
+      expect(view.getByRole('status')).toBe(status)
+    }
+    const durable = (event: SessionEvent) => { publish({ type: 'event', event }) }
+    const attemptId = LlmAttemptId('running-phase-attempt')
+    const callId = ToolCallId('running-phase-call')
+    const coordinates = { turn: 1, step: 1 }
+    const chunk = (seq: number, value: StreamChunk) => {
+      publish({ type: 'transient', event: {
+        type: 'assistant/live-chunk', seq, time: 5_000, data: { ...coordinates, attemptId, chunk: value },
+      } })
+    }
+
+    durable({ type: 'turn/start', seq: SessionSeq(1), time: 1_000, data: { turn: 1 } })
+    durable({ type: 'step/start', seq: SessionSeq(2), time: 2_000, data: coordinates })
+    expect(footer?.textContent).toBe('正在等待模型 - 4秒')
+    chunk(2.1, { type: 'block-start', blockType: 'reasoning', index: 0 })
+    expect(footer?.textContent).toBe('正在等待模型 - 4秒')
+    chunk(2.2, { type: 'reasoning-delta', index: 0, text: 'Considering' })
+    expect(footer?.textContent).toBe('正在思考 - 4秒')
+    chunk(2.3, { type: 'text-delta', index: 1, text: 'Checking' })
+    expect(footer?.textContent).toBe('正在撰写 - 4秒')
+    chunk(2.4, { type: 'reasoning-delta', index: 0, text: ' options' })
+    expect(footer?.textContent).toBe('正在思考 - 4秒')
+
+    chunk(2.5, { type: 'tool-call-delta', index: 2, id: callId, name: 'bash', argumentsDelta: '' })
+    expect(footer?.textContent).toBe('正在运行命令 - 4秒')
+    const args = '{"description":"Check project status","command":"git status"}'
+    chunk(2.6, { type: 'tool-call-delta', index: 2, id: callId, argumentsDelta: args })
+    expect(footer?.textContent).toBe('正在运行 Check project status - 4秒')
+    durable({ type: 'assistant/message', seq: SessionSeq(3), time: 5_000, surfaceOp: 'append', data: {
+      ...coordinates, stream: [],
+      message: createAssistantMessage({ source: { provider: 'test', model: 'test' },
+        content: [{ type: 'tool-call', id: callId, name: 'bash', arguments: args }] }),
+    } })
+    durable({ type: 'tool/call', seq: SessionSeq(4), time: 5_000, data: { ...coordinates, callId, name: 'bash', arguments: args } })
+    expect(footer?.textContent).toBe('正在运行 Check project status - 4秒')
+    durable({ type: 'tool/result', seq: SessionSeq(5), time: 5_000, surfaceOp: 'append', data: {
+      ...coordinates, message: createToolResultMessage({ callId, content: [], isError: false }),
+    } })
+    expect(footer?.textContent).toBe('处理中 - 4秒')
+    durable({ type: 'step/end', seq: SessionSeq(6), time: 5_000, data: coordinates })
+    durable({ type: 'step/start', seq: SessionSeq(7), time: 5_000, data: { ...coordinates, step: 2 } })
+    expect(footer?.textContent).toBe('正在等待模型 - 4秒')
+    const observer = new MutationObserver(() => {})
+    observer.observe(status, { childList: true, characterData: true, subtree: true })
+    act(() => { vi.advanceTimersByTime(2_000) })
+    expect(footer?.textContent).toBe('正在等待模型 - 6秒')
+    expect(status.textContent).toBe('正在等待模型')
+    expect(observer.takeRecords()).toEqual([])
+    observer.disconnect()
   }))
 
   it('keeps the Tool renderer mounted when a running call settles into log order', () => {
@@ -3855,9 +4091,9 @@ describe('ChatView', () => {
     const view = render(<h.ChatView {...h.props} />)
     const status = view.getByRole('status')
     const content = runningContent(view.container)!
-    expect(content.textContent).toMatch(/^深度求索中，用时 \d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+分\d+秒$/)
     expect(turnProcessControl(view.container)).toBeNull()
-    expect(status.textContent).toBe('深度求索中')
+    const announcedPhase = status.textContent
     expect(status.getAttribute('aria-live')).toBe('polite')
     expect(status.getAttribute('aria-atomic')).toBe('true')
     expect(content.closest('[aria-live]')).toBeNull()
@@ -3870,23 +4106,23 @@ describe('ChatView', () => {
         role: 'user', source: { kind: 'user' },
       }] } })
     })
-    expect(content.textContent).toMatch(/^深度求索中，用时 \d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+分\d+秒$/)
     const beforeTick = content.textContent
     act(() => { vi.advanceTimersByTime(2_000) })
-    expect(content.textContent).toMatch(/^深度求索中，用时 \d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+分\d+秒$/)
     expect(content.textContent).not.toBe(beforeTick)
     expect(view.getByRole('status')).toBe(status)
-    expect(status.textContent).toBe('深度求索中')
+    expect(status.textContent).toBe(announcedPhase)
     act(() => {
       h.setSession({ testInbox: { 'next-turn': [], 'next-step': [] } })
       h.setChat({ nodes: [trigger, { ...steering(2, 'also', 1), time: 128_000 }] })
     })
     expect(runningContent(view.container)).toBe(content)
-    expect(content.textContent).toMatch(/^深度求索中，用时 \d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+分\d+秒$/)
     expect(view.getByText('also').closest('[data-pending-steering]')).toBeNull()
     act(() => { vi.advanceTimersByTime(1_000) })
-    expect(content.textContent).toMatch(/^深度求索中，用时 \d+分\d+秒 ···$/)
-    expect(status.textContent).toBe('深度求索中')
+    expect(content.textContent).toMatch(/ - \d+分\d+秒$/)
+    expect(status.textContent).toBe(announcedPhase)
     view.unmount()
     expect(vi.getTimerCount()).toBe(0)
   }))
@@ -3898,15 +4134,15 @@ describe('ChatView', () => {
     )
     const view = render(<h.ChatView {...h.props} />)
     const content = runningContent(view.container)!
-    expect(content.textContent).toBe('深度求索中，用时 9秒 ···')
+    expect(content.textContent).toMatch(/ - 9秒$/)
     act(() => { h.setConnection('connecting') })
     act(() => { vi.advanceTimersByTime(5_000) })
-    expect(content.textContent).toBe('深度求索中，用时 9秒 ···')
+    expect(content.textContent).toMatch(/ - 9秒$/)
     act(() => { h.setConnection('disconnected') })
     act(() => { vi.advanceTimersByTime(5_000) })
-    expect(content.textContent).toBe('深度求索中，用时 9秒 ···')
+    expect(content.textContent).toMatch(/ - 9秒$/)
     act(() => { h.setConnection('connected') })
-    expect(content.textContent).toBe('深度求索中，用时 19秒 ···')
+    expect(content.textContent).toMatch(/ - 19秒$/)
   }))
 
   it('the running clock reads hours once the turn passes an hour', withClock(3_600_000, () => {
@@ -3918,14 +4154,13 @@ describe('ChatView', () => {
     )
     const view = render(<h.ChatView {...h.props} />)
     const content = runningContent(view.container)!
-    expect(content.textContent).toMatch(/^深度求索中，用时 \d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+分\d+秒$/)
     act(() => { vi.advanceTimersByTime(1_000) })
-    expect(content.textContent).toMatch(/^深度求索中，用时 \d+小时\d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+小时\d+分\d+秒$/)
     const hourlyText = content.textContent
     act(() => { vi.advanceTimersByTime(303_000) })
-    expect(content.textContent).toMatch(/^深度求索中，用时 \d+小时\d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+小时\d+分\d+秒$/)
     expect(content.textContent).not.toBe(hourlyText)
-    expect(view.getByRole('status').textContent).toBe('深度求索中')
     view.unmount()
     expect(vi.getTimerCount()).toBe(0)
   }))
@@ -4708,8 +4943,8 @@ describe('ChatView', () => {
     const column = view.container.querySelector('[data-chat-flow]')!
     const status = column.querySelector('[data-chat-running]')
     expect([...column.children].filter(child => !child.hasAttribute('data-text-interaction-surface')).at(-1)).toBe(status)
-    expect(within(status as HTMLElement).getByRole('status').textContent).toBe('深度求索中')
-    expect(status?.lastElementChild?.textContent).toBe('深度求索中')
+    expect(within(status as HTMLElement).getByRole('status').textContent).toBe(status?.lastElementChild?.textContent)
+    expect(status?.lastElementChild?.textContent).toBeTruthy()
     const icon = status?.querySelector('svg')?.parentElement
     expect(icon?.getAttribute('aria-hidden')).toBe('true')
     expect(icon?.firstElementChild?.tagName).toBe('SPAN')

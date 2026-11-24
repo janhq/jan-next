@@ -1,7 +1,5 @@
 # Client component rules
 
-English | [中文](client-components.zh.md)
-
 Rules for client components, their state, and their effects. [packages/client/AGENTS.md](../../packages/client/AGENTS.md) carries the detailed discipline; [slots.md](../subsystems/slots.md) owns the Slot design and [web-styling.md](../web-styling.md) the styling rules. Each section below states the requirement, how a reviewer judges it, where its boundary and exception sit, and a correct and a wrong example.
 
 ## State arrives through injection
@@ -199,7 +197,7 @@ The domain wrapper takes the injected hook as an argument and only reshapes its 
 ```tsx
 // The bottom layer is the standard hook, reached through the component's inject face.
 function useChatMessages(useResource: UseResource, id: string) {
-  const resource = useResource<'chat'>(`dsh-resource://chat/${id}`)
+  const resource = useResource<'chat'>(`jan-resource://chat/${id}`)
   return resource.status === 'live' && resource.value !== undefined
     ? { messages: resource.value.messages, loading: false }
     : { messages: [], loading: true }

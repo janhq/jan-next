@@ -1,9 +1,9 @@
 /** Slot-owned tab information derived from framework-bound store and navigation hooks. */
-import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
+import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
 import { useMemo } from 'react'
-import { findTabPane } from '@deepseek-ai/dsh-client-ui-dockkit'
-import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
-import type { KeyedSnapshotSelectorHook, PropsStore, SlotHookFactory } from '@deepseek-ai/dsh-client-ui-slots'
+import { findTabPane } from '@janhq/jan-client-ui-dockkit'
+import type { PaneId, TabId, TabRecord } from '@janhq/jan-client-ui-dockkit'
+import type { KeyedSnapshotSelectorHook, PropsStore, SlotHookFactory } from '@janhq/jan-client-ui-slots'
 import type { SidebarRightTabActions, SidebarRightTabNavigation, UseSidebarRightTabInfo } from './contract/slots.ts'
 import type { createSidebarRightStore } from './stores.ts'
 
@@ -18,6 +18,8 @@ export interface TabHookContext {
   readonly actions: SidebarRightTabActions
   readonly useStore: PropsStore<ReturnType<typeof createSidebarRightStore>>['useStore']
   readonly useTabNavigation: KeyedSnapshotSelectorHook<SidebarRightTabNavigation>
+  /** A body drawn in place outside the column: its record, which no layout holds. */
+  readonly inline?: TabRecord | undefined
 }
 
 /**
@@ -28,11 +30,19 @@ export interface TabHookContext {
  */
 export const tabInfoFactory: SlotHookFactory<'sidebar.right.pane.tab', UseSidebarRightTabInfo> = (standard, context) => {
   const { sessionId } = standard
-  const { tabId, title, fullscreen, active, signal, actions, useStore, useTabNavigation, shortcuts } = context
+  const { tabId, title, fullscreen, active, signal, actions, useStore, useTabNavigation, shortcuts, inline } = context
   return function useTabInfo() {
     const layout = useStore(state => state.bySession[sessionId]?.layout)
     const navigation = useTabNavigation(tabId)
     return useMemo(() => {
+      const refreshShortcut = shortcuts.find(row => row.id === 'page.refresh')
+      if (inline !== undefined && navigation !== undefined) {
+        return {
+          sidebar: { expanded: false, fullscreen: false },
+          panel: { id: INLINE_PANE, isFloating: false },
+          tab: { ...inline, visible: active, navigation, signal, actions, refreshShortcut },
+        }
+      }
       const tab = layout?.tabs[tabId]
       if (layout === undefined || tab === undefined || navigation === undefined) {
         throw new Error(`sidebarRight: tab "${tabId}" is not committed in session "${sessionId}"`)
@@ -47,12 +57,15 @@ export const tabInfoFactory: SlotHookFactory<'sidebar.right.pane.tab', UseSideba
           navigation,
           signal,
           actions,
-          refreshShortcut: shortcuts.find(row => row.id === 'page.refresh'),
+          refreshShortcut,
         },
       }
     }, [layout, navigation, tabId, title, fullscreen, active, signal, actions, shortcuts])
   }
 }
+
+/** The pane id an inline body reports: it sits in no pane of the column. */
+export const INLINE_PANE = 'inline' as PaneId
 
 /**
  * Forward the framework-bound tab hook to guide content.

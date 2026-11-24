@@ -3,19 +3,19 @@
  * slot: per-turn and per-step context, timing, cache, and tool-cost columns.
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type { SessionBinding, SessionFace } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { Context } from '@janhq/cordis'
+import type { ImageAttachmentRef } from '@janhq/jan-attachment'
+import type { SessionBinding, SessionFace } from '@janhq/jan-api-session-controller/client'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
+import type { SessionId } from '@janhq/jan-session/types'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
-import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@janhq/jan-client-locale/client'
 // Type-only: the 'conversation.view' SlotMap row and target registry types.
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@janhq/jan-client-ui-conversation/client'
 // Type-only: ctx.slots on the client root context.
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
 // Type-only: the standard Session props the slot component receives.
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@janhq/jan-client-ui-session/client'
 import { de, en, es, fr, ja, NS, pt, ru, zh } from './locales.ts'
 import type { LoadOlderResult, StatsSnapshot } from './stats-contract.ts'
 import { registerStatsDefinitions } from './stats-definition.ts'

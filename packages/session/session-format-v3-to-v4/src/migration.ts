@@ -1,19 +1,19 @@
 /** Append historical child facts after converting V3 source events to V4. */
 
-import { defineSessionFormatMigration, SessionFormatError, SessionFormatUnsupportedMigrationError, isSessionFormatJsonObject, sessionFormatCount } from '@deepseek-ai/dsh-session-format'
-import type { SessionFormatEvent, SessionFormatEventRun, SessionFormatJsonObject, SessionFormatJsonValue, SessionFormatMigration, SessionFormatMigrationContext, SessionFormatMigrationStage, SessionFormatMigrationStageInput } from '@deepseek-ai/dsh-session-format'
-import { assertReleasedV3Header } from '@deepseek-ai/dsh-session-format-v2-to-v3'
+import { defineSessionFormatMigration, SessionFormatError, SessionFormatUnsupportedMigrationError, isSessionFormatJsonObject, sessionFormatCount } from '@janhq/jan-session-format'
+import type { SessionFormatEvent, SessionFormatEventRun, SessionFormatJsonObject, SessionFormatJsonValue, SessionFormatMigration, SessionFormatMigrationContext, SessionFormatMigrationStage, SessionFormatMigrationStageInput } from '@janhq/jan-session-format'
+import { assertReleasedV3Header } from '@janhq/jan-session-format-v2-to-v3'
 import { mapEventMessages, rewriteV3MessageSource } from './sources.ts'
 import { liftToolResult } from './tool-role.ts'
 import { migrateV3EventContent } from './content.ts'
 import { namespaceV3OpaqueEvent, RELEASED_V3_EVENT_TYPES } from './extension-identities.ts'
-import { assertReleasedV4Header, validateDeliveryAccepted } from './validation.ts'
+import { assertReleasedV4Header } from './validation.ts'
 import { catalogFact, childCatalogSource, childCatalogFact, childCatalogSubject } from './facts.ts'
 import { remapV3References } from './references.ts'
 
 /** Header-only migration declaration; body restoration requires explicit child evidence. */
 export const sessionFormatV3ToV4 = defineSessionFormatMigration({
-  name: '@deepseek-ai/dsh-session-format-v3-to-v4',
+  name: '@janhq/jan-session-format-v3-to-v4',
   fromVersion: 3,
   toVersion: 4,
   migrateHeader(header) {
@@ -50,7 +50,6 @@ class ReleasedV3ToV4Stage implements SessionFormatMigrationStage {
   private nextTurnSpliced = false
   private nextSeq = 0
   private time: number
-  private foreignDeliverySeq: number | undefined
 
   constructor(private readonly input: SessionFormatMigrationStageInput, children: readonly SessionFormatJsonValue[]) {
     this.candidates = children.map(childCatalogSource).sort((left, right) =>
@@ -78,13 +77,6 @@ class ReleasedV3ToV4Stage implements SessionFormatMigrationStage {
       this.catalogs.length = 0
     } else if (event.type === 'subagent/catalog') {
       this.catalogs.push(event.data)
-    }
-    const deliveryId = validateDeliveryAccepted(event, 3)
-    if (event.type === 'session-log-deepseek/delivery-accepted') {
-      if ((event.data as SessionFormatJsonObject)['sessionFormatVersion'] === 4) {
-        throw new SessionFormatUnsupportedMigrationError('format v3 delivery marker claims target format v4')
-      }
-      if (deliveryId !== undefined && deliveryId !== this.input.sourceHeader.id) this.foreignDeliverySeq = event.seq
     }
     const opaque = namespaceV3OpaqueEvent(event)
     if (opaque !== event) {
@@ -147,10 +139,6 @@ class ReleasedV3ToV4Stage implements SessionFormatMigrationStage {
     }
     if (this.input.sourceInheritedEventCount !== undefined && sourceCut !== this.input.sourceInheritedEventCount) {
       throw new SessionFormatError('format v3 inherited cut disagrees with its source marker')
-    }
-    if (this.foreignDeliverySeq !== undefined
-      && (this.input.sourceHeader.parentSession === undefined || this.foreignDeliverySeq >= sourceCut)) {
-      throw new SessionFormatError('current-generation delivery marker names the wrong Session')
     }
     for (const source of this.candidates) {
       const id = source['childId'] as string

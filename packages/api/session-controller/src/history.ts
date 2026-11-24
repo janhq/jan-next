@@ -3,17 +3,17 @@
 import {
   isAppendSurfaceEvent,
   SessionLogOffset,
-} from '@deepseek-ai/dsh-session'
+} from '@janhq/jan-session'
 import type {
   SessionEvent,
   SessionHeader,
   SessionId,
   SessionLogOffset as SessionLogOffsetType,
   SessionSeqCursor,
-} from '@deepseek-ai/dsh-session'
-import type { SessionObservation } from '@deepseek-ai/dsh-session-query'
-import type {} from '@deepseek-ai/dsh-subagent'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+} from '@janhq/jan-session'
+import type { SessionObservation } from '@janhq/jan-session-query'
+import type {} from '@janhq/jan-subagent'
+import { RemoteError } from '@janhq/jan-typert-protocol'
 import type {
   SessionAddress,
   SessionEventEntry,

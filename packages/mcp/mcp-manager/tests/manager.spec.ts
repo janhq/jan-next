@@ -7,16 +7,16 @@
  * Isolated file so vi.mock of the MCP SDK doesn't pollute other test suites.
  */
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { Context, FiberState, type Fiber } from '@deepseek-ai/cordis'
+import { Context, FiberState, type Fiber } from '@janhq/cordis'
 import type { Transport } from '@modelcontextprotocol/client'
-import type Settings from '@deepseek-ai/dsh-settings'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { CredentialProvider, credentialRef } from '@deepseek-ai/dsh-credentials'
+import type Settings from '@janhq/jan-settings'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import { CredentialProvider, credentialRef } from '@janhq/jan-credentials'
 import type {
   CredentialInfo, CredentialKey, CredentialRecord, CredentialRecordEntry, CredentialRecordInfo,
   CredentialRef, ResolvedCredential,
-} from '@deepseek-ai/dsh-credentials'
+} from '@janhq/jan-credentials'
 
 const { mockConnect, mockClose, mockListTools, MockClient, MockTransport, instances, transportConfigs } = vi.hoisted(() => {
   const mockConnect = vi.fn<() => Promise<void>>()
@@ -75,9 +75,9 @@ vi.mock('@modelcontextprotocol/client', async importOriginal => ({
   }),
 }))
 
-import { apply as applyMcpClient, Config as ClientConfig, connectionStatusOf } from '@deepseek-ai/dsh-mcp-client'
-import McpServerManager from '@deepseek-ai/dsh-mcp-manager/src/index.ts'
-import type { Config, McpManagedServerStatus } from '@deepseek-ai/dsh-mcp-manager/src/index.ts'
+import { apply as applyMcpClient, Config as ClientConfig, connectionStatusOf } from '@janhq/jan-mcp-client'
+import McpServerManager from '@janhq/jan-mcp-manager/src/index.ts'
+import type { Config, McpManagedServerStatus } from '@janhq/jan-mcp-manager/src/index.ts'
 import { managerProfile } from './profile-fixture.ts'
 
 /** Minimal real credential provider: reference half backed by a map. */
@@ -202,6 +202,7 @@ describe('mcp-manager', () => {
     expect(manager.list()).toEqual([{
       name: 'base',
       configured: true,
+      origin: { kind: 'config' },
       status: { state: 'connected', toolCount: 1, connectedAt: anyNumber },
     }])
   })
@@ -655,7 +656,7 @@ describe('mcp-manager', () => {
       await closing.promise
       await vi.advanceTimersByTimeAsync(50)
       await vi.waitFor(() => {
-        expect(manager.list()).toEqual([{ name: 'srv', configured: false, status: {
+        expect(manager.list()).toEqual([{ name: 'srv', configured: false, origin: { kind: 'config' }, status: {
           state: 'failed', reason: 'cleanup', result: { closeConfirmed: false, cleanupError: probe.cleanupError },
         } }])
       })
@@ -1040,7 +1041,10 @@ describe('mcp-manager', () => {
     })
     await registrar.await()
     await waitForState(manager, 'app', 'connected')
-    expect(manager.list().map(view => [view.name, view.configured])).toEqual([['base', true], ['app', true]])
+    expect(manager.list().map(view => [view.name, view.configured, view.origin])).toEqual([
+      ['base', true, { kind: 'config' }],
+      ['app', true, { kind: 'plugin', plugin: 'registrar' }],
+    ])
     expect(ctx.tools.get('mcp__app__remote')).toBeDefined()
     await registrar.dispose()
     expect(ctx.tools.get('mcp__app__remote')).toBeUndefined()
@@ -1097,7 +1101,7 @@ describe('mcp-manager', () => {
     let views: unknown
     await vi.waitFor(async () => {
       views = (await stream.next()).value
-      expect(views).toEqual([{ name: 'srv', configured: true, status: expect.objectContaining({ state: 'connected' }) as McpManagedServerStatus }])
+      expect(views).toEqual([{ name: 'srv', configured: true, origin: { kind: 'config' }, status: expect.objectContaining({ state: 'connected' }) as McpManagedServerStatus }])
     })
     subscriber.abort()
     await expect(stream.next()).resolves.toEqual({ done: true, value: undefined })

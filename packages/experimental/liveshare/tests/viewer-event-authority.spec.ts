@@ -2,12 +2,12 @@
  * A viewer's generation stream carries only the Session notifications the `share-viewer` policy
  * allows, never an Owner interaction, and the viewer's Peer cannot settle one.
  */
-import { Context } from '@deepseek-ai/cordis'
-import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
-import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
-import TypertGateway from '@deepseek-ai/dsh-api-gateway'
-import { Peer, type ConnectionRpcResult } from '@deepseek-ai/dsh-client-connection'
-import type { PeerScope, TypertResourceReader } from '@deepseek-ai/dsh-typert-protocol'
+import { Context } from '@janhq/cordis'
+import RemoteAccessService from '@janhq/jan-api-remote-access'
+import TypertRegistry from '@janhq/jan-typert-registry'
+import TypertGateway from '@janhq/jan-api-gateway'
+import { Peer, type ConnectionRpcResult } from '@janhq/jan-client-connection'
+import type { PeerScope, TypertResourceReader } from '@janhq/jan-typert-protocol'
 import { describe, expect, it, onTestFinished } from 'vitest'
 import type { ForkRecord } from '../src/host/fork-registry.ts'
 import { createViewerAccessPolicy } from '../src/host/viewer-access-policy.ts'
@@ -64,7 +64,7 @@ describe('viewer forwarded interactions', () => {
         if (signal.aborted) resolve()
         else signal.addEventListener('abort', () => { resolve() }, { once: true })
       })
-    })(), { home: '/owner' })
+    })(), { home: '/owner', name: 'fixture-host', remote: false })
     onTestFinished(stop)
     const readers = readerConnection()
     const read = createViewerReadService({
@@ -127,7 +127,7 @@ describe('viewer forwarded interactions', () => {
         if (signal.aborted) resolve()
         else signal.addEventListener('abort', () => { resolve() }, { once: true })
       })
-    })(), { home: '/owner' })
+    })(), { home: '/owner', name: 'fixture-host', remote: false })
     onTestFinished(stop)
     await queued.promise
     const gatewayRpc = (endpoint: string, payload: unknown, signal: AbortSignal, peer: PeerScope) => {

@@ -1,26 +1,19 @@
 # Keyless replay counterpart to pty.cordis.yml.
-- id: llm-deepseek
-  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
-  disabled: true
-
 - insert:
     - id: pty
-      name: '@deepseek-ai/dsh-terminal'
+      name: '@janhq/jan-terminal'
     - id: pty-snapshot-backend
       name: './pty-snapshot-backend.mjs'
     - id: tool-terminal
-      name: '@deepseek-ai/dsh-tool-terminal'
+      name: '@janhq/jan-tool-terminal'
       config:
         maxResultBytes: 64
     - id: llm-replay
-      name: '@deepseek-ai/dsh-llm-replay'
+      name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-v4-flash
-              - id: deepseek-v4-pro
-
-- id: plugin-package-inventory-deepseek
-  disabled: true
+              - id: tokamak-1-preview
+              - id: tokamak-1-pro

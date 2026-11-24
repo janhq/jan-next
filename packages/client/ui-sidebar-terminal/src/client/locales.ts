@@ -1,7 +1,7 @@
 /** Copy owned by the sidebar terminal feature. */
-import type {} from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-slots'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     sidebarTerminal: keyof typeof zh
   }
@@ -29,7 +29,7 @@ export const zh = {
 export const en = {
   'shortcut.noSession': 'Select a session first',
   recoveryFailed: 'Terminal recovery failed: {message}', retryRecovery: 'Retry terminal recovery',
-  shell: 'Choose shell', shellLoading: 'Loading shells…', shellEmpty: 'No shells available', description: 'Run commands in the Session workspace',
+  shell: 'Choose shell', shellLoading: 'Loading shells…', shellEmpty: 'No shells available', description: 'Run commands in the session\'s project folder',
   title: 'Terminal', new: 'New terminal', loading: 'Reading terminal environment…', creating: 'Starting…',
   connecting: 'Connecting…', disconnected: 'Disconnected.', reconnect: 'Reconnect',
   readonly: 'This view is read-only.', control: 'Take control',

@@ -48,7 +48,7 @@ describe('elevation tokens', () => {
     // body would bake in body's stroke color, making every
     // --dsw-elevation-stroke-color rebind a no-op. Per-element declarations
     // re-substitute against the color each element sees (the same contract
-    // scrollbar.css states for --dsh-scrollbar-thumb).
+    // scrollbar.css states for --jan-scrollbar-thumb).
     expect(perElement.get('--dsw-elevation-stroke')).toBe(`0 0 0 0.5px var(${STROKE_COLOR})`)
     for (const name of ['--dsw-elevation-panel', '--dsw-elevation-prominent', '--dsw-elevation-soft']) {
       expect(perElement.get(name), name).toMatch(/^var\(--dsw-elevation-stroke\), 0 /)
@@ -57,7 +57,7 @@ describe('elevation tokens', () => {
   })
 
   it('defines the translucent menu material for both palettes', () => {
-    expect(bodyOnly.get('--dsw-mask-blur')).toBe('none')
+    expect(bodyOnly.get('--dsw-mask-blur')).toBe('blur(4px)')
     expect(bodyOnly.get('--dsw-menu-backdrop-filter')).toBe('blur(40px) saturate(150%)')
     const platformRules = parseRules(platformCss)
     const value = (selector: string, token = '--dsw-menu-surface-fill'): string | undefined => platformRules
@@ -270,7 +270,7 @@ describe('neutral solid borders are hairlines', () => {
     expect(wideNeutralInsetShadows('.a { box-shadow: inset 0 0 0 1em var(--dsw-alias-border-l2); }'))
       .toEqual(['.a box-shadow: inset 0 0 0 1em var(--dsw-alias-border-l2)'])
     expect(wideNeutralInsetShadows('.a { box-shadow: inset 0px 0px 0px 0.5px var(--dsw-alias-border-l2); }')).toEqual([])
-    expect(wideNeutralInsetShadows('.a { box-shadow: inset 0 0 0 var(--dsh-hairline-width, 0.5px) var(--dsw-alias-border-l2); }')).toEqual([])
+    expect(wideNeutralInsetShadows('.a { box-shadow: inset 0 0 0 var(--jan-hairline-width, 0.5px) var(--dsw-alias-border-l2); }')).toEqual([])
     expect(wideNeutralInsetShadows('.a { box-shadow: inset 0 0 0 2px var(--dsw-alias-state-business-primary); }')).toEqual([])
     expect(wideNeutralInsetShadows('.a { box-shadow: inset 0 0 0 0.5px var(--dsw-alias-border-l2), inset 0 0 0 2px var(--dsw-alias-border-l3); }'))
       .toEqual(['.a box-shadow: inset 0 0 0 0.5px var(--dsw-alias-border-l2), inset 0 0 0 2px var(--dsw-alias-border-l3)'])

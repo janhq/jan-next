@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-09-17-unified-subagent-activations.zh.md)
-
 ## Problem
 
 Local one-shot execution and continuable residency separately owned child creation, cancellation, structured capture, results, and cleanup. Foreground and Job-backed tool paths added more ownership paths. Workflow code still needed to await a result, while external backends needed one process execution without acquiring a multi-turn protocol.
@@ -14,7 +12,7 @@ Local one-shot execution and continuable residency separately owned child creati
 
 Local spawn and fork providers contribute only `prepareContinuable()` data; the subagent service owns Agent creation and residency. The standalone in-process driver package is removed. Structured tools, validation, instructions, and terminal guards attach to one activation and close with it. After capture, that activation rejects further input; cold resume reconstructs an ordinary conversation without the previous schema.
 
-ACP, DSH SDK, Codex, and Claude Code retain their existing single-execution provider adapters. They join the same activation capacity and ownership graph without accepting follow-up messages or fabricating a local child Session. The parent-owned catalog registers every local child and parent-delivery external leaves. Local membership remains independent of result delivery so completed workflow Sessions and their descendants stay discoverable. Caller delivery leaves external membership tracking to its consumer. External entries carry `mode: 'external'` because they have no local Session to open. Creation records membership once; execution and cleanup do not update the catalog. Execution status has no required consumer and remains outside the membership record. Caller delivery returns the complete result; parent delivery queues the complete completion notice.
+ACP, Jan SDK, Codex, and Claude Code retain their existing single-execution provider adapters. They join the same activation capacity and ownership graph without accepting follow-up messages or fabricating a local child Session. The parent-owned catalog registers every local child and parent-delivery external leaves. Local membership remains independent of result delivery so completed workflow Sessions and their descendants stay discoverable. Caller delivery leaves external membership tracking to its consumer. External entries carry `mode: 'external'` because they have no local Session to open. Creation records membership once; execution and cleanup do not update the catalog. Execution status has no required consumer and remains outside the membership record. Caller delivery returns the complete result; parent delivery queues the complete completion notice.
 
 The model-facing tool always returns a background child id and promises the manager's completion notice. It has no foreground switch or Job integration. Workflows select caller delivery, await the activation result, and dispose the handle before finishing; they add neither a completion notice nor initial return guidance to the parent/child exchange. Headless completion waits for its own child tree and subsequent parent turns.
 
@@ -24,7 +22,7 @@ Parent completion notices include final text regardless of `send_message` availa
 
 The native Session reader rejects duplicate child membership for both local and external catalog entries.
 
-The [continuable residency](../feature/2026-07-28-continuable-subagent-conversations.md), [fork request prefix](../architecture/2026-08-10-fork-children-stay-one-shot.md), and [parent-owned catalog](../architecture/2026-09-01-parent-owned-subagent-catalog.md) records retain their independent rationale. The [subagent package reference](../../../../packages/subagent/subagent/README.md) owns current provider, result-delivery, and activation-capacity contracts; the corresponding [capability seam](../../archived/feature/2026-06-21-subagent-capability-seam.md), [settlement delivery](../../archived/feature/2026-08-06-manager-owned-subagent-settlement-delivery.md), and [capacity](../../archived/feature/2026-09-15-continuable-activation-capacity.md) records remain historical snapshots. This decision owns the shared entry point, external participation, and caller-versus-parent result delivery.
+The [continuable residency](../feature/2026-07-28-continuable-subagent-conversations.md), [fork request prefix](../architecture/2026-08-10-fork-children-stay-one-shot.md), and [parent-owned catalog](../architecture/2026-09-01-parent-owned-subagent-catalog.md) records retain their independent rationale. The [subagent package reference](../../../../packages/subagent/subagent/README.md) owns current provider, result-delivery, and activation-capacity contracts. This decision owns the shared entry point, external participation, and caller-versus-parent result delivery.
 
 Released Session generations remain immutable. Historical one-shot descriptors stay readable; removing current execution paths does not justify rewriting or discarding durable history.
 

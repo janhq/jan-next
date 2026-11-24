@@ -1,14 +1,14 @@
 /** Workspace commands capture their business target before the dispatcher executes them. */
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import type { SessionListState, SessionSummary, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
-import { SessionForkError } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { ShortcutCommand, ShortcutGesture, ShortcutPlatform } from '@deepseek-ai/dsh-client-shortcuts/client'
-import type { PanelInfo, MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { RemoteError } from '@janhq/jan-client-test-runtime'
+import type { SessionListState, SessionSummary, SessionSnapshot } from '@janhq/jan-api-session-controller/client'
+import { SessionForkError } from '@janhq/jan-api-session-controller/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { ShortcutCommand, ShortcutGesture, ShortcutPlatform } from '@janhq/jan-client-shortcuts/client'
+import type { PanelInfo, MainPanelId } from '@janhq/jan-client-ui-layout/client'
 import { ShortcutRegistry } from '../../shortcuts/src/client/registry.ts'
 import { createWorkspaceShortcutControls, installWorkspaceShortcuts } from '../src/client/shortcuts.ts'
 import { en, zh } from '../src/client/locales.ts'
@@ -158,6 +158,16 @@ describe('workspace shortcut ownership', () => {
     b.controls.directoryBusy(false)
     b.directory.set(false)
     expect(b.registry.dispatch(key('KeyO'), context, consume).status).toBe('blocked')
+  })
+
+  it('opens the add menu under a requesting control and returns it to the sidebar button after closing', async () => {
+    const b = await bench()
+    const anchor = {} as HTMLElement
+    b.controls.add(anchor)
+    expect(b.controls.state.getSnapshot()).toMatchObject({ addRequested: true, addAnchor: anchor })
+    b.controls.closeAdd()
+    b.registry.dispatch(key('KeyO'), context, vi.fn())
+    expect(b.controls.state.getSnapshot()).toMatchObject({ addRequested: true, addAnchor: null })
   })
 
   it('captures rename and archive targets while the main Session changes', async () => {

@@ -1,4 +1,4 @@
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   apply,
@@ -33,7 +33,7 @@ describe('Connection generation facts', () => {
   it('publishes ready-frame Host facts and retracts them when the loop stops', async () => {
     const connection = await mount()
     const source: ConnectionGenerationSource = (signal, ready) => {
-      ready({ home: '/home/from-ready' })
+      ready({ home: '/home/from-ready', name: 'fixture-host', remote: false })
       return new Promise<void>((resolve) => {
         if (signal.aborted) resolve()
         else signal.addEventListener('abort', () => { resolve() }, { once: true })
@@ -54,7 +54,7 @@ describe('Connection generation facts', () => {
     await vi.waitFor(() => {
       expect(connection.generation.getSnapshot()).toEqual({
         id: 1,
-        host: { home: '/home/from-ready' },
+        host: { home: '/home/from-ready', name: 'fixture-host', remote: false },
       })
     })
     loop.stop()

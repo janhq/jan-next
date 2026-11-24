@@ -2,17 +2,15 @@
 
 Status: implemented
 
-English | [中文](2026-09-13-session-working-directory.zh.md)
-
 ## Problem
 
 A fixed Session creation directory cannot represent a task that changes checkout during its conversation. Independent tools resolving paths from different sources can read and write different projects, while changing the process directory also affects unrelated Sessions. Putting mutable directory information in the system prompt changes the reusable prompt prefix.
 
 ## Decision
 
-`dsh-working-directory` owns one logged effective directory per Session. Its projection initializes from the immutable original project and folds `working-directory/change`; consumers read that owner instead of deriving execution paths from the header or sandbox root. Directory changes validate through the filesystem provider, serialize within the Session, and publish only after the new directory is available.
+`jan-working-directory` owns one logged effective directory per Session. Its projection initializes from the immutable original project and folds `working-directory/change`; consumers read that owner instead of deriving execution paths from the header or sandbox root. Directory changes validate through the filesystem provider, serialize within the Session, and publish only after the new directory is available.
 
-The `dsh-base` composition mounts `working_directory({ cd? })` globally. The tool reads or changes the Session directory, so every Agent preset can select or recover it, including presets without file-editing tools. The Web composition keeps action tools in preset scopes.
+The `jan-base` composition mounts `working_directory({ cd? })` globally. The tool reads or changes the Session directory, so every Agent preset can select or recover it, including presets without file-editing tools. The Web composition keeps action tools in preset scopes.
 
 Required user-context snapshots carry the current value; each committed change attempts to queue a notice through the ordinary Agent inbox. Cancellation or disposal may discard unadmitted notices while the directory event survives for subsequent requests. The original project is the recovery destination when the selected directory disappears. Missing recovery destinations produce an error. Write permissions remain independent.
 
@@ -26,7 +24,7 @@ Playwright MCP and Chrome DevTools MCP validate the effective directory when acq
 
 File links and command directory labels use result metadata captured when each operation runs, so historical rows remain correct after later directory changes.
 
-The [prompt-variables note](2026-07-05-prompt-variables-and-tool-guidance-ownership.md) retains strict interpolation, route-variable ownership, and tool-guidance ownership. The [environment-suffix note](../../archived/bug-fix/2026-09-06-environment-prompt-suffix.md) retains ordered prefix/suffix placement for deployment, Harness source, and Web guidance. This decision owns directory state and placement in user context.
+The [prompt-variables note](2026-07-05-prompt-variables-and-tool-guidance-ownership.md) retains strict interpolation, route-variable ownership, and tool-guidance ownership. This decision owns directory state and placement in user context.
 
 ## Alternatives considered
 

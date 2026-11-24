@@ -7,20 +7,20 @@
  * removes it (HMR safety). The carrier and framework are exercised unmodified.
  */
 
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import SessionStore from '@deepseek-ai/dsh-session'
-import type { Session } from '@deepseek-ai/dsh-session'
-import type { TodoItem } from '@deepseek-ai/dsh-tool-todo'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import UserQuestionService from '@deepseek-ai/dsh-user-questions'
-import * as ToolTodo from '@deepseek-ai/dsh-tool-todo'
+import { Context } from '@janhq/cordis'
+import AgentRegistry from '@janhq/jan-agent'
+import type { Agent } from '@janhq/jan-agent'
+import { createUserMessage } from '@janhq/jan-llm'
+import SessionStore from '@janhq/jan-session'
+import type { Session } from '@janhq/jan-session'
+import type { TodoItem } from '@janhq/jan-tool-todo'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import UserQuestionService from '@janhq/jan-user-questions'
+import * as ToolTodo from '@janhq/jan-tool-todo'
 
 interface Bench {
   ctx: Context

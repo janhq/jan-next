@@ -1,8 +1,6 @@
 # native/
 
-English | [中文](README.zh.md)
-
-Native source and public packages maintained with DeepSeek Harness. The [`system/` workspace](system/README.md) owns the Landlock launcher and POSIX flock binding, their platform packages, and the [release procedure](system/docs/release.md). The [`llama-worker/` crate](llama-worker/README.md) builds the `jan-llama-worker` llama.cpp worker process; it is a standalone Cargo crate outside the pnpm workspace, built only by `pnpm run build:llama-worker`.
+Native source and public packages maintained with Jan. The [`system/` workspace](system/README.md) owns the Landlock launcher and POSIX flock binding, their platform packages, and the [release procedure](system/docs/release.md). The [`llama-worker/` crate](llama-worker/README.md) builds the `jan-llama-worker` llama.cpp worker process; it is a standalone Cargo crate outside the pnpm workspace, built only by `pnpm run build:llama-worker`.
 
 ## Workspace and release boundary
 

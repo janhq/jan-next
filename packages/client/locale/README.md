@@ -3,13 +3,11 @@ description: "Localization for the web GUI: language preferences, browser-derive
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-locale
-
-English | [中文](README.zh.md)
+# @janhq/jan-client-locale
 
 ## Summary
 
-Use `dsh-client-locale` to switch the web GUI between the shipped English, Chinese, Japanese, Spanish, French, German, Russian, and Brazilian Portuguese (`pt`, including `pt-PT` browser requests) locales or languages added by client plugins. User selections take effect immediately; every authenticated browser persists them as `locale.preference` in `$DSH_HOME/cordis.patch.yml` through the Host settings service. New browsers use the first supported language requested by the browser until the Host read delivers a stored preference. Plugin authors add typed namespace dictionaries and translate through the public locale API; slot-rendered copy updates without a reload.
+Use `jan-client-locale` to switch the web GUI between the shipped English, Chinese, Japanese, Spanish, French, German, Russian, and Brazilian Portuguese (`pt`, including `pt-PT` browser requests) locales or languages added by client plugins. User selections take effect immediately; every authenticated browser persists them as `locale.preference` in `$JAN_HOME/cordis.patch.yml` through the Host settings service. New browsers use the first supported language requested by the browser until the Host read delivers a stored preference. Plugin authors add typed namespace dictionaries and translate through the public locale API; slot-rendered copy updates without a reload.
 
 ## Table of Contents
 
@@ -33,7 +31,7 @@ The Language row uses a smaller label gutter in narrow browser settings; Windows
 
 Open Settings → General and select a registered language. The active locale is applied immediately: the UI copy switches, `<html lang>` points at the external id or built-in document tag, and the choice is written to the durable settings section. A browser without an explicit Host preference selects the first registered language that matches `navigator` by full tag and then primary subtag, falling back to English. A stored external locale waits for its definition to register instead of becoming active while unavailable.
 
-Native shells may provide `__DSH_LOCALE__` with an asynchronous `read()` and an `onChange(locale)` callback. Initialization supplies the current Host preference and ordered OS languages before the Client mounts. Automatic selection stays provisional; only Settings selections write `locale.preference`. A fresh read on each page load prevents a stale preload preference after reload. Ordinary browsers keep navigator-based detection and their existing settings-scope policy.
+Native shells may provide `__JAN_LOCALE__` with an asynchronous `read()` and an `onChange(locale)` callback. Initialization supplies the current Host preference and ordered OS languages before the Client mounts. Automatic selection stays provisional; only Settings selections write `locale.preference`. A fresh read on each page load prevents a stale preload preference after reload. Ordinary browsers keep navigator-based detection and their existing settings-scope policy.
 
 ### Registering a dictionary
 
@@ -42,6 +40,10 @@ Call `ctx.locale.register(ns, { zh, en, ja })` with a namespace merged into `Loc
 ### Resolving package text
 
 Use `ctx.locale.resolveText(text)` for [`LocalizedText`](../../util/package-manifest/README.md), such as installed plugin titles and descriptions. Literal strings are returned unchanged. Translation maps use lowercase language ids, require an `en` fallback, and follow the active language's declared fallback chain. They do not consult or register namespace dictionaries.
+
+### Generated translations
+
+`ctx.locale.registerGenerated(ns, locale, { from, entries })` registers machine-generated text in a layer below every registered dictionary. For each locale in the fallback chain, lookup reads the registered dictionary first and consults a generated entry only when that dictionary lacks the key and the registered `from` dictionary still holds the entry's `src` text, so a plugin's own string always wins and a plugin update that changes a source string retires its stale translation. Generated tables never collide with `register`, in either order, and a second table for the same namespace and locale replaces the first. `ctx.locale.namespaces()` and `ctx.locale.dictionary(ns, locale)` read the registered dictionaries a translator needs as source text. The [plugin translation client](../ui-plugin-i18n/README.md) is the producer.
 
 ### Registering a language pack
 
@@ -111,10 +113,9 @@ The typed object form requires complete dictionaries for both baseline locales. 
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these when the locale contract is not enough: the slot face it implements, the settings surface it rides, and the persistence decision behind the preference.
+Read these when the locale contract is not enough: the slot face it implements and the settings surface it rides.
 
 - [Client slot system](../ui-slots/README.md) — the slot model and the `LocaleFace` seat this package implements.
-- [historical Host-backed preferences decision](../../../.agents/notes/archived/bug-fix/2026-08-06-host-backed-web-preferences.md) — why the preference persists in Host settings instead of the browser.
 - [Settings group map](../../settings/README.md) — the settings service that stores the preference.
 - [Client group map](../README.md) — the browser half this package belongs to.
 

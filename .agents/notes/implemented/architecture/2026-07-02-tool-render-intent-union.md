@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-07-02-tool-render-intent-union.zh.md)
-
 > The render-intent union remains current for UI transports; its ACP mapping is superseded by [ACP as an automation-only protocol](../simplification/2026-07-23-acp-automation-only-protocol.md).
 
 ## Problem
@@ -42,13 +40,13 @@ interface TerminalResultView { card: 'terminal'; title?: string; output?: string
 
 - **Invalid states become unrepresentable.** A generic card cannot carry terminal output; a terminal card cannot carry a diff. The old bag permitted all of these.
 - **Consumers switch instead of stitching.** One arm per card kind produces exactly the view that card needs, rather than reconciling five optional fields whose interactions are undocumented.
-- **`diff` is a first-class intent.** `dsh-tool-fs` write/edit declare `card:'diff'` with `{path, oldText, newText}`, allowing capable UIs to render an inline change without tool-name special cases.
+- **`diff` is a first-class intent.** `jan-tool-fs` write/edit declare `card:'diff'` with `{path, oldText, newText}`, allowing capable UIs to render an inline change without tool-name special cases.
 
 ### Producer mapping
 
-- `dsh-tool-fs` read → `generic` (`kind:'read'`, a follow-along `location`); write → `diff` (`oldText:null`); edit → `diff` (`oldText:old_string || null`, `newText:new_string ?? ''`). This mirrors `claude-agent-acp`'s `toolInfoFromToolUse` Read/Write/Edit arms field-for-field.
-- `dsh-tool-bash` foreground → `terminal` call + `terminal` result; `run_in_background` → `generic`. The generic `job_*` controls own their own generic cards.
-- `dsh-tool-todo` → `generic`.
+- `jan-tool-fs` read → `generic` (`kind:'read'`, a follow-along `location`); write → `diff` (`oldText:null`); edit → `diff` (`oldText:old_string || null`, `newText:new_string ?? ''`). This mirrors `claude-agent-acp`'s `toolInfoFromToolUse` Read/Write/Edit arms field-for-field.
+- `jan-tool-bash` foreground → `terminal` call + `terminal` result; `run_in_background` → `generic`. The generic `job_*` controls own their own generic cards.
+- `jan-tool-todo` → `generic`.
 
 ### Terminal fallback ownership
 
@@ -78,5 +76,5 @@ A new render intent is a compile-breaking change at the bridge switch — delibe
 ## Related
 
 - Supersedes the deferral in the earlier rejected collapse-tool-owned-presentation proposal (rejected — "wait for two real tools and two real consumers, then a tagged render-intent union"). That bar is now met; this is that union.
-- Extended by [Result-time applied-hunk diffs](../../archived/architecture/2026-07-02-result-time-applied-hunk-diffs.md) (archived), which added a persisted `meta` channel — the value/presentation split and the persisted `presentationMeta` channel are now owned by [the canonical tool output contract](../../../../packages/core/tools/README.md) so write/edit emit a result-time `DiffResultView` — the applied change (a contextual hunk with context lines / one per `replace_all` site, or a whole-file diff for a create) — on top of this union's call-time diff card.
+- Extended by result-time applied-hunk diffs, which added a persisted `meta` channel — the value/presentation split and the persisted `presentationMeta` channel are now owned by [the canonical tool output contract](../../../../packages/core/tools/README.md) so write/edit emit a result-time `DiffResultView` — the applied change (a contextual hunk with context lines / one per `replace_all` site, or a whole-file diff for a create) — on top of this union's call-time diff card.
 - Folds `ToolTerminal` into the tagged `terminal` views used by current UI transports.

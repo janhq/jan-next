@@ -1,8 +1,8 @@
 /** Settings → Models card: the local server (start, stop, remove everything) and the model manager. */
 import type { ReactNode } from 'react'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
+import { Button } from '@janhq/jan-client-ui-primitives'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-settings-models/client'
 import type { LocalModelInjected } from './actions.ts'
 import type { NS } from './locales.ts'
 import { ModelManager } from './ModelManager.tsx'

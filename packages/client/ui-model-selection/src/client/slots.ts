@@ -1,8 +1,8 @@
 /** Composer model selection injection and inline label extension. */
-import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
-import type { ModelSelection } from '@deepseek-ai/dsh-api-remotes/client'
-import type { ModelCatalogModel, ModelProviderGroup } from '@deepseek-ai/dsh-api-session-controller/types'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { RemoteResult } from '@janhq/jan-typert-protocol'
+import type { ModelSelection } from '@janhq/jan-api-remotes/client'
+import type { ModelCatalogModel, ModelProviderGroup } from '@janhq/jan-api-session-controller/types'
+import type { SnapshotStore, ObservableSnapshot } from '@janhq/jan-client-store'
 import type { ModelDirectoryState } from './directory.ts'
 
 /** Catalog data for a model name inside the composer's existing controls. */
@@ -11,26 +11,51 @@ export interface ModelLabelOwner {
   provider: Pick<ModelProviderGroup, 'id' | 'name'>
   /** The exact provider's model catalog entry. */
   model: ModelCatalogModel
-  /** Trigger caption, root-menu current value, or selectable model row. */
-  placement: 'trigger' | 'menu' | 'option'
+  /** Trigger caption or selectable model row. */
+  placement: 'trigger' | 'option'
   /** Whether this provider/model pair is the current selection. */
   selected: boolean
 }
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+/** Owner share of one session option row in the model menu. */
+export interface ModelOptionsOwner {
+  /** Whether the composer currently refuses selection changes. */
+  locked: boolean
+  /** Close the menu and focus its trigger synchronously before opening another overlay. */
+  dismiss: () => void
+  /** Report a failed selection through the menu owner's persistent toast. */
+  reportFailure: (message: string) => void
+}
+
+/** Owner share of the details card beside the model menu, for the highlighted model. */
+export interface ModelDetailsOwner {
+  /** Provider identity and localized display name. */
+  provider: Pick<ModelProviderGroup, 'id' | 'name'>
+  /** The highlighted model's catalog entry. */
+  model: ModelCatalogModel
+  /** Whether this model is the current selection. */
+  selected: boolean
+  /** Whether the composer currently refuses changes. */
+  locked: boolean
+}
+
+declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     /** Session options appended after model and reasoning controls in the root menu. */
     'conversation.input.model.options': {
       kind: 'list'
       scope: 'session'
-      owner: {
-        /** Whether the composer currently refuses selection changes. */
-        locked: boolean
-        /** Close the menu and focus its trigger synchronously before opening another overlay. */
-        dismiss: () => void
-        /** Report a failed selection through the menu owner's persistent toast. */
-        reportFailure: (message: string) => void
-      }
+      owner: ModelOptionsOwner
+    }
+    /**
+     * Provider-owned controls on the details card of the highlighted model,
+     * below its catalog facts and reasoning levels. A contribution renders
+     * nothing for models it does not serve.
+     */
+    'conversation.input.model.details': {
+      kind: 'list'
+      scope: 'session'
+      owner: ModelDetailsOwner
     }
     /**
      * Non-interactive inline model label; selection controls remain owner-managed.
@@ -64,6 +89,10 @@ export interface ModelSelectInjected {
   directory: SnapshotStore<ModelDirectoryState>
   /** Ensure the shared advisory catalog is loaded (errors land on the store). */
   load: () => void
+  /** Whether Settings can currently open at the Models section. */
+  settingsAvailability: ObservableSnapshot<boolean>
+  /** Open Settings at the Models section to install a local model or configure a provider. */
+  openModelsSettings: () => void
   /**
    * Choose a catalog badge's provider-authored text for the active locale.
    * @param text - the badge's literal text or translations.

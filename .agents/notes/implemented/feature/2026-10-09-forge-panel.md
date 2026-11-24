@@ -2,15 +2,13 @@
 
 Status: implemented
 
-English | [中文](2026-10-09-forge-panel.zh.md)
-
 ## Problem
 
 [Session change request bindings](2026-10-09-session-change-request-bindings.md) give each Session a list of change requests, but nothing shows it. A user who asks the agent to open change requests needs their checks, reviews, and mergeability without leaving the conversation, and wants a new Session's edits and commits kept out of the current checkout. Git must run where the Session's commands run, which can be a remote or confined execution world; inspection must not change the repository, and a worktree must exist before the model's first action.
 
 ## Decision
 
-[`dsh-experimental-client-ui-forge`](../../../../packages/experimental/client-ui-forge/README.md) is a two-face package. Its Host half, the `forgePanel` Remote, assembles everything the panel shows for one Session into one streamed state; the forge registry and the binding service keep only their domain operations. Its Client half is a right-sidebar tab, a Session header button that shows or hides it, a New Session option, a creation card above the composer, a toast, and the [Session list icons and hover card section](2026-10-20-forge-session-list.md). Every surface calls a bound item a change request, the forge registry's term, whatever its code host calls it. The [forge bundle](../../../../packages/experimental/forge-bundle/README.md) ships the panel, the forge registry, the GitHub provider, the bindings, the worktree model tool, and an isolated worktree service for the panel as one default-disabled Plugins page entry.
+[`jan-experimental-client-ui-forge`](../../../../packages/experimental/client-ui-forge/README.md) is a two-face package. Its Host half, the `forgePanel` Remote, assembles everything the panel shows for one Session into one streamed state; the forge registry and the binding service keep only their domain operations. Its Client half is a right-sidebar tab, a Session header button that shows or hides it, a New Session option, a creation card above the composer, a toast, and the [Session list icons and hover card section](2026-10-20-forge-session-list.md). Every surface calls a bound item a change request, the forge registry's term, whatever its code host calls it. The [forge bundle](../../../../packages/experimental/forge-bundle/README.md) ships the panel, the forge registry, the GitHub provider, the bindings, the worktree model tool, and an isolated worktree service for the panel as one default-disabled Plugins page entry.
 
 Review and worktree controls serve one code-change workflow. One Plugins entry lets users enable that workflow without having to distinguish the underlying package split. Packages and the two worktree services remain independent so each owns its before-Session or in-conversation creation flow.
 

@@ -1,6 +1,12 @@
 - dialog "Set up voice input before recording":
   - heading "Set up voice input before recording" [level=2]
   - button "Cancel"
-  - paragraph: Voice input is enabled. First use requires downloading and preparing local recognition models. Open the plugin details to review disk space, memory and time estimates before starting setup.
-  - button "Later"
-  - button "Go to setup"
+  - text: Recognition language
+  - combobox "Recognition language":
+    - option "Detect automatically" [selected]
+  - paragraph: Local models will be downloaded to the machine running Jan. No Python or compiler is required.
+  - strong: Recorded recognizer
+  - text: First use downloads the local recognition models.
+  - status
+  - button "Download and prepare"
+  - button "Cancel"

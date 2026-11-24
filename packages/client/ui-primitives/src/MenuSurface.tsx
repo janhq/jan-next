@@ -9,6 +9,8 @@ export const MENU_TRANSITION_MS = Object.freeze({ enter: 40, dismiss: 80, replac
 
 /** Menu containers preserve native div props and refs. */
 export interface MenuSurfaceProps extends ComponentPropsWithoutRef<'div'> {
+  /** Unique CSS anchor name for positioning another surface relative to this menu. */
+  anchorName?: `--${string}`
   /** Match the shared compact menu's smaller outer radius. */
   compact?: boolean
   /** Fade direct content, material, and native backing without isolating the material's backdrop. */
@@ -23,7 +25,7 @@ export interface MenuSurfaceProps extends ComponentPropsWithoutRef<'div'> {
  * @returns Menu content plus a backing portal removed with the menu.
  */
 export const MenuSurface = forwardRef<HTMLDivElement, MenuSurfaceProps>(function MenuSurface({
-  compact = false, phase, className, style, children, ...props
+  anchorName, compact = false, phase, className, style, children, ...props
 }, ref) {
   const id = useId()
   const backingRef = useRef<HTMLDivElement>(null)
@@ -33,11 +35,11 @@ export const MenuSurface = forwardRef<HTMLDivElement, MenuSurfaceProps>(function
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- The portal ref is attached before layout effects run.
     document.body.appendChild(backingRef.current!)
   }, [])
-  const anchorStyle: CSSProperties & Record<`--dsh-menu-${string}`, string> = {
-    '--dsh-menu-anchor': `--dsh-menu-${id.replaceAll(':', '')}`,
-    '--dsh-menu-enter': `${MENU_TRANSITION_MS.enter}ms`,
-    '--dsh-menu-dismiss': `${MENU_TRANSITION_MS.dismiss}ms`,
-    '--dsh-menu-replace': `${MENU_TRANSITION_MS.replace}ms`,
+  const anchorStyle: CSSProperties & Record<`--jan-menu-${string}`, string> = {
+    '--jan-menu-anchor': anchorName ?? `--jan-menu-${id.replaceAll(':', '')}`,
+    '--jan-menu-enter': `${MENU_TRANSITION_MS.enter}ms`,
+    '--jan-menu-dismiss': `${MENU_TRANSITION_MS.dismiss}ms`,
+    '--jan-menu-replace': `${MENU_TRANSITION_MS.replace}ms`,
   }
   return <>
     <div {...props} ref={ref} data-menu-material="translucent" data-menu-phase={phase}

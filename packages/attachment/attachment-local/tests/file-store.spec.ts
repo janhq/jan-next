@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { afterEach, describe, expect, it } from 'vitest'
-import { AttachmentId } from '@deepseek-ai/dsh-attachment'
-import type { FileAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import { AttachmentId } from '@janhq/jan-attachment'
+import type { FileAttachmentRef } from '@janhq/jan-attachment'
 import {
   fileLeafName, readFileStreamVerbatim, saveFileStreamVerbatim, saveFileVerbatim, storedFilePath,
 } from '../src/file-store.ts'
@@ -14,7 +14,7 @@ import { publishImmutableAlias } from '../src/store.ts'
 const roots: string[] = []
 
 async function makeRoot(): Promise<string> {
-  const root = join(await mkdtemp(join(tmpdir(), 'dsh-file-store-')), 'attachments', 'v1')
+  const root = join(await mkdtemp(join(tmpdir(), 'jan-file-store-')), 'attachments', 'v1')
   roots.push(root)
   return root
 }

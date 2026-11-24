@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { SessionLogOffset, SessionSeq, TOOL_OUTCOME_UNKNOWN, type SessionEvent } from '@deepseek-ai/dsh-session'
-import { createToolResultMessage, createUserMessage, ToolCallId, type ToolSchema } from '@deepseek-ai/dsh-llm'
-import type {} from '@deepseek-ai/dsh-tool-executor-ptc/types'
+import { SessionLogOffset, SessionSeq, TOOL_OUTCOME_UNKNOWN, type SessionEvent } from '@janhq/jan-session'
+import { createToolResultMessage, createUserMessage, ToolCallId, type ToolSchema } from '@janhq/jan-llm'
+import type {} from '@janhq/jan-tool-executor-ptc/types'
 import {
   applyUserQuestionEvent, foldUserQuestions, isTimedAskUserQuestionSchema, questionsOf, TIMED_WAIT_PARAMETER,
   userQuestionProjectionDefinition,
@@ -48,7 +48,7 @@ const bashSchema: ToolSchema = { name: 'bash', description: 'Run a command.', pa
 /** The request header the model saw before it asked. */
 function header(seq: number, tools: ToolSchema[] | undefined): SessionEvent {
   return event(seq, 'request/header', {
-    header: { config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, ...(tools === undefined ? {} : { tools }) },
+    header: { config: { provider: 'tokamak-official', model: 'tokamak-1-preview' }, ...(tools === undefined ? {} : { tools }) },
     reason: 'initial',
   })
 }
@@ -295,6 +295,6 @@ describe('userQuestions projection fold', () => {
     expect(userQuestionProjectionDefinition.wire.view(opened))
       .toEqual({ active: [{ callId, questions, state: 'open' }], settled: [] })
     expect(userQuestionProjectionDefinition.apply(opened, event(5, 'turn/start', { turn: 2 }))).toBe(opened)
-    expect(userQuestionProjectionDefinition.stateVersion).toBe(2)
+    expect(userQuestionProjectionDefinition.stateVersion).toBe(3)
   })
 })

@@ -3,15 +3,15 @@
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import type { Agent, AgentFactory } from '@deepseek-ai/dsh-agent'
-import { agentPresetProjectionDefinition } from '@deepseek-ai/dsh-agent-preset-registry'
-import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
-import type { Session, SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace'
+import { Context } from '@janhq/cordis'
+import AgentRegistry, { AgentModel, modelSelectionProjectionDefinition } from '@janhq/jan-agent'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import type { Agent, AgentFactory, AgentOptions } from '@janhq/jan-agent'
+import { agentPresetProjectionDefinition } from '@janhq/jan-agent-preset-registry'
+import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@janhq/jan-session'
+import type { Session, SessionEvent, SessionHeader } from '@janhq/jan-session'
+import { RemoteError } from '@janhq/jan-typert-protocol'
+import type { WorkspaceId } from '@janhq/jan-workspace'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createSessionTestRemote, testSessionPersistence } from './test-remote.ts'
 
@@ -22,10 +22,6 @@ afterEach(async () => {
   await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose()))
   for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
-
-function stubAgent(session: Session): Agent {
-  return { id: session.id, session, status: 'idle' } as unknown as Agent
-}
 
 /** A stored Session the persistence double serves until an Agent resumes it. */
 interface StoredSession {
@@ -54,12 +50,14 @@ interface HarnessOptions {
   readonly resolving?: ReadonlyMap<string, Promise<void>>
   /** Workspace placement served to `workspaceId` requests. */
   readonly workspace?: { readonly members: readonly SessionId[]; readonly archived: readonly SessionId[] }
+  /** Roster default per provider route, below the first preset. */
+  readonly routeDefaults?: Readonly<Record<string, string>>
 }
 
 const WORKSPACE = 'workspace-1' as WorkspaceId
 
 async function harness(options: HarnessOptions = {}) {
-  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-')))
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-')))
   tempDirs.push(cwd)
   const ctx = new Context()
   contexts.push(ctx)
@@ -67,6 +65,7 @@ async function harness(options: HarnessOptions = {}) {
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(AgentRegistry)
   const preset = await ctx.sessionProjections.register(agentPresetProjectionDefinition)
+  const models = await ctx.sessionProjections.register(modelSelectionProjectionDefinition)
   const presets = options.presets
   const selections: { sessionId: SessionId; agentPreset: string }[] = []
   const resumed: SessionId[] = []
@@ -87,25 +86,36 @@ async function harness(options: HarnessOptions = {}) {
       }
       return wanted
     }
+    const follows = (session: Session): boolean => {
+      const event = session.snapshotEvents().findLast(event => event.type === 'agent-preset/selected')
+      return event?.type === 'agent-preset/selected' && event.data.source === 'route-default'
+    }
+    const select = async (agent: Agent, agentPreset: string, routeDefault = false): Promise<string> => {
+      usable(agentPreset)
+      if (options.locked?.has(agent.id) === true) {
+        throw new RemoteError('agent-preset/locked', 'This session has already started', { sessionId: agent.id, agentPreset })
+      }
+      if (preset.stateOf(agent.session) !== agentPreset) selections.push({ sessionId: agent.id, agentPreset })
+      agent.session.append('agent-preset/selected', { agentPreset, ...(routeDefault ? { source: 'route-default' } : {}) })
+      return agentPreset
+    }
     ctx.provide('agentPresets', {
       defaultId: presets[0],
+      defaultFor: (provider: string | undefined) => options.routeDefaults?.[provider ?? ''] ?? presets[0],
       presetForSession: (session: Session) => preset.stateOf(session),
       resolve: (id?: string) => Promise.resolve(id === undefined ? undefined : options.resolving?.get(id))
         .then(() => ({ id: known(id) })),
       mount: (_ctx: Context, id?: string) => Promise.resolve().then(() => ({ id: usable(id) })),
-      select: async (agent: Agent, agentPreset: string) => {
-        usable(agentPreset)
-        if (options.locked?.has(agent.id) === true) {
-          throw new RemoteError('agent-preset/locked', 'This session has already started', {
-            sessionId: agent.id, agentPreset,
-          })
-        }
-        selections.push({ sessionId: agent.id, agentPreset })
-        agent.session.append('agent-preset/selected', { agentPreset })
-        return agentPreset
-      },
+      followsRouteDefault: follows,
+      select,
+      selectRouteDefault: (agent: Agent, target: string, previous?: string) =>
+        previous !== undefined && (!follows(agent.session) || preset.stateOf(agent.session) !== previous || previous === target)
+          ? Promise.resolve(undefined)
+          : select(agent, target, true),
     } as never)
   }
+  // The default model route new Sessions start on; tests move it between routes.
+  const route = { provider: 'test' }
   const stored = options.stored ?? new Map<SessionId, StoredSession>()
   ctx.provide('sessionPersistence', testSessionPersistence(ctx, {
     list: () => Promise.resolve([...stored.values()].map(record => record.header)),
@@ -115,20 +125,32 @@ async function harness(options: HarnessOptions = {}) {
     },
   }) as never)
   const { members, archived } = options.workspace ?? { members: [], archived: [] }
-  const workspace = { id: WORKSPACE, path: cwd, sessionIds: members, attachSession: () => Promise.resolve() }
+  const sessionIds = [...members]
+  const workspace = {
+    id: WORKSPACE,
+    path: cwd,
+    sessionIds,
+    attachSession: (sessionId: SessionId) => {
+      if (!sessionIds.includes(sessionId)) sessionIds.push(sessionId)
+      return Promise.resolve()
+    },
+  }
   ctx.provide('workspaceRegistry', {
     get: (id: WorkspaceId) => id === WORKSPACE ? workspace : undefined,
     list: () => [workspace],
+    ensureDefault: () => Promise.resolve(workspace),
     archivedSessionIds: archived,
   } as never)
 
   /** Enter the Session for setup, then announce creation as the Agent factory does. */
   const publish = async (
     session: Session,
+    agentOptions: AgentOptions,
     setup: Parameters<AgentFactory['createAgent']>[1]['setup'],
   ): Promise<{ agent: Agent; dispose: () => Promise<void> }> => {
-    const agent = stubAgent(session)
-    ;(agent as { ctx?: Context }).ctx = ctx
+    const model = new AgentModel(models.readerFor(session), session, agentOptions)
+    const fields: Partial<Agent> = { id: session.id, session, status: 'idle', ctx, model, options: agentOptions }
+    const agent = fields as Agent
     const detach = ctx.effect(() => ctx.sessions.enter(session))
     try {
       ctx.sessions.announce(session)
@@ -144,7 +166,7 @@ async function harness(options: HarnessOptions = {}) {
   const factory: AgentFactory = {
     async createAgent(_ownerCtx, create) {
       const session = ctx.sessions.prepare(create.sessionId, create.meta === undefined ? {} : { meta: create.meta })
-      return publish(session, create.setup)
+      return publish(session, create.agentOptions ?? {}, create.setup)
     },
     async resume(_ownerCtx, resume) {
       const id = resume.resumeSessionId
@@ -156,7 +178,7 @@ async function harness(options: HarnessOptions = {}) {
         throw new Error(`test persistence cannot open Session "${id}" for writing`)
       }
       if (options.publishedByOtherResume?.has(id) === true) {
-        await publish(ctx.sessions.prepare(id, { meta: record.header, seed: [...record.events] }), undefined)
+        await publish(ctx.sessions.prepare(id, { meta: record.header, seed: [...record.events] }), resume.agentOptions ?? {}, undefined)
         throw Object.assign(new Error(`session "${id}" is written by this process`), { name: 'SessionAlreadyOwnedError' })
       }
       resumed.push(id)
@@ -164,12 +186,17 @@ async function harness(options: HarnessOptions = {}) {
         meta: record.header,
         seed: [...record.events, ...options.writtenSinceObservation?.get(id) ?? []],
       })
-      return publish(session, resume.setup)
+      return publish(session, resume.agentOptions ?? {}, resume.setup)
     },
   }
   ctx.agents.setFactory(factory)
+  ctx.provide('llm', {
+    listProviders: () => [{ id: 'test', name: 'test' }, { id: 'local', name: 'local' }],
+    listModels: () => Promise.resolve([{ id: 'test-model', name: 'test-model' }]),
+    resolveCallConfig: () => Promise.resolve({}),
+  } as never)
   const remote = await createSessionTestRemote(ctx, {
-    defaultModelSelection: () => ({ provider: 'test', model: 'test-model' }),
+    defaultModelSelection: () => ({ provider: route.provider, model: 'test-model' }),
     cwd,
   })
   const presetOf = (id: SessionId): string | null | undefined => {
@@ -182,7 +209,7 @@ async function harness(options: HarnessOptions = {}) {
       .filter(event => event.type === 'agent-preset/selected')
       .map(event => event.data)
   }
-  return { ctx, remote, cwd, selections, resumed, presetOf, selectedEvents }
+  return { ctx, remote, cwd, route, selections, resumed, presetOf, selectedEvents }
 }
 
 function storedHeader(id: SessionId, cwd: string, extra: Partial<SessionHeader> = {}): SessionHeader {
@@ -222,6 +249,33 @@ describe('session.create Agent preset identity', () => {
     expect(ctx.sessions.get(SessionId('s2'))?.header.agentPreset).toBe('standard')
   })
 
+  it('starts a Session on the default model route with that route\'s preset', async () => {
+    const { ctx, remote, route } = await harness({ presets: ['standard', 'minimal'], routeDefaults: { local: 'minimal' } })
+    route.provider = 'local'
+
+    await remote.create({ sessionId: SessionId('on-local') })
+
+    expect(ctx.sessions.get(SessionId('on-local'))?.header.agentPreset).toBe('minimal')
+  })
+
+  it('moves a blank Session between route defaults as its model changes route, but keeps a pick', async () => {
+    const { remote, presetOf } = await harness({ presets: ['standard', 'minimal', 'cordis'], routeDefaults: { local: 'minimal' } })
+    await remote.create({ sessionId: SessionId('blank') })
+    await remote.create({ sessionId: SessionId('picked'), agentPreset: 'cordis' })
+    await remote.create({ sessionId: SessionId('picked-default'), agentPreset: 'standard' })
+    const toRoute = (sessionId: string, provider: string) =>
+      remote.selectModel({ sessionId: SessionId(sessionId), provider, model: 'test-model' })
+
+    expect((await toRoute('blank', 'local')).ok).toBe(true)
+    expect(presetOf(SessionId('blank'))).toBe('minimal')
+    await toRoute('blank', 'test')
+    expect(presetOf(SessionId('blank'))).toBe('standard')
+    await toRoute('picked', 'local')
+    expect(presetOf(SessionId('picked'))).toBe('cordis')
+    expect((await toRoute('picked-default', 'local')).ok).toBe(true)
+    expect(presetOf(SessionId('picked-default'))).toBe('standard')
+  })
+
   it('rejects an unknown preset', async () => {
     const { remote } = await harness({ presets: ['standard'] })
 
@@ -249,6 +303,16 @@ describe('session.create reuse of a live blank Session', () => {
     expect(reused).toMatchObject({ ok: true, value: { sessionId: 'draft', agentPreset: 'standard' } })
     expect(selections).toEqual([{ sessionId: 'draft', agentPreset: 'standard' }])
     expect(presetOf(SessionId('draft'))).toBe('standard')
+  })
+
+  it('uses the retained model route to recompose a live blank Session', async () => {
+    const { remote, route } = await harness({ presets: ['standard', 'minimal'], routeDefaults: { local: 'minimal' } })
+    const sessionId = SessionId('retained-live')
+    await remote.create({ sessionId })
+    await remote.selectModel({ sessionId, provider: 'test', model: 'test-model' })
+    route.provider = 'local'
+
+    expect(await remote.create({ sessionId })).toMatchObject({ ok: true, value: { sessionId, agentPreset: 'standard' } })
   })
 
   it('recomposes a blank Session under the named preset', async () => {
@@ -380,9 +444,45 @@ describe('session.create reuse of a live blank Session', () => {
     expect(ctx.agents.list().map(agent => agent.id)).toEqual(['fresh'])
   })
 
+  it('keeps request arrival order while the first project is prepared', async () => {
+    const { ctx, remote, selections } = await harness({ presets: ['standard', 'minimal'] })
+    const sessionId = SessionId('fresh')
+    const registry = ctx.workspaceRegistry
+    const project = await registry.ensureDefault()
+    const pending = Promise.withResolvers<typeof project>()
+    const entered = Promise.withResolvers<undefined>()
+    vi.spyOn(registry, 'ensureDefault').mockImplementationOnce(() => {
+      entered.resolve(undefined)
+      return pending.promise
+    })
+
+    const first = remote.create({ sessionId, agentPreset: 'minimal' })
+    await entered.promise
+    const second = remote.create({ sessionId, workspaceId: WORKSPACE })
+    const turn = Promise.withResolvers<undefined>()
+    setTimeout(turn.resolve, 0, undefined)
+    await turn.promise
+    pending.resolve(project)
+
+    expect(await first).toMatchObject({ ok: true, value: { sessionId, agentPreset: 'minimal' } })
+    expect(await second).toMatchObject({ ok: true, value: { sessionId, agentPreset: 'standard' } })
+    expect(selections).toEqual([{ sessionId, agentPreset: 'standard' }])
+  })
+
+  it('refuses to recreate an unavailable registered project folder', async () => {
+    const { ctx, cwd, remote } = await harness()
+    rmSync(cwd, { recursive: true })
+
+    expect(await remote.create({ workspaceId: WORKSPACE })).toMatchObject({
+      ok: false, error: { code: 'workspace/project-folder-missing', details: { workspaceId: WORKSPACE } },
+    })
+    expect(ctx.sessions.list()).toEqual([])
+    expect(() => realpathSync(cwd)).toThrow(/ENOENT/)
+  })
+
   it('refuses a Session in another directory', async () => {
     const { ctx, remote } = await harness({ presets: ['standard'] })
-    const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-elsewhere-')))
+    const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-elsewhere-')))
     tempDirs.push(elsewhere)
     await remote.create({ sessionId: SessionId('other'), cwd: elsewhere })
 
@@ -397,7 +497,7 @@ describe('session.create reuse of a live blank Session', () => {
 
   it('refuses a Session in another directory before resolving the requested preset', async () => {
     const { remote } = await harness({ presets: ['standard'] })
-    const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-elsewhere-')))
+    const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-elsewhere-')))
     tempDirs.push(elsewhere)
     await remote.create({ sessionId: SessionId('other'), cwd: elsewhere })
 
@@ -452,7 +552,7 @@ describe('session.create reuse of a live blank Session', () => {
 describe('session.create reuse of a stored blank Session', () => {
   it('resumes a blank Session whose recorded preset is no longer declared under the default', async () => {
     const draft = SessionId('stale-draft')
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-stored-')))
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
     tempDirs.push(cwd)
     const { remote, resumed, presetOf, selectedEvents } = await harness({
       presets: ['standard', 'minimal'],
@@ -464,12 +564,25 @@ describe('session.create reuse of a stored blank Session', () => {
     expect(reused).toMatchObject({ ok: true, value: { sessionId: 'stale-draft', agentPreset: 'standard' } })
     expect(resumed).toEqual(['stale-draft'])
     expect(presetOf(draft)).toBe('standard')
-    expect(selectedEvents(draft)).toEqual([{ agentPreset: 'standard' }])
+    expect(selectedEvents(draft)).toEqual([{ agentPreset: 'standard', source: 'route-default' }])
+  })
+
+  it('uses the retained model route to recompose a cold blank Session', async () => {
+    const sessionId = SessionId('retained-cold')
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
+    tempDirs.push(cwd)
+    const { remote, route } = await harness({
+      presets: ['standard', 'minimal'], routeDefaults: { local: 'minimal' },
+      stored: new Map([[sessionId, { header: storedHeader(sessionId, cwd), events: [modelSelection(0)] }]]),
+    })
+    route.provider = 'local'
+
+    expect(await remote.create({ sessionId, cwd })).toMatchObject({ ok: true, value: { sessionId, agentPreset: 'standard' } })
   })
 
   it('resumes a blank Session under the default even when its previous choice is still declared', async () => {
     const draft = SessionId('picked-draft')
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-stored-')))
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
     tempDirs.push(cwd)
     const { remote, presetOf, selectedEvents } = await harness({
       presets: ['standard', 'minimal'],
@@ -480,12 +593,12 @@ describe('session.create reuse of a stored blank Session', () => {
 
     expect(reused).toMatchObject({ ok: true, value: { sessionId: 'picked-draft', agentPreset: 'standard' } })
     expect(presetOf(draft)).toBe('standard')
-    expect(selectedEvents(draft)).toEqual([{ agentPreset: 'minimal' }, { agentPreset: 'standard' }])
+    expect(selectedEvents(draft)).toEqual([{ agentPreset: 'minimal' }, { agentPreset: 'standard', source: 'route-default' }])
   })
 
   it('resumes a blank Session under its recorded preset when the caller names it', async () => {
     const draft = SessionId('restored-draft')
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-stored-')))
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
     tempDirs.push(cwd)
     const { remote, presetOf, selectedEvents } = await harness({
       presets: ['standard', 'minimal'],
@@ -501,7 +614,7 @@ describe('session.create reuse of a stored blank Session', () => {
 
   it('rejects a named preset that is no longer declared without resuming the Session', async () => {
     const draft = SessionId('stale-draft')
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-stored-')))
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
     tempDirs.push(cwd)
     const { ctx, remote, resumed } = await harness({
       presets: ['standard'],
@@ -520,7 +633,7 @@ describe('session.create reuse of a stored blank Session', () => {
 
   it('creates a new Session instead of resuming one that has started', async () => {
     const talk = SessionId('stored-talk')
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-stored-')))
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
     tempDirs.push(cwd)
     const { remote, resumed } = await harness({
       presets: ['standard'],
@@ -537,7 +650,7 @@ describe('session.create reuse of a stored blank Session', () => {
 
   it('creates a new Session when another owner holds the blank Session', async () => {
     const draft = SessionId('held-draft')
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-stored-')))
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
     tempDirs.push(cwd)
     const { ctx, remote } = await harness({
       presets: ['standard'],
@@ -554,7 +667,7 @@ describe('session.create reuse of a stored blank Session', () => {
 
   it('reuses the Agent another resume published while holding the writer', async () => {
     const draft = SessionId('contended-draft')
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-stored-')))
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
     tempDirs.push(cwd)
     const { remote, selections, presetOf } = await harness({
       presets: ['standard', 'minimal'],
@@ -581,7 +694,7 @@ describe('session.create reuse of a stored blank Session', () => {
 
   it('reports a storage failure instead of creating another Session', async () => {
     const draft = SessionId('unreadable-draft')
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-stored-')))
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
     tempDirs.push(cwd)
     const { ctx, remote } = await harness({
       presets: ['standard'],
@@ -597,7 +710,7 @@ describe('session.create reuse of a stored blank Session', () => {
 
   it('creates a new Session when the blank Session started after it was observed', async () => {
     const draft = SessionId('overtaken-draft')
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-stored-')))
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
     tempDirs.push(cwd)
     const { ctx, remote, resumed } = await harness({
       presets: ['standard', 'minimal'],
@@ -615,7 +728,7 @@ describe('session.create reuse of a stored blank Session', () => {
 
   it('refuses a stored Session in another directory', async () => {
     const other = SessionId('stored-other')
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-stored-')))
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
     tempDirs.push(cwd)
     const { remote, resumed } = await harness({
       presets: ['standard'],
@@ -633,7 +746,7 @@ describe('session.create reuse of a stored blank Session', () => {
 
   it('leaves a stored subagent identity to subagent routing', async () => {
     const child = SessionId('stored-child')
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-preset-stored-')))
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-stored-')))
     tempDirs.push(cwd)
     const { remote, resumed } = await harness({
       presets: ['standard'],
@@ -653,8 +766,8 @@ describe('session.create reuse of a stored blank Session', () => {
 describe('session.create Workspace placement', () => {
   it('reuses a blank member of the requested Workspace', async () => {
     const draft = SessionId('member-draft')
-    const { remote } = await harness({ presets: ['standard'], workspace: { members: [draft], archived: [] } })
-    await remote.create({ sessionId: draft })
+    const { remote, cwd } = await harness({ presets: ['standard'], workspace: { members: [draft], archived: [] } })
+    expect((await remote.create({ sessionId: draft, cwd })).ok).toBe(true)
 
     const reused = await remote.create({ sessionId: draft, workspaceId: WORKSPACE })
 
@@ -666,8 +779,8 @@ describe('session.create Workspace placement', () => {
     { name: 'archived', members: [SessionId('placed-draft')], archived: [SessionId('placed-draft')] },
   ])('creates a new Session instead of reusing a blank Session $name', async ({ members, archived }) => {
     const draft = SessionId('placed-draft')
-    const { remote, selections, presetOf } = await harness({ presets: ['standard', 'minimal'], workspace: { members, archived } })
-    await remote.create({ sessionId: draft, agentPreset: 'minimal' })
+    const { remote, cwd, selections, presetOf } = await harness({ presets: ['standard', 'minimal'], workspace: { members, archived } })
+    expect((await remote.create({ sessionId: draft, agentPreset: 'minimal', cwd })).ok).toBe(true)
 
     const created = await remote.create({ sessionId: draft, workspaceId: WORKSPACE })
 

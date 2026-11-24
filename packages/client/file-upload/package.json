@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-client-file-upload",
+  "name": "@janhq/jan-client-file-upload",
   "description": "Agent-scoped browser file upload, streaming intake, and staged receipt service",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/client/file-upload"
   },
   "type": "module",
@@ -38,10 +38,10 @@
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json"
   },
-  "dsh": {
+  "jan": {
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-api-remotes"
+        "@janhq/jan-api-remotes"
       ],
       "platform": "web",
       "immediately": true
@@ -64,21 +64,21 @@
     "lib/typert.remote-client.d.ts"
   ],
   "dependencies": {
-    "zod": "4.4.3",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/dsh-brand": "workspace:*"
+    "zod": "4.6.6",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/jan-brand": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-client-connection": "workspace:*",
-    "@deepseek-ai/dsh-commands": "workspace:*",
-    "@deepseek-ai/dsh-util-crypto": "workspace:*",
-    "@deepseek-ai/dsh-api-remotes": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-attachment": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-client-connection": "workspace:*",
+    "@janhq/jan-commands": "workspace:*",
+    "@janhq/jan-util-crypto": "workspace:*",
+    "@janhq/jan-api-remotes": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-attachment": "workspace:*"
   }
 }

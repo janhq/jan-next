@@ -1,26 +1,36 @@
 /** The changed-files card, shown only while the Host serves the turn's summary, and explicitly declared files for a closing turn. */
 import { useEffect, useState } from 'react'
-import type { TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
-import { Button, IconChevronDownOutlineRegular, IconChevronUpOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { GlobalStandardProps, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, SessionStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+import type { TurnTailOwnerProps } from '@janhq/jan-client-ui-chat/client'
+import { Button, IconChevronDownOutlineRegular, IconChevronUpOutlineRegular } from '@janhq/jan-client-ui-primitives'
+import type { GlobalStandardProps, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, SessionStandardProps } from '@janhq/jan-client-ui-slots'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { PresentedOpenController } from './present-open.ts'
 import type { ChangesDiffStore } from './changes-diff.ts'
 import type { ChangesSummaryStore } from './changes-summary.ts'
 import { ChangedFiles } from './ChangedFiles.tsx'
-import { changesForClosing, presentedForClosing, type ChangesTurnData, type PresentedPath } from './turn-deliverables.ts'
+import {
+  changesForClosing, presentedForClosing, selectProducedFiles, type ChangesTurnData, type PresentedPath,
+} from './turn-deliverables.ts'
 import type { NS } from './locales.ts'
 import { changesSummaryUrl, type ChangesReviewCoordinates } from '../changes.ts'
 import { presentedFileUrl } from '../presented.ts'
 import { PresentedFileCard } from './PresentedFileCard.tsx'
+import { inlinePreviewType, PresentedInlinePreview, type ReadPresented } from './PresentedInlinePreview.tsx'
+import { InlineViewerHost, inlineTarget, type InlineViewerInjected } from './InlineViewer.tsx'
 import css from './Deliverables.module.css'
 
-interface DeliverablesMatch { changes: ChangesTurnData | null; presented: readonly PresentedPath[] }
+/** `alone` is the turn's one file: its lone delivery, else its lone produced file, else the one local file its reply links. */
+interface DeliverablesMatch {
+  changes: ChangesTurnData | null
+  presented: readonly PresentedPath[]
+  alone?: { readonly path: string; readonly presented: boolean; readonly turn: number } | undefined
+}
 
 const COLLAPSED_PRESENTED_COUNT = 4
+const NO_DELIVERABLES: DeliverablesMatch = { changes: null, presented: [] }
 
 /** Summary reads, native-open callbacks, and shared gesture status supplied by the plugin. */
-export interface DeliverablesInjected {
+export interface DeliverablesInjected extends InlineViewerInjected {
   hooks: {
     changesDiff: ObservableSnapshot<ReturnType<ChangesDiffStore['state']['getSnapshot']>>
     showCodeDiff: ObservableSnapshot<boolean>
@@ -35,17 +45,26 @@ export interface DeliverablesInjected {
   openChanged: PresentedOpenController['openChanged']
   /** Open one turn's review in the right Sidebar on the file at an index. */
   openChangesReview: (coordinates: ChangesReviewCoordinates, index: number) => void
+  /** Read a lone delivery's bytes for its inline preview. */
+  readPresented: ReadPresented
 }
 
 /**
- * Claim turns with a change announcement or declared files.
+ * Claim turns with a change announcement, declared files, or exactly one produced file.
  * @param owner - closing turn.
- * @returns matched announcement and deliveries, or null for a turn with neither.
+ * @returns matched announcement and deliveries, or null for a turn with none.
  */
 export function selectDeliverables(owner: TurnTailOwnerProps): DeliverablesMatch | null {
   const changes = changesForClosing(owner)
   const presented = presentedForClosing(owner)
-  return changes === null && presented.length === 0 ? null : { changes, presented }
+  const produced = presented.length === 0 ? selectProducedFiles(owner) : null
+  const linked = presented.length === 0 && produced === null ? owner.turn.data.get('deliverables')?.linked : undefined
+  const [only] = presented.length === 1 ? presented.map(file => file.path)
+    : produced?.length === 1 ? produced
+      : linked?.length === 1 ? linked : []
+  const lone = only === undefined ? undefined : { path: only, presented: presented.length === 1 }
+  const alone = lone === undefined ? undefined : { ...lone, turn: owner.turn.turn }
+  return changes === null && presented.length === 0 && alone === undefined ? null : { changes, presented, alone }
 }
 
 /**
@@ -53,9 +72,12 @@ export function selectDeliverables(owner: TurnTailOwnerProps): DeliverablesMatch
  * @param props - closing Turn, file actions, and localized copy.
  * @returns file rows, or null when the Turn declares none.
  */
-export function DeliverablesTail(props: PropsRuntime<'conversation.chat.turnTail'> & PropsLocale<typeof NS> & InjectFace<DeliverablesInjected> & PropsRenderSlots<'deliverables.file.actions'>) {
+export function DeliverablesTail(props: PropsRuntime<'conversation.chat.turnTail'> & PropsLocale<typeof NS> & InjectFace<DeliverablesInjected> & PropsRenderSlots<'deliverables.file.actions' | 'deliverables.preview.actions'>) {
   const matched = selectDeliverables(props)
-  return matched === null ? null : <Deliverables {...props} matched={matched} />
+  // A turn that drove a page (CAD tools) keeps showing it, so the live view stays on the latest turn after it ends.
+  const page = props.inlinePageForTools(props.turn.data.get('deliverables')?.tools ?? [])
+  if (matched === null && page === undefined) return null
+  return <Deliverables {...props} matched={matched ?? NO_DELIVERABLES} page={page} rank={props.turn.turn} />
 }
 
 /**
@@ -66,11 +88,16 @@ export function DeliverablesTail(props: PropsRuntime<'conversation.chat.turnTail
  * @returns the closing turn's file rows.
  */
 export function Deliverables({
-  matched, openFile, useContextMenu, t, sessionId, useSessions, openPresented, openChangesReview, usePresentedOpen, usePresentedHost,
-  useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost, loadChangesSummary, useShowCodeDiff, renderSlot,
+  matched, page, rank, openFile, useContextMenu, t, sessionId, useSessions, openPresented, openChangesReview,
+  usePresentedOpen, usePresentedHost, useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost,
+  loadChangesSummary, useShowCodeDiff, readPresented, renderSlot, inlineViewer, inlinePageForTools, embed,
 }: Pick<TurnTailOwnerProps, 'openFile'> & {
   matched: DeliverablesMatch
-} & PropsLocale<typeof NS> & Pick<SessionStandardProps, 'sessionId'> & Pick<GlobalStandardProps, 'useSessions' | 'useContextMenu'> & InjectFace<DeliverablesInjected> & PropsRenderSlots<'deliverables.file.actions'>) {
+  /** The page the turn's tool calls changed, shown when no file of its own has a viewer. */
+  page?: string | undefined
+  /** The turn number: the inline viewer's precedence. */
+  rank: number
+} & PropsLocale<typeof NS> & Pick<SessionStandardProps, 'sessionId'> & Pick<GlobalStandardProps, 'useSessions' | 'useContextMenu'> & InjectFace<DeliverablesInjected> & PropsRenderSlots<'deliverables.file.actions' | 'deliverables.preview.actions'>) {
   const { getTriggerProps } = useContextMenu()
   const [expanded, setExpanded] = useState(false)
   const showCodeDiff = useShowCodeDiff(value => value)
@@ -92,10 +119,17 @@ export function Deliverables({
   useEffect(() => {
     if (host === null) void reloadPresentedHost()
   }, [host, reloadPresentedHost])
+  // Images and pages delivered alone already show in place; any other lone file shows the viewer the Sidebar would open.
+  const alone = matched.alone !== undefined && !(matched.alone.presented && inlinePreviewType(matched.alone.path) !== undefined)
+    ? matched.alone : undefined
+  const address = inlineTarget(sessionId, cwd, alone === undefined ? [] : [alone], [], { inlineViewer, inlinePageForTools }) ?? page
+  const viewer = address === undefined ? null : <InlineViewerHost key={address} sessionId={sessionId} address={address} rank={rank}
+    embed={embed} renderActions={getSurface => renderSlot('deliverables.preview.actions', { getSurface })} />
   return <>
     {changes !== null && <ChangedFiles changes={changes} cwd={cwd} t={t}
       sessionId={sessionId} useChangesDiff={useChangesDiff} loadChangesDiff={loadChangesDiff}
       openReview={(index) => { openChangesReview({ sessionId, seq: changes.seq, turn: changes.turn }, index) }} />}
+    {matched.presented.length === 0 && viewer}
     {matched.presented.length > 0 && <div
       className={css.root}
       data-after-changes={changes !== null || undefined}
@@ -105,11 +139,15 @@ export function Deliverables({
         <Button size="sm" onClick={() => { void reloadPresentedHost() }}>{t('presented.retry')}</Button>
       </div>}
       {host !== null && host !== 'error' && !host.available && <span className={css.hostStatus}>{t('presented.unavailable')}</span>}
+      {viewer}
+      {matched.presented.length === 1 && matched.presented.map(file => <PresentedInlinePreview key={`${file.seq}:${file.index}`}
+        file={file} sessionId={sessionId} readPresented={readPresented} onPreview={() => { openFile(file.path, { toggle: true }) }}
+        renderSlot={renderSlot} t={t} />)}
       <div className={css.presented} data-presented-files-row data-single={matched.presented.length === 1 ? true : undefined}>
         {presented.map(file => <PresentedFileCard key={`${file.seq}:${file.index}`} file={file} cwd={cwd}
           phase={states[presentedFileUrl(sessionId, file.seq, file.index)]}
           host={host === 'error' ? null : host} t={t}
-          onPreview={() => { openFile(file.path) }}
+          onPreview={() => { openFile(file.path, { toggle: true }) }}
           contextMenuProps={getTriggerProps({ kind: 'file', value: { sessionId, path: file.path } })}
           actions={renderSlot('deliverables.file.actions', {
             actionUrl: presentedFileUrl(sessionId, file.seq, file.index),

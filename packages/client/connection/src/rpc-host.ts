@@ -1,9 +1,9 @@
 /** Host registry and HTTP adapter for generic Connection RPC channels. */
 
-import { Context, Service } from '@deepseek-ai/cordis'
-import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import type { PeerId, PeerScope, Principal } from '@deepseek-ai/dsh-typert-protocol'
-import type { ConnectionInteractions } from './connect-protocol.ts'
+import { Context, Service } from '@janhq/cordis'
+import type { WebRoute } from '@janhq/jan-host-webserver'
+import type { PeerId, PeerScope, Principal } from '@janhq/jan-typert-protocol'
+import type { ConnectionForward, ConnectionInteractions } from './connect-protocol.ts'
 import {
   RpcId,
   type ClientRequest,
@@ -59,7 +59,7 @@ interface ConnectionServerResponse {
   readonly result: ConnectionRpcResult<unknown>
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Host Connection transport and RPC registrations. */
     connection: HostConnectionHandle
@@ -166,8 +166,8 @@ export class HostConnectionService extends Service implements HostConnectionHand
     return isTrustedApiRequest(request, this.trustedHosts, carrier?.host, carrier?.protocol ?? 'http:')
   }
 
-  private publishPeer(interactions: ConnectionInteractions): PeerId {
-    const peer = new Peer(this.owner, { principal: { kind: 'owner' }, interactions })
+  private publishPeer(interactions: ConnectionInteractions, forward: ConnectionForward): PeerId {
+    const peer = new Peer(this.owner, { principal: { kind: 'owner' }, interactions, forward })
     this.peers.set(peer.id, { peer, ownsSocket: false })
     return peer.id
   }
@@ -184,7 +184,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
       return
     }
     this.browserAuth.authorizeConnect(request, response,
-      this.owner.get('webServer')?.protocol === 'https:', interactions => this.publishPeer(interactions))
+      this.owner.get('webServer')?.protocol === 'https:', (interactions, forward) => this.publishPeer(interactions, forward))
   }
 
   /**

@@ -1,0 +1,75 @@
+/* Video sits on black in both themes, inset from the pane and never larger than it. */
+.video {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  background: #000;
+}
+
+.player {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.audio {
+  display: flex;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 100%;
+  padding: 24px 12px;
+  font-family: var(--dsw-font, sans-serif);
+}
+
+.glyph {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.name {
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audioPlayer {
+  width: min(480px, 100%);
+}
+
+.status,
+.failure {
+  margin: 0;
+  padding: 24px 12px;
+  font-family: var(--dsw-font, sans-serif);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+  text-align: center;
+}
+
+.video .failure {
+  color: rgb(255 255 255 / 80%);
+}
+
+.failure p {
+  margin: 0;
+}
+
+.hint {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 18px;
+  opacity: 0.8;
+}

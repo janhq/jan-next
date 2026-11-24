@@ -3,9 +3,7 @@ description: "Jan brand artwork for the sidebar and the home hero."
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-brand-official
-
-English | [中文](README.zh.md)
+# @janhq/jan-client-ui-brand-official
 
 ## Summary
 
@@ -29,7 +27,7 @@ The shipped Web and Desktop compositions already mount this plugin; it needs no 
 
 ### Choosing the profile
 
-`DSH_CLIENT_BUILD_PROFILE` gates only the sidebar name. An `official` build shows "Jan" from this package. Any other value leaves the sidebar's local-build label, the localized `brand.localBuild` text ("Jan" in English) followed by the build version, which copies the version when clicked. Both marks show the Jan logo in every profile.
+`JAN_CLIENT_BUILD_PROFILE` gates only the sidebar name. An `official` build shows "Jan" from this package. Any other value leaves the sidebar's local-build label, the localized `brand.localBuild` text ("Jan" in English) followed by the build version, which copies the version when clicked. Both marks show the Jan logo in every profile.
 
 ### Replacing the brand
 
@@ -43,7 +41,7 @@ A deployment with its own identity leaves this package out and composes another 
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-Each occupant installs through `ctx.slots.inject()`, which waits for its slot declaration, so the registrations work whether this row activates before or after the declarer, withdraw when the declaration collapses, and leave no partial brand during HMR. One component, `OfficialBrandMark`, renders the decorative logo image at the size each host requests, and keeps the host class the hero passes for its geometry. The logo is [`src/client/assets/jan-logo.png`](src/client/assets/jan-logo.png), Jan's own app logo from [janhq/jan](https://github.com/janhq/jan); `apps/web/scripts/render-app-icons.ts` renders the Web favicons and install icons from the same file. The browser half is [`src/client/index.ts`](src/client/index.ts); the node half is an empty Loader seat. The browser title is a build-environment concern (`DSH_CLIENT_TITLE`), outside the slot system.
+Each occupant installs through `ctx.slots.inject()`, which waits for its slot declaration, so the registrations work whether this row activates before or after the declarer, withdraw when the declaration collapses, and leave no partial brand during HMR. One component, `OfficialBrandMark`, renders the decorative logo image at the size each host requests, and keeps the host class the hero passes for its geometry. The logo is [`src/client/assets/jan-logo.png`](src/client/assets/jan-logo.png), Jan's own app logo from [janhq/jan](https://github.com/janhq/jan); `apps/web/scripts/render-app-icons.ts` renders the Web favicons and install icons from the same file. The browser half is [`src/client/index.ts`](src/client/index.ts); the node half is an empty Loader seat. The browser title is a build-environment concern (`JAN_CLIENT_TITLE`), outside the slot system.
 
 </details>
 
@@ -78,7 +76,7 @@ These limits define how brand presentation is supplied. They are current package
 
 - **One occupant set** — alternative presentation belongs in another Cordis package occupying the same slots.
 - **The sidebar mark does not copy the build version** — in non-official builds only the local-build label copies it.
-- **The browser title is independent** — `DSH_CLIENT_TITLE` selects title text at build time rather than through a UI slot.
+- **The browser title is independent** — `JAN_CLIENT_TITLE` selects title text at build time rather than through a UI slot.
 
 <a id="dev-note"></a>
 ### Dev Note

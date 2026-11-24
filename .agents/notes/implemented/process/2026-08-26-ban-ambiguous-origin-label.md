@@ -2,13 +2,11 @@
 
 Status: implemented
 
-English | [中文](2026-08-26-ban-ambiguous-origin-label.zh.md)
-
 ## Problem
 
 The case-insensitive ten-letter ASCII token formed by `prove` followed by `nance` had accumulated unrelated meanings across the repository. It named source-event references, provider and model metadata, context producers, installed artifact identity, configuration origins, browser-recording evidence, and release attestations. A reader could not determine the recorded fact from the label alone.
 
-The existing [concrete prose reference](../../../skills/dsh-prose-standard/SKILL.md) required sentence-level classification and normally preserved identifiers. That policy improved individual sentences but allowed the same ambiguous label to remain in APIs, durable compatibility fixtures, filenames, generated catalogs, and new prose.
+The existing [concrete prose reference](../../../skills/jan-prose-standard/SKILL.md) required sentence-level classification and normally preserved identifiers. That policy improved individual sentences but allowed the same ambiguous label to remain in APIs, durable compatibility fixtures, filenames, generated catalogs, and new prose.
 
 ## Decision
 
@@ -16,9 +14,9 @@ Maintained tracked paths and text must not contain that token in any case varian
 
 The rule applies to source, tests, documentation, active Agent Notes, prompts, snapshots, workflow files, scripts, identifiers, fields, exported types, and filenames. Because the repository is pre-release, coordinated public symbol and current durable-field renames are preferred over aliases. A compatibility reader may reconstruct the retired durable key at runtime without embedding the token in maintained text.
 
-`verify-concrete-terms` scans tracked filenames, symlink targets, and text case-insensitively after NFKC normalization. It runs as a quick leaf of `doc-sync`, and its tests prove rejection in prose, identifiers, and paths. Vendored sources and frozen archived Agent Notes remain excluded because their repository policies prohibit direct edits.
+`verify-concrete-terms` scans tracked filenames, symlink targets, and text case-insensitively after NFKC normalization. It runs as a quick leaf of `doc-sync`, and its tests prove rejection in prose, identifiers, and paths. Vendored sources remain excluded because their repository policy prohibits direct edits.
 
-Historical persistence evidence retains identifiers from its selected source tree. The check excludes release schema JSON under `docs/persistence-changes/releases/` and `docs/persistence-changes/historical-formats/vN.schema.json`. In `vN.md` and `vN.zh.md`, only the schema content inside one valid pair of `persistence-format-schema` markers is exempt; `verify-persistence-formats` requires that content to match the generated historical schema. Authored prose, current catalogs, and current schemas remain checked. Renaming a captured identifier would misrepresent the historical declarations; the [persistence history decision](2026-09-11-persistence-type-history.md) owns that evidence.
+Historical persistence evidence retains identifiers from its selected source tree. The check excludes release schema JSON under `docs/persistence-changes/releases/` and `docs/persistence-changes/historical-formats/vN.schema.json`. In `vN.md`, only the schema content inside one valid pair of `persistence-format-schema` markers is exempt; `verify-persistence-formats` requires that content to match the generated historical schema. Authored prose, current catalogs, and current schemas remain checked. Renaming a captured identifier would misrepresent the historical declarations; the [persistence history decision](2026-09-11-persistence-type-history.md) owns that evidence.
 
 This decision partially supersedes the earlier decision's rejection of fixed word bans and identifier renames for this one token. The earlier decision remains active for all other abstract language and for choosing each replacement according to its local meaning.
 
@@ -30,7 +28,7 @@ This decision partially supersedes the earlier decision's rejection of fixed wor
 
 **Exempt all identifiers, durable fields, and generated files.** Rejected because callers and current generated reference material would continue teaching the retired label. The pre-release policy permits coordinated renames, while the legacy parser can retain read compatibility without retaining the literal token. The narrow historical evidence exclusions preserve captured declarations without exempting current names or authored guidance.
 
-**Scan vendored and archived sources.** Rejected because vendored content is updated through its synchronization procedure and archived Agent Notes are frozen records. Their explicit exclusions keep this policy consistent with those ownership rules.
+**Scan vendored sources.** Rejected because vendored content is updated through its synchronization procedure. The explicit exclusion keeps this policy consistent with that ownership rule.
 
 ## Consequences
 

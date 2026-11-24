@@ -1,26 +1,26 @@
-import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import type { Agent, Inbox } from '@deepseek-ai/dsh-agent'
-import { AttachmentError, AttachmentId } from '@deepseek-ai/dsh-attachment'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import { createUserMessage, MessageId } from '@deepseek-ai/dsh-llm'
-import type { ContextFormed } from '@deepseek-ai/dsh-llm'
+import TypertRegistry from '@janhq/jan-typert-registry'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import { RemoteError } from '@janhq/jan-typert-protocol'
+import { Context } from '@janhq/cordis'
+import AgentRegistry from '@janhq/jan-agent'
+import type { Agent, Inbox } from '@janhq/jan-agent'
+import { AttachmentError, AttachmentId } from '@janhq/jan-attachment'
+import type { ImageAttachmentRef } from '@janhq/jan-attachment'
+import { createUserMessage, MessageId } from '@janhq/jan-llm'
+import type { ContextFormed } from '@janhq/jan-llm'
 import SessionStore, {
   Session, SessionId, SessionLogOffset,
-} from '@deepseek-ai/dsh-session'
-import type { UserMessage } from '@deepseek-ai/dsh-session'
-import { snapshotSubagentDescriptor, SUBAGENT_DESCRIPTOR_VERSION } from '@deepseek-ai/dsh-subagent'
-import { subagentIdentityProjectionDefinition } from '@deepseek-ai/dsh-subagent/src/projection.ts'
+} from '@janhq/jan-session'
+import type { UserMessage } from '@janhq/jan-session'
+import { snapshotSubagentDescriptor, SUBAGENT_DESCRIPTOR_VERSION } from '@janhq/jan-subagent'
+import { subagentIdentityProjectionDefinition } from '@janhq/jan-subagent/src/projection.ts'
 import { describe, expect, it, vi } from 'vitest'
 import { ApiSessionAgentController } from '../src/agent.ts'
 import { SessionCommandController } from '../src/commands.ts'
-import { unsupportedModel, createInboxStub } from '@deepseek-ai/dsh-agent-loop-testkit'
+import { unsupportedModel, createInboxStub } from '@janhq/jan-agent-loop-testkit'
 import { installSessionReadTestServices } from './test-remote.ts'
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'test': { kind: 'test' } & ContextFormed
   }
@@ -114,7 +114,7 @@ async function commandHarness(
   vi.spyOn(agents, 'composeAgent').mockResolvedValue({ setup: () => {} })
   return {
     ctx,
-    controller: new SessionCommandController(ctx, agents, '/workspace'),
+    controller: new SessionCommandController(ctx, agents),
     agent,
     inbox,
     steer,
@@ -149,7 +149,7 @@ describe('Session queue commands', () => {
     const error = new RemoteError('session/agent-busy', 'owned by a child', { reason: 'subagent-owned' })
     const controller = new SessionCommandController(ctx, {
       resolveAgent: () => Promise.resolve({ error }),
-    } as unknown as ApiSessionAgentController, '/workspace')
+    } as unknown as ApiSessionAgentController)
     try {
       await expect(controller.updateQueue({
         sessionId: SessionId('cold-child'), itemId: MessageId('pending'), action: { kind: 'remove' },
@@ -362,7 +362,7 @@ describe('Session attachment reads', () => {
     const ctx = new Context()
     const readImage = vi.fn(() => Promise.reject(new AttachmentError('Stored image is unavailable.', reason)))
     ctx.provide('attachments', { readImage } as never)
-    const controller = new SessionCommandController(ctx, new ApiSessionAgentController(ctx), '/workspace')
+    const controller = new SessionCommandController(ctx, new ApiSessionAgentController(ctx))
     try {
       await expect(controller.attachment({
         sessionId: SessionId('unopened'),
@@ -377,7 +377,7 @@ describe('Session attachment reads', () => {
   it('contains unexpected backend failures without exposing internal details', async () => {
     const ctx = new Context()
     ctx.provide('attachments', { readImage: () => Promise.reject(new Error('/private/storage failed')) } as never)
-    const controller = new SessionCommandController(ctx, new ApiSessionAgentController(ctx), '/workspace')
+    const controller = new SessionCommandController(ctx, new ApiSessionAgentController(ctx))
     try {
       await expect(controller.attachment({
         sessionId: SessionId('unopened'),

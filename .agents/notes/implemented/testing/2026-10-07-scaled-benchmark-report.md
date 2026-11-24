@@ -2,15 +2,13 @@
 
 Status: implemented
 
-English | [中文](2026-10-07-scaled-benchmark-report.zh.md)
-
 ## Problem
 
 Benchmark budgets state whether one endpoint regressed on the hosted runner. They do not tell readers how slow the same endpoint is on an older laptop or a typical cloud instance, or whether its working set fits a machine with 4 GB or 8 GB of available memory, so a passing or failing number does not convey user impact.
 
 ## Decision
 
-Every `test:bench` run writes `benchmarks/.dsh-report/report.html`, a self-contained page without network resources. Bench files pass each budgeted wall-clock median to `recordTimings` and whole-process peak RSS to `recordPeakMemory` from [scaling-report.ts](../../../../benchmarks/support/scaling-report.ts) before asserting budgets. Each call carries a case description stating what the case measures and which user scenario it affects; the page shows it when the reader hovers the case. A Vitest global setup clears the results before the run and renders the page after it, including after failed cases. Budgets and assertions do not change.
+Every `test:bench` run writes `benchmarks/.jan-report/report.html`, a self-contained page without network resources. Bench files pass each budgeted wall-clock median to `recordTimings` and whole-process peak RSS to `recordPeakMemory` from [scaling-report.ts](../../../../benchmarks/support/scaling-report.ts) before asserting budgets. Each call carries a case description stating what the case measures and which user scenario it affects; the page shows it when the reader hovers the case. A Vitest global setup clears the results before the run and renders the page after it, including after failed cases. Budgets and assertions do not change.
 
 ### Machine scaling
 

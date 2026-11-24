@@ -3,9 +3,7 @@ description: "Summarize each top-level turn's changed files from git working-tre
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-workspace-changes
-
-English | [中文](README.zh.md)
+# @janhq/jan-workspace-changes
 
 ## Summary
 
@@ -28,7 +26,7 @@ This plugin summarizes which files each top-level turn changed, with per-file li
 The shipped Web bundle mounts this plugin. Mount it in any composition with the `subprocess` capability and a git executable on the Host:
 
 ```yaml
-- name: '@deepseek-ai/dsh-workspace-changes'
+- name: '@janhq/jan-workspace-changes'
   config:
     maxFiles: 500
 ```
@@ -57,7 +55,9 @@ The intent listeners capture every add, update, delete, and move target of `appl
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-One `TurnRecorder` per Session serializes its git work. `turn/start` queues the baseline: `rev-parse` locates the repository once per Session and the Session's temporary object directory is created, then `add --all --ignore-errors` into a temporary index seeded from the repository's index and `write-tree` produce the tree id; an unreadable file is skipped and reported through git's exit code 1, which the snapshot accepts. Each turn holds its own state object, so a record still running for an interrupted turn keeps that turn's files when the next turn starts. Every command runs with `GIT_OBJECT_DIRECTORY` pointing at the temporary directory and `GIT_ALTERNATE_OBJECT_DIRECTORIES` at the repository's objects, so committed content is read from the repository and new objects never land there. Every `tools/pre-execute` waits for that queue before a tool runs, so no mutation can precede its baseline; the filesystem's `fs/write-intent`, `fs/edit-intent`, and `fs/delete-intent` waterfalls delegate the guard decision, then queue and await the capture of the resolved target before mutation, and `tool/result` events only mark that the turn has results to record. `agent/turn-stopping` records inside the turn: a second snapshot, `diff-tree -r -M --numstat` between the two trees, `check-ignore` for captured paths inside the work tree, a second copy and line comparison of each uncovered path, the appended event, and the summary kept under the event's sequence beside each listed file's two content sources, a path in a snapshot tree or a copy. A comparison is computed when asked for: `ls-tree -l` locates and sizes a snapshot side and `cat-file blob` reads it under `maxFileBytes`, copies are read from disk, and both sides go through the same line comparison with its timeout. `turn/end` records again only when tool results settled after the last record attempt, which covers aborted, failed, and steered turns without repeating a failed attempt; an empty list after an earlier record supersedes it. The repository's index is only read.
+One `TurnRecorder` per Session serializes its git work. `turn/start` queues the baseline: `rev-parse` locates the repository once per Session and the Session's temporary object directory is created, then `add --all --ignore-errors` into a temporary index seeded from the repository's index and `write-tree` produce the tree id; an unreadable file is skipped and reported through git's exit code 1, which the snapshot accepts. Each turn holds its own state object, so a record still running for an interrupted turn keeps that turn's files when the next turn starts. Every command runs with `GIT_OBJECT_DIRECTORY` pointing at the temporary directory and `GIT_ALTERNATE_OBJECT_DIRECTORIES` at the repository's objects, so committed content is read from the repository and new objects never land there. Every `tools/pre-execute` waits for that queue before a tool runs, so no mutation can precede its baseline; the filesystem's `fs/write-intent`, `fs/edit-intent`, and `fs/delete-intent` waterfalls delegate the guard decision, then queue and await the capture of the resolved target before mutation, and `tool/result` events only mark that the turn has results to record. `agent/turn-stopping` records inside the turn: a second snapshot, `diff-tree -r -M --numstat` between the two trees, `check-ignore` for captured paths inside the work tree, a second copy and line comparison of each uncovered path, the appended event, and the summary kept under the event's sequence beside each listed file's two content sources, a path in a snapshot tree or a copy. A turn without tool results has nothing to record, so `agent/turn-stopping` returns at once and never waits for a baseline still running in a large work tree; the turn ends as soon as its reply does. A comparison is computed when asked for: `ls-tree -l` locates and sizes a snapshot side and `cat-file blob` reads it under `maxFileBytes`, copies are read from disk, and both sides go through the same line comparison with its timeout. `turn/end` records again only when tool results settled after the last record attempt, which covers aborted, failed, and steered turns without repeating a failed attempt; an empty list after an earlier record supersedes it. The repository's index is only read.
+
+If the turn is stopped while a tool is waiting for its baseline, the recorder cancels the baseline Git process and returns a cancellation before the tool starts. A user steer (the call's `yieldSignal`) also ends the wait with a cancellation before the tool starts, but leaves the baseline running, so the turn's record still gets its snapshot. Git cleanup stays on the recorder queue so later turns cannot overtake it.
 
 Git runs through the `subprocess` capability with a scrubbed environment, `GIT_CONFIG_COUNT=0` (ambient indexed configuration is excluded because the credential scrub removes its key entries), `GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0`, the configured timeout, and bounded output. A failing step abandons that turn's record with a warning; the next turn starts afresh. Session disposal and plugin disposal abort queued work, forget the summaries, and remove the temporary directory.
 
@@ -70,7 +70,6 @@ Git runs through the `subprocess` capability with a scrubbed environment, `GIT_C
 
 - [Web deliverables](../../client/ui-deliverables/README.md) — the changed-files card that reads the served summary and opens its files.
 - [Subprocess capability](../../subprocess/README.md) — the seam git runs through.
-- [historical Turn changed-files card decision](../../../.agents/notes/archived/feature/2026-09-11-turn-changed-files-card.md) — snapshot design, coverage rules, the deferred shadow repository, and rejected alternatives.
 
 <a id="model-experience"></a>
 ## Model Experience

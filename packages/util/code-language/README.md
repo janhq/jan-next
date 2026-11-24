@@ -3,9 +3,7 @@ description: "Single file-extension to syntax-highlighting language table shared
 kind: "package-library"
 ---
 
-# dsh-util-code-language
-
-English | [中文](README.zh.md)
+# jan-util-code-language
 
 ## Summary
 

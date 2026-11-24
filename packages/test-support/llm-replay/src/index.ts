@@ -4,21 +4,20 @@
  * compaction calls, then binds fresh live sessions to parent/child scripts by
  * first-call order. Throw and hang cases require an explicit override because
  * a session log cannot reconstruct them alone.
- * @module @deepseek-ai/dsh-llm-replay
+ * @module @janhq/jan-llm-replay
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { delimiter as pathDelimiter } from 'node:path'
-import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-compaction'
-import type {} from '@deepseek-ai/dsh-deepseek-llm-api-extensions'
-import { SESSION_FORMAT_VERSION, SessionLogOffset, type SessionEvent } from '@deepseek-ai/dsh-session'
-import type { SessionLogOffset as SessionLogOffsetType } from '@deepseek-ai/dsh-session'
+import type { Context } from '@janhq/cordis'
+import type {} from '@janhq/jan-compaction'
+import { SESSION_FORMAT_VERSION, SessionLogOffset, type SessionEvent } from '@janhq/jan-session'
+import type { SessionLogOffset as SessionLogOffsetType } from '@janhq/jan-session'
 import {
   createSessionFormatCatalogWithChildren,
   SessionFormatUnsupportedMigrationError,
   sessionFormatCatalog,
-} from '@deepseek-ai/dsh-session-format-catalog'
+} from '@janhq/jan-session-format-catalog'
 import type {
   ContentBlock,
   GenerateOptions,
@@ -35,9 +34,9 @@ import type {
   SystemPromptUpdate,
   TokenUsage,
   ToolUpdate,
-} from '@deepseek-ai/dsh-llm'
-import { LlmAdapter, LlmError, ReasoningEffortId, expandAssistantStream, offloadedImageText, requestImageHandleText, resolveRetryPolicy } from '@deepseek-ai/dsh-llm'
-import { assertNever } from '@deepseek-ai/dsh-util-values'
+} from '@janhq/jan-llm'
+import { LlmAdapter, LlmError, ReasoningEffortId, expandAssistantStream, offloadedImageText, requestImageHandleText, resolveRetryPolicy } from '@janhq/jan-llm'
+import { assertNever } from '@janhq/jan-util-values'
 
 const PACKED_CHUNK_ROW_TYPES = new Set(['text-chunks', 'reasoning-chunks', 'tool-call-chunks'])
 const BADGE_TONES: readonly unknown[] = ['neutral', 'info', 'success', 'warning'] satisfies readonly LlmModelBadgeTone[]
@@ -66,7 +65,7 @@ interface ParsedSessionFixture {
  */
 export type ReplayEntry =
   | { kind: 'chunks'; chunks: StreamChunk[] }
-  | { kind: 'throw'; chunks: StreamChunk[]; message: string; code: string; accepted?: boolean }
+  | { kind: 'throw'; chunks: StreamChunk[]; message: string; code: string }
   | {
     kind: 'hang'
     /** Optional marker written after the prefix chunks are consumed and before the stream waits for cancellation. */
@@ -391,7 +390,7 @@ function normalizeProjectedHeader(header: Readonly<Record<string, unknown>>): Re
     normalized['delegationDepth'] = 0
   }
   if (typeof header['cwd'] === 'string' && /^\{\{cwd\}\}(?:\/|$)/.test(header['cwd'])) {
-    normalized['cwd'] = header['cwd'].replace('{{cwd}}', '/dsh-snapshot-cwd')
+    normalized['cwd'] = header['cwd'].replace('{{cwd}}', '/jan-snapshot-cwd')
   }
   return normalized
 }
@@ -682,11 +681,7 @@ function readReplayEntry(value: unknown, file: string, location: string): Replay
       return { kind: 'chunks', chunks: readChunks(value['chunks'], file, location) }
     }
     case 'throw': {
-      const accepted = value['accepted']
-      const keys = accepted === undefined
-        ? ['kind', 'chunks', 'message', 'code']
-        : ['kind', 'chunks', 'message', 'code', 'accepted']
-      if (!hasExactKeys(value, keys)) {
+      if (!hasExactKeys(value, ['kind', 'chunks', 'message', 'code'])) {
         invalidOverride(file, location, 'has invalid throw-entry fields')
       }
       if (typeof value['message'] !== 'string' || value['message'].length === 0) {
@@ -695,15 +690,11 @@ function readReplayEntry(value: unknown, file: string, location: string): Replay
       if (typeof value['code'] !== 'string' || value['code'].length === 0) {
         invalidOverride(file, location, 'code must be a non-empty string')
       }
-      if (accepted !== undefined && typeof accepted !== 'boolean') {
-        invalidOverride(file, location, 'accepted must be a boolean')
-      }
       return {
         kind: 'throw',
         chunks: readChunks(value['chunks'], file, location),
         message: value['message'],
         code: value['code'],
-        ...(accepted === undefined ? {} : { accepted }),
       }
     }
     case 'hang': {
@@ -990,20 +981,6 @@ async function* replayEntry(entry: ReplayEntry, signal: AbortSignal | undefined,
   }
 }
 
-/** Whether the scripted provider call reached the live adapter's post-2xx commit point. */
-function providerAccepted(entry: ReplayEntry): boolean {
-  switch (entry.kind) {
-    case 'chunks':
-    case 'hang':
-      return true
-    case 'throw':
-      return entry.accepted ?? entry.chunks.length > 0
-    /* v8 ignore next -- override parsing and derived entries close the local union before replay. */
-    default:
-      return assertNever(entry, 'llm-replay acceptance entry')
-  }
-}
-
 /**
  * Install per-session positional replay. A newly seen live session takes the
  * next ordered recorded script, then advances its own cursor synchronously at
@@ -1067,20 +1044,6 @@ export function installLlmReplay(ctx: Context, config: ReplayConfig): ReplayHand
         )
       }
       const resolved = resolveScriptedEntry(materializeSessionTokens(entry, liveSessionIds), options.messages)
-      if (options.provider === 'deepseek-official' && providerAccepted(resolved)) {
-        const extensions = ctx.get('deepseekLlmApiExtensions')
-        if (extensions !== undefined) {
-          const signal = options.signal ?? new AbortController().signal
-          const prepared = await extensions.prepare({
-            // Replay reproduces post-2xx side effects, not the provider wire body.
-            body: { messages: [] },
-            signal,
-            ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
-            ...options.purpose === undefined ? {} : { purpose: options.purpose },
-          })
-          await prepared.accept()
-        }
-      }
       yield* replayEntry(resolved, options.signal, paceMs)
     })()
   }
@@ -1111,14 +1074,14 @@ export function installLlmReplay(ctx: Context, config: ReplayConfig): ReplayHand
 export const name = 'llm-replay'
 export const inject = ['llm']
 
-/** Plugin config: the {@link ReplayConfig} inputs, each defaulting to its `DSH_SNAPSHOT_*` env var in `apply`. */
+/** Plugin config: the {@link ReplayConfig} inputs, each defaulting to its `JAN_SNAPSHOT_*` env var in `apply`. */
 export interface Config {
-  /** Override the fixture path; defaults to `$DSH_SNAPSHOT_FILE`. */
+  /** Override the fixture path; defaults to `$JAN_SNAPSHOT_FILE`. */
   file?: string
-  /** Override the sidecar path; defaults to `$DSH_SNAPSHOT_OVERRIDE`. */
+  /** Override the sidecar path; defaults to `$JAN_SNAPSHOT_OVERRIDE`. */
   overrideFile?: string
   /**
-   * Override the child-log paths; defaults to `$DSH_SNAPSHOT_CHILD_FILES` (a
+   * Override the child-log paths; defaults to `$JAN_SNAPSHOT_CHILD_FILES` (a
    * path-separator-delimited list). Each is a recorded subagent session log for
    * a nested-agent scenario; absent/empty for a single-session scenario.
    */
@@ -1192,13 +1155,13 @@ function validateConfiguredModels(providers: ReplayProviderConfig[] | undefined)
 }
 
 export function apply(ctx: Context, config: Config = {}): void {
-  const file = config.file ?? process.env.DSH_SNAPSHOT_FILE
+  const file = config.file ?? process.env.JAN_SNAPSHOT_FILE
   if (file === undefined || file.length === 0) {
-    throw new Error('llm-replay: a fixture path is required (Config.file or $DSH_SNAPSHOT_FILE)')
+    throw new Error('llm-replay: a fixture path is required (Config.file or $JAN_SNAPSHOT_FILE)')
   }
   validateConfiguredModels(config.providers)
-  const overrideFile = config.overrideFile ?? process.env.DSH_SNAPSHOT_OVERRIDE
-  const childEnv = process.env.DSH_SNAPSHOT_CHILD_FILES
+  const overrideFile = config.overrideFile ?? process.env.JAN_SNAPSHOT_OVERRIDE
+  const childEnv = process.env.JAN_SNAPSHOT_CHILD_FILES
   const childFiles = config.childFiles
     ?? (childEnv !== undefined && childEnv.length > 0 ? childEnv.split(pathDelimiter) : [])
   installLlmReplay(ctx, {

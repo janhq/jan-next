@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-host-directory-picker-native",
+  "name": "@janhq/jan-host-directory-picker-native",
   "description": "Native-OS-chooser backend of the directory-picker seam for the Jan web GUI host",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/host/directory-picker-native"
   },
   "type": "module",
@@ -34,15 +34,15 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/dsh-host-directory-picker": "workspace:*",
-    "@deepseek-ai/dsh-native-command": "workspace:*",
+    "@janhq/jan-host-directory-picker": "workspace:*",
+    "@janhq/jan-native-command": "workspace:*",
     "koffi": "3.1.1"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
+    "@janhq/cordis": "workspace:~",
     "tsx": "^4.23.13"
   }
 }

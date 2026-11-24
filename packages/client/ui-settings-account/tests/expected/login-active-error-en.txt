@@ -1,1 +1,1 @@
-Could not sign inCould not complete the operation. Try again.CancelSign in again
+Could not sign inSign in did not finish. Try again, or add an API key to keep working.CancelSign in again

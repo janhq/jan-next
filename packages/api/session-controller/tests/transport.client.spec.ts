@@ -3,12 +3,12 @@ import {
   RemoteStream,
   RemoteStreamCarrierError,
   type RemoteStreamOptions,
-} from '@deepseek-ai/dsh-api-gateway/client'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import { streamHandle } from '@deepseek-ai/dsh-remote-mock'
-import { LlmAttemptId } from '@deepseek-ai/dsh-llm'
-import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session/types'
-import type { RemoteResult, RemoteStreamHandle } from '@deepseek-ai/dsh-typert-protocol'
+} from '@janhq/jan-api-gateway/client'
+import { RemoteError } from '@janhq/jan-typert-protocol'
+import { streamHandle } from '@janhq/jan-remote-mock'
+import { LlmAttemptId } from '@janhq/jan-llm'
+import { SESSION_FORMAT_VERSION } from '@janhq/jan-session/types'
+import type { RemoteResult, RemoteStreamHandle } from '@janhq/jan-typert-protocol'
 import {
   createSessionControlStream,
   SessionEventStream,
@@ -35,7 +35,7 @@ type SessionTransportRemote = Pick<SessionRemote, 'control' | 'follow' | 'page'>
 const ADDRESS: SessionAddress = { kind: 'session', sessionId: 'session-1' as never }
 const AVAILABLE_CONNECTION = {
   generation: {
-    getSnapshot: () => ({ id: 1, host: { home: '/home/fixture' } }),
+    getSnapshot: () => ({ id: 1, host: { home: '/home/fixture', name: 'fixture-host', remote: false } }),
     subscribe: () => () => {},
   },
 }

@@ -11,10 +11,10 @@
  */
 import { memo, useCallback } from 'react'
 import type { ReactNode } from 'react'
-import type { PropsRenderFactories, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar-files/client'
-import type { ContextMenuTriggerProps } from '@deepseek-ai/dsh-client-ui-context-menu/client'
-import { PathLabel } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { PropsRenderFactories, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-sidebar-files/client'
+import type { ContextMenuTriggerProps } from '@janhq/jan-client-ui-context-menu/client'
+import { PathLabel } from '@janhq/jan-client-ui-primitives'
 import css from './TextPreview.module.css'
 
 /** The inputs both navigator Factory positions render from. */
@@ -73,7 +73,7 @@ export function PreviewFrame({
         {handoff}
         <NavigatorToggleSeat useTabInfo={useTabInfo} renderFactorySlot={renderFactorySlot} />
       </div>
-      <div className={css.content} data-textpreview-content>
+      <div className={css.content} data-textpreview-content data-files-navigator-row>
         {children}
         <NavigatorSeat useTabInfo={useTabInfo} renderFactorySlot={renderFactorySlot} />
       </div>

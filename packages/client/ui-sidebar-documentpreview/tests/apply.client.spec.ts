@@ -7,12 +7,12 @@
  * and face — and that every registration is gone after dispose, which is what
  * makes a reload safe.
  */
-import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
-import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { ClientRemote } from '@janhq/jan-api-remotes/client'
+import { RemoteError } from '@janhq/jan-client-test-runtime'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { SidebarRightTabRegistry } from '@deepseek-ai/dsh-client-ui-sidebar-right/src/client/tab-registry.ts'
+import { Context } from '@janhq/cordis'
+import { SidebarRightTabRegistry } from '@janhq/jan-client-ui-sidebar-right/src/client/tab-registry.ts'
 import { TEXTPREVIEW_ID, TEXTPREVIEW_KIND } from '../src/client/definition.ts'
 import { apply, inject } from '../src/client/index.ts'
 import { OfficeFontAction } from '../src/client/office/OfficeFontAction.tsx'
@@ -27,6 +27,12 @@ import { HtmlBody } from '../src/client/html/HtmlBody.tsx'
 import { HTML_BODY_ID } from '../src/client/html/index.ts'
 import { ImageBody } from '../src/client/image/ImageBody.tsx'
 import { IMAGE_BODY_ID } from '../src/client/image/index.ts'
+import { MediaBody } from '../src/client/media/MediaBody.tsx'
+import { MEDIA_AUDIO_ID, MEDIA_VIDEO_ID } from '../src/client/media/index.ts'
+import { FontBody } from '../src/client/font/FontBody.tsx'
+import { FONT_BODY_ID } from '../src/client/font/index.ts'
+import { ArchiveBody } from '../src/client/archive/ArchiveBody.tsx'
+import { ARCHIVE_BODY_ID } from '../src/client/archive/index.ts'
 import { LazyPdfBody } from '../src/client/pdf/LazyPdfBody.tsx'
 import { LazyExcelBody } from '../src/client/excel/LazyExcelBody.tsx'
 import { PDF_BODY_ID } from '../src/client/pdf/index.ts'
@@ -48,7 +54,7 @@ interface Recorded {
 
 async function boot() {
   const ctx = new Context()
-  ctx.provide('fileDrag', { actions: { prepare: async () => ({ start: () => true, release: () => {} }), reportFailure: () => {} }, read: () => undefined } satisfies import('@deepseek-ai/cordis').Context['fileDrag'])
+  ctx.provide('fileDrag', { actions: { prepare: async () => ({ start: () => true, release: () => {} }), reportFailure: () => {} }, read: () => undefined } satisfies import('@janhq/cordis').Context['fileDrag'])
   ctx.provide('contextMenus', { open: vi.fn() } as never)
   ctx.provide('resources', createResources())
   ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) } } as never)
@@ -91,6 +97,7 @@ describe('ui-sidebar-documentpreview apply', () => {
     expect(dictionaries.get('sidebarDocumentPreview')).toEqual({ zh, en, ja, es, fr, de, ru, pt })
     // The seat key is the implementation's id, not the kind: an extension may
     // take the kind over, and the seat must still find this body.
+    const anyFunction: unknown = expect.any(Function)
     expect(registered.map(entry => [entry.name, entry.key, entry.locale, entry.component])).toEqual([
       ['sidebar.right.pane.tab', TEXTPREVIEW_ID, 'sidebarDocumentPreview', TextPreview],
       ['sidebar.right.pane.tab.title', TEXTPREVIEW_ID, undefined, TextTitle],
@@ -98,17 +105,24 @@ describe('ui-sidebar-documentpreview apply', () => {
       ['sidebar.right.tab.document', MARKDOWN_BODY_ID, 'documentMarkdown', MarkdownBody],
       ['sidebar.right.tab.document', HTML_BODY_ID, 'documentHtml', HtmlBody],
       ['sidebar.right.tab.document', IMAGE_BODY_ID, 'sidebarImage', ImageBody],
+      ['sidebar.right.tab.document', MEDIA_VIDEO_ID, 'sidebarMedia', MediaBody],
+      ['sidebar.right.tab.document', MEDIA_AUDIO_ID, 'sidebarMedia', MediaBody],
+      ['sidebar.right.tab.document', FONT_BODY_ID, 'sidebarFont', FontBody],
+      ['sidebar.right.tab.document', ARCHIVE_BODY_ID, 'sidebarArchive', ArchiveBody],
       ['sidebar.right.tab.document', PDF_BODY_ID, 'sidebarPdf', LazyPdfBody],
-      ['sidebar.right.tab.document.action', '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/office', 'sidebarOffice', OfficeFontAction],
-      ['sidebar.right.tab.document', '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/office', 'sidebarOffice', OfficeBody],
-      ['sidebar.right.tab.document.office.pdf', '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/office', 'sidebarPdf', LazyPdfBody],
-      ['sidebar.right.tab.document', '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/excel', 'sidebarExcel', LazyExcelBody],
-      ['sidebar.right.tab.document', '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/code', 'sidebarCodePreview', CodeBody],
+      ['sidebar.right.tab.document.action', '@janhq/jan-client-ui-sidebar-documentpreview/office', 'sidebarOffice', OfficeFontAction],
+      ['sidebar.right.tab.document', '@janhq/jan-client-ui-sidebar-documentpreview/office', 'sidebarOffice', OfficeBody],
+      ['sidebar.right.tab.document.office.pdf', '@janhq/jan-client-ui-sidebar-documentpreview/office', 'sidebarPdf', LazyPdfBody],
+      ['sidebar.right.tab.document', '@janhq/jan-client-ui-sidebar-documentpreview/excel', 'sidebarExcel', LazyExcelBody],
+      ['sidebar.right.tab.document', '@janhq/jan-client-ui-sidebar-documentpreview/code', 'sidebarCodePreview', CodeBody],
     ])
-    expect(Object.keys(registered[0]!.children!)).toEqual([
-      'sidebar.right.tab.document', 'sidebar.right.tab.document.actions',
-      'sidebar.right.tab.document.unpreviewable', 'sidebar.right.tab.document.action',
-    ])
+    expect(registered[0]!.children).toEqual({
+      'sidebar.right.tab.document': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: anyFunction } } },
+      'sidebar.right.tab.document.view-actions': { kind: 'list', scope: 'session' },
+      'sidebar.right.tab.document.actions': { kind: 'list', scope: 'session' },
+      'sidebar.right.tab.document.unpreviewable': { kind: 'list', scope: 'session' },
+      'sidebar.right.tab.document.action': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: anyFunction } } },
+    })
     expect(registered[0]?.store).toBeDefined()
     expect(typeof registered[0]?.inject).toBe('function')
   })
@@ -125,7 +139,7 @@ describe('ui-sidebar-documentpreview apply', () => {
     const { ctx } = await boot()
     const previews = ctx.get('documentPreviews')
     if (previews === undefined) throw new Error('documentPreviews was not provided')
-    const sharedHighlighter = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/code'
+    const sharedHighlighter = '@janhq/jan-client-ui-sidebar-documentpreview/code'
     const owners = new Map<string, string>()
     for (const definition of previews.getSnapshot()) {
       for (const extension of new Set([...definition.extensions, ...definition.binaryExtensions ?? []])) {
@@ -140,7 +154,7 @@ describe('ui-sidebar-documentpreview apply', () => {
         owners.set(extension, earlier ?? definition.id)
       }
     }
-    const excel = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/excel'
+    const excel = '@janhq/jan-client-ui-sidebar-documentpreview/excel'
     expect(previews.candidates('table.csv').map(candidate => candidate.id)).toEqual([excel, sharedHighlighter])
     expect(previews.candidates('table.tsv')[0]?.id).toBe(excel)
   })

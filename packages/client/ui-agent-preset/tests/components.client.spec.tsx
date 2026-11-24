@@ -1,21 +1,22 @@
 // @vitest-environment jsdom
 /**
  * The two conversation-adjacent surfaces: the new-session chip naming the
- * next session's preset, and the session header's read-only label. The split
- * is the host's rule — a session's history is produced under its preset's
- * tools, so the choice is only ever offered before one starts.
+ * next session's preset, and the composer chip of a started session. The
+ * host's rule splits them: a started session switches only at a turn
+ * boundary, from its next turn on.
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SessionRetainInfo } from '@deepseek-ai/dsh-api-session-controller/client'
-import { SessionId } from '@deepseek-ai/dsh-session/types'
+import { bindSnapshotSelector } from '@janhq/jan-client-test-runtime'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { SessionRetainInfo } from '@janhq/jan-api-session-controller/client'
+import { SessionId } from '@janhq/jan-session/types'
 import { AgentPresetLabel } from '../src/client/AgentPresetLabel.tsx'
 import type { AgentPresetLabelProps } from '../src/client/AgentPresetLabel.tsx'
 import { AgentPresetSeat } from '../src/client/AgentPresetSeat.tsx'
 import type { AgentPresetSeatProps } from '../src/client/AgentPresetSeat.tsx'
+import type { AgentPresetModeAction } from '../src/client/index.ts'
 import type { AgentPresetSettingsState } from '../src/client/settings-store.ts'
 import type { AgentPresetSeatState } from '../src/client/seat-store.ts'
 import { en } from '../src/client/locales.ts'
@@ -54,6 +55,7 @@ function renderSeat(
   select: () => Promise<string | undefined> = () => Promise.resolve(undefined),
   session?: { id: string; retainInfo: SessionRetainInfo | undefined },
   enabled = true,
+  modeActions = createSnapshotStore([] as readonly AgentPresetModeAction[]),
 ) {
   const store = createSnapshotStore<AgentPresetSeatState>({ ...SEAT_READY, ...state })
   const developerTools = createSnapshotStore(enabled)
@@ -68,6 +70,7 @@ function renderSeat(
   const props = {
     ...actions,
     sessionId: session === undefined ? undefined : SessionId(session.id),
+    useModeActions: bindSnapshotSelector(modeActions),
     useDeveloperTools: bindSnapshotSelector(developerTools),
     useAgentPresetSeat: bindSnapshotSelector(store),
     useSessionRetainInfo: session === undefined
@@ -80,8 +83,9 @@ function renderSeat(
 }
 
 function renderLabel(
-  summary: { blank: boolean; projectionValues?: { agentPreset?: string | null } } | undefined,
+  summary: { blank: boolean; running?: boolean; projectionValues?: { agentPreset?: string | null } } | undefined,
   roster: Partial<AgentPresetSettingsState> = {},
+  modeActions = createSnapshotStore([] as readonly AgentPresetModeAction[]),
 ) {
   // The chip and the label read the same roster, metadata included.
   const store = createSnapshotStore<AgentPresetSettingsState>({
@@ -89,15 +93,39 @@ function renderLabel(
   })
   const sessions = createSnapshotStore({ byId: summary === undefined ? {} : { s1: summary } })
   const load = vi.fn(() => Promise.resolve())
-  const view = render(<AgentPresetLabel {...({
+  const select = vi.fn((_sessionId: string, _id: string) => Promise.resolve<string | undefined>(undefined))
+  const props: AgentPresetLabelProps = {
     load,
+    select,
     sessionId: 's1',
+    useModeActions: bindSnapshotSelector(modeActions),
     useSessions: bindSnapshotSelector(sessions),
     useAgentPresets: bindSnapshotSelector(store),
-    t: (key: keyof typeof en) => en[key],
-  } as unknown as AgentPresetLabelProps)} />)
-  return { load, view }
+    useDeveloperTools: bindSnapshotSelector(createSnapshotStore(true)),
+    t: translate,
+  } as never
+  const view = render(<AgentPresetLabel {...props} />)
+  return { load, select, view }
 }
+
+it('opens a contributed mode from both preset menus without selecting a capability preset', () => {
+  const run = vi.fn()
+  const modeActions = createSnapshotStore<readonly AgentPresetModeAction[]>([{
+    id: 'persistent', name: () => 'Persistent mode', description: () => 'Continue in one chat', run,
+  }])
+  const seat = renderSeat({}, undefined, undefined, false, modeActions)
+  fireEvent.click(screen.getByRole('button'))
+  fireEvent.click(screen.getByRole('menuitem', { name: /^Persistent mode/ }))
+  expect(run).toHaveBeenLastCalledWith(undefined)
+  expect(seat.select).not.toHaveBeenCalled()
+  cleanup()
+
+  const { select } = renderLabel({ blank: false, projectionValues: { agentPreset: 'standard' } }, {}, modeActions)
+  fireEvent.click(screen.getByRole('button'))
+  fireEvent.click(screen.getByRole('menuitem', { name: /^Persistent mode/ }))
+  expect(run).toHaveBeenLastCalledWith('s1')
+  expect(select).not.toHaveBeenCalled()
+})
 
 describe('the new-session chip', () => {
   it.each([false, true])('offers Standard, Creator and custom presets with Developer tools %s', (enabled) => {
@@ -254,7 +282,7 @@ describe('a refused switch', () => {
     // lifetime assertion below would wait out its real nine seconds.
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
-      const reason = 'failed to import loader entry live-on-mac (@deepseek-ai/dsh-also-gone)'
+      const reason = 'failed to import loader entry live-on-mac (@janhq/jan-also-gone)'
       const actions = renderSeat({ current: '' }, undefined, undefined, false)
       const refusal = { preset: { id: 'cordis' }, reason }
       act(() => { actions.store.set({ ...actions.store.getSnapshot(), error: refusal }) })
@@ -265,7 +293,7 @@ describe('a refused switch', () => {
       const banner = screen.getByRole('alert')
       expect(banner.textContent).toContain(reason)
       expect(banner.textContent).toContain(en.presetCordisName)
-      expect(screen.queryByRole('button')).toBeNull()
+      expect(screen.queryByRole('button', { expanded: false })).toBeNull()
 
       act(() => { vi.advanceTimersByTime(7000) })
       act(() => { actions.store.set({ ...actions.store.getSnapshot(), error: { ...refusal } }) })
@@ -381,23 +409,48 @@ describe('the chip introduce cue', () => {
   })
 })
 
-describe('the session-header label', () => {
-  it('names the preset the session runs, and never offers a switch', async () => {
-    const { load } = renderLabel({
+describe('the composer preset chip of a started session', () => {
+  it('names the preset the session runs and switches its next turn from the menu', async () => {
+    const { load, select } = renderLabel({
       blank: false,
       projectionValues: { agentPreset: 'standard' },
     })
 
     await waitFor(() => { expect(load).toHaveBeenCalledTimes(1) })
-    // A control here would promise a switch the host refuses outright.
-    expect(screen.queryByRole('button')).toBeNull()
-    expect(screen.getByTitle(en.presetStandardDescription).textContent).toBe(en.presetStandardName)
+    const control = screen.getByRole('button', { name: `${en.headerHint}: ${en.presetStandardName}` })
+    expect(control.textContent).toBe(en.presetStandardName)
+    fireEvent.click(control)
+    fireEvent.click(screen.getAllByRole('menuitem').find(item => item.textContent?.startsWith('mine'))!)
+    await waitFor(() => { expect(select).toHaveBeenCalledExactlyOnceWith('s1', 'mine') })
   })
 
-  it('falls back to the id, and to the generic hint, when metadata is absent', () => {
+  it('sends an explicit selection of the current preset', async () => {
+    const { select } = renderLabel({ blank: true, projectionValues: { agentPreset: 'standard' } })
+    fireEvent.click(screen.getByRole('button', { name: `${en.headerHint}: ${en.presetStandardName}` }))
+    fireEvent.click(screen.getAllByRole('menuitem').find(item => item.textContent?.startsWith(en.presetStandardName))!)
+    await waitFor(() => { expect(select).toHaveBeenCalledExactlyOnceWith('s1', 'standard') })
+  })
+
+  it('shows a refusal toast when the injected selection rejects', async () => {
+    const { select } = renderLabel({ blank: false, projectionValues: { agentPreset: 'standard' } })
+    select.mockRejectedValueOnce(new Error('connection lost'))
+    fireEvent.click(screen.getByRole('button', { name: `${en.headerHint}: ${en.presetStandardName}` }))
+    fireEvent.click(screen.getAllByRole('menuitem').find(item => item.textContent?.startsWith('mine'))!)
+    await waitFor(() => { expect(screen.getByRole('alert').textContent).toContain('connection lost') })
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: `${en.headerHint}: ${en.presetStandardName}` }).disabled).toBe(false)
+  })
+
+  it('disables the switch while a reply is running', () => {
+    renderLabel({ blank: false, running: true, projectionValues: { agentPreset: 'standard' } })
+
+    const control = screen.getByRole<HTMLButtonElement>('button', { name: `${en.switchBusy}: ${en.presetStandardName}` })
+    expect(control.disabled).toBe(true)
+  })
+
+  it('falls back to the id when metadata is absent', () => {
     renderLabel({ blank: true, projectionValues: { agentPreset: 'mine' } })
 
-    expect(screen.getByTitle(en.headerHint).textContent).toBe('mine')
+    expect(screen.getByRole('button', { name: `${en.headerHint}: mine` }).textContent).toBe('mine')
   })
 
   it('shows the id until the roster resolves it', () => {
@@ -408,7 +461,7 @@ describe('the session-header label', () => {
 
     // The session's own summary is the authority on which preset it runs; the
     // roster only supplies the display name, and its arrival is a later frame.
-    expect(screen.getByTitle(en.headerHint).textContent).toBe('standard')
+    expect(screen.getByRole('button', { name: `${en.headerHint}: standard` }).textContent).toBe('standard')
   })
 
   it('renders nothing, and reads no roster, when the session records no preset', async () => {

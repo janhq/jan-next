@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 /**
  * The shipped Session row actions rendered directly with hand-built props:
  * the menu rows, hover buttons, dialogs, and global notices. Every action
@@ -10,19 +10,19 @@ import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
  */
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { WorkspaceId, WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { GlobalStandardProps, PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { allowAllAccess, bindSnapshotSelector, makeTranslate, SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
+import type { SessionListState, SessionSummary } from '@janhq/jan-api-session-controller/client'
+import type { WorkspaceId, WorkspaceSnapshot } from '@janhq/jan-api-workspace-controller/client'
+import type { SessionStatusSnapshot } from '@janhq/jan-client-ui-session/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { GlobalStandardProps, PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import { allowAllAccess, bindSnapshotSelector, makeTranslate, SlotTestRuntime } from '@janhq/jan-client-test-runtime'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
 import { registerToasts } from '../src/client/toast/register.ts'
 import { ArchiveToastEntry } from '../src/client/toast/Toast.tsx'
 import type { ArchiveToastEntryProps } from '../src/client/contract/toast.ts'
-import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import type {
   RowToast, RowToastState, SessionArchiveConfirmInjected, SessionArchiveConfirmRequest,
   SessionRenameDialogInjected, SessionRenameTarget,
@@ -416,7 +416,7 @@ describe('SessionArchiveConfirmDialog', () => {
 
 // A provider outside this package may merge its own family into the kind map;
 // the dialog must describe it without knowing its copy.
-declare module '@deepseek-ai/dsh-workspace/types' {
+declare module '@janhq/jan-workspace/types' {
   interface SessionActivityKindMap {
     probe: true
   }
@@ -553,15 +553,16 @@ describe('RowActionToast', () => {
       notify({ kind: 'shortcutForkFailed', reason: 'unavailable' })
       const first = screen.getByRole('alert')
       expect(first.textContent).toBe(translate('shortcut.noCompletedTurn'))
-      expect(first.querySelector('svg')).toBeNull()
-      expect(first.querySelector('button')).toBeNull()
+      // Plain: no tone icon and no action, only the close button every toast carries.
+      expect(first.querySelectorAll('svg')).toHaveLength(1)
+      expect(first.querySelectorAll('button')).toHaveLength(1)
       act(() => { vi.advanceTimersByTime(3000) })
       expect(screen.getByRole('alert')).toBe(first)
       notify({ kind: 'shortcutForkFailed', reason: 'failed' })
       const retry = screen.getByRole('alert')
       expect(retry).not.toBe(first)
       expect(retry.textContent).toBe(translate('shortcut.forkFailed'))
-      expect(retry.querySelector('svg')).toBeNull()
+      expect(retry.querySelectorAll('svg')).toHaveLength(1)
       act(() => { vi.advanceTimersByTime(3999) })
       expect(screen.getAllByRole('alert')).toEqual([retry])
       expect(dismissToast).not.toHaveBeenCalled()
@@ -647,7 +648,7 @@ describe('RowActionToast', () => {
       notify({ kind })
       const alert = screen.getByRole('alert')
       expect(alert.textContent).toBe(text)
-      expect(alert.querySelector('button')).toBeNull()
+      expect(alert.querySelectorAll('button')).toHaveLength(1)
       act(() => { vi.advanceTimersByTime(4000) })
       expect(dismissToast).toHaveBeenCalledOnce()
       expect(screen.queryByRole('alert')).toBeNull()
@@ -663,7 +664,7 @@ describe('RowActionToast', () => {
       notify({ kind: 'createFailed', message: 'agent-preset/invalid: agent-presets: preset "broken" failed to mount' })
       const alert = screen.getByRole('alert')
       expect(alert.textContent).toBe('新建会话失败：agent-preset/invalid: agent-presets: preset "broken" failed to mount')
-      expect(alert.querySelector('button')).toBeNull()
+      expect(alert.querySelectorAll('button')).toHaveLength(1)
       act(() => { vi.advanceTimersByTime(4000) })
       expect(dismissToast).not.toHaveBeenCalled()
       act(() => { vi.advanceTimersByTime(3000) })

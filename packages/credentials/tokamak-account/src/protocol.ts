@@ -7,7 +7,7 @@
  * on the approval page is only a wake-up ping for the poller; no secret ever travels through it.
  */
 import { z } from 'zod'
-import type { SignInErrorCode } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { SignInErrorCode } from './types.ts'
 
 /** Production inference/router API, OpenAI-compatible. */
 export const DEFAULT_BASE_URL = 'https://api.tokamak.sh/v1'

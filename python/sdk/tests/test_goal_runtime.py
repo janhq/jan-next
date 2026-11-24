@@ -9,9 +9,9 @@ import threading
 import pytest
 from pathlib import Path
 
-from deepseek_harness.models import CommandExecution
-from deepseek_harness import RunResult, Session
-from deepseek_harness.client import NotificationSubscription
+from jan.models import CommandExecution
+from jan import RunResult, Session
+from jan.client import NotificationSubscription
 from test_commands_runtime import (
     _Completion, _Runtime, _SESSION_ID, _WAIT_SECONDS, _WaitResult, _assert_request_permission,
     _command_pair, _of_type, _permission_facts, _read_events,
@@ -38,8 +38,8 @@ def _until(subscription: NotificationSubscription, event_type: str, operation: s
 
 
 def _complete_goal(request: dict) -> tuple[str, dict]:
-    results = [block for message in request["messages"] for block in message["content"]
-               if block["type"] == "tool_result"]
+    results = [block for message in request["messages"] if isinstance(message["content"], list)
+               for block in message["content"] if block["type"] == "tool_result"]
     current = json.loads("\n".join(_text_blocks(results[-1]["content"])))
     goal = current["goal"]
     assert goal["phase"] == "active" and current["activation"] == "armed"

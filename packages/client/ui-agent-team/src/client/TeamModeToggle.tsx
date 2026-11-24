@@ -1,11 +1,11 @@
 /** Session-owned Agent Teams selection in the model and reasoning menu. */
 
 import { useState } from 'react'
-import { Button, IconInfoOutlineRegular, Switch, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type {} from '@deepseek-ai/dsh-client-ui-model-selection/client'
-import type {} from '@deepseek-ai/dsh-agent-team/client'
-import type {} from '@deepseek-ai/dsh-agent'
+import { Button, IconInfoOutlineRegular, IconUsersOutlineRegular, Switch, Tooltip } from '@janhq/jan-client-ui-primitives'
+import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-model-selection/client'
+import type {} from '@janhq/jan-agent-team/client'
+import type {} from '@janhq/jan-agent'
 import type { NS } from './locales.ts'
 import css from './TeamModeToggle.module.css'
 
@@ -57,6 +57,7 @@ function RootTeamModeToggle({
   return (
     <div className={css.row}>
       <span className={css.label}>
+        <IconUsersOutlineRegular size={14} className={css.icon} aria-hidden="true" />
         <span>{t('mode.label')}</span>
         <Tooltip label={t('mode.description')} side="top" delayMs={300} maxWidth={300} portal openOnClick>
           <Button variant="ghost" size="sm" className={css.infoButton} aria-label={t('mode.infoLabel')}>

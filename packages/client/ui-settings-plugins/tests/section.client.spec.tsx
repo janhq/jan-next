@@ -52,10 +52,10 @@ describe('PluginsSettingsSection', () => {
     expect(screen.getByText('all').closest('[role="tabpanel"]')).toHaveProperty('hidden', true)
   })
 
-  it('leads with its own heading and intro', () => {
+  it('leads with its intro and leaves the title to the Settings nav', () => {
     renderSection([{ id: 'configurable', order: 0, label: 'Configurable' }])
 
-    expect(screen.getByRole('heading', { name: en.title })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: en.title })).toBeNull()
     expect(screen.getByText(en.intro)).toBeTruthy()
   })
 

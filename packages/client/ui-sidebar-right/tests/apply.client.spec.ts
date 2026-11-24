@@ -9,13 +9,13 @@
  * is what makes a reload safe. The seats' components have their own specs.
  */
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { MenuRegistry } from '@deepseek-ai/dsh-client-ui-context-menu/src/client/registry.ts'
-import { IconCloseOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { Shortcuts, ShortcutCommand } from '@deepseek-ai/dsh-client-shortcuts/client'
+import { Context } from '@janhq/cordis'
+import { MenuRegistry } from '@janhq/jan-client-ui-context-menu/src/client/registry.ts'
+import { IconCloseOutlineRegular } from '@janhq/jan-client-ui-primitives'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { Shortcuts, ShortcutCommand } from '@janhq/jan-client-shortcuts/client'
 import { TabMenuContent } from '../src/client/shell/TabMenuContent.tsx'
 import { apply, inject } from '../src/client/index.ts'
 import type { GuideInjected, SidebarRightInjected } from '../src/client/index.ts'
@@ -27,6 +27,7 @@ import * as sidebarStores from '../src/client/stores.ts'
 import { RightbarSeat } from '../src/client/shell/SidebarRight.tsx'
 import { RightbarRoot } from '../src/client/shell/RightbarRoot.tsx'
 import { ExpandButton } from '../src/client/shell/ExpandButton.tsx'
+import { NewTabItems } from '../src/client/shell/NewTabItems.tsx'
 import { GuideBody } from '../src/client/tabs/guide/GuideBody.tsx'
 import { GuideTitle } from '../src/client/tabs/guide/GuideTitle.tsx'
 import { GUIDE_ID } from '../src/client/tabs/guide/definition.ts'
@@ -144,10 +145,11 @@ describe('ui-sidebar-right apply', () => {
       ['conversation.session.header.corner', undefined, 'sidebarRight', ExpandButton],
       ['sidebar.right.pane.tab', GUIDE_ID, 'sidebarRight', GuideBody],
       ['sidebar.right.pane.tab.title', GUIDE_ID, undefined, GuideTitle],
+      ['conversation.desk.new-tab.item', undefined, 'sidebarRight', NewTabItems],
     ])
     // The panel declares the extension seats; the guide declares its chain child.
     expect(Object.keys(seat('rightbar.session').children as object)).toEqual([
-      'sidebar.right.pane.tab', 'sidebar.right.pane.tab.title',
+      'sidebar.right.pane.tab', 'sidebar.right.pane.tab.title', 'sidebar.right.pane.tab.actions',
     ])
     expect(seat('sidebar.right.pane.tab').children).toMatchObject({ 'sidebar.right.tab.guide': { kind: 'chain', scope: 'session' } })
     // Both seats read one store: the button only needs to know whether the panel is expanded.
@@ -184,7 +186,7 @@ describe('ui-sidebar-right apply', () => {
     expect(injected.hooks.tabTypes.getSnapshot().find(type => type.kind === 'guide')?.id).toBe(GUIDE_ID)
     const seen = vi.fn()
     const unsubscribe = injected.hooks.tabTypes.subscribe(seen)
-    ctx.sidebarRightTabs.register({ id: 'spec/text', kind: 'text', patterns: ['dsh-resource://file/**'], title: () => 'text' })
+    ctx.sidebarRightTabs.register({ id: 'spec/text', kind: 'text', patterns: ['jan-resource://file/**'], title: () => 'text' })
     expect(seen).toHaveBeenCalledOnce()
     unsubscribe()
     // The runtime mints each Session's store from the handle the registration
@@ -235,7 +237,7 @@ describe('ui-sidebar-right apply', () => {
     instance.actions.open(SESSION)
     // The first expansion seeds the guide; a second tab beside it makes it closable.
     instance.actions.setExpanded(SESSION, true)
-    instance.actions.openContent(SESSION, { kind: 'text', contentId: 'dsh-resource://file/session/s/a.txt', title: 'a' }, () => {})
+    instance.actions.openContent(SESSION, { kind: 'text', contentId: 'jan-resource://file/session/s/a.txt', title: 'a' }, () => {})
     const guide = Object.values(instance.getSnapshot().bySession[SESSION]?.layout.tabs ?? {}).find(tab => tab.kind === 'guide')
     if (guide === undefined) throw new Error('expected the seeded guide')
     // Held and pinned from the store's own commit: no seat synced anything.
@@ -346,7 +348,7 @@ describe('ui-sidebar-right apply', () => {
     expect(dictionaries.size).toBe(0)
     await ctx.plugin({ inject: [...inject], apply }).await()
     expect(ctx.sidebarRightTabs.get('guide')?.id).toBe(GUIDE_ID)
-    expect(registered).toHaveLength(7)
+    expect(registered).toHaveLength(8)
   })
 })
 
@@ -376,7 +378,7 @@ it('closes captured pane tabs and rechecks tabs moved or closed while their menu
   expect(run).toHaveBeenCalledOnce()
   remove()
   const add = (name: string) => {
-    instance.actions.openContent(SESSION, { kind: 'text', contentId: `dsh-resource://file/session/s/${name}`, title: name }, () => {})
+    instance.actions.openContent(SESSION, { kind: 'text', contentId: `jan-resource://file/session/s/${name}`, title: name }, () => {})
     return Object.values(instance.getSnapshot().bySession[SESSION]!.layout.tabs).find(tab => tab.title === name)!
   }
   const first = add('first'), second = add('second'), third = add('third')

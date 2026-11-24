@@ -3,9 +3,7 @@ description: "Client command API for the Web GUI: the / command source, three di
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-commands
-
-English | [中文](README.zh.md)
+# @janhq/jan-client-ui-commands
 
 ## Summary
 
@@ -35,7 +33,7 @@ A popupSelect spec may supply `searchLabels()` to resolve its placeholder, empty
 
 Options may carry `group: { name, label }`: `name` identifies the group and `label` supplies its localized sticky heading. Equal names share one group; groups retain first-occurrence order in the loaded options, including when a query hides earlier rows. Ungrouped options form one headingless block at their first occurrence. Groups without matching rows are hidden.
 
-The optional `searchMode` defaults to `'substring'`, matching `label` and `detail` case-insensitively without ranking. `'fuzzy-label'` matches only labels as ordered, case-insensitive subsequences and ranks within each group: prefixes first, then alignment score, then original row order. Both modes ignore leading and trailing query spaces; a blank query keeps every row in group order. Rendering, keyboard navigation, and selection use the same filtered order. `/model` opts into `'fuzzy-label'`; other commands retain substring matching unless they opt in.
+Popup search matches `label` and `detail` case-insensitively as one contiguous run of the typed text, without ranking. Leading and trailing query spaces are ignored; a blank query keeps every row in group order. Rendering, keyboard navigation, and selection use the same filtered order.
 
 ### Built-in row faces
 
@@ -55,7 +53,7 @@ Popup selection panels fill the composer overlay's width, matching the slash men
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-`src/client/contract.ts` defines contribution and decoration registration, plus `dismiss(name)`, which closes that command's open popups and confirmations: dismissal aborts pending option loads, prevents their late results from reopening the popup, and preserves composer drafts. `CommandDirectory` owns the per-session wire cache and resolves typed commands through the shared [`dsh-commands/builtin`](../../interaction/commands/README.md) library. Client dictionaries reuse its English and Chinese tokens; `resolution.ts` selects the localized menu claim. `matchSpace` reads the ready cache synchronously, while `matchEnter` waits for readiness and rejects on warmup failure or cancellation. Forwarded catalog and connection events invalidate the cache. After a matched Host execution, this browser emits `command/executed`; other clients observe only the durable command events. `PopupSelectController` owns popup state, and `PopupSelectView` occupies the input overlay. `presentation.ts` owns row labels, icons, and sections; its helpers and the menu-claim helper stay internal to the plugin.
+`src/client/contract.ts` defines contribution and decoration registration, plus `dismiss(name)`, which closes that command's open popups and confirmations: dismissal aborts pending option loads, prevents their late results from reopening the popup, and preserves composer drafts. `CommandDirectory` owns the per-session wire cache and resolves typed commands through the shared [`jan-commands/builtin`](../../interaction/commands/README.md) library. Client dictionaries reuse its English and Chinese tokens; `resolution.ts` selects the localized menu claim. `matchSpace` reads the ready cache synchronously, while `matchEnter` waits for readiness and rejects on warmup failure or cancellation. Forwarded catalog and connection events invalidate the cache. After a matched Host execution, this browser emits `command/executed`; other clients observe only the durable command events. `PopupSelectController` owns popup state, and `PopupSelectView` occupies the input overlay. `presentation.ts` owns row labels, icons, and sections; its helpers and the menu-claim helper stay internal to the plugin.
 
 Each command-directory fetch requires an existing retained Client Session and waits for its initial history open to succeed before sending `commands.list`. A temporary `commandCatalog` reference holds that Session until the fetch settles. An unretained Session or a failed open rejects without sending the RPC, so background catalog refreshes do not reopen closed Sessions. A reloaded draft that opens with a claimed command rebuilds the claim through the `matchClaim` hook, which awaits the same directory and answers only a `leadingInput` claim without invoking or executing anything.
 

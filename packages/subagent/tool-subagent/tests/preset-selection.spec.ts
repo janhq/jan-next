@@ -3,18 +3,18 @@ import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-direc
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import { Context } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import Include from '@deepseek-ai/cordis-plugin-include'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import AgentPresets from '@deepseek-ai/dsh-agent-preset-registry'
-import SubagentRuntime, { applyChildComposition } from '@deepseek-ai/dsh-subagent'
-import { assembleContextFor } from '@deepseek-ai/dsh-agent'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
+import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import Include from '@janhq/cordis-plugin-include'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import AgentPresets from '@janhq/jan-agent-preset-registry'
+import SubagentRuntime, { applyChildComposition } from '@janhq/jan-subagent'
+import { assembleContextFor } from '@janhq/jan-agent'
+import { SessionId } from '@janhq/jan-session'
+import { createUserMessage } from '@janhq/jan-llm'
+import * as SubagentSpawn from '@janhq/jan-subagent-spawn-in-process'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as tool from '../src/index.ts'
@@ -33,7 +33,7 @@ afterEach(async () => {
 })
 
 async function mountSpawn(ctx: Context, providerName: string): Promise<void> {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-tool-preset-'))
+  const root = mkdtempSync(join(tmpdir(), 'jan-tool-preset-'))
   roots.push(root)
   await ctx.plugin(JsonlSessionPersistence, { root })
   await ctx.plugin(SubagentSpawn, { providerName })
@@ -88,6 +88,18 @@ describe('spawn preset selection', () => {
     })
     expect(rejected.isError).toBe(true)
     expect(onStart).toHaveBeenCalledTimes(1)
+  })
+
+  it('advertises available preset descriptions and applies deployment-owned per-preset routes', async () => {
+    const { ctx, onStart } = await setup({
+      allowedAgentPresets: ['writer', 'reviewer'],
+      presetAgentOptions: { reviewer: { provider: 'mock', model: 'mock' } },
+    }, { capabilities: { agentPreset: true, agentOptions: true } })
+    ctx.llm.registerAdapter(['mock'], new MockAdapter([]))
+    expect(ctx.tools.schemas().find(schema => schema.name === 'subagent')?.description).toContain('reviewer: reviewer persona')
+    expect((await callSubagent(ctx, { ...args, agent_preset: 'reviewer' })).isError).not.toBe(true)
+    const mockRoute: unknown = expect.objectContaining({ provider: 'mock', model: 'mock' })
+    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ agentPreset: 'reviewer', agentOptions: mockRoute }))
   })
 
   it('uses a default without exposing a model selector', async () => {

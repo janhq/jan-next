@@ -25,7 +25,7 @@ function git(root: string, ...args: string[]): void {
 }
 
 function fixture(): string {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-unknown-casts-'))
+  const root = mkdtempSync(join(tmpdir(), 'jan-unknown-casts-'))
   roots.push(root)
   git(root, 'init', '--quiet')
   for (const area of ['packages', 'apps', 'scripts', 'website']) {
@@ -222,10 +222,10 @@ describe('unknown assertion source discovery', () => {
     expect(() => verifyNoUnknownCasts(root)).toThrow(/new assertions to unknown/u)
   })
 
-  it('includes untracked source while excluding ignored files, vendor, archives and other extensions', () => {
+  it('includes untracked source while excluding ignored files, vendor and other extensions', () => {
     const root = fixture()
     write(root, '.gitignore', 'ignored/\n')
-    for (const file of ['ignored/input.ts', 'vendor/input.ts', '.agents/notes/archived/input.ts', 'docs/input.md']) {
+    for (const file of ['ignored/input.ts', 'vendor/input.ts', 'docs/input.md']) {
       write(root, file, assertion)
     }
     git(root, 'add', '.')

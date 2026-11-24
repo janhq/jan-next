@@ -1,11 +1,9 @@
 ---
-description: "Settings domain base plugin: shared configuration forms, schema service, and the canonical settings slot-type contract for the dsh web client."
+description: "Settings domain base plugin: shared configuration forms, schema service, and the canonical settings slot-type contract for the jan web client."
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-settings
-
-English | [中文](README.zh.md)
+# @janhq/jan-client-ui-settings
 
 ## Summary
 
@@ -86,7 +84,7 @@ These pages cover the settings surface family and the durable seam behind it.
 - [ui-settings-general](../ui-settings-general/README.md) — the settings shell: trigger chrome, navigation, General section, onboarding projection.
 - [ui-settings-plugins](../ui-settings-plugins/README.md) — the Built-in plugins section shell around the inventory tab.
 - [ui-settings-shell](../ui-settings-shell/README.md), [ui-settings-agent-loop](../ui-settings-agent-loop/README.md), [ui-settings-subagent](../ui-settings-subagent/README.md), [ui-settings-web-search](../ui-settings-web-search/README.md) — the official configuration pages on the Plugins page, each following its namespaces through `whileServed`.
-- [ui-settings-models](../ui-settings-models/README.md) — the Models page and DeepSeek onboarding over this base.
+- [ui-settings-models](../ui-settings-models/README.md) — the Models page and onboarding over this base.
 - [settings](../../settings/README.md) — the durable user-settings seam and its file provider.
 - [ui-sidebar](../ui-sidebar/README.md) — the sidebar shell whose bottom seat hosts the settings trigger.
 

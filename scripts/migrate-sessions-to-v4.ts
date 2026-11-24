@@ -4,13 +4,14 @@ import { execFileSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 import { appendFileSync, closeSync, mkdtempSync, openSync, realpathSync, writeFileSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
-import { availableParallelism, homedir, tmpdir } from 'node:os'
+import { availableParallelism, tmpdir } from 'node:os'
 import { basename, join, relative, resolve } from 'node:path'
 import { inspect, parseArgs } from 'node:util'
-import { Context } from '@deepseek-ai/cordis'
-import { SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
-import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import { Context } from '@janhq/cordis'
+import { DEFAULT_JAN_HOME_DISPLAY, defaultJanHome } from '@janhq/jan-home-paths'
+import { SESSION_FORMAT_VERSION, SessionId } from '@janhq/jan-session'
+import { sessionFormatCatalog } from '@janhq/jan-session-format-catalog'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
 import { encodeSegment, generationLogFilename, parseGenerationLogFilename, type JsonlCompression } from '../packages/session/session-persistence-jsonl/src/format.ts'
 import { JsonlGenerationSourceChangedError } from '../packages/session/session-persistence-jsonl/src/generation.ts'
 import { classifyMigrationFailure, type MigrationFailureDiagnostic } from './migration-failure-summary.ts'
@@ -18,7 +19,7 @@ import { classifyMigrationFailure, type MigrationFailureDiagnostic } from './mig
 const usage = `Usage: pnpm run migrate:sessions-to-v4 [--sessions-dir PATH] [--jobs N]
 
 Publish V4 successors beside unchanged historical Session generations.
-Defaults to ~/.dsh/sessions. Already-V4 Sessions are opened read-only.
+Defaults to ${DEFAULT_JAN_HOME_DISPLAY}/sessions. Already-V4 Sessions are opened read-only.
 No model or API key is used. Failures do not stop subsequent Sessions.
 The text log and final JSON summary are saved in a private OS temporary directory.
 
@@ -165,7 +166,7 @@ export async function runMigrationJobs(
 }
 
 async function migrate(root: string, jobs: number): Promise<number> {
-  const reportDirectory = mkdtempSync(join(tmpdir(), 'dsh-migrate-v4-'))
+  const reportDirectory = mkdtempSync(join(tmpdir(), 'jan-migrate-v4-'))
   const logPath = join(reportDirectory, 'migration.log')
   const summaryPath = join(reportDirectory, 'summary.json')
   const log = openSync(logPath, 'wx', 0o600)
@@ -293,7 +294,7 @@ if (process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathS
       if (!Number.isSafeInteger(jobs) || jobs < 1) {
         throw new Error('--jobs must be a positive safe integer')
       }
-      process.exitCode = await migrate(resolve(values['sessions-dir'] ?? join(homedir(), '.dsh', 'sessions')), jobs)
+      process.exitCode = await migrate(resolve(values['sessions-dir'] ?? join(defaultJanHome(), 'sessions')), jobs)
     }
   } catch (error: unknown) {
     console.error(error instanceof Error ? error.message : String(error))

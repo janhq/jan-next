@@ -1,10 +1,14 @@
 - button "新建会话"
 - button "收起侧边栏"
+- button "后退" [disabled]
+- button "前进" [disabled]
 - button "新建会话": 新会话
 - navigation "全局面板":
   - button "插件"
-  - button "自动化任务"
-  - button "从侧边栏取消固定自动化任务"
+  - button "定时任务"
+  - button "从侧边栏取消固定定时任务"
+  - button "产物"
+  - button "从侧边栏取消固定产物"
   - button "更多"
 - text: 工作区
 - button "搜索会话"
@@ -14,7 +18,7 @@
 - tree "会话":
   - treeitem "workspace" [expanded]
   - treeitem "新会话" [selected]
-- button "账号菜单": 更多
+- button "账号菜单": Jan ·本地
 - banner:
   - button "打开右侧边栏"
 - text: 探索未至之境 预览版
@@ -24,5 +28,5 @@
 - button "添加文件或调用指令"
 - button "访问模式，当前：工作区内修改": 工作区内修改
 - button "计划模式已开启，按下关闭": 计划
-- button "选择模型，当前 DeepSeek-V4-Flash": DeepSeek-V4-Flash
+- button "选择模型，当前 Tokamak 1 Preview": Tokamak 1 Preview
 - button "发送消息" [disabled]

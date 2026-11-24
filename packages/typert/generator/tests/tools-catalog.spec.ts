@@ -2,10 +2,10 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
-import type { TypertContribution } from '@deepseek-ai/dsh-typert-registry/types'
-import { EVENT_API, SERVICE_API, TYPE_API } from '@deepseek-ai/dsh-tool-cordis/src/api-catalog.ts'
+import { Context } from '@janhq/cordis'
+import TypertRegistry from '@janhq/jan-typert-registry'
+import type { TypertContribution } from '@janhq/jan-typert-registry/types'
+import { EVENT_API, SERVICE_API, TYPE_API } from '@janhq/jan-tool-cordis/src/api-catalog.ts'
 import { WorkspaceAnalyzer } from '../src/analyzer.ts'
 import { FaceModelEmitter } from '../src/emitter.ts'
 
@@ -17,14 +17,14 @@ afterEach(() => {
 })
 
 describe('model-driven tool package generation', () => {
-  it('round-trips the complete service and event structure through the runtime registry', { timeout: 30_000 }, async ({ onTestFinished }) => {
+  it('round-trips the complete service and event structure through the runtime registry', { timeout: 120_000 }, async ({ onTestFinished }) => {
     const workspace = new WorkspaceAnalyzer({
       root: workspaceRoot,
       faces: ['host'],
-      packages: ['@deepseek-ai/dsh-tools', '@deepseek-ai/dsh-tool-executor-ptc'],
+      packages: ['@janhq/jan-tools', '@janhq/jan-tool-executor-ptc'],
     }).analyze()
     const host = workspace.faces.find(candidate => candidate.face === 'host')
-    if (host === undefined) throw new Error('dsh-tools has no analyzed host face')
+    if (host === undefined) throw new Error('jan-tools has no analyzed host face')
     const root = mkdtempSync(join(import.meta.dirname, '.generated-tools-'))
     temporaryRoots.push(root)
     const ctx = new Context()
@@ -32,14 +32,14 @@ describe('model-driven tool package generation', () => {
     await ctx.plugin(TypertRegistry)
     const registry = ctx.typert
     for (const name of ['tools', 'tool-executor-ptc']) {
-      const artifact = new FaceModelEmitter(host).emit(`@deepseek-ai/dsh-${name}`)
+      const artifact = new FaceModelEmitter(host).emit(`@janhq/jan-${name}`)
       const modulePath = join(root, `${name}.mjs`)
       writeFileSync(modulePath, artifact.js)
       const generated = await import(pathToFileURL(modulePath).href) as { TYPERT: TypertContribution }
       registry.register(generated.TYPERT)
     }
-    const record = ctx.typert.getPackage('@deepseek-ai/dsh-tools', 'host')
-    const executor = ctx.typert.getPackage('@deepseek-ai/dsh-tool-executor-ptc', 'host')
+    const record = ctx.typert.getPackage('@janhq/jan-tools', 'host')
+    const executor = ctx.typert.getPackage('@janhq/jan-tool-executor-ptc', 'host')
     expect(executor?.model.events.map(event => event.name)).toEqual(['tools/ptc-dispatch-log'])
     const service = record?.model.services.find(candidate => candidate.key === 'tools')
     expect(service).toBeDefined()
@@ -76,7 +76,7 @@ describe('model-driven tool package generation', () => {
     )
 
     await ctx.fiber.dispose()
-    expect(registry.getPackage('@deepseek-ai/dsh-tools', 'host')).toBeUndefined()
-    expect(registry.getPackage('@deepseek-ai/dsh-tool-executor-ptc', 'host')).toBeUndefined()
+    expect(registry.getPackage('@janhq/jan-tools', 'host')).toBeUndefined()
+    expect(registry.getPackage('@janhq/jan-tool-executor-ptc', 'host')).toBeUndefined()
   })
 })

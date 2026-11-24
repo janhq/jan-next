@@ -9,16 +9,16 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, screen } from '@testing-library/react'
-import type { TypertResourceKind } from '@deepseek-ai/dsh-api-remote-access/client'
-import { ClientAccessState } from '@deepseek-ai/dsh-api-remote-access/src/client/state.ts'
-import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { allowAllAccessPlugin, SlotTestRuntime, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
-import { apply as applyMenus, inject as injectMenus } from '@deepseek-ai/dsh-client-ui-context-menu/client'
-import { apply, inject } from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { TypertResourceKind } from '@janhq/jan-api-remote-access/client'
+import { ClientAccessState } from '@janhq/jan-api-remote-access/src/client/state.ts'
+import type { WorkspaceId } from '@janhq/jan-api-workspace-controller/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import { allowAllAccessPlugin, SlotTestRuntime, usePinnedBrowserLanguages } from '@janhq/jan-client-test-runtime'
+import { apply as applyMenus, inject as injectMenus } from '@janhq/jan-client-ui-context-menu/client'
+import { apply, inject } from '@janhq/jan-client-ui-workspace/client'
 import { SECTION_HOOK_CONTEXT, SECTION_INJECT } from './section-scroller.client.ts'
 
 usePinnedBrowserLanguages('zh-CN')
@@ -54,7 +54,7 @@ async function bench(access: ClientAccessState, options: { ungroupedSession?: Se
   }).await()
   runtime.ctx.provide('shortcuts', { register: () => () => {}, catalog: createSnapshotStore([]) })
   runtime.ctx.provide('uiConversation', {})
-  runtime.ctx.provide('layout', { selectPanel: vi.fn(), beginNavigation: () => new AbortController().signal })
+  runtime.ctx.provide('layout', { selectPanel: vi.fn(), beginNavigation: () => new AbortController().signal, panelInfo: createSnapshotStore({ activePanelId: null }) })
   runtime.releaseWorkspaceSource()
   runtime.remote.provideNamespaces({ directoryPicker: {} })
   const locale = new LocaleRuntime(runtime.ctx)

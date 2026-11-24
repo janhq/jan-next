@@ -1,29 +1,29 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import { Context } from '@deepseek-ai/cordis'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
+import { Context } from '@janhq/cordis'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ConversationNodeAssembler, UiConversation,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+} from '@janhq/jan-client-ui-conversation/client'
 import type {
   ConversationMatch, ConversationNodeDefinition, ConversationStartMatch,
   ConversationViewDefinition,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { ChatConversationViewNode } from '@deepseek-ai/dsh-client-ui-chat/client'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
+} from '@janhq/jan-client-ui-conversation/client'
+import type { ChatConversationViewNode } from '@janhq/jan-client-ui-chat/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
 import type {
   SessionListState, SessionLiveEventEntry,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
-import { SessionSeq } from '@deepseek-ai/dsh-session'
-import { apply as applyLocale, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
+} from '@janhq/jan-api-session-controller/client'
+import type { SessionEvent, SessionId } from '@janhq/jan-session/types'
+import { SessionSeq } from '@janhq/jan-session'
+import { apply as applyLocale, inject as localeInject } from '@janhq/jan-client-locale/client'
 import {
   allowAllAccess, chatSnapshot as emptyChatSnapshot, conversationSnapshot, makeTranslate, sessionSnapshot,
   stubConfigForm, TestSessions, workspaceSnapshot,
-} from '@deepseek-ai/dsh-client-test-runtime'
+} from '@janhq/jan-client-test-runtime'
 import {
   WorkflowRunPanel, type WorkflowRunInjected, type WorkflowRunPanelProps,
 } from '../src/client/WorkflowRunPanel.tsx'

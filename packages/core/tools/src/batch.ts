@@ -8,17 +8,17 @@
  * Abort records synthetic error results for skipped calls so replay stays
  * valid. A terminal scheduler failure rejects after draining; the owning step
  * records conservative recovery results before closing.
- * @module dsh-tools/batch
+ * @module jan-tools/batch
  */
 
 import { ToolBatchExecutionError } from './executor.ts'
 import { TOOL_ABORTED_BEFORE_DISPATCH } from './contracts.ts'
 import type { ToolBatchInput, ToolBatchResult, ToolCallResult } from './executor.ts'
-import { createToolResultMessage, type ToolCallBlock } from '@deepseek-ai/dsh-llm'
-import type { SessionSeq, UserMessage } from '@deepseek-ai/dsh-session'
+import { createToolResultMessage, type ToolCallBlock } from '@janhq/jan-llm'
+import type { SessionSeq, UserMessage } from '@janhq/jan-session'
 import type { ToolExecutionInput, ToolExecutionMode, ToolExecutionResult, ToolRunContext } from './contracts.ts'
 import type { ScheduledToolDispatch, ToolExecutionPipeline } from './pipeline.ts'
-import { assertNever } from '@deepseek-ai/dsh-util-values'
+import { assertNever } from '@janhq/jan-util-values'
 
 /** One tool call after argument parsing, ready to schedule. */
 interface PlannedCall {
@@ -52,7 +52,7 @@ export async function executeToolBatch(
   pipeline: ToolExecutionPipeline,
   maxParallel: () => number,
 ): Promise<ToolBatchResult> {
-  const { calls: toolCalls, signal, agent, toolSet, maxParallelToolCalls } = input
+  const { calls: toolCalls, signal, yieldSignal, agent, toolSet, maxParallelToolCalls } = input
   if (maxParallelToolCalls !== undefined && (!Number.isInteger(maxParallelToolCalls) || maxParallelToolCalls < 1)) {
     throw new RangeError('maxParallelToolCalls must be a positive integer')
   }
@@ -68,6 +68,7 @@ export async function executeToolBatch(
         ...agent === undefined ? {} : { agent },
         ...toolSet === undefined ? {} : { toolSet },
         signal,
+        ...yieldSignal === undefined ? {} : { yieldSignal },
       },
     }))
 

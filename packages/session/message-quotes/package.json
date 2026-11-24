@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-message-quotes",
+  "name": "@janhq/jan-message-quotes",
   "description": "Selected-text quotation and Markdown blockquote presentation",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/session/message-quotes"
   },
   "type": "module",
@@ -34,29 +34,29 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-api-session-controller": "workspace:*",
-    "@deepseek-ai/dsh-client-locale": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-chat": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-conversation": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-renderer": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-slots": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-primitives": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-api-session-controller": "workspace:*",
+    "@janhq/jan-client-locale": "workspace:*",
+    "@janhq/jan-client-ui-chat": "workspace:*",
+    "@janhq/jan-client-ui-conversation": "workspace:*",
+    "@janhq/jan-client-ui-renderer": "workspace:*",
+    "@janhq/jan-client-ui-slots": "workspace:*",
+    "@janhq/jan-client-ui-primitives": "workspace:*",
     "react": "^18.2.0",
-    "@deepseek-ai/dsh-client-test-runtime": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*"
+    "@janhq/jan-client-test-runtime": "workspace:*",
+    "@janhq/jan-session": "workspace:*"
   },
-  "dsh": {
+  "jan": {
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-api-session-controller",
-        "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-ui-chat",
-        "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-ui-renderer"
+        "@janhq/jan-api-session-controller",
+        "@janhq/jan-client-locale",
+        "@janhq/jan-client-ui-chat",
+        "@janhq/jan-client-ui-conversation",
+        "@janhq/jan-client-ui-renderer"
       ],
       "platform": "web"
     }

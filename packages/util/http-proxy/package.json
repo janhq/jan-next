@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-http-proxy",
+  "name": "@janhq/jan-http-proxy",
   "description": "Process-wide outbound HTTP proxy policy for Jan: resolve it from the launch environment and install it as undici's global dispatcher",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/util/http-proxy"
   },
   "type": "module",
@@ -27,12 +27,12 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "dependencies": {
-    "undici": "8.11.2"
+    "undici": "8.12.2"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   }
 }

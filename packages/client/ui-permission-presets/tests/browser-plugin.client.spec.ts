@@ -7,20 +7,20 @@
  * disposal removes the contribution (HMR safety). The same plugin registers
  * its Settings row and invalidates that row on host settings changes.
  */
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
-import { remoteDefaultResponses } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/remote-default-responses.ts'
-import { RemoteMock } from '@deepseek-ai/dsh-remote-mock'
-import { apply as settingsApply, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
-import type { CommandDecoration, PopupSelectSpec } from '@deepseek-ai/dsh-client-ui-commands/client'
-import { PopupSelectController } from '@deepseek-ai/dsh-client-ui-commands/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { TestRemote } from '@janhq/jan-client-test-runtime'
+import { remoteDefaultResponses } from '@janhq/jan-client-test-runtime/src/assembly/remote-default-responses.ts'
+import { RemoteMock } from '@janhq/jan-remote-mock'
+import { apply as settingsApply, inject as settingsInject } from '@janhq/jan-client-ui-settings/client'
+import type { CommandDecoration, PopupSelectSpec } from '@janhq/jan-client-ui-commands/client'
+import { PopupSelectController } from '@janhq/jan-client-ui-commands/client'
 import type {
   PermissionCatalog, PermissionSelection,
-} from '@deepseek-ai/dsh-permission-presets/client'
+} from '@janhq/jan-permission-presets/client'
 import {
   PermissionRow, type PermissionRowInjected,
 } from '../src/client/PermissionRow.tsx'
@@ -71,7 +71,7 @@ async function bench() {
   const remote = new TestRemote(ctx, { settings: mock.remote.settings, permissionPresets })
   ctx.provide('connection', {
     generation: {
-      getSnapshot: () => ({ id: 1, host: { home: '/host', isLoopback: true } }),
+      getSnapshot: () => ({ id: 1, host: { home: '/host', name: 'fixture-host', remote: false, isLoopback: true } }),
       subscribe: () => () => {},
     },
   } as never)
@@ -205,7 +205,7 @@ describe('ui-permission browser plugin', () => {
     expect(again.find(option => option.id === 'auto')?.detail)
       .toBe('Run without a sandbox after an experimental same-model review of every native tool call and PTC inner call.')
     // English built-ins use product labels; other kebab-case names title-case.
-    expect(again.map(option => option.label)).toEqual(['Read Only', 'Workspace Write', 'Full access', 'Auto review'])
+    expect(again.map(option => option.label)).toEqual(['Read Only', 'Project Write', 'Full access', 'Auto review'])
     expect(again.find(option => option.id === 'danger-full-access')?.confirmation).toEqual({
       title: 'Enable Full access?',
       description: accessEn['confirm.description'],

@@ -4,9 +4,9 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Page } from 'playwright'
 import { expect, it, onTestFinished } from 'vitest'
-import type { SessionId } from '@deepseek-ai/dsh-session'
-import type { ClientModuleLoaderTarget } from '@deepseek-ai/dsh-client-modules/client'
-import { formatSessionReferenceMention } from '@deepseek-ai/dsh-session-reference'
+import type { SessionId } from '@janhq/jan-session'
+import type { ClientModuleLoaderTarget } from '@janhq/jan-client-modules/client'
+import { formatSessionReferenceMention } from '@janhq/jan-session-reference'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { newEnglishPage, writeComposerDraft } from './support.ts'
 
@@ -55,14 +55,14 @@ async function observeDraftApi(page: Page): Promise<void> {
   // Observe one shipped module's apply, using the page-owned loader interception from default-product-isolation.e2e.ts.
   await page.addInitScript(() => {
     const observation: DraftApiObservation = {}
-    Reflect.set(globalThis, '__dshDraftApiObservation', observation)
+    Reflect.set(globalThis, '__janDraftApiObservation', observation)
     Object.defineProperty(globalThis, '__ModuleLoader__', {
       configurable: true,
       set(target: ClientModuleLoaderTarget) {
         Object.defineProperty(globalThis, '__ModuleLoader__', { configurable: true, writable: true, value: target })
         let load = target.load.bind(target)
         const observeLoad: ClientModuleLoaderTarget['load'] = (registration) => {
-          if (registration.id !== '@deepseek-ai/dsh-client-ui-workspace' || registration.chunk !== undefined) {
+          if (registration.id !== '@janhq/jan-client-ui-workspace' || registration.chunk !== undefined) {
             load(registration)
             return
           }
@@ -102,7 +102,7 @@ async function observeDraftApi(page: Page): Promise<void> {
 
 async function startSession(page: Page, workspaceId: string | undefined, options: DraftOptions): Promise<void> {
   await page.evaluate(({ workspaceId, options }) => {
-    const observation = Reflect.get(globalThis, '__dshDraftApiObservation') as DraftApiObservation | undefined
+    const observation = Reflect.get(globalThis, '__janDraftApiObservation') as DraftApiObservation | undefined
     if (observation?.startSession === undefined) throw new Error('The shipped Workspace apply has not been observed')
     observation.startSession(workspaceId, options)
   }, { workspaceId, options })
@@ -114,7 +114,7 @@ function composer(page: Page) {
 
 function selectedSession(page: Page): Promise<string | null> {
   return page.evaluate(() => {
-    const raw = localStorage.getItem('dsh.sessions.current')
+    const raw = localStorage.getItem('jan.sessions.current')
     const value: unknown = raw === null ? null : JSON.parse(raw)
     return typeof value === 'object' && value !== null && 'sessionId' in value
       && typeof value.sessionId === 'string' ? value.sessionId : null
@@ -123,7 +123,7 @@ function selectedSession(page: Page): Promise<string | null> {
 
 function storedDraft(page: Page, sessionId: SessionId): Promise<unknown> {
   return page.evaluate((id) => {
-    const raw = localStorage.getItem(`dsh.conversation.${id}`)
+    const raw = localStorage.getItem(`jan.conversation.${id}`)
     const value: unknown = raw === null ? null : JSON.parse(raw)
     return typeof value === 'object' && value !== null && 'draft' in value ? value.draft : null
   }, sessionId)
@@ -132,7 +132,7 @@ function storedDraft(page: Page, sessionId: SessionId): Promise<unknown> {
 async function writeStoredDrafts(page: Page, drafts: readonly { sessionId: SessionId; draft: string | DraftSnapshot }[]): Promise<void> {
   await page.evaluate((drafts) => {
     for (const { sessionId, draft } of drafts) {
-      const key = `dsh.conversation.${sessionId}`
+      const key = `jan.conversation.${sessionId}`
       const raw = localStorage.getItem(key)
       const saved: unknown = raw === null ? { view: null, viewRequest: null } : JSON.parse(raw)
       if (typeof saved !== 'object' || saved === null || Array.isArray(saved)) {
@@ -234,7 +234,7 @@ async function launchDraftFixture(beforeBrowserOpen?: (page: Page, scaffold: Web
   await beforeBrowserOpen?.(page, scaffold)
   await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
   await expect.poll(() => page.evaluate(() => {
-    const observation = Reflect.get(globalThis, '__dshDraftApiObservation') as DraftApiObservation | undefined
+    const observation = Reflect.get(globalThis, '__janDraftApiObservation') as DraftApiObservation | undefined
     return typeof observation?.startSession
   }), SETTLE).toBe('function')
   await composer(page).waitFor()
@@ -576,7 +576,7 @@ it('carries all reference capsules through the real Workspace picker and leaves 
   const draft = structuredDraft(firstId, '切换工作区携带')
   await restoreStoredDrafts(page, [{ sessionId: firstId, draft }])
   await assertDraft(page, firstId, draft)
-  await page.getByRole('button', { name: 'Choose workspace', exact: true }).click()
+  await page.getByRole('button', { name: 'Choose project', exact: true }).click()
   await page.getByRole('menuitem', { name: second.title, exact: true }).click()
   await expect.poll(() => second.sessionIds.length, SETTLE).toBe(1)
   const secondId = second.sessionIds[0]!

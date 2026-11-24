@@ -9,7 +9,7 @@ import { findRepositoryReferences, repositoryCommits, scanRepositoryReferences, 
 const organizationUrl = `https://${['github.com', ['deepseek', 'harness'].join('-')].join('/')}`
 
 function repository(test: TestContext) {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-repository-references-'))
+  const root = mkdtempSync(join(tmpdir(), 'jan-repository-references-'))
   test.onTestFinished(() => {
     rmSync(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 })
   })
@@ -206,7 +206,7 @@ describe('maintained repository reference policy', () => {
       fixture.commit.slice(0, 6),
       `prefix${fixture.commit}`,
       `${fixture.commit}suffix`,
-      'dsh-v0.0.1-rc.1',
+      'jan-v0.0.1-rc.1',
     ].join('\n'))
     expect(scanRepositoryReferences(fixture.root)).toEqual([])
   })
@@ -232,12 +232,11 @@ describe('maintained repository reference policy', () => {
     expect(scanRepositoryReferences(fixture.root)).toEqual([])
   })
 
-  it('excludes only ignored new files, vendored sources, frozen notes, and deleted files', (test) => {
+  it('excludes only ignored new files, vendored sources, and deleted files', (test) => {
     const fixture = repository(test)
     fixture.write('.gitignore', 'ignored.md\ntracked-ignore.md\n')
     fixture.write('ignored.md', fixture.commit)
     fixture.write('vendor/project/file.md', `${fixture.commit}\n${organizationUrl}`)
-    fixture.write('.agents/notes/archived/process/frozen.md', `${fixture.commit}\n${organizationUrl}`)
     fixture.write('tracked-ignore.md', fixture.commit)
     fixture.git(['add', '--force', 'tracked-ignore.md'])
     unlinkSync(join(fixture.root, 'tracked.md'))
@@ -277,10 +276,9 @@ describe('maintained repository reference policy', () => {
     )
   })
 
-  it('accepts distinct organization names and excludes the frozen and vendored paths', () => {
+  it('accepts distinct organization names and excludes vendored paths', () => {
     expect(findRepositoryReferences('source.md', `${organizationUrl}-tools/project`, new Set())).toEqual([])
     expect(findRepositoryReferences('vendor/project/source.md', organizationUrl, new Set())).toEqual([])
-    expect(findRepositoryReferences('.agents/notes/archived/process/frozen.md', organizationUrl, new Set())).toEqual([])
     expect(findRepositoryReferences('.agents/notes/implemented/process/current.md', organizationUrl, new Set()))
       .toEqual([{ file: '.agents/notes/implemented/process/current.md', line: 1, kind: 'organization-url' }])
   })

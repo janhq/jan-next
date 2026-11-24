@@ -11,7 +11,7 @@ function fixture() {
     getContentBounds: () => ({ x: 50, y: 40, width: 900, height: 650 }), isDestroyed: () => destroyed,
     isFocused: vi.fn(() => false), focus: vi.fn(), show: vi.fn(),
     contentView: { addChildView: vi.fn(), removeChildView: vi.fn() },
-    webContents: Object.assign(new EventEmitter(), { focus: vi.fn() }),
+    webContents: Object.assign(new EventEmitter(), { focus: vi.fn(), getZoomFactor: vi.fn(() => 1) }),
     destroy() { destroyed = true; parent.emit('closed') },
   })
   const views: ReturnType<typeof view>[] = []

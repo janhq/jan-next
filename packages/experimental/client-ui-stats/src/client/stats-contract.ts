@@ -1,9 +1,9 @@
 /** Published performance model: per-step metrics, per-turn aggregates, and marker contributions. */
 
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { ImageAttachmentRef } from '@janhq/jan-attachment'
 import type {
   ConversationLocation, ConversationViewNode,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+} from '@janhq/jan-client-ui-conversation/client'
 
 /** Outcome of one older-history request. */
 export type LoadOlderResult = 'grew' | 'exhausted' | 'retry'
@@ -59,6 +59,8 @@ export interface StatsStepState {
   readonly ended: boolean
   readonly firstTokenTime: number | null
   readonly messageTime: number | null
+  /** Characters the assembled message carried as text, reasoning and Tool-call arguments. */
+  readonly streamedChars: number | null
   readonly usage: StatsUsage | null
   readonly interrupted: boolean
   readonly toolPairs: number
@@ -303,7 +305,7 @@ export interface StatsSnapshot {
   readonly stepCount: number
 }
 
-declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
+declare module '@janhq/jan-client-ui-conversation/client' {
   interface ConversationViewSnapshotMap {
     /** Turn and step metrics this target assembles. */
     stats: StatsSnapshot

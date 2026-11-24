@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import type { AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
+import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest'
+import type { AccountUserId } from '@janhq/jan-tokamak-account/types'
 import { DesktopPlatformView, platformBounds } from '../src/platform-view.ts'
 
 const state = vi.hoisted(() => ({
@@ -25,7 +25,7 @@ vi.mock('electron', () => ({
   }) },
   WebContentsView: class {
     webContents = Object.assign(new EventEmitter(), {
-      mainFrame: { url: 'https://platform.deepseek.com/usage' },
+      mainFrame: { url: 'https://tokamak.sh/usage' },
       session: undefined as object | undefined,
       setWindowOpenHandler: vi.fn(),
       loadURL: vi.fn(async (_url: string) => { await state.loadBarrier; if (state.loadFailure !== undefined) throw state.loadFailure }),
@@ -40,20 +40,22 @@ vi.mock('electron', () => ({
   },
 }))
 
-beforeEach(() => { vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3') })
+beforeEach(() => { vi.stubEnv('JAN_CLIENT_VERSION', '1.2.3') })
 afterEach(() => {
   state.views.length = 0; state.sessions.length = 0; state.loadFailure = undefined; state.loadBarrier = undefined
   vi.clearAllMocks(); vi.unstubAllEnvs()
 })
 function setup() {
   let blocked = false
+  let zoomFactor = 1
   const removeChildView = vi.fn()
   const owner = Object.assign(new EventEmitter(), {
-    webContents: new EventEmitter(), contentView: { addChildView: vi.fn(), removeChildView }, isDestroyed: () => false,
+    webContents: Object.assign(new EventEmitter(), { getZoomFactor: () => zoomFactor }),
+    contentView: { addChildView: vi.fn(), removeChildView }, isDestroyed: () => false,
   })
   const manager = new DesktopPlatformView('/bundled/preload.cjs', () => 'en_US', 'darwin', () => blocked)
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret' })
-  return { manager, owner, removeChildView, block: () => { blocked = true } }
+  manager.setSession({ origin: 'https://tokamak.sh', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret' })
+  return { manager, owner, removeChildView, block: () => { blocked = true }, zoom: (factor: number) => { zoomFactor = factor } }
 }
 
 /** Invoke the first registered header interceptor for one request. */
@@ -70,6 +72,7 @@ function interceptHeaders(id: number, url: string, requestHeaders: Record<string
 function view() {
   return state.views.at(-1) as {
     setVisible: ReturnType<typeof vi.fn>
+    setBounds: Mock
     webContents: EventEmitter & {
       mainFrame: { url: string }
       loadURL: ReturnType<typeof vi.fn>
@@ -80,13 +83,25 @@ function view() {
 }
 const bounds = { x: 10, y: 20, width: 800, height: 600 }
 
+it('aligns native bounds to zoomed workspace coordinates on open, resize, and zoom', async () => {
+  const { manager, owner, zoom } = setup()
+  zoom(1.25)
+  await manager.open(owner, 'usage', platformBounds({ x: 2.4, y: 20, width: 800, height: 500 }))
+  expect(view().setBounds).toHaveBeenLastCalledWith({ x: 3, y: 25, width: 1000, height: 625 })
+  manager.setBounds(owner, platformBounds({ x: 0, y: 40, width: 400, height: 200 }))
+  expect(view().setBounds).toHaveBeenLastCalledWith({ x: 0, y: 50, width: 500, height: 250 })
+  zoom(0.5)
+  manager.refreshBounds()
+  expect(view().setBounds).toHaveBeenLastCalledWith({ x: 0, y: 20, width: 200, height: 100 })
+})
+
 it('bootstraps only the owned main frame and never puts the token in a URL', async () => {
   const { manager, owner } = setup()
   await manager.open(owner, 'usage', bounds)
   const sender = view().webContents
   const event = { sender, senderFrame: sender.mainFrame }
-  expect(manager.bootstrap(event)).toEqual({ origin: 'https://platform.deepseek.com', token: 'fixture-secret', locale: 'en_US' })
-  expect(sender.loadURL).toHaveBeenCalledWith('https://platform.deepseek.com/usage')
+  expect(manager.bootstrap(event)).toEqual({ origin: 'https://tokamak.sh', token: 'fixture-secret', locale: 'en_US' })
+  expect(sender.loadURL).toHaveBeenCalledWith('https://tokamak.sh/usage')
   expect(() => manager.bootstrap({ ...event, senderFrame: { url: sender.mainFrame.url } })).toThrow()
   expect(() => manager.bootstrap({ ...event, sender: {} })).toThrow()
   sender.mainFrame.url = 'https://other.example/usage'
@@ -98,11 +113,11 @@ it('destroys old documents on sign-out or credential replacement', async () => {
   const { manager, owner } = setup()
   await manager.open(owner, 'usage', bounds)
   const first = view().webContents
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'replacement' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: 'fixture-user' as AccountUserId, token: 'replacement' })
   expect(first.close).toHaveBeenCalledOnce()
   expect(() => manager.bootstrap({ sender: first, senderFrame: first.mainFrame })).toThrow()
   await manager.open(owner, 'top-up', bounds)
-  expect(view().webContents.loadURL).toHaveBeenCalledWith('https://platform.deepseek.com/top_up')
+  expect(view().webContents.loadURL).toHaveBeenCalledWith('https://tokamak.sh/top_up')
   const second = view().webContents
   manager.setSession(null)
   expect(second.close).toHaveBeenCalledOnce()
@@ -111,11 +126,11 @@ it('destroys old documents on sign-out or credential replacement', async () => {
 
 it('keeps the view when the Platform document replaces its own URL during the first load', async () => {
   const { manager, owner } = setup()
-  state.loadFailure = Object.assign(new Error("ERR_ABORTED (-3) loading 'https://platform.deepseek.com/usage'"), { code: 'ERR_ABORTED' })
+  state.loadFailure = Object.assign(new Error("ERR_ABORTED (-3) loading 'https://tokamak.sh/usage'"), { code: 'ERR_ABORTED' })
   await manager.open(owner, 'usage', bounds)
   expect(view().setVisible).toHaveBeenCalledWith(true)
   expect(view().webContents.close).not.toHaveBeenCalled()
-  state.loadFailure = Object.assign(new Error("ERR_FAILED (-2) loading 'https://platform.deepseek.com/usage'"), { code: 'ERR_FAILED' })
+  state.loadFailure = Object.assign(new Error("ERR_FAILED (-2) loading 'https://tokamak.sh/usage'"), { code: 'ERR_FAILED' })
   await expect(manager.open(owner, 'usage', bounds)).rejects.toThrow('ERR_FAILED')
   expect(view().webContents.close).toHaveBeenCalledOnce()
 })
@@ -125,10 +140,10 @@ it('blocks cross-origin navigation and redirects', async () => {
   await manager.open(owner, 'usage', bounds)
   for (const name of ['will-navigate', 'will-redirect']) {
     const event = { preventDefault: vi.fn() }
-    view().webContents.emit(name, event, 'https://platform.deepseek.com.evil/usage')
+    view().webContents.emit(name, event, 'https://tokamak.sh.evil/usage')
     expect(event.preventDefault).toHaveBeenCalledOnce()
     event.preventDefault.mockClear()
-    view().webContents.emit(name, event, 'https://platform.deepseek.com/top_up')
+    view().webContents.emit(name, event, 'https://tokamak.sh/top_up')
     expect(event.preventDefault).not.toHaveBeenCalled()
   }
   manager.close()
@@ -136,11 +151,11 @@ it('blocks cross-origin navigation and redirects', async () => {
 
 it('injects the deployment and client identity headers only at the Platform origin', async () => {
   const { manager, owner } = setup()
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: null, token: 'fixture-secret',
+  manager.setSession({ origin: 'https://tokamak.sh', userId: null, token: 'fixture-secret',
     requestHeaders: { cookie: 'gate=synthetic', 'x-deployment': 'harness' } })
   await manager.open(owner, 'usage', bounds)
   const request = { Cookie: 'route=user', 'x-client-platform': 'stale', 'x-deployment': 'stale' }
-  expect(interceptHeaders(1, 'https://platform.deepseek.com/api/v0/users/current', request)).toEqual({
+  expect(interceptHeaders(1, 'https://tokamak.sh/api/v0/users/current', request)).toEqual({
     'x-deployment': 'harness', cookie: 'route=user; gate=synthetic', 'x-client-bundle-id': '',
     'x-client-platform': 'desktop-mac', 'x-client-version': '1.2.3', 'x-client-locale': 'en_US',
     'x-client-timezone-offset': String(-new Date().getTimezoneOffset() * 60),
@@ -153,18 +168,19 @@ it('injects the deployment and client identity headers only at the Platform orig
 it('samples the language and UTC offset on every Platform request', async () => {
   let locale: 'en_US' | 'zh_CN' = 'en_US'
   const owner = Object.assign(new EventEmitter(), {
-    webContents: new EventEmitter(), contentView: { addChildView: vi.fn(), removeChildView: vi.fn() }, isDestroyed: () => false,
+    webContents: Object.assign(new EventEmitter(), { getZoomFactor: () => 1 }),
+    contentView: { addChildView: vi.fn(), removeChildView: vi.fn() }, isDestroyed: () => false,
   })
   const manager = new DesktopPlatformView('/bundled/preload.cjs', () => locale, 'darwin', () => false)
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: null, token: 'fixture-secret' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: null, token: 'fixture-secret' })
   await manager.open(owner, 'usage', bounds)
   const offset = vi.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(480)
-  expect(interceptHeaders(1, 'https://platform.deepseek.com/usage', {})).toMatchObject({
+  expect(interceptHeaders(1, 'https://tokamak.sh/usage', {})).toMatchObject({
     'x-client-locale': 'en_US', 'x-client-timezone-offset': '-28800',
   })
   locale = 'zh_CN'
   offset.mockReturnValue(-300)
-  expect(interceptHeaders(1, 'https://platform.deepseek.com/usage', {})).toMatchObject({
+  expect(interceptHeaders(1, 'https://tokamak.sh/usage', {})).toMatchObject({
     'x-client-locale': 'zh_CN', 'x-client-timezone-offset': '18000',
   })
   offset.mockRestore()
@@ -173,12 +189,13 @@ it('samples the language and UTC offset on every Platform request', async () => 
 
 it('identifies a shell without a desktop Platform client, such as Linux, as web', async () => {
   const owner = Object.assign(new EventEmitter(), {
-    webContents: new EventEmitter(), contentView: { addChildView: vi.fn(), removeChildView: vi.fn() }, isDestroyed: () => false,
+    webContents: Object.assign(new EventEmitter(), { getZoomFactor: () => 1 }),
+    contentView: { addChildView: vi.fn(), removeChildView: vi.fn() }, isDestroyed: () => false,
   })
   const manager = new DesktopPlatformView('/bundled/preload.cjs', () => 'en_US', null, () => false)
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: null, token: 'fixture-secret' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: null, token: 'fixture-secret' })
   await manager.open(owner, 'usage', bounds)
-  expect(interceptHeaders(1, 'https://platform.deepseek.com/usage', { 'x-client-platform': 'stale' }))
+  expect(interceptHeaders(1, 'https://tokamak.sh/usage', { 'x-client-platform': 'stale' }))
     .toMatchObject({ 'x-client-platform': 'web' })
   manager.close()
 })
@@ -230,7 +247,7 @@ it('does not reveal a document closed before its load settles', async () => {
 
 it('injects deployment headers only at the Platform origin and excludes them from bootstrap', async () => {
   const { manager, owner } = setup()
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret',
+  manager.setSession({ origin: 'https://tokamak.sh', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret',
     requestHeaders: { cookie: 'route=new; gate=private', 'x-private-gate': 'private', 'x-client-platform': 'desktop-mac' } })
   await manager.open(owner, 'usage', bounds)
   const browserSession = state.sessions.at(-1) as { webRequest: { onBeforeSendHeaders: ReturnType<typeof vi.fn> } }
@@ -240,7 +257,7 @@ it('injects deployment headers only at the Platform origin and excludes them fro
   ) => void
   const callback = vi.fn()
   for (const path of ['/usage', '/top_up', '/api/v0/users/get_user_summary']) {
-    intercept({ id: 1, url: `https://platform.deepseek.com${path}`, requestHeaders: { Cookie: 'route=old; browser=keep', Accept: 'application/json' } }, callback)
+    intercept({ id: 1, url: `https://tokamak.sh${path}`, requestHeaders: { Cookie: 'route=old; browser=keep', Accept: 'application/json' } }, callback)
     expect(callback).toHaveBeenLastCalledWith({ requestHeaders: {
       cookie: 'route=new; browser=keep; gate=private', accept: 'application/json', 'x-private-gate': 'private', 'x-client-platform': 'desktop-mac',
       'x-client-bundle-id': '', 'x-client-version': '1.2.3', 'x-client-locale': 'en_US',
@@ -255,20 +272,20 @@ it('injects deployment headers only at the Platform origin and excludes them fro
   expect(callback).toHaveBeenLastCalledWith({ requestHeaders: { cookie: 'payment=session', constructor: 'keep' } })
   const sender = view().webContents
   expect(manager.bootstrap({ sender, senderFrame: sender.mainFrame }))
-    .toEqual({ origin: 'https://platform.deepseek.com', token: 'fixture-secret', locale: 'en_US' })
+    .toEqual({ origin: 'https://tokamak.sh', token: 'fixture-secret', locale: 'en_US' })
   manager.close()
 })
 
 it.each(['usage', 'top-up'] as const)('selects the configured frontend deployment for %s', async (page) => {
   const { manager, owner } = setup()
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret', embeddedPageDist: 'feat/test&other=value' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret', embeddedPageDist: 'feat/test&other=value' })
   await manager.open(owner, page, bounds)
   const url = new URL(view().webContents.loadURL.mock.calls[0]![0] as string)
-  expect(url.origin).toBe('https://platform.deepseek.com')
+  expect(url.origin).toBe('https://tokamak.sh')
   expect(url.pathname).toBe(page === 'usage' ? '/usage' : '/top_up')
   expect([...url.searchParams]).toEqual([['dist', 'feat/test&other=value']])
   const previous = view().webContents
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret', embeddedPageDist: 'another' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret', embeddedPageDist: 'another' })
   expect(previous.close).toHaveBeenCalledOnce()
   manager.close()
 })
@@ -277,7 +294,7 @@ it('removes the native view when its application document reloads, without rende
   const { manager, owner, removeChildView } = setup()
   await manager.open(owner, 'usage', bounds)
   const child = view()
-  owner.webContents.emit('did-start-navigation', {}, 'dsh-app://app/', false, true)
+  owner.webContents.emit('did-start-navigation', {}, 'jan-app://app/', false, true)
   expect(removeChildView).toHaveBeenCalledWith(child)
   expect(child.webContents.close).toHaveBeenCalledOnce()
   expect(owner.webContents.listenerCount('did-start-navigation')).toBe(0)
@@ -287,7 +304,7 @@ it('removes the native view when its application document reloads, without rende
 it('retains the view on same-document and subframe navigation', async () => {
   const { manager, owner } = setup()
   await manager.open(owner, 'usage', bounds)
-  owner.webContents.emit('did-start-navigation', {}, 'dsh-app://app/#account', true, true)
+  owner.webContents.emit('did-start-navigation', {}, 'jan-app://app/#account', true, true)
   owner.webContents.emit('did-start-navigation', {}, 'about:blank', false, false)
   expect(view().webContents.close).not.toHaveBeenCalled()
   manager.close()
@@ -310,7 +327,7 @@ it('does not reveal a pending view after the owner reloads or remove a replaceme
   const loading = manager.open(owner, 'usage', bounds)
   await vi.waitFor(() => { expect(state.views).toHaveLength(1) })
   const previous = view()
-  owner.webContents.emit('did-start-navigation', {}, 'dsh-app://app/', false, true)
+  owner.webContents.emit('did-start-navigation', {}, 'jan-app://app/', false, true)
   state.loadBarrier = undefined
   await manager.open(owner, 'top-up', bounds)
   const current = view()
@@ -328,14 +345,14 @@ it('bootstraps the current language and updates an open view without reloading',
   const { owner } = setup()
   let locale: 'en_US' | 'zh_CN' = 'zh_CN'
   const manager = new DesktopPlatformView('/bundled/preload.cjs', () => locale, 'win32', () => false)
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret' })
   manager.notifyLocaleChanged()
   await manager.open(owner, 'usage', bounds)
   const sender = view().webContents
   expect(manager.bootstrap({ sender, senderFrame: sender.mainFrame }).locale).toBe('zh_CN')
   locale = 'en_US'
   manager.notifyLocaleChanged()
-  expect(sender.send).toHaveBeenCalledWith('dsh-platform:locale-changed', 'en_US')
+  expect(sender.send).toHaveBeenCalledWith('jan-platform:locale-changed', 'en_US')
   expect(sender.loadURL).toHaveBeenCalledOnce()
   manager.close()
   sender.send.mockClear()
@@ -366,7 +383,7 @@ it('reuses persistent storage across closes, token replacement, and manager recr
   const { manager, owner } = setup()
   await manager.open(owner, 'usage', bounds)
   const first = browserSession()
-  expect(first.partition).toMatch(/^persist:dsh-platform-[a-f0-9]{64}$/)
+  expect(first.partition).toMatch(/^persist:jan-platform-[a-f0-9]{64}$/)
   expect(first.partition).not.toContain('fixture-user')
   expect(first.partition).not.toContain('fixture-secret')
   manager.close()
@@ -379,7 +396,7 @@ it('reuses persistent storage across closes, token replacement, and manager recr
   expect(first.webRequest.onBeforeSendHeaders).toHaveBeenCalledWith(null)
   expect(first.webRequest.onCompleted).toHaveBeenCalledWith(null)
   expect(first.webRequest.onErrorOccurred).toHaveBeenCalledWith(null)
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'rotated' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: 'fixture-user' as AccountUserId, token: 'rotated' })
   await manager.open(owner, 'usage', bounds)
   expect(browserSession().partition).toBe(first.partition)
   manager.close()
@@ -394,7 +411,7 @@ it('isolates accounts and issuers and restores the original account partition af
   await manager.open(owner, 'usage', bounds)
   const first = browserSession().partition
   // The ID must invalidate even an otherwise identical credential snapshot.
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'other-user' as AccountUserId, token: 'fixture-secret' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: 'other-user' as AccountUserId, token: 'fixture-secret' })
   expect(view().webContents.close).toHaveBeenCalledOnce()
   await manager.open(owner, 'usage', bounds)
   const second = browserSession().partition
@@ -404,7 +421,7 @@ it('isolates accounts and issuers and restores the original account partition af
   expect(browserSession().partition).not.toBe(first)
   expect(browserSession().partition).not.toBe(second)
   manager.setSession(null)
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'signed-in-again' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: 'fixture-user' as AccountUserId, token: 'signed-in-again' })
   await manager.open(owner, 'usage', bounds)
   expect(browserSession().partition).toBe(first)
   manager.close()
@@ -412,7 +429,7 @@ it('isolates accounts and issuers and restores the original account partition af
 
 it('uses disposable storage when no stable account ID is available', async () => {
   const { manager, owner } = setup()
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: null, token: 'fixture-secret' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: null, token: 'fixture-secret' })
   await manager.open(owner, 'usage', bounds)
   const first = browserSession()
   expect(first.partition).not.toMatch(/^persist:/)
@@ -435,7 +452,7 @@ it('waits for authentication cleanup before reopening and ignores superseded ope
   cleared.resolve(undefined)
   await Promise.all([obsolete, current])
   expect(state.views).toHaveLength(2)
-  expect(view().webContents.loadURL).toHaveBeenCalledWith('https://platform.deepseek.com/top_up')
+  expect(view().webContents.loadURL).toHaveBeenCalledWith('https://tokamak.sh/top_up')
   manager.close()
 })
 
@@ -459,7 +476,7 @@ it.each(['did-start-navigation', 'closed', 'destroyed'])('cancels allocation whe
   browserSession().clearStorageData.mockReturnValueOnce(cleared.promise)
   const opening = manager.open(owner, 'usage', bounds)
   if (event === 'closed') owner.emit(event)
-  else owner.webContents.emit(event, {}, 'dsh-app://app/', false, true)
+  else owner.webContents.emit(event, {}, 'jan-app://app/', false, true)
   cleared.resolve(undefined)
   await opening
   expect(state.views).toHaveLength(1)
@@ -471,7 +488,7 @@ it('keeps failed account cleanup isolated from other accounts', async () => {
   const { manager, owner } = setup()
   await manager.open(owner, 'usage', bounds)
   browserSession().clearAuthCache.mockRejectedValue(new Error('failed'))
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'second' as AccountUserId, token: 'second' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: 'second' as AccountUserId, token: 'second' })
   await manager.open(owner, 'usage', bounds)
   expect(state.views).toHaveLength(2)
   await expect(manager.dispose()).rejects.toThrow('Platform storage cleanup failed')
@@ -494,9 +511,9 @@ it('awaits cleanup on disposal and rejects subsequent opens', async () => {
 
 it('keeps an open temporary document when its credential gains a stable identity', async () => {
   const { manager, owner } = setup()
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: null, token: 'fixture-secret' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: null, token: 'fixture-secret' })
   await manager.open(owner, 'usage', bounds)
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret' })
+  manager.setSession({ origin: 'https://tokamak.sh', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret' })
   expect(view().webContents.close).not.toHaveBeenCalled()
   expect(browserSession().partition).not.toMatch(/^persist:/)
   await manager.open(owner, 'usage', bounds)

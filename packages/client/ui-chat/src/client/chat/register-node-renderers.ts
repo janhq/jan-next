@@ -1,5 +1,11 @@
-import type { Context } from '@deepseek-ai/cordis'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+import type { Context } from '@janhq/cordis'
+import type {} from '@janhq/jan-api-llama-cpp-controller/remote'
+import type { SessionProjectionMap } from '@janhq/jan-api-session-controller/client'
+import type { ClientRemote } from '@janhq/jan-api-remotes/client'
+import type {} from '@janhq/jan-client-ui-conversation/client'
+import type { ModelSelectionProjection } from '@janhq/jan-agent/types'
+import type { SessionId, SessionSeq } from '@janhq/jan-session/types'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { PerformanceUsageMode } from '../../chat-settings.ts'
 import type { ChatPresentationPolicy } from '../presentation-policy.ts'
 import { NS } from '../locale.ts'
@@ -7,8 +13,9 @@ import { AssistantNodeView, type AssistantNodeInjected } from './AssistantNodeVi
 import { sessionFilePath } from '../file-path.ts'
 import { CommandNodeView, ManualCompactionNodeView } from './CommandNodeView.tsx'
 import {
-  CompactionNodeView, ContextMessageNodeView, RetryNodeView, TurnErrorNodeView,
+  CompactionNodeView, ContextMessageNodeView, ModelSwitchNodeView, RetryNodeView, TurnErrorNodeView,
   TurnMaxTokensNodeView, UnknownNodeView, UserMessageNodeView,
+  type ContextRecovery,
 } from './MessageItem.tsx'
 import { DefaultReasoningBody, ReasoningContent } from './ReasoningContent.tsx'
 import { SystemPromptNodeView } from './SystemPromptRow.tsx'
@@ -29,6 +36,7 @@ export function registerChatNodeRenderers(
   performanceUsage: ObservableSnapshot<PerformanceUsageMode>,
   presentation: ObservableSnapshot<ChatPresentationPolicy>,
 ): void {
+  const settingsUnavailable: ObservableSnapshot<boolean> = { getSnapshot: () => false, subscribe: () => () => {} }
   ctx.effect(() => ctx.slots.registerFactory({
     name: 'conversation.chat.reasoning.content',
     scope: 'root',
@@ -80,11 +88,65 @@ export function registerChatNodeRenderers(
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
     { name: 'conversation.chat.node', key: 'model-retry', locale: NS }, RetryNodeView))
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'turn-error', locale: NS }, TurnErrorNodeView))
+    { name: 'conversation.chat.node', key: 'model-switch', locale: NS }, ModelSwitchNodeView))
+  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
+    { name: 'conversation.chat.node', key: 'turn-error', locale: NS,
+      children: { 'conversation.chat.turn-error-actions': { kind: 'list', scope: 'session' } },
+      inject: (sessionId: SessionId) => {
+        const recovery: ContextRecovery = {
+          modelFor: () => {
+            const projected = ctx.sessions.binding(sessionId)?.session.projections.faceOf('modelSelection').getSnapshot() as ModelSelectionProjection | undefined
+            const selection = projected?.lastUsed ?? projected?.next
+            return selection?.provider === 'local' ? selection.model : undefined
+          },
+          contextFor: async (id) => {
+            const remote = ctx.get('remote.llamaCpp') as ClientRemote['llamaCpp'] | undefined
+            if (remote === undefined) return undefined
+            const result = await remote.getModelContext(id)
+            return result.ok ? result.value : undefined
+          },
+          increase: async (id) => {
+            const remote = ctx.get('remote.llamaCpp') as ClientRemote['llamaCpp'] | undefined
+            if (remote === undefined) return { ok: false, error: 'Local model controls are unavailable.' }
+            const result = await remote.increaseModelContext(id)
+            return result.ok ? { ok: true, value: result.value } : { ok: false, error: result.error.message }
+          },
+          compact: async () => {
+            const remote = ctx.get('remote.commands') as ClientRemote['commands'] | undefined
+            if (remote === undefined) return { ok: false, reason: 'failed', error: 'Compaction is unavailable.' }
+            const result = await remote.execute(sessionId, '/compact', [])
+            if (!result.ok) return { ok: false, reason: 'failed', error: result.error.message }
+            const outcome = result.value?.result
+            if (outcome === undefined) return { ok: false, reason: 'failed', error: 'Compaction is unavailable.' }
+            if (outcome.kind === 'error') return { ok: false, reason: 'failed', error: outcome.text }
+            // Only a real summary names its source event; "No compactable history yet." does not.
+            return outcome.sourceEventSeq === undefined ? { ok: false, reason: 'empty' } : { ok: true }
+          },
+          // The recovery runs from the card while the composer may hold a draft; that draft must survive the retry.
+          retry: (seq) => { ctx.get('conversation')?.input.retryKeepingDraft(sessionId, seq as SessionSeq) },
+        }
+        // Follow the exact failed turn the card can recover until the next turn starts.
+        const continuation: ObservableSnapshot<SessionProjectionMap['conversationContinuation']> = {
+          getSnapshot: () => {
+            const value = ctx.sessions.binding(sessionId)?.session.projections.faceOf('conversationContinuation').getSnapshot()
+            return (value as SessionProjectionMap['conversationContinuation'] | undefined) ?? null
+          },
+          subscribe: fn => ctx.sessions.binding(sessionId)?.session.projections.faceOf('conversationContinuation').subscribe(fn) ?? (() => {}),
+        }
+        return {
+          hooks: { settingsAvailability: ctx.get('settingsNavigation')?.availability ?? settingsUnavailable, continuation },
+          openModelsSettings: () => { ctx.get('settingsNavigation')?.open('models') },
+          recovery,
+        }
+      } }, TurnErrorNodeView))
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
     { name: 'conversation.chat.node', key: 'turn-max-tokens', locale: NS }, TurnMaxTokensNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'turn-process', locale: NS }, TurnProcessNodeView))
+  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
+    name: 'conversation.chat.node',
+    key: 'turn-process',
+    locale: NS,
+    children: { 'conversation.chat.turn-process.trailing': { kind: 'list', scope: 'session' } },
+  }, TurnProcessNodeView))
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
     name: 'conversation.chat.node',
     key: 'turn-tail',

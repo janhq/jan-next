@@ -1,18 +1,18 @@
 /** Rows for the More menus of the left sidebar, Conversation View tabs, and right-sidebar guide. */
-import type { Context } from '@deepseek-ai/cordis'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-product-analytics/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
-import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { Context } from '@janhq/cordis'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-product-analytics/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-sidebar/client'
+import type {} from '@janhq/jan-client-ui-conversation/client'
+import type {} from '@janhq/jan-client-ui-sidebar-right/client'
+import type {} from '@janhq/jan-client-ui-plugin-manager/client'
+import type {} from '@janhq/jan-client-ui-workspace/client'
 import { EntryMenuContent, type EntryMenuInjected, type EntryRegion } from './EntryMenuContent.tsx'
 import { en, ja, es, fr, de, ru, pt, zh } from './locales.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** More menu rows: navigation actions, and Creator draft prompts. */
     entryCustomization: keyof typeof en
@@ -46,8 +46,9 @@ export function apply(ctx: Context): void {
     },
     createPlugin: () => {
       ctx.get('productAnalytics')?.track('more_menu_item_click', { region, action: 'create_plugin' })
+      // The leading `/create-plugin` attaches the Creator's plugin skill to the draft.
       ctx.uiWorkspace.startSession(undefined, {
-        agentPreset: 'cordis', prompt: t(`createPrompt.${region}`), whenDraftExists: 'append',
+        agentPreset: 'cordis', prompt: `/create-plugin ${t(`createPrompt.${region}`)}`, whenDraftExists: 'append',
       })
     },
   })

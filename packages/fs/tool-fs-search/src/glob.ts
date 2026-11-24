@@ -6,14 +6,14 @@
  * argument validation, argv construction, result parsing, inline sampling,
  * and formatting; process concerns (spawn execution, tree termination,
  * environment scrubbing, output capture) stay behind `ctx.subprocess`.
- * @module @deepseek-ai/dsh-tool-fs-search/glob
+ * @module @janhq/jan-tool-fs-search/glob
  */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context } from '@janhq/cordis'
 import { sep } from 'node:path'
-import { defineTool } from '@deepseek-ai/dsh-tools'
-import type { GenericCallView, SearchResultView, ToolResult } from '@deepseek-ai/dsh-tools'
-import type { SpillRef } from '@deepseek-ai/dsh-spill'
+import { defineTool } from '@janhq/jan-tools'
+import type { GenericCallView, SearchResultView, ToolResult } from '@janhq/jan-tools'
+import type { SpillRef } from '@janhq/jan-spill'
 import { runRipgrep, toWorkdirRelative, trySaveFormattedResult } from './search-core.ts'
 import { globSearchMeta, searchViewFromMeta } from './presentation.ts'
 import { acceptedDirectCallValue } from './direct-call.ts'
@@ -333,6 +333,7 @@ export function applyGlobTool(ctx: Context, caps: GlobToolCaps): void {
       path: { type: 'string', description: 'Directory to search in. Defaults to the session workspace; a relative path resolves against it.' },
     },
     timeoutMs: caps.timeoutMs,
+    isConcurrencySafe: () => true,
     output: {
       schema: {
         type: 'object',

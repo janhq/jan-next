@@ -1,13 +1,15 @@
 /** Contract behavior the seam itself owns: registration identity and typed failures. */
 
 import { describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { DirectoryPicker, DirectoryPickerError } from '../src/index.ts'
 import type { DirectoryPickerCapability } from '../src/index.ts'
 
 /** Minimal concrete backend: all a subclass owes the abstract class is capability(). */
 class StubPicker extends DirectoryPicker {
-  private readonly stub: DirectoryPickerCapability = { kind: 'native', pick: async () => null }
+  private readonly stub: DirectoryPickerCapability = {
+    kind: 'native', pick: async () => null, createDirectory: async (path, name) => `${path}/${name}`,
+  }
   capability(): DirectoryPickerCapability {
     return this.stub
   }

@@ -1,21 +1,26 @@
 /** Empty prompt admission over the real AgentLoop and the Session Remote owner. */
-import { Context } from '@deepseek-ai/cordis'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createUserMessage, LlmError } from '@deepseek-ai/dsh-llm'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import { Context } from '@janhq/cordis'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { createUserMessage, LlmError } from '@janhq/jan-llm'
+import { SessionId } from '@janhq/jan-session'
 import { expect, it, onTestFinished } from 'vitest'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import type { SessionPromptRequest, SessionRequestId } from '../src/types.ts'
 import { createSessionTestRemote } from './test-remote.ts'
 
-async function setup() {
+async function setup(code = 'SERVER', window?: { tokens: number }) {
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(AgentLoop, { agents: [] })
-  const fail = (): never => { throw new LlmError('busy', 'SERVER') }
-  const adapter = new MockAdapter([fail, fail, textResponse('done')])
+  const fail = (): never => { throw new LlmError('model request failed', code) }
+  const adapter = new class extends MockAdapter {
+    override async resolveModel(provider: string, model: string) {
+      const info = await super.resolveModel(provider, model)
+      return window === undefined ? info : { ...info, context: { contextWindow: window.tokens } }
+    }
+  }([fail, fail, textResponse('done')])
   ctx.effect(() => ctx.llm.registerAdapter(['mock'], adapter))
   const remote = await createSessionTestRemote(ctx, { defaultModelSelection: () => ({ provider: 'mock', model: 'mock' }), cwd: '/workspace' })
   const agent = await ctx.agentLoop.create(SessionId('empty-prompt'), { provider: 'mock', model: 'mock' })
@@ -58,6 +63,31 @@ it('records empty retry user messages without duplicate requests', async () => {
   expect(events.flatMap(event => event.type === 'turn/end' ? [event.data.reason.kind] : [])).toEqual(['error', 'error', 'completed'])
   expect(events.filter(event => event.type === 'turn/start')).toHaveLength(3)
   expect((await remote.prompt(request('after-completion'))).ok).toBe(false)
+})
+
+it('refuses a bare empty retry after context overflow without sending another request', async () => {
+  const { remote, agent, adapter, request } = await setup('CONTEXT_WINDOW_EXCEEDED')
+  agent.followup(createUserMessage({ content: [{ type: 'text', text: 'original task' }], source: { kind: 'user' } }))
+  await agent.whenIdle()
+
+  expect((await remote.prompt(request('premature-continue'))).ok).toBe(false)
+  await agent.whenIdle()
+  expect(adapter.requests).toHaveLength(1)
+})
+
+it('admits an overflow retry only after the selected route reports a larger context window', async () => {
+  const window = { tokens: 8192 }
+  const { remote, agent, adapter, request } = await setup('CONTEXT_WINDOW_EXCEEDED', window)
+  agent.followup(createUserMessage({ content: [{ type: 'text', text: 'original task' }], source: { kind: 'user' } }))
+  await agent.whenIdle()
+
+  expect((await remote.prompt(request('before-growth'))).ok).toBe(false)
+  expect(adapter.requests).toHaveLength(1)
+  window.tokens = 32768
+  expect((await remote.prompt(request('after-growth'))).ok).toBe(true)
+  await agent.whenIdle()
+  expect(adapter.requests).toHaveLength(2)
+  expect(agent.session.requestContext()?.contextWindow).toBe(32768)
 })
 
 it('refuses empty fresh sessions, steering, queued human input and maintenance without waking work', async () => {

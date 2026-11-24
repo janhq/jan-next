@@ -1,6 +1,6 @@
 // Shared time-label helpers for user/assistant IconActions rows.
 
-import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
+import type { Translate } from '@janhq/jan-client-ui-slots'
 
 /** The date-template share of the conversation dictionary the clock consumes. */
 export type ClockTranslate = Translate<'clock.md' | 'clock.ymd'>
@@ -61,6 +61,20 @@ export function formatRunDuration(ms: number, t: RunDurationTranslate): RunDurat
   if (total >= 60) parts.push({ text: String(minutes), numeric: true }, { text: t('duration.minuteUnit'), numeric: false })
   parts.push({ text: String(seconds), numeric: true }, { text: t('duration.secondUnit'), numeric: false })
   return parts
+}
+
+/**
+ * Build a finished run's elapsed-time fragments with the precision the usage stats use, so
+ * the duration never reads shorter than its own time to first token: one decimal under 10
+ * seconds (at least 0.1s), whole seconds rounded to nearest from 10 seconds up.
+ * @param ms - elapsed milliseconds; negatives clamp to zero.
+ * @param t - translate seat supplying units and their trailing spacing.
+ * @returns numbers and localized units in display order.
+ */
+export function formatSettledDuration(ms: number, t: RunDurationTranslate): RunDurationPart[] {
+  const tenths = Math.max(1, Math.round(ms / 100))
+  if (tenths >= 100) return formatRunDuration(Math.round(ms / 1000) * 1000, t)
+  return [{ text: String(tenths / 10), numeric: true }, { text: t('duration.secondUnit'), numeric: false }]
 }
 
 /**

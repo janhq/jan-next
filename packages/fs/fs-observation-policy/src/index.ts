@@ -4,12 +4,12 @@
  * guards from that state, and the provider performs the atomic freshness/no-clobber check. Without
  * this plugin, tools retain the bare provider's unconditional mutation behavior. See the package
  * README for composition rules.
- * @module @deepseek-ai/dsh-fs-observation-policy
+ * @module @janhq/jan-fs-observation-policy
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import { FsError } from '@deepseek-ai/dsh-fs'
-import type { FsObservation, FsTarget, FsVersion, FsWriteIntent } from '@deepseek-ai/dsh-fs'
+import type { Context } from '@janhq/cordis'
+import { FsError } from '@janhq/jan-fs'
+import type { FsObservation, FsTarget, FsVersion, FsWriteIntent } from '@janhq/jan-fs'
 import type { FsObservationActor } from './types.ts'
 
 export type { FsObservationActor } from './types.ts'
@@ -35,7 +35,6 @@ class ObservedStateGate {
    */
   private owner(actor: object | undefined): object | undefined {
     // tsgolint treats object as assignable to weak FsObservationActor, while tsc still requires the structural cast for property access.
-    // See the analyzer-divergence consequence in .agents/notes/archived/process/2026-07-29-oxlint-linter.md.
     // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- The analyzers disagree on this weak type.
     return (actor as FsObservationActor | undefined)?.agent?.session
   }

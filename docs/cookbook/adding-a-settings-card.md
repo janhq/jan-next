@@ -1,14 +1,12 @@
 # Cookbook: live configuration forms
 
-English | [中文](adding-a-settings-card.zh.md)
-
 Declare live fields in the plugin Config schema and expose them through a product-owned settings card. The exported `Config` interface describes the values received by the plugin, including each `Volatile<T>` reference.
 
 ## 1. Declare live fields
 
 ```ts
-import type { Context, Volatile } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import type { Context, Volatile } from '@janhq/cordis'
+import z from '@janhq/schemastery'
 
 export interface Config {
   endpoint: Volatile<string | undefined>
@@ -55,7 +53,7 @@ ctx.slots.inject('plugins.detail.badge', () => ctx.slots.register({
 
 ## 5. Where the browser half rides
 
-The browser half is served to the page by the [client module system](../../packages/client/modules), which scans the enabled Loader entries for packages declaring `dsh.client` and serves each one's built `./client` export — but it attaches a package's half to the Loader row whose specifier is the bare package name. A row mounted from a subpath export never carries a half, so a bundle that splits one package into several rows keeps its half on the root row, and every page it registers goes away when that row is switched off. A sub-plugin whose page must outlive the other rows ships as its own package.
+The browser half is served to the page by the [client module system](../../packages/client/modules), which scans the enabled Loader entries for packages declaring `jan.client` and serves each one's built `./client` export — but it attaches a package's half to the Loader row whose specifier is the bare package name. A row mounted from a subpath export never carries a half, so a bundle that splits one package into several rows keeps its half on the root row, and every page it registers goes away when that row is switched off. A sub-plugin whose page must outlive the other rows ships as its own package.
 
 The built `./client` file must be in the client module system's lazy-CJS factory format: one script that registers the package name and a `factory(require)` with the page's module loader, described in the [client module system's README](../../packages/client/modules/README.md). The `clientBundle` tsdown preset that emits it lives in `packages/client/tsdown.client.ts` rather than in a published package, so a package outside this repository reproduces that build itself.
 
@@ -65,7 +63,7 @@ The built `./client` file must be in the client module system's lazy-CJS factory
     ".": { "types": "./lib/types/index.d.ts", "default": "./lib/index.js" },
     "./client": { "types": "./lib/types/client/index.d.ts", "default": "./lib/client.js" }
   },
-  "dsh": { "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-settings"] } }
+  "jan": { "client": { "platform": "web", "inject": ["@janhq/jan-client-ui-settings"] } }
 }
 ```
 

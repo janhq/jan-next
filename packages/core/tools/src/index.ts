@@ -1,12 +1,12 @@
 /** Tool definitions and scoped dispatch to plugin-owned executors. @module */
-import { Context, Service } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import { AnonymousEntries, NamedEntries, ScopedLayers, scopeOf, scopeChainOf } from '@deepseek-ai/dsh-scope'
-import type { ScopeKey, ScopeLayer } from '@deepseek-ai/dsh-scope'
+import { Context, Service } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import { AnonymousEntries, NamedEntries, ScopedLayers, scopeOf, scopeChainOf } from '@janhq/jan-scope'
+import type { ScopeKey, ScopeLayer } from '@janhq/jan-scope'
 import { ToolExecutorUnavailableError } from './executor.ts'
 import type { ToolExecutor, ToolBatchInput, ToolBatchResult } from './executor.ts'
 import './events.ts'
-import type { ToolSchema } from '@deepseek-ai/dsh-llm'
+import type { ToolSchema } from '@janhq/jan-llm'
 import { projectToolSchema } from './schema.ts'
 import { assertSupportedJsonSchema } from './json-schema.ts'
 import { RUN_CODE_NAME, ToolActivationError } from './contracts.ts'
@@ -15,21 +15,21 @@ import type {
   ResolvedToolSet, ToolActivationContext, ToolRegistrationOptions,
 } from './contracts.ts'
 
-declare module '@deepseek-ai/dsh-system-prompt' {
+declare module '@janhq/jan-system-prompt' {
   interface AssembleContext {
     /** Step-owned tool selection; absent when inspecting registered definitions. */
     toolSet?: ResolvedToolSet
   }
 }
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     /** Tool availability changes supplied by the tool registry. */
     'tool-registry': { kind: 'tool-registry' }
   }
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     tools: ToolsService
   }
@@ -157,9 +157,10 @@ export class ToolsService extends Service {
    * names, scope-local names, and reserved transport names fail. Restrictions
    * intersect; scoped registrations remain visible.
    * @param filter - global-tool mask: `allow` (keep only) and/or `deny` (remove).
+   * @param options - permit names whose optional providers have not registered yet.
    * @returns the exact disposer that lifts this restriction.
    */
-  restrict(filter: ToolRestriction): () => void {
+  restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean } = {}): () => void {
     const scope = scopeOf(this.ctx)
     if (scope === undefined) {
       throw new Error('tools.restrict() requires a scoped context (agent.ctx): a context-global restriction would mask every agent — deny the tool for the intended agent instead')
@@ -176,10 +177,12 @@ export class ToolsService extends Service {
     if ([...allow ?? [], ...deny ?? []].includes(RUN_CODE_NAME)) {
       throw new Error(`tools.restrict() cannot name reserved PTC mode presentation transport "${RUN_CODE_NAME}"; restrict end-capability tools instead`)
     }
-    const known = this.view(scope).restrictableNames
-    const unknown = [...allow ?? [], ...deny ?? []].filter(name => !known.has(name))
-    if (unknown.length > 0) {
-      throw new Error(`tools.restrict() names unknown global tool${unknown.length > 1 ? 's' : ''} ${unknown.map(n => `"${n}"`).join(', ')}; known global tools: ${[...known].sort().join(', ') || '(none)'}`)
+    if (options.allowUnregistered !== true) {
+      const known = this.view(scope).restrictableNames
+      const unknown = [...allow ?? [], ...deny ?? []].filter(name => !known.has(name))
+      if (unknown.length > 0) {
+        throw new Error(`tools.restrict() names unknown global tool${unknown.length > 1 ? 's' : ''} ${unknown.map(n => `"${n}"`).join(', ')}; known global tools: ${[...known].sort().join(', ') || '(none)'}`)
+      }
     }
     return this.layers.effect(
       this.ctx,

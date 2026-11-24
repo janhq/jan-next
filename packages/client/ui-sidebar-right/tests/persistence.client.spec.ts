@@ -1,8 +1,8 @@
 /** Per-Session layout recovery precedes resource-body rendering. */
 import { afterEach, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
+import { Context } from '@janhq/cordis'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { TabId } from '@janhq/jan-client-ui-dockkit'
 import { createSidebarRightStore } from '../src/client/stores.ts'
 import { createSidebarRightController } from '../src/client/service.ts'
 import { SidebarRightTabRegistry } from '../src/client/tab-registry.ts'
@@ -39,11 +39,13 @@ it('restores current layout independently by Session with a fresh undo history',
   first.actions.setMode(sessionId, 'fullscreen')
   const second = handle.create('second')
   second.actions.open('second')
+  second.actions.setMode('second', 'fullscreen')
+  const secondLayout = () => createSidebarRightStore(seed).create('second').getSnapshot().bySession.second?.layout
   const saved = first.getSnapshot()
   const restored = createSidebarRightStore(seed).create(sessionId)
   const recovered = { bySession: { [sessionId]: { ...saved.bySession[sessionId], history: { entries: [], cursor: 0 } } } }
   expect(restored.getSnapshot()).toEqual(recovered)
-  expect(createSidebarRightStore(seed).create('second').getSnapshot()).toEqual(second.getSnapshot())
+  expect(secondLayout()).toEqual(second.getSnapshot().bySession.second!.layout)
   expect(createSidebarRightStore(seed).create('new').getSnapshot()).toEqual({ bySession: {} })
   restored.actions.undo(sessionId)
   restored.actions.redo(sessionId)
@@ -52,14 +54,14 @@ it('restores current layout independently by Session with a fresh undo history',
   expect(createSidebarRightStore(seed).create(sessionId).getSnapshot().bySession[sessionId]!.layout.expanded).toBe(false)
   restored.clearPersisted()
   expect(createSidebarRightStore(seed).create(sessionId).getSnapshot()).toEqual({ bySession: {} })
-  expect(createSidebarRightStore(seed).create('second').getSnapshot()).toEqual(second.getSnapshot())
+  expect(secondLayout()).toEqual(second.getSnapshot().bySession.second!.layout)
 })
 
 it('pins restored records during adoption before the first render or store mutation', async () => {
   storage()
   const first = createSidebarRightStore(seed).create(sessionId)
   let file!: TabId
-  const address = 'dsh-resource://file/session/first/a.txt'
+  const address = 'jan-resource://file/session/first/a.txt'
   first.actions.openContent(sessionId, { kind: 'text', contentId: address, title: 'a' }, (id) => { file = id })
   const ctx = new Context()
   const pin = vi.fn()
@@ -87,11 +89,23 @@ it('pins restored records during adoption before the first render or store mutat
 
 it('starts from an empty layout when stored JSON is corrupt and keeps working when storage rejects writes', () => {
   const values = storage()
-  values.set(`dsh.sidebar-right.v1.${sessionId}`, '{broken')
+  values.set(`jan.sidebar-right.v1.${sessionId}`, '{broken')
   vi.spyOn(console, 'error').mockImplementation(() => {})
   const instance = createSidebarRightStore(seed).create(sessionId)
   expect(instance.getSnapshot()).toEqual({ bySession: {} })
   vi.spyOn(localStorage, 'setItem').mockImplementation(() => { throw new Error('Storage full') })
   instance.actions.setExpanded(sessionId, true)
   expect(instance.getSnapshot().bySession[sessionId]!.layout.expanded).toBe(true)
+})
+
+it('keeps no entry for a Session whose sidebar was never used and prunes such entries on read', () => {
+  const values = storage()
+  const key = `jan.sidebar-right.v1.${sessionId}`
+  const fresh = createSidebarRightStore(seed).create(sessionId)
+  fresh.actions.setMode(sessionId, 'push')
+  const surface = fresh.getSnapshot().bySession[sessionId]!
+  expect(values.has(key)).toBe(false)
+  values.set(key, JSON.stringify({ bySession: { [sessionId]: { layout: surface.layout, minted: surface.minted } } }))
+  expect(createSidebarRightStore(seed).create(sessionId).getSnapshot()).toEqual({ bySession: {} })
+  expect(values.has(key)).toBe(false)
 })

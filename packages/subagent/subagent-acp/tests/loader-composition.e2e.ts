@@ -3,8 +3,8 @@ import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { type SessionEvent } from '@deepseek-ai/dsh-session'
-import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
+import { type SessionEvent } from '@janhq/jan-session'
+import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@janhq/jan-loader-smoke'
 
 /**
  * Keyless REAL-composition coverage for the ACP provider through a test-only
@@ -59,7 +59,7 @@ describe('ACP subagent cwd inheritance through the production profile', () => {
       libBinScript: driver,
       configPath,
       tsconfigPath: repoTsconfig,
-      env: { DSH_TEST_MOCK_ACP_SERVER: mockServer },
+      env: { JAN_TEST_MOCK_ACP_SERVER: mockServer },
       inspect: async (cwd) => {
         // The child reports realpaths; canonicalize the temp workspace to match.
         workspace = realpathSync(cwd)
@@ -71,7 +71,10 @@ describe('ACP subagent cwd inheritance through the production profile', () => {
     })
     expect(stderr).not.toContain('UNHANDLED')
 
-    expect(settlementText(events)).toEqual(['Its closing message:', `${workspace}\n${workspace}`])
+    expect(settlementText(events)).toEqual([
+      'Status: completed\nSummary: See closing message below.\nEvidence: Not reported.\nBlockers: Not reported.\nChanged files: Not reported.',
+      'Its closing message:', `${workspace}\n${workspace}`,
+    ])
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)
 
   it('presents the ACP remote-limit diagnostic separately from partial output', async () => {
@@ -84,8 +87,8 @@ describe('ACP subagent cwd inheritance through the production profile', () => {
       configPath,
       tsconfigPath: repoTsconfig,
       env: {
-        DSH_TEST_MOCK_ACP_SERVER: mockServer,
-        DSH_TEST_ACP_MODE: 'diagnostic',
+        JAN_TEST_MOCK_ACP_SERVER: mockServer,
+        JAN_TEST_ACP_MODE: 'diagnostic',
       },
       inspect: async (cwd) => {
         const logs = await jsonlFiles(join(cwd, '.sessions'))
@@ -96,9 +99,11 @@ describe('ACP subagent cwd inheritance through the production profile', () => {
     })
     expect(stderr).not.toContain('UNHANDLED')
     expect(settlementText(events)).toEqual([
+      'Status: failed\nSummary: See closing message below.\nEvidence: Not reported.\n'
+      + 'Blockers: Subagent failure (provider: ACP; stage: prompt; category: remote-limit; stop reason: max_turn_requests)\n'
+      + 'Changed files: Not reported.',
       'Its closing message:',
       'partial loader answer',
-      'Subagent failure (provider: ACP; stage: prompt; category: remote-limit; stop reason: max_turn_requests)',
     ])
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)
 })

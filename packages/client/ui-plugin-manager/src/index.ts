@@ -1,11 +1,12 @@
 /** Host registry-response probing for the plugin installation dialog. */
 
-import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import type { Context, Volatile } from '@janhq/cordis'
+import type {} from '@janhq/jan-settings'
+import z from '@janhq/schemastery'
+import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
+import { Remote, TypertRemoteService } from '@janhq/jan-typert-protocol'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     pluginRegistryProbe: PluginRegistryProbe
   }
@@ -19,14 +20,17 @@ export interface Config {
   registryProbeTimeoutMs: number
   /** Lifetime of a winning registry or unavailable result. */
   registryProbeCacheTtlMs: number
+  /** Present the page as Customize: that heading, no intro, and Plugins as the first tab's name. */
+  customize: Volatile<boolean>
 }
 
 /** Compares public registry responses on the Host; the Client owns the initial selection. */
 export default class PluginRegistryProbe extends TypertRemoteService {
-  static Config: z<Partial<Config>, Config> = z.object({
+  static Config = z.object({
     registryProbeEnabled: z.boolean().default(true),
     registryProbeTimeoutMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(1500),
     registryProbeCacheTtlMs: z.natural().default(300000),
+    customize: z.boolean().default(false).volatile(),
   })
 
   private readonly lifetime = new AbortController()
@@ -35,6 +39,8 @@ export default class PluginRegistryProbe extends TypertRemoteService {
 
   constructor(ctx: Context, private readonly config: Config) {
     super(ctx, 'pluginRegistryProbe')
+    // The page reads `customize` from its browser form; it is deployment copy, not a person's setting.
+    ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
     ctx.effect(() => async () => {
       this.lifetime.abort()
       await this.pending

@@ -6,20 +6,20 @@
  * serves remote clients the dialog backend cannot. Policy decisions (hidden
  * entries flagged but returned, symlinks followed, whole-filesystem scope) are
  * recorded in the directory-picker seam Agent Note.
- * @module @deepseek-ai/dsh-host-directory-picker-browse
+ * @module @janhq/jan-host-directory-picker-browse
  */
 
-import { mkdir, opendir, stat } from 'node:fs/promises'
+import { opendir, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, dirname, join, posix, resolve, win32 } from 'node:path'
-import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import { basename, dirname, join, resolve } from 'node:path'
+import type { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
 import {
-  DirectoryPicker, DirectoryPickerError,
-} from '@deepseek-ai/dsh-host-directory-picker'
+  createChildDirectory, DirectoryPicker, DirectoryPickerError, fullyQualified,
+} from '@janhq/jan-host-directory-picker'
 import type {
   DirectoryEntry, DirectoryListing, DirectoryPickerCapability,
-} from '@deepseek-ai/dsh-host-directory-picker'
+} from '@janhq/jan-host-directory-picker'
 
 /**
  * Ancestor chain from the filesystem root to `target` inclusive — the
@@ -35,22 +35,6 @@ function ancestryCrumbs(target: string): DirectoryEntry[] {
     if (parent === current) return crumbs
     current = parent
   }
-}
-
-/**
- * True when the path names one fixed filesystem location regardless of
- * process state: POSIX-absolute on POSIX; on Windows only drive-qualified
- * (`C:\…`) or complete UNC (`\\server\share…`) forms. Rooted drive-less
- * forms (`\foo`, `/foo`) and incomplete UNC prefixes (`\\`, `\\server`)
- * pass `isAbsolute` yet still resolve against the process's current drive.
- * @param path - candidate path.
- * @param platform - replaces `process.platform` for deterministic tests.
- * @returns whether the path is fully qualified on the platform.
- */
-export function fullyQualified(path: string, platform: NodeJS.Platform = process.platform): boolean {
-  return platform === 'win32'
-    ? win32.isAbsolute(path) && /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/]+[\\/]+[^\\/]+)/.test(path)
-    : posix.isAbsolute(path)
 }
 
 /** One streamed listing candidate: the dirent facts a row needs, nothing else retained. */
@@ -199,7 +183,7 @@ export default class BrowseDirectoryPicker extends DirectoryPicker {
   private readonly browseCapability: DirectoryPickerCapability = {
     kind: 'browse',
     list: (path, signal) => this.list(path, signal),
-    createDirectory: (path, name) => this.createDirectory(path, name),
+    createDirectory: createChildDirectory,
   }
 
   constructor(ctx: Context, private readonly config: Config) {
@@ -294,31 +278,5 @@ export default class BrowseDirectoryPicker extends DirectoryPicker {
       entries.push(row)
     }
     return { path: target, home, crumbs: ancestryCrumbs(target), entries, truncated }
-  }
-
-  private async createDirectory(path: string, name: string): Promise<string> {
-    // Same fully-qualified fence as list: never rebase a parent under the
-    // cwd or the current drive.
-    if (!fullyQualified(path)) {
-      throw new DirectoryPickerError('directory-create-failed', path, `cannot create under "${path}": not a fully qualified parent path`)
-    }
-    const parent = resolve(path)
-    // The backend owns segment validation; the Remote controller also refuses
-    // invalid wire input, but direct service consumers must hit the same fence.
-    if (name.trim() === '' || name === '.' || name === '..' || /[/\\]/.test(name)) {
-      throw new DirectoryPickerError('directory-create-failed', join(parent, name), `"${name}" is not a single path segment`)
-    }
-    const target = join(parent, name)
-    try {
-      // Non-recursive: the parent is the directory the browser is showing, so
-      // a missing parent is a real failure, not a level to invent.
-      await mkdir(target)
-      return target
-    } catch (error: unknown) {
-      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'EEXIST') {
-        throw new DirectoryPickerError('directory-exists', target, `${target} already exists`)
-      }
-      throw new DirectoryPickerError('directory-create-failed', target, `cannot create ${target}: ${messageOf(error)}`)
-    }
   }
 }

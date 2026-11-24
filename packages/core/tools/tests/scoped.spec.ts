@@ -1,17 +1,17 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import type { Events } from '@deepseek-ai/cordis'
-import { bindScopeParent, createScope } from '@deepseek-ai/dsh-scope'
-import type { Scope } from '@deepseek-ai/dsh-scope'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import type { PreToolDecision, ToolDefinition, ToolExecution, ToolExecutionInput, ToolExecutionToken } from '@deepseek-ai/dsh-tools'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import { Context } from '@janhq/cordis'
+import type { Events } from '@janhq/cordis'
+import { bindScopeParent, createScope } from '@janhq/jan-scope'
+import type { Scope } from '@janhq/jan-scope'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import type { PreToolDecision, ToolDefinition, ToolExecution, ToolExecutionInput, ToolExecutionToken } from '@janhq/jan-tools'
+import type { Agent } from '@janhq/jan-agent'
 
-import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import { ToolCallId } from '@janhq/jan-llm'
+import type { SessionId } from '@janhq/jan-session'
 
 const testToolSignal = new AbortController().signal
 
@@ -87,6 +87,19 @@ describe('scoped tool registration', () => {
     expect(await run(ctx, 'mine')).toBe('Error: unknown tool "mine"')
   })
 
+  it('points a namespaced unknown name at the callable tool it wraps, only within the caller view', async () => {
+    const ctx = await mount()
+    const { scope, key } = await mintAgentScope(ctx, 'a')
+    ctx.tools.register(tool('read_file'))
+    scope.ctx.tools.register(tool('bash'))
+
+    expect(await run(ctx, 'input_bash', key)).toBe('Error: unknown tool "input_bash": did you mean "bash"?')
+    expect(await run(ctx, 'functions.read_file', key)).toBe('Error: unknown tool "functions.read_file": did you mean "read_file"?')
+    // A suggestion never names a tool the caller cannot run.
+    expect(await run(ctx, 'input_bash')).toBe('Error: unknown tool "input_bash"')
+    expect(await run(ctx, 'input_shell', key)).toBe('Error: unknown tool "input_shell"')
+  })
+
   it('scoped shadows global on a name conflict, in either registration order', async () => {
     const ctx = await mount()
     const { scope, key } = await mintAgentScope(ctx, 'a')
@@ -159,6 +172,17 @@ describe('restrict()', () => {
     expect(await run(ctx, 'web', allowed.key)).toBe('Error: unknown tool "web"')
     expect(await run(ctx, 'denied-local', denied.key)).toBe('ran:denied-local')
     expect(await run(ctx, 'allowed-local', allowed.key)).toBe('ran:allowed-local')
+  })
+
+  it('keeps a closed allowlist when approved tools may register later', async () => {
+    const ctx = await mount()
+    const { scope, key } = await mintAgentScope(ctx, 'optional-tools')
+    ctx.tools.register(tool('write'))
+    scope.ctx.tools.restrict({ allow: ['read'] }, { allowUnregistered: true })
+    expect(ctx.tools.schemas(key)).toEqual([])
+    ctx.tools.register(tool('read'))
+    expect(ctx.tools.schemas(key).map(entry => entry.name)).toEqual(['read'])
+    expect(await run(ctx, 'write', key)).toBe('Error: unknown tool "write"')
   })
 
   it('composes multiple restrictions by intersection and lifts each independently', async () => {

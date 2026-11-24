@@ -8,23 +8,15 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, relative, resolve } from 'node:path'
 import ts from 'typescript'
-import { projectCordisCatalog } from '@deepseek-ai/dsh-typert-generator'
+import { projectCordisCatalog } from '@janhq/jan-typert-generator'
 import { CORDIS_CATALOG_POLICY } from './gen-cordis-catalog.ts'
-import type { EventEntry, ServiceEntry } from '@deepseek-ai/dsh-typert-generator'
+import type { EventEntry, ServiceEntry } from '@janhq/jan-typert-generator'
 import {
   collectPackageGraph,
   escapeMermaidLabel as escLabel,
   graphNodeId as nodeId,
   type PackageGraphNode,
 } from './package-graph.ts'
-import { rewriteTranslationLinkLocales } from './translation-links.ts'
-import {
-  generatedRegions,
-  parseTranslationPairingManifest,
-  renderGeneratedRegion,
-  spliceGeneratedRegion,
-  translationPairSourcePredicate,
-} from './translation-pairing.ts'
 import { TypeScriptProject } from './ts-project.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -179,12 +171,28 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Fetches and validates the index sources the user configures; installation goes through the plugin manager.',
   },
   {
+    key: 'pluginI18n',
+    pkg: 'host-plugin-i18n',
+    title: 'Plugin UI translation',
+    mode: 'core',
+    consumers: ['client-ui-plugin-i18n', 'client-ui-plugin-manager'],
+    note: 'Translates installed plugins\' display strings with the chosen model after consent and serves the generated locale tables.',
+  },
+  {
+    key: 'compactionSettings',
+    pkg: 'compaction-basic',
+    title: 'Host compaction preferences',
+    mode: 'core',
+    consumers: ['compaction-basic'],
+    note: 'Settings-edited preferences on the host plane; every agent preset\'s compaction backend reads them at each compaction decision.',
+  },
+  {
     key: 'profileContext',
     pkg: 'app-boot',
     title: 'Launcher-owned profile data',
     mode: 'core',
     consumers: ['plugin-manager'],
-    note: 'The dsh launcher supplies data-only profile locations and composition inputs; reload scheduling belongs to dsh-hmr.',
+    note: 'The jan launcher supplies data-only profile locations and composition inputs; reload scheduling belongs to jan-hmr.',
   },
   {
     key: 'connection',
@@ -279,7 +287,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Durable binary attachment storage',
     mode: 'seam',
     implementations: ['attachment-local'],
-    consumers: ['api-session-controller', 'tool-fs', 'llm-pi-ai', 'llm-deepseek'],
+    consumers: ['api-session-controller', 'tool-fs', 'llm-pi-ai'],
     note: 'The host commits accepted images before session events; provider adapters resolve authorized durable references into provider-native content.',
   },
   {
@@ -295,26 +303,9 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'llm',
     title: 'LLM adapter registry',
     mode: 'seam',
-    implementations: ['llm-deepseek', 'llm-pi-ai', 'llm-replay'],
+    implementations: ['llm-pi-ai', 'llm-replay'],
     consumers: ['agent-loop', 'compaction-basic'],
     note: 'Adapters register provider implementations; the loop and compaction call the provider-neutral stream service.',
-  },
-  {
-    key: 'sessionLogDeepSeek',
-    pkg: 'session-log-deepseek',
-    title: 'Session-log upload policy',
-    mode: 'core',
-    implementations: [],
-    note: 'Plugins register caller-owned exclusions before the canonical Session-log request contribution is prepared; unmatched requests use normal upload eligibility.',
-  },
-  {
-    key: 'deepseekLlmApiExtensions',
-    pkg: 'deepseek-llm-api-extensions',
-    title: 'Official DeepSeek request extensions',
-    mode: 'seam',
-    implementations: ['session-log-deepseek', 'plugin-package-inventory-deepseek'],
-    consumers: ['llm-deepseek'],
-    note: 'Plugins prepare independent top-level fields; the official adapter merges them and commits their delivery state after HTTP acceptance.',
   },
   {
     key: 'tokenMeter',
@@ -445,7 +436,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Runtime type registry',
     mode: 'core',
     consumers: ['typert-loader', 'api-gateway'],
-    note: 'Plugins register live zod contributions directly or through dsh-typert-loader; the API gateway consumes invocation descriptors and providers, while other runtime consumers query schemas and reflection metadata at their own edges.',
+    note: 'Plugins register live zod contributions directly or through jan-typert-loader; the API gateway consumes invocation descriptors and providers, while other runtime consumers query schemas and reflection metadata at their own edges.',
   },
   {
     key: 'typertGateway',
@@ -501,16 +492,16 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Credential seam',
     mode: 'seam',
     implementations: ['credentials-local'],
-    consumers: ['api-settings-controller', 'llm-deepseek', 'llm-pi-ai'],
+    consumers: ['api-settings-controller', 'llm-pi-ai'],
     note: 'Configuration carries references to secrets; providers own the values. Consumers resolve per operation, so a rotated credential reaches the very next request; the settings controller exposes value-free views and write-only storage.',
   },
   {
-    key: 'deepseekAccount',
-    pkg: 'deepseek-account',
-    title: 'DeepSeek account',
+    key: 'tokamakAccount',
+    pkg: 'tokamak-account',
+    title: 'Tokamak account',
     mode: 'seam',
-    implementations: ['deepseek-account-platform'],
-    consumers: ['api-account-controller', 'llm-deepseek'],
+    implementations: ['tokamak-account'],
+    consumers: ['api-account-controller'],
     note: 'The Host owns browser authorization and local credentials; UI consumers receive state without tokens.',
   },
   {
@@ -651,6 +642,22 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'UI front ends provide the active human-answer provider; tool-ask-user pauses a tool call on the provider-neutral ask() promise.',
   },
   {
+    key: 'userQuestionSettings',
+    pkg: 'client-ui-user-questions',
+    title: 'Question countdown preference',
+    mode: 'core',
+    consumers: ['tool-ask-user'],
+    note: 'Reads the profile-owned auto-answer countdown live, so a Settings change applies to the next question without a reload.',
+  },
+  {
+    key: 'mediaCapture',
+    pkg: 'tool-capture-media',
+    title: 'Owner camera and microphone capture',
+    mode: 'core',
+    consumers: ['tool-capture-media'],
+    note: 'The Host startup half waits for the owner to allow, capture and send in the chat, stores the bytes as an attachment, then settles the tool call; a decline settles it as declined.',
+  },
+  {
     key: 'planMode',
     pkg: 'plan-mode',
     title: 'Plan collaboration state',
@@ -718,7 +725,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Concrete loop driver',
     mode: 'bundle',
     consumers: ['base', 'sdk-minimal'],
-    note: 'The one concrete loop plugin; extension packages depend on dsh-agent events and services, not on this package.',
+    note: 'The one concrete loop plugin; extension packages depend on jan-agent events and services, not on this package.',
   },
   {
     key: 'mcpManager',
@@ -773,7 +780,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Managed bash environment registry',
     mode: 'core',
     consumers: ['tool-bash', 'tool-pwsh'],
-    note: 'Plugins declare effect-scoped DSH_* facts; each shell tool collects one trusted snapshot per execution and its executor rebuilds the namespace.',
+    note: 'Plugins declare effect-scoped JAN_* facts; each shell tool collects one trusted snapshot per execution and its executor rebuilds the namespace.',
   },
   {
     key: 'terminals',
@@ -852,7 +859,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'subagent',
     title: 'Subagent provider and continuation service',
     mode: 'seam',
-    implementations: ['subagent-spawn-in-process', 'subagent-fork-in-process', 'subagent-acp', 'subagent-codex', 'subagent-claude-code', 'subagent-dsh-sdk'],
+    implementations: ['subagent-spawn-in-process', 'subagent-fork-in-process', 'subagent-acp', 'subagent-codex', 'subagent-claude-code', 'subagent-jan-sdk'],
     consumers: ['tool-subagent', 'tool-subagent-control', 'tool-ralph'],
     note: 'Providers prepare local children or execute external tasks; one activation manager owns both lifecycles. The delegation tool selects a backend, control tools deliver local follow-ups, and workflows await activation results.',
   },
@@ -901,7 +908,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'web',
     title: 'Web access provider registry',
     mode: 'seam',
-    implementations: ['web-search-deepseek', 'web-deepseek-api', 'web-fetch-http'],
+    implementations: ['web-search', 'web-fetch-http'],
     consumers: ['tool-web'],
     note: 'Search and fetch providers register into one ctx.web seam; tool-web owns the stable model-facing names.',
   },
@@ -937,7 +944,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Served Web GUI',
     mode: 'core',
     consumers: ['harness-dev-context'],
-    note: 'The web-runtime row advertises one URL for its Web GUI: the configured publicUrl, otherwise the listener origin; DSH_WEB_URL, the startup URL, and harness-dev-context read the same value.',
+    note: 'The web-runtime row advertises one URL for its Web GUI: the configured publicUrl, otherwise the listener origin; JAN_WEB_URL, the startup URL, and harness-dev-context read the same value.',
   },
   {
     key: 'clientModules',
@@ -945,7 +952,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Client plugin graph host',
     mode: 'core',
     consumers: ['client-hmr'],
-    note: 'Composes the __DSH_BOOT__ entry graph from an incremental dsh.client scan, serves plugin bundles, and notifies rebuilt/graph-changed subscribers.',
+    note: 'Composes the __JAN_BOOT__ entry graph from an incremental jan.client scan, serves plugin bundles, and notifies rebuilt/graph-changed subscribers.',
   },
   {
     key: 'workflowEngine',
@@ -1132,12 +1139,12 @@ function stripYamlScalar(value: string): string {
 
 const APP_EXAMPLES = [
   {
-    id: 'dsh_base',
+    id: 'jan_base',
     rel: 'apps/cli/composition.md',
-    title: 'DSH Base Composition',
+    title: 'Jan Base Composition',
     label: 'packages/bundle/base/cordis.patch.yml',
     config: 'packages/bundle/base/cordis.patch.yml',
-    summary: 'The dsh-base bundle patch shared by the web, headless, sdk, and acp profiles; their mode bundles and user layers patch over it, while sdk-minimal owns a separate standalone tree.',
+    summary: 'The jan-base bundle patch shared by the web, headless, sdk, and acp profiles; their mode bundles and user layers patch over it, while sdk-minimal owns a separate standalone tree.',
   },
 ]
 
@@ -1591,7 +1598,7 @@ function renderEventRelations(pkgs: Pkg[], events: readonly EventEntry[]): strin
     const relation = relations.get(event.name) ?? { dispatchers: new Map<string, Set<string>>(), listeners: new Set<string>() }
     rows.push(`| \`${event.name}\` | \`${event.mode}\` | ${sourceLink(event.source)} | ${relationPackages(relation.dispatchers, pkgsByShort)} | ${listenerPackages(relation.listeners, pkgsByShort)} |`)
   }
-  lines.push(renderGeneratedRegion('event-producer-consumer:events', rows.join('\n')))
+  lines.push(...rows)
   // Every declared event needs a dispatcher: zero means dead vocabulary or an
   // unrecognized semantic dispatch form. Listener-free extension points remain
   // valid. Client-declared events are exempt: the relation scan seeds the HOST
@@ -1623,7 +1630,7 @@ function renderEventRelations(pkgs: Pkg[], events: readonly EventEntry[]): strin
       '',
       '## Non-harness or undeclared event strings seen in package source',
       '',
-      renderGeneratedRegion('event-producer-consumer:undeclared', extraRows.join('\n')),
+      ...extraRows,
     )
   }
   lines.push('', ...maintenanceFooter(maintenance))
@@ -1715,7 +1722,7 @@ function renderLifecycle(): string {
     '',
     'The `assistant/message` event records every successful provider call, including content-less and `max-tokens` finishes, and embeds the exact compact timed stream. Empty content stays out of derived history. A failed, retried, cancelled, or stream-error attempt that reaches settlement without a surface message records its stream as `assistant/attempt`. Live `agent/assistant-stream` chunk frames are transient; replay reads either durable settlement, and a hard process loss before settlement leaves no durable attempt stream.',
     '',
-    '`dsh-compaction-basic` uses `agent/pre-step` for pressure before request derivation and `agent/request-error` only for canonical context overflow. Once either trigger qualifies, optional tool-result pruning runs before summary selection. Recovery runs within the open step and retries only when pruning or summarization advances the surface replacement generation; otherwise the original request error remains authoritative. Each retry prepares its call and reconciles the retained rendered assembly before request derivation, without repeating assembly, pre-step, or user admission.',
+    '`jan-compaction-basic` uses `agent/pre-step` for pressure before request derivation and `agent/request-error` only for canonical context overflow. Once either trigger qualifies, optional tool-result pruning runs before summary selection. Recovery runs within the open step and retries only when pruning or summarization advances the surface replacement generation; otherwise the original request error remains authoritative. Each retry prepares its call and reconciles the retained rendered assembly before request derivation, without repeating assembly, pre-step, or user admission.',
     '',
     'The returned `agent/pre-step` decision is authoritative; listeners wrapping `next()` preserve downstream messages and `startsRequestSeries` unless replacement is intentional. Steering and injected context pass through the same waterfall after a later claim operation takes their next-step batch.',
     '',
@@ -1804,35 +1811,13 @@ function renderDocs(): GraphDoc[] {
     { rel: 'docs/tool-execution-pipeline.md', content: renderToolPipeline() },
   ]
   docs.unshift({ rel: 'docs/graph-atlas.md', content: renderIndex(docs) })
-  const events = docs.find(doc => doc.rel === 'docs/event-producer-consumer.md')
-  if (events !== undefined) docs.push(spliceChineseRegions(events))
   return docs
-}
-
-/**
- * Splice a generated page's regions into its authored Chinese counterpart,
- * localizing paired-document links; the surrounding Chinese prose stays authored.
- */
-function spliceChineseRegions(doc: GraphDoc): GraphDoc {
-  const rel = doc.rel.replace(/\.md$/, '.zh.md')
-  const context = {
-    repoRoot: root,
-    sourcePath: rel,
-    isTranslationPairSource: translationPairSourcePredicate(parseTranslationPairingManifest(
-      readFileSync(resolve(root, 'scripts/translation-pairing.manifest.json'), 'utf8'),
-    )),
-  }
-  let content = readFileSync(resolve(root, rel), 'utf8')
-  for (const region of generatedRegions(doc.content)) {
-    content = spliceGeneratedRegion(content, rewriteTranslationLinkLocales(region.text, context).content)
-  }
-  return { rel, content }
 }
 
 function renderIndex(docs: GraphDoc[]): string {
   const labels: Record<string, string> = {
     'docs/capability-seams.md': 'capability seams and core services',
-    'apps/cli/composition.md': 'dsh shared base composition',
+    'apps/cli/composition.md': 'jan shared base composition',
     'docs/event-producer-consumer.md': 'event producer/consumer matrix',
     'docs/agent-lifecycle.md': 'agent turn and step lifecycle',
     'docs/tool-execution-pipeline.md': 'tool execution pipeline',
@@ -1856,8 +1841,6 @@ function renderIndex(docs: GraphDoc[]): string {
   return [
     ...generatedHeader('Documentation Graph Index'),
     'These diagrams show relationships that the generated catalogs do not. Use them to find package relationships, capability seams, event flow, model-facing tools, app composition, and runtime lifecycle paths. Exact signatures and type definitions still live in the [subsystem pages](subsystems/core.md) (types + the generated Cordis API regions) and [tool-catalog.md](tool-catalog.md).',
-    '',
-    'The process decision behind this index is recorded in [the documentation graph Agent Note](../.agents/notes/archived/process/2026-07-03-documentation-graph-atlas.md).',
     '',
     '| Graph | Mode |',
     '| --- | --- |',

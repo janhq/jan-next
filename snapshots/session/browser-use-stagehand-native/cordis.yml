@@ -1,22 +1,22 @@
 - id: agent-default-model
-  name: '@deepseek-ai/dsh-agent-default-model'
+  name: '@janhq/jan-agent-default-model'
   config:
-    provider: deepseek-official
-    model: deepseek-v4-flash-vision-exp
+    provider: tokamak-official
+    model: tokamak-1-vision
 
 - id: session-persistence-jsonl
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@janhq/jan-session-persistence-jsonl'
   config:
-    root: !!js dshHomePath('sessions')
+    root: !!js janHomePath('sessions')
     compression: none
 
 - id: agent-instructions
-  name: '@deepseek-ai/dsh-agent-instructions'
+  name: '@janhq/jan-agent-instructions'
   config:
     maxBytes: 65536
 
 - id: system-prompt
-  name: '@deepseek-ai/dsh-system-prompt'
+  name: '@janhq/jan-system-prompt'
   config:
     personaPrefix: |
       You are a coding assistant powered by the {{model}} model. Your bash tool runs under a file sandbox — a `[sandbox: file access denied …]` result is policy, not a command bug.
@@ -24,10 +24,10 @@
       Verify your work by running the code or tests. Keep answers brief and factual.
 
 - id: attachment-local
-  name: '@deepseek-ai/dsh-attachment-local'
+  name: '@janhq/jan-attachment-local'
 
 - insert:
     - id: browser-use
-      name: '@deepseek-ai/dsh-browser-use'
+      name: '@janhq/jan-browser-use'
     - id: native-browser-use-fixture
       name: './native-fixture.mjs'

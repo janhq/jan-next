@@ -1,8 +1,8 @@
 /** Pieces shared by the Models card and the first-run option. */
 import type { ReactNode } from 'react'
-import { StateDot, Tag, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { LlamaCppHardware, LlamaCppPhase, LlamaCppProgress, LlamaCppState, ModelFit } from '@deepseek-ai/dsh-api-llama-cpp-controller'
-import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import { StateDot, Tag, type StateDotState } from '@janhq/jan-client-ui-primitives'
+import type { LlamaCppHardware, LlamaCppPhase, LlamaCppProgress, LlamaCppState, ModelFit } from '@janhq/jan-api-llama-cpp-controller'
+import type { TranslateNS } from '@janhq/jan-client-ui-slots'
 import { estimateRemaining, formatBytes } from './state.ts'
 import type { NS } from './locales.ts'
 import css from './LocalModel.module.css'
@@ -59,7 +59,7 @@ export function DownloadProgress({ progress, name, t }: { progress: LlamaCppProg
 export function Progress({ state, t }: { state: LlamaCppState; t: T }): ReactNode {
   const progress = state.progress
   if (state.phase !== 'downloading' || progress === undefined) return null
-  const running = state.downloads.find(item => item.error === undefined && item.progress !== undefined)
+  const running = state.downloads.find(item => item.error === undefined && item.paused === undefined && item.progress !== undefined)
   return <DownloadProgress progress={progress} name={running?.name ?? state.model.name} t={t} />
 }
 
@@ -76,16 +76,16 @@ export function Failure({ state, t }: { state: LlamaCppState; t: T }): ReactNode
 }
 
 const FIT = {
-  fits: { label: 'fitFits', hint: 'fitFitsHint', tone: 'success' },
-  tight: { label: 'fitTight', hint: 'fitTightHint', tone: 'warning' },
-  'too-large': { label: 'fitTooLarge', hint: 'fitTooLargeHint', tone: 'danger' },
-} as const satisfies Record<ModelFit, { label: string; hint: string; tone: 'success' | 'warning' | 'danger' }>
+  fits: { labelKey: 'fitFits', hintKey: 'fitFitsHint', tone: 'success' },
+  tight: { labelKey: 'fitTight', hintKey: 'fitTightHint', tone: 'warning' },
+  'too-large': { labelKey: 'fitTooLarge', hintKey: 'fitTooLargeHint', tone: 'danger' },
+} as const satisfies Record<ModelFit, { labelKey: string; hintKey: string; tone: 'success' | 'warning' | 'danger' }>
 
 /** How a model compares with this machine's memory; nothing while that is unknown. */
 export function FitTag({ fit, t }: { fit: ModelFit | undefined; t: T }): ReactNode {
   if (fit === undefined) return null
   const copy = FIT[fit]
-  return <span title={t(copy.hint)} data-testid="local-model-fit" data-fit={fit}><Tag tone={copy.tone}>{t(copy.label)}</Tag></span>
+  return <span title={t(copy.hintKey)} data-testid="local-model-fit" data-fit={fit}><Tag tone={copy.tone}>{t(copy.labelKey)}</Tag></span>
 }
 
 /** Marks a model that reads images through its vision projector. */

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
-import type { AttachmentStore, ImageAttachmentRef, ImageRequestTarget, RequestImageAttachment } from '@deepseek-ai/dsh-attachment'
-import { createToolResultMessage, createUserMessage, ToolCallId, CONTEXT_WINDOW_EXCEEDED_CODE, EMPTY_RESPONSE_CODE, createMessage } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, StreamChunk } from '@deepseek-ai/dsh-llm'
+import { AttachmentId, ImageVariantId } from '@janhq/jan-attachment'
+import type { AttachmentStore, ImageAttachmentRef, ImageRequestTarget, RequestImageAttachment } from '@janhq/jan-attachment'
+import { createToolResultMessage, createUserMessage, ToolCallId, CONTEXT_WINDOW_EXCEEDED_CODE, EMPTY_RESPONSE_CODE, createMessage } from '@janhq/jan-llm'
+import type { ContentBlock, StreamChunk } from '@janhq/jan-llm'
 import type { AssistantMessage, AssistantMessageEvent, Usage } from '@earendil-works/pi-ai'
 import { transformMessages } from '@earendil-works/pi-ai/api/transform-messages'
 import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all'
@@ -238,7 +238,7 @@ describe('toPiContext', () => {
     })
     expect(context.messages[0]).toMatchObject({
       role: 'assistant',
-      api: 'dsh-foreign',
+      api: 'jan-foreign',
       provider: 'deepseek',
       model: 'old-model',
     })
@@ -528,7 +528,7 @@ describe('toPiContext', () => {
     }, undefined, onDegrade)
     expect(context.messages[0]).toMatchObject({
       role: 'assistant',
-      api: 'dsh-foreign',
+      api: 'jan-foreign',
       provider: 'deepseek',
       model: 'old',
       content: [{ type: 'text', text: 'done' }],
@@ -562,7 +562,7 @@ describe('toPiContext', () => {
         },
       })],
     }, undefined, onDegrade)
-    expect(context.messages[0]).toMatchObject({ role: 'assistant', api: 'dsh-foreign' })
+    expect(context.messages[0]).toMatchObject({ role: 'assistant', api: 'jan-foreign' })
     expect(onDegrade).toHaveBeenCalledWith(expect.stringContaining('expected a response object'))
   })
 
@@ -583,7 +583,7 @@ describe('toPiContext', () => {
     }, undefined, onDegrade)
     expect(context.messages[0]).toMatchObject({
       role: 'assistant',
-      api: 'dsh-foreign',
+      api: 'jan-foreign',
       content: [{ type: 'thinking', thinking: 'done' }],
     })
     expect(onDegrade).toHaveBeenCalledWith(expect.stringContaining('block 0 does not match assistant content'))
@@ -606,7 +606,7 @@ describe('toPiContext', () => {
     }, undefined, onDegrade)
     expect(context.messages[0]).toMatchObject({
       role: 'assistant',
-      api: 'dsh-foreign',
+      api: 'jan-foreign',
       provider: 'deepseek',
       model: 'deepseek-v4-flash',
       content: [{ type: 'text', text: 'done' }],
@@ -642,7 +642,7 @@ describe('toPiContext', () => {
     }, undefined, onDegrade)
     expect(context.messages[0]).toMatchObject({
       role: 'assistant',
-      api: 'dsh-foreign',
+      api: 'jan-foreign',
       content: [{ type: 'text', text: 'done' }],
     })
     expect(onDegrade).toHaveBeenCalledWith(expect.stringContaining(message))
@@ -761,6 +761,22 @@ describe('toStreamChunks', () => {
           blocks: [{ type: 'text' }],
         },
       },
+    ])
+  })
+
+  it('reports usage known before the terminal event, so a cut stream keeps it', async () => {
+    const early = assistant({ usage: usage(4, 1, 3000) })
+    const seen: unknown[] = []
+    try {
+      for await (const chunk of toStreamChunks(feed(
+        { type: 'start', partial: assistant() },
+        { type: 'text_start', contentIndex: 0, partial: early },
+        { type: 'text_delta', contentIndex: 0, delta: 'h', partial: early },
+        { type: 'text_delta', contentIndex: 0, delta: 'i', partial: early },
+      ))) seen.push(chunk)
+    } catch { /* a cut stream ends without done; only what came before matters */ }
+    expect(seen.filter(chunk => (chunk as { type: string }).type === 'usage')).toEqual([
+      { type: 'usage', usage: { inputTokens: 4, outputTokens: 1, totalTokens: 3005, cacheReadTokens: 3000 } },
     ])
   })
 
@@ -936,6 +952,20 @@ describe('mapStopReason / mapUsage', () => {
       stopReason: 'error',
       errorMessage: 'vector length limit exceeded',
     }))).toMatchObject({ kind: 'error', failure: { code: 'PI_AI_ERROR' } })
+  })
+
+  it('maps refusal and content-filter stops to REFUSAL but keeps a refused connection transport', () => {
+    for (const errorMessage of [
+      'The model refused to complete the request',
+      'claude refusal (reasoning_extraction): This request was blocked',
+      'Provider finish_reason: content_filter',
+      'Provider stopped with: sensitive',
+    ]) {
+      expect(mapStopReason(assistant({ stopReason: 'error', errorMessage })))
+        .toMatchObject({ kind: 'error', failure: { code: 'REFUSAL' } })
+    }
+    expect(mapStopReason(assistant({ stopReason: 'error', errorMessage: 'connect ECONNREFUSED: connection refused' })))
+      .toMatchObject({ kind: 'error', failure: { code: 'TRANSPORT' } })
   })
 
   it.each([

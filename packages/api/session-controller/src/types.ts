@@ -1,23 +1,23 @@
 /** Browser-safe request, result, and lifecycle vocabulary for the Session Remote service. */
 
-import type {} from '@deepseek-ai/dsh-agent/types'
-import type { NativeFileApplication } from '@deepseek-ai/dsh-native-command/types'
+import type {} from '@janhq/jan-agent/types'
+import type { NativeFileApplication } from '@janhq/jan-native-command/types'
 import type {
   ImageAttachmentLimits, ImageAttachmentRef, ImageMediaType,
-} from '@deepseek-ai/dsh-attachment'
-import type { Branded } from '@deepseek-ai/dsh-brand'
-import type { LlmAttemptId, MessageId } from '@deepseek-ai/dsh-llm/brand'
-import type { LlmModelBadge, TextBlock } from '@deepseek-ai/dsh-llm'
-import type { SessionId, SessionSeq, SessionSeqCursor } from '@deepseek-ai/dsh-session/types'
-import type { SessionProjectionMap, SessionProjectionSummaryExcluded, SessionProjectionSummaryValues } from '@deepseek-ai/dsh-session-projection/types'
-import type { Principal } from '@deepseek-ai/dsh-typert-protocol'
-import type { JsonValue } from '@deepseek-ai/dsh-util-values'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+} from '@janhq/jan-attachment'
+import type { Branded } from '@janhq/jan-brand'
+import type { LlmAttemptId, MessageId } from '@janhq/jan-llm/brand'
+import type { LlmModelBadge, TextBlock } from '@janhq/jan-llm'
+import type { SessionId, SessionSeq, SessionSeqCursor } from '@janhq/jan-session/types'
+import type { SessionProjectionMap, SessionProjectionSummaryExcluded, SessionProjectionSummaryValues } from '@janhq/jan-session-projection/types'
+import type { Principal } from '@janhq/jan-typert-protocol'
+import type { JsonValue } from '@janhq/jan-util-values'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
 
-declare module '@deepseek-ai/dsh-session-projection/types' {
+declare module '@janhq/jan-session-projection/types' {
   interface SessionProjectionMap {
-    /** Eligible latest failed turn/end for an empty prompt, or null. */
-    conversationContinuation: SessionSeq | null
+    /** Latest eligible failed turn/end; an overflow still needing recovery carries its sequence separately. */
+    conversationContinuation: SessionSeq | { readonly overflow: SessionSeq } | null
     /** Persisted facts used to summarize a Session without activating it. */
     sessionListMetadata: SessionListMetadata
     /**
@@ -115,6 +115,12 @@ export interface ModelCatalogModel {
   readonly reasoning?: ModelReasoning
   /** Provider-authored label shown beside the name; display data only. */
   readonly badge?: LlmModelBadge
+  /** Maximum combined request and response context in tokens, when the route advertises one. */
+  readonly contextWindow?: number
+  /** Whether the route reads image input; absent when the route does not declare its input modalities. */
+  readonly imageInput?: boolean
+  /** Whether the model calls tools; `false` when the route declares it cannot, absent when unknown. */
+  readonly toolUse?: boolean
 }
 
 /** One provider and its successfully loaded model catalog. */
@@ -129,6 +135,12 @@ export interface ModelCatalogFailure {
   readonly id: string
   readonly name: string
   readonly message: string
+  /**
+   * The provider's `LlmError` code when it reported one, such as
+   * `MISSING_CREDENTIAL` for a provider that needs a sign-in or key before it
+   * can list models; absent for other failures.
+   */
+  readonly code?: string
 }
 
 /** Host-generation model catalog and the default used by unconfigured Sessions. */
@@ -178,14 +190,12 @@ export const SESSION_SEARCH_RESULT_LIMIT = 20
 /** Maximum search snippet length in Unicode code points. */
 export const SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS = 240
 
-declare module '@deepseek-ai/dsh-typert-protocol' {
+declare module '@janhq/jan-typert-protocol' {
   interface RemoteErrorDetailsMap {
     /** A wait observation ended before a stopping state; the caller should reread. */
     'session/observation-ended': Record<string, never>
     /** No state arrived before the deadline; a timeout after a state returns its value instead. */
     'session/wait-timeout': Record<string, never>
-    'session/provider-credentials-unavailable': Record<string, never>
-    'session/provider-models-unavailable': { readonly provider: string }
     'session/model-unavailable': { readonly provider: string; readonly model: string }
     'session/conflict': {
       readonly sessionId: SessionId
@@ -197,6 +207,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'session/agent-busy': { readonly reason: string }
     'session/invalid-time-zone': { readonly value: string }
     'session/workspace-attach-failed': { readonly sessionId: SessionId; readonly workspaceId: string }
+    /** The registered project path no longer resolves to its original directory. */
+    'workspace/project-folder-missing': { readonly workspaceId: WorkspaceId }
     'agent-preset/conflict': {
       readonly sessionId: SessionId
       readonly requestedPreset: string
@@ -266,9 +278,9 @@ export interface SessionSearchValue {
 
 /** Request for a Session for a new conversation. */
 export interface SessionCreateRequest {
-  /** Workspace the Session joins; exclusive with `cwd`. */
+  /** Workspace the Session joins; exclusive with `cwd`. Omit both to join the default project. */
   readonly workspaceId?: WorkspaceId
-  /** Directory the Session owns when no Workspace is named. */
+  /** Absolute Host directory the Session owns when no Workspace is named. */
   readonly cwd?: string
   /** Blank Session to reuse while it is reusable, or the identity of a new Session when none is stored under it. */
   readonly sessionId?: SessionId
@@ -292,6 +304,49 @@ export interface SessionSelectModelRequest extends ModelSelection {
 /** Accepted model selection after Host resolution. */
 export interface SessionSelectModelValue {
   readonly selected: ModelSelection
+}
+
+/** Context-preview request for a Session's next model request. */
+export interface SessionContextPreviewRequest {
+  readonly sessionId: SessionId
+}
+
+/**
+ * Heuristic token prices of what the next request would inject before any message, priced like the
+ * `contextBreakdown` projection: the rendered system prompt, the tool schemas, and the runtime-context snapshot.
+ */
+export interface SessionContextPreviewValue {
+  readonly systemTokens: number
+  readonly toolsTokens: number
+  /** The runtime-context user message the first step admits. */
+  readonly messageTokens: number
+  /** What the next request equips the Agent with. */
+  readonly inventory: SessionInventory
+}
+
+/**
+ * Where a skill or MCP server comes from: the project's own folders, the user's
+ * global config, a plugin, Jan itself, a configured extra skill directory, or
+ * this Session alone (an ACP client's servers, a runtime skill).
+ */
+export type SessionItemOrigin =
+  | { readonly kind: 'project' }
+  | { readonly kind: 'global' }
+  | { readonly kind: 'plugin'; readonly plugin: string }
+  | { readonly kind: 'bundled' }
+  | { readonly kind: 'custom' }
+  | { readonly kind: 'session' }
+
+/** The tools, MCP tools, skills and plugins one Session's next request runs with. */
+export interface SessionInventory {
+  /** Tool names the model is offered, excluding MCP tools. */
+  readonly tools: readonly string[]
+  /** MCP tools the model is offered, with their server and where it is configured. */
+  readonly mcpTools: readonly { readonly server: string; readonly name: string; readonly origin: SessionItemOrigin }[]
+  /** Skills the model or the user can invoke, with where each was found. */
+  readonly skills: readonly { readonly name: string; readonly description: string; readonly origin: SessionItemOrigin }[]
+  /** Plugin modules active in the Session's agent preset; absent when no preset registry is composed. */
+  readonly plugins?: readonly string[]
 }
 
 /** Session rename request. */
@@ -390,7 +445,7 @@ export interface SessionOpenWorkspacePathValue {
 /** Client-minted prompt identity used to reconcile optimistic and durable messages. */
 export type SessionRequestId = Branded<'session-request-id'>
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     /**
      * Browser prompt correlation, optional Host-validated time zone, and the
@@ -674,7 +729,7 @@ export type SessionProjectionFrame =
   | { readonly type: 'ready' }
   | SessionProjectionChange
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Events {
     /**
      * A Session became visible or its Agent was created or disposed.

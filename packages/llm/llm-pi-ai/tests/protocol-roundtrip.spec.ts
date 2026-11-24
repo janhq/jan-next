@@ -1,10 +1,9 @@
 /** Cross-protocol requests must not overwrite the history needed by its original provider. */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import LlmRuntime, { createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { Message } from '@deepseek-ai/dsh-llm'
-import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
-import * as DeepSeek from '@deepseek-ai/dsh-llm-deepseek-api-key'
+import { Context } from '@janhq/cordis'
+import LlmRuntime, { createToolResultMessage, createUserMessage } from '@janhq/jan-llm'
+import type { Message } from '@janhq/jan-llm'
+import * as LlmPiAi from '@janhq/jan-llm-pi-ai'
 import { assemble } from './assemble.ts'
 import { anthropicFrame, closeMockServers, mockServer } from './mock-server.ts'
 
@@ -110,30 +109,20 @@ function expectToolPairs(request: unknown, api: Api): void {
 }
 
 const tool = { name: 'lookup', description: 'Look up a value.', parameters: { type: 'object', properties: { key: { type: 'number' } }, required: ['key'] } }
-const pairs: { a: Api; b: Api | 'deepseek-messages' }[] = [
-  ...apis.flatMap(a => apis.map(b => ({ a, b }))),
-  ...apis.map(a => ({ a, b: 'deepseek-messages' as const })),
-]
+const pairs: { a: Api; b: Api }[] = apis.flatMap(a => apis.map(b => ({ a, b })))
 
 describe('protocol history round trips', () => {
   it.each(pairs)('$a → $b → $a preserves saved content and restores native replay', async ({ a, b }) => {
     vi.stubEnv('PROTOCOL_ROUNDTRIP_KEY', 'test-key')
     const source = await mockServer([{ events: frames(a, true) }, { events: frames(a) }, { events: frames(a) }])
-    const targetApi = b === 'deepseek-messages' ? 'anthropic-messages' : b
-    const targetProvider = b === 'deepseek-messages' ? 'deepseek-official' : 'route-b'
-    const target = await mockServer([{ events: frames(targetApi) }])
+    const target = await mockServer([{ events: frames(b) }])
     const ctx = new Context()
     contexts.push(ctx)
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, { providers: {
       'route-a': { api: a, baseURL: source.url, apiKeyEnv: 'PROTOCOL_ROUNDTRIP_KEY', cacheRetention: 'none', models: [{ id: 'model' }] },
-      ...b === 'deepseek-messages' ? {} : {
-        'route-b': { api: b, baseURL: target.url, apiKeyEnv: 'PROTOCOL_ROUNDTRIP_KEY', cacheRetention: 'none', models: [{ id: 'model' }] },
-      },
+      'route-b': { api: b, baseURL: target.url, apiKeyEnv: 'PROTOCOL_ROUNDTRIP_KEY', cacheRetention: 'none', models: [{ id: 'model' }] },
     } })
-    if (b === 'deepseek-messages') await ctx.plugin(DeepSeek, {
-      baseURL: target.url, apiKeyEnv: 'PROTOCOL_ROUNDTRIP_KEY', models: [{ id: 'model' }], thinking: 'disabled',
-    })
     let history: Message[] = [createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Look up both values.' }] })]
     const original = await assemble(ctx, { provider: 'route-a', model: 'model', messages: history, tools: [tool] })
     expect(original.finish).toEqual({ kind: 'tool-calls' })
@@ -179,10 +168,10 @@ describe('protocol history round trips', () => {
       expect(calls).toMatchObject([{ extra_content: { google: { thought_signature: 'gemini-signature' } } }, {}])
       expect(calls[1]).not.toHaveProperty('extra_content')
     }
-    const foreign = await assemble(ctx, { provider: targetProvider, model: 'model', messages: history, tools: [tool] })
+    const foreign = await assemble(ctx, { provider: 'route-b', model: 'model', messages: history, tools: [tool] })
     expect(foreign.finish).toEqual({ kind: 'stop' })
     expect(JSON.stringify(history)).toBe(saved)
-    expectToolPairs(target.requests[0], targetApi)
+    expectToolPairs(target.requests[0], b)
     expect(JSON.stringify(target.requests[0])).not.toContain('encrypted-reasoning')
     expect(JSON.stringify(target.requests[0])).not.toContain('encrypted-redacted-reasoning')
     expect(JSON.stringify(target.requests[0])).not.toContain('signed-reasoning')

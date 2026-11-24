@@ -2,16 +2,15 @@
 export const name = 'python-snapshot-workflow-order'
 
 /**
- * @param {import('@deepseek-ai/cordis').Context} ctx - Scenario-local host context.
+ * @param {import('@janhq/cordis').Context} ctx - Scenario-local host context.
  * @param {{ parentSessionId: string, prompt: string, direct?: { prompt: string, callId: string } }} config - Exact advanced scenario identities.
  */
 export function apply(ctx, config) {
   const started = new Set()
   const pending = new Map()
   let disposed = false
-  let directResultSeq
-  let directStep = false
-  let directDelivered = false
+  let directResult = false
+  let directRequested = false
 
   ctx.effect(() => async () => {
     disposed = true
@@ -27,15 +26,16 @@ export function apply(ctx, config) {
       pending.get(event.data.childId)?.resolve()
     }
     if (config.direct === undefined) return
-    if (event.type === 'tool/result' && event.data.message.source.callId === config.direct.callId) directResultSeq = event.seq
-    if (directResultSeq === undefined) return
-    if (event.type === 'step/start') directStep = true
-    if (event.type === 'session-log-deepseek/delivery-accepted' && event.data.throughSeq >= directResultSeq) {
-      directDelivered = true
-    }
-    if (directStep && directDelivered) {
+    if (event.type === 'tool/result' && event.data.message.source.callId === config.direct.callId) directResult = true
+  })
+  // `request/context` is logged only when the route changes, so the next request is observed through its preparation.
+  ctx.on('agent/request', async ({ agent }, next) => {
+    const proposed = await next()
+    if (!disposed && directResult && agent.session.id === config.parentSessionId) {
+      directRequested = true
       for (const wait of pending.values()) if (wait.direct) wait.resolve()
     }
+    return proposed
   })
   ctx.on('agent/pre-step', async ({ agent, messages, turn, step, signal }, next) => {
     const hasPrompt = prompt => messages.some(message => message.content.some(block => block.type === 'text' && block.text === prompt))
@@ -46,7 +46,7 @@ export function apply(ctx, config) {
     }
     signal.throwIfAborted()
     if (disposed) throw new Error('workflow snapshot barrier disposed')
-    if (direct ? !directStep || !directDelivered : !started.has(agent.id)) {
+    if (direct ? !directRequested : !started.has(agent.id)) {
       const wait = { ...Promise.withResolvers(), direct }
       const abort = () => { wait.reject(signal.reason) }
       signal.addEventListener('abort', abort, { once: true })

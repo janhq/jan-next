@@ -52,6 +52,11 @@ process.on('message', message => {
     process.send({ type: 'update-tasks', requestId: message.requestId, active: message.action === 'lock' })
     return
   }
+  if (message.type === 'index-injections') {
+    // Each read names the bundle revision current at that moment, as a live rebuild changes it.
+    process.send({ type: 'index-injections', requestId: message.requestId, injections: [{ src: 'plugins/??a/client.js&rev=' + message.requestId }] })
+    return
+  }
   if (message.type === 'quit-inspection') {
     // Ids divisible by three never answer; the others report scheduled work for odd ids.
     if (message.requestId % 3 === 0) return
@@ -68,11 +73,11 @@ process.on('message', message => {
 `
 
 function projectWithHost(source = HTTP_HOST): string {
-  const project = mkdtempSync(join(tmpdir(), 'dsh-desktop-host-test-'))
+  const project = mkdtempSync(join(tmpdir(), 'jan-desktop-host-test-'))
   roots.push(project)
-  const packageRoot = join(project, 'node_modules', '@deepseek-ai', 'dsh-desktop-host')
+  const packageRoot = join(project, 'node_modules', '@janhq', 'jan-desktop-host')
   mkdirSync(join(packageRoot, 'lib'), { recursive: true })
-  writeFileSync(join(packageRoot, 'package.json'), '{"name":"@deepseek-ai/dsh-desktop-host","type":"module"}\n')
+  writeFileSync(join(packageRoot, 'package.json'), '{"name":"@janhq/jan-desktop-host","type":"module"}\n')
   writeFileSync(join(packageRoot, 'lib', 'index.js'), source)
   return project
 }
@@ -206,6 +211,15 @@ ${HTTP_HOST}`)
     await expect(host.updateTasks('inspect')).rejects.toThrow('Host is unavailable')
   })
 
+  it('reads current boot injections from the running Host on each request', async () => {
+    const host = hostProcess(projectWithHost())
+    await expect(host.indexInjections()).rejects.toThrow('desktop boot: Host is unavailable')
+    await host.start()
+    expect(await host.indexInjections()).toEqual([{ src: 'plugins/??a/client.js&rev=1' }])
+    expect(await host.indexInjections()).toEqual([{ src: 'plugins/??a/client.js&rev=2' }])
+    await host.stop()
+  })
+
   it('correlates quit inspections with task requests and fails an unanswered one at its own deadline', async () => {
     const host = hostProcess(projectWithHost())
     await expect(host.inspectQuit()).rejects.toThrow('desktop quit: Host is unavailable')
@@ -282,7 +296,7 @@ ${HTTP_HOST}`)
     const { url } = await host.start()
     await fetch(new URL('/crash', url))
     await expect.poll(() => failure.mock.calls.length).toBe(1)
-    expect(failure).toHaveBeenCalledWith(new Error('dsh desktop host exited with 7: plugin crashed'))
+    expect(failure).toHaveBeenCalledWith(new Error('jan desktop host exited with 7: plugin crashed'))
   })
 
   it('retains only recent diagnostics from a noisy child', async () => {
@@ -340,18 +354,18 @@ ${HTTP_HOST}`)
 })
 
 it.each([null, 'stable-account'])('carries Platform identity %s over private IPC and clears credentials on shutdown', async (userId) => {
-  const runtime = projectWithHost(HTTP_HOST.replace("process.send({ type: 'ready'", "process.send({ type: 'platform-session', session: { origin: 'https://platform.deepseek.com', userId: " + JSON.stringify(userId) + ", token: 'fixture-secret', embeddedPageDist: 'feat/test' } }); process.send({ type: 'ready'"))
+  const runtime = projectWithHost(HTTP_HOST.replace("process.send({ type: 'ready'", "process.send({ type: 'platform-session', session: { origin: 'https://tokamak.sh', userId: " + JSON.stringify(userId) + ", token: 'fixture-secret', embeddedPageDist: 'feat/test' } }); process.send({ type: 'ready'"))
   const changed = vi.fn()
   const host = new DesktopHostProcess(process.execPath, runtime, runtime, undefined, process.env, undefined, undefined, undefined, changed)
   hosts.push(host)
   await host.start()
-  expect(changed).toHaveBeenCalledWith({ origin: 'https://platform.deepseek.com', userId, token: 'fixture-secret', embeddedPageDist: 'feat/test' })
+  expect(changed).toHaveBeenCalledWith({ origin: 'https://tokamak.sh', userId, token: 'fixture-secret', embeddedPageDist: 'feat/test' })
   await host.stop()
   expect(changed).toHaveBeenLastCalledWith(null)
 })
 
 it.each([undefined, '', 7])('rejects malformed Platform account identity %s on private IPC', async (userId) => {
-  const session = { origin: 'https://platform.deepseek.com', token: 'fixture-secret', userId }
+  const session = { origin: 'https://tokamak.sh', token: 'fixture-secret', userId }
   const runtime = projectWithHost(HTTP_HOST.replace("process.send({ type: 'ready'",
     `process.send({ type: 'platform-session', session: ${JSON.stringify(session)} }); process.send({ type: 'ready'`))
   const changed = vi.fn()

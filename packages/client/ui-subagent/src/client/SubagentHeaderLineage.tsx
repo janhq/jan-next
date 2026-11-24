@@ -1,28 +1,22 @@
-import { useMemo, useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
-import {
-  type SessionProjectionMap, type SessionSummary,
-  type SessionProjectionSnapshot,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionSummary } from '@janhq/jan-api-session-controller/client'
+import type { SubagentAddress } from '@janhq/jan-subagent/client'
+import type { SessionId } from '@janhq/jan-session/types'
 import {
   IconChevronRightOutlineRegular, IconRefreshOutlineRegular, IconUsersOutlineRegular,
   IconCheckOutlineRegular, MenuSurface, StateDot, Tooltip,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-primitives'
+import type { HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, TranslateNS } from '@janhq/jan-client-ui-slots'
 import { NS } from './locales.ts'
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type {} from '@deepseek-ai/dsh-token-meter/client'
-import type {} from '@deepseek-ai/dsh-agent-team/client'
+import type {} from '@janhq/jan-client-ui-conversation/client'
+import type {} from '@janhq/jan-token-meter/client'
+import { activityDuration, entryName, formatDuration, formatExactDuration, formatTokens, tokenTotal } from './catalog-metrics.ts'
+import { completedEntry, useCatalogs, type Catalogs, type SubagentCatalogSnapshot } from './catalog-state.ts'
+import type {} from '@janhq/jan-agent-team/client'
 import type {} from './slots.ts'
+import { SubagentRoster } from './SubagentRoster.tsx'
 import css from './SubagentHeaderLineage.module.css'
-
-type SubagentCatalogSnapshot = Omit<SessionProjectionSnapshot, 'values' | 'state'> & {
-  state: 'loading' | 'ready' | 'migration-required' | 'error'
-  entries: (SessionProjectionMap['subagentCatalog'][number] & { activity: 'running' | 'inactive' })[]
-}
-type Catalogs = Readonly<Record<SessionId, SubagentCatalogSnapshot>>
 
 /** Business actions supplied by the slot registration. */
 export type SubagentCatalogInjected = {
@@ -64,117 +58,6 @@ function treeItems(root: HTMLDivElement | null): HTMLElement[] {
     : Array.from(root.querySelectorAll<HTMLElement>('[role="treeitem"]:not([aria-disabled="true"])'))
 }
 
-/** Compact token count shared in shape with the conversation stats strip. */
-function formatTokens(value: number, t: TranslateNS<typeof NS>): string {
-  const scaled = (next: number): string => next >= 100
-    ? String(Math.round(next))
-    : String(Math.round(next * 10) / 10)
-  if (value < 1_000) return String(value)
-  if (value < 1_000_000) return t('tokens.thousand', { value: scaled(value / 1_000) })
-  return t('tokens.million', { value: scaled(value / 1_000_000) })
-}
-
-/** Sum the four disjoint durable provider-usage buckets. */
-function tokenTotal(
-  usage: SessionProjectionMap['tokenUsage'] | undefined,
-): number | undefined {
-  return usage === undefined
-    ? undefined
-    : usage.uncachedInputTokens + usage.outputTokens
-      + usage.cacheReadTokens + usage.cacheWriteTokens
-}
-
-/** Exact whole-second active-turn duration for one catalog row. */
-function activityDuration(
-  summary: SessionSummary | undefined,
-  activity: 'running' | 'inactive',
-  now: number,
-): number | undefined {
-  if (summary === undefined) return undefined
-  const timing: SessionProjectionMap['subagentTiming'] | undefined
-    = summary.projectionValues?.subagentTiming
-  if (timing === undefined) return undefined
-  if (timing.active === undefined) return timing.settledMs
-  const end = activity === 'running'
-    ? now
-    : timing.active.through
-  return timing.settledMs + Math.max(0, end - timing.active.since)
-}
-
-interface DurationParts {
-  seconds: number
-  minutes: number
-  hours: number
-  days: number
-  totalMinutes: number
-  totalHours: number
-}
-
-function splitDuration(ms: number): DurationParts {
-  const totalSeconds = Math.floor(Math.max(0, ms) / 1_000)
-  const totalMinutes = Math.floor(totalSeconds / 60)
-  const totalHours = Math.floor(totalMinutes / 60)
-  return {
-    seconds: totalSeconds % 60,
-    minutes: totalMinutes % 60,
-    hours: totalHours % 24,
-    days: Math.floor(totalHours / 24),
-    totalMinutes,
-    totalHours,
-  }
-}
-
-/** Format a duration with decreasing visual precision at larger scales. */
-function formatDuration(ms: number, t: TranslateNS<typeof NS>): string {
-  const { seconds, minutes, hours, days, totalMinutes, totalHours } = splitDuration(ms)
-  if (days >= 365) {
-    const years = Math.floor(days / 365)
-    const months = Math.floor((days % 365) / 30)
-    return months === 0
-      ? t('duration.years', { years })
-      : t('duration.yearsMonths', { years, months })
-  }
-  if (days >= 30) {
-    const months = Math.floor(days / 30)
-    const remainingDays = days % 30
-    return remainingDays === 0
-      ? t('duration.months', { months })
-      : t('duration.monthsDays', { months, days: remainingDays })
-  }
-  if (days > 0) {
-    return hours === 0
-      ? t('duration.days', { days })
-      : t('duration.daysHours', { days, hours })
-  }
-  if (totalHours > 0) {
-    return t('duration.hours', {
-      hours: totalHours,
-      minutes: String(minutes).padStart(2, '0'),
-      seconds: String(seconds).padStart(2, '0'),
-    })
-  }
-  if (totalMinutes > 0) {
-    return t('duration.minutes', {
-      minutes: totalMinutes,
-      seconds: String(seconds).padStart(2, '0'),
-    })
-  }
-  return t('duration.seconds', { seconds })
-}
-
-/** Preserve exact whole seconds for hover and accessible naming. */
-function formatExactDuration(ms: number, t: TranslateNS<typeof NS>): string {
-  const { seconds, minutes, hours, days } = splitDuration(ms)
-  return days === 0
-    ? formatDuration(ms, t)
-    : t('duration.exactDays', {
-      days,
-      hours: String(hours).padStart(2, '0'),
-      minutes: String(minutes).padStart(2, '0'),
-      seconds: String(seconds).padStart(2, '0'),
-    })
-}
-
 function SubagentSwitcherIcon() {
   return (
     <svg
@@ -206,37 +89,6 @@ function CatalogLoadingRows({ t }: { t: TranslateNS<typeof NS> }) {
 /** A child becomes a known leaf only after its own authoritative catalog loads empty. */
 function isKnownLeaf(catalog: SubagentCatalogSnapshot | undefined): boolean {
   return catalog?.state === 'ready' && catalog.entries.length === 0
-}
-
-/** The agent name unique among the row's siblings, or the Session ID for entries recorded without one. */
-function entryName(entry: SubagentCatalogSnapshot['entries'][number]): string {
-  return entry.mode === 'continuable' || entry.mode === 'external' ? entry.name ?? entry.id : entry.id
-}
-
-/** Only a local child's last closed, normally completed turn receives the completed marker. */
-function completedEntry(entry: SubagentCatalogSnapshot['entries'][number], summary: SessionSummary | undefined): boolean {
-  return entry.mode !== 'external' && entry.activity === 'inactive'
-    && summary?.projectionValues?.subagentTiming?.lastTurnCompleted === true
-}
-
-/** Count direct catalog members without treating external or other inactive entries as completed. */
-function catalogProgress(entries: SubagentCatalogSnapshot['entries'], summaries: CatalogRowsProps['summaries'], t: TranslateNS<typeof NS>): string {
-  let completed = 0
-  let active = 0
-  let inactive = 0
-  let external = 0
-  for (const entry of entries) {
-    if (entry.mode === 'external') external++
-    else if (entry.activity === 'running') active++
-    else if (completedEntry(entry, summaries[entry.id])) completed++
-    else inactive++
-  }
-  return [
-    ...completed > 0 ? [t('progress.completed', { count: completed })] : [],
-    ...active > 0 ? [t('progress.active', { count: active })] : [],
-    ...inactive > 0 ? [t('progress.inactive', { count: inactive })] : [],
-    ...external > 0 ? [t('progress.external', { count: external })] : [],
-  ].join('\u2002·\u2002')
 }
 
 /** Render one catalog level and recurse only through explicitly expanded rows. */
@@ -298,6 +150,7 @@ function CatalogRows({
           : completed
             ? t('activity.completed')
             : t('activity.inactive')
+        const model = external ? undefined : summary?.projectionValues?.modelSelection?.lastUsed?.model
         const secondary = [secondaryLabel, requiresOpening ? t('catalog.migrationRequired') : mode, activity]
           .filter(value => value !== undefined)
           .join(' · ')
@@ -357,7 +210,7 @@ function CatalogRows({
               aria-disabled={external || undefined}
               aria-level={level}
               aria-current={isCurrent || undefined}
-              aria-label={[primaryLabel, secondary, metrics].filter(value => value !== '').join(' ')}
+              aria-label={[primaryLabel, secondary, model, metrics].filter(value => value).join(' ')}
               {...canExpand ? { 'aria-expanded': isExpanded } : {}}
               className={css.row}
               onClick={open}
@@ -385,6 +238,7 @@ function CatalogRows({
                   {secondaryLabel !== undefined && (
                     <span className={css.secondaryLabel}>{secondaryLabel}</span>
                   )}
+                  {model !== undefined && <span className={css.summary}>{model}</span>}
                   {requiresOpening && <span className={css.summary}>{t('catalog.migrationRequired')}</span>}
                 </span>
                 {metrics !== '' && (
@@ -466,11 +320,6 @@ interface CatalogDropdownSharedProps extends InjectFace<SubagentCatalogInjected>
   useSessions: SubagentHeaderLineageProps['useSessions']
   useSessionStatus: SubagentHeaderLineageProps['useSessionStatus']
   t: TranslateNS<typeof NS>
-  /** Section labels are useful only beside a visible shared-task list. */
-  hasSharedTasks?: boolean
-  /** Retain an empty catalog's entry for shared tasks or a task-board error. */
-  hasBoardContent?: boolean
-  renderFooter?: () => ReactNode
 }
 
 type CatalogDropdownProps = CatalogDropdownSharedProps & (
@@ -493,33 +342,14 @@ type CatalogDropdownProps = CatalogDropdownSharedProps & (
   }
 )
 
-/** One trigger-plus-tree dropdown over the catalog rooted at `rootSessionId`. */
-function CatalogDropdown(props: CatalogDropdownProps) {
+/** One trigger-plus-tree dropdown over the catalog rooted at `rootSessionId`: a child header's switcher or its own subagent count. */
+export function CatalogDropdown(props: CatalogDropdownProps) {
   const {
     rootSessionId, currentSessionId, displayTitle, openTitle, variant,
-    useSessions, useSessionStatus, openChild, openChildAside, refreshProjection, t, hasSharedTasks = false,
+    useSessions, useSessionStatus, openChild, openChildAside, refreshProjection, t,
   } = props
   const ancestorSwitcher = variant === 'switcher' && openTitle !== undefined
-  const projections = useSessions(state => state.projectionsBySession)
-  const summaries = useSessions(state => state.byId)
-  const statuses = useSessionStatus(value => value)
-  const catalogs = useMemo<Catalogs>(() => {
-    return Object.fromEntries(Object.entries(projections).map(([id, snapshot]) => {
-      const projected = snapshot.values.subagentCatalog
-      const state = snapshot.state === 'idle'
-        ? projected === undefined ? 'loading' : 'ready'
-        : snapshot.state === 'migration-required' && projected !== undefined ? 'ready' : snapshot.state
-      return [id, {
-        state,
-        error: snapshot.error,
-        entries: (projected ?? []).map(entry => ({
-          ...entry,
-          activity: (statuses.get(entry.id)?.running ?? summaries[entry.id]?.running) === true
-            ? 'running' as const : 'inactive' as const,
-        })),
-      } satisfies SubagentCatalogSnapshot]
-    }))
-  }, [projections, summaries, statuses])
+  const { catalogs, summaries } = useCatalogs({ useSessions, useSessionStatus })
   const catalog = catalogs[rootSessionId]
   const [open, setOpen] = useState(false)
   const [expanded, setExpanded] = useState<ReadonlySet<SessionId>>(() => new Set())
@@ -528,7 +358,7 @@ function CatalogDropdown(props: CatalogDropdownProps) {
   const countRef = useRef<HTMLSpanElement>(null)
   const activityId = useId()
   const menuRef = useRef<HTMLDivElement>(null)
-  const anchorName = `--dsh-subagents-${activityId.replaceAll(':', '')}`
+  const anchorName = `--jan-subagents-${activityId.replaceAll(':', '')}`
   const hoverOpenTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // A click-opened (pinned) menu ignores hover-out; only explicit dismissal closes it.
@@ -542,13 +372,11 @@ function CatalogDropdown(props: CatalogDropdownProps) {
   const directChildren = catalog?.entries ?? []
   const directCount = directChildren.length
   const runningCount = directChildren.filter(entry => entry.activity === 'running').length
-  const progress = catalogProgress(directChildren, summaries, t)
   const totalCountKey = directCount === 1 ? 'count.total.one' : 'count.total.other'
   const runningCountKey = runningCount === 1 ? 'count.running.one' : 'count.running.other'
-  const presentedCatalog: SubagentCatalogSnapshot | undefined = catalog ?? (variant === 'switcher' || props.hasBoardContent
+  const presentedCatalog: SubagentCatalogSnapshot | undefined = catalog ?? (variant === 'switcher'
     ? { entries: [], state: 'loading', error: null }
     : undefined)
-
   const cancelHoverClose = (): void => {
     if (hoverCloseTimer.current === undefined) return
     clearTimeout(hoverCloseTimer.current)
@@ -655,9 +483,7 @@ function CatalogDropdown(props: CatalogDropdownProps) {
   }, [])
 
   const visible = presentedCatalog !== undefined
-    && (variant === 'switcher'
-      || props.hasBoardContent || presentedCatalog.state === 'error'
-      || presentedCatalog.entries.length > 0)
+    && (variant === 'switcher' || presentedCatalog.state === 'error' || presentedCatalog.entries.length > 0)
   useEffect(() => {
     if (visible) return
     cancelHoverOpen()
@@ -783,16 +609,6 @@ function CatalogDropdown(props: CatalogDropdownProps) {
           onPointerLeave={scheduleHoverClose}
         >
           <div className={css.menuBody}>
-            {hasSharedTasks && (
-              <div className={css.sectionHeader} data-subagent-section-header>
-                <span className={css.sectionIcon} aria-hidden><IconUsersOutlineRegular size={14} /></span>
-                <h3 className={css.sectionTitle}>{t('section.title')}</h3>
-                {progress && <span className={css.sectionProgress}>{progress}</span>}
-              </div>
-            )}
-            {hasSharedTasks && presentedCatalog.state === 'ready' && directCount === 0 && (
-              <p className={css.sectionEmpty}>{t('section.empty')}</p>
-            )}
             <div role="tree" aria-label={t('tree.aria')}>
               <CatalogRows
                 parentSessionId={rootSessionId}
@@ -810,7 +626,6 @@ function CatalogDropdown(props: CatalogDropdownProps) {
                 t={t}
               />
             </div>
-            {props.renderFooter?.()}
           </div>
         </MenuSurface>
       ), document.body)}
@@ -824,12 +639,9 @@ export type SubagentCatalogActionProps =
   & Omit<PropsRenderSlots<'conversation.session.header.actions.subagent.footer'>, 'SessionProvider'>
 
 /**
- * Session-header catalog action for root sessions: the descendant count and
- * its dropdown after the preset label in the header actions band. Child sessions render nothing
- * here — their breadcrumb switcher in the lineage slot owns the same
- * navigation.
+ * Composer catalog action for root Sessions, including the shared task board.
  * @param props - Session standard props plus the catalog actions and translator.
- * @returns The count dropdown, or null on a child session.
+ * @returns The direct catalog and optional shared tasks, or null on a child Session.
  */
 export function SubagentCatalogAction(props: SubagentCatalogActionProps) {
   const addressedChild = props.useSession(snapshot => snapshot.subagent !== null)
@@ -848,10 +660,9 @@ function RootCatalogAction({
   const hasTaskFailure = useProjection('agentTeam', team => team?.enabled === true && team.failure !== undefined)
   const footerAvailable = useFooterAvailable(value => value)
   return (
-    <CatalogDropdown
+    <SubagentRoster
       key={sessionId}
-      rootSessionId={sessionId}
-      variant="count"
+      sessionId={sessionId}
       hasSharedTasks={footerAvailable && hasSharedTasks}
       hasBoardContent={footerAvailable && (hasSharedTasks || hasTaskFailure)}
       renderFooter={() => renderSlot('conversation.session.header.actions.subagent.footer', {})}
@@ -884,8 +695,7 @@ export function SubagentHeaderLineage({
     return summary?.origin === 'subagent' ? summary.parentId : undefined
   })
   const shared = { useSessions, useSessionStatus, openChild, openChildAside, refreshProjection, t }
-  // Root sessions carry no breadcrumb; their descendant count lives in the
-  // header actions band (SubagentCatalogAction).
+  // Root Sessions list their subagents in the composer roster instead.
   if (parentId === undefined) return null
   return (
     <>

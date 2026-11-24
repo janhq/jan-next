@@ -1,17 +1,17 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
-import type { ClientEntryState } from '@deepseek-ai/dsh-client-modules/client'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { PluginInventorySnapshot } from '@deepseek-ai/dsh-api-remotes/client'
-import type { LocalizedText } from '@deepseek-ai/dsh-package-manifest'
+import type { ClientEntryState } from '@janhq/jan-client-modules/client'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
+import type { PluginInventorySnapshot } from '@janhq/jan-api-remotes/client'
+import type { LocalizedText } from '@janhq/jan-package-manifest'
 import {
   IconChevronDownOutlineRegular,
   IconSearchOutlineRegular,
   Menu,
   StateDot,
   Tag,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { StateDotState, TagTone } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-primitives'
+import type { StateDotState, TagTone } from '@janhq/jan-client-ui-primitives'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { PluginInventoryLocaleKey } from './locales.ts'
 import css from './PluginInventorySettingsTab.module.css'
 
@@ -72,7 +72,7 @@ function moduleShortName(moduleName: string): string {
   return unscoped
     .replace(/^cordis:/, '')
     .replace(/^cordis-plugin-/, '')
-    .replace(/^dsh-(?:host-|client-)?/, '')
+    .replace(/^jan-(?:host-|client-)?/, '')
 }
 
 /** Display an entry identity without the composition-only `include:` marker. */

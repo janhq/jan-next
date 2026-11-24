@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { allowAllAccess, bindSnapshotSelector, contextMenuHook, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import type { ScheduleId, ScheduleCatalogEntry, ScheduleRecord } from '@deepseek-ai/dsh-schedule/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { WorkspaceId, WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import { RRule } from '@deepseek-ai/dsh-util-time'
+import { allowAllAccess, bindSnapshotSelector, contextMenuHook, makeTranslate } from '@janhq/jan-client-test-runtime'
+import type { ScheduleId, ScheduleCatalogEntry, ScheduleRecord } from '@janhq/jan-schedule/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { SessionListState } from '@janhq/jan-api-session-controller/client'
+import type { WorkspaceId, WorkspaceSnapshot } from '@janhq/jan-api-workspace-controller/client'
+import { RRule } from '@janhq/jan-util-time'
 import { TaskManagerPage, type TaskManagerPageProps } from '../src/client/TaskManagerPage.tsx'
 import type { HostTaskActions } from '../src/client/TaskDetail.tsx'
 import type { TaskCreateOutcome } from '../src/client/TaskDetail.tsx'
@@ -37,13 +37,14 @@ const sessions: SessionListState = {
 const workspaces: WorkspaceSnapshot = {
   items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
 }
-function workspace(path: string, title: string): WorkspaceSnapshot['items'][number] {
+function workspace(path: string, title: string, isDefault?: true): WorkspaceSnapshot['items'][number] {
   return {
     workspaceId: `workspace:${title}` as WorkspaceId, path, title, sessionIds: [], createdAt: task.createdAt ?? '', updatedAt: task.updatedAt ?? '',
+    ...(isDefault === undefined ? {} : { isDefault }),
   }
 }
 const registered: WorkspaceSnapshot = {
-  ...workspaces, items: [workspace('/work/docs', 'docs'), workspace('/work/default-workspace', 'default-workspace')],
+  ...workspaces, items: [workspace('/work/docs', 'docs'), workspace('/work/default-workspace', 'default-workspace', true)],
 }
 
 const t = makeTranslate(en)
@@ -432,6 +433,20 @@ describe('Host task editor on the existing manager', () => {
     expect(createRRuleScheduleRecord(createScheduleId('saved-interval'), request.title, request.prompt, rruleOf(request.timing), Date.now()).scheduledAt).toBe(next)
   })
 
+  it('creates a task from a template without edits', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime('2026-10-14T08:00:30.000Z')
+    const h = mount([])
+    fireEvent.click(screen.getByRole('tab', { name: en['view.templates'] }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp('^' + en['template.weeklyReview.title']) }))
+    const modal = screen.getByRole('complementary')
+    await act(async () => { fireEvent.click(within(modal).getByRole('button', { name: en['host.create'] })) })
+    const request = vi.mocked(h.props.onCreateTask).mock.calls[0]![0]
+    expect(request.title).toBe(en['template.weeklyReview.title'])
+    expect(request.prompt).toBe(en['template.weeklyReview.prompt'])
+    expect(rruleOf(request.timing)).toContain('BYDAY=FR')
+  })
+
   it('preserves the linked conversation and recurrence when editing an existing task', async () => {
     const current = { ...task, target: { kind: 'session' as const, sessionId: targetSession },
       rrule: 'DTSTART;TZID=UTC:20990101T090000\nRRULE:FREQ=MINUTELY;INTERVAL=5' }
@@ -544,6 +559,9 @@ describe('Host task editor on the existing manager', () => {
 
   it.each([
     { name: 'the default workspace', items: registered.items, cwd: '/work/default-workspace' },
+    { name: 'the renamed default project rather than a project with the original title', cwd: '/work/renamed', items: [
+      workspace('/work/ordinary', 'default-workspace'), workspace('/work/renamed', 'Renamed', true),
+    ] },
     { name: 'the first listed workspace without a default one', cwd: '/work/docs',
       items: [workspace('/work/docs', 'docs'), workspace('/work/notes', 'notes')] },
   ])('creates a manual task in $name', async ({ items, cwd }) => {
@@ -569,6 +587,17 @@ describe('Host task editor on the existing manager', () => {
     current = registered
     h.view.rerender(<TaskManagerPage {...h.props} />)
     expect(project().textContent).toContain(en['host.defaultProject'])
+  })
+
+  it('does not label an unrelated project or a directory-free task as the default project', () => {
+    const ordinary = { ...task, id: 'ordinary-task' as ScheduleId, title: 'Ordinary task',
+      target: { kind: 'new_once' as const, sessionId: targetSession, create: { cwd: '/work/ordinary' } } }
+    const items = [workspace('/work/ordinary', 'default-workspace'), workspace('/work/renamed', 'Renamed', true)]
+    mount([task, ordinary], { useWorkspaces: select => select({ ...workspaces, items }) })
+    expect(screen.getByRole('button', { name: task.title }).textContent).toContain(en['host.ungrouped'])
+    const row = screen.getByRole('button', { name: ordinary.title })
+    expect(row.textContent).toContain('default-workspace')
+    expect(row.textContent).not.toContain(en['host.defaultProject'])
   })
 
   it('starts a linked task that switches to a new conversation in the default workspace', async () => {
@@ -1006,6 +1035,24 @@ describe('Host task editor on the existing manager', () => {
 })
 
 describe('Host task actions', () => {
+  it('explains a removed project and leaves the destination editable', async () => {
+    const h = mount([{ ...task, status: 'paused', workspaceId: 'removed-project' as WorkspaceId,
+      target: { kind: 'new', create: { workspaceId: 'removed-project' as WorkspaceId, cwd: '/work/removed' } },
+      deliveryFailure: { code: 'project-removed', failedAt: '2098-12-02T00:00:00.000Z' },
+    }], { useWorkspaces: select => select(registered) })
+    fireEvent.click(screen.getByRole('button', { name: en['status.paused'] }))
+    const detail = openEdit()
+    expect(within(detail).getByText('This task is paused because its project was removed. Pick a project to run it again.')).toBeDefined()
+    expect(within(detail).getByRole('button', { name: en['host.run'] })).toHaveProperty('disabled', true)
+    expect(within(detail).getByRole('button', { name: en['host.resume'] })).toHaveProperty('disabled', true)
+    fireEvent.click(within(detail).getByRole('button', { name: /^Linked project / }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /docs/ }))
+    await save(detail)
+    expect(h.props.hostActions.edit).toHaveBeenCalledWith(expect.objectContaining({
+      patch: { target: { kind: 'new', create: { cwd: '/work/docs' } } },
+    }))
+  })
+
   it.each([
     { status: 'active' as const, label: en['host.pause'], active: false },
     { status: 'paused' as const, label: en['host.resume'], active: true },
@@ -1521,7 +1568,7 @@ describe('stored timing preservation', () => {
 })
 
 describe('time zone menu', () => {
-  const RECENT = 'dsh.schedule.recent-time-zones.v1'
+  const RECENT = 'jan.schedule.recent-time-zones.v1'
   beforeEach(() => { localStorage.clear() })
 
   it('lists zones that share a name once and keeps the stored zone when that name is chosen', async () => {
@@ -1586,7 +1633,7 @@ describe('time zone menu', () => {
 })
 
 /** Read the authoritative RRULE selected by a form submission. */
-function rruleOf(timing: import('@deepseek-ai/dsh-schedule/client').ScheduleTiming | undefined): string {
+function rruleOf(timing: import('@janhq/jan-schedule/client').ScheduleTiming | undefined): string {
   if (timing?.kind !== 'rrule') throw new Error('expected RRULE timing')
   return timing.rrule
 }

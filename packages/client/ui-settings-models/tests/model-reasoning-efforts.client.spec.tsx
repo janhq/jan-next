@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { DeepSeekModelDraft } from '../src/client/DeepSeekModelsEditor.tsx'
-import { validateDeepSeekModels } from '../src/client/DeepSeekModelsEditor.tsx'
+import type { ModelDraft } from '../src/client/model-drafts.ts'
+import { validateModelDrafts } from '../src/client/model-drafts.ts'
 import { ModelListEditor } from '../src/client/ModelListEditor.tsx'
 import { ModelReasoningEfforts, validateReasoningEfforts } from '../src/client/ModelReasoningEfforts.tsx'
 import type { ModelsOperations } from '../src/client/operations.ts'
@@ -18,8 +18,8 @@ const DEFAULTS = { off: null, low: 'low', medium: 'medium', high: 'high' }
 const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
 
 /** Render the controlled group over local state, reporting every write. */
-function renderGroup(initial: DeepSeekModelDraft, options: { disabled?: boolean; levels?: readonly string[] } = {}) {
-  const writes: DeepSeekModelDraft[] = []
+function renderGroup(initial: ModelDraft, options: { disabled?: boolean; levels?: readonly string[] } = {}) {
+  const writes: ModelDraft[] = []
   function Harness() {
     const [model, setModel] = useState(initial)
     return (
@@ -34,8 +34,20 @@ function renderGroup(initial: DeepSeekModelDraft, options: { disabled?: boolean;
 }
 
 const toggle = () => screen.getByRole('switch', { name: `${en.modelReasoning} 1` })
-const levels = () => screen.queryAllByRole<HTMLSelectElement>('combobox').map(select => select.value)
-const select = (row: number) => screen.getByRole<HTMLSelectElement>('combobox', { name: `${en.modelReasoningLevel} ${String(row)}` })
+const levelName = /^Level \d+$/
+const levels = () => screen.queryAllByRole<HTMLButtonElement>('button', { name: levelName }).map(button => button.textContent)
+const select = (row: number) => screen.getByRole<HTMLButtonElement>('button', { name: `${en.modelReasoningLevel} ${String(row)}` })
+/** The levels row `row`'s menu offers, read by opening and closing it. */
+const options = (row: number) => {
+  fireEvent.click(select(row))
+  const ids = screen.getAllByRole('menuitem').map(item => item.textContent)
+  fireEvent.click(select(row))
+  return ids
+}
+const choose = (row: number, level: string) => {
+  fireEvent.click(select(row))
+  fireEvent.click(screen.getByRole('menuitem', { name: level }))
+}
 const value = (level: string) => screen.getByRole<HTMLInputElement>('textbox', { name: `${level} ${en.modelReasoningValue}` })
 const remove = (level: string) => screen.getByRole<HTMLButtonElement>('button', { name: `${en.modelReasoningRemove} ${level}` })
 const add = () => screen.getByRole<HTMLButtonElement>('button', { name: en.modelReasoningAdd })
@@ -63,7 +75,7 @@ describe('ModelReasoningEfforts', () => {
     expect(value('max').value).toBe('ultra')
     expect(value('high').value).toBe('high')
     // Each select offers its own level and the levels no other row uses.
-    expect([...select(3).options].map(option => option.value)).toEqual(['minimal', 'low', 'medium', 'high', 'xhigh'])
+    expect(options(3)).toEqual(['minimal', 'low', 'medium', 'high', 'xhigh'])
     expect(screen.queryByText(en.modelReasoningValueRequired)).toBeNull()
   })
 
@@ -103,14 +115,14 @@ describe('ModelReasoningEfforts', () => {
 
   it('changes a level in place, carrying a custom value only between thinking levels', () => {
     const { efforts } = renderGroup({ id: 'chat', reasoningEfforts: { low: 'low', high: 'deep', max: 'max' } })
-    fireEvent.change(select(1), { target: { value: 'xhigh' } })
+    choose(1, 'xhigh')
     expect(levels()).toEqual(['xhigh', 'high', 'max'])
     expect(entriesOf(efforts())).toEqual([['xhigh', 'xhigh'], ['high', 'deep'], ['max', 'max']])
-    fireEvent.change(select(2), { target: { value: 'medium' } })
+    choose(2, 'medium')
     expect(entriesOf(efforts())).toEqual([['xhigh', 'xhigh'], ['medium', 'deep'], ['max', 'max']])
-    fireEvent.change(select(2), { target: { value: 'off' } })
+    choose(2, 'off')
     expect(entriesOf(efforts())).toEqual([['xhigh', 'xhigh'], ['off', null], ['max', 'max']])
-    fireEvent.change(select(2), { target: { value: 'low' } })
+    choose(2, 'low')
     expect(entriesOf(efforts())).toEqual([['xhigh', 'xhigh'], ['low', 'low'], ['max', 'max']])
   })
 
@@ -177,7 +189,7 @@ describe('ModelReasoningEfforts', () => {
     const { efforts } = renderGroup({ id: 'gateway' }, { levels: ['off', 'low', 'high', 'ultra'] })
     fireEvent.click(toggle())
     expect(entriesOf(efforts())).toEqual([['off', null], ['low', 'low'], ['high', 'high']])
-    expect([...select(3).options].map(option => option.value)).toEqual(['high', 'ultra'])
+    expect(options(3)).toEqual(['high', 'ultra'])
     fireEvent.click(add())
     expect(levels()).toEqual(['off', 'low', 'high', 'ultra'])
     expect(add().disabled).toBe(true)
@@ -186,7 +198,7 @@ describe('ModelReasoningEfforts', () => {
   it('keeps a stored key the offered levels do not name', () => {
     const { efforts } = renderGroup({ id: 'gateway', reasoningEfforts: { turbo: 'turbo-x', high: 'high' } })
     expect(levels()).toEqual(['turbo', 'high'])
-    expect([...select(1).options].map(option => option.value)).toEqual(['turbo', 'off', 'minimal', 'low', 'medium', 'xhigh', 'max'])
+    expect(options(1)).toEqual(['turbo', 'off', 'minimal', 'low', 'medium', 'xhigh', 'max'])
     fireEvent.change(value('high'), { target: { value: 'deep' } })
     expect(entriesOf(efforts())).toEqual([['turbo', 'turbo-x'], ['high', 'deep']])
   })
@@ -233,8 +245,8 @@ describe('reasoning-level validation', () => {
     expect(validateReasoningEfforts(undefined)).toBeUndefined()
   })
 
-  it('stays out of the shared model checker that DeepSeek and catalog rows use', () => {
-    expect(validateDeepSeekModels([{ id: 'chat', reasoningEfforts: { off: null } }])).toBeUndefined()
+  it('stays out of the shared model checker that catalog rows use', () => {
+    expect(validateModelDrafts([{ id: 'chat', reasoningEfforts: { off: null } }])).toBeUndefined()
   })
 })
 
@@ -247,8 +259,8 @@ describe('reasoning levels in the model list', () => {
   }
 
   /** Render the list over local state, reporting every write. */
-  function renderList(initial: DeepSeekModelDraft[]) {
-    const writes: DeepSeekModelDraft[][] = []
+  function renderList(initial: ModelDraft[]) {
+    const writes: ModelDraft[][] = []
     function Harness() {
       const [models, setModels] = useState(initial)
       return (

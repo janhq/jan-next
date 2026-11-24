@@ -2,15 +2,13 @@
 
 Status: implemented
 
-English | [中文](2026-10-09-session-change-request-bindings.zh.md)
-
 ## Problem
 
 A Session that opens or updates pull requests leaves them only in its shell output. Neither the user nor later consumers have a list of the change requests the Session works on or a shared view of their status. Code hosts differ in URLs, command-line tools, and status models, and any association must survive fork and resume without changing what the model sees.
 
 ## Decision
 
-The experimental forge capability seam has three roles. [`dsh-experimental-forge`](../../../../packages/experimental/forge/README.md) defines provider-neutral repository and change request references, a provider registry, and shared polling: watchers of one change request share one loop, each forge has one batched fetch in flight, and the cadence follows check, mergeability, and lifecycle state. [`dsh-experimental-forge-github`](../../../../packages/experimental/forge-github/README.md) is the first provider; it reads GitHub through the GitHub CLI on the host, so credentials stay in that tool's own store and never enter Session execution worlds. [`dsh-experimental-forge-session`](../../../../packages/experimental/forge-session/README.md) binds change requests to Sessions.
+The experimental forge capability seam has three roles. [`jan-experimental-forge`](../../../../packages/experimental/forge/README.md) defines provider-neutral repository and change request references, a provider registry, and shared polling: watchers of one change request share one loop, each forge has one batched fetch in flight, and the cadence follows check, mergeability, and lifecycle state. [`jan-experimental-forge-github`](../../../../packages/experimental/forge-github/README.md) is the first provider; it reads GitHub through the GitHub CLI on the host, so credentials stay in that tool's own store and never enter Session execution worlds. [`jan-experimental-forge-session`](../../../../packages/experimental/forge-session/README.md) binds change requests to Sessions.
 
 Bindings derive from the Session log instead of a separate store. A Session projection reads `bash` and `pwsh` calls: `gh pr create` results bind the URLs they print, `gh pr view`, `gh pr edit`, and `gh pr checkout` calls bind the change request they act on, and `git push` results record the branches they updated. Those three commands act on one change request, so only the URL given as their first argument and the URL their output prints for that change request count; links in a description name other change requests. Caller actions and discovery results are `plugin:forge-session/binding` records. Because every input is a log event, fork and resume carry bindings without new persistence, and the projection rebuilds them from any checkpoint. The printed URL or ref line is the evidence, not the exit status: an existing pull request reported by a failing `gh pr create` still binds, and a partially rejected push still records the branches it updated.
 

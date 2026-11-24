@@ -1,27 +1,27 @@
-# Workspace-context snapshot patch: the harness exports DSH_HOME=<cwd>/.dsh and
-# DSH_AGENTS_HOME=<cwd>/.agents, so project-root and both user-global root
+# Workspace-context snapshot patch: the harness exports JAN_HOME=<cwd>/.jan and
+# JAN_AGENTS_HOME=<cwd>/.agents, so project-root and both user-global root
 # discoveries stay inside the scenario's temporary cwd.
 - id: agent-default-model
-  name: '@deepseek-ai/dsh-agent-default-model'
+  name: '@janhq/jan-agent-default-model'
   config:
-    provider: deepseek-official
-    model: deepseek-v4-pro
+    provider: tokamak-official
+    model: tokamak-1-pro
 
 - id: session-persistence-jsonl
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@janhq/jan-session-persistence-jsonl'
   config:
-    root: !!js dshHomePath('sessions')
-    compression: !!js 'process.env.DSH_SNAPSHOT === undefined ? ''zstd'' : ''none'''
+    root: !!js janHomePath('sessions')
+    compression: !!js 'process.env.JAN_SNAPSHOT === undefined ? ''zstd'' : ''none'''
 
 - id: agent-instructions
-  name: '@deepseek-ai/dsh-agent-instructions'
+  name: '@janhq/jan-agent-instructions'
   config:
     maxBytes: 65536
     projectRootMarkers:
-      - .dsh-project
+      - .jan-project
 
 - id: system-prompt
-  name: '@deepseek-ai/dsh-system-prompt'
+  name: '@janhq/jan-system-prompt'
   config:
     personaPrefix: |
       You are a coding assistant powered by the {{model}} model.

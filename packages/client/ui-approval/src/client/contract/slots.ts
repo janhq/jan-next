@@ -1,9 +1,9 @@
 /** Approval composer and optional correlated-detail contracts. */
-import type { ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { ToolCallId } from '@janhq/jan-llm'
+import type { SessionId } from '@janhq/jan-session/types'
 import type {
   PropsLocale, PropsRenderFactories, PropsRuntime,
-} from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-slots'
 import type { ApprovalKey } from '../locales.ts'
 
 /* jscpd:ignore-start -- Approval and Question intentionally own independent pending-settlement lifecycles. */
@@ -19,14 +19,14 @@ function settlePendingComposer(settle: () => void, failureMessage: string): Prom
 }
 /* jscpd:ignore-end */
 
-declare module '@deepseek-ai/dsh-client-ui-session/client' {
+declare module '@janhq/jan-client-ui-session/client' {
   interface SessionPendingInteractionMap {
     /** Pending approval request. */
     approval: PendingApproval
   }
 }
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Approval prompt copy. */
     approval: ApprovalKey
@@ -35,7 +35,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotFactoryMap {
     /** Shared decision card; the caller owns authorization and persistence. */
     'conversation.approval.card': {
-      scope: 'session'
+      scope: 'session-maybe'
       props: ApprovalCardInput
       locale: 'approval'
       children: { 'conversation.approval.detail': { kind: 'single'; scope: 'session' } }
@@ -193,13 +193,18 @@ export interface ApprovalInjected {
    * @returns text for the active UI language.
    */
   resolveReason(reason: NonNullable<ApprovalPresentationRequest['displayReason']>): string
+  /**
+   * Switch one Session to Full access so later calls run without asking.
+   * @param request - pending request whose Session owns the permission switch.
+   * @returns the switch, or undefined while Full access is unavailable or already selected.
+   */
+  useAllowAll(request: PendingApproval): (() => Promise<void>) | undefined
 }
 
-/** Full props of the approval composer takeover. */
+/** Full props of the tool approval in the composer dock. */
 export type ApprovalComposerProps =
-  PropsRuntime<'conversation.composer'>
+  PropsRuntime<'conversation.input.dock'>
   & PropsRenderFactories
-  & { matched: PendingApproval }
   & PropsLocale<'approval'>
   & ApprovalInjected
 
@@ -219,6 +224,10 @@ export interface ApprovalCardInput {
   callId?: ToolCallId
   /** Caller-specific scope label; ordinary approvals use Allow once. */
   allowLabel?: string
+  /** Caller-specific label for the persistent choice; defaults to Always allow. */
+  alwaysLabel?: string
+  /** Consequence of the persistent choice, shown on hover. */
+  alwaysHint?: string
   /** Whether the caller still accepts an answer. */
   canAnswer: () => boolean
   /** Grant this request with the caller's stated scope. */

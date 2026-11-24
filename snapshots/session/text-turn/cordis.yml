@@ -1,40 +1,31 @@
 # Live-recording patch shared by the ordinary headless snapshot composition.
 # The shipped profile owns application startup; this patch fixes only the
 # deterministic test composition and raw persistence needed for recording.
-
-- id: llm-deepseek
-  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
-  config:
-    thinking: enabled
-    reasoningEffort: max
-    models:
-      - id: deepseek-v4-flash
-      - id: deepseek-v4-pro
-      - id: deepseek-v4-flash-vision-exp
-        inputModalities: [text, image]
+# Recorded headers name the `tokamak-official` route, which no shipped adapter
+# registers; re-recording needs a patch that supplies that provider route.
 
 - id: sandbox-policy
-  name: '@deepseek-ai/dsh-sandbox-policy'
+  name: '@janhq/jan-sandbox-policy'
   config:
-    mode: !!js "process.env.DSH_PERMISSION_MODE ?? (process.env.DSH_SNAPSHOT === undefined ? 'workspace-write' : 'danger-full-access')"
+    mode: !!js "process.env.JAN_PERMISSION_MODE ?? (process.env.JAN_SNAPSHOT === undefined ? 'workspace-write' : 'danger-full-access')"
     workspaceRoot: !!js process.cwd()
 
 - id: approval
-  name: '@deepseek-ai/dsh-user-approval'
+  name: '@janhq/jan-user-approval'
   config:
-    policy: !!js "(process.env.DSH_PERMISSION_MODE ?? (process.env.DSH_SNAPSHOT === undefined ? 'workspace-write' : 'danger-full-access')) === 'danger-full-access' ? 'never' : 'ask'"
+    policy: !!js "(process.env.JAN_PERMISSION_MODE ?? (process.env.JAN_SNAPSHOT === undefined ? 'workspace-write' : 'danger-full-access')) === 'danger-full-access' ? 'never' : 'ask'"
 
 - id: session-persistence-jsonl
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@janhq/jan-session-persistence-jsonl'
   config:
-    root: !!js dshHomePath('sessions')
+    root: !!js janHomePath('sessions')
     compression: none
 
 - id: session-title-llm
   disabled: true
 
 - id: system-prompt
-  name: '@deepseek-ai/dsh-system-prompt'
+  name: '@janhq/jan-system-prompt'
   config:
     personaPrefix: |
       You are a coding assistant powered by the {{model}} model. Your bash tool runs under a file sandbox — a `[sandbox: file access denied …]` result is policy, not a command bug.
@@ -42,43 +33,39 @@
       Verify your work by running the code or tests. Keep answers brief and factual.
 
 - id: agent-instructions
-  name: '@deepseek-ai/dsh-agent-instructions'
+  name: '@janhq/jan-agent-instructions'
   config:
     maxBytes: 65536
 
 - id: tool-subagent
-  name: '@deepseek-ai/dsh-tool-subagent'
+  name: '@janhq/jan-tool-subagent'
   config:
     provider: spawn
     toolName: subagent
     maxDepth: 1
 
 - id: tool-subagent-fork
-  name: '@deepseek-ai/dsh-tool-subagent'
+  name: '@janhq/jan-tool-subagent'
   config:
     provider: fork
     toolName: subagent_fork
     maxDepth: 1
 
 - id: fs-sandbox
-  name: '@deepseek-ai/dsh-fs-sandbox'
+  name: '@janhq/jan-fs-sandbox'
   config:
     cwd: !!js process.cwd()
 
 - insert:
     - id: hooks-claude-code
-      name: '@deepseek-ai/dsh-hooks-claude-code'
+      name: '@janhq/jan-hooks-claude-code'
       config:
         configPath: ./hooks.json
 
     - id: hooks-codex
-      name: '@deepseek-ai/dsh-hooks-codex'
+      name: '@janhq/jan-hooks-codex'
       config:
         configPath: ./codex-hooks.json
-
-- id: session-log-deepseek
-  config:
-    enabled: false
 
 # The recorded tool catalog includes the optional patch tool.
 - id: tool-fs

@@ -1,15 +1,15 @@
 /** Optional action cards below an answer: the `propose_action` tool, card state, user actions and status notices for registered kinds. */
-import { FiberState, Service, type Context } from '@deepseek-ai/cordis'
+import { FiberState, Service, type Context } from '@janhq/cordis'
 import { z, type ZodError, type ZodType } from 'zod'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import { createUserMessage, HarnessError, type ToolCallId } from '@deepseek-ai/dsh-llm'
-import { defineTool, type ToolRunContext } from '@deepseek-ai/dsh-tools'
-import { appendPluginRecord, SessionSeq, type Session } from '@deepseek-ai/dsh-session'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
-import type { JsonValue } from '@deepseek-ai/dsh-util-values'
-import type {} from '@deepseek-ai/dsh-api-remote-access'
-import type {} from '@deepseek-ai/dsh-sandbox-policy'
+import { Remote, TypertRemoteService } from '@janhq/jan-typert-protocol'
+import { createUserMessage, HarnessError, type ToolCallId } from '@janhq/jan-llm'
+import { defineTool, type ToolRunContext } from '@janhq/jan-tools'
+import { appendPluginRecord, SessionSeq, type Session } from '@janhq/jan-session'
+import type { Agent } from '@janhq/jan-agent'
+import type { ProjectionHandle } from '@janhq/jan-session-projection'
+import type { JsonValue } from '@janhq/jan-util-values'
+import type {} from '@janhq/jan-api-remote-access'
+import type {} from '@janhq/jan-sandbox-policy'
 import { actionCardProjection, PROPOSE_ACTION, type ActionCardState } from './projection.ts'
 import type { ActionCardDecision, ActionCardFields, ActionCardProposal, ActionCardResult, ActionCardView } from './types.ts'
 export type * from './types.ts'
@@ -22,7 +22,7 @@ export const Config = z.object({
 /** Validated card limits after schema defaults. */
 export type Config = z.infer<typeof Config>
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context { actionCards: ActionCards }
 }
 

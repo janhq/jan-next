@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 // InputBar behavior over the editor + submit-machine wiring: Enter-send
 // semantics (IME guard, Shift newline, busy Enter policy, Ctrl/Meta steering,
 // repeat suppression), running semantics (input stays free; continuable
@@ -9,10 +9,10 @@ import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
 // root listener routes them through the keymap commands); draft writes drive
 // the shell (jsdom's beforeinput lacks the ranges Lexical needs).
 
-import * as uiPrimitives from '@deepseek-ai/dsh-client-ui-primitives'
+import * as uiPrimitives from '@janhq/jan-client-ui-primitives'
 import './control-row-dom.ts'
-import type { InboxState } from '@deepseek-ai/dsh-agent/types'
-import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InboxState } from '@janhq/jan-agent/types'
+import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { createPortal } from 'react-dom'
@@ -20,18 +20,18 @@ import { $getRoot, $isTextNode } from 'lexical'
 import {
   allowAllAccess, bindSnapshotSelector, conversationSnapshot as conversationFixture, makeTranslate, RemoteError,
   sessionSnapshot as sessionFixture,
-} from '@deepseek-ai/dsh-client-test-runtime'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SessionListState, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { ContextPressureProjection } from '@deepseek-ai/dsh-token-meter/client'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
-import type { Context } from '@deepseek-ai/cordis'
-import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
+} from '@janhq/jan-client-test-runtime'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { SessionListState, SessionProjectionMap, SessionSnapshot } from '@janhq/jan-api-session-controller/client'
+import type { ContextPressureProjection } from '@janhq/jan-token-meter/client'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
+import type { Context } from '@janhq/cordis'
+import type { SessionId, SessionSeq } from '@janhq/jan-session/types'
 import type { SubmitOutcome } from '../src/client/contract/input.ts'
 import { SessionInputShell } from '../src/client/input/facade.ts'
 import { $replaceDetectSpanWithText, $selectDetectSpan } from '../src/client/input/editor/span-map.ts'
 import type {
-  ComposerAttachment, ComposerAttachmentsOwnerProps, DraftFileUploads, InputActivityOwnerProps,
+  ComposerAttachment, ComposerAttachmentsOwnerProps, DraftActivityOwnerProps, DraftFileUploads, InputActivityOwnerProps,
 } from '../src/client/contract/slots.ts'
 import type { DraftAttachmentId } from '../src/client/contract/input.ts'
 import { InputBar } from '../src/client/skeleton/InputBar.tsx'
@@ -81,7 +81,7 @@ interface BenchOptions {
   }
   draft?: string
   running?: boolean
-  retryableFailure?: SessionSeq
+  retryableFailure?: SessionProjectionMap['conversationContinuation']
   subagent?: Exclude<SessionSnapshot['subagent'], null>
   disabled?: boolean
   inert?: boolean
@@ -102,6 +102,7 @@ interface BenchOptions {
   leftItems?: React.ReactNode
   rightItems?: React.ReactNode
   activityEntry?: (owner: InputActivityOwnerProps) => React.ReactNode
+  draftActivityEntry?: (owner: DraftActivityOwnerProps) => React.ReactNode
   contextPressure?: ContextPressureProjection
   footer?: React.ReactNode
   attachments?: readonly ComposerAttachment[]
@@ -111,6 +112,8 @@ interface BenchOptions {
   deniedEndpoints?: readonly string[]
   addFiles?: (files: readonly File[], directories?: ReadonlySet<File>) => string | null
   commandMenuOpen?: boolean
+  /** The selected model's window the context meter falls back to. */
+  selectedWindow?: number
   busyEnter?: 'queue' | 'steer'
   toggleCommandMenu?: (selection: { start: number; end: number }) => void
 }
@@ -178,6 +181,7 @@ function bench(over?: BenchOptions) {
     if (key === 'conversation.input.permission') return over?.permissionEntry ?? null
     if (key === 'conversation.input.model') return over?.modelEntry ?? null
     if (key === 'conversation.input.activity') return over?.activityEntry?.(owner as InputActivityOwnerProps) ?? null
+    if (key === 'conversation.input.draftActivity') return over?.draftActivityEntry?.(owner as DraftActivityOwnerProps) ?? null
     return null
   }) as never
   const props: InputBarProps = {
@@ -221,10 +225,12 @@ function bench(over?: BenchOptions) {
     toggleCommandMenu: over?.toggleCommandMenu ?? vi.fn(),
     useBusyEnter: bindSnapshotSelector(busyEnter),
     retry,
+    previewContext: undefined,
     useStopShortcut: bindSnapshotSelector(stopShortcut),
     useNotices: bindSnapshotSelector(shell.notices),
     useLexicon: bindSnapshotSelector(shell.lexicon),
     useMenuLauncher: bindSnapshotSelector(menuLauncher),
+    useContextWindow: bindSnapshotSelector(createSnapshotStore<number | undefined>(over?.selectedWindow)),
     stop,
     // Mirrors the real lookup chain (conversation namespace, then common).
     t: over?.t ?? makeTranslate(zh, commonZh),
@@ -257,7 +263,8 @@ function bench(over?: BenchOptions) {
   const plainMessageDraft = sendableDraft && !uploadsPending && !(over?.draft?.trimStart().startsWith('/') ?? false)
   const primaryLabel = primaryStops
     ? '停止生成'
-    : over?.retryableFailure !== undefined && !sendableDraft && over.running !== true && over.subagent === undefined && !composerLocked
+    : typeof over?.retryableFailure === 'number' && !sendableDraft && over.running !== true
+      && over.subagent === undefined && !composerLocked
       && !(over.nextStep ?? []).some(message => message.source.kind === 'user')
       ? '继续生成'
       : over?.running === true && steeringAvailable && !composerLocked && plainMessageDraft
@@ -287,6 +294,12 @@ it('offers the play action only for an empty, idle composer with an eligible fai
   await vi.waitFor(() => { expect(b.sink).toHaveBeenCalledOnce() })
   expect(b.sink.mock.calls[0]?.[0]).toBe('A new instruction')
   expect(b.retry).toHaveBeenCalledOnce()
+})
+
+it('does not offer a bare retry when context overflow needs recovery', () => {
+  const b = bench({ retryableFailure: { overflow: 2 as SessionSeq } })
+  expect(b.view.queryByRole('button', { name: '继续生成' })).toBeNull()
+  expect((b.view.getByRole('button', { name: '发送消息' }) as HTMLButtonElement).disabled).toBe(true)
 })
 
 it.each([
@@ -1033,6 +1046,40 @@ describe('Enter semantics', () => {
     expect(shell.snapshot.draft).toBe('typed one')
   })
 
+  it('does not offer an attachment for an unchanged paste, even after a later edit', async () => {
+    const text = 'x'.repeat(2000)
+    const { textarea, shell, view } = bench({ draft: text })
+    act(() => { shell.editor.update(() => { $getRoot().getAllTextNodes()[0]?.select(0, text.length) }, { discrete: true }) })
+    await act(async () => { fireEvent.paste(textarea, { clipboardData: { items: [], getData: () => text } }) })
+    writeDraft(shell, `${text}!`)
+    expect(view.queryByRole('button', { name: zh['paste.attach'] })).toBeNull()
+    expect(shell.snapshot.draft).toBe(`${text}!`)
+  })
+
+  it('withdraws a paste offer even when later edits return to the same text', async () => {
+    const text = 'x'.repeat(2000)
+    const { textarea, shell, view } = bench()
+    await act(async () => { fireEvent.paste(textarea, { clipboardData: { items: [], getData: () => text } }) })
+    expect(view.getByRole('button', { name: zh['paste.attach'] })).toBeTruthy()
+    act(() => {
+      shell.setDraft(`${text}!`)
+      shell.setDraft(text)
+    })
+    expect(view.queryByRole('button', { name: zh['paste.attach'] })).toBeNull()
+    expect(shell.snapshot.draft).toBe(text)
+  })
+
+  it.each([null, 'Session unavailable'])('only removes the paste when attachment intake accepts it (refusal: %s)', async (refusal) => {
+    const text = 'x'.repeat(2000)
+    const addFiles = vi.fn(() => refusal)
+    const { textarea, shell, view } = bench({ addFiles, draft: 'before' })
+    await act(async () => { fireEvent.paste(textarea, { clipboardData: { items: [], getData: () => text } }) })
+    expect(shell.snapshot.draft).toBe(`before${text}`)
+    await act(async () => { fireEvent.click(view.getByRole('button', { name: zh['paste.attach'] })) })
+    expect(addFiles).toHaveBeenCalledWith([expect.objectContaining({ name: 'pasted-text.txt', size: text.length })], undefined)
+    expect(shell.snapshot.draft).toBe(refusal === null ? 'before' : `before${text}`)
+  })
+
   it('caret-only commits advance neither draftRev nor the published state', () => {
     const { shell } = bench({ draft: 'hello' })
     const before = shell.snapshot
@@ -1091,7 +1138,7 @@ describe('running and lock semantics', () => {
       if (trigger === 'hover') fireEvent.pointerEnter(stop)
       else fireEvent.focus(stop)
       act(() => { vi.advanceTimersByTime(500) })
-      expect(view.getByRole('tooltip').getAttribute('aria-label')).toBe(`${label} Esc Esc`)
+      expect(view.getByRole('tooltip').getAttribute('aria-label')).toBe(`${label} Esc ×2`)
       act(() => { stopShortcut.set([]) })
       expect(view.getByRole('tooltip').textContent).toBe(label)
     } finally {
@@ -1130,7 +1177,7 @@ describe('running and lock semantics', () => {
       const { button, view, session } = bench({ running: true })
       fireEvent.pointerEnter(button)
       act(() => { vi.advanceTimersByTime(500) })
-      expect(view.getByRole('tooltip').getAttribute('aria-label')).toBe('停止生成 Esc Esc')
+      expect(view.getByRole('tooltip').getAttribute('aria-label')).toBe('停止生成 Esc ×2')
 
       // Disabling a hovered native button need not deliver mouseleave.
       act(() => { session.set(snapshotOf({ running: false })) })
@@ -1644,7 +1691,7 @@ describe('running and lock semantics', () => {
       })
     }
     vi.resetModules()
-    const detection = await import('@deepseek-ai/dsh-client-ui-primitives/src/focus.ts')
+    const detection = await import('@janhq/jan-client-ui-primitives/src/focus.ts')
     const device = vi.spyOn(uiPrimitives, 'isMobileDevice').mockImplementation(detection.isMobileDevice)
     onTestFinished(() => { device.mockRestore() })
     const outside = document.createElement('input')
@@ -1810,11 +1857,11 @@ describe('decorations', () => {
       )
     })
     expect(commandChipOf(view.container)?.textContent).toBe('/goal')
-    expect(textarea.style.getPropertyValue('--dsh-composer-hint')).toBe(JSON.stringify('目标内容'))
+    expect(textarea.style.getPropertyValue('--jan-composer-hint')).toBe(JSON.stringify('目标内容'))
     // Args typed: the hint disappears, the chip stays.
     act(() => { shell.actions.insertText('发布', shell.actions.captureInsertion()) })
     expect(shell.snapshot.draft).toBe('/goal 发布')
-    expect(textarea.style.getPropertyValue('--dsh-composer-hint')).toBe('')
+    expect(textarea.style.getPropertyValue('--jan-composer-hint')).toBe('')
     expect(commandChipOf(view.container)).not.toBeNull()
   })
 
@@ -1827,7 +1874,7 @@ describe('decorations', () => {
         { start: 0, end: 6, draftRev: shell.snapshot.draftRev },
       )
     })
-    expect(textarea.style.getPropertyValue('--dsh-composer-hint')).toBe(JSON.stringify('输入目标，智能体将持续执行'))
+    expect(textarea.style.getPropertyValue('--jan-composer-hint')).toBe(JSON.stringify('输入目标，智能体将持续执行'))
   })
 
   it('the hint lookup keys on the claim name, so a localized claim token keeps the locale entry', () => {
@@ -1839,7 +1886,7 @@ describe('decorations', () => {
         { start: 0, end: 4, draftRev: shell.snapshot.draftRev },
       )
     })
-    expect(textarea.style.getPropertyValue('--dsh-composer-hint')).toBe(JSON.stringify('输入目标，智能体将持续执行'))
+    expect(textarea.style.getPropertyValue('--jan-composer-hint')).toBe(JSON.stringify('输入目标，智能体将持续执行'))
   })
 
   it('suppresses placeholders throughout native composition, including a temporarily empty draft', async () => {
@@ -1870,7 +1917,7 @@ describe('decorations', () => {
     act(() => { shell.setDraft('/目标 这') })
     await act(async () => {})
     expect(textarea.hasAttribute('data-composer-composing')).toBe(false)
-    expect(textarea.style.getPropertyValue('--dsh-composer-hint')).toBe('')
+    expect(textarea.style.getPropertyValue('--jan-composer-hint')).toBe('')
   })
 
   it('an inserted reference renders a real chip capsule with its icon and label', () => {
@@ -2105,25 +2152,47 @@ describe('command launcher chrome and control seats', () => {
     // Every seat dispatched, nothing rendered (render passes may repeat; the
     // seat set is the contract).
     expect([...new Set(slotCalls.map(c => c.key))]).toEqual([
-      'conversation.input.overlay', 'conversation.input.attachments',
+      'conversation.input.overlay', 'conversation.input.attachments', 'conversation.input.placeholder',
       'conversation.input.permission', 'conversation.input.plan', 'conversation.input.left',
       'conversation.input.right', 'conversation.input.model', 'conversation.input.activity',
+      'conversation.input.draftActivity',
       'conversation.composer.dock',
     ])
     expect(view.queryByLabelText('Plan mode')).toBeNull()
     expect(view.queryByLabelText('Model')).toBeNull()
   })
 
-  it('passes the textarea selection to the command menu launcher and reflects its expanded state', () => {
+  it('offers a draft activity before a session and adopts the session without duplicating the control', async () => {
+    const open = vi.fn(async (readDraft: () => string) => { expect(readDraft()).toBe('') })
+    const { props, view } = bench({ variant: 'hero', draftActivityEntry: ({ locked, openDraft }) => (
+      <button type="button" disabled={locked} onClick={() => { void openDraft?.() }}>
+        {openDraft === undefined ? 'Session microphone' : 'Open microphone'}
+      </button>
+    ) })
+    const useAbsentSnapshot = bindSnapshotSelector(createSnapshotStore<undefined>(undefined))
+    const useAbsentInput: InputBarProps['useInput'] = () => { useAbsentSnapshot(() => undefined) }
+    view.rerender(<InputBar {...props} sessionId={undefined} useInput={useAbsentInput}
+      inputActions={undefined} keyboard={undefined} onActivateDraft={open} />)
+    const mic = view.getByRole('button', { name: 'Open microphone' })
+    fireEvent.click(mic)
+    await act(async () => {})
+    expect(open).toHaveBeenCalledOnce()
+    view.rerender(<InputBar {...props} />)
+    expect(view.getByRole('button', { name: 'Session microphone' })).toBe(mic)
+    expect(view.queryByRole('button', { name: 'Open microphone' })).toBeNull()
+  })
+
+  it('opens a short add menu whose Browse commands row passes the textarea selection to the command launcher', () => {
     const toggleCommandMenu = vi.fn()
-    const { view, shell, menuLauncher } = bench({ draft: 'draft text', toggleCommandMenu })
+    const { view, shell } = bench({ draft: 'draft text', toggleCommandMenu })
     act(() => { shell.editor.update(() => { $selectDetectSpan({ start: 2, end: 7 }) }, { discrete: true }) })
     const launcher = view.getByLabelText('添加文件或调用指令')
     expect(launcher.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(launcher)
-    expect(toggleCommandMenu).toHaveBeenCalledExactlyOnceWith({ start: 2, end: 7 })
-    act(() => { menuLauncher.set('command') })
     expect(launcher.getAttribute('aria-expanded')).toBe('true')
+    expect(view.getByText('添加文件或照片')).toBeTruthy()
+    fireEvent.click(view.getByText('浏览指令'))
+    expect(toggleCommandMenu).toHaveBeenCalledExactlyOnceWith({ start: 2, end: 7 })
   })
 
   it('follows the access answers over a running Session, and restores the actions when they return', () => {
@@ -2141,14 +2210,14 @@ describe('command launcher chrome and control seats', () => {
     expect(view.getByLabelText('停止生成')).toBeTruthy()
   })
 
-  it('opening the command menu from the button puts the keyboard in the editor first', () => {
+  it('browsing commands from the add menu puts the keyboard in the editor first', () => {
     const toggleCommandMenu = vi.fn()
     const { view, textarea } = bench({ toggleCommandMenu })
-    // Tab to the button and activate it: the keyboard is on the button, and the
-    // menu is a combobox whose arrows live on the editor.
+    // The menu row takes the keyboard; the command menu is a combobox whose
+    // arrows live on the editor.
     textarea.blur()
-    expect(document.activeElement).not.toBe(textarea)
     fireEvent.click(view.getByLabelText('添加文件或调用指令'))
+    fireEvent.click(view.getByText('浏览指令'))
     expect(document.activeElement).toBe(textarea)
     expect(toggleCommandMenu).toHaveBeenCalledTimes(1)
   })

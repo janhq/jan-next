@@ -1,29 +1,30 @@
-import type {} from '@deepseek-ai/dsh-client-ui-context-menu/client'
+import type {} from '@janhq/jan-client-ui-context-menu/client'
 /** Register the Chat Conversation target, renderers, stats, and details surface. */
-import type {} from '@deepseek-ai/dsh-client-ui-file-drag/client'
-import type {} from '@deepseek-ai/dsh-client-product-analytics/client'
-import type { Context } from '@deepseek-ai/cordis'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { SessionBinding } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { GroupKey } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { createSnapshotStore, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar-browser/client'
-import type {} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
+import type {} from '@janhq/jan-client-ui-file-drag/client'
+import type {} from '@janhq/jan-client-product-analytics/client'
+import type { Context } from '@janhq/cordis'
+import type { ImageAttachmentRef } from '@janhq/jan-attachment'
+import type {} from '@janhq/jan-api-remotes/client'
+import type { SessionBinding } from '@janhq/jan-api-session-controller/client'
+import type { GroupKey } from '@janhq/jan-client-ui-conversation/client'
+import { createSnapshotStore, type ObservableSnapshot } from '@janhq/jan-client-store'
+import type { SessionId } from '@janhq/jan-session/types'
+import type {} from '@janhq/jan-client-ui-sidebar-right/client'
+import type {} from '@janhq/jan-client-ui-sidebar-browser/client'
+import type {} from '@janhq/jan-client-ui-input-trigger/client'
 // The `file` entry of `SidebarRightResourceParamsMap`, which types `{ params: { line } }` below.
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/client'
-import { fileAddressFor, resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
+import type {} from '@janhq/jan-client-ui-sidebar-documentpreview/client'
+import { fileAddressFor, resolveWorkspacePath } from '@janhq/jan-util-workspace-path'
 // Type-only service and declaration merges used by the apply world.
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-conversation/client'
+import type {} from '@janhq/jan-client-ui-layout/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-session/client'
+import type {} from '@janhq/jan-client-ui-settings/client'
+import type {} from '@janhq/jan-client-ui-settings-general/client'
+import type {} from '@janhq/jan-client-ui-workspace/client'
+import type { ConnectionHandle } from '@janhq/jan-client-connection/client'
 import type {
   ChatFlowDataInjected, ChatFlowInjected, ChatNodeInjected, ChatScrollPosition, ChatViewInjected,
   QuotaNoticeInjected, QuotaNoticeState,
@@ -168,7 +169,7 @@ export function apply(ctx: Context): void {
       }),
     }, LinkOpeningRow))
   })
-  const transcriptView = new TranscriptViewPolicy(chatSettings, 'dshDesktop' in globalThis ? 'standard' : DEFAULT_TRANSCRIPT_VIEW_MODE)
+  const transcriptView = new TranscriptViewPolicy(chatSettings, 'janDesktop' in globalThis ? 'standard' : DEFAULT_TRANSCRIPT_VIEW_MODE)
   const presentation = derivePresentationPolicy(transcriptView.mode, transcriptView.collapseTiming, transcriptView.foldedReplies)
   const performancePolicy = new PerformanceUsagePolicy(chatSettings)
   ctx.effect(() => () => { transcriptView.dispose(); performancePolicy.dispose() })
@@ -225,6 +226,8 @@ export function apply(ctx: Context): void {
     name: 'conversation.chat.flow', locale: NS, store: chatStore,
     children: {
       'conversation.chat.node': { kind: 'keyed', scope: 'session', inject: CHAT_NODE_INJECT },
+      'conversation.chat.running-detail': { kind: 'list', scope: 'session' },
+      'conversation.chat.running-tail': { kind: 'list', scope: 'session' },
     },
     inject: (sessionId: SessionId): ChatFlowDataInjected => {
       const binding = ctx.sessions.binding(sessionId)
@@ -243,6 +246,7 @@ export function apply(ctx: Context): void {
       children: {
         'conversation.chat.flow': { kind: 'single', scope: 'session', inject: CHAT_FLOW_INJECT },
         'conversation.chat.text-interaction': { kind: 'keyed', scope: 'session' },
+        'conversation.chat.image.actions': { kind: 'list', scope: 'session' },
       },
       store: chatStore,
       inject: (sessionId: SessionId): ChatViewInjected => {
@@ -261,7 +265,7 @@ export function apply(ctx: Context): void {
           // at click time, which a directory change can move away from the
           // workspace root; links from earlier Turns follow later changes. A
           // path inside the workspace is addressed under this
-          // session's scope, `dsh-resource://file/session/<id>/<path>`; an
+          // session's scope, `jan-resource://file/session/<id>/<path>`; an
           // absolute path elsewhere keeps its absolute spelling in the same
           // Session's address. Which tab type claims the address is the
           // Sidebar's decision, not this call site's.
@@ -273,8 +277,12 @@ export function apply(ctx: Context): void {
             const cwd = ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd
             const current = session.projections.faceOf('workingDirectory').getSnapshot() as string | null | undefined
             const url = fileAddressFor(sessionId, cwd, resolveWorkspacePath(current ?? undefined, path))
-            if (options?.line === undefined) ctx.sidebarRight.openResource(url)
-            else ctx.sidebarRight.openResource(url, { params: { line: options.line } })
+            const sidebar = ctx.sidebarRight
+            // A card that toggles its preview hides the column when that file is already in front.
+            const active = options?.toggle === true && sidebar.isExpanded() ? sidebar.active() : undefined
+            if (active?.contentId === url) { sidebar.hide(active.id); return }
+            if (options?.line === undefined) sidebar.openResource(url)
+            else sidebar.openResource(url, { params: { line: options.line } })
             await Promise.resolve()
           },
           resolveFilePath: sessionFilePath(ctx, sessionId),
@@ -289,7 +297,10 @@ export function apply(ctx: Context): void {
           loadThrough: seq => session.loadThrough(seq),
           loadImage: Object.assign(
             (attachment: ImageAttachmentRef) => ctx.uiConversation.imageUrl(sessionId, attachment),
-            { peek: (attachment: ImageAttachmentRef) => ctx.uiConversation.peekImageUrl(sessionId, attachment) },
+            {
+              peek: (attachment: ImageAttachmentRef) => ctx.uiConversation.peekImageUrl(sessionId, attachment),
+              acquire: (attachment: ImageAttachmentRef) => ctx.uiConversation.acquireImageUrl(sessionId, attachment),
+            },
           ),
           chatScroll: {
             save: (position) => {

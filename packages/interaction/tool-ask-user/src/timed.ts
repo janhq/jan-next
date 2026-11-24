@@ -2,12 +2,12 @@
  * Opt-in timed `ask_user_question` tool definition.
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import { defineTool, type ToolExecution } from '@deepseek-ai/dsh-tools'
-import { TIMED_WAIT_PARAMETER } from '@deepseek-ai/dsh-user-questions'
+import type { Context } from '@janhq/cordis'
+import { defineTool, type ToolExecution } from '@janhq/jan-tools'
+import { TIMED_WAIT_PARAMETER } from '@janhq/jan-user-questions'
 import type {
   AskUserQuestionAnswer, AskUserQuestionRequestEvent,
-} from '@deepseek-ai/dsh-user-questions/types'
+} from '@janhq/jan-user-questions/types'
 
 function validateTimeout(timeout: number): number {
   if (timeout !== -1 && (!Number.isInteger(timeout) || timeout < 1 || timeout > 2_147_483)) {
@@ -16,7 +16,12 @@ function validateTimeout(timeout: number): number {
   return timeout
 }
 
-function validateQuestionIds(questions: readonly { readonly id: string }[]): void {
+/**
+ * Reject duplicate ids before asking a tracked question batch.
+ * @param questions - model-supplied questions for one call.
+ * @throws Error if two questions share an id.
+ */
+export function validateQuestionIds(questions: readonly { readonly id: string }[]): void {
   const ids = new Set<string>()
   for (const question of questions) {
     if (ids.has(question.id)) throw new Error(`question id ${JSON.stringify(question.id)} must be unique within this call`)
@@ -27,6 +32,10 @@ function validateQuestionIds(questions: readonly { readonly id: string }[]): voi
 /** Model-facing meaning of a skipped answer item, shared by the blocking and timed descriptions. */
 export const skippedAnswerGuidance = 'An answer item with empty selected and no custom means the user skipped that question: '
   + 'continue without it, do not ask it again, and do not treat the skip as permission.'
+
+/** Model-visible notice for an answer batch the Client automatically submitted at its deadline. */
+export const automaticAnswerNotice = 'This answer batch was automatically submitted on timeout. '
+  + 'Unanswered questions use their recommended choices or are skipped. Do not treat automatic answers as user permission.'
 
 const description = 'Ask brief, direct, self-contained questions about missing information, preferences, or decisions. '
   + 'Use user-facing terms; assume no knowledge of background work or internal names. '
@@ -40,7 +49,7 @@ const description = 'Ask brief, direct, self-contained questions about missing i
  * from it that the call stays answerable, and the Client question row decides
  * from it that the recorded result is the timeout, not an answer batch.
  */
-const pendingNotice = 'No answer batch arrived before the timeout. This is pending, not a skipped answer. '
+export const pendingNotice = 'No answer batch arrived before the timeout. This is pending, not a skipped answer. '
   + 'Continue useful independent work. The user can still answer; their reply will be a user message '
   + 'identified as answer_to_pending_question with this callId and the original questions. '
   + 'Do not treat this as permission.'
@@ -67,7 +76,7 @@ interface ToolAnswerResult {
  * @param exec - Execution context that owns the agent and cancellation signal.
  * @returns The corresponding user-question service request.
  */
-function questionRequest(
+export function questionRequest(
   questions: readonly ToolQuestion[],
   exec: Pick<ToolExecution, 'agent' | 'signal'>,
 ): AskUserQuestionRequestEvent {

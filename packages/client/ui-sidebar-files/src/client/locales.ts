@@ -9,9 +9,9 @@
  * `TranslateNS<'sidebarFiles'>` or `PropsLocale<'sidebarFiles'>` needs only this
  * file, whichever entry a program loads first.
  */
-import type {} from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-slots'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** File-tree type name, guide entry, navigator controls, row states, and failure lines. */
     sidebarFiles: SidebarFilesKey
@@ -50,12 +50,12 @@ export type SidebarFilesKey = keyof typeof zh
 export const en = {
   'shortcut.noSession': 'Select a session first',
   'type.label': 'Files',
-  'guide.title': 'Workspace files',
-  'guide.description': 'Browse files in this session\'s workspace',
+  'guide.title': 'Project files',
+  'guide.description': 'Browse files in this session\'s project',
   loading: 'Reading…',
   empty: 'Empty directory',
   truncated: 'Too many entries, showing only some of them.',
-  noWorkspace: 'This session has no workspace directory.',
+  noWorkspace: 'This session has no project folder.',
   reload: 'Reload',
   autoRefresh: 'Auto refresh',
   'autoRefresh.enable': 'Enable auto refresh',
@@ -66,7 +66,7 @@ export const en = {
   'navigator.hide': 'Hide file tree',
   'navigator.resize': 'Resize file tree',
   'error.notFound': 'That directory is gone. It may have been moved or deleted.',
-  'error.outsideWorkspace': 'That directory is outside the workspace, so the sidebar will not read it.',
+  'error.outsideWorkspace': 'That directory is outside the project, so the sidebar will not read it.',
   'error.notDirectory': 'That is not a directory.',
   'error.unavailable': 'Read failed: {message}',
 } satisfies Record<SidebarFilesKey, string>

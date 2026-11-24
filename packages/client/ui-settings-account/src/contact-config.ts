@@ -1,5 +1,5 @@
 /** Public contact and bonus notice options shared by Host and Client. */
-import z from '@deepseek-ai/schemastery'
+import z from '@janhq/schemastery'
 
 /** Questionnaire destination and bonus notice timings shared by Host and Client. */
 export interface ContactConfig {
@@ -11,6 +11,8 @@ export interface ContactConfig {
   bonusAckRetryDelayMs: number
   /** Ceiling for the acknowledgement retry backoff. */
   bonusAckRetryMaxDelayMs: number
+  /** Disable automatic API-key completion even before a replacement has registered. */
+  disableStockApiKeyShortcut: boolean
 }
 /** Validate public questionnaire options. */
 export const ContactConfigFields = {
@@ -18,8 +20,9 @@ export const ContactConfigFields = {
   contactSource: z.string().default(''),
   bonusAckRetryDelayMs: z.number().min(1).default(1_000),
   bonusAckRetryMaxDelayMs: z.number().min(1).default(60_000),
+  disableStockApiKeyShortcut: z.boolean().default(false),
 }
 /** Validate public questionnaire options. */
 export const ContactConfig: z<Partial<ContactConfig>, ContactConfig> = z.object(ContactConfigFields)
 /** Bootstrap key containing no account credentials. */
-export const CONTACT_CONFIG_GLOBAL = '__DSH_CONTACT_CONFIG__'
+export const CONTACT_CONFIG_GLOBAL = '__JAN_CONTACT_CONFIG__'

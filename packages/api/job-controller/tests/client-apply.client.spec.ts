@@ -1,7 +1,7 @@
-import { Context } from '@deepseek-ai/cordis'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
-import { RemoteStream, type RemoteStreamOptions } from '@deepseek-ai/dsh-api-gateway/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { Context } from '@janhq/cordis'
+import type { ConnectionHandle } from '@janhq/jan-client-connection/client'
+import { RemoteStream, type RemoteStreamOptions } from '@janhq/jan-api-gateway/client'
+import type { SessionId } from '@janhq/jan-session/types'
 import { afterEach, describe, expect, it } from 'vitest'
 import * as JobClient from '../src/client/index.ts'
 import type { JobFollowFrame, JobListFrame } from '../src/types.ts'
@@ -24,7 +24,7 @@ async function mount(): Promise<{ ctx: Context; observeCalls: unknown[]; rowsCal
     interactions: 'answer',
     openWebSocket: () => { throw new Error('unexpected WebSocket') },
     isLoopback: true,
-    generation: { getSnapshot: () => ({ id: 1, host: { home: '/home/fixture' } }), subscribe: () => () => {} },
+    generation: { getSnapshot: () => ({ id: 1, host: { home: '/home/fixture', name: 'fixture-host', remote: false } }), subscribe: () => () => {} },
     state: { getSnapshot: () => 'connected' as const, subscribe: () => () => {} },
     rpc: { call: () => Promise.reject(new Error('unexpected generic RPC call')) },
     reconnect: () => {},

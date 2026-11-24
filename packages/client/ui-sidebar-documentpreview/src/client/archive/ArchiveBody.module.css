@@ -1,0 +1,62 @@
+.archive {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px;
+  font-family: var(--dsw-font, sans-serif);
+  white-space: normal;
+}
+
+.summary {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.list {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+/* RTL with an LTR bdi keeps the end of a long path visible behind the ellipsis. */
+.entryName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-primary);
+  direction: rtl;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entryName bdi {
+  direction: ltr;
+}
+
+.size {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.failed {
+  margin: 0;
+  padding: 24px 12px;
+  font-family: var(--dsw-font, sans-serif);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+  text-align: center;
+}

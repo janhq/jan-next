@@ -2,9 +2,9 @@ import { appendFile, mkdir, mkdtemp, open, realpath, rm, symlink, writeFile } fr
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { FsError, FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
-import { LocalFileSystem } from '@deepseek-ai/dsh-fs-local'
+import { Context } from '@janhq/cordis'
+import { FsError, FsTargetKey, FsVersion } from '@janhq/jan-fs'
+import { LocalFileSystem } from '@janhq/jan-fs-local'
 import { SessionMediaReferences } from '../src/media-references.ts'
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4])
@@ -19,7 +19,7 @@ describe('SessionMediaReferences /api/file', () => {
   const contexts: Context[] = []
 
   beforeEach(async () => {
-    root = await realpath(await mkdtemp(join(tmpdir(), 'dsh-media-references-')))
+    root = await realpath(await mkdtemp(join(tmpdir(), 'jan-media-references-')))
   })
 
   afterEach(async () => {
@@ -63,14 +63,13 @@ describe('SessionMediaReferences /api/file', () => {
     }
   }
 
-  it('serves the inclusive image cap and refuses larger images for GET, HEAD and Range', async () => {
+  it('serves the inclusive image cap and refuses larger whole-file reads for GET and HEAD', async () => {
     const route = await mount(PNG_BYTES.length)
     const path = join(root, 'bounded.png')
     await writeFile(path, PNG_BYTES)
     expect(await responseBytes(await route.call(path))).toEqual(PNG_BYTES)
     await appendFile(path, new Uint8Array(1))
     expect((await route.call(path)).status).toBe(413)
-    expect((await route.call(path, { headers: { range: 'bytes=0-0' } })).status).toBe(413)
     const head = await route.call(path, { method: 'HEAD' })
     expect(head.status).toBe(413)
     expect(head.body).toBeNull()
@@ -151,17 +150,57 @@ describe('SessionMediaReferences /api/file', () => {
     expect((await responseBytes(await route.raw(next.href))).at(-1)).toBe(9)
   })
 
-  it('ignores Range headers and returns complete bodies without advertising ranges', async () => {
+  it('serves a single byte range as a 206 window and advertises ranges on full bodies', async () => {
+    const route = await mount()
+    const path = join(root, 'clip.mp4')
+    const bytes = new Uint8Array(32).map((_, index) => index)
+    await writeFile(path, bytes)
+    const full = await route.call(path)
+    expect(full.status).toBe(200)
+    expect(full.headers.get('accept-ranges')).toBe('bytes')
+    const head = await route.call(path, { headers: { range: 'bytes=0-9' } })
+    expect(head.status).toBe(206)
+    expect(head.headers.get('content-range')).toBe('bytes 0-9/32')
+    expect(head.headers.get('content-length')).toBe('10')
+    expect(head.headers.get('accept-ranges')).toBe('bytes')
+    expect(await responseBytes(head)).toEqual(bytes.slice(0, 10))
+    const tail = await route.call(path, { headers: { range: 'bytes=-4' } })
+    expect(tail.status).toBe(206)
+    expect(tail.headers.get('content-range')).toBe('bytes 28-31/32')
+    expect(await responseBytes(tail)).toEqual(bytes.slice(28))
+    const open = await route.call(path, { headers: { range: 'bytes=30-' } })
+    expect(await responseBytes(open)).toEqual(bytes.slice(30))
+    const past = await route.call(path, { headers: { range: 'bytes=32-' } })
+    expect(past.status).toBe(416)
+    expect(past.headers.get('content-range')).toBe('bytes */32')
+    const headRange = await route.call(path, { method: 'HEAD', headers: { range: 'bytes=4-7' } })
+    expect(headRange.status).toBe(206)
+    expect(headRange.headers.get('content-length')).toBe('4')
+    expect(headRange.body).toBeNull()
+  })
+
+  it('ignores malformed and multi-range headers and serves the complete body', async () => {
     const route = await mount()
     const path = join(root, 'clip.mp4')
     await writeFile(path, PNG_BYTES)
-    for (const range of ['bytes=0-3', 'bytes=-4', 'bytes=999-', 'bytes=abc', 'items=0-0', 'bytes=0-1,3-4']) {
+    for (const range of ['bytes=abc', 'items=0-0', 'bytes=0-1,3-4', 'bytes=5-2', 'bytes=-']) {
       const response = await route.call(path, { headers: { range } })
       expect(response.status).toBe(200)
-      expect(response.headers.get('accept-ranges')).toBeNull()
       expect(response.headers.get('content-range')).toBeNull()
       expect(await responseBytes(response)).toEqual(PNG_BYTES)
     }
+  })
+
+  it('streams ranges from files beyond the whole-file cap', async () => {
+    const route = await mount(PNG_BYTES.length)
+    const path = join(root, 'long.mp4')
+    const bytes = new Uint8Array(PNG_BYTES.length * 4).map((_, index) => index)
+    await writeFile(path, bytes)
+    expect((await route.call(path)).status).toBe(413)
+    const ranged = await route.call(path, { headers: { range: 'bytes=0-' } })
+    expect(ranged.status).toBe(206)
+    expect(ranged.headers.get('content-range')).toBe(`bytes 0-${bytes.length - 1}/${bytes.length}`)
+    expect(await responseBytes(ranged)).toEqual(bytes)
   })
 
   it('answers HEAD without reading content and reports missing and non-regular files', async () => {
@@ -169,7 +208,7 @@ describe('SessionMediaReferences /api/file', () => {
     const path = join(root, 'image.png')
     await writeFile(path, PNG_BYTES)
     const read = vi.spyOn(route.fs, 'readBytes')
-    const response = await route.call(path, { method: 'HEAD', headers: { range: 'bytes=0-3' } })
+    const response = await route.call(path, { method: 'HEAD' })
     expect(response.status).toBe(200)
     expect(response.headers.get('content-length')).toBe(String(PNG_BYTES.length))
     expect(response.body).toBeNull()
@@ -196,7 +235,7 @@ describe('SessionMediaReferences /api/file', () => {
 
   it('reads files and symlink targets outside the default cwd without a workspace registry', async () => {
     const route = await mount()
-    const outside = await mkdtemp(join(tmpdir(), 'dsh-media-outside-'))
+    const outside = await mkdtemp(join(tmpdir(), 'jan-media-outside-'))
     try {
       const path = join(outside, 'image.png')
       await writeFile(path, PNG_BYTES)

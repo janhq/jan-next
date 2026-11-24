@@ -14,23 +14,24 @@
  * are slot entries with their own behavior, so this component threads no
  * action callbacks and hosts no action surface.
  */
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { WorkspaceDialogs } from './WorkspaceDialogs.tsx'
 import {
   AnimatedRows, HoverCardGroup, IconArchiveCheckOutlineRegular, IconArchiveOffOutlineRegular, IconArchiveOutlineRegular,
-  IconChevronsUpDownOutlineRegular, IconClockOutlineRegular, IconCloseFillRegular,
+  IconChevronDownOutlineRegular, IconChevronsUpDownOutlineRegular, IconChevronUpOutlineRegular, IconClockOutlineRegular,
+  IconCloseFillRegular,
   IconFlatListOutlineRegular, IconFolderCloseRegular, IconProjectAddOutlineRegular,
   IconQueueOutlineRegular, IconSearchOutlineRegular, IconSlidersTwoOutlineRegular,
   IconWorkspaceTreeOutlineRegular, Menu, Tooltip,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+} from '@janhq/jan-client-ui-primitives'
 import type {
   SessionListState, SessionSearchResultItem,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import { workspaceDisplayTitle } from '@deepseek-ai/dsh-api-workspace-controller/default-workspace'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-api-session-controller/client'
+import type { WorkspaceId, WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
+import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { ArchivedFilter, GroupNode, SessionNode, SessionOrderBy, SessionRowState } from '../tree.ts'
 import {
@@ -40,6 +41,8 @@ import {
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './Rows.tsx'
 import { FLAT_SESSION_ORDER_KEY, type SessionGroupBy } from '../stores.ts'
 import { WorkspacePickFlow } from '../WorkspacePicker.tsx'
+import { FolderDrop } from './FolderDrop.tsx'
+import { ProjectIdentityDialog } from './ProjectIdentityDialog.tsx'
 import css from './WorkspaceBrowser.module.css'
 
 /**
@@ -250,22 +253,42 @@ function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }):
   return e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
 }
 
+/** One project row's actions as the latest render defines them. */
+interface HeaderLogic {
+  toggle: () => void
+  create: () => void
+  open: () => void
+  dragStart: () => void
+  dragEnd: () => void
+}
+
+/** The identity-stable callbacks one project row receives, forwarding to its {@link HeaderLogic}. */
+interface HeaderHandles {
+  toggle: () => void
+  create: () => void
+  open: () => void
+  drag: { start: () => void; end: () => void }
+}
+
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
   'useSessionStatus' | 'startSession' | 'open' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu'
-  | 'insertWorkspaceBefore' | 't' | 'usePanelInfo'
+  | 'insertWorkspaceBefore' | 't' | 'usePanelInfo' | 'openProject'
   | 'useRemoteAccess' | 'useSessionAccess' | 'useWorkspaceAccess'
 > & PropsRenderSlots<
   | 'sidebar.workspaces.session.row.action'
+  | 'sidebar.workspaces.group.leading'
   | 'sidebar.session.row.trailing'
   | 'sidebar.session.row.leading'
   | 'sidebar.session.row.hover'
 > & {
-  shortcuts: readonly import('@deepseek-ai/dsh-client-shortcuts/client').ShortcutCatalogEntry[]
+  shortcuts: readonly import('@janhq/jan-client-shortcuts/client').ShortcutCatalogEntry[]
   /** Always-mounted Session list snapshot. */
   list: SessionListState
   /** Host account home for POSIX hover-path abbreviation. */
   home?: string | undefined
+  /** Computer a remote window's projects live on; omitted in a local window. */
+  machine?: string | undefined
   /** Workspaces in Host group order with browser-projected Session order. */
   workspaces: readonly WorkspaceView[]
   /** Browser-projected order for Sessions outside every Workspace. */
@@ -292,6 +315,8 @@ type SessionTreeProps = Pick<
   revealSessionId?: SessionId | undefined
   /** Acknowledge that the chosen Session row has been revealed. */
   onSessionRevealed: (sessionId: SessionId) => void
+  /** A project surface takes Workspace row clicks; the chevron then expands and collapses. */
+  projectSurface: boolean
 }
 
 /** The list-empty placeholder — a glyph over the text; the archived-only view names its filter and offers the way back. */
@@ -319,8 +344,8 @@ function SessionTree({
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
   insertWorkspaceBefore,
   nestWorkspaces, groupExpansion, setGroupExpanded,
-  setSessionOrder, home, t,
-  revealSessionId, onSessionRevealed, shortcuts,
+  setSessionOrder, home, machine, t,
+  revealSessionId, onSessionRevealed, shortcuts, openProject, projectSurface,
 }: SessionTreeProps) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
   const statuses = useSessionStatus(s => s)
@@ -341,6 +366,21 @@ function SessionTree({
   const workspaceDropCommitted = useRef(false)
   const nativeDragActive = drag !== null || workspaceDrag !== null
   useNativeDragAcceptance(nativeDragActive)
+  // Project rows are memoized, so their callbacks keep one identity per group and
+  // call into the latest committed render's logic, which every event follows.
+  const headerLogic = useRef(new Map<string, HeaderLogic>())
+  const headerHandles = useRef(new Map<string, HeaderHandles>())
+  const nextHeaderLogic = new Map<string, HeaderLogic>()
+  useLayoutEffect(() => { headerLogic.current = nextHeaderLogic })
+  const headerHandlesOf = (key: string): HeaderHandles => {
+    let handles = headerHandles.current.get(key)
+    if (handles === undefined) {
+      const call = (action: keyof HeaderLogic) => () => { headerLogic.current.get(key)?.[action]() }
+      handles = { toggle: call('toggle'), create: call('create'), open: call('open'), drag: { start: call('dragStart'), end: call('dragEnd') } }
+      headerHandles.current.set(key, handles)
+    }
+    return handles
+  }
   const currentGroup = current === undefined || !workspaceReady
     ? undefined
     : owningGroupKey(workspaces, current)
@@ -485,12 +525,24 @@ function SessionTree({
     const workspaceMarker = workspaceId !== undefined && workspaceDrag?.over?.id === workspaceId
       ? workspaceDrag.over.half
       : null
-    const workspaceDragProps = workspaceId === undefined ? undefined : {
-      start: () => {
+    const handles = headerHandlesOf(group.key)
+    nextHeaderLogic.set(group.key, {
+      toggle: () => {
+        if (group.expanded) dropWatermarks(key => withinGroup(key, group.key))
+        setGroupExpanded(group.key, !group.expanded)
+      },
+      create: () => {
+        if (workspaceId === undefined) return
+        setGroupExpanded(group.key, true)
+        startSession(workspaceId)
+      },
+      open: () => { if (workspaceId !== undefined) openProject(workspaceId) },
+      dragStart: () => {
+        if (workspaceId === undefined) return
         workspaceDropCommitted.current = false
         setWorkspaceDrag({ workspaceId, over: null })
       },
-      end: () => {
+      dragEnd: () => {
         if (workspaceDrag?.over !== null && workspaceDrag?.over !== undefined) {
           commitWorkspaceDrag(workspaceDrag, workspaceDrag.over)
         } else {
@@ -498,7 +550,7 @@ function SessionTree({
         }
         workspaceDropCommitted.current = false
       },
-    }
+    })
     const hoverWorkspace = workspaceId === undefined || !compatibleDrag
       ? undefined
       : (half: 'before' | 'after') => {
@@ -512,12 +564,12 @@ function SessionTree({
         commitWorkspaceDrag(workspaceDrag, { id: workspaceId, half })
       }
     return (
-    // Group section: header, descendant Workspaces, and own Session rows. The
-    // inter-group breathing room is the section's own margin
-    // (WorkspaceBrowser.module.css).
+      // Group section: header, descendant Workspaces, and own Session rows. The
+      // inter-group breathing room is the section's own margin
+      // (WorkspaceBrowser.module.css).
       <div
         key={group.key}
-        style={{ '--dsh-workspace-indent': `${depth * 12}px` } as CSSProperties}
+        style={{ '--jan-workspace-indent': `${depth * 12}px` } as CSSProperties}
         className={clsx(
           css.groupSection,
           workspaceMarker === 'before' && css.workspaceDropBefore,
@@ -559,27 +611,23 @@ function SessionTree({
           useWorkspaceAccess={useWorkspaceAccess}
           containsCurrentDescendant={currentAncestors.has(group.key)}
           home={home}
+          machine={machine}
           t={t}
-          onToggle={() => {
-            if (group.expanded) dropWatermarks(key => withinGroup(key, group.key))
-            setGroupExpanded(group.key, !group.expanded)
-          }}
-          onCreate={() => {
-            if (group.workspaceId !== undefined) {
-              setGroupExpanded(group.key, true)
-              startSession(group.workspaceId)
-            }
-          }}
-          drag={workspaceDragProps}
+          onToggle={handles.toggle}
+          onOpenProject={projectSurface && workspaceId !== undefined ? handles.open : undefined}
+          onCreate={handles.create}
+          drag={workspaceId === undefined ? undefined : handles.drag}
         />
+        {workspaceId !== undefined && group.expanded && rowState.archivedFilter !== 'only'
+          && renderSlot('sidebar.workspaces.group.leading', { workspaceId })}
         {childRows.length > 0 && (
           <div role="group">
             {childRows}
           </div>
         )}
         {sessions.map((node) => {
-        // Session drag never leaves its browser-local account, and pinned
-        // rows reorder only within their leading pinned block.
+          // Session drag never leaves its browser-local account, and pinned
+          // rows reorder only within their leading pinned block.
           const sameGroupDrag = drag !== null && drag.accountKey === group.key
           const compatibleTarget = sameGroupDrag && drag.pinned === node.pinned
           const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' =>
@@ -592,13 +640,13 @@ function SessionTree({
             active: compatibleTarget,
             marker: sameGroupDrag && drag.over?.id === node.id ? drag.over.half : null,
             hover: (half: 'before' | 'after') => {
-            /* v8 ignore next -- narrowing guard: Rows gates hover on `active`, which is false while the drag state is null. */
+              /* v8 ignore next -- narrowing guard: Rows gates hover on `active`, which is false while the drag state is null. */
               setDrag(d => (d === null ? d : {
                 ...d, over: { id: node.id, half: normalizeHalf(half) },
               }))
             },
             drop: (half: 'before' | 'after') => {
-            /* v8 ignore next -- narrowing guard: Rows gates drop on `active`, which is false while the drag state is null. */
+              /* v8 ignore next -- narrowing guard: Rows gates drop on `active`, which is false while the drag state is null. */
               if (drag === null) return
               commitSessionDrag(drag, { id: node.id, half: normalizeHalf(half) })
             },
@@ -647,9 +695,14 @@ function SessionTree({
               setWatermarkMotionKey(key => key + 1)
             }}
           >
-            {sessionsExpanded
-              ? t('sessions.collapse')
-              : t('sessions.expand', { n: visible.hiddenCount })}
+            <span className={css.sessionOverflowSlot} aria-hidden>
+              {sessionsExpanded ? <IconChevronUpOutlineRegular size={12} /> : <IconChevronDownOutlineRegular size={12} />}
+            </span>
+            <span className={css.sessionOverflowLabel}>
+              {sessionsExpanded
+                ? t('sessions.collapse')
+                : t('sessions.expand', { n: visible.hiddenCount })}
+            </span>
           </button>
         )}
       </div>
@@ -803,6 +856,7 @@ function SearchResults({
   workspaces,
   archivedSessionIds,
   archivedFilter,
+  hiddenSessionIds,
   query,
   remote,
   resultLimit,
@@ -814,6 +868,7 @@ function SearchResults({
   archivedSessionIds: readonly SessionNode['id'][]
   /** Search matches follow the archived filter selected for the list. */
   archivedFilter: ArchivedFilter
+  hiddenSessionIds: ReadonlySet<SessionId>
   /** Unarchive an archived result row in place. */
   onUnarchive: (id: SessionNode['id']) => void
   query: string
@@ -836,8 +891,9 @@ function SearchResults({
       statuses,
       currentRemote,
       resultLimit,
+      hiddenSessionIds,
     ),
-    [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit],
+    [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit, hiddenSessionIds],
   )
   const pending = currentRemote.status === 'loading'
   const currentId = panelActive
@@ -896,6 +952,7 @@ function SearchResults({
 export function WorkspaceBrowser({
   wide,
   usePanelInfo,
+  usePrimaryActions, addWorkspaceButtonRef,
   expandSidebar,
   useSectionScroller,
   useSessions,
@@ -911,24 +968,37 @@ export function WorkspaceBrowser({
   requestSessionRename,
   notifyArchivedNotOpenable,
   renameWorkspace, useWorkspaceActionRequest, settleWorkspaceAction,
+  updateWorkspaceIdentity, shortcutPlatform,
   deleteWorkspace,
   insertWorkspaceBefore,
   unarchiveSession,
   createWorkspace,
+  createDirectory,
+  notifyFolderDrop,
   searchSessions,
   searchResultLimit,
   useDirectoryFlow,
   useHostInfo,
+  useRemoteMachines,
   useShortcuts,
   useWorkspaceShortcuts,
   requestSearch,
   requestAddWorkspace,
   closeAddWorkspace,
   setDirectoryBusy,
+  openProject,
+  useProjectSurface,
+  useHiddenSessions,
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
   t,
 }: WorkspaceBrowserProps) {
   const home = useHostInfo(info => info.home)
+  // Every project row names its computer. A window on this computer (loopback and not
+  // started over SSH) calls it Local Mac; any other window uses the Host's own name.
+  const localMachine = t(typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? 'workspace.machine.localMac' : 'workspace.machine.local')
+  const machine = useHostInfo(info => info.name === undefined ? undefined : info.remote || !info.isLoopback ? info.name : localMachine)
+  const projectSurface = useProjectSurface(present => present)
+  const hiddenSessionIds = useHiddenSessions(ids => ids)
   const shortcuts = useShortcuts(rows => rows)
   const searchShortcut = shortcuts.find(row => row.id === 'session.search')
   const addShortcut = shortcuts.find(row => row.id === 'workspace.add')
@@ -942,7 +1012,7 @@ export function WorkspaceBrowser({
   const workspaces = useMemo(
     () => storedWorkspaces.map(workspace => ({
       ...workspace,
-      title: workspaceDisplayTitle(workspace.title, defaultWorkspaceName),
+      title: workspaceDisplayTitle(workspace, defaultWorkspaceName),
     })),
     [storedWorkspaces, defaultWorkspaceName],
   )
@@ -962,12 +1032,13 @@ export function WorkspaceBrowser({
   const sessionOrderByAccount = useStore(s => s.sessionOrderByAccount)
   // Archived sessions are not openable: the row stays visible under the
   // filter but a click explains instead of navigating.
-  const guardedOpen = (sessionId: SessionId): void => {
+  const guardedOpen: WorkspaceBrowserProps['open'] = (sessionId, modifiers) => {
     if (archivedSessionIds.includes(sessionId)) {
       notifyArchivedNotOpenable()
       return
     }
-    open(sessionId)
+    if (modifiers === undefined) open(sessionId)
+    else open(sessionId, modifiers)
   }
   const leaveArchivedOnly = (): void => { actions.setArchivedFilter('default') }
   const workspaceReady = workspacePhase === 'ready' && workspaceStreamState !== 'loading'
@@ -985,8 +1056,8 @@ export function WorkspaceBrowser({
     [archivedSessionIds, pinnedSessionIds],
   )
   const rowState = useMemo<SessionRowState>(
-    () => ({ ...orderState, archivedFilter }),
-    [orderState, archivedFilter],
+    () => ({ ...orderState, archivedFilter, hiddenSessionIds }),
+    [orderState, archivedFilter, hiddenSessionIds],
   )
   const flatMemberIds = useMemo(() => sessionMemberIds(list), [list])
   const orderedWorkspaces = useMemo(() => workspaces.map((workspace) => {
@@ -1103,6 +1174,7 @@ export function WorkspaceBrowser({
     hasMore: false,
   })
   const searchRoot = useRef<HTMLDivElement | null>(null)
+  const browserRoot = useRef<HTMLDivElement | null>(null)
   const searchInput = useRef<HTMLInputElement | null>(null)
   // The list area is this section's own vertical scroller; the sidebar hands wheel
   // scrolling over its viewport to it once the navigation has moved away.
@@ -1111,12 +1183,16 @@ export function WorkspaceBrowser({
     searchInput.current?.focus({ preventScroll: true })
   }, [])
   // Section-header ＋ opens the picker menu (same popover in wide and rail
-  // states; the menu anchors on this button).
+  // states; the menu anchors on this button). A surface outside the sidebar,
+  // such as a Projects page, may open the same menu from its own control.
   const wsPickerOpen = shortcutState.addRequested
-  const wsPlusRef = useRef<HTMLButtonElement>(null)
+  const requestAnchor = shortcutState.addAnchor
+  const requestAnchorRef = useMemo(() => requestAnchor === null ? null : { current: requestAnchor }, [requestAnchor])
+  const wsPlusRef = addWorkspaceButtonRef
+  const primaryActions = usePrimaryActions(value => value)
   const workspaceActionRequest = useWorkspaceActionRequest(value => value)
 
-  const openSearchResult = (sessionId: SessionId): void => {
+  const openSearchResult: WorkspaceBrowserProps['open'] = (sessionId, modifiers) => {
     if (archivedSessionIds.includes(sessionId)) {
       notifyArchivedNotOpenable()
       return
@@ -1124,7 +1200,8 @@ export function WorkspaceBrowser({
     setRevealSessionId(sessionId)
     setQuery('')
     changeSearchExpanded(false)
-    open(sessionId)
+    if (modifiers === undefined) open(sessionId)
+    else open(sessionId, modifiers)
   }
   const acknowledgeSessionReveal = (sessionId: SessionId): void => {
     setRevealSessionId(current => current === sessionId ? undefined : current)
@@ -1219,125 +1296,139 @@ export function WorkspaceBrowser({
       console.warn('session unarchive rejected:', reason)
     })
   }
+  const search = (<div className={clsx(css.searchSlot, searchExpanded && css.searchSlotExpanded)}>
+    <div
+      ref={searchRoot}
+      className={clsx(css.search, searchExpanded && css.searchExpanded)}
+      onClick={() => {
+        closeAddWorkspace()
+        changeSearchExpanded(true)
+        focusSearch()
+      }}
+    >
+      <Tooltip label={t('search')} shortcutKeys={searchShortcut?.keys} side="bottom" delayMs={500} disabled={searchExpanded} portal>
+        <button
+          type="button"
+          className={css.searchButton}
+          aria-label={t('search.sessions.aria')}
+          aria-keyshortcuts={searchShortcut?.aria}
+          aria-expanded={searchExpanded}
+        >
+          <IconSearchOutlineRegular size={searchExpanded ? 11 : 14} />
+        </button>
+      </Tooltip>
+      <input
+        ref={searchInput}
+        className={css.searchInput}
+        type="text"
+        placeholder={t('search.placeholder')}
+        maxLength={SEARCH_QUERY_MAX_CODE_UNITS}
+        value={query}
+        tabIndex={searchExpanded ? 0 : -1}
+        onChange={(e) => { setQuery(sanitizeSearchQuery(e.target.value)) }}
+        onKeyDown={(e) => {
+          if (e.key !== 'Escape') return
+          setQuery('')
+          changeSearchExpanded(false)
+        }}
+      />
+      {searchExpanded && (
+        <button
+          type="button"
+          className={css.clearButton}
+          aria-label={t('search.clear')}
+          onClick={(e) => {
+            e.stopPropagation()
+            setQuery('')
+            changeSearchExpanded(false)
+          }}
+        >
+          <IconCloseFillRegular />
+        </button>
+      )}
+    </div>
+  </div>)
+  const viewOptions = (<ViewOptionsMenu
+    groupBy={groupBy}
+    orderBy={orderBy}
+    archivedFilter={archivedFilter}
+    onGroupPick={actions.setGroupBy}
+    onOrderPick={(mode) => { actions.setOrderBy(mode, activeSessionOrders) }}
+    onArchivedFilterPick={actions.setArchivedFilter}
+    t={t}
+  />)
   return (
-    <div className={clsx(css.root, !wide && css.rail)}>
-      <div className={clsx(css.sectionHeader, wide && searchSpacingMotionEnabled && css.searchSpacingMotion)} data-sidebar-workspace-header="">
-        {wide && (
-          <span className={clsx(css.sectionLabel, css.wide, searchExpanded && css.sectionLabelHidden)}>
-            {groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
-          </span>
-        )}
-        {wide && (
-          <div className={clsx(css.searchSlot, searchExpanded && css.searchSlotExpanded)}>
-            <div
-              ref={searchRoot}
-              className={clsx(css.search, searchExpanded && css.searchExpanded)}
-              onClick={() => {
-                closeAddWorkspace()
-                changeSearchExpanded(true)
-                focusSearch()
-              }}
-            >
-              <Tooltip label={t('search')} shortcutKeys={searchShortcut?.keys} side="bottom" delayMs={500} disabled={searchExpanded} portal>
-                <button
-                  type="button"
-                  className={css.searchButton}
-                  aria-label={t('search.sessions.aria')}
-                  aria-keyshortcuts={searchShortcut?.aria}
-                  aria-expanded={searchExpanded}
-                  onClick={() => {
-                    requestSearch()
-                  }}
-                >
-                  <IconSearchOutlineRegular size={searchExpanded ? 11 : 14} />
-                </button>
-              </Tooltip>
-              <input
-                ref={searchInput}
-                className={css.searchInput}
-                type="text"
-                placeholder={t('search.placeholder')}
-                maxLength={SEARCH_QUERY_MAX_CODE_UNITS}
-                value={query}
-                tabIndex={searchExpanded ? 0 : -1}
-                onChange={(e) => { setQuery(sanitizeSearchQuery(e.target.value)) }}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Escape') return
-                  setQuery('')
-                  changeSearchExpanded(false)
-                }}
-              />
-              {searchExpanded && (
-                <button
-                  type="button"
-                  className={css.clearButton}
-                  aria-label={t('search.clear')}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setQuery('')
-                    changeSearchExpanded(false)
-                  }}
-                >
-                  <IconCloseFillRegular />
-                </button>
+    <div ref={browserRoot} className={clsx(css.root, !wide && css.rail)}>
+      <FolderDrop
+        enabled={directoryFlowAvailable}
+        anchor={browserRoot}
+        hint={t('workspace.drop.hint')}
+        createWorkspace={createWorkspace}
+        onAdded={(workspaceId) => { startSession(workspaceId, { clearPreviousDraft: false }) }}
+        notify={notifyFolderDrop}
+      />
+      {renderSlot('sidebar.workspaces.header', {
+        wide, heading: groupBy === 'flat' ? t('section.sessions') : t('section.workspaces'),
+        canAddWorkspace: directoryFlowAvailable, onSearch: requestSearch, onAddWorkspace: requestAddWorkspace,
+        addWorkspaceButtonRef: wsPlusRef, searchExpanded, search, viewOptions, primaryActions,
+      }, {
+        fallback: (
+          <div className={clsx(css.sectionHeader, wide && searchSpacingMotionEnabled && css.searchSpacingMotion)} data-sidebar-workspace-header="">
+            {wide && (
+              <span className={clsx(css.sectionLabel, css.wide, searchExpanded && css.sectionLabelHidden)}>
+                {groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
+              </span>
+            )}
+            {wide && search}
+            <div className={clsx(css.headerActions, wide && searchExpanded && css.headerActionsHidden)}>
+              {wide && viewOptions}
+              {/* Adding is the button's one action, so a composition with no
+              picking affordance has nothing to offer here: the region hides the
+              button rather than leaving a dead one in the header. */}
+              {!primaryActions && directoryFlowAvailable && (
+                <Tooltip label={t('workspace.add')} shortcutKeys={addShortcut?.keys} side="bottom" delayMs={500} portal>
+                  <button
+                    ref={wsPlusRef}
+                    type="button"
+                    className={css.iconButton}
+                    aria-label={t('workspace.add')}
+                    aria-keyshortcuts={addShortcut?.aria}
+                    onClick={() => {
+                      requestAddWorkspace()
+                    }}
+                  >
+                    <IconProjectAddOutlineRegular size={wide ? 16 : 18} />
+                  </button>
+                </Tooltip>
               )}
             </div>
           </div>
-        )}
-        <div className={clsx(css.headerActions, wide && searchExpanded && css.headerActionsHidden)}>
-          {wide && (
-            <ViewOptionsMenu
-              groupBy={groupBy}
-              orderBy={orderBy}
-              archivedFilter={archivedFilter}
-              onGroupPick={actions.setGroupBy}
-              onOrderPick={(mode) => { actions.setOrderBy(mode, activeSessionOrders) }}
-              onArchivedFilterPick={actions.setArchivedFilter}
-              t={t}
-            />
-          )}
-          {/* Adding is the button's one action, so a composition with no
-              picking affordance has nothing to offer here: the region hides the
-              button rather than leaving a dead one in the header. */}
-          {directoryFlowAvailable && (
-            <Tooltip label={t('workspace.add')} shortcutKeys={addShortcut?.keys} side="bottom" delayMs={500} portal>
-              <button
-                ref={wsPlusRef}
-                type="button"
-                className={css.iconButton}
-                aria-label={t('workspace.add')}
-                aria-keyshortcuts={addShortcut?.aria}
-                onClick={() => {
-                  requestAddWorkspace()
-                }}
-              >
-                <IconProjectAddOutlineRegular size={wide ? 16 : 18} />
-              </button>
-            </Tooltip>
-          )}
-        </div>
-        {/* Add flow + its error dialog (same package — direct composition). */}
-        <WorkspacePickFlow
-          t={t}
-          open={wsPickerOpen}
-          anchorRef={wsPlusRef}
-          useWorkspaces={useWorkspaces}
-          createWorkspace={createWorkspace}
-          useDirectoryFlow={useDirectoryFlow}
-          renderDirectoryFlow={owner => renderSlot('sidebar.workspaces.directoryFlow', owner)}
-          addOnly
-          onBusyChange={setDirectoryBusy}
-          side="right"
-          onPick={(workspaceId) => {
-            closeAddWorkspace()
-            startSession(workspaceId, { clearPreviousDraft: false })
-          }}
-          onClose={() => { closeAddWorkspace() }}
-        />
-      </div>
+        ),
+      })}
+      {/* The new-project menu and its dialogs (same package — direct composition). */}
+      <WorkspacePickFlow
+        t={t}
+        open={wsPickerOpen}
+        anchorRef={requestAnchorRef ?? wsPlusRef}
+        useWorkspaces={useWorkspaces}
+        createWorkspace={createWorkspace}
+        createDirectory={createDirectory}
+        useDirectoryFlow={useDirectoryFlow}
+        useHostInfo={useHostInfo}
+        useRemoteMachines={useRemoteMachines}
+        renderDirectoryFlow={owner => renderSlot('sidebar.workspaces.directoryFlow', owner)}
+        onBusyChange={setDirectoryBusy}
+        side={requestAnchorRef === null ? 'right' : 'bottom'}
+        onPick={(workspaceId) => {
+          closeAddWorkspace()
+          startSession(workspaceId, { clearPreviousDraft: false })
+        }}
+        onClose={() => { closeAddWorkspace() }}
+      />
+
 
       {/* The collapsed rail keeps search as its own 36px control. */}
-      {!wide && <div className={css.search}>
+      {!wide && !primaryActions && <div className={css.search}>
         <Tooltip label={t('search')} shortcutKeys={searchShortcut?.keys} portal>
           <button
             type="button"
@@ -1368,6 +1459,7 @@ export function WorkspaceBrowser({
               workspaces={workspaces}
               archivedSessionIds={archivedSessionIds}
               archivedFilter={archivedFilter}
+              hiddenSessionIds={hiddenSessionIds}
               query={normalizedQuery}
               remote={remoteSearch}
               resultLimit={searchResultLimit}
@@ -1426,15 +1518,33 @@ export function WorkspaceBrowser({
                 insertWorkspaceBefore={insertWorkspaceBefore}
                 revealSessionId={revealSessionId}
                 onSessionRevealed={acknowledgeSessionReveal}
+                openProject={openProject}
+                projectSurface={projectSurface}
                 home={home}
+                machine={machine}
                 t={t}
               />
             ))}
       </div>
 
-      {workspaceActionRequest !== null && <WorkspaceDialogs key={`${workspaceActionRequest.action}/${workspaceActionRequest.workspaceId}`}
-        request={workspaceActionRequest} workspaces={workspaces} renameWorkspace={renameWorkspace} deleteWorkspace={deleteWorkspace}
-        settleWorkspaceAction={settleWorkspaceAction} t={t} />}
+      {workspaceActionRequest?.action === 'update' ? (
+        <ProjectIdentityEditor
+          key={workspaceActionRequest.workspaceId}
+          request={workspaceActionRequest} workspaces={storedWorkspaces}
+          updateWorkspaceIdentity={updateWorkspaceIdentity} shortcutPlatform={shortcutPlatform}
+          settleWorkspaceAction={settleWorkspaceAction} t={t}
+        />
+      ) : workspaceActionRequest !== null && (
+        <WorkspaceDialogs key={`${workspaceActionRequest.action}/${workspaceActionRequest.workspaceId}`}
+          request={workspaceActionRequest} workspaces={workspaces} renameWorkspace={renameWorkspace} deleteWorkspace={deleteWorkspace}
+          settleWorkspaceAction={settleWorkspaceAction} t={t} />
+      )}
     </div>
   )
+}
+
+function ProjectIdentityEditor(props: Omit<Parameters<typeof ProjectIdentityDialog>[0], 'workspace'>) {
+  const workspace = props.workspaces.find(row => row.workspaceId === props.request.workspaceId)
+  if (workspace === undefined) return null
+  return <ProjectIdentityDialog {...props} workspace={workspace} />
 }

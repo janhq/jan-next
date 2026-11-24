@@ -1,17 +1,16 @@
 /**
  * The feedback dialog and its acknowledgement and failure toasts, rendered as one entry
  * of `conversation.input.overlay` so each Session owns exactly one of each.
- * The Modal and the Toast both portal to `document.body`; the overlay slot
- * only supplies the per-session controller and the composer card the toast
- * centers over.
- * @module @deepseek-ai/dsh-client-ui-message-feedback/client/FeedbackDialog
+ * The Modal and the Toast both portal out of the overlay slot, which only
+ * supplies the per-session controller.
+ * @module @janhq/jan-client-ui-message-feedback/client/FeedbackDialog
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 import {
   Button, IconWarningOutlineRegular, Modal, Toast,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { FeedbackCategory } from '@deepseek-ai/dsh-command-feedback/types'
+} from '@janhq/jan-client-ui-primitives'
+import type { FeedbackCategory } from '@janhq/jan-command-feedback/types'
 import type { FeedbackDialogProps } from './slots.ts'
 import css from './FeedbackDialog.module.css'
 
@@ -46,12 +45,6 @@ export function FeedbackDialog({
   useDialog, edit, submit, dismiss, dismissFailure, dismissToast, t,
 }: FeedbackDialogProps) {
   const state = useDialog(s => s)
-  // The toast centers over the composer card this entry renders inside of.
-  const probeRef = useRef<HTMLSpanElement>(null)
-  const [card, setCard] = useState<HTMLElement | null>(null)
-  useLayoutEffect(() => {
-    setCard(probeRef.current?.closest<HTMLElement>('[data-composer-card]') ?? null)
-  }, [])
   const toast = state.toast
   const onToastDone = useCallback(() => { dismissToast(toast) }, [dismissToast, toast])
   // A toast retires with the entry that showed it: the Toast's own timer dies
@@ -63,13 +56,11 @@ export function FeedbackDialog({
 
   return (
     <>
-      <span ref={probeRef} hidden />
       {toast > 0 && failure === null && (
         <Toast
           key={toast}
           text={t('toast.recorded')}
           tone="success"
-          anchor={card}
           onDone={onToastDone}
         />
       )}
@@ -78,7 +69,6 @@ export function FeedbackDialog({
           key={`failure-${failureCode}`}
           text={failure}
           icon={<IconWarningOutlineRegular />}
-          anchor={card}
           holdMs={6000}
           onDone={onFailureDone}
         />

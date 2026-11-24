@@ -6,12 +6,13 @@
  * and its reference chips live in the shell's Lexical editor; the machine
  * here is the submit plane (phase, claim, attempt) alone.
  */
-import type { Context } from '@deepseek-ai/cordis'
-import type { SessionBinding } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { InboxState } from '@deepseek-ai/dsh-agent/types'
-import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { Branded } from '@deepseek-ai/dsh-brand'
-import type { ArbitrateKey, ArbitrateOutcome, DraftQuote, Occurrence, ReferenceInsert, TokenSpan } from './draft-editor.ts'
+import type { Context } from '@janhq/cordis'
+import type { SessionBinding } from '@janhq/jan-api-session-controller/client'
+import type { InboxState } from '@janhq/jan-agent/types'
+import type { SessionId, SessionSeq } from '@janhq/jan-session/types'
+import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
+import type { Branded } from '@janhq/jan-brand'
+import type { ArbitrateKey, ArbitrateOutcome, DraftContextInsert, DraftQuote, Occurrence, ReferenceInsert, TokenSpan } from './draft-editor.ts'
 import type { InputSubmitMode, MessageSubmission } from './composer-submission.ts'
 
 /** Attachment payload passed to a claimed command submission. */
@@ -76,8 +77,8 @@ export interface InsertReferenceRequest {
 /** Scoped request to consume a command token after business settlement. */
 export interface ConsumeTokenRequest {
   readonly guard:
-    | { readonly kind: 'span'; readonly span: TokenSpan }
-    | { readonly kind: 'bare-token'; readonly token: string }
+  | { readonly kind: 'span'; readonly span: TokenSpan }
+  | { readonly kind: 'bare-token'; readonly token: string }
 }
 
 /** Scoped request to insert ordinary completion text. */
@@ -136,7 +137,7 @@ export interface InputTriggerController {
   toggleSource(source: string, hit: InputTriggerHit): void
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Events {
     /**
      * Claim a command token for the scoped input machine.
@@ -187,6 +188,14 @@ export interface SessionInput extends InputTarget {
 
   /** Replace the whole draft with plain text, removing inline reference chips. */
   setDraft(text: string): void
+  /**
+   * Append text, atomic contexts, and ordered attachment ids while editable.
+   * @param text - plain draft text.
+   * @param ids - new file ids.
+   * @param contexts - atomic contexts placed after the text, each on its own line.
+   * @returns whether the draft accepted the addition.
+   */
+  appendDraft(text: string, ids: readonly DraftAttachmentId[], contexts?: readonly DraftContextInsert[]): boolean
   /** Append ordered browser-owned attachment ids; busy admission phases refuse. */
   addAttachments(ids: readonly DraftAttachmentId[]): boolean
   /** Remove one browser-owned attachment id; busy admission phases refuse. @returns whether the id was removed. */
@@ -218,6 +227,20 @@ export interface SessionInput extends InputTarget {
   readonly state: SnapshotStore<InputState>
 }
 
+/**
+ * Pre-send check over one plain message. Returns a notice that pauses the send:
+ * the composer shows it and keeps the draft, and a second send of the unchanged
+ * draft goes through. Undefined lets the send proceed. Checks run synchronously
+ * and must not throw; a throwing check is skipped.
+ */
+export type SendCheck = (sessionId: SessionId, text: string) => string | undefined
+
+/**
+ * The selected route's context window for one Session, in tokens, or undefined while unknown.
+ * The context meter shows it before the first request reports the route's own capacity.
+ */
+export type ContextWindowSource = (sessionId: SessionId) => ObservableSnapshot<number | undefined>
+
 /** Session-addressed access to the per-session input facade. */
 export interface SessionInputResolver {
   /** Resolve the facade for one session-scope ctx. */
@@ -230,6 +253,32 @@ export interface SessionInputResolver {
    * @throws when binding is not the currently retained Session generation.
    */
   requestDraftInitialization(binding: SessionBinding, options: DraftInitializationOptions): DraftInitializationResult
+  /**
+   * Add a pre-send check for plain messages in every Session.
+   * @param check - answers a pausing notice or undefined.
+   * @returns disposer removing the check.
+   */
+  addSendCheck(check: SendCheck): () => void
+  /**
+   * Supply the selected model's context window for every Session; one source at a time, the latest wins.
+   * @param source - resolves one Session's window.
+   * @returns disposer restoring the previous source.
+   */
+  setContextWindowSource(source: ContextWindowSource): () => void
+  /**
+   * Resolve the window a Session's context meter falls back to.
+   * @param sessionId - target Session.
+   * @returns the current source's window store, or one that stays undefined without a source.
+   */
+  contextWindowOf(sessionId: SessionId): ObservableSnapshot<number | undefined>
+  /**
+   * Retry the Session's failed turn without consulting the composer: a draft, its attachments, and the
+   * composer phase stay untouched. Ignored unless `failureSeq` is still the retryable failure and the
+   * Session is idle.
+   * @param id - retained ordinary Session identity.
+   * @param failureSeq - failed turn/end sequence the caller addresses.
+   */
+  retryKeepingDraft(id: SessionId, failureSeq: SessionSeq): void
 }
 
 /** Initial text for a target Session; attachments remain under their existing owner. */
@@ -240,8 +289,9 @@ export interface DraftInitializationOptions {
   /**
    * Handling of a target that already has text or attachments: `replace` swaps the text and
    * inline references for the prompt (or clears them without one), `append` adds the prompt
-   * as new paragraphs after the existing text, and `keep` leaves the draft unchanged. Omitted,
-   * it is `replace` when `clearPreviousDraft` is true and `keep` otherwise.
+   * as new paragraphs after the existing text unless the text already contains it, and `keep`
+   * leaves the draft unchanged. Omitted, it is `replace` when `clearPreviousDraft` is true and
+   * `keep` otherwise.
    */
   readonly whenDraftExists?: 'replace' | 'append' | 'keep'
 }

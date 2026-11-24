@@ -1,15 +1,15 @@
 /** Registers the sidebar shell and global panel navigation. */
-import type {} from '@deepseek-ai/dsh-client-product-analytics/client'
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
+import type { } from '@janhq/jan-client-product-analytics/client'
+import type { Context as ClientContext } from '@janhq/cordis'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
+import type { MainPanelId } from '@janhq/jan-client-ui-layout/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
-import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type { } from '@janhq/jan-client-locale/client'
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type { } from '@janhq/jan-client-ui-renderer/client'
 // Type-only: pulls the Session root standard-props merge.
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@janhq/jan-client-ui-session/client'
 import type { SidebarPanelMetadata, SidebarRootInjected, SidebarSectionInjected } from './contract/slots.ts'
 import { createPanelPins } from './panel-pins.ts'
 import { HeaderLeadingControls } from './HeaderLeadingControls.tsx'
@@ -18,10 +18,10 @@ import { PanelIcon } from './PanelIcon.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type SidebarKey } from './locales.ts'
 
 export type {
-  SidebarBrandMarkOwnerProps, SidebarBrandNameOwnerProps, SidebarFooterActionOwnerProps,
+  SidebarNewSessionOwnerProps, SidebarBrandMarkOwnerProps, SidebarBrandNameOwnerProps, SidebarFooterActionOwnerProps,
   SidebarPanelActionEntry, SidebarPanelActionsOwnerProps, SidebarPanelIconOwnerProps, SidebarPanelMetadata,
   SidebarRootComponentProps, SidebarRootInjected, SidebarSectionOwnerProps, SidebarSettingsOwnerProps,
-  SectionScroller, SidebarSectionHookContext, SidebarSectionInjected, UseSectionScroller,
+  SectionScroller, SidebarNavigationAvailability, SidebarSectionHookContext, SidebarSectionInjected, UseSectionScroller,
 } from './contract/slots.ts'
 export type { SidebarKey } from './locales.ts'
 
@@ -30,7 +30,7 @@ const SIDEBAR_SECTION_INJECT: SidebarSectionInjected = {
   hooks: { sectionScroller: (_standard, { useSectionScroller }) => useSectionScroller },
 }
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Sidebar controls and global panel copy. */
     sidebar: SidebarKey
@@ -42,6 +42,9 @@ const NS = 'sidebar'
 
 interface WorkspaceNavigation {
   startSession(workspaceId?: Parameters<SidebarRootInjected['startSession']>[0]): void
+  goBack(): void
+  goForward(): void
+  readonly navigationHistory: SidebarRootInjected['hooks']['navigationHistory']
 }
 
 /** Services required by the sidebar plugin. */
@@ -80,10 +83,15 @@ export function apply(ctx: ClientContext): void {
     // (current Session Workspace, then recent Workspace).
     startSession: (workspaceId) => { workspaceNavigation.startSession(workspaceId) },
     toggleSidebar: () => { ctx.layout.toggleSidebar() },
+    goBack: () => { workspaceNavigation.goBack() },
+    goForward: () => { workspaceNavigation.goForward() },
     selectPanel: (id) => { ctx.layout.selectPanel(id) },
     setPinned: panelPins.setPinned,
     trackEntryClick: (attributes) => { ctx.get('productAnalytics')?.track('sidebar_menu_click', attributes) },
-    hooks: { panels, shortcuts: ctx.shortcuts.catalog, entryPins: panelPins.unpinned, entryActions },
+    hooks: {
+      panels, shortcuts: ctx.shortcuts.catalog, entryPins: panelPins.unpinned, entryActions,
+      navigationHistory: workspaceNavigation.navigationHistory,
+    },
   })
   ctx.slots.inject('sidebar', function* () {
     yield ctx.slots.registerFactory({
@@ -94,9 +102,12 @@ export function apply(ctx: ClientContext): void {
       name: 'sidebar',
       locale: NS,
       children: {
+        'sidebar.session.new': { kind: 'single', scope: 'root' },
+        'sidebar.workspaces.primary': { kind: 'single', scope: 'root' },
         'sidebar.brand.mark': { kind: 'single', scope: 'root' },
         'sidebar.brand.name': { kind: 'single', scope: 'root' },
         'sidebar.toggle.badge': { kind: 'single', scope: 'root' },
+        'sidebar.toggle.actions': { kind: 'list', scope: 'root' },
         'sidebar.panellist.actions': { kind: 'list', scope: 'root' },
         'sidebar.workspaces': { kind: 'single', scope: 'root', inject: SIDEBAR_SECTION_INJECT },
         'sidebar.settings': { kind: 'single', scope: 'root' },

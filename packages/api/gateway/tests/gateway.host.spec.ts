@@ -1,15 +1,15 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { describe, expect, it } from 'vitest'
-import { Context, Service, symbols } from '@deepseek-ai/cordis'
+import { Context, Service, symbols } from '@janhq/cordis'
 import { z } from 'zod'
-import { apply as applyConnection, inject as connectionInject } from '@deepseek-ai/dsh-client-connection'
+import { apply as applyConnection, inject as connectionInject } from '@janhq/jan-client-connection'
 import type {
   ConnectionRpcHandler,
   HostConnectionHandle,
   PeerScope,
-} from '@deepseek-ai/dsh-client-connection'
-import type { WebServer, WebRoute } from '@deepseek-ai/dsh-host-webserver'
+} from '@janhq/jan-client-connection'
+import type { WebServer, WebRoute } from '@janhq/jan-host-webserver'
 import {
   bindTypertRemote,
   Remote,
@@ -19,10 +19,10 @@ import {
   type TypertContext,
   type TypertLookup,
   type TypertLookupProvider,
-} from '@deepseek-ai/dsh-typert-protocol'
-import TypertRegistry, { type TypertContribution } from '@deepseek-ai/dsh-typert-registry'
-import TypertGatewayService, { TypertGatewayError } from '@deepseek-ai/dsh-api-gateway'
-import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
+} from '@janhq/jan-typert-protocol'
+import TypertRegistry, { type TypertContribution } from '@janhq/jan-typert-registry'
+import TypertGatewayService, { TypertGatewayError } from '@janhq/jan-api-gateway'
+import RemoteAccessService from '@janhq/jan-api-remote-access'
 import { provideBrowserCredentials } from './browser-credentials.ts'
 import { ownerPeer } from './peer.ts'
 
@@ -34,7 +34,7 @@ interface MarkedContext extends Context {
   readonly fixtureScope?: string
 }
 
-declare module '@deepseek-ai/dsh-typert-protocol' {
+declare module '@janhq/jan-typert-protocol' {
   interface TypertLookupMap {
     gatewayFixture: TypertLookup<FixtureAgent, string>
     gatewayFixtureAlias: TypertLookup<FixtureAgent, string>
@@ -1283,15 +1283,15 @@ describe('TypertGatewayService', () => {
         if (signal.aborted) resolve()
         else signal.addEventListener('abort', () => { resolve() }, { once: true })
       })
-    })(), { home: '/home/fixture' })
+    })(), { home: '/home/fixture', name: 'fixture-host', remote: false })
     const carrier = new AbortController()
     const events = (await ctx.typertGateway.wireStream.open(
       '$events', { args: {} }, (async function* () {})(), connection.browserPeer, carrier.signal,
     ))[Symbol.asyncIterator]()
     const opening = await events.next()
-    expect(opening).toMatchObject({
+    expect(opening).toEqual({
       done: false,
-      value: { type: 'ready', host: { home: '/home/fixture' } },
+      value: { type: 'ready', clientId: expect.any(String) as string, host: { home: '/home/fixture' } },
     })
     if (opening.done) throw new Error('Remote event stream ended before ready')
     const clientId: unknown = Reflect.get(opening.value as object, 'clientId')

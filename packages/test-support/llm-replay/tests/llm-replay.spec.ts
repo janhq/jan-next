@@ -2,11 +2,10 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { SESSION_FORMAT_VERSION, SessionSeq } from '@deepseek-ai/dsh-session'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
-import { CompactionId } from '@deepseek-ai/dsh-compaction'
-import DeepSeekLlmApiExtensionRegistry from '@deepseek-ai/dsh-deepseek-llm-api-extensions'
+import { Context } from '@janhq/cordis'
+import { SESSION_FORMAT_VERSION, SessionSeq } from '@janhq/jan-session'
+import type { SessionEvent } from '@janhq/jan-session'
+import { CompactionId } from '@janhq/jan-compaction'
 import LlmRuntime, {
   AssistantStreamAccumulator,
   BlockAssembler,
@@ -18,7 +17,7 @@ import LlmRuntime, {
   LlmAdapter,
   StreamChunk,
   type ToolResultMessage,
-} from '@deepseek-ai/dsh-llm'
+} from '@janhq/jan-llm'
 import {
   type Config,
   type ReplayEntry,
@@ -35,12 +34,6 @@ import {
   prepareSessionSnapshotFixtureForComparison,
   resolveScriptedEntry,
 } from '../src/index.ts'
-
-declare module '@deepseek-ai/dsh-deepseek-llm-api-extensions/types' {
-  interface DeepSeekLlmApiExtensionMap {
-    test_replay: { readonly version: 1 }
-  }
-}
 
 /**
  * Unit tests for the replay llm/stream plugin. These drive the listener through
@@ -232,8 +225,8 @@ async function drain(iter: AsyncIterable<StreamChunk>): Promise<StreamChunk[]> {
 describe('Session format package parity', () => {
   it('refuses catalog and Session version skew at module load', async () => {
     vi.resetModules()
-    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session-format-catalog')>()
+    vi.doMock('@janhq/jan-session-format-catalog', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@janhq/jan-session-format-catalog')>()
       return {
         ...actual,
         sessionFormatCatalog: {
@@ -246,7 +239,7 @@ describe('Session format package parity', () => {
       await expect(import('../src/index.ts'))
         .rejects.toThrow(`format catalog v${SESSION_FORMAT_VERSION + 1} does not match Session v${SESSION_FORMAT_VERSION}`)
     } finally {
-      vi.doUnmock('@deepseek-ai/dsh-session-format-catalog')
+      vi.doUnmock('@janhq/jan-session-format-catalog')
       vi.resetModules()
     }
   })
@@ -255,8 +248,8 @@ describe('Session format package parity', () => {
 describe('fixture format diagnostics', () => {
   it('attaches the header line to a restore-construction failure', async () => {
     vi.resetModules()
-    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session-format-catalog')>()
+    vi.doMock('@janhq/jan-session-format-catalog', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@janhq/jan-session-format-catalog')>()
       return {
         ...actual,
         createSessionFormatCatalogWithChildren: () => ({
@@ -274,15 +267,15 @@ describe('fixture format diagnostics', () => {
       expect(() => replay.parseSessionLog(sessionJsonl([])))
         .toThrow('session snapshot line 1: decoder exploded')
     } finally {
-      vi.doUnmock('@deepseek-ai/dsh-session-format-catalog')
+      vi.doUnmock('@janhq/jan-session-format-catalog')
       vi.resetModules()
     }
   })
 
   it('attaches the header line to a restore-finalization failure', async () => {
     vi.resetModules()
-    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session-format-catalog')>()
+    vi.doMock('@janhq/jan-session-format-catalog', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@janhq/jan-session-format-catalog')>()
       return {
         ...actual,
         createSessionFormatCatalogWithChildren: () => ({
@@ -305,15 +298,15 @@ describe('fixture format diagnostics', () => {
       expect(() => replay.parseSessionLog(sessionJsonl([])))
         .toThrow('session snapshot line 1: Session event 99 restore finalization failed')
     } finally {
-      vi.doUnmock('@deepseek-ai/dsh-session-format-catalog')
+      vi.doUnmock('@janhq/jan-session-format-catalog')
       vi.resetModules()
     }
   })
 
   it('falls back to the header when a source-range diagnostic has no matching physical prefix', async () => {
     vi.resetModules()
-    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session-format-catalog')>()
+    vi.doMock('@janhq/jan-session-format-catalog', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@janhq/jan-session-format-catalog')>()
       return {
         ...actual,
         createSessionFormatCatalogWithChildren: () => ({
@@ -336,15 +329,15 @@ describe('fixture format diagnostics', () => {
       expect(() => replay.parseSessionLog(sessionJsonl([])))
         .toThrow('session snapshot line 1: sourceEventSeqs synthetic unmatched failure')
     } finally {
-      vi.doUnmock('@deepseek-ai/dsh-session-format-catalog')
+      vi.doUnmock('@janhq/jan-session-format-catalog')
       vi.resetModules()
     }
   })
 
   it('maps a non-Error row failure to its physical row', async () => {
     vi.resetModules()
-    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session-format-catalog')>()
+    vi.doMock('@janhq/jan-session-format-catalog', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@janhq/jan-session-format-catalog')>()
       let row = 0
       return {
         ...actual,
@@ -373,7 +366,7 @@ describe('fixture format diagnostics', () => {
       expect(() => replay.parseSessionLog(sessionJsonl(events)))
         .toThrow('session snapshot line 3: row decoder exploded')
     } finally {
-      vi.doUnmock('@deepseek-ai/dsh-session-format-catalog')
+      vi.doUnmock('@janhq/jan-session-format-catalog')
       vi.resetModules()
     }
   })
@@ -387,8 +380,8 @@ describe('fixture format diagnostics', () => {
     ['out-of-range logical event', 'Session event 99 is malformed', 1],
   ])('maps a %s finalization diagnostic to its source line', async (_label, message, line) => {
     vi.resetModules()
-    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session-format-catalog')>()
+    vi.doMock('@janhq/jan-session-format-catalog', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@janhq/jan-session-format-catalog')>()
       return {
         ...actual,
         createSessionFormatCatalogWithChildren: () => ({
@@ -410,7 +403,7 @@ describe('fixture format diagnostics', () => {
       expect(() => replay.parseSessionLog(sessionJsonl([event])))
         .toThrow(`session snapshot line ${line}: ${message}`)
     } finally {
-      vi.doUnmock('@deepseek-ai/dsh-session-format-catalog')
+      vi.doUnmock('@janhq/jan-session-format-catalog')
       vi.resetModules()
     }
   })
@@ -427,7 +420,7 @@ describe('parseSessionLog', () => {
       message: {
         id: expect.stringMatching(/^v2-to-v3-system-/) as unknown,
         role: 'system',
-        source: { kind: 'plugin', plugin: '@deepseek-ai/dsh-system-prompt' },
+        source: { kind: 'plugin', plugin: '@janhq/jan-system-prompt' },
         content: [],
       },
     },
@@ -1400,8 +1393,8 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
       file,
       providers: [
         {
-          id: 'deepseek',
-          name: 'DeepSeek',
+          id: 'tokamak',
+          name: 'Tokamak',
           retryPolicy: {
             mode: 'normal',
             maxRetries: 2,
@@ -1426,15 +1419,15 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     })
 
     expect(ctx.llm.listProviders()).toEqual([
-      { id: 'deepseek', name: 'DeepSeek' },
+      { id: 'tokamak', name: 'Tokamak' },
       { id: 'empty', name: 'empty' },
     ])
-    await expect(ctx.llm.listModels('deepseek')).resolves.toEqual([
-      { provider: 'deepseek', id: 'flash', name: 'flash', inputModalities: ['text', 'image'] },
-      { provider: 'deepseek', id: 'pro', name: 'Pro', description: 'Larger model', badge: { text: { en: 'New', zh: '新' }, tone: 'info' } },
+    await expect(ctx.llm.listModels('tokamak')).resolves.toEqual([
+      { provider: 'tokamak', id: 'flash', name: 'flash', inputModalities: ['text', 'image'] },
+      { provider: 'tokamak', id: 'pro', name: 'Pro', description: 'Larger model', badge: { text: { en: 'New', zh: '新' }, tone: 'info' } },
     ])
     await expect(ctx.llm.listModels('empty')).resolves.toEqual([])
-    await expect(ctx.llm.resolveModelInfo('deepseek', 'flash')).resolves.toMatchObject({
+    await expect(ctx.llm.resolveModelInfo('tokamak', 'flash')).resolves.toMatchObject({
       context: { contextWindow: 128_000 },
       inputModalities: ['text', 'image'],
       defaultMaxTokens: 64_000,
@@ -1445,18 +1438,18 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
       systemPromptUpdate: 'in-history',
       toolUpdate: 'addition-only',
     })
-    await expect(ctx.llm.resolveModelInfo('deepseek', 'pro')).resolves.not.toHaveProperty('systemPromptUpdate')
-    await expect(ctx.llm.resolveModelInfo('deepseek', 'pro')).resolves.not.toHaveProperty('toolUpdate')
-    await expect(ctx.llm.resolveModelInfo('deepseek', 'pro')).resolves.not.toHaveProperty('inputModalities')
-    await expect(ctx.llm.resolveModelInfo('deepseek', 'pro')).resolves.not.toHaveProperty('context')
+    await expect(ctx.llm.resolveModelInfo('tokamak', 'pro')).resolves.not.toHaveProperty('systemPromptUpdate')
+    await expect(ctx.llm.resolveModelInfo('tokamak', 'pro')).resolves.not.toHaveProperty('toolUpdate')
+    await expect(ctx.llm.resolveModelInfo('tokamak', 'pro')).resolves.not.toHaveProperty('inputModalities')
+    await expect(ctx.llm.resolveModelInfo('tokamak', 'pro')).resolves.not.toHaveProperty('context')
     // Efforts without a configured default preserve the provider's own default.
-    await expect(ctx.llm.resolveModelInfo('deepseek', 'pro')).resolves.toMatchObject({
+    await expect(ctx.llm.resolveModelInfo('tokamak', 'pro')).resolves.toMatchObject({
       reasoning: { efforts: [{ id: 'high', name: 'high' }] },
     })
-    await expect(ctx.llm.resolveModelInfo('deepseek', 'pro')).resolves.not.toHaveProperty('defaultMaxTokens')
-    await expect(ctx.llm.resolveModelInfo('deepseek', 'unlisted')).resolves.not.toHaveProperty('context')
+    await expect(ctx.llm.resolveModelInfo('tokamak', 'pro')).resolves.not.toHaveProperty('defaultMaxTokens')
+    await expect(ctx.llm.resolveModelInfo('tokamak', 'unlisted')).resolves.not.toHaveProperty('context')
     await expect(ctx.llm.resolveModelInfo('empty', 'unlisted')).resolves.not.toHaveProperty('context')
-    expect(ctx.llm.providerRetryPolicy('deepseek')).toMatchObject({
+    expect(ctx.llm.providerRetryPolicy('tokamak')).toMatchObject({
       mode: 'normal',
       maxRetries: 2,
       initialDelayMs: 1,
@@ -1471,7 +1464,7 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
       jitterRatio: 0.1,
     })
     const prepared = await ctx.llm.prepareCall({
-      provider: 'deepseek', model: 'flash',
+      provider: 'tokamak', model: 'flash',
     }, undefined, (controls, model) => ({ ...controls, reasoningEffort: model.reasoning!.efforts[0]!.id }))
     expect(prepared.config.reasoningEffort).toBe('off')
     expect(await drain(prepared.stream({ ...prepared.config, messages: [] }))).toEqual(TEXT_CHUNKS)
@@ -1488,9 +1481,9 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     expect(() => {
       installLlmReplay(ctx, {
         file,
-        providers: [{ id: 'deepseek', retryPolicy: { mode: 'normal', maxRetries: -1 } }],
+        providers: [{ id: 'tokamak', retryPolicy: { mode: 'normal', maxRetries: -1 } }],
       })
-    }).toThrow(/llm-replay: provider "deepseek" retryPolicy\.maxRetries/)
+    }).toThrow(/llm-replay: provider "tokamak" retryPolicy\.maxRetries/)
   })
 
   it('serves the Nth call the Nth derived entry (positional)', async () => {
@@ -1507,88 +1500,15 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     expect(await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [] }))).toEqual(second)
   })
 
-  it('settles official DeepSeek request extensions before replayed chunks', async () => {
-    writeLog(TEXT_CHUNKS, TEXT_CHUNKS, TEXT_CHUNKS)
-    const ctx = new Context()
-    await ctx.plugin(LlmRuntime)
-    await ctx.plugin(DeepSeekLlmApiExtensionRegistry)
-    const accepted = vi.fn()
-    ctx.deepseekLlmApiExtensions.register('test_replay', {
-      prepare: () => ({ value: { version: 1 }, accept: accepted }),
-    })
-    installLlmReplay(ctx, { file })
-
-    const sessionId = 'deepseek-replay' as NonNullable<GenerateOptions['sessionId']>
-    await drain(ctx.llm.stream({ provider: 'deepseek-official', model: 'm', messages: [], sessionId }))
-    expect(accepted).toHaveBeenCalledOnce()
-    await drain(ctx.llm.stream({
-      provider: 'deepseek-official',
-      model: 'm',
-      messages: [],
-      sessionId,
-      signal: new AbortController().signal,
-      purpose: 'compaction',
-    }))
-    expect(accepted).toHaveBeenCalledTimes(2)
-    await drain(ctx.llm.stream({ provider: 'another-provider', model: 'm', messages: [], sessionId }))
-    expect(accepted).toHaveBeenCalledTimes(2)
-  })
-
-  it('accepts anonymous official extensions and tolerates an absent optional registry', async () => {
-    writeLog(TEXT_CHUNKS)
-    const withRegistry = new Context()
-    await withRegistry.plugin(LlmRuntime)
-    await withRegistry.plugin(DeepSeekLlmApiExtensionRegistry)
-    const accepted = vi.fn()
-    withRegistry.deepseekLlmApiExtensions.register('test_replay', {
-      prepare: () => ({ value: { version: 1 }, accept: accepted }),
-    })
-    installLlmReplay(withRegistry, { file })
-    await drain(withRegistry.llm.stream({ provider: 'deepseek-official', model: 'm', messages: [] }))
-    expect(accepted).toHaveBeenCalledOnce()
-
-    const withoutRegistry = new Context()
-    await withoutRegistry.plugin(LlmRuntime)
-    installLlmReplay(withoutRegistry, { file })
-    await expect(drain(withoutRegistry.llm.stream({ provider: 'deepseek-official', model: 'm', messages: [] })))
-      .resolves.toEqual(TEXT_CHUNKS)
-  })
-
-  it('accepts only throw entries that reached the post-2xx point', async () => {
+  it('rejects an unknown throw-entry field', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
     const overrideFile = join(dir, 'replay.override.json')
     writeFileSync(overrideFile, JSON.stringify([
-      { kind: 'throw', chunks: [{ type: 'block-start', index: 0, blockType: 'text' }], message: 'partial', code: 'STREAM_CLOSED' },
-      { kind: 'throw', chunks: [], message: 'unauthorized', code: 'AUTH' },
-      { kind: 'throw', chunks: [], message: 'empty body', code: 'EMPTY_RESPONSE', accepted: true },
+      { kind: 'throw', chunks: [], message: 'bad', code: 'X', accepted: true },
     ]), 'utf8')
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
-    await ctx.plugin(DeepSeekLlmApiExtensionRegistry)
-    const accepted = vi.fn()
-    ctx.deepseekLlmApiExtensions.register('test_replay', {
-      prepare: () => ({ value: { version: 1 }, accept: accepted }),
-    })
-    installLlmReplay(ctx, { file, overrideFile })
-    const request = { provider: 'deepseek-official', model: 'm', messages: [] }
-
-    await expect(drain(ctx.llm.stream(request))).rejects.toThrow('partial')
-    expect(accepted).toHaveBeenCalledOnce()
-    await expect(drain(ctx.llm.stream(request))).rejects.toThrow('unauthorized')
-    expect(accepted).toHaveBeenCalledOnce()
-    await expect(drain(ctx.llm.stream(request))).rejects.toThrow('empty body')
-    expect(accepted).toHaveBeenCalledTimes(2)
-  })
-
-  it('rejects a non-boolean throw acceptance override', async () => {
-    writeFileSync(file, sessionJsonl([]), 'utf8')
-    const overrideFile = join(dir, 'replay.override.json')
-    writeFileSync(overrideFile, JSON.stringify([
-      { kind: 'throw', chunks: [], message: 'bad', code: 'X', accepted: 'yes' },
-    ]), 'utf8')
-    const ctx = new Context()
-    await ctx.plugin(LlmRuntime)
-    expect(() => { installLlmReplay(ctx, { file, overrideFile }) }).toThrow(/accepted must be a boolean/)
+    expect(() => { installLlmReplay(ctx, { file, overrideFile }) }).toThrow(/has invalid throw-entry fields/)
   })
 
   it('replays a sidecar throw-entry as an LlmError with its stable code, after its prefix chunks', async () => {
@@ -2095,17 +2015,17 @@ describe('installLlmReplay (per-session keying)', () => {
 
 describe('apply (the plugin entry)', () => {
   const ORIG = {
-    file: process.env.DSH_SNAPSHOT_FILE,
-    override: process.env.DSH_SNAPSHOT_OVERRIDE,
-    children: process.env.DSH_SNAPSHOT_CHILD_FILES,
+    file: process.env.JAN_SNAPSHOT_FILE,
+    override: process.env.JAN_SNAPSHOT_OVERRIDE,
+    children: process.env.JAN_SNAPSHOT_CHILD_FILES,
   }
   afterEach(() => {
-    if (ORIG.file === undefined) delete process.env.DSH_SNAPSHOT_FILE
-    else process.env.DSH_SNAPSHOT_FILE = ORIG.file
-    if (ORIG.override === undefined) delete process.env.DSH_SNAPSHOT_OVERRIDE
-    else process.env.DSH_SNAPSHOT_OVERRIDE = ORIG.override
-    if (ORIG.children === undefined) delete process.env.DSH_SNAPSHOT_CHILD_FILES
-    else process.env.DSH_SNAPSHOT_CHILD_FILES = ORIG.children
+    if (ORIG.file === undefined) delete process.env.JAN_SNAPSHOT_FILE
+    else process.env.JAN_SNAPSHOT_FILE = ORIG.file
+    if (ORIG.override === undefined) delete process.env.JAN_SNAPSHOT_OVERRIDE
+    else process.env.JAN_SNAPSHOT_OVERRIDE = ORIG.override
+    if (ORIG.children === undefined) delete process.env.JAN_SNAPSHOT_CHILD_FILES
+    else process.env.JAN_SNAPSHOT_CHILD_FILES = ORIG.children
   })
 
   it('exposes the namespace plugin shape (name/inject, no default export)', () => {
@@ -2143,14 +2063,14 @@ describe('apply (the plugin entry)', () => {
     installLlmReplay(ctx, {
       file,
       providers: [{
-        id: 'deepseek',
+        id: 'tokamak',
         models: [
           { id: 'vision', inputModalities: ['text', 'image'], imageRequestTokens: 384 },
           { id: 'plain' },
         ],
       }],
     })
-    const pricing = ctx.llm.imageRequestPricing('deepseek', 'vision')
+    const pricing = ctx.llm.imageRequestPricing('tokamak', 'vision')
     expect(pricing).toBeDefined()
     const ref = {
       attachmentId: 'sha256:aaaaaaaa',
@@ -2166,7 +2086,7 @@ describe('apply (the plugin entry)', () => {
     expect(priced?.map(price => price.visualTokens)).toEqual([384, 0])
     expect(priced?.[0]?.text).toContain('640x480px')
     expect(priced?.[1]?.text).toContain('image omitted to fit request image limits')
-    expect(ctx.llm.imageRequestPricing('deepseek', 'plain')).toBeUndefined()
+    expect(ctx.llm.imageRequestPricing('tokamak', 'plain')).toBeUndefined()
   })
 
   it('rejects imageRequestTokens on a model without the image modality during load', () => {
@@ -2231,12 +2151,12 @@ describe('apply (the plugin entry)', () => {
     )
   })
 
-  it('falls back to $DSH_SNAPSHOT_FILE / $DSH_SNAPSHOT_OVERRIDE when config is empty', async () => {
+  it('falls back to $JAN_SNAPSHOT_FILE / $JAN_SNAPSHOT_OVERRIDE when config is empty', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
     const overrideFile = join(dir, 'replay.override.json')
     writeFileSync(overrideFile, JSON.stringify([{ kind: 'chunks', chunks: TEXT_CHUNKS }]), 'utf8')
-    process.env.DSH_SNAPSHOT_FILE = file
-    process.env.DSH_SNAPSHOT_OVERRIDE = overrideFile
+    process.env.JAN_SNAPSHOT_FILE = file
+    process.env.JAN_SNAPSHOT_OVERRIDE = overrideFile
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     apply(ctx)
@@ -2245,8 +2165,8 @@ describe('apply (the plugin entry)', () => {
 
   it('uses only the file when no override path is configured or in the env', async () => {
     writeFileSync(file, replaySessionJsonl([TEXT_CHUNKS]), 'utf8')
-    process.env.DSH_SNAPSHOT_FILE = file
-    delete process.env.DSH_SNAPSHOT_OVERRIDE
+    process.env.JAN_SNAPSHOT_FILE = file
+    delete process.env.JAN_SNAPSHOT_OVERRIDE
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     apply(ctx)
@@ -2254,14 +2174,14 @@ describe('apply (the plugin entry)', () => {
   })
 
   it('throws when no fixture path is given by config or env', async () => {
-    delete process.env.DSH_SNAPSHOT_FILE
+    delete process.env.JAN_SNAPSHOT_FILE
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     expect(() => { apply(ctx, {}) }).toThrow(/a fixture path is required/)
   })
 
   it('treats an empty-string fixture path as missing', async () => {
-    delete process.env.DSH_SNAPSHOT_FILE
+    delete process.env.JAN_SNAPSHOT_FILE
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     expect(() => { apply(ctx, { file: '' }) }).toThrow(/a fixture path is required/)
@@ -2285,7 +2205,7 @@ describe('apply (the plugin entry)', () => {
     expect(await drain(ctx.llm.stream(live('B')))).toEqual(childSecond)
   })
 
-  it('falls back to $DSH_SNAPSHOT_CHILD_FILES (path-delimited) when config omits childFiles', async () => {
+  it('falls back to $JAN_SNAPSHOT_CHILD_FILES (path-delimited) when config omits childFiles', async () => {
     const childChunks: StreamChunk[] = [
       { type: 'block-start', index: 0, blockType: 'text' },
       { type: 'text-delta', index: 0, text: 'env-kid' },
@@ -2294,8 +2214,8 @@ describe('apply (the plugin entry)', () => {
     writeFileSync(file, replaySessionJsonl([TEXT_CHUNKS], { id: 'p', createdAt: 1 }), 'utf8')
     const childFile = join(dir, 'session.1.jsonl')
     writeFileSync(childFile, replaySessionJsonl([childChunks], { id: 'c', createdAt: 2 }), 'utf8')
-    process.env.DSH_SNAPSHOT_FILE = file
-    process.env.DSH_SNAPSHOT_CHILD_FILES = childFile // single entry, no delimiter needed
+    process.env.JAN_SNAPSHOT_FILE = file
+    process.env.JAN_SNAPSHOT_CHILD_FILES = childFile // single entry, no delimiter needed
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     apply(ctx)
@@ -2305,10 +2225,10 @@ describe('apply (the plugin entry)', () => {
     expect(await drain(ctx.llm.stream(live('B')))).toEqual(childChunks)
   })
 
-  it('ignores an empty $DSH_SNAPSHOT_CHILD_FILES (single-session)', async () => {
+  it('ignores an empty $JAN_SNAPSHOT_CHILD_FILES (single-session)', async () => {
     writeFileSync(file, replaySessionJsonl([TEXT_CHUNKS], { id: 'p', createdAt: 1 }), 'utf8')
-    process.env.DSH_SNAPSHOT_FILE = file
-    process.env.DSH_SNAPSHOT_CHILD_FILES = ''
+    process.env.JAN_SNAPSHOT_FILE = file
+    process.env.JAN_SNAPSHOT_CHILD_FILES = ''
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     apply(ctx)

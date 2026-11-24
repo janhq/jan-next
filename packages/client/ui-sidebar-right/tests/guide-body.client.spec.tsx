@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 /**
  * The guide tab's body: the chain seam, and the shipped guide behind it.
  *
@@ -10,17 +10,17 @@ import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
-import type { GlobalStandardProps, RenderOpts, SessionStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
+import type { GlobalStandardProps, RenderOpts, SessionStandardProps } from '@janhq/jan-client-ui-slots'
+import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { PaneId, TabId } from '@janhq/jan-client-ui-dockkit'
 import type { ReactNode } from 'react'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { IconProps } from '@deepseek-ai/dsh-client-ui-primitives'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { IconProps } from '@janhq/jan-client-ui-primitives'
 import { GuideBody } from '../src/client/tabs/guide/GuideBody.tsx'
 import type { GuideBodyProps } from '../src/client/tabs/guide/GuideBody.tsx'
 import type { SidebarRightGuideBox } from '../src/client/tab-registry.ts'
-import { allowAllAccess, bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import { allowAllAccess, bindSnapshotSelector, makeTranslate } from '@janhq/jan-client-test-runtime'
 import type { SidebarRightGuideActionsOwnerProps } from '../src/client/contract/slots.ts'
 import { en } from '../src/client/locales.ts'
 import css from '../src/client/tabs/guide/GuideBody.module.css'
@@ -83,6 +83,7 @@ function mountGuide(entries: readonly SidebarRightGuideBox[], custom?: (key: str
     useEntryPins: bindSnapshotSelector(entryPins),
     useEntryActions: bindSnapshotSelector(entryActions),
     setPinned,
+    ownerOf: providerId => providerId === 'provider/cad' ? 'dsh-cad' : undefined,
     t: makeTranslate(en),
     renderSlotChain: renderSlot,
     renderSlot: vi.fn((slot: string, owner: unknown, options?: RenderOpts) => {
@@ -113,6 +114,13 @@ describe('GuideBody', () => {
     expect(b.view.queryByRole('button', { name: 'More tools' })).toBeNull()
     act(() => { b.entryPins.set(['notes:notes-30']) })
     expect(b.boxes()).toEqual(['files', 'terminal'])
+  })
+
+  it('marks a third-party card with its package so plugin translation reaches its title and description', () => {
+    const b = mountGuide([box('files', 10), box('cad', 20, undefined, '三维模型')])
+    const card = b.view.container.querySelector('[data-sidebar-right-guide-entry="cad"]')
+    expect(card?.closest('[data-plugin-owner]')?.getAttribute('data-plugin-owner')).toBe('dsh-cad')
+    expect(b.view.container.querySelector('[data-sidebar-right-guide-entry="files"]')?.closest('[data-plugin-owner]')).toBeNull()
   })
 
   it('draws the More card after the cards and hands its menu the customizable cards', () => {

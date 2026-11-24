@@ -41,6 +41,7 @@ export function chatModel(contextLength: number): Record<string, Value> {
     'qwen3.context_length': contextLength, 'qwen3.block_count': 28, 'qwen3.embedding_length': 1024,
     'qwen3.attention.head_count': 16, 'qwen3.attention.head_count_kv': 8,
     'qwen3.attention.key_length': 128, 'qwen3.attention.value_length': 128,
-    'tokenizer.chat_template': '{{ messages }}',
+    // Like the curated models' templates, it renders the request's tools.
+    'tokenizer.chat_template': '{% if tools %}{{ tools }}{% endif %}{{ messages }}',
   }
 }

@@ -1,9 +1,10 @@
-import type { SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { SignInAttemptId } from '@janhq/jan-tokamak-account/types'
 /** Native welcome window and its presentation-only renderer. */
 
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, ipcMain, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from 'electron'
+import { applicationIconPath } from './application-icon.ts'
 import type { DesktopLocale } from './locale.ts'
 import { WELCOME_IPC, type WelcomeOperations } from './welcome-api.ts'
 
@@ -24,6 +25,8 @@ export function welcomeWindowOptions(platform: NodeJS.Platform, locale: DesktopL
     fullscreenable: false,
     show: false,
     title: locale.messages.welcomeTitle,
+    // macOS takes the Dock icon from the bundle; elsewhere a source run would show Electron's icon.
+    ...(platform === 'darwin' ? {} : { icon: applicationIconPath() }),
     backgroundColor: platform === 'darwin' || platform === 'win32' ? '#00000000' : '#FFFFFF',
     ...(platform === 'darwin' ? {
       titleBarStyle: 'hidden',
@@ -38,7 +41,7 @@ export function welcomeWindowOptions(platform: NodeJS.Platform, locale: DesktopL
     } as const : {}),
     webPreferences: {
       preload: fileURLToPath(new URL('./preload-welcome.cjs', import.meta.url)),
-      additionalArguments: [`--dsh-welcome-locale=${locale.id}`],
+      additionalArguments: [`--jan-welcome-locale=${locale.id}`],
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -67,7 +70,7 @@ export async function openWelcomeWindow(locale: DesktopLocale, operations: Welco
     for (const channel of [
       WELCOME_IPC.analyticsEnabled, WELCOME_IPC.analytics, WELCOME_IPC.takeNotice, WELCOME_IPC.saveApiKey,
       WELCOME_IPC.skip, WELCOME_IPC.start, WELCOME_IPC.cancel, WELCOME_IPC.copyLink,
-      WELCOME_IPC.localStart, WELCOME_IPC.localState,
+      WELCOME_IPC.localStart, WELCOME_IPC.localState, WELCOME_IPC.localCancel,
     ]) {
       ipcMain.removeHandler(channel)
     }
@@ -99,13 +102,15 @@ export async function openWelcomeWindow(locale: DesktopLocale, operations: Welco
     if (typeof value !== 'string' || !/^[\x21-\x7e]+$/.test(value)) return { ok: false }
     return operations.saveApiKey(value)
   })
-  ipcMain.handle(WELCOME_IPC.skip, async (event) => {
+  ipcMain.handle(WELCOME_IPC.skip, async (event, open: unknown) => {
     assertSender(event)
-    await operations.skip()
+    if (open !== undefined && open !== 'hub') throw new Error('desktop welcome: invalid destination')
+    await operations.skip(open)
   })
   ipcMain.handle(WELCOME_IPC.start, async (event) => { assertSender(event); return operations.startSignIn() })
   ipcMain.handle(WELCOME_IPC.localStart, async (event) => { assertSender(event); return operations.startLocalModel() })
   ipcMain.handle(WELCOME_IPC.localState, async (event) => { assertSender(event); return operations.readLocalModel() })
+  ipcMain.handle(WELCOME_IPC.localCancel, async (event) => { assertSender(event); return operations.cancelLocalModel() })
   ipcMain.handle(WELCOME_IPC.cancel, async (event, id: unknown) => {
     assertSender(event)
     if (typeof id !== 'string') throw new Error('desktop welcome: invalid attempt')

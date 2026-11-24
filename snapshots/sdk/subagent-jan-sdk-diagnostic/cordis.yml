@@ -1,0 +1,54 @@
+# TypeScript SDK snapshot patch for automatic Jan SDK failure notices.
+
+- id: skill-filesystem
+  name: '@janhq/jan-skill-filesystem'
+  config:
+    includeDefaultRoots: false
+
+- id: session-persistence-jsonl
+  name: '@janhq/jan-session-persistence-jsonl'
+  config:
+    root: !!js janHomePath('sessions')
+    compression: !!js "process.env.JAN_SNAPSHOT === undefined ? 'zstd' : 'none'"
+
+- insert:
+    - id: subagent-jan-sdk-diagnostic
+      name: '@janhq/jan-subagent-jan-sdk'
+      config:
+        providerName: jan-sdk-diagnostic
+        profile: sdk
+        patches:
+          - !!js process.env.JAN_TEST_CHILD_PATCH
+        janHome: !!js janHomePath('children/first')
+        provider: mock
+        model: mock-echo
+        env:
+          JAN_TELEMETRY_DISABLED: '1'
+          JAN_TEST_CHILD_FAILURE: '1'
+    - id: tool-subagent-jan-sdk-diagnostic
+      name: '@janhq/jan-tool-subagent'
+      config:
+        provider: jan-sdk-diagnostic
+        toolName: subagent_jan_sdk
+        maxDepth: provider-managed
+    - id: subagent-jan-sdk-diagnostic-second
+      name: '@janhq/jan-subagent-jan-sdk'
+      config:
+        providerName: jan-sdk-diagnostic-second
+        profile: sdk
+        patches:
+          - !!js process.env.JAN_TEST_CHILD_PATCH
+        janHome: !!js janHomePath('children/second')
+        provider: mock
+        model: mock-echo
+        env:
+          JAN_TELEMETRY_DISABLED: '1'
+          JAN_TEST_CHILD_FAILURE: '1'
+    - id: tool-subagent-jan-sdk-diagnostic-second
+      name: '@janhq/jan-tool-subagent'
+      config:
+        provider: jan-sdk-diagnostic-second
+        toolName: subagent_jan_sdk_second
+        maxDepth: provider-managed
+    - id: await-external-subagents
+      name: '../../../packages/test-support/session-snapshot/tests/fixtures/subagent-settlement-barrier.ts'

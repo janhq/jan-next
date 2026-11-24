@@ -3,9 +3,9 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import { createScope } from '@deepseek-ai/dsh-scope'
-import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
+import { Context } from '@janhq/cordis'
+import { createScope } from '@janhq/jan-scope'
+import type { ToolDefinition } from '@janhq/jan-tools'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apply, publishedShareState, type Config, type OwnerShare } from '../src/host/share-host.ts'
 import type {} from '../src/index.ts'
@@ -77,8 +77,8 @@ interface Mounted {
 async function mount(
   config: Partial<Config> & {
     readonly state?: ReturnType<typeof stateFile>
-    /** Mount with no owner state file configured, so the DSH_HOME default is read. */
-    readonly useDshHome?: boolean
+    /** Mount with no owner state file configured, so the JAN_HOME default is read. */
+    readonly useJanHome?: boolean
     /** Services provided on the root context before the plugin body runs. */
     readonly services?: Readonly<Record<string, unknown>>
   } = {},
@@ -102,11 +102,11 @@ async function mount(
     if (!handlers.has(name)) handlers.set(name, listener as (...args: unknown[]) => Promise<unknown>)
     return originalOn(name as never, listener as never)
   }) as never
-  const { state, useDshHome, services, ...rest } = config
+  const { state, useJanHome, services, ...rest } = config
   const files = state ?? stateFile()
   for (const [name, service] of Object.entries(services ?? {})) ctx.provide(name, service)
   await apply(ctx, {
-    ...(useDshHome === true ? {} : { ownerStateFile: files.file }),
+    ...(useJanHome === true ? {} : { ownerStateFile: files.file }),
     ...rest,
   })
   return { ctx, handlers, routes }
@@ -161,25 +161,25 @@ describe('configuration guards', () => {
     })
   })
 
-  it('derives its default owner state file from DSH_HOME', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'liveshare-dsh-home-'))
+  it('derives its default owner state file from JAN_HOME', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'liveshare-jan-home-'))
     roots.push(root)
-    vi.stubEnv('DSH_HOME', root)
+    vi.stubEnv('JAN_HOME', root)
     vi.stubEnv('LIVESHARE_OWNER_STATE_FILE', '')
     vi.stubEnv('LIVESHARE_OWNER_CREDENTIAL_FILE', '')
-    const mounted = await mount({ useDshHome: true })
+    const mounted = await mount({ useJanHome: true })
     expect(mounted.routes.size).toBeGreaterThan(0)
     await mounted.ctx.fiber.dispose()
   })
 
-  it('falls back to the user home when neither DSH_HOME nor a state file is named', async () => {
+  it('falls back to the user home when neither JAN_HOME nor a state file is named', async () => {
     const root = mkdtempSync(join(tmpdir(), 'liveshare-home-'))
     roots.push(root)
     vi.stubEnv('HOME', root)
-    vi.stubEnv('DSH_HOME', '')
+    vi.stubEnv('JAN_HOME', '')
     vi.stubEnv('LIVESHARE_OWNER_STATE_FILE', '')
     vi.stubEnv('LIVESHARE_OWNER_CREDENTIAL_FILE', '')
-    const mounted = await mount({ useDshHome: true })
+    const mounted = await mount({ useJanHome: true })
     expect(mounted.routes.size).toBeGreaterThan(0)
     await mounted.ctx.fiber.dispose()
   })
@@ -250,14 +250,14 @@ describe('capability catalog titles', () => {
               meta: { title: { en: 'Change requests' } },
               rows: [{ moduleName: '@fixture/forge' }],
             },
-            { name: '@deepseek-ai/dsh-base', rows: [{ moduleName: '@deepseek-ai/dsh-agent' }] },
+            { name: '@janhq/jan-base', rows: [{ moduleName: '@janhq/jan-agent' }] },
           ],
         },
         typert: {
           local: {
             list: () => [
               { id: '@fixture/forge#forgePanel', namespace: 'forgePanel', method: 'changeRequestStates' },
-              { id: '@deepseek-ai/dsh-agent#agentAudit', namespace: 'agentAudit', method: 'list' },
+              { id: '@janhq/jan-agent#agentAudit', namespace: 'agentAudit', method: 'list' },
               { id: '@fixture/unbundled#status', namespace: 'unbundledStatus', method: 'read' },
             ],
           },

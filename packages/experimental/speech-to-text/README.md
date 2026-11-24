@@ -3,9 +3,7 @@ description: "Named experimental transcription providers and cancellation owners
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-experimental-speech-to-text
-
-English | [中文](README.zh.md)
+# @janhq/jan-experimental-speech-to-text
 
 ## Summary
 

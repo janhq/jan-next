@@ -3,13 +3,11 @@ description: "Shared model-execution policy for session-title providers: route, 
 kind: "package-library"
 ---
 
-# @deepseek-ai/dsh-session-title-llm
-
-English | [中文](README.zh.md)
+# @janhq/jan-session-title-llm
 
 ## Summary
 
-`dsh-session-title-llm` executes one prepared auxiliary title request under consistent execution controls. Each provider supplies its own system instruction, user input, source-message attribution, reasoning selection, and output interpretation. This package resolves the route, caps the input, output, and end-to-end duration, keeps caller cancellation effective throughout streaming, records the exact model-visible request, and assembles the stream. Invalid or late operational results reject before a title can be replaced.
+`jan-session-title-llm` executes one prepared auxiliary title request under consistent execution controls. Each provider supplies its own system instruction, user input, source-message attribution, reasoning selection, and output interpretation. This package resolves the route, caps the input, output, and end-to-end duration, keeps caller cancellation effective throughout streaming, records the exact model-visible request, and assembles the stream. Invalid or late operational results reject before a title can be replaced.
 
 ## Table of Contents
 

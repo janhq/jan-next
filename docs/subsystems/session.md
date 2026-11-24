@@ -1,14 +1,12 @@
 # Sessions
 
-English | [中文](session.zh.md)
-
-The in-memory, event-sourced model of [dsh-session](../../packages/core/session). A `Session` is an **append-only log** of typed `SessionEvent`s — the single source of truth for an agent's whole interaction history. The LLM message history is *derived* from the log, never stored separately; replay is re-derivation from the same events. How the log is made **durable** (the persistence seam, backends, crash recovery) is the sibling concern on [persistence.md](persistence.md).
+The in-memory, event-sourced model of [jan-session](../../packages/core/session). A `Session` is an **append-only log** of typed `SessionEvent`s — the single source of truth for an agent's whole interaction history. The LLM message history is *derived* from the log, never stored separately; replay is re-derivation from the same events. How the log is made **durable** (the persistence seam, backends, crash recovery) is the sibling concern on [persistence.md](persistence.md).
 
 Source: [`packages/core/session/src/types.ts`](../../packages/core/session/src/types.ts)
 
 ## `SessionEventMap` — the event vocabulary
 
-The append-only event types. Merge-extensible: a plugin declares extra event types via declaration merging — e.g. the [compaction seam](compaction.md) adds `compaction/start` / `compaction/summary` / `compaction/end`, and `@deepseek-ai/dsh-hook-protocol` adds log-only `hook/invoked` / `hook/result` records for a hook bridge. Like `compaction/*`, these are NOT `SurfaceEventType`s (no `surfaceOp`). The generated [persistence log event catalog](../persistence-catalog.md) enumerates every member — core and merged — with its payload, surface badge, and declaration site.
+The append-only event types. Merge-extensible: a plugin declares extra event types via declaration merging — e.g. the [compaction seam](compaction.md) adds `compaction/start` / `compaction/summary` / `compaction/end`, and `@janhq/jan-hook-protocol` adds log-only `hook/invoked` / `hook/result` records for a hook bridge. Like `compaction/*`, these are NOT `SurfaceEventType`s (no `surfaceOp`). The generated [persistence log event catalog](../persistence-catalog.md) enumerates every member — core and merged — with its payload, surface badge, and declaration site.
 
 ```ts type-equiv
 /** A user-role specialization of the shared message representation. */
@@ -35,7 +33,7 @@ interface SessionEventMap {
   /**
    * Closes turn `turn` with the {@link TurnEndReason} that ended it. A turn
    * with no entered step has no `step/start` or `step/end`. The loop does not await a
-   * flush at turn boundaries: `dsh-session-checkpoint-policy` owns the
+   * flush at turn boundaries: `jan-session-checkpoint-policy` owns the
    * per-request durability checkpoint, and consumers that read storage after
    * `whenIdle()` flush themselves. Success commits the turn; rejection is
    * reported live and does not prevent later work.
@@ -94,6 +92,11 @@ interface SessionEventMap {
     stream: AssistantStreamRecord[]
     usage?: TokenUsage
     interrupted?: true
+    /**
+     * With `interrupted`: the user steered the running turn, so the step was
+     * cut to take the new input and the turn went on. Absent for a Stop.
+     */
+    steered?: true
   }
   /**
    * One model attempt that committed no surface message. The embedded stream
@@ -117,7 +120,7 @@ interface SessionEventMap {
    * runtime-validates all event data with `isJsonValue`, so a non-serializable
    * `meta` is rejected at the source, and the durable log reproduces the
    * identical card on replay. Absent
-   * unless the tool attaches one (e.g. `dsh-tool-fs` carries its result-time
+   * unless the tool attaches one (e.g. `jan-tool-fs` carries its result-time
    * contextual diff here).
    */
   'tool/result': {
@@ -357,7 +360,7 @@ type SurfaceIntent<T extends SurfaceEventType = SurfaceEventType> = {
 })
 ```
 
-Required for `SurfaceEventType` events — every message-producing event must declare how it joins the surface, the sole source of derived model history. A human-facing transcript is the other projection and reads the log's append-origin events instead, because the surface deliberately shadows the ranges a replacement summarizes (`isAppendSurfaceEvent` in [dsh-session](../../packages/core/session/README.md)). Non-surface types reject it at compile time.
+Required for `SurfaceEventType` events — every message-producing event must declare how it joins the surface, the sole source of derived model history. A human-facing transcript is the other projection and reads the log's append-origin events instead, because the surface deliberately shadows the ranges a replacement summarizes (`isAppendSurfaceEvent` in [jan-session](../../packages/core/session/README.md)). Non-surface types reject it at compile time.
 
 `assistant/message` cannot carry `sourceEventSeqs`; its `stream` owns exact provider evidence. Other surface events omit the field when they cite no earlier event and use a complete non-empty list when they do.
 
@@ -687,7 +690,7 @@ Everything else (`turn/*`, `step/*`, `assistant/attempt`, plugin-owned `llm/retr
 
 - `fork(source, boundary?, childSessionId?)` accepts a live `Session` object or live `SessionId`, selects source events through the inclusive `SessionSeq` boundary (default: current last event), closes any open tail, then creates an independent live session with deep-cloned seed events, `isSeeded: true`, the exact `inheritedEventCount`, and inherited `cwd`, without `parentSession`.
 
-An explicit `boundary` lets callers fork from any stable between-turn position, including a previous `turn/end` or a later standalone log-only event, even if the source has newer events or an open current turn. The API rejects a prefix that ends inside an open turn instead of clipping silently. `dsh-subagent-fork-in-process` keeps its completed-prefix clipping because tool-time delegation usually starts while the parent turn is open; ordinary session branching should make the requested boundary explicit.
+An explicit `boundary` lets callers fork from any stable between-turn position, including a previous `turn/end` or a later standalone log-only event, even if the source has newer events or an open current turn. The API rejects a prefix that ends inside an open turn instead of clipping silently. `jan-subagent-fork-in-process` keeps its completed-prefix clipping because tool-time delegation usually starts while the parent turn is open; ordinary session branching should make the requested boundary explicit.
 
 ## Why a turn ended: `TurnEndReasonMap`
 
@@ -758,7 +761,7 @@ A plugin may declaration-merge extra `SessionEventMap` types. These are **log-on
 
 When several events in one plugin-owned family assemble into one Web Client Conversation Node, every start, update, result, resource, or interruption event in that family carries or independently derives the same stable business id. This requirement applies to correlated Node families, not to every Session event; it lets the client group each event without guessing from adjacency or scanning history. See the [Conversation subsystem](conversation.md).
 
-The hook bridges' `hook/invoked` / `hook/result` pairs (from `@deepseek-ai/dsh-hook-protocol`) correlate by `handlerId`. `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and `Stop` fire inside the loop's open turn, so their `hook/*` records are turn-enclosed by construction. `SessionStart` gets no `hook/*` record because it runs before turn 1; its context remains pending in the inbox until a waking delivery opens a turn.
+The hook bridges' `hook/invoked` / `hook/result` pairs (from `@janhq/jan-hook-protocol`) correlate by `handlerId`. `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and `Stop` fire inside the loop's open turn, so their `hook/*` records are turn-enclosed by construction. `SessionStart` gets no `hook/*` record because it runs before turn 1; its context remains pending in the inbox until a waking delivery opens a turn.
 
 ### Plugin records
 
@@ -817,36 +820,13 @@ The backends that consume this contract are on [persistence.md](persistence.md).
 
 The optional `application` selects a registered file handler without changing the system default; `workspacePathApplications({ path })` returns current handlers, names, icons, and default selection after Host path verification.
 
-## Session-log upload exclusions
-
-`ctx.sessionLogDeepSeek.registerExclusion()` registers a caller-owned predicate over `SessionLogUploadRequest`. Any match omits the log contribution and its acceptance callback before reading Session events. No match preserves normal upload eligibility. The [package README](../../packages/session/session-log-deepseek/README.md#upload-exclusions) defines failure and disposal behavior.
-
-```ts type-equiv
-/** Request identity inspected before preparing a Session-log contribution. */
-interface SessionLogUploadRequest {
-  /** Live Session whose canonical log would be contributed. */
-  readonly sessionId: SessionId
-  /** Auxiliary request classification; absent for ordinary conversation requests. */
-  readonly purpose?: string
-}
-```
-
-```ts type-equiv
-/**
- * Synchronous, side-effect-free upload exclusion owned by its registering plugin.
- * @param request - request identity; the predicate must not mutate it.
- * @returns `true` to omit the log field and acceptance callback, or `false` to keep checking eligibility.
- */
-type SessionLogUploadExclusion = (request: SessionLogUploadRequest) => boolean
-```
-
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxsessioncontroller--sessioncontroller"></a>
 
@@ -895,10 +875,14 @@ resolveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult>
 @Remote('selectModel') selectModel(request: SessionSelectModelRequest): Promise<SessionSelectModelValue>
 
 /**
- * Select the first available account model after login when no provider API key is configured.
- * @returns after saving the first available model or retaining the existing default.
+ * Price the system prompt, tool schemas, and runtime context the Session's next request would inject.
+ * @param request - Session identity.
+ * @param signal - cancels tool resolution and prompt assembly.
+ * @returns heuristic token prices and the Session inventory (offered tools, MCP tools
+ * with their server and origin, skills with their origin, and the preset's plugins),
+ * or null while the Session has no model selection.
  */
-@Remote async initializeDefaultModel(): Promise<void>
+@Remote('contextPreview') async contextPreview(request: SessionContextPreviewRequest, signal: AbortSignal): Promise<SessionContextPreviewValue | null>
 
 /**
  * Describe every currently routable model for Host-generation selectors.
@@ -1058,26 +1042,6 @@ Types: [SessionId](core.md) · [SessionSearchRequest](session-query.md)
 
 Source: [`packages/api/session-controller/src/index.ts`](../../packages/api/session-controller/src/index.ts)
 
-<a id="ctxsessionlogdeepseek--sessionlogdeepseekservice"></a>
-
-### `ctx.sessionLogDeepSeek` — `SessionLogDeepSeekService`
-
-Incremental Session-log contributor with caller-owned upload exclusions.
-
-```ts cordis-catalog
-/**
- * Exclude matching requests before reading or preparing their log contribution.
- * Any matching rule suppresses both the field and its acceptance callback. With
- * no matching rules, normal upload eligibility applies. A throwing rule fails
- * this contribution; the request-extension registry omits it and reports the error.
- * @param exclude - synchronous, side-effect-free predicate; `true` skips this upload.
- * @returns effect disposer that removes this registration when called or when the caller unloads.
- */
-registerExclusion(exclude: SessionLogUploadExclusion): () => Promise<void>
-```
-
-Source: [`packages/session/session-log-deepseek/src/index.ts`](../../packages/session/session-log-deepseek/src/index.ts)
-
 <a id="ctxsessions--sessionstore"></a>
 
 ### `ctx.sessions` — `SessionStore`
@@ -1108,7 +1072,7 @@ registerMessageProjection(projection: SessionMessageProjection): () => Promise<v
  * loop's final events are published before the store attachment ends), do NOT use this
  * — fold the session lifecycle into the agent's own effect via
  * {@link prepare} + {@link enter} + {@link announce} (see
- * `dsh-agent-loop`'s creation transaction).
+ * `jan-agent-loop`'s creation transaction).
  *
  * @param id - the session id; omitted, the store mints `session-<n>`.
  * @param options - seed events and/or creation metadata for the header.
@@ -1336,7 +1300,7 @@ Source: [`packages/api/session-controller/src/types.ts`](../../packages/api/sess
 
 #### `session/created` — emit
 
-Read-only creation announcement after store entry. New events reject until every synchronous listener has returned successfully. A synchronous throw vetoes creation and rolls back with a paired disposal; detach requested during dispatch is deferred. A returned-promise rejection is logged but cannot retroactively veto this synchronous boundary. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only sessions entered through that agent's context.
+Read-only creation announcement after store entry. New events reject until every synchronous listener has returned successfully. A synchronous throw vetoes creation and rolls back with a paired disposal; detach requested during dispatch is deferred. A returned-promise rejection is logged but cannot retroactively veto this synchronous boundary. Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only sessions entered through that agent's context.
 
 ```ts cordis-catalog
 /**
@@ -1346,7 +1310,7 @@ Read-only creation announcement after store entry. New events reject until every
  * detach requested during dispatch is deferred.
  * A returned-promise rejection is logged but cannot retroactively veto this
  * synchronous boundary.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners
  * receive only sessions entered through that agent's context.
  * @param session - the session just entered and announced.
  * @mode emit
@@ -1362,14 +1326,14 @@ Source: [`packages/core/session/src/index.ts`](../../packages/core/session/src/i
 
 #### `session/disposed` — emit
 
-Emitted once when an announced session leaves the store, including publication rollback, but never for an entry whose creation announcement did not begin. Listener failures are logged and contained. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`) reuses the owner scope.
+Emitted once when an announced session leaves the store, including publication rollback, but never for an entry whose creation announcement did not begin. Listener failures are logged and contained. Scope-filtered dispatch (`@janhq/jan-scope`) reuses the owner scope.
 
 ```ts cordis-catalog
 /**
  * Emitted once when an announced session leaves the store, including
  * publication rollback, but never for an entry whose creation announcement
  * did not begin. Listener failures are logged and contained.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`) reuses the owner scope.
+ * Scope-filtered dispatch (`@janhq/jan-scope`) reuses the owner scope.
  * @param session - the session that is no longer live in the store.
  * @mode emit
  */
@@ -1384,14 +1348,14 @@ Source: [`packages/core/session/src/index.ts`](../../packages/core/session/src/i
 
 #### `session/event` — emit
 
-Post-commit, fire-and-forget append feed. The listener snapshot resolves before the log push, but callbacks run after it; observer failures are logged and contained without making the committed append fail. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only events from sessions entered through that agent's context.
+Post-commit, fire-and-forget append feed. The listener snapshot resolves before the log push, but callbacks run after it; observer failures are logged and contained without making the committed append fail. Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only events from sessions entered through that agent's context.
 
 ```ts cordis-catalog
 /**
  * Post-commit, fire-and-forget append feed. The listener snapshot resolves
  * before the log push, but callbacks run after it; observer failures are
  * logged and contained without making the committed append fail.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners
  * receive only events from sessions entered through that agent's context.
  * @param session - the session whose log grew.
  * @param event - the appended event, exactly as recorded.
@@ -1408,13 +1372,13 @@ Source: [`packages/core/session/src/index.ts`](../../packages/core/session/src/i
 
 #### `session/flush` — parallel
 
-Awaited parallel durability checkpoint: every listener runs and the caller awaits all of them, with no waterfall veto. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`) reuses the session's owner scope.
+Awaited parallel durability checkpoint: every listener runs and the caller awaits all of them, with no waterfall veto. Scope-filtered dispatch (`@janhq/jan-scope`) reuses the session's owner scope.
 
 ```ts cordis-catalog
 /**
  * Awaited parallel durability checkpoint: every listener runs and the
  * caller awaits all of them, with no waterfall veto. Scope-filtered dispatch
- * (`@deepseek-ai/dsh-scope`) reuses the session's owner scope.
+ * (`@janhq/jan-scope`) reuses the session's owner scope.
  * @param session - the session whose buffered events must reach durable storage.
  * @mode parallel
  */

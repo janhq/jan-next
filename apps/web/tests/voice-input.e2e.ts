@@ -5,8 +5,8 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright'
 import { expect, it, onTestFinished, vi } from 'vitest'
-import type { SpeechInput, SpeechPreparationState, SpeechProviderId } from '@deepseek-ai/dsh-experimental-speech-to-text/types'
-import type {} from '@deepseek-ai/dsh-experimental-speech-to-text'
+import type { SpeechInput, SpeechPreparationState, SpeechProviderId } from '@janhq/jan-experimental-speech-to-text/types'
+import type {} from '@janhq/jan-experimental-speech-to-text'
 import {
   captureStableAria, compareOrRefreshGolden, fixtureUserPrompts, launchWebScaffold, webSnapshotMode, watchConsole,
   type WebScaffold,
@@ -20,7 +20,7 @@ const recordingExpected = fileURLToPath(new URL('../../../snapshots/web/voice-in
 const bundle = fileURLToPath(new URL('../../../packages/experimental/voice-input-bundle', import.meta.url))
 
 it.skipIf(webSnapshotMode() === 'record')('guides voice setup, records from standby and submits only the reviewed transcript through Session replay', async () => {
-  const scratch = await mkdtemp(join(tmpdir(), 'dsh-voice-browser-'))
+  const scratch = await mkdtemp(join(tmpdir(), 'jan-voice-browser-'))
   const resources: { scaffold?: WebScaffold; browser?: Browser } = {}
   onTestFinished(async () => {
     try { await resources.browser?.close() } finally {
@@ -93,52 +93,55 @@ it.skipIf(webSnapshotMode() === 'record')('guides voice setup, records from stan
   await setupMic.click()
   const setup = page.getByRole('dialog', { name: 'Set up voice input before recording', exact: true })
   await setup.waitFor()
-  const setupAction = setup.getByRole('button', { name: 'Go to setup', exact: true })
-  await expect.poll(() => setupAction.evaluate(element => element === document.activeElement)).toBe(true)
+  const language = setup.getByRole('combobox', { name: 'Recognition language' })
+  await expect.poll(() => language.evaluate(element => element === document.activeElement)).toBe(true)
   await page.keyboard.type('NoDraftEdits')
   expect(await input.innerText()).toBe(prefix)
   expect(messages).toBe(0)
+  await setup.getByRole('button', { name: 'Cancel' }).last().focus()
   await page.keyboard.press('Tab')
-  expect(await setup.getByRole('button', { name: 'Cancel', exact: true }).evaluate(element => element === document.activeElement)).toBe(true)
+  expect(await setup.getByRole('button', { name: 'Cancel' }).first().evaluate(element => element === document.activeElement)).toBe(true)
   await page.keyboard.press('Shift+Tab')
-  expect(await setupAction.evaluate(element => element === document.activeElement)).toBe(true)
+  expect(await setup.getByRole('button', { name: 'Cancel' }).last().evaluate(element => element === document.activeElement)).toBe(true)
   await compareOrRefreshGolden(fileURLToPath(new URL('../../../snapshots/web/voice-input/setup.expected.md', import.meta.url)),
     await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd), webSnapshotMode())
-  await setup.getByRole('button', { name: 'Later', exact: true }).click()
+  await setup.getByRole('button', { name: 'Cancel' }).last().click()
   expect(await setup.count()).toBe(0)
   expect(await input.evaluate(element => element === document.activeElement)).toBe(true)
   expect(recognize).not.toHaveBeenCalled()
   preparation = { phase: 'checking', step: 'check', startedAt: 0 }
   for (const listener of readinessListeners) listener()
   await setupMic.click()
-  const unavailable = page.getByRole('dialog', { name: 'Speech recognition is not ready', exact: true })
-  await unavailable.waitFor()
+  await setup.getByText('Checking local resources…').waitFor()
   await compareOrRefreshGolden(fileURLToPath(new URL('../../../snapshots/web/voice-input/unavailable.expected.md', import.meta.url)),
     await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd), webSnapshotMode())
   await page.setViewportSize({ width: 420, height: 900 })
-  const dialogBox = await unavailable.boundingBox()
+  const dialogBox = await setup.boundingBox()
   expect(dialogBox!.x).toBeGreaterThanOrEqual(0)
   expect(dialogBox!.x + dialogBox!.width).toBeLessThanOrEqual(420)
   await page.keyboard.press('Escape')
-  await unavailable.waitFor({ state: 'hidden' })
+  await setup.waitFor({ state: 'hidden' })
   expect(await input.evaluate(element => element === document.activeElement)).toBe(true)
   expect(await input.innerText()).toBe(prefix)
   preparation = { phase: 'failed', message: 'Model preparation failed' }
   for (const listener of readinessListeners) listener()
   await setupMic.click()
-  const detailsAction = unavailable.getByRole('button', { name: 'Open voice plugin settings', exact: true })
-  await expect.poll(() => detailsAction.evaluate(element => element === document.activeElement)).toBe(true)
-  await page.keyboard.press('Enter')
+  await setup.getByRole('alert').filter({ hasText: 'Model preparation failed' }).waitFor()
+  await setup.getByRole('button', { name: 'Retry preparation', exact: true }).waitFor()
+  await page.keyboard.press('Escape')
+  await setup.waitFor({ state: 'hidden' })
   await page.setViewportSize({ width: 1280, height: 900 })
-  await page.locator('[data-plugin-detail="@deepseek-ai/dsh-experimental-voice-input-bundle"]')
+  await page.getByRole('button', { name: 'Plugins', exact: true }).click()
+  await page.locator('[data-plugin-package="@janhq/jan-experimental-voice-input-bundle"]').getByRole('button').click()
+  await page.locator('[data-plugin-detail="@janhq/jan-experimental-voice-input-bundle"]')
     .getByRole('button', { name: 'Retry preparation', exact: true }).waitFor()
-  expect(await unavailable.count()).toBe(0)
   expect(messages).toBe(0)
   expect(recognize).not.toHaveBeenCalled()
   preparation = { phase: 'standby' }
   for (const listener of readinessListeners) listener()
   const devicePicker = page.getByRole('combobox', { name: 'Input device', exact: true })
   const level = page.getByRole('img', { name: 'Microphone input level', exact: true })
+  await page.getByRole('button', { name: 'Test microphone', exact: true }).click()
   await level.waitFor()
   const devices = await page.evaluate(async () => (await navigator.mediaDevices.enumerateDevices())
     .filter(device => device.kind === 'audioinput' && device.deviceId !== 'default'))
@@ -207,7 +210,7 @@ it.skipIf(webSnapshotMode() === 'record')('guides voice setup, records from stan
   await expect.poll(() => page.evaluate(() => (window as Window & { voiceTestStreams?: MediaStream[] }).voiceTestStreams!
     .every(stream => stream.getTracks().every(track => track.readyState === 'ended')))).toBe(true)
   await page.getByRole('button', { name: 'Plugins', exact: true }).click()
-  await page.locator('[data-plugin-package="@deepseek-ai/dsh-experimental-voice-input-bundle"]').waitFor()
+  await page.locator('[data-plugin-package="@janhq/jan-experimental-voice-input-bundle"]').waitFor()
   expect(await page.locator('[data-plugin-detail]').count()).toBe(0)
   await page.getByRole('button', { name: 'New session', exact: true }).filter({ hasText: 'New Session' }).click()
   await mic.waitFor()
@@ -248,8 +251,13 @@ it.skipIf(webSnapshotMode() === 'record')('guides voice setup, records from stan
   }
   await mic.hover()
   await page.getByRole('tooltip', { name: 'Dictate', exact: true }).waitFor()
-  const controlBackground = await page.getByRole('button', { name: 'Add files or run commands', exact: true })
-    .evaluate(element => getComputedStyle(element).backgroundColor)
+  const add = page.getByRole('button', { name: 'Add files or run commands', exact: true })
+  await add.click()
+  expect(await add.getAttribute('aria-expanded')).toBe('true')
+  await page.mouse.move(0, 0)
+  await expect.poll(() => add.evaluate(element => element.matches(':hover'))).toBe(false)
+  const controlBackground = await add.evaluate(element => getComputedStyle(element).backgroundColor)
+  await page.keyboard.press('Escape')
   await mic.click()
   const stop = page.getByRole('button', { name: 'Stop and transcribe', exact: true })
   await stop.waitFor()
@@ -261,8 +269,8 @@ it.skipIf(webSnapshotMode() === 'record')('guides voice setup, records from stan
   }
   await input.hover()
   expect(await meter.isVisible()).toBe(false)
-  expect(await stop.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(controlBackground)
-  expect(await page.getByRole('button', { name: 'Cancel', exact: true })
+  await expect.poll(() => stop.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(controlBackground)
+  await expect.poll(() => page.getByRole('button', { name: 'Cancel', exact: true })
     .evaluate(element => getComputedStyle(element).backgroundColor)).toBe(controlBackground)
   await page.keyboard.press('Escape')
   await mic.waitFor()

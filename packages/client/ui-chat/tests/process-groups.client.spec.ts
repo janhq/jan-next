@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { SessionSeq } from '@deepseek-ai/dsh-session/types'
-import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
-import type { ConversationTimelineSnapshot, TurnLocation } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { PartialArguments } from '@deepseek-ai/dsh-util-values'
+import { SessionSeq } from '@janhq/jan-session/types'
+import type { MessageId } from '@janhq/jan-llm/brand'
+import type { ConversationTimelineSnapshot, TurnLocation } from '@janhq/jan-client-ui-conversation/client'
+import { PartialArguments } from '@janhq/jan-util-values'
 import type { ChatConversationViewNode, ChatNode } from '../src/client/contract/chat-nodes.ts'
 import { ChatSnapshotBuilder } from '../src/client/conversation-nodes/chat-snapshot-builder.ts'
 import { ProcessState } from '../src/client/conversation-nodes/process-groups.ts'
@@ -100,6 +100,20 @@ describe('Definition-owned Chat process groups', () => {
     expect(processActivity([context, { ...context, key: 'second' }]).counts).toEqual([{ kind: 'context', count: 2 }])
     expect(processActivity([context, tool('call', 2)]).counts).toEqual([{ kind: 'commands', count: 1 }])
     expect(processActivity([context, assistant('thinking')]).counts).toEqual([])
+  })
+
+  it('totals the token figures its Context rows show, leaving unattributed rows out', () => {
+    const row = (key: string, text: string, label: string | null): ChatNode<'context'> => ({
+      key, id: key, kind: 'context', target: 'chat', anchorSeq: 1,
+      location: { kind: 'turn', turn }, visibility: 'visible',
+      data: {
+        kind: 'context', seq: 1, time: 1, content: [{ type: 'text', text }], source: null,
+        producer: { role: 'inject', label }, form: null,
+      },
+    })
+    // 400 and 40 characters price at 100 + 4 and 10 + 4 tokens.
+    expect(processActivity([row('a', 'x'.repeat(400), 'skill-catalog'), row('b', 'y'.repeat(40), 'time-context')]).contextTokens).toBe(118)
+    expect(processActivity([row('a', 'x'.repeat(400), null)]).contextTokens).toBeUndefined()
   })
 
   it('keeps 160 graphemes when the bounded prefix splits a surrogate pair', () => {
@@ -244,7 +258,8 @@ describe('Definition-owned Chat process groups', () => {
     }
     h.builder.apply({ upserts: [settled], timeline })
     h.commit()
-    expect(source.getSnapshot()?.data.summary).toEqual({ counts: [{ kind, count: 1 }], running: undefined, runningDetail: '' })
+    // The step spans its call's dispatch (2) to its result (3).
+    expect(source.getSnapshot()?.data.summary).toEqual({ counts: [{ kind, count: 1 }], running: undefined, runningDetail: '', durationMs: 1 })
   })
 
   it.each(['process', 'turn', 'input'] as const)('ends the group at a Node declared at %s, whatever its kind', (position) => {

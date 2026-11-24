@@ -3,13 +3,11 @@ description: "The Agent handle, live registry, process-local initiator scope, an
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-agent
-
-English | [中文](README.zh.md)
+# @janhq/jan-agent
 
 ## Summary
 
-Use `dsh-agent` to create or resume live agents, send follow-up or steering input, inject model-facing context, cancel work, and wait for idle completion. Plugins, UI, hooks, and orchestrators can also observe or intercept agent activity and apply capabilities to one agent without affecting others. Choose it when code needs to control or extend live agents through the public `Agent` API. Pair it with an agent driver such as `dsh-agent-loop`; this package does not create model requests by itself. Initiator attribution is process-local and must be carried explicitly across workers, processes, durable queues, and restarts.
+Use `jan-agent` to create or resume live agents, send follow-up or steering input, inject model-facing context, cancel work, and wait for idle completion. Plugins, UI, hooks, and orchestrators can also observe or intercept agent activity and apply capabilities to one agent without affecting others. Choose it when code needs to control or extend live agents through the public `Agent` API. Pair it with an agent driver such as `jan-agent-loop`; this package does not create model requests by itself. Initiator attribution is process-local and must be carried explicitly across workers, processes, durable queues, and restarts.
 
 ## Table of Contents
 
@@ -25,7 +23,7 @@ Use `dsh-agent` to create or resume live agents, send follow-up or steering inpu
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount `dsh-agent` with `dsh-session-projection`: it provides `ctx.agents`, the `Agent` handle, and `turnBoundaryOf(session)` for recorded turn and step positions. Creating or resuming an Agent also requires a driver to register a factory; the shipped driver is `dsh-agent-loop`. [Session model selection](#model-selection) is available on each handle as `agent.model`.
+Mount `jan-agent` with `jan-session-projection`: it provides `ctx.agents`, the `Agent` handle, and `turnBoundaryOf(session)` for recorded turn and step positions. Creating or resuming an Agent also requires a driver to register a factory; the shipped driver is `jan-agent-loop`. [Session model selection](#model-selection) is available on each handle as `agent.model`.
 
 ### Create or resume an agent
 
@@ -34,7 +32,7 @@ Mount `dsh-agent` with `dsh-session-projection`: it provides `ctx.agents`, the `
 ```text
 const handle = await ctx.agents.create({
   sessionId,
-  agentOptions: { provider: 'deepseek', model: 'deepseek-chat' },
+  agentOptions: { provider: 'tokamak', model: 'tokamak-1-preview' },
 })
 // later:
 await handle.dispose()   // stops the loop, unregisters, removes the session, unwinds the scope
@@ -51,7 +49,7 @@ await handle.dispose()   // stops the loop, unregisters, removes the session, un
 
 Ordinary resume keeps the recorded choice. An entry point explicitly overriding the model first builds a complete selection, retaining the previous explicit effort only when the configured route is unchanged and omits effort, then calls `select()`. Web and ACP user selections call `select()` directly, so omitted effort means Auto. Selecting a Session model does not change deployment defaults.
 
-For scoped switch notices, call `installModelSelection(agentCtx)` from `dsh-agent` during Agent setup. The scope owns the listener and removes it on disposal.
+For scoped switch notices, call `installModelSelection(agentCtx)` from `jan-agent` during Agent setup. The scope owns the listener and removes it on disposal.
 
 ### Drive an agent's conversation
 
@@ -91,15 +89,15 @@ This section explains how the package realizes the behavior above; the observabl
 
 ### Design concept
 
-The package is built on one separation: the public `Agent` surface and registry live here, while construction and driving live in the loop package behind a registered factory. Consumers therefore depend on `dsh-agent` and never on `dsh-agent-loop`, keeping the driver swappable. The second idea is the initiator scope: an `AsyncLocalStorage` chain that carries the exact live `Agent` through the asynchronous driver work it starts, so helpers below a driver can attribute their work without forwarding the agent through every call.
+The package is built on one separation: the public `Agent` surface and registry live here, while construction and driving live in the loop package behind a registered factory. Consumers therefore depend on `jan-agent` and never on `jan-agent-loop`, keeping the driver swappable. The second idea is the initiator scope: an `AsyncLocalStorage` chain that carries the exact live `Agent` through the asynchronous driver work it starts, so helpers below a driver can attribute their work without forwarding the agent through every call.
 
 ### Step admission
 
-`PreStepDecision` is either `{ kind: 'reject' }` or `{ kind: 'enter', messages, startsRequestSeries? }`. The enter branch contains the complete identified, frozen message batch. Acceptance does not commit it: after assembly and `step/start`, the deprecated `agent/request` hook adjusts controls without changing the step's model selection, and `prepareCall()` binds the adapter before the loop commits the system prompt and user batch. Cancellation during either async phase commits neither. `startsRequestSeries: true` declares a distinct model-message series; a wrapping listener preserves that declaration and the batch unless it intentionally replaces either one. Claiming removes offered messages from the inbox, while messages inserted after the claim remain pending for a later boundary.
+`PreStepDecision` is either `{ kind: 'reject' }` or `{ kind: 'enter', messages, startsRequestSeries? }`. The enter branch contains the complete identified, frozen message batch. Acceptance does not commit it: after assembly and `step/start`, the deprecated `agent/request` hook adjusts controls without changing the step's model selection, and `prepareCall()` binds the adapter before the loop commits the system prompt and user batch. Cancellation during either async phase commits neither; any other failure there still commits the batch before the turn ends with that error, so claimed input is never dropped. `startsRequestSeries: true` declares a distinct model-message series; a wrapping listener preserves that declaration and the batch unless it intentionally replaces either one. Claiming removes offered messages from the inbox, while messages inserted after the claim remain pending for a later boundary.
 
 ### Durable inbox
 
-`Agent.inbox` exposes only the structural `Inbox` interface and the projection vocabulary stays in this package. dsh-agent-loop owns the package-internal `ReactLoopInbox` and the standard `inbox` projection; the loop service acquires one registration for the durable `agent/inbox/spliced` fold and gives each inbox a state-reading callback. The registry remains the sole owner of the live `{ 'next-turn', 'next-step' }` state. Reconstruction rejects unsafe or out-of-range splice coordinates and duplicate `MessageId` values across both pending lists and reports the offending event seq.
+`Agent.inbox` exposes only the structural `Inbox` interface and the projection vocabulary stays in this package. jan-agent-loop owns the package-internal `ReactLoopInbox` and the standard `inbox` projection; the loop service acquires one registration for the durable `agent/inbox/spliced` fold and gives each inbox a state-reading callback. The registry remains the sole owner of the live `{ 'next-turn', 'next-step' }` state. Reconstruction rejects unsafe or out-of-range splice coordinates and duplicate `MessageId` values across both pending lists and reports the offending event seq.
 
 `Inbox` exposes pending `nextTurn` and `nextStep` messages and mutates them through `append`, `prepend`, `replace`, `remove`, `clear`, and `splice`. Ordinary removals and `clear()` are durable cancellations. At a step boundary, the loop's internal implementation claims pending input through pure deletion splices. Live notifications are deliberately per-message and minimal: `agent/inbox/inserted { message }`, `agent/inbox/claimed { message, turn }`, and `agent/inbox/discarded { message }`.
 
@@ -123,7 +121,7 @@ The package is built on one separation: the public `Agent` surface and registry 
 
 `AgentRegistry` keeps one entry per live agent with its carrier and creator relation. Await `register()` to finish serial creation listeners with source `startup` before using an already-constructed agent; the async factory uses the split `enter()`/`announce()` pair so setup and initialization stay rollback-covered. A detach requested during creation waits for every awaited listener to settle, and each detach is bound to the exact entry, so a stale disposer cannot remove a later same-id replacement. Teardown stops and drains the loop, unwinds the scope, detaches the agent, then detaches the session; the id becomes reusable after private cleanup.
 
-The registry also answers the Workspace registry's archive admission ([seam](../../workspace/workspace/README.md)) for every Agent it publishes: `workspace/session-activity` reports the `turn` family while the Session's Agent is running, a turn waiting for an approval or an answer included, and `workspace/session-stop` cancels that turn the way the user's own stop does — `agent.cancel({ kind: 'user' })`, but without the stop button's `keepInbox`, so queued input is discarded with a logged inbox splice instead of waking the archived Session later. Nothing is awaited to settlement; a Session without a live Agent has no turn that could run. The `turn` key is merged into `SessionActivityKindMap` from [`src/types.ts`](src/types.ts), so a Client that renders the families imports `@deepseek-ai/dsh-agent/types` for it.
+The registry also answers the Workspace registry's archive admission ([seam](../../workspace/workspace/README.md)) for every Agent it publishes: `workspace/session-activity` reports the `turn` family while the Session's Agent is running, a turn waiting for an approval or an answer included, and `workspace/session-stop` cancels that turn the way the user's own stop does — `agent.cancel({ kind: 'user' })`, but without the stop button's `keepInbox`, so queued input is discarded with a logged inbox splice instead of waking the archived Session later. Nothing is awaited to settlement; a Session without a live Agent has no turn that could run. The `turn` key is merged into `SessionActivityKindMap` from [`src/types.ts`](src/types.ts), so a Client that renders the families imports `@janhq/jan-agent/types` for it.
 
 ### Initiator scope
 

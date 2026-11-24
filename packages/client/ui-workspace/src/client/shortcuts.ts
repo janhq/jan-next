@@ -1,16 +1,18 @@
 /** Workspace command registration and browser-owned opening requests. */
-import type { Context } from '@deepseek-ai/cordis'
-import type { SessionForkError } from '@deepseek-ai/dsh-api-session-controller/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { ShortcutCommand, ShortcutCommandId } from '@deepseek-ai/dsh-client-shortcuts/client'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { Context } from '@janhq/cordis'
+import type { SessionForkError } from '@janhq/jan-api-session-controller/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { ShortcutCommand, ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
+import type { SnapshotStore } from '@janhq/jan-client-store'
+import type { SessionId } from '@janhq/jan-session/types'
 import type { UiWorkspace } from './navigation.ts'
 
 /** Transient requests consumed by the existing workspace browser. */
 export interface WorkspaceShortcutState {
   readonly searchRequest: number
   readonly addRequested: boolean
+  /** The control a surface outside the sidebar opened the new-project menu from; null anchors it to the sidebar's add button. */
+  readonly addAnchor: HTMLElement | null
   readonly directoryBusy: boolean
   readonly renameTarget: { readonly sessionId: SessionId; readonly currentTitle: string } | null
 }
@@ -18,7 +20,7 @@ export interface WorkspaceShortcutState {
 interface WorkspaceShortcutControls {
   state: SnapshotStore<WorkspaceShortcutState>
   search: () => void
-  add: () => void
+  add: (anchor?: HTMLElement) => void
   closeAdd: () => void
   directoryBusy: (busy: boolean) => void
   rename: (sessionId: SessionId, currentTitle: string) => void
@@ -27,17 +29,24 @@ interface WorkspaceShortcutControls {
 
 /**
  * Create the private browser request source shared by commands and controls.
+ * @param openSearchSurface - offers Search to a registered replacement surface; false keeps the sidebar field.
  * @returns observable state and its complete mutation callbacks.
  */
-export function createWorkspaceShortcutControls(): WorkspaceShortcutControls {
+export function createWorkspaceShortcutControls(openSearchSurface: () => boolean = () => false): WorkspaceShortcutControls {
   const state = createSnapshotStore<WorkspaceShortcutState>({
-    searchRequest: 0, addRequested: false, directoryBusy: false, renameTarget: null,
+    searchRequest: 0, addRequested: false, addAnchor: null, directoryBusy: false, renameTarget: null,
   })
   return {
     state,
-    search: () => { state.set({ ...state.getSnapshot(), searchRequest: state.getSnapshot().searchRequest + 1 }) },
-    add: () => { state.set(state.getSnapshot().directoryBusy ? state.getSnapshot() : { ...state.getSnapshot(), addRequested: true }) },
-    closeAdd: () => { state.set({ ...state.getSnapshot(), addRequested: false }) },
+    search: () => {
+      if (openSearchSurface()) return
+      state.set({ ...state.getSnapshot(), searchRequest: state.getSnapshot().searchRequest + 1 })
+    },
+    add: (anchor?: HTMLElement) => {
+      if (state.getSnapshot().directoryBusy) return
+      state.set({ ...state.getSnapshot(), addRequested: true, addAnchor: anchor ?? null })
+    },
+    closeAdd: () => { state.set({ ...state.getSnapshot(), addRequested: false, addAnchor: null }) },
     directoryBusy: (busy: boolean) => { state.set({ ...state.getSnapshot(), directoryBusy: busy }) },
     rename: (sessionId: SessionId, currentTitle: string) => {
       state.set({ ...state.getSnapshot(), renameTarget: { sessionId, currentTitle } })
@@ -85,7 +94,7 @@ export function installWorkspaceShortcuts(
   register('workspace.add', () => t('workspace.add'), ['add workspace', 'open folder'], 'KeyO', ['primary'], ['primary', 'alt'],
     () => {
       const reason = addReason()
-      return reason === null ? { status: 'handled', run: controls.add } : { status: 'blocked', reason }
+      return reason === null ? { status: 'handled', run: () => { controls.add() } } : { status: 'blocked', reason }
     })
   register('session.rename', () => t('rename.session.title'), ['rename session'], 'KeyG', ['primary', 'alt'], ['primary', 'alt'], (context) => {
     const target = current()
@@ -97,22 +106,26 @@ export function installWorkspaceShortcuts(
     const target = current()
     if (target === undefined) return { status: 'blocked', reason: t('shortcut.noSession') }
     if (target.blank) return { status: 'blocked', reason: t('shortcut.noCompletedTurn') }
-    return { status: 'handled', run: () => {
-      // The main view owns history opening for this target.
-      void navigation.forkSession(target.id).catch((error: unknown) => {
-        // Client plugin bundles do not share error-class identity.
-        const unavailable = error instanceof Error && error.name === 'SessionForkError'
-          && (error as SessionForkError).rpcError.code === 'session/fork-unavailable'
-        reportForkFailure(unavailable ? 'unavailable' : 'failed')
-        if (!unavailable) console.warn('session fork rejected:', error)
-      })
-    } }
+    return {
+      status: 'handled', run: () => {
+        // The main view owns history opening for this target.
+        void navigation.forkSession(target.id).catch((error: unknown) => {
+          // Client plugin bundles do not share error-class identity.
+          const unavailable = error instanceof Error && error.name === 'SessionForkError'
+            && (error as SessionForkError).rpcError.code === 'session/fork-unavailable'
+          reportForkFailure(unavailable ? 'unavailable' : 'failed')
+          if (!unavailable) console.warn('session fork rejected:', error)
+        })
+      },
+    }
   })
   register('session.archive', () => t('menu.archiveSession'), ['archive session'], 'KeyA', ['primary', 'shift'], ['primary', 'alt'], () => {
     const target = current()
     return target === undefined ? { status: 'blocked', reason: t('shortcut.noSession') }
-      : { status: 'handled', run: () => {
-        archiveSession(target.id)
-      } }
+      : {
+        status: 'handled', run: () => {
+          archiveSession(target.id)
+        },
+      }
   })
 }

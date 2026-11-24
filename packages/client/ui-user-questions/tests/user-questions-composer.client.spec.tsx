@@ -1,19 +1,20 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
-import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
+import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
 import { useSyncExternalStore } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { allowAllAccess } from '@deepseek-ai/dsh-client-test-runtime'
-import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { AskUserQuestionAnswerItem } from '@deepseek-ai/dsh-user-questions/types'
+import { allowAllAccess } from '@janhq/jan-client-test-runtime'
+import { ToolCallId } from '@janhq/jan-llm'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { AskUserQuestionAnswerItem } from '@janhq/jan-user-questions/types'
 import { createWaterfallRequest, PendingQuestion, type QuestionCardSnapshot, type QuestionComposerProps } from '../src/client/contract/slots.ts'
 import { createQuestionDraftStore } from '../src/client/draft-store.ts'
-import { QuestionComposer as Composer, parseRecommendedLabel } from '../src/client/QuestionComposer.tsx'
+import { QuestionComposer as Composer } from '../src/client/QuestionComposer.tsx'
+import { parseRecommendedLabel } from '../src/client/question-answers.ts'
 import { en, zh } from '../src/client/locales.ts'
-import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 
 // Every session-scope fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
 const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
@@ -732,6 +733,25 @@ function timedCard(deadline: number, callId = ToolCallId('ask-timed')) {
   void request.result.catch(() => {})
   return { carrier, request }
 }
+
+it('restores Take time before an automatic countdown can run without a composer', async () => {
+  vi.useFakeTimers()
+  const callId = ToolCallId('held-automatic-question')
+  const carrier = new PendingQuestion(SID, TIMED, callId)
+  const request = createWaterfallRequest(Date.now() + 1_000, undefined, (channel) => { carrier.detachWaterfall(channel) }, true)
+  const store = createQuestionDraftStore().create(SID)
+  store.actions.replace(carrier.key, { index: 0, drafts: [{ selected: [], custom: '', skipped: false }], wait: 'waiting' })
+  try {
+    carrier.attachWaterfall(request.channel)
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(carrier.snapshot()).toMatchObject({ waitState: 'waiting', channel: 'waterfall' })
+    await carrier.answer({ answers: [{ id: 'scope', selected: ['仅工具'] }] })
+    await expect(request.result).resolves.toEqual({ answers: [{ id: 'scope', selected: ['仅工具'] }] })
+  } finally {
+    carrier.close()
+    vi.useRealTimers()
+  }
+})
 
 describe('timed card', () => {
   it.each([true, false])('does not autofocus before claiming and respects manual focus until readiness: %s', async (stillFocused) => {

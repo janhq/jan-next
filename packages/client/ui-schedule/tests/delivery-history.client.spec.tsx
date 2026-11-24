@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { makeTranslate, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import type { ScheduleId, ScheduleDeliveryRecord } from '@deepseek-ai/dsh-schedule/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { makeTranslate, RemoteError } from '@janhq/jan-client-test-runtime'
+import type { ScheduleId, ScheduleDeliveryRecord } from '@janhq/jan-schedule/client'
+import type { SessionId } from '@janhq/jan-session/types'
 import { DeliveryHistory, type DeliveryHistoryInjected } from '../src/client/DeliveryHistory.tsx'
 import { formatScheduleNextRun } from '../src/client/schedule-format.ts'
 import { zoneDifferingFrom, zoneOffsetMinutes } from './zone-fixture.ts'
@@ -15,7 +15,7 @@ import css from '../src/client/TaskManagerPage.module.css'
 type Result = Awaited<ReturnType<DeliveryHistoryInjected['loadHistory']>>
 const id = 'saved-task' as ScheduleId
 const sessionId = 'saved-session' as SessionId
-const records: ScheduleDeliveryRecord[] = Array.from({ length: 45 }, (_, index) => ({
+const records: Extract<ScheduleDeliveryRecord, { targetSessionId: SessionId }>[] = Array.from({ length: 45 }, (_, index) => ({
   messageId: `saved-message-${index}` as ScheduleDeliveryRecord['messageId'],
   targetSessionId: sessionId,
   scheduledAt: new Date(Date.UTC(2026, 9, 30 - index, 8)).toISOString(),
@@ -66,6 +66,19 @@ function declaration(stylesheet: string, selector: string, property: string): st
   return new RegExp(`(?:^|[;\\s])${property}:\\s*([^;]+);`).exec(ruleBlock(stylesheet, selector))?.[1]?.trim() ?? ''
 }
 afterEach(cleanup)
+
+it('shows the plugin owner and accepted outcome instead of a Session link', async () => {
+  const { targetSessionId: _, ...record } = records[0]!
+  const loadHistory = vi.fn<DeliveryHistoryInjected['loadHistory']>().mockResolvedValue({ ok: true, value: {
+    id, records: [{ ...record, owner: 'example', outcome: 'accepted' }],
+    earlierRecordsUnavailable: false, earlierRecordsPruned: false, retention: { days: 30, records: 200 },
+  } })
+  render(<DeliveryHistory id={id} {...unlinked()} latestMessageId={record.messageId} loadHistory={loadHistory} t={makeTranslate(en)} />)
+  const row = await screen.findByRole('region', { name: en['delivery.label'] })
+  expect(row.textContent).toContain('example')
+  expect(row.textContent).toContain('Accepted')
+  expect(within(row).queryByRole('button')).toBeNull()
+})
 
 // A task zone whose offset at the sampled instant differs from the runner's own,
 // so a task-zone render is distinguishable from a browser-zone render on any

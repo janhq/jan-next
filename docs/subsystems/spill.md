@@ -1,14 +1,12 @@
 # Spill Storage
 
-English | [中文](spill.zh.md)
-
-The spill storage [capability seam](../../.agents/notes/implemented/architecture/2026-07-08-tool-output-spill-files.md) persists caller-provided text and returns a model-facing locator with retrieval guidance. Its Service Definition is [dsh-spill](../../packages/spill/spill) (`ctx.spillStore`), and its local Service Provider is [dsh-spill-local](../../packages/spill/spill-local). Consumers include the [tool-result policy](../../packages/spill/spill-policy) and [session references](../../packages/context/session-reference/README.md). Spill is optional, not part of the [agent-loop spine](core.md); consumers own preview and spill decisions, while storage saves the supplied text verbatim.
+The spill storage [capability seam](../../.agents/notes/implemented/architecture/2026-07-08-tool-output-spill-files.md) persists caller-provided text and returns a model-facing locator with retrieval guidance. Its Service Definition is [jan-spill](../../packages/spill/spill) (`ctx.spillStore`), and its local Service Provider is [jan-spill-local](../../packages/spill/spill-local). Its consumer is the [tool-result policy](../../packages/spill/spill-policy). Spill is optional, not part of the [agent-loop spine](core.md); consumers own preview and spill decisions, while storage saves the supplied text verbatim.
 
 Source: [`packages/spill/spill/src/types.ts`](../../packages/spill/spill/src/types.ts)
 
 ## The save request
 
-`saveText` is the sole service operation: persist `content` verbatim, return an opaque locator, a backend-supplied retrieval hint, and the exact byte count. The request carries the save-time storage namespace (`owner`), descriptive producer details (`source`, never access control), and a `suggestedName` the backend may use as a naming hint, not a path. A tool source identifies the actual tool call; a session-reference source identifies the captured source session, while its owner is the target session receiving the context.
+`saveText` is the sole service operation: persist `content` verbatim, return an opaque locator, a backend-supplied retrieval hint, and the exact byte count. The request carries the save-time storage namespace (`owner`), descriptive producer details (`source`, never access control), and a `suggestedName` the backend may use as a naming hint, not a path. The source identifies the tool call whose result was spilled.
 
 ```ts type-equiv
 /** One request to persist text to a spill artifact. */
@@ -42,23 +40,16 @@ A retention-period cleanup may expire old locators with other old session artifa
 
 ```ts type-equiv
 /**
- * Producer of a spilled artifact. Tool results carry their model-issued call id;
- * session references identify the captured source session instead. Descriptive
- * source description only, never access control.
+ * Producer of a spilled artifact: the tool call whose result was spilled.
+ * Descriptive source description only, never access control.
  */
-type SpillSource = {
+interface SpillSource {
   kind: 'tool'
   /** The tool whose result was spilled (e.g. `web_fetch`). */
   toolName: string
   /** The model-issued call id the result belongs to. */
   callId: ToolCallId
   /** A short human label for the artifact (e.g. `result`). */
-  label: string
-} | {
-  kind: 'session-reference'
-  /** Session whose projected conversation was captured. */
-  sessionId: SessionId
-  /** Host-provided label for the referenced session. */
   label: string
 }
 ```
@@ -89,7 +80,7 @@ type SpillLocator = Branded<'SpillLocator'>
 
 `SpillStore` (`ctx.spillStore`, defined in [`packages/spill/spill/src/index.ts`](../../packages/spill/spill/src/index.ts)) is a one-method abstract service: `saveText(input) → Promise<SpillRef>`. It persists the FULL `content` and REJECTS on a real storage failure (permissions, ENOSPC, backend unavailable). The seam owns storage only: no retention policy, no tool-result replacement, no retrieval/search API.
 
-The local backend ([dsh-spill-local](../../packages/spill/spill-local)) writes under `<root>/session-<hash>/<random>-<safeName>` — a configured or lazily-created private (0700) root, a `sha256(sessionId)` session subdir, and an exclusive owner-only (`open(path, 'wx', 0o600)`) write so a planted symlink cannot redirect it. Its `locator` is the local path and its `retrievalHint` tells the model to use `read` or `grep` on that path. The policy consumer ([dsh-spill-policy](../../packages/spill/spill-policy)) replaces an over-`maxInlineTokens` text/image result with ordered head/tail content and a spill address, best-effort: a save failure keeps the original inline result rather than turning a successful call into an `isError`.
+The local backend ([jan-spill-local](../../packages/spill/spill-local)) writes under `<root>/session-<hash>/<random>-<safeName>` — a configured or lazily-created private (0700) root, a `sha256(sessionId)` session subdir, and an exclusive owner-only (`open(path, 'wx', 0o600)`) write so a planted symlink cannot redirect it. Its `locator` is the local path and its `retrievalHint` tells the model to use `read` or `grep` on that path. The policy consumer ([jan-spill-policy](../../packages/spill/spill-policy)) replaces an over-`maxInlineTokens` text/image result with ordered head/tail content and a spill address, best-effort: a save failure keeps the original inline result rather than turning a successful call into an `isError`.
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -97,7 +88,7 @@ The local backend ([dsh-spill-local](../../packages/spill/spill-local)) writes u
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxspillstore--spillstore-abstract-seam"></a>
 

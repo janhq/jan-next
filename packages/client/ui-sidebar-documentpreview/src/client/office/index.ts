@@ -1,10 +1,10 @@
 /** Office preview registration backed by authorized Host rendering and the existing PDF body. */
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context } from '@janhq/cordis'
 import { retainDocumentTabs } from '../document/tab-lifetime.ts'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-office-to-pdf/remote'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-api-workspace-files/remote'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-office-to-pdf/remote'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-api-workspace-files/remote'
 import { failureLine } from '../failure-line.ts'
 import { documentTabInfoFactory } from '../document/contract.ts'
 import { en, ja, es, fr, de, ru, pt, zh, type OfficePreviewKey } from './locales.ts'
@@ -17,7 +17,7 @@ import { officeFace } from './face.ts'
 import { createOfficeStore } from './store.ts'
 import type { Config } from '../../config.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     sidebarOffice: OfficePreviewKey
   }
@@ -29,8 +29,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
  * @param config - Resolved Office preview cache limits.
  */
 export function apply(ctx: Context, config: Config['office']): void {
-  const id = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/office'
-  const extensions = ['doc', 'docx', 'ppt', 'pptx']
+  const id = '@janhq/jan-client-ui-sidebar-documentpreview/office'
+  const extensions = ['doc', 'docx', 'odt', 'ppt', 'pptx', 'odp', 'ods']
   ctx.effect(() => ctx.locale.register('sidebarOffice', { zh, en, ja, es, fr, de, ru, pt }))
   const t = ctx.locale.bind('sidebarOffice')
   const unavailable: ReadOfficeDocument = (_file, signal) => {

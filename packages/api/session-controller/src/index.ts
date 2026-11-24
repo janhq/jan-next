@@ -2,32 +2,33 @@
 
 import { hostname } from 'node:os'
 import { resolve } from 'node:path'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type {} from '@deepseek-ai/dsh-fs'
-import { Context, Service } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import { errorChain, ReasoningEffortId, type MessageSource } from '@deepseek-ai/dsh-llm'
-import type {} from '@deepseek-ai/dsh-client-file-upload'
-import { canOpenNativePath, nativeFileManager, nativeFileApplications, openNativeFileApplication, openNativeAssociatedPath, revealNativePath } from '@deepseek-ai/dsh-native-command'
-import type { SessionId } from '@deepseek-ai/dsh-session'
-import type {} from '@deepseek-ai/dsh-session-projection-cache'
-import type { SessionObservation } from '@deepseek-ai/dsh-session-query'
-import { Remote, RemoteError, TypertRemoteService, principalOf, type TypertResourceResolveInput } from '@deepseek-ai/dsh-typert-protocol'
-import { canonicalClientTimeZone } from '@deepseek-ai/dsh-util-time'
-import { assertNever } from '@deepseek-ai/dsh-util-values'
-import type {} from '@deepseek-ai/dsh-api-remote-access'
+import type { Agent } from '@janhq/jan-agent'
+import type {} from '@janhq/jan-fs'
+import { Context, Service } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import { errorChain, type MessageSource } from '@janhq/jan-llm'
+import type {} from '@janhq/jan-client-file-upload'
+import { canOpenNativePath, nativeFileManager, nativeFileApplications, openNativeFileApplication, openNativeAssociatedPath, revealNativePath } from '@janhq/jan-native-command'
+import type { SessionId } from '@janhq/jan-session'
+import type {} from '@janhq/jan-session-projection-cache'
+import type { SessionObservation } from '@janhq/jan-session-query'
+import { Remote, RemoteError, TypertRemoteService, principalOf, type TypertResourceResolveInput } from '@janhq/jan-typert-protocol'
+import { canonicalClientTimeZone } from '@janhq/jan-util-time'
+import { assertNever } from '@janhq/jan-util-values'
+import type {} from '@janhq/jan-api-remote-access'
 import {
   ApiSessionAgentController,
   type ApiSessionAgentResult,
 } from './agent.ts'
 import { SessionCommandController, hasPromptContent } from './commands.ts'
+import { previewContext } from './context-preview.ts'
 import { SessionControlController } from './control.ts'
 import { HistoryController } from './history/controller.ts'
 import { StateController } from './state/controller.ts'
 import { WebController } from './web/controller.ts'
 import { SessionFileReferences } from './file-references.ts'
 import { ApiSessionList } from './list.ts'
-import { buildModelCatalog, hasProviderApiKey } from './catalog.ts'
+import { buildModelCatalog } from './catalog.ts'
 import { SessionSkillCatalog } from './skill-catalog.ts'
 import { SessionMediaReferences } from './media-references.ts'
 import { ArchivedSessionGate } from './archived-session-gate.ts'
@@ -60,6 +61,8 @@ import type {
   SessionSearchValue,
   SessionSelectModelRequest,
   SessionSelectModelValue,
+  SessionContextPreviewRequest,
+  SessionContextPreviewValue,
   SessionProjectionsRequest,
   SessionProjectionsValue,
   SessionUpdateQueueRequest,
@@ -71,7 +74,7 @@ export { ApiSessionNotFound } from './agent.ts'
 export { SessionFileReferences } from './file-references.ts'
 export { SessionSkillCatalog } from './skill-catalog.ts'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Host Session business API and Remote namespace owner. */
     sessionController: SessionController
@@ -191,7 +194,7 @@ export class SessionController extends TypertRemoteService {
     ctx.typert.resources.register('session', { resolve: resolveSessionResource })
     this.agents = new ApiSessionAgentController(ctx)
     this.agents.initialize()
-    this.commands = new SessionCommandController(ctx, this.agents, process.cwd())
+    this.commands = new SessionCommandController(ctx, this.agents)
     ctx.effect(() => ctx.fileUploads.registerAgentResolver(async (sessionId) => {
       const result = await this.agents.resolveAgent(sessionId)
       if ('error' in result) throw result.error
@@ -319,21 +322,18 @@ export class SessionController extends TypertRemoteService {
   }
 
   /**
-   * Select the first available account model after login when no provider API key is configured.
-   * @returns after saving the first available model or retaining the existing default.
+   * Price the system prompt, tool schemas, and runtime context the Session's next request would inject.
+   * @param request - Session identity.
+   * @param signal - cancels tool resolution and prompt assembly.
+   * @returns heuristic token prices and the Session inventory (offered tools, MCP tools
+   * with their server and origin, skills with their origin, and the preset's plugins),
+   * or null while the Session has no model selection.
    */
-  @Remote
-  async initializeDefaultModel(): Promise<void> {
-    const provider = 'deepseek-account'
-    if (await hasProviderApiKey(this.ctx)) return
-    const catalog = await buildModelCatalog(this.ctx)
-    const model = catalog.groups.find(group => group.id === provider)?.models[0]
-    if (model === undefined) throw new RemoteError('session/provider-models-unavailable',
-      `provider "${provider}" has no available models`, { provider })
-    const selection = { provider, model: model.id,
-      ...model.reasoning?.defaultEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(model.reasoning.defaultEffort) },
-    }
-    await this.ctx.agentDefaultModel.saveSelection(selection)
+  @Remote('contextPreview')
+  async contextPreview(request: SessionContextPreviewRequest, signal: AbortSignal): Promise<SessionContextPreviewValue | null> {
+    const found = await this.agents.resolveAgent(request.sessionId)
+    if ('error' in found) throw found.error
+    return previewContext(found.agent, signal)
   }
 
   /**

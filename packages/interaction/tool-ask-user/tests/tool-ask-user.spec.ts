@@ -1,22 +1,22 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import { unsupportedModel } from '@deepseek-ai/dsh-agent-loop-testkit'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import { unsupportedModel } from '@janhq/jan-agent-loop-testkit'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { createToolResultMessage, ToolCallId, type ToolSchema } from '@deepseek-ai/dsh-llm'
-import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
-import { Session, SessionId, SessionSeq, SESSION_FORMAT_VERSION, type SessionEvent } from '@deepseek-ai/dsh-session'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
+import { Context } from '@janhq/cordis'
+import { createToolResultMessage, ToolCallId, type ToolSchema } from '@janhq/jan-llm'
+import AgentRegistry, { type Agent } from '@janhq/jan-agent'
+import { Session, SessionId, SessionSeq, SESSION_FORMAT_VERSION, type SessionEvent } from '@janhq/jan-session'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
 import UserQuestionService, {
   isTimedAskUserQuestionSchema,
   type AskUserQuestionAnswer,
   type AskUserQuestionRequest,
-} from '@deepseek-ai/dsh-user-questions'
+} from '@janhq/jan-user-questions'
 // The fold is the projection's own reader of a recorded result, not a service method.
-import { foldUserQuestions } from '@deepseek-ai/dsh-user-questions/src/projection.ts'
-import * as toolAskUser from '@deepseek-ai/dsh-tool-ask-user'
+import { foldUserQuestions } from '@janhq/jan-user-questions/src/projection.ts'
+import * as toolAskUser from '@janhq/jan-tool-ask-user'
 
 const testToolSignal = new AbortController().signal
 
@@ -24,7 +24,7 @@ const testToolSignal = new AbortController().signal
 function headerEvent(seq: number, tools: ToolSchema[]): SessionEvent {
   return {
     type: 'request/header', seq: SessionSeq(seq), time: seq,
-    data: { header: { config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, tools }, reason: 'initial' },
+    data: { header: { config: { provider: 'tokamak-official', model: 'tokamak-1-preview' }, tools }, reason: 'initial' },
   }
 }
 
@@ -141,6 +141,51 @@ describe('ask_user_question tool', () => {
     toolAskUser.apply(ctx, { mode: 'timed' })
 
     expect(JSON.stringify(ctx.tools.schemas().find(tool => tool.name === 'ask_user_question'))).toContain('Wait seconds for the entire batch (default 120)')
+  })
+
+  it.each([0, 60])('uses the live user preference (%ss) and marks automatic results for the model', async (seconds) => {
+    const ctx = await setup({ mode: 'auto' })
+    ctx.provide('userQuestionSettings', { autoAnswerSeconds: () => seconds })
+    const agent = stubAgent('ask-user-preference')
+    ctx.agents.enter(agent)
+    const received = vi.fn(async (_request: AskUserQuestionRequest) => ({
+      answers: [{ id: 'style', selected: ['Concise (Recommended)'] }, { id: 'other', selected: [] }],
+      ...seconds > 0 ? { autoSubmitted: true as const } : {},
+    }))
+    registerQuestionAnswerer(ctx, { ask: received })
+    try {
+      const result = await executeToolFixture(ctx, {
+        signal: testToolSignal,
+        callId: ToolCallId('ask-user-preference'),
+        name: 'ask_user_question',
+        arguments: { questions: [{ id: 'style', question: 'Which style?' }, { id: 'other', question: 'Anything else?' }] },
+        agent,
+      })
+      expect(received.mock.calls[0]?.[0].wait).toEqual(seconds === 0 ? undefined : {
+        callId: 'ask-user-preference', timed: true, autoSubmit: true,
+      })
+      expect(result.isError).toBe(false)
+      const block = result.content[0]
+      expect(block?.type).toBe('text')
+      if (block?.type !== 'text') throw new Error('expected the tool result text')
+      const autoMessage: unknown = expect.stringMatching(/automatically submitted.*timeout.*not.*permission/i)
+      expect(JSON.parse(block.text)).toEqual({
+        answers: [{ id: 'style', selected: ['Concise (Recommended)'] }, { id: 'other', selected: [] }],
+        ...seconds > 0 ? { autoSubmitted: true, message: autoMessage } : {},
+      })
+      const recorded = foldUserQuestions([
+        headerEvent(0, ctx.tools.schemas()),
+        askedEvent(1, 'ask-user-preference', '{"questions":[{"id":"style","question":"Which style?"},{"id":"other","question":"Anything else?"}]}'),
+        resultedEvent(2, 'ask-user-preference', block.text),
+      ])
+      expect(recorded.active).toEqual([])
+      expect(recorded.settled).toEqual([{
+        callId: 'ask-user-preference',
+        answers: [{ id: 'style', selected: ['Concise (Recommended)'] }, { id: 'other', selected: [] }],
+      }])
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 
   it('returns the answer batch when the Client answers inside the configured wait', async () => {

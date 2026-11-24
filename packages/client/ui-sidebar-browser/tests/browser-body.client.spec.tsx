@@ -2,8 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { useSyncExternalStore } from 'react'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { PaneId, TabId } from '@janhq/jan-client-ui-dockkit'
 import { createBrowserControllers, type BrowserControllerState, type BrowserInjected } from '../src/client/browser/BrowserController.ts'
 import { createBrowserStore } from '../src/client/browser/store.ts'
 import type { BrowserBodyProps } from '../src/client/view/BrowserBody.tsx'
@@ -13,7 +13,7 @@ import { createIframePage } from '../src/client/pages.ts'
 import { zh } from '../src/client/locales.ts'
 import { browserAddressCheckpoint, type BrowserTabState } from '../src/client/browser/BrowserPersistence.ts'
 import type { BrowserPageFactory, BrowserPageOptions } from '../src/client/browser/BrowserPage.ts'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { emptyBrowserFrame, type BrowserFrameState } from '../src/client/browser/BrowserFrame.ts'
 
 const SESSION = 'session' as SessionId
@@ -47,7 +47,7 @@ function mountBrowser(navigation?: { readonly url?: string },
   controllers.push(injected)
   const { keyedHooks, ...commands } = injected
   const tabActions = { bindCommands: vi.fn<ReturnType<BrowserBodyProps['useTabInfo']>['tab']['actions']['bindCommands']>(() => vi.fn()), openResource: vi.fn(), openTab: vi.fn(), close: vi.fn() }
-  const props: Pick<BrowserBodyProps, 'sessionId' | 'useTabInfo' | 'useStore' | 'actions' | 't' | 'useBrowserState'>
+  const props: Pick<BrowserBodyProps, 'sessionId' | 'useTabInfo' | 'useStore' | 'actions' | 't' | 'useBrowserState' | 'renderSlot' | 'SessionProvider'>
     & Omit<BrowserInjected, 'keyedHooks'> = {
       sessionId: SESSION,
       useTabInfo: () => ({
@@ -70,6 +70,12 @@ function mountBrowser(navigation?: { readonly url?: string },
         const state = keyedHooks.browserState(key) ?? absentState
         return useSyncExternalStore(state.subscribe, state.getSnapshot)
       },
+      renderSlot: (name, owner) => {
+        if (name !== 'sidebar.right.tab.browser.actions' || !('getSurface' in owner)) return null
+        const { getSurface } = owner as { getSurface: () => Element | null }
+        return <button type="button" onClick={() => { getSurface()?.setAttribute('data-inspected', '') }}>Inspect page</button>
+      },
+      SessionProvider: ({ children }) => <>{children}</>,
     }
   const renderBody = () => render(<BrowserBody {...props as BrowserBodyProps} />)
   return {
@@ -87,6 +93,17 @@ afterEach(async () => {
 })
 
 describe('BrowserBody', () => {
+  it('gives a toolbar contribution the mounted page rather than browser chrome', async () => {
+    const mounted = mountBrowser({ url: 'https://example.test/page' })
+    const frame = await waitFor(() => {
+      const iframe = mounted.view.container.querySelector('iframe')
+      expect(iframe).not.toBeNull()
+      return iframe!
+    })
+    fireEvent.load(frame)
+    fireEvent.click(mounted.view.getByRole('button', { name: 'Inspect page' }))
+    expect(frame.hasAttribute('data-inspected')).toBe(true)
+  })
   it('displays the effective browser refresh accelerator', () => {
     const mounted = mountBrowser(undefined, { refreshShortcut: { id: 'page.refresh' as never,
       label: 'Refresh', aliases: [], binding: null, keys: ['Ctrl', 'R'], aria: 'Control+R',

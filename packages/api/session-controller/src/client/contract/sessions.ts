@@ -4,16 +4,16 @@
  * the concrete class. Widening this interface is the
  * explicit act of widening what features may do to the sessions domain.
  */
-import type { Context } from '@deepseek-ai/cordis'
-import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
-import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import type { Context } from '@janhq/cordis'
+import type { SubagentAddress } from '@janhq/jan-subagent/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
+import type { RemoteResult } from '@janhq/jan-typert-protocol'
 import type { AgentContext } from '../scope.ts'
 import type { SessionSearchResultItem } from '../sessions/manager.ts'
 import type { SessionBinding, SessionListState } from '../sessions/service.ts'
 import type { SessionFace } from './session.ts'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { SessionReferenceSource } from '../index.ts'
 
 export type { AgentContext } from '../scope.ts'
@@ -101,9 +101,11 @@ export interface ISessions {
   /**
    * Read projections without starting migration; retry failed or migration-deferred reads.
    * @param sessionId - Session to inspect without opening its conversation.
-   * @returns completion of the current or newly started refresh.
+   * @param options - `background`: the read is one of many no one is waiting on (a library scanning old chats),
+   *   so list subscribers hear of it at most a few times a second instead of once per read.
+   * @returns completion of the current or newly started refresh; the list snapshot reads fresh once it settles.
    */
-  refreshProjections(sessionId: SessionId): Promise<void>
+  refreshProjections(sessionId: SessionId, options?: { readonly background?: boolean }): Promise<void>
 
   /**
    * Refresh the Host-authoritative Session list.

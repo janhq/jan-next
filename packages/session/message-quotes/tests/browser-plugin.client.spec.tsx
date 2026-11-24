@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 /** Quote registrations follow their plugin and Slot declaration lifetimes. */
-import { Context } from '@deepseek-ai/cordis'
-import type { SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { TestSessions } from '@deepseek-ai/dsh-client-test-runtime'
-import { UiConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { SessionId } from '@deepseek-ai/dsh-session/types'
+import { Context } from '@janhq/cordis'
+import type { SessionSnapshot } from '@janhq/jan-api-session-controller/client'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { TestSessions } from '@janhq/jan-client-test-runtime'
+import { UiConversation } from '@janhq/jan-client-ui-conversation/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import { SessionId } from '@janhq/jan-session/types'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as plugin from '../src/client/index.ts'
 
