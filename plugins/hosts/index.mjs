@@ -433,6 +433,7 @@ export function apply(ctx, config) {
         dropTunnel(id, true)
         await store.removeConnection(id)
         await ctx.credentials.deleteRecord(tokenKey(id))
+        ctx.emit('jan-hosts/removed', id)
         return null
       })
     },

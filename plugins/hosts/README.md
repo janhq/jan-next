@@ -53,6 +53,8 @@ A chat running on another computer reads only chats on that computer with `read_
 
 Other plugins can use `ctx.get('janHosts')` to list saved peers with `peers()` and call a peer's authenticated plugin route with `callPlugin(id, feature, method, params, signal)`.
 
+The `jan-hosts/removed` event carries the saved Host id after the entry and its credentials are removed. Disconnecting does not emit it.
+
 ## Sync setup to another computer
 
 In **Settings → Hosts**, connect to an SSH Host and choose **Sync setup…**. Jan compares the two setups without writing to the destination. Review the changes, then choose **Apply**. For each conflict, **Keep remote** is the default; choose **Use this computer** only for items you want to replace. New items that may contain credentials, including provider keys, are not selected by default. Identical and remote-only items are left untouched.

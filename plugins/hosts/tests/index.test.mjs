@@ -40,6 +40,7 @@ async function mountedHosts(t, config = {}) {
         if (changed) volatileUpdate()
       },
     },
+    emit: config.emit ?? (() => {}),
     provide(name, service) { if (name === 'janHosts') janHosts = service },
     get: () => undefined,
     credentials: {
@@ -146,6 +147,20 @@ test('janHosts surfaces the remote plugin operation error', async (t) => {
   t.after(() => new Promise(resolve => peer.close(resolve)))
   const { id } = await call('save', { name: 'Office', kind: 'url', url: `http://127.0.0.1:${peer.address().port}/?token=test` })
   await assert.rejects(janHosts.callPlugin(id, 'orchestration', 'peerStop', {}), { message: 'Worker is already stopped.' })
+})
+
+test('forgetting a Host notifies plugins after its saved entry and login are removed', async (t) => {
+  const events = []
+  const { call, janHosts, records } = await mountedHosts(t, {
+    emit: (event, id) => events.push({ event, id, peers: janHosts.peers(), records: records.size }),
+  })
+  const { id } = await call('save', { name: 'Office', kind: 'url', url: 'https://example.com/?token=test' })
+  await call('disconnect', { id })
+  assert.deepEqual(events, [])
+  await call('remove', { id })
+  assert.equal(events.length, 1)
+  const [notice] = events
+  assert.deepEqual({ ...notice, peers: await notice.peers }, { event: 'jan-hosts/removed', id, peers: [], records: 0 })
 })
 
 test('editing a connected SSH destination closes its tunnel instead of reusing it', { skip: process.platform === 'win32' }, async (t) => {
