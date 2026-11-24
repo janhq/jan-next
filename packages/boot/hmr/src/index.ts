@@ -337,30 +337,46 @@ class Hmr extends Service {
     return { modules: [...this.stashed, ...includes], reason: this.heldReason }
   }
 
-  /** Apply held changes regardless of the gate.
-   * @returns Whether anything was held.
+  /** Apply held changes in the reload queue.
+   * @param options - By default bypass the gate. With `respectGate`, recheck it after entering the queue.
+   * `beforeApply` is called synchronously just before a held batch is attempted, even if every refresh then fails.
+   * @returns Whether any changes applied successfully.
    */
-  applyHeld(): Promise<boolean> {
+  applyHeld(options?: { readonly respectGate?: boolean; readonly beforeApply?: () => void }): Promise<boolean> {
     return this.runExclusive(async () => {
       if (!await this.applicationReady || this.heldReason === undefined) return false
-      await this.applyChanges(new Set(this.heldIncludes))
-      return true
+      if (options?.respectGate) {
+        const reason = this.gate?.hold()
+        if (reason !== undefined) {
+          this.heldReason = reason
+          return false
+        }
+      }
+      options?.beforeApply?.()
+      return this.applyChanges(new Set(this.heldIncludes))
     })
   }
 
-  private async applyChanges(includes: Set<Include>): Promise<void> {
-    const modules = [...this.stashed, ...[...includes].map(include => pathToFileURL(include.filename).href)]
+  private async applyChanges(includes: Set<Include>): Promise<boolean> {
     this.heldIncludes.clear()
     this.heldReason = undefined
+    const modules = [...this.stashed]
     for (const include of includes) {
-      // A rejected refresh reports unsaved runtime changes; Include keeps its running tree.
-      try { await include.refresh() } catch (error) { this.ctx.logger.warn(error) }
+      try {
+        await include.refresh()
+        modules.push(pathToFileURL(include.filename).href)
+      } catch (error) {
+        // A rejected refresh reports unsaved runtime changes; Include keeps its running tree.
+        this.ctx.logger.warn(error)
+      }
     }
     if (this.stashed.size > 0) {
       try { await this.partialReload() } finally { this.stashed.clear() }
     }
+    if (modules.length === 0) return false
     await this.ctx.loader.await()
     this.ctx.emit('hmr/applied', modules)
+    return true
   }
 
   /** Watch a configuration path through the same queue as module replacement.

@@ -51,7 +51,7 @@ Profile recompositions run by HMR's profile watches and by Plugin Manager also r
 A plugin may install one gate with `ctx.hmr.setGate({ hold })`; a second `setGate` throws until the first disposer runs. After each batch of module changes, `hold()` returns a reason to wait, or `undefined` to apply now. While it waits:
 
 - Changed modules and Include files stay pending; `hmr/held` carries their file URLs and the reason, also readable as `ctx.hmr.held`. Later batches add to them.
-- `ctx.hmr.applyHeld()` applies them through the same queue regardless of the gate and emits `hmr/applied`. A later batch applies them too once `hold()` returns `undefined`. Removing the gate applies anything still held.
+- `ctx.hmr.applyHeld()` bypasses the gate through the reload queue; `ctx.hmr.applyHeld({ respectGate: true })` rechecks it inside that queue. The return value is `true` only if at least one change applied, and `hmr/applied` names only those files. A later batch applies held changes too once `hold()` returns `undefined`. Removing the gate applies anything still held.
 - An external module change (the process entry point's static graph) emits `hmr/restart-required` instead of exiting; the gate owner decides when to restart. Without a gate, it still exits.
 
 Profile recompositions that leave modules pending until a restart also emit `hmr/restart-required`, with or without a gate. The gate does not change configuration watches or Plugin Manager operations.

@@ -98,6 +98,29 @@ it('holds a changed plugin while the gate gives a reason and applies it on reque
   expect(await f.ctx.hmr.applyHeld()).toBe(false)
 })
 
+it('rechecks the gate when an automatic apply reaches the transaction', async () => {
+  const f = await fixture()
+  let busy: string | undefined = 'running-chats'
+  onTestFinished(f.ctx.hmr.setGate({ hold: () => busy }))
+  await f.edit()
+
+  const release = Promise.withResolvers<undefined>()
+  onTestFinished(() => release.resolve(undefined))
+  const transaction = f.ctx.hmr.runExclusive(() => release.promise)
+  busy = undefined
+  const apply = f.ctx.hmr.applyHeld({ respectGate: true })
+  busy = 'running-chats'
+  release.resolve(undefined)
+  await transaction
+
+  expect(await apply).toBe(false)
+  expect(f.trace).toEqual(['start:a'])
+  expect(f.ctx.hmr.held?.reason).toBe('running-chats')
+  busy = undefined
+  expect(await f.ctx.hmr.applyHeld({ respectGate: true })).toBe(true)
+  expect(f.trace).toEqual(['start:a', 'stop:a', 'start:a'])
+})
+
 it('lets a held listener apply the changes later from its own continuation', async () => {
   const f = await fixture()
   let busy: string | undefined = 'running-chats'
