@@ -52,8 +52,10 @@ export interface SessionNode {
   running: boolean
   /** Running direct children in the loaded subagent catalog. */
   runningSubagentCount: number
-  /** Finished running while not selected and not yet opened (the green "done" reminder dot). */
+  /** Finished running while not selected and not yet opened (the "done" reminder dot). */
   completed: boolean
+  /** The latest finished turn ended in an error; the reminder dot shows red instead of green. */
+  failed: boolean
   /** In the registry-global pin set: leads its section, reorderable only among pinned rows. */
   pinned: boolean
   /** In the registry-global archive set: shown grayed in place and not openable. */
@@ -81,6 +83,8 @@ export interface GroupNode extends Pick<WorkspaceView, 'avatar' | 'color' | 'git
   expanded: boolean
   /** The group contains the selected session (active folder tint; supplied here so the renderer never scans). */
   containsCurrent: boolean
+  /** A visible member Session or one of its subagents is running, whether or not the group is folded. */
+  working: boolean
   /** Visible session rows (empty while the group is folded). */
   sessions: readonly SessionNode[]
 }
@@ -95,8 +99,10 @@ export interface SearchResultNode {
   running: boolean
   /** Running direct children in the loaded subagent catalog. */
   runningSubagentCount: number
-  /** Finished running while not selected and not yet opened (the green "done" reminder dot). */
+  /** Finished running while not selected and not yet opened (the "done" reminder dot). */
   completed: boolean
+  /** The latest finished turn ended in an error; the reminder dot shows red instead of green. */
+  failed: boolean
   /** In the registry-global archive set: shown grayed and not openable. */
   archived: boolean
   snippet?: string
@@ -396,13 +402,28 @@ function runningChildCount(list: SessionListState, parentId: SessionId, statuses
   ) ?? 0
 }
 
+/** A Session or one of its subagents runs; archived Sessions never count. */
+function sessionWorking(
+  session: SessionSummary,
+  list: SessionListState,
+  statuses: SessionStatuses,
+  archived: ReadonlySet<SessionId>,
+): boolean {
+  if (session.blank || archived.has(session.id)) return false
+  return (statuses.get(session.id)?.running ?? session.running) || runningChildCount(list, session.id, statuses) > 0
+}
+
+/** The `lastTurnFailed` summary projection, from the live store first, then the list row. */
+function lastTurnFailed(list: SessionListState, id: SessionId): boolean {
+  return (list.projectionsBySession[id]?.values.lastTurnFailed ?? list.byId[id]?.projectionValues?.lastTurnFailed) === true
+}
+
 function sessionNode(
   s: SessionSummary,
   list: SessionListState,
   statuses: SessionStatuses,
   pinned: ReadonlySet<SessionId>,
   archived: ReadonlySet<SessionId>,
-  runningSubagentCount = runningChildCount(list, s.id, statuses),
 ): SessionNode {
   const status = statuses.get(s.id)
   const pendingInteraction = visiblePendingKind(status?.pendingInteraction?.kind)
@@ -411,8 +432,9 @@ function sessionNode(
     title: sessionTitle(s),
     blank: s.blank,
     running: status?.running ?? s.running,
-    runningSubagentCount,
+    runningSubagentCount: runningChildCount(list, s.id, statuses),
     completed: status?.completionUnread === true,
+    failed: lastTurnFailed(list, s.id),
     pinned: !archived.has(s.id) && pinned.has(s.id),
     archived: archived.has(s.id),
     updatedAt: s.updatedAt,
@@ -468,6 +490,7 @@ export function deriveGroups(
       sessionCount: g.sessions.length,
       expanded,
       containsCurrent: g.key === currentGroup,
+      working: g.sessions.some(session => sessionWorking(session, list, statuses, archived)),
       sessions: expanded
         ? sectionMembers(g.sessions, pinned, archived)
           .map(session => sessionNode(session, list, statuses, pinned, archived))
@@ -535,13 +558,15 @@ export function deriveFlat(
 }
 
 /**
- * Running top-level Sessions, newest first, for the Working section. A Session
- * counts while its own turn or one of its subagents runs; waiting on the user
- * is not working. Blank and archived Sessions never count.
+ * Top-level Sessions for the Working section, newest first. A Session counts
+ * while its own turn or one of its subagents runs, and after it stops until the
+ * user opens it (the done or failed reminder); waiting on the user is not
+ * working. Blank and archived Sessions never count. Each row also keeps its
+ * usual place in the main list.
  * @param list - sessions list snapshot.
  * @param rowState - registry-global pin and archive sets plus the archived filter.
  * @param statuses - unified UI status by Session.
- * @returns the running rows.
+ * @returns the running and unread finished rows.
  */
 export function deriveWorking(list: SessionListState, rowState: SessionRowState, statuses: SessionStatuses): SessionNode[] {
   const archived = new Set(rowState.archivedSessionIds)
@@ -551,9 +576,8 @@ export function deriveWorking(list: SessionListState, rowState: SessionRowState,
     const session = list.byId[id]
     if (session === undefined || session.blank || archived.has(id)) continue
     if (!sessionVisible(session, undefined, archived, rowState.archivedFilter, rowState.hiddenSessionIds)) continue
-    const runningSubagentCount = runningChildCount(list, session.id, statuses)
-    if ((statuses.get(id)?.running ?? session.running) || runningSubagentCount > 0) {
-      nodes.push(sessionNode(session, list, statuses, pinned, archived, runningSubagentCount))
+    if (sessionWorking(session, list, statuses, archived) || statuses.get(id)?.completionUnread === true) {
+      nodes.push(sessionNode(session, list, statuses, pinned, archived))
     }
   }
   // The order of orderByRecency: newest first, then Session identity.
@@ -650,6 +674,7 @@ export function deriveSearchResults(
           ? {}
           : { pendingInteraction }),
         completed: status?.completionUnread === true,
+        failed: lastTurnFailed(list, summary.id),
         archived: archived.has(summary.id),
         ...match === undefined ? {} : { snippet: match.snippet },
       }

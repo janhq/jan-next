@@ -157,7 +157,7 @@ interface ProjectRowAccess {
 
 /** The header facts a project row draws; its group's Session rows are not among them. */
 const HEADER_FACTS = [
-  'key', 'workspaceId', 'cwd', 'createdAt', 'label', 'expanded', 'containsCurrent',
+  'key', 'workspaceId', 'cwd', 'createdAt', 'label', 'expanded', 'containsCurrent', 'working',
   'avatar', 'color', 'githubOwner', 'hostName', 'hostState',
 ] as const satisfies readonly (keyof GroupNode)[]
 
@@ -264,6 +264,12 @@ function ProjectRow({
           </span>
         )}
       </span>
+      {/* Folded or not, a project with a running chat says so. */}
+      {row.working && (
+        <span className={css.projectWorking} role="img" aria-label={t('status.running')} title={t('status.running')}>
+          <StateDot state="ongoing" />
+        </span>
+      )}
       <span className={css.rowActions}>
         {/* The disclosure leads the trailing actions, on their pitch and with their visibility. */}
         {onOpenProject === undefined
@@ -343,7 +349,7 @@ interface SessionStatus {
  * outranks completion reminders.
  */
 function sessionStatuses(
-  node: Pick<SessionNode, 'pendingInteraction' | 'running' | 'runningSubagentCount' | 'completed'>,
+  node: Pick<SessionNode, 'pendingInteraction' | 'running' | 'runningSubagentCount' | 'completed' | 'failed'>,
   t: RowTranslate,
 ): readonly [SessionStatus, ...SessionStatus[]] {
   const subagents: SessionStatus | undefined = node.runningSubagentCount === 0
@@ -390,7 +396,11 @@ function sessionStatuses(
     return subagents === undefined ? [primary] : [primary, subagents]
   }
   if (subagents !== undefined) return [subagents]
-  if (node.completed) return [{ state: 'done', label: t('status.completed') }]
+  if (node.completed) {
+    return [node.failed
+      ? { state: 'error', label: t('status.failed') }
+      : { state: 'done', label: t('status.completed') }]
+  }
   return [{ state: 'idle', label: t('status.idle') }]
 }
 

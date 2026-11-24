@@ -766,6 +766,7 @@ describe('deriveSearchResults', () => {
           runningSubagentCount: 0,
           pendingInteraction: 'plan-review',
           completed: false,
+          failed: false,
           archived: false,
           snippet: 'title session body excerpt',
         },
@@ -776,6 +777,7 @@ describe('deriveSearchResults', () => {
           running: false,
           runningSubagentCount: 0,
           completed: false,
+          failed: false,
           archived: false,
         },
         {
@@ -785,6 +787,7 @@ describe('deriveSearchResults', () => {
           running: false,
           runningSubagentCount: 0,
           completed: false,
+          failed: false,
           archived: false,
           snippet: 'body needle excerpt',
         },

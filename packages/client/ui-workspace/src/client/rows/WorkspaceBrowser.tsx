@@ -14,7 +14,7 @@
  * are slot entries with their own behavior, so this component threads no
  * action callbacks and hosts no action surface.
  */
-import { Component, createRef, type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { WorkspaceDialogs } from './WorkspaceDialogs.tsx'
 import {
@@ -288,7 +288,6 @@ type SessionTreeProps = Pick<
   list: SessionListState
   currentId: SessionId | undefined
   statuses: SessionStatusSnapshot
-  workingSessionIds: ReadonlySet<SessionId> | undefined
   /** Host account home for POSIX hover-path abbreviation. */
   home?: string | undefined
   /** Computer a remote window's projects live on; omitted in a local window. */
@@ -341,7 +340,7 @@ function EmptySessions({ rowState, onLeaveArchivedOnly, t }: Pick<SessionTreePro
 
 /** The scrolling session tree owns the expanded-session watermarks. */
 function SessionTree({
-  list, currentId: current, statuses, workingSessionIds, startSession, open, workspaces, ungroupedSessionIds,
+  list, currentId: current, statuses, startSession, open, workspaces, ungroupedSessionIds,
   rowState, onLeaveArchivedOnly,
   workspaceReady, animationResetKey, useRemoteAccess, useSessionAccess, useWorkspaceAccess,
   onSessionRenameRequest,
@@ -360,7 +359,6 @@ function SessionTree({
   const [watermarkMotionKey, setWatermarkMotionKey] = useState(0)
   // Transient drag marker state; the selected mode owns the resulting order.
   const [drag, setDrag] = useState<DragState | null>(null)
-  if (drag !== null && workingSessionIds?.has(drag.sessionId)) setDrag(null)
   const sessionDropCommitted = useRef(false)
   const [workspaceDrag, setWorkspaceDrag] = useState<WorkspaceDragState | null>(null)
   const workspaceDropCommitted = useRef(false)
@@ -725,12 +723,12 @@ function SessionTree({
 
 /** The flat "In one list" body: every session is one draggable top-level row. */
 function FlatList({
-  list, sessionIds, rowState, onLeaveArchivedOnly, statuses, workingSessionIds, useSessionAccess, open, onSessionRenameRequest,
+  list, sessionIds, rowState, onLeaveArchivedOnly, statuses, useSessionAccess, open, onSessionRenameRequest,
   currentId, setSessionOrder, workspaceReady, animationResetKey,
   revealSessionId, onSessionRevealed, renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu, home, t,
 }: Pick<
   SessionTreeProps,
-  | 'statuses' | 'workingSessionIds'
+  | 'statuses'
   | 'useSessionAccess'
   | 'open'
   | 'onSessionRenameRequest'
@@ -755,7 +753,6 @@ function FlatList({
     [list, sessionIds, rowState, statuses],
   )
   const [drag, setDrag] = useState<DragState | null>(null)
-  if (drag !== null && workingSessionIds?.has(drag.sessionId)) setDrag(null)
   const dropCommitted = useRef(false)
   useNativeDragAcceptance(drag !== null)
   const commitDrag = (activeDrag: DragState, over: NonNullable<DragState['over']>): void => {
@@ -765,7 +762,6 @@ function FlatList({
     const nextOrder = sessionDragOrder(sessionIds, rows, activeDrag, over)
     if (nextOrder !== undefined) setSessionOrder(FLAT_SESSION_ORDER_KEY, nextOrder)
   }
-  if (rows.length === 0 && workingSessionIds !== undefined) return null
   const now = Date.now()
   return (
     <HoverCardGroup className={clsx(css.treeBody, css.wide)}>
@@ -830,13 +826,16 @@ function FlatList({
   )
 }
 
-/** Running chats occupy their own tree while absent from the main list. */
+/**
+ * Running chats, and finished chats not yet opened, repeated above the list
+ * newest first; each also keeps its usual row in the main tree.
+ */
 function WorkingSection({
-  rows, currentId, useSessionAccess, open, onSessionRenameRequest, revealSessionId, onSessionRevealed,
+  rows, currentId, useSessionAccess, open, onSessionRenameRequest,
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu, home, t,
 }: Pick<
   SessionTreeProps,
-  | 'useSessionAccess' | 'open' | 'onSessionRenameRequest' | 'revealSessionId' | 'onSessionRevealed'
+  | 'useSessionAccess' | 'open' | 'onSessionRenameRequest'
   | 'renderSlot' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu' | 'home' | 't'
 > & { rows: readonly SessionNode[]; currentId: SessionId | undefined }) {
   const now = Date.now()
@@ -857,7 +856,6 @@ function WorkingSection({
               renderFactorySlot={renderFactorySlot} useContextMenu={useContextMenu}
               useContextMenuTarget={useContextMenuTarget}
               useSessionAccess={useSessionAccess}
-              onReveal={node.id === revealSessionId ? () => { onSessionRevealed(node.id) } : undefined}
               home={home}
               t={t}
             />
@@ -866,53 +864,6 @@ function WorkingSection({
       </HoverCardGroup>
     </div>
   )
-}
-
-/** Preserve keyboard focus when a focused chat moves between the two trees. */
-class BrowseLists extends Component<{
-  workingKey: string
-  bindScrollerRef: ((element: HTMLDivElement | null) => void) | undefined
-  children: ReactNode
-}> {
-  private readonly list = createRef<HTMLDivElement>()
-
-  override getSnapshotBeforeUpdate(previous: Readonly<typeof this.props>): string | undefined {
-    if (previous.workingKey === this.props.workingKey) return
-    const active = this.list.current?.ownerDocument.activeElement
-    if (!this.list.current?.contains(active ?? null)) return
-    const key = active?.closest('[data-row-key]')?.getAttribute('data-row-key')
-    if (key?.startsWith('session:')) return key
-  }
-
-  override componentDidUpdate(previous: Readonly<typeof this.props>, _state: unknown, key: string | undefined): void {
-    if (previous.bindScrollerRef !== this.props.bindScrollerRef) {
-      previous.bindScrollerRef?.(null)
-      this.props.bindScrollerRef?.(this.list.current)
-    }
-    const list = this.list.current
-    if (key === undefined || list === null || list.ownerDocument.activeElement !== list.ownerDocument.body) return
-    for (const row of list.querySelectorAll<HTMLElement>('[data-row-key]')) {
-      if (row.dataset.rowKey === key) {
-        row.focus()
-        return
-      }
-    }
-    list.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]')?.focus()
-  }
-
-  override componentDidMount(): void {
-    this.props.bindScrollerRef?.(this.list.current)
-  }
-
-  override componentWillUnmount(): void {
-    this.props.bindScrollerRef?.(null)
-  }
-
-  override render(): ReactNode {
-    return <div ref={this.list} className={css.listArea} data-sidebar-list-area="">
-      {this.props.children}
-    </div>
-  }
 }
 
 interface RemoteSearchState {
@@ -1248,13 +1199,7 @@ export function WorkspaceBrowser({
   const statuses = useSessionStatus(s => s)
   const showWorking = wide && normalizedQuery === '' && workingSection
   const workingRows = useMemo(() => showWorking ? deriveWorking(list, rowState, statuses) : [], [list, rowState, showWorking, statuses])
-  const workingSessionIds = useMemo(() => workingRows.length === 0 ? undefined : new Set(workingRows.map(row => row.id)), [workingRows])
-  const browseRowState = useMemo<SessionRowState>(() => workingSessionIds === undefined ? rowState : {
-    ...rowState, hiddenSessionIds: new Set([...hiddenSessionIds, ...workingSessionIds]),
-  }, [hiddenSessionIds, rowState, workingSessionIds])
-  // Do not animate an exit copy of a chat that is already visible in the other tree.
-  const workingKey = useMemo(() => workingSessionIds === undefined ? '' : JSON.stringify([...workingSessionIds].sort()), [workingSessionIds])
-  const animationResetKey = `${groupBy}/${orderBy}/${archivedFilter}/${workingKey}`
+  const animationResetKey = `${groupBy}/${orderBy}/${archivedFilter}`
   const [remoteSearch, setRemoteSearch] = useState<RemoteSearchState>({
     query: '',
     status: 'idle',
@@ -1534,14 +1479,12 @@ export function WorkspaceBrowser({
 
       {/* Always-mounted seat keeps the region's flex slot while the list
           itself is wide-only. */}
-      <BrowseLists bindScrollerRef={wide ? bindScrollerRef : undefined} workingKey={workingKey}>
+      <div ref={wide ? bindScrollerRef : undefined} className={css.listArea} data-sidebar-list-area="">
         {workingRows.length > 0 && (
           <WorkingSection
             rows={workingRows}
             currentId={currentId}
             useSessionAccess={useSessionAccess}
-            revealSessionId={revealSessionId}
-            onSessionRevealed={acknowledgeSessionReveal}
             open={guardedOpen}
             onSessionRenameRequest={requestSessionRename}
             renderSlot={renderSlot}
@@ -1577,12 +1520,11 @@ export function WorkspaceBrowser({
                 currentId={currentId}
                 list={list}
                 sessionIds={orderedFlatSessionIds}
-                rowState={browseRowState}
+                rowState={rowState}
                 onLeaveArchivedOnly={leaveArchivedOnly}
                 workspaceReady={workspaceReady}
                 animationResetKey={animationResetKey}
                 statuses={statuses}
-                workingSessionIds={workingSessionIds}
                 open={guardedOpen}
                 onSessionRenameRequest={requestSessionRename}
                 renderSlot={renderSlot}
@@ -1604,7 +1546,6 @@ export function WorkspaceBrowser({
                 list={list}
                 shortcuts={shortcuts}
                 statuses={statuses}
-                workingSessionIds={workingSessionIds}
                 onSessionRenameRequest={requestSessionRename}
                 renderSlot={renderSlot}
                 renderFactorySlot={renderFactorySlot} useContextMenu={useContextMenu}
@@ -1617,7 +1558,7 @@ export function WorkspaceBrowser({
                 groupExpansion={groupExpansion}
                 setGroupExpanded={actions.setGroupExpanded}
                 setSessionOrder={saveSessionOrder}
-                rowState={browseRowState}
+                rowState={rowState}
                 onLeaveArchivedOnly={leaveArchivedOnly}
                 startSession={startSession}
                 open={guardedOpen}
@@ -1631,7 +1572,7 @@ export function WorkspaceBrowser({
                 t={t}
               />
             ))}
-      </BrowseLists>
+      </div>
 
       {workspaceActionRequest?.action === 'update' ? (
         <ProjectIdentityEditor

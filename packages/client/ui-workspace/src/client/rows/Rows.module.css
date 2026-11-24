@@ -202,6 +202,17 @@
   font-weight: 500;
 }
 
+/* The running marker sits at the trailing edge, where a chat row keeps its time. */
+.projectWorking {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--workspace-leading-cell);
+  height: 20px;
+  margin-inline-start: 6px;
+}
+
 .renameInput {
   min-width: 0;
   font-size: 14px;

@@ -220,76 +220,58 @@ describe('WorkspaceBrowser', () => {
     })
 
     it.each(['workspace', 'workspace-tree', 'flat'] as const)(
-      'moves running chats out of the %s list and back into the saved order', (mode) => {
+      'repeats running chats above the %s list and keeps them in their saved place', (mode) => {
         const account = mode === 'flat' ? FLAT_SESSION_ORDER_KEY : 'alpha'
-        const saved = ['quiet', 'busy', 'another']
+        const saved = ['quiet', 'busy']
         const preferences = createWorkspaceViewStore().create()
         preferences.actions.setGroupBy(mode)
         preferences.actions.setGroupExpanded('alpha', true)
-        preferences.actions.setGroupExpanded('beta', true)
         preferences.actions.setSessionOrder(account, saved, {})
-        const items = [summary('busy', 20), summary('quiet', 10), summary('another', 30)]
         const active = { running: true, pendingInteraction: undefined, completionUnread: false }
         const browser = mount({
-          useSessions: hook(sessionState(items, { main: sid('busy') })),
-          useWorkspaces: hook(workspaceState([workspace('alpha', saved.slice(0, 2)), workspace('beta', ['another'])])),
+          useSessions: hook(sessionState([summary('busy', 20), summary('quiet', 10)], { main: sid('busy') })),
+          useWorkspaces: hook(workspaceState([workspace('alpha', saved)])),
+          useSessionStatus: hook(new Map([[sid('busy'), active]])),
           useWorkingSection: hook(true),
         })
-        const titleOrder = () => screen.getAllByText(/^(busy|quiet|another)$/u).map(title => title.textContent)
-        const selected = screen.getByRole('treeitem', { selected: true })
-        selected.focus()
-        rerender(browser, { useSessionStatus: hook(new Map([[sid('busy'), active], [sid('another'), active]])) })
         const working = screen.getByRole('tree', { name: t('section.working') })
-        const current = within(working).getByRole('treeitem', { selected: true })
-        expect(titleOrder()).toEqual(['another', 'busy', 'quiet'])
-        expect(current.contains(screen.getByText('busy'))).toBe(true)
-        expect(current.getAttribute('draggable')).toBe('false')
-        expect(document.activeElement).toBe(current)
-        fireEvent.keyDown(current, { key: 'Enter' })
+        expect(within(working).getAllByText(/^(busy|quiet)$/u).map(title => title.textContent)).toEqual(['busy'])
+        const list = screen.getByRole('tree', { name: t('section.sessions') })
+        expect(within(list).getAllByText(/^(busy|quiet)$/u).map(title => title.textContent)).toEqual(saved)
+        fireEvent.keyDown(within(working).getByRole('treeitem', { selected: true }), { key: 'Enter' })
         expect(browser.props.open).toHaveBeenCalledWith(sid('busy'))
-        if (mode !== 'flat') expect(screen.getByRole('treeitem', { name: 'beta' })).toBeTruthy()
-        expect(browser.store.getSnapshot().sessionOrderByAccount[account]).toEqual(saved)
 
         rerender(browser, { useSessionStatus: hook(noPendingInteraction) })
         expect(workingTree()).toBeNull()
-        expect(titleOrder()).toEqual(saved)
-        expect(document.activeElement).toBe(screen.getByRole('treeitem', { selected: true }))
         expect(browser.store.getSnapshot().sessionOrderByAccount[account]).toEqual(saved)
       },
     )
 
-    it('retains a running chat in the complete order when another chat is dragged', () => {
-      const preferences = createWorkspaceViewStore().create()
-      preferences.actions.setGroupExpanded('alpha', true)
-      preferences.actions.setSessionOrder('alpha', ['a', 'busy', 'b', 'c'], {})
+    it.each([
+      [false, 'status.completed'],
+      [true, 'status.failed'],
+    ] as const)('keeps a finished chat in Working until it is opened (failed: %s)', (failed, label) => {
+      const unread = { running: false, pendingInteraction: undefined, completionUnread: true }
       const browser = mount({
-        useSessions: hook(sessionState([summary('a', 1), summary('busy', 2), summary('b', 3), summary('c', 4)])),
-        useWorkspaces: hook(workspaceState([workspace('alpha', ['a', 'busy', 'b', 'c'])])),
-        useSessionStatus: running,
+        useSessions: hook(sessionState([summary('busy', 20, { projectionValues: { lastTurnFailed: failed } }), summary('quiet', 10)])),
+        useWorkspaces: hook(workspaceState([workspace('alpha', ['busy', 'quiet'])])),
+        useSessionStatus: hook(new Map([[sid('busy'), unread]])),
         useWorkingSection: hook(true),
       })
-      const tree = screen.getByRole('tree', { name: t('section.sessions') })
-      expect(within(tree).queryByText('busy')).toBeNull()
-      const source = within(tree).getByText('c').closest<HTMLElement>('[role="treeitem"]')!
-      const target = within(tree).getByText('a').closest<HTMLElement>('[role="treeitem"]')!
-      target.getBoundingClientRect = () => new DOMRect(0, 100, 200, 32)
-      fireEvent.dragStart(source, { dataTransfer: dragData() })
-      fireDrag(target, 'drop', 105)
-      expect(browser.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['c', 'a', 'busy', 'b'])
+      const working = screen.getByRole('tree', { name: t('section.working') })
+      expect(within(working).getByText('busy')).toBeTruthy()
+      expect(within(working).getByText(t(label))).toBeTruthy()
       rerender(browser, { useSessionStatus: hook(noPendingInteraction) })
-      expect(within(tree).getAllByText(/^(a|b|c|busy)$/u).map(title => title.textContent)).toEqual(['c', 'a', 'busy', 'b'])
+      expect(workingTree()).toBeNull()
     })
 
-    it('shows no empty flat-list message when all chats are working', () => {
-      const preferences = createWorkspaceViewStore().create()
-      preferences.actions.setGroupBy('flat')
-      mount({
-        useSessions: hook(sessionState([summary('busy', 20)])),
-        useSessionStatus: running,
-        useWorkingSection: hook(true),
-      })
-      expect(screen.getAllByText('busy')).toHaveLength(1)
-      expect(screen.queryByText(t('empty.none'))).toBeNull()
+    it('marks a folded project whose chat is running', () => {
+      const browser = mount({ useSessions: sessions, useWorkspaces: projects, useSessionStatus: running, useWorkingSection: hook(false) })
+      const project = screen.getByRole('treeitem', { name: /alpha/u })
+      expect(project.getAttribute('aria-expanded')).toBe('false')
+      expect(within(project).getByRole('img', { name: t('status.running') })).toBeTruthy()
+      rerender(browser, { useSessionStatus: hook(noPendingInteraction) })
+      expect(within(screen.getByRole('treeitem', { name: /alpha/u })).queryByRole('img', { name: t('status.running') })).toBeNull()
     })
 
     it('reveals a running chat in Working when opened from search', () => {

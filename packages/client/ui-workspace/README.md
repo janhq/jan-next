@@ -59,11 +59,13 @@ The sidebar, the Workspace picker and the Jan theme's project page title use the
 
 ### Working section
 
-While any top-level Session runs a turn or a subagent, it appears only in the **Working** section above the list, newest first. It returns to its usual place in the project or flat list when it finishes, without changing the saved order. Projects keep their headers even if all their Sessions are working. Waiting on the user is not working, so a Session that only asks a question or awaits approval stays out, and so do blank and archived Sessions. Working is its own labelled tree and does not show in the collapsed rail, during a search, or while nothing runs.
+While any top-level Session runs a turn or a subagent, the **Working** section above the list repeats it, newest first; the Session also keeps its usual row in the project or flat list, so the saved order never changes. When it stops while you are looking elsewhere, it stays in Working with the reminder dot until you open it: green when the turn finished, red when it ended in an error (the Host's `lastTurnFailed` summary projection). Waiting on the user is not working, so a Session that only asks a question or awaits approval stays out, and so do blank and archived Sessions. Working is its own labelled tree and does not show in the collapsed rail, during a search, or while nothing runs or waits to be read.
+
+A project header shows a running marker at its trailing edge while one of its visible Sessions or their subagents runs, folded or not.
 
 Settings > General > **Show running chats at the top** turns it off. The switch writes the volatile `workingSection` field of this package's Host Config (entry `ui-workspace`, on by default) through `configForms`, so every window follows it without a restart. The Host half exists only to declare that Config and to keep the automatic settings page off.
 
-Working rows do not support dragging. To reorder a running chat, wait for it to return to the regular list or turn the setting off. When a focused chat moves between the trees, keyboard focus follows it if the destination row is visible.
+Working rows do not support dragging. To reorder a running chat, drag its row in the regular list.
 
 ### Search
 
@@ -236,7 +238,7 @@ Once the Workspace baseline is ready, browser-persisted expansion and Session-or
 
 The sidebar hides durable summaries with `origin: 'subagent'`. A visible ordinary row shows the shared ongoing loader from running direct children in its loaded parent catalog, never from summary lineage. Child activity uses the latest UI status, falling back to the Session summary until that status is known.
 
-Row motion belongs to [AnimatedRows](../ui-primitives/src/AnimatedRows.tsx). It measures keyed rows before and after React commits that change their membership or order, and uses native movement and opacity animations. Removed rows fade as inert copies in a clipped overlay beside the list; they do not delay React unmounting or extend the scroll range. Initial loading, drag commits, overflow expansion, view-option changes, and moves between Working and the main list settle immediately. The animator has no layout observers or polling and does not measure content-only updates or scrolling.
+Row motion belongs to [AnimatedRows](../ui-primitives/src/AnimatedRows.tsx). It measures keyed rows before and after React commits that change their membership or order, and uses native movement and opacity animations. Removed rows fade as inert copies in a clipped overlay beside the list; they do not delay React unmounting or extend the scroll range. Initial loading, drag commits, overflow expansion, and view-option changes settle immediately. The animator has no layout observers or polling and does not measure content-only updates or scrolling.
 
 Native Workspace and Session drags use an inert offscreen copy for their preview, with the row's dimensions and indentation over the themed sidebar fill. The preview copies the row's computed layout properties, including its leading and trailing insets, icon and label tracks, and Workspace tree indentation. [useRowDragPreview](../ui-primitives/src/useRowDragPreview.ts) removes the copy on drag end, replacement, or row unmount. The preview does not change the source row's background or drag-and-drop handlers. If the browser rejects a custom drag image, the copy is removed and native dragging continues.
 
