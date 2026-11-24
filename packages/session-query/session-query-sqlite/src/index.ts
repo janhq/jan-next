@@ -457,14 +457,17 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
         for (const entry of persistentChanges) {
           /* v8 ignore next -- observation loads every entry whose revision differs */
           if (entry.loaded === undefined) throw new Error(`missing loaded revision for session "${entry.header.id}"`)
-          this._replacePersistedSession(entry.loaded, entry.revision, nextMainGeneration)
+          // FTS5 cannot seek by its UNINDEXED session_id; do not scan it for a new Session.
+          if (persistedById.has(entry.header.id)) this._deleteSession('persisted', entry.header.id)
+          this._insertPersistedSession(entry.loaded, entry.revision, nextMainGeneration)
         }
         if (persistentChanges.length > 0 || persistentDeletes.length > 0) {
           db.prepare('UPDATE search_state SET global_generation = ? WHERE singleton = 1').run(nextMainGeneration)
         }
         for (const row of liveDeletes) this._deleteSession('live', row.id as SessionId)
         for (const { entry, generation, persisted } of liveReplacements) {
-          this._replaceLiveSession(entry, generation, persisted)
+          if (liveById.has(entry.header.id)) this._deleteSession('live', entry.header.id)
+          this._insertLiveSession(entry, generation, persisted)
         }
         db.exec('COMMIT')
       } catch (error: unknown) {
@@ -579,12 +582,11 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
     }
   }
 
-  private _replacePersistedSession(
+  private _insertPersistedSession(
     entry: ObservedSession,
     revision: SessionPersistenceRevision,
     generation: number,
   ): void {
-    this._deleteSession('persisted', entry.header.id)
     const db = this._requireDb()
     db.prepare(`
       INSERT INTO persisted_sessions
@@ -613,8 +615,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
     }
   }
 
-  private _replaceLiveSession(entry: ObservedSession, generation: number, persisted: boolean): void {
-    this._deleteSession('live', entry.header.id)
+  private _insertLiveSession(entry: ObservedSession, generation: number, persisted: boolean): void {
     const db = this._requireDb()
     db.prepare(`
       INSERT INTO temp.live_sessions
