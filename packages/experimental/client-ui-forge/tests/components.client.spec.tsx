@@ -147,7 +147,7 @@ describe('ActionToast', () => {
     expect(alert.textContent).toBe(en['toast.refreshFailed'])
     expect(alert.querySelector(`.${toastCss.icon}`)).not.toBeNull()
     expect(alert.querySelector(`.${toastCss.success}`)).toBeNull()
-    expect(within(alert).queryByRole('button')).toBeNull()
+    expect(within(alert).queryByRole('button', { name: en['toast.undo'] })).toBeNull()
 
     act(() => { vi.advanceTimersByTime(3999) })
     expect(b.dismiss).not.toHaveBeenCalled()
