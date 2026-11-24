@@ -11,14 +11,13 @@ window.__ModuleLoader__.load({
 
     // The flow wears the main window's shell: a floating sidebar card listing the steps as nav
     // rows, and a content column on the base surface with composer-card material for choices.
-    // Motion uses the app's own curves and durations (--ds-ease-*, 150-320 ms).
     const css = `
 .jan-onboarding {
   --ob-ease: var(--ds-ease-emphasized, cubic-bezier(0.22, 1, 0.36, 1));
-  --ob-ease-out: var(--ds-ease-out, cubic-bezier(0.23, 1, 0.32, 1));
-  --ob-enter: 320ms;
-  --ob-exit: 120ms;
-  --ob-select: 150ms;
+  --ob-state: var(--ds-ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
+  --ob-enter: var(--ds-transition-duration-slow, 300ms);
+  --ob-exit: var(--ds-transition-duration, 200ms);
+  --ob-select: var(--ds-transition-duration-fast, 100ms);
   --ob-rise: 6px;
   --ob-gap: var(--jt-sidebar-gap, 11px);
   --ob-row: 32px;
@@ -53,16 +52,16 @@ window.__ModuleLoader__.load({
   position: absolute; inset: 0 0 auto; height: var(--ob-row); border-radius: 8px;
   background: var(--dsw-specific-sidebar-nav-item-active, rgb(0 0 0 / 6%));
   transform: translateY(calc(var(--at) * var(--ob-row-pitch)));
-  transition: transform var(--ob-enter) var(--ob-ease);
+  transition: transform var(--ds-transition-duration, 200ms) var(--ob-state);
 }
 .jan-onboarding-nav {
   position: relative; display: flex; align-items: center; gap: 8px; width: 100%; height: var(--ob-row); padding: 0 10px 0 8px; box-sizing: border-box;
   border: 0; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; text-align: start; cursor: pointer;
-  transition: background-color var(--ob-select) var(--ob-ease-out), color var(--ob-select) var(--ob-ease-out);
+  transition: background-color var(--ob-select) var(--ob-state), color var(--ob-select) var(--ob-state);
 }
 .jan-onboarding-nav > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jan-onboarding-nav > svg { flex: none; color: color-mix(in srgb, currentColor 70%, transparent); }
-.jan-onboarding-nav[data-state='done'] > svg { color: var(--ob-accent); animation: jan-onboarding-pop 240ms var(--ob-ease) both; }
+.jan-onboarding-nav[data-state='done'] > svg { color: var(--ob-accent); animation: jan-onboarding-pop var(--ds-transition-duration, 200ms) var(--ob-ease) both; }
 .jan-onboarding-nav[data-state='next'] { color: var(--dsw-alias-label-tertiary); cursor: default; }
 .jan-onboarding-nav[data-state='current'] { cursor: default; }
 .jan-onboarding-nav:disabled { cursor: default; }
@@ -81,7 +80,7 @@ window.__ModuleLoader__.load({
     radial-gradient(50% 40% at 85% 100%, color-mix(in srgb, #FFC928 6%, transparent), transparent 70%);
 }
 .jan-onboarding-step { position: relative; display: grid; align-content: start; gap: 20px; width: min(100%, 600px); margin-bottom: 6vh; }
-.jan-onboarding-step[data-exit] { animation: jan-onboarding-out var(--ob-exit) var(--ob-ease-out) both; }
+.jan-onboarding-step[data-exit] { animation: jan-onboarding-out var(--ob-exit) var(--ds-ease-in, cubic-bezier(0.4, 0, 1, 1)) both; }
 .jan-onboarding[data-splash] .jan-onboarding-step { margin-bottom: 0; }
 /* Start screen: no rail, one centred column. The mark is the biggest thing on it, the tagline says
  * what Jan is in one line, and a single pill leads in; skipping stays available but quiet. */
@@ -89,11 +88,11 @@ window.__ModuleLoader__.load({
 .jan-onboarding[data-splash] .jan-onboarding-main { place-items: center; padding-top: calc(var(--jan-frame-top-clearance, 0px) + 16px); }
 .jan-onboarding-splash { display: grid; justify-items: center; gap: 20px; text-align: center; padding-bottom: 6vh; }
 .jan-onboarding-mark { display: flex; align-items: center; gap: 20px; margin: 0; font-family: var(--jan-onboarding-heading-font); font-size: 72px; line-height: 80px; font-weight: 500; letter-spacing: -2px; outline: none; }
-.jan-onboarding-mark img { width: 76px; height: 76px; flex: none; transform-origin: 70% 85%; animation: jan-onboarding-wave 1.1s var(--ds-ease-in-out, ease-in-out) 360ms both; }
+.jan-onboarding-mark img { width: 76px; height: 76px; flex: none; transform-origin: 70% 85%; animation: jan-onboarding-wave 1.1s var(--ds-ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)) 360ms both; }
 .jan-onboarding-tagline { max-width: 40ch; margin: 0; font-size: 22px; line-height: 30px; color: var(--dsw-alias-label-primary); text-wrap: balance; white-space: pre-line; }
 .jan-onboarding-splash-actions { display: grid; justify-items: center; gap: 12px; margin-top: 16px; }
 .jan-onboarding .jan-onboarding-cta { height: 44px; padding: 0 22px 0 26px; gap: 6px; border-radius: 999px; font-size: 16px; }
-.jan-onboarding-cta > svg { transition: transform var(--ob-select) var(--ob-ease-out); }
+.jan-onboarding-cta > svg { transition: transform var(--ob-select) var(--ob-state); }
 @media (hover: hover) { .jan-onboarding-cta:not(:disabled):hover > svg { transform: translateX(2px); } }
 .jan-onboarding-splash-note { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .jan-onboarding-heading h1 { margin: 0; font-family: var(--jan-onboarding-heading-font); font-size: 24px; line-height: 32px; font-weight: 500; letter-spacing: -0.2px; outline: none; }
@@ -107,7 +106,7 @@ window.__ModuleLoader__.load({
   min-height: 32px; padding: 5px 14px; box-sizing: border-box; border: 0; border-radius: 999px;
   background: var(--dsw-specific-input-major); box-shadow: inset 0 0 0 0.5px var(--dsw-alias-border-l2);
   color: var(--dsw-alias-label-primary); font: inherit; text-align: center; cursor: pointer;
-  transition: background-color var(--ob-select) var(--ob-ease-out), box-shadow var(--ob-select) var(--ob-ease-out);
+  transition: background-color var(--ob-select) var(--ob-state), box-shadow var(--ob-select) var(--ob-state);
 }
 @media (hover: hover) {
   .jan-onboarding-chip:not(:disabled):hover { background: linear-gradient(var(--dsw-alias-interactive-bg-hover), var(--dsw-alias-interactive-bg-hover)), var(--dsw-specific-input-major); }
@@ -126,7 +125,7 @@ window.__ModuleLoader__.load({
 .jan-onboarding-default {
   height: 26px; padding: 0 10px; border: 0; border-radius: 999px; background: transparent; color: var(--dsw-alias-label-secondary);
   font: inherit; font-size: 12px; line-height: 18px; white-space: nowrap; cursor: pointer;
-  transition: background-color var(--ob-select) var(--ob-ease-out), color var(--ob-select) var(--ob-ease-out);
+  transition: background-color var(--ob-select) var(--ob-state), color var(--ob-select) var(--ob-state);
 }
 @media (hover: hover) {
   .jan-onboarding-default:not(:disabled):hover { background: var(--dsw-alias-interactive-bg-hover); }
@@ -139,7 +138,7 @@ window.__ModuleLoader__.load({
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 12px; width: 100%; padding: 14px 16px; box-sizing: border-box;
   border: 0; border-radius: var(--dsw-radius-lg, 16px); background: var(--dsw-specific-input-major); box-shadow: inset 0 0 0 0.5px var(--dsw-alias-border-l2);
   color: var(--dsw-alias-label-primary); font: inherit; text-align: start; cursor: pointer;
-  transition: background-color var(--ob-select) var(--ob-ease-out), box-shadow var(--ob-select) var(--ob-ease-out);
+  transition: background-color var(--ob-select) var(--ob-state), box-shadow var(--ob-select) var(--ob-state);
 }
 @media (hover: hover) {
   .jan-onboarding-route:not(:disabled):hover { background: linear-gradient(var(--dsw-alias-interactive-bg-hover), var(--dsw-alias-interactive-bg-hover)), var(--dsw-specific-input-major); }
@@ -169,7 +168,7 @@ window.__ModuleLoader__.load({
 .jan-onboarding-model {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 12px; padding: 8px 10px; border: 0; border-radius: 10px;
   background: transparent; color: var(--dsw-alias-label-primary); font: inherit; text-align: start; cursor: pointer;
-  transition: background-color var(--ob-select) var(--ob-ease-out);
+  transition: background-color var(--ob-select) var(--ob-state);
 }
 @media (hover: hover) { .jan-onboarding-model:not(:disabled):hover { background: var(--dsw-alias-interactive-bg-hover); } }
 .jan-onboarding-model[aria-checked='true'] { background: color-mix(in srgb, var(--ob-accent) 10%, transparent); }

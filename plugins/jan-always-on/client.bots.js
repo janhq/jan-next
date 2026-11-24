@@ -450,7 +450,7 @@ window.__ModuleLoader__.load({
       .jao-empty h2,.jao-empty p{margin:0;font:inherit}
       .jao-page .jao-empty{padding-block:48px;border:.5px dashed var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg)}
       .jao-page .jao-empty h2{font-size:14px;font-weight:500;color:var(--dsw-alias-label-primary)}
-      .jao-loading svg{animation:jao-spin 1s linear infinite}
+      .jao-loading svg{animation:jao-spin var(--ds-transition-duration-loop) linear infinite}
       @keyframes jao-spin{to{transform:rotate(1turn)}}
       .jao-modal{width:560px;max-width:100%}
       .jao-modal-footer{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;width:100%}

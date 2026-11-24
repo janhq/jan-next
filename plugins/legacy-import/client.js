@@ -490,7 +490,7 @@ window.__ModuleLoader__.load({
 .jan-legacy-import-setting > label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jan-legacy-import-setting .jan-legacy-import-meta{padding-inline-start:26px;white-space:normal}
 .jan-legacy-import .jan-legacy-import-setting .jan-legacy-import-row-state{padding-inline-start:26px;margin:2px 0 0;list-style:disc;padding-left:40px}
-.jan-legacy-import-offer{box-sizing:border-box;width:min(300px,calc(100vw - 40px));animation:jan-legacy-import-offer-in 180ms ease-out;display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-bg-layer-3);box-shadow:var(--dsw-elevation-prominent);color:var(--dsw-alias-label-primary)}
+.jan-legacy-import-offer{box-sizing:border-box;width:min(300px,calc(100vw - 40px));animation:jan-legacy-import-offer-in var(--ds-transition-duration) var(--ds-ease-out);display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-bg-layer-3);box-shadow:var(--dsw-elevation-prominent);color:var(--dsw-alias-label-primary)}
 body:has([data-onboarding-overlay]) .jan-legacy-import-offer{display:none}
 @keyframes jan-legacy-import-offer-in{from{opacity:0;transform:translateX(16px)}}
 @media (prefers-reduced-motion:reduce){.jan-legacy-import-offer{animation:none}}

@@ -753,7 +753,7 @@ window.__ModuleLoader__.load({
 .jt-registry { display: grid; gap: 24px; margin-top: 24px; }
 .jt-agent-settings .jt-registry-heading { margin: 0 0 4px; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--dsw-alias-label-primary); }
 .jt-registry-note { margin: 0 0 12px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
-.jt-registry [aria-busy="true"] { opacity: .6; transition: opacity .15s; }
+.jt-registry [aria-busy="true"] { opacity: .6; transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
 .jt-registry-option { height: 24px; max-width: 180px; padding: 0 8px; gap: 6px; font-size: 12px; line-height: 18px; }
 .jt-registry-filters { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .jt-registry-filters .jt-chips { flex: 1; min-width: 0; }
@@ -795,7 +795,7 @@ window.__ModuleLoader__.load({
 .jt-token-form .jt-agent-actions { justify-content: flex-start; }
 .jt-agent-search input::placeholder { color: var(--dsw-alias-label-tertiary); }
 .jt-agent-grid { grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
-.jt-agent-tile { align-content: start; gap: 8px; padding: 14px; transition: transform .18s cubic-bezier(.2, .8, .2, 1), border-color .18s, box-shadow .18s; }
+.jt-agent-tile { align-content: start; gap: 8px; padding: 14px; transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out), border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), box-shadow var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
 .jt-agent-tile:hover { transform: translateY(-2px); border-color: var(--dsw-alias-border-l4); box-shadow: 0 8px 20px color-mix(in oklab, hsl(var(--jt-hue) 60% 45%) 18%, transparent); }
 .jt-agent-settings .jt-agent-tile h3 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; overflow-wrap: anywhere; }
 .jt-agent-tile .jt-agent-card-meta { display: inline; }
@@ -805,7 +805,7 @@ window.__ModuleLoader__.load({
 .jt-registry-logo { background: #fff; box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / .12); overflow: hidden; }
 .jt-registry-logo img { width: 30px; height: 30px; object-fit: contain; }
 .jt-agent-settings .jt-agent-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--dsw-alias-label-secondary); }
-.jt-agent-skeleton { height: 132px; border-radius: 12px; background: linear-gradient(90deg, var(--dsw-alias-bg-layer-1) 0%, var(--dsw-alias-border-l1) 50%, var(--dsw-alias-bg-layer-1) 100%); background-size: 200% 100%; animation: jt-skeleton 1.4s ease-in-out infinite; }
+.jt-agent-skeleton { height: 132px; border-radius: 12px; background: linear-gradient(90deg, var(--dsw-alias-bg-layer-1) 0%, var(--dsw-alias-border-l1) 50%, var(--dsw-alias-bg-layer-1) 100%); background-size: 200% 100%; animation: jt-skeleton var(--ds-transition-duration-ambient) var(--ds-ease-pulse) infinite; }
 @keyframes jt-skeleton { from { background-position: 100% 0 } to { background-position: -100% 0 } }
 /* The pill boxes nest past the text line by their own padding, so the first chip's label starts on the heading's line. */
 .jt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px -12px; }
@@ -814,7 +814,7 @@ window.__ModuleLoader__.load({
 .jt-chip:focus-visible, .jt-agent-add:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); }
 @media (hover: hover) { .jt-chip:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); } }
 .jt-chip-count { font-size: 12px; color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
-.jt-agent-add { display: grid; justify-items: center; gap: 4px; padding: 20px; border: 1px dashed var(--dsw-alias-border-l2); border-radius: 12px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font: inherit; font-size: 13px; transition: border-color .18s, color .18s; }
+.jt-agent-add { display: grid; justify-items: center; gap: 4px; padding: 20px; border: 1px dashed var(--dsw-alias-border-l2); border-radius: 12px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font: inherit; font-size: 13px; transition: border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), color var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
 .jt-agent-add span { color: var(--dsw-alias-label-primary); font-weight: 500; }
 .jt-agent-add:hover:not(:disabled) { border-color: var(--dsw-alias-border-l4); }
 .jt-agent-settings .jt-agent-field textarea.jt-paste-box { min-height: 168px; font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 12px; line-height: 18px; white-space: pre; overflow-x: auto; }
@@ -969,15 +969,16 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row [class*='shortcut'] { font-size: 12px; transform: scale(0.9); transform-origin: right center; color: var(--jt-side-muted); }
   html[data-jan-theme] [data-slot='sidebar'] [data-machine-tag],
   html[data-jan-theme] [data-slot='sidebar'] [data-machine-tag] svg { color: var(--jt-side-muted); }
-  /* Hover motions copied from Jan's animated icons: each plays once per hover entry and ends at rest. */
-  html[data-jan-theme] .jt-nav-icon { display: inline-flex; flex: none; color: var(--jt-side-icon); transform-origin: center; transition: scale 150ms ease; }
-  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='chat'] { animation: jt-anim-chat 0.5s ease-in-out; scale: 1.05; }
-  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='search'] { animation: jt-anim-search 1s ease; }
+  html[data-jan-theme] .jt-nav-icon { display: inline-flex; flex: none; color: var(--jt-side-icon); transform-origin: center; transition: scale var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
+  /* Jan's animated icons play once per hover entry and end at rest. */
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='chat'] { animation: jt-anim-chat 0.5s var(--ds-ease-in-out); scale: 1.05; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='search'] { animation: jt-anim-search 1s var(--ds-ease-in-out); }
   html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='box'],
-  html[data-jan-theme] [data-slot='sidebar'] button[aria-haspopup='menu'][class*='panelRow']:hover [class*='panelGlyph'] { animation: jt-anim-box 0.45s ease-in-out; }
-  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='folder'] { animation: jt-anim-folder 0.6s ease-in-out; }
-  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='home'] { animation: jt-anim-home 0.45s ease-in-out; }
-  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='shake'] { animation: jt-anim-shake 0.5s ease-in-out; }
+  html[data-jan-theme] [data-slot='sidebar'] button[aria-haspopup='menu'][class*='panelRow']:hover [class*='panelGlyph'] { animation: jt-anim-box 0.45s var(--ds-ease-in-out); }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='folder'] { animation: jt-anim-folder 0.6s var(--ds-ease-in-out); }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='home'] { animation: jt-anim-home 0.45s var(--ds-ease-in-out); }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='shake'] { animation: jt-anim-shake 0.5s var(--ds-ease-in-out); }
   html[data-jan-theme] .jt-nav-icon[data-jt-anim='spin'] { transition: rotate 600ms cubic-bezier(0.34, 1.56, 0.64, 1); }
   html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='spin'] { rotate: 180deg; }
   @keyframes jt-anim-chat { 0%, 100% { transform: rotate(0); } 33% { transform: rotate(-7deg); } 66% { transform: rotate(7deg); } }
@@ -986,8 +987,6 @@ window.__ModuleLoader__.load({
   @keyframes jt-anim-folder { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 50% { transform: rotate(6deg); } 75% { transform: rotate(-4deg); } }
   @keyframes jt-anim-home { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-1px) rotate(-5deg); } }
   @keyframes jt-anim-shake { 0%, 100% { transform: rotate(0); } 33% { transform: rotate(-5deg); } 66% { transform: rotate(5deg); } }
-  @media (prefers-reduced-motion: reduce) {
-    html[data-jan-theme] .jt-nav-icon, html[data-jan-theme] [data-slot='sidebar'] [class*='panelGlyph'] { animation: none !important; transition: none !important; }
   }
   /* Grouped lists: a folder's chats start under its name, not under its icon, so the grouping
      reads at a glance. Only a section headed by a folder row gets it; the flat list stays flush. */
@@ -1071,7 +1070,7 @@ window.__ModuleLoader__.load({
   .jt-projects-sort-label { color: var(--dsw-alias-label-tertiary); }
   .jt-projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
   .jt-projects-grid > li { display: grid; min-width: 0; }
-  .jt-project-tile { display: grid; gap: 8px; align-content: start; justify-items: start; box-sizing: border-box; width: 100%; min-width: 0; min-height: 132px; padding: 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); color: inherit; font: inherit; text-align: start; cursor: pointer; transition: transform .18s cubic-bezier(.2, .8, .2, 1), border-color .18s, box-shadow .18s; }
+  .jt-project-tile { display: grid; gap: 8px; align-content: start; justify-items: start; box-sizing: border-box; width: 100%; min-width: 0; min-height: 132px; padding: 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); color: inherit; font: inherit; text-align: start; cursor: pointer; transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out), border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), box-shadow var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
   .jt-project-tile:hover { transform: translateY(-2px); border-color: var(--dsw-alias-border-l4); box-shadow: 0 8px 20px color-mix(in oklab, hsl(var(--jt-hue) 60% 45%) 18%, transparent); }
   .jt-project-tile:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); }
   .jt-project-tile > span { max-width: 100%; min-width: 0; }
@@ -1176,7 +1175,7 @@ window.__ModuleLoader__.load({
   @media (max-width: 600px) { .jt-project { padding: 24px 16px; } }
   /* Startup failure notices: a bottom-right stack, newest last. */
   .jt-startup { position: absolute; right: 16px; bottom: 16px; z-index: 40; display: flex; flex-direction: column; gap: 8px; width: min(380px, calc(100% - 32px)); pointer-events: none; }
-  .jt-startup-card { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; column-gap: 12px; padding: 14px 12px 14px 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); color: var(--dsw-alias-label-primary); pointer-events: auto; animation: jt-startup-in 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+  .jt-startup-card { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; column-gap: 12px; padding: 14px 12px 14px 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); color: var(--dsw-alias-label-primary); pointer-events: auto; animation: jt-startup-in var(--ds-transition-duration) var(--ds-ease-out); }
   .jt-startup-glyph { padding-top: 1px; color: var(--dsw-alias-state-warning-primary, #d99a00); }
   .jt-startup-title { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; overflow-wrap: anywhere; }
   .jt-startup-text { margin: 2px 0 0; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); text-wrap: pretty; }
@@ -1313,12 +1312,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.f
 html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :not(pre) > code {
   color: var(--dsw-alias-label-deep-diving); background: color-mix(in oklch, var(--dsw-alias-label-deep-diving) 9%, transparent); font-size: inherit;
 }
-html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] .md-code-block { border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] .md-code-block { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-lg); }
 /* Diff fences: the diff grammar colors lines through these shiki variables, which no other style defines. */
 html[data-jan-theme][data-jt-reading='terminal'] .md-code-block { --shiki-token-inserted: var(--jt-term-add); --shiki-token-deleted: var(--jt-term-del); }
 /* Tool calls and process steps: framed, with the tool name in the tool color. */
 html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] > [data-tool] {
-  border: 1px solid var(--dsw-alias-border-l2); border-left: 2px solid var(--jt-term-tool); border-radius: 6px; padding-inline: 8px;
+  border: 1px solid var(--dsw-alias-border-l2); border-left: 2px solid var(--jt-term-tool); border-radius: var(--dsw-radius-md); padding-inline: 8px;
 }
 html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] > [data-tool][data-state='error'] { border-left-color: var(--jt-term-del); }
 html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] [data-disclosure-row] [class*='_title_'] { color: var(--jt-term-tool); font-weight: 600; }

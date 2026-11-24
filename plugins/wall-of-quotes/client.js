@@ -89,7 +89,7 @@ window.__ModuleLoader__.load({
    Equal outer tracks keep the author centred under the quote; the controls hang in the right track. */
 .woq-byline { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 2px; min-height: 28px; }
 .woq-byline::before { content: ''; }
-.woq-actions { display: inline-flex; justify-self: start; gap: 2px; opacity: 0; transition: opacity 120ms ease; }
+.woq-actions { display: inline-flex; justify-self: start; gap: 2px; opacity: 0; transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
 .woq-headline:hover .woq-actions, .woq-actions:focus-within { opacity: 1; }
 @media (hover: none) { .woq-actions { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .woq-actions { transition: none; } }

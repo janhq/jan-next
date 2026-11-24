@@ -48,7 +48,7 @@ button.jsb-item:active { background: var(--dsw-alias-interactive-bg-active); }
 .jsb-text[data-level='critical'] { color: var(--dsw-alias-state-error-primary); }
 .jsb-meter { position: relative; flex: none; width: 18px; height: 4px; border-radius: 2px; background: var(--dsw-alias-border-l3); overflow: hidden; }
 .jsb-meter > span { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--dsw-alias-state-success-primary);
-  transition: width 300ms var(--ds-ease-out, ease-out), background-color 300ms var(--ds-ease-out, ease-out); }
+  transition: width var(--ds-transition-duration, 200ms) var(--ds-ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)), background-color var(--ds-transition-duration-fast, 100ms) var(--ds-ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)); }
 .jsb-meter[data-level='warn'] > span { background: var(--dsw-alias-state-warn-primary); }
 .jsb-meter[data-level='critical'] > span { background: var(--dsw-alias-state-error-primary); }
 .jsb-choice { display: flex; flex-direction: column; gap: 2px; padding: 2px 0; }
