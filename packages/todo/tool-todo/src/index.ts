@@ -19,6 +19,10 @@ import type { TodoItem } from './types.ts'
 
 declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
+    /**
+     * Model-visible reminder with no reader-side behavior.
+     * @persistenceAttribution
+     */
     'todo-reminder': { kind: 'todo-reminder' } & ContextFormed
   }
 }
