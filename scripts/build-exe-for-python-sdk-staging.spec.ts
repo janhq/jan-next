@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { createRequire } from 'node:module'
 import { afterEach, expect, it } from 'vitest'
-import { deduplicateStagedWorkspacePackages, materializeStagedLinks } from './build-exe-for-python-sdk-staging.ts'
+import { deduplicateStagedWorkspacePackages, materializeStagedLinks, pruneDependencyTestDirectories } from './build-exe-for-python-sdk-staging.ts'
 
 const temporaryDirectories: string[] = []
 const directoryLinkType = process.platform === 'win32' ? 'junction' : 'dir'
@@ -119,4 +119,28 @@ it('rejects invalid deployment metadata before removing any package', async () =
     expect(existsSync(duplicate)).toBe(true)
     expect(existsSync(outside)).toBe(true)
   }
+})
+
+it('prunes third-party test directories but keeps Jan packages and packages named like them', async () => {
+  const staging = await fixture('jan-python-staging-tests-')
+  const modules = join(staging, 'node_modules')
+  const keep = [
+    join(modules, 'qs', 'lib', 'index.js'),
+    join(modules, '@janhq', 'jan-tool-fs', 'tests', 'case.js'),
+    join(modules, 'host', 'node_modules', '@janhq', 'jan-tool-fs', 'tests', 'case.js'),
+    join(modules, 'host', 'node_modules', 'test', 'package.json'),
+  ]
+  const drop = [
+    join(modules, 'qs', 'test', 'parse.js'),
+    join(modules, 'zod', 'src', 'v4', 'tests', 'deep', 'object.test.js'),
+    join(modules, 'domexception', '.history', 'index.js'),
+    join(modules, '@scope', 'pkg', '__tests__', 'a.js'),
+  ]
+  await Promise.all([...keep, ...drop].map(async (file) => {
+    await mkdir(join(file, '..'), { recursive: true })
+    await writeFile(file, '{}\n')
+  }))
+  await pruneDependencyTestDirectories(staging)
+  expect(keep.filter(file => !existsSync(file))).toEqual([])
+  expect(drop.filter(file => existsSync(join(file, '..')))).toEqual([])
 })

@@ -1,6 +1,9 @@
 import { executeToolFixture } from '@janhq/jan-tool-testkit'
 import * as PtcToolExecutor from '@janhq/jan-tool-executor-ptc'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Context } from '@janhq/cordis'
 import type { Agent } from '@janhq/jan-agent'
 import { ToolCallId } from '@janhq/jan-llm'
@@ -38,6 +41,17 @@ const UPDATE_FIELD = {
   code: 'invalid_selector', message: 'update requires at least one of title, prompt, rrule, target, or active.',
 }
 
+// Admission resolves a target cwd to an existing Host directory.
+let root: string
+let work: string
+let other: string
+beforeAll(async () => {
+  root = await realpath(await mkdtemp(join(tmpdir(), 'jan-tool-schedule-')))
+  work = await mkdtemp(join(root, 'work-'))
+  other = await mkdtemp(join(root, 'other-'))
+})
+afterAll(async () => { await rm(root, { recursive: true, force: true }) })
+
 const tests: Awaited<ReturnType<typeof harness>>[] = []
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date(NOW)) })
 afterEach(async () => {
@@ -54,10 +68,10 @@ async function setup(options: Parameters<typeof harness>[0] = {}, meta?: Paramet
 }
 type Setup = Awaited<ReturnType<typeof setup>>
 
-/** Set up with a preset roster whose composed preset is `research` and a caller Session in `/work`. */
+/** Set up with a preset roster whose composed preset is `research` and a caller Session in `work`. */
 async function setupWithPreset() {
   const composedPreset = vi.fn((_ctx: Context) => 'research')
-  const test = await setup({ onContext: ctx => ctx.provide('agentPresets', { composedPreset } as never) }, { cwd: '/work' })
+  const test = await setup({ onContext: ctx => ctx.provide('agentPresets', { composedPreset } as never) }, { cwd: work })
   return { ...test, composedPreset }
 }
 
@@ -308,7 +322,7 @@ describe('Schedule model tools', () => {
     const test = await setupWithPreset()
     const task = await createTask(test, { target: 'new_once' })
     expect(task).toMatchObject({
-      target: { kind: 'new_once', sessionId: expect.stringMatching(/^session-/) as string, create: { cwd: '/work', agentPreset: 'research' } },
+      target: { kind: 'new_once', sessionId: expect.stringMatching(/^session-/) as string, create: { cwd: work, agentPreset: 'research' } },
     })
     expect(test.composedPreset).toHaveBeenCalledOnce()
     expect(test.composedPreset.mock.calls[0]?.[0]).toBe(test.agent.ctx)
@@ -319,14 +333,14 @@ describe('Schedule model tools', () => {
     const test = await setupWithPreset()
     const task = await createTask(test, { target: 'new_once' })
     if (task.target.kind !== 'new_once') throw new Error('expected a reserved Session target')
-    const editor = agentFor(test.ctx, 'editor', { cwd: '/other' })
+    const editor = agentFor(test.ctx, 'editor', { cwd: other })
     await mountToolSchedule(test.ctx, editor)
     test.composedPreset.mockReturnValue('editor-preset')
     const renamed = await execute(test, 'schedule_edit', { id: task.id, action: 'update', title: 'Renamed' }, editor)
     expect(renamed.value).toMatchObject({ target: task.target })
     const replaced = await execute(test, 'schedule_edit', { id: task.id, action: 'update', target: 'new_once' }, editor)
     expect(replaced.value).toMatchObject({
-      target: { kind: 'new_once', create: { cwd: '/other', agentPreset: 'editor-preset' } },
+      target: { kind: 'new_once', create: { cwd: other, agentPreset: 'editor-preset' } },
     })
     expect(replaced.value).not.toHaveProperty('target.sessionId', task.target.sessionId)
     expect(test.createSession).not.toHaveBeenCalled()
@@ -335,7 +349,7 @@ describe('Schedule model tools', () => {
   it('targets a new Session per delivery for new, omitting creation values the caller lacks', async () => {
     const test = await setupWithPreset()
     const task = await createTask(test, { target: 'new' })
-    expect(task.target).toEqual({ kind: 'new', create: { cwd: '/work', agentPreset: 'research' } })
+    expect(task.target).toEqual({ kind: 'new', create: { cwd: work, agentPreset: 'research' } })
     const bare = await createTask(await setup(), { target: 'new' })
     expect(bare.target).toEqual({ kind: 'new', create: {} })
   })

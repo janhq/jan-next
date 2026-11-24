@@ -402,7 +402,22 @@ describe('the new-session chip controller', () => {
     expect(writes).toEqual([])
   })
 
-  it('drops the stage when the session already runs it', async () => {
+  it('drops a staged preset when the session already runs it', async () => {
+    const writes: Recorded[] = []
+    const controller = chip(ROSTER, {
+      id: 's1' as SessionId,
+      blank: true,
+      projectionValues: { agentPreset: 'minimal' },
+    }, { writes })
+    await controller.load()
+
+    controller.stage('minimal')
+    await controller.apply()
+
+    expect(writes).toEqual([])
+  })
+
+  it('pins a direct pick on the Host even when the session already runs it', async () => {
     const writes: Recorded[] = []
     const controller = chip(ROSTER, {
       id: 's1' as SessionId,
@@ -413,7 +428,7 @@ describe('the new-session chip controller', () => {
 
     await controller.select('minimal')
 
-    expect(writes).toEqual([])
+    expect(writes).toEqual([{ ns: 'select', ops: 'minimal' }])
   })
 
   it('falls back to the default when the host refuses the switch', async () => {

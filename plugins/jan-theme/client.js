@@ -1226,12 +1226,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.f
 html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :not(pre) > code {
   color: var(--dsw-alias-label-deep-diving); background: color-mix(in oklch, var(--dsw-alias-label-deep-diving) 9%, transparent); font-size: inherit;
 }
-html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] .md-code-block { border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] .md-code-block { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); }
 /* Diff fences: the diff grammar colors lines through these shiki variables, which no other style defines. */
 html[data-jan-theme][data-jt-reading='terminal'] .md-code-block { --shiki-token-inserted: var(--jt-term-add); --shiki-token-deleted: var(--jt-term-del); }
 /* Tool calls and process steps: framed, with the tool name in the tool color. */
 html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] > [data-tool] {
-  border: 1px solid var(--dsw-alias-border-l2); border-left: 2px solid var(--jt-term-tool); border-radius: 6px; padding-inline: 8px;
+  border: 1px solid var(--dsw-alias-border-l2); border-left: 2px solid var(--jt-term-tool); border-radius: var(--dsw-radius-sm); padding-inline: 8px;
 }
 html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] > [data-tool][data-state='error'] { border-left-color: var(--jt-term-del); }
 html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] [data-disclosure-row] [class*='_title_'] { color: var(--jt-term-tool); font-weight: 600; }

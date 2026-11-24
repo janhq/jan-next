@@ -133,7 +133,6 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState()
       const [menuOpen, setMenuOpen] = useState(false)
       const live = useRef()
-      const control = useRef(null)
       useEffect(() => () => { live.current?.end(false) }, [])
       const start = async () => {
         if (locked || live.current) return
@@ -208,7 +207,7 @@ window.__ModuleLoader__.load({
       const active = state !== 'idle'
       const label = active ? t('endTalk') : t('talk')
       const status = state === 'connecting' ? t('connecting') : state === 'speaking' ? t('speaking') : state === 'listening' ? t('listening') : undefined
-      return h('span', { ref: control, className: 'jan-tokamak-voice', 'data-live': active || undefined },
+      return h('span', { className: 'jan-tokamak-voice', 'data-live': active || undefined },
         active
           ? h(Tooltip, { label, side: 'top', portal: true },
             h('button', { type: 'button', className: 'jan-tokamak-action', 'aria-label': label,
@@ -220,9 +219,8 @@ window.__ModuleLoader__.load({
                 onClick: () => setMenuOpen(!menuOpen) }, h(IconChevronDownOutlineRegular, { size: 12 }))),
             items: [{ id: 'talk', label: t('talk') }], onSelect: () => { setMenuOpen(false); void start() } }),
         status && h('span', { className: 'jan-tokamak-status', role: 'status' }, status),
-        error && h(Toast, { text: error, icon: h(IconWarningOutlineRegular),
-          anchor: control.current?.closest('[data-composer-card]'), holdMs: 6000,
-          actions: [{ label: t('dismiss'), onClick: () => setError(undefined) }], onDone: () => setError(undefined) }))
+        error && h(Toast, { text: error, icon: h(IconWarningOutlineRegular), holdMs: 6000,
+          closeLabel: t('dismiss'), onDone: () => setError(undefined) }))
     }
 
     return {

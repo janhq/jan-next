@@ -18,7 +18,7 @@ import { pathToFileURL } from 'node:url'
 import { resolveLinuxNodePtyAddon, resolveWindowsNodePtyAddons } from './executable-native-pty.ts'
 import { officeSidecarArchives, runtimeNpmArchive, OFFICE_ASSET_IGNORES } from './build-exe-for-python-sdk-office.ts'
 import { syncPythonRuntimeProduct } from './build-exe-for-python-sdk-resources.ts'
-import { deduplicateStagedWorkspacePackages, materializeStagedLinks } from './build-exe-for-python-sdk-staging.ts'
+import { deduplicateStagedWorkspacePackages, materializeStagedLinks, pruneDependencyTestDirectories } from './build-exe-for-python-sdk-staging.ts'
 import { prepareOfficeSkillAssets } from './primary-runtime/prepare.ts'
 import primaryLock from './primary-runtime/lock.json' with { type: 'json' }
 
@@ -323,6 +323,7 @@ class SingleExeBuild {
       for await (const file of glob('node_modules/**/{README*.md,CHANGELOG*.md,HISTORY*.md,*.map,*.d.ts,*.d.mts,*.d.cts}', {
         cwd: this.staging, exclude: ['node_modules/**/assets/**'],
       })) await rm(join(this.staging, file), { force: true })
+      await pruneDependencyTestDirectories(this.staging)
     }
   }
 

@@ -724,7 +724,7 @@ describe('ModelSelect keyboard walk', () => {
   it('omits missing credentials from the composer picker but reports discovery failures', () => {
     const directory = createSnapshotStore<ModelDirectoryState>(state({
       failures: [
-        { id: 'tokamak', name: 'Tokamak', message: 'no credential for provider route "tokamak"', code: 'MISSING_CREDENTIAL' },
+        { id: 'relay', name: 'Relay', message: 'no credential for provider route "relay"', code: 'MISSING_CREDENTIAL' },
         { id: 'gateway', name: 'Gateway', message: 'answered 503', code: 'DISCOVERY_FAILED' },
       ],
     }))
@@ -737,7 +737,7 @@ describe('ModelSelect keyboard walk', () => {
       t={t}
     />)
     fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
-    expect(screen.queryByText(/Tokamak/)).toBeNull()
+    expect(screen.queryByText(/Relay/)).toBeNull()
     expect(screen.queryByText(/no credential/)).toBeNull()
     expect(screen.getByText('Gateway 加载失败：answered 503')).toBeTruthy()
   })

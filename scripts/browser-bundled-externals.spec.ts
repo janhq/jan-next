@@ -82,6 +82,26 @@ describe('browser dependency discovery', () => {
     expect(existsSync(join(root, 'packages/client/dynamic/lib'))).toBe(false)
   })
 
+  it('treats a workspace alias as workspace only in the package that declares it', async () => {
+    const root = fixture()
+    library(root, 'shared-ui')
+    write(root, 'packages/client/dynamic/package.json', JSON.stringify({
+      name: '@fixture/dynamic', jan: { client: { platform: 'web' } },
+      dependencies: { 'shared-ui': 'workspace:@fixture/static@*' },
+    }))
+    write(root, 'packages/client/dynamic/tsdown.config.ts',
+      'export default { name: "@fixture/dynamic/client", entry: { client: "src/client/index.ts" } }')
+    write(root, 'packages/client/dynamic/src/client/index.ts', 'export { value } from "shared-ui/missing-in-npm"')
+    write(root, 'packages/client/other/package.json', JSON.stringify({
+      name: '@fixture/other', jan: { client: { platform: 'web' } },
+    }))
+    write(root, 'packages/client/other/tsdown.config.ts',
+      'export default { name: "@fixture/other/client", entry: { client: "src/client/index.ts" } }')
+    write(root, 'packages/client/other/src/client/index.ts', 'export { value } from "shared-ui"')
+
+    expect(await browserBundledExternals(root)).toEqual(new Set(['shared-ui']))
+  })
+
   it('rejects an unresolved runtime library', async () => {
     const root = fixture()
     dynamicPlugin(root, 'export { value } from "missing-browser-lib"')
@@ -115,7 +135,11 @@ describe('browser dependency discovery', () => {
       'export const lazy = () => import("lazy-lib")',
     ].join('\n'))
     const app = join(root, 'apps/web')
-    write(root, 'apps/web/package.json', '{"name":"@fixture/web","type":"module","exports":{"./dist/*":"./dist/*"}}')
+    // The app's alias must not hide the npm package of the same name that a followed workspace module imports.
+    write(root, 'apps/web/package.json', JSON.stringify({
+      name: '@fixture/web', type: 'module', exports: { './dist/*': './dist/*' },
+      dependencies: { 'shell-lib': 'workspace:@fixture/static@*' },
+    }))
     const owner = bundler === 'Rollup' ? resolve(repositoryRoot, 'apps/web/package.json')
       : createRequire(resolve(repositoryRoot, 'package.json')).resolve('vitest/package.json')
     const viteDirectory = dirname(createRequire(owner).resolve('vite/package.json'))
