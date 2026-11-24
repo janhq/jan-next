@@ -86,6 +86,33 @@ export interface ActionSpec {
 /** The UI behavior of a contribution or decoration. */
 export type CommandUiSpec = PopupSelectSpec | ActionSpec
 
+/** A selectable inline argument; `value` is inserted verbatim into the command line. */
+export interface CommandArgumentOption {
+  readonly value: string
+  readonly label: string
+  readonly description?: string
+  /** Optional localized heading for related options. */
+  readonly group?: string
+}
+
+/** A client command's optional inline arguments, independent of its bare invocation. */
+export interface CommandArguments {
+  /**
+   * List candidates from the session's current catalog. The menu further ranks matches by value and label.
+   * @param query - trimmed argument text; empty immediately after the command separator.
+   * @param session - session owning the draft.
+   * @param signal - canceled when the query changes or the menu closes.
+   * @returns candidate options.
+   */
+  complete(this: void, query: string, session: ClientSessionContext, signal: AbortSignal): Promise<readonly CommandArgumentOption[]>
+  /**
+   * Execute an argument, whether typed or picked. Reject to report a failure and retain the draft.
+   * @param argument - trimmed, nonempty argument text.
+   * @param session - session owning the draft.
+   */
+  run(argument: string, session: ClientSessionContext): void | Promise<void>
+}
+
 /**
  * One client-owned command contribution: a slash-menu entry whose behavior
  * lives entirely on the client (no host descriptor). Merged with the host
@@ -106,6 +133,8 @@ export interface CommandContribution {
   available(session: ClientSessionContext): boolean
   /** The command's UI behavior. */
   readonly ui: CommandUiSpec
+  /** When absent, only a bare invocation is handled by this contribution. */
+  readonly arguments?: CommandArguments
 }
 
 /**
@@ -124,6 +153,8 @@ export interface CommandDecoration {
   available(session: ClientSessionContext): boolean
   /** The bare-invocation UI. */
   readonly ui: CommandUiSpec
+  /** Suggest arguments for this Host command without replacing its argument handler. */
+  readonly completeArguments?: CommandArguments['complete']
 }
 
 /** The `ctx.commandUi` service face visible to business packages. */

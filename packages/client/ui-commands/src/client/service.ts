@@ -117,6 +117,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
       name: 'command',
       candidates: (session, req) => this.candidates(session, req),
       onPick: pick => this.dispatch(pick),
+      matchesArguments: (session, name) => this.completerOf(session, name) !== undefined,
       matchSpace: (session, token) => this.matchSpace(session, token),
       matchClaim: (session, token, signal) => this.matchClaim(session, token, signal),
       matchEnter: (session, line, signal, envelope) => this.matchEnter(session, line, signal, envelope),
@@ -222,6 +223,23 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    * shared name-and-label ranking for a typed one.
    */
   private async candidates(session: ClientSessionContext, req: CandidateRequest): Promise<readonly InputTriggerCandidate[]> {
+    const separator = req.query.search(/[ \t]/u)
+    if (separator !== -1) {
+      if (req.position !== 'leading') return []
+      const name = req.query.slice(0, separator)
+      const complete = this.completerOf(session, name)
+      if (complete === undefined) return []
+      const query = req.query.slice(separator + 1).trim()
+      const options = await complete(query, session, req.signal)
+      return rankByName(options.map(option => ({
+        name: option.value,
+        label: option.label,
+        ...(option.description === undefined ? {} : { description: option.description }),
+        ...(option.group === undefined ? {} : { section: option.group }),
+        value: `/${name} ${option.value}`,
+        complete: true as const,
+      })), query)
+    }
     const list = await this.directory.ensureReady(session.sessionId, req.signal)
     const rows: InputTriggerCandidate[] = []
     const seen = new Set<string>()
@@ -249,8 +267,21 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     return req.query === '' ? sectionRows(visible, this.t) : rankByName(visible, req.query)
   }
 
+  private completerOf(session: ClientSessionContext, name: string) {
+    const contribution = this.live.contributions.get(name)
+    if (contribution?.available(session) === true) return contribution.arguments?.complete
+    const descriptor = this.directory.resolve(session.sessionId, name)
+    if (descriptor?.input === undefined) return undefined
+    const decoration = this.live.decorations.get(descriptor.name)
+    if (decoration?.available(session) === true) return decoration.completeArguments
+    return undefined
+  }
+
   /** Decision table, menu column: contribution/decorated-host → popup or action; host input → claim; host bare → detached execute. */
   private dispatch(pick: InputTriggerPick): PickOutcome {
+    if (pick.candidate.complete === true && pick.candidate.value !== undefined) {
+      return { text: pick.candidate.value, ...(pick.completeOnly === true ? {} : { submit: true }) }
+    }
     const name = pick.candidate.name
     const contribution = this.live.contributions.get(name)
     if (contribution !== undefined && contribution.available(pick.session)) {
@@ -277,6 +308,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
 
   /** Decision table, space column: hot-key sync check; only host leadingInput claims. */
   private matchSpace(session: ClientSessionContext, token: string): PickOutcome {
+    if (token.startsWith('/') && this.completerOf(session, token.slice(1)) !== undefined) return undefined
     const claim = this.claimOf(session, token)
     return claim === undefined ? undefined : { claim }
   }
@@ -334,7 +366,19 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     }
     const contribution = this.live.contributions.get(typedName)
     if (contribution !== undefined && contribution.available(session)) {
-      if (!bare) return undefined
+      if (!bare) {
+        const args = contribution.arguments
+        if (args === undefined) return undefined
+        if (envelope.attachments > 0) refuseAttachments()
+        return { claim: {
+          name: typedName,
+          token: `${token} `,
+          submit: async (argument) => {
+            await args.run(argument.trim(), session)
+            return { kind: 'success' }
+          },
+        } }
+      }
       if (envelope.attachments > 0 && contribution.ui.kind !== 'action') refuseAttachments()
       this.invoke(typedName, contribution.ui, session, { via: 'enter', token })
       return 'handled'

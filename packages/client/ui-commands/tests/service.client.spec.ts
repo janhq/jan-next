@@ -17,6 +17,7 @@ import { RemoteError, TestRemote, TestSessions } from '@janhq/jan-client-test-ru
 import type { SessionFixture } from '@janhq/jan-client-test-runtime'
 import { IconGoalOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type { ClientSessionContext, ConsumeTokenRequest, InputTriggerPick, InputTriggerSource, SubmitAttachment } from '@janhq/jan-client-ui-input-trigger/client'
+import { InputTriggerController } from '@janhq/jan-client-ui-input-trigger/client'
 import type { CommandContribution, CommandDecoration, PopupSelectSpec, SelectOption } from '../src/client/contract.ts'
 import type { CommandDescriptor } from '../src/client/directory.ts'
 import { CommandUiRuntime } from '../src/client/service.ts'
@@ -196,6 +197,57 @@ const themeContribution = (over: Partial<CommandContribution> = {}): CommandCont
 
 const req = (query: string, position: 'leading' | 'inline' = 'leading') =>
   ({ query, position, drilled: false, signal: new AbortController().signal })
+
+describe('inline command arguments', () => {
+  it('filters by value or display name, and separates Tab completion from Enter execution', async () => {
+    const { command, source, mint } = await bench()
+    const run = vi.fn(async () => {})
+    command.register(themeContribution({ name: 'model', arguments: {
+      complete: async () => [
+        { value: 'anthropic/claude-haiku-5-5[1m]', label: 'Claude Haiku', group: 'Tokamak' },
+        { value: 'quick', label: 'Haiku Fast', group: 'Local' },
+        { value: 'sonnet', label: 'Claude Sonnet', group: 'Tokamak' },
+      ],
+      run,
+    } }))
+    const actx = mint('s1').ctx
+    const controller = new InputTriggerController({ actx, sessionId: sid('s1'), roster: {
+      sources: () => [source], all: () => [source],
+    } })
+    onTestFinished(() => { controller.dispose() })
+    let draft = '/model hai'
+    const insert = vi.fn((request: { text: string; submit?: boolean }) => { draft = request.text; return true as const })
+    actx.on('slash/input-insert-text', insert)
+    controller.track(draft, draft.length, { tier: 'plain' }, 1)
+    await vi.waitFor(() => {
+      expect(controller.menu.getSnapshot().groups[0]?.items.map(item => [item.name, item.section])).toEqual([
+        ['quick', 'Local'], ['anthropic/claude-haiku-5-5[1m]', 'Tokamak'],
+      ])
+    })
+    controller.arbitrate('down', false)
+    expect(controller.arbitrate('tab', false)).toBe('pick-highlighted')
+    expect(insert).toHaveBeenLastCalledWith(expect.objectContaining({ text: '/model anthropic/claude-haiku-5-5[1m]' }))
+    expect(insert.mock.lastCall?.[0].submit).toBeUndefined()
+    expect(run).not.toHaveBeenCalled()
+
+    const signal = new AbortController().signal
+    const result = await controller.adjudicate(draft, signal, { attachments: 0 })
+    if (typeof result !== 'object' || !('claim' in result)) throw new Error('Expected an argued command')
+    await expect(result.claim.submit(draft.slice('/model '.length), actx, [])).resolves.toEqual({ kind: 'success' })
+    expect(run).toHaveBeenCalledExactlyOnceWith('anthropic/claude-haiku-5-5[1m]', proj('s1'))
+    expect(command.popupFor(actx).state.getSnapshot().command).toBeNull()
+  })
+
+  it('keeps a bare command opening its popup without running an argument', async () => {
+    const { command, source, mint } = await bench()
+    const run = vi.fn(async () => {})
+    command.register(themeContribution({ arguments: { complete: async () => [], run } }))
+    await expect(source.matchEnter?.(proj('s1'), '/theme', new AbortController().signal, { attachments: 0 }))
+      .resolves.toBe('handled')
+    expect(command.popupFor(mint('s1').ctx).state.getSnapshot().command).toBe('theme')
+    expect(run).not.toHaveBeenCalled()
+  })
+})
 
 describe('registration', () => {
   it('reports missing initialization dependencies', () => {
