@@ -63,6 +63,7 @@
     "@janhq/jan-client-ui-tool": "workspace:*",
     "@janhq/jan-plugin-manager": "workspace:*",
     "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-skill": "workspace:*",
     "@testing-library/react": "^16.3.3",
     "@janhq/cordis": "workspace:~",
     "react": "^18.2.0",
