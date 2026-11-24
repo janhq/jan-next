@@ -1,1 +1,3 @@
-- alert: "新建会话失败：agent-preset/invalid: ghost (@janhq/jan-no-such-plugin): never started"
+- alert:
+  - text: "新建会话失败：agent-preset/invalid: ghost (@janhq/jan-no-such-plugin): never started"
+  - button "关闭"

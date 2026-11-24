@@ -9,7 +9,6 @@
 - button "Copy"
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
-- button "Analysis completed"
 - button "Inject context runtime-context"
 - button "Inject context time-context"
 - button "Tools updated 39 added"

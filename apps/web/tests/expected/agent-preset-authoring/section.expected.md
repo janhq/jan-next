@@ -8,7 +8,6 @@
     - button "Agent presets"
   - button "Open configuration file"
   - button "Close"
-  - heading "Agent presets" [level=2]
   - paragraph: Choose the agent’s tools and how it works. Use Standard mode for everyday tasks, or Creator mode to add capabilities to Jan.
   - heading "Built-in" [level=3]
   - list:
@@ -45,4 +44,23 @@
       - 'button "How to use: Creator mode"': How to use
       - 'button "View configuration: Creator mode"': View configuration
   - heading "Custom" [level=3]
+  - list:
+    - listitem:
+      - 'button "Set as new task default: reviewer"':
+        - text: reviewer Custom
+        - code: reviewer
+        - text: Read-only diff review and tests that do not write files.
+      - 'button "View configuration: reviewer"': View configuration
+    - listitem:
+      - 'button "Set as new task default: scout"':
+        - text: scout Custom
+        - code: scout
+        - text: Read-only repository discovery; fast, inexpensive model.
+      - 'button "View configuration: scout"': View configuration
+    - listitem:
+      - 'button "Set as new task default: worker"':
+        - text: worker Custom
+        - code: worker
+        - text: Implement changes with read, shell, and full file editing tools.
+      - 'button "View configuration: worker"': View configuration
   - button "Let the agent help me create a preset"

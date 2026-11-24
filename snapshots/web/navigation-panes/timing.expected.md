@@ -9,4 +9,4 @@
   - term: Generation
   - definition: {{duration}}
   - term: Throughput
-  - definition: {{throughput}} tok/s
+  - definition: Duration too short

@@ -17,6 +17,15 @@ import { installAssembledBootEnv, mountAssembledApp } from './assembled-boot.ts'
 
 installAssembledBootEnv()
 
+async function expandFixtureProject(tree: HTMLElement): Promise<void> {
+  const fixtureGroup = (await within(tree).findAllByText('fixture'))
+    .map(el => el.closest<HTMLElement>('[role="treeitem"]'))
+    .find(el => el?.getAttribute('aria-expanded') !== null)
+  if (fixtureGroup === undefined || fixtureGroup === null) throw new Error('fixture Workspace group missing')
+  fireEvent.click(fixtureGroup)
+  await waitFor(() => { expect(fixtureGroup.getAttribute('aria-expanded')).toBe('true') })
+}
+
 it('boots the built plugin graph and renders a fixture session end to end', async () => {
   mountAssembledApp()
 
@@ -26,12 +35,8 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
   // tokamak-harness: every profile names the product and its stage instead of the build-number label.
   expect(document.querySelector('[data-brand-name="jan"]')?.textContent).toBe('JanNext')
   expect(document.querySelector('[data-copy-version]')).toBeNull()
-  // The compact layout dropped group session counts; the fixture workspace
-  // group row renders immediately with its sessions beneath it.
-  const fixtureGroup = (await within(tree).findAllByText('fixture'))
-    .map(el => el.closest<HTMLElement>('[role="treeitem"]'))
-    .find(el => el?.getAttribute('aria-expanded') !== null)
-  if (fixtureGroup === undefined) throw new Error('fixture Workspace group missing')
+  // Projects start collapsed; expanding the fixture group reveals its sessions.
+  await expandFixtureProject(tree)
 
   // The resident fixture has both a question and an approval; composer routing
   // exposes the question first, and the assembled workspace plugin mirrors that
@@ -131,6 +136,7 @@ it('boots without ui-chat and does not select another conversation view implicit
   const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
   const boot = Reflect.get(window, '__JAN_BOOT__') as { entries: Array<{ id: string }> } | undefined
   expect(boot?.entries.some(entry => entry.id === '@janhq/jan-client-ui-chat')).toBe(false)
+  await expandFixtureProject(tree)
   const sessionTitle = await within(tree).findByText('Fixture 历史会话')
   fireEvent.click(sessionTitle)
   await waitFor(() => {

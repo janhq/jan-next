@@ -8,16 +8,52 @@
     - button "Agent 预设"
   - button "打开配置文件"
   - button "关闭"
-  - heading "模型" [level=2]
   - paragraph: 填入各提供商的 API 密钥即可使用其模型。
   - list:
     - listitem:
-      - text: DeepSeek deepseek-official API 密钥
-      - button "认证说明": "?"
-      - textbox "API 密钥":
-        - /placeholder: 留空使用环境认证（DEEPSEEK_API_KEY）
-      - paragraph: 未检测到环境变量。请填写 API 密钥，或设置环境变量 DEEPSEEK_API_KEY。
-      - group: 自定义设置
-      - button "取消"
-      - button "保存"
+      - text: Tokamak 自定义
+      - img "API 密钥缺失"
+      - button "编辑 Tokamak (tokamak)": 编辑
+    - listitem:
+      - text: Local (llama.cpp) 自定义
+      - img "API 密钥缺失"
+      - button "编辑 Local (llama.cpp) (local)": 编辑
   - button "添加模型提供商"
+  - region "本地模型":
+    - heading "本地模型" [level=3]
+    - paragraph: 使用 llama.cpp 在本机运行。可离线使用，数据不会离开你的电脑。
+    - text: 出现问题
+    - alert:
+      - paragraph: "No local model worker is configured; set workerPath on the llama-cpp plugin (the desktop app and `pnpm run dev:web` set it from JAN_LLAMA_WORKER)"
+    - button "重试"
+    - button "移除"
+    - region "Add a model":
+      - heading "Add a model" [level=4]
+      - textbox "Search the recommended models, or paste a Hugging Face repository":
+        - /placeholder: Search, or paste e.g. unsloth/Qwen3-8B-GGUF
+      - list:
+        - listitem:
+          - text: Jan v3.5 4B Recommended 2.7 GB · janhq/Jan-v3.5-4B-gguf
+          - button "Download"
+        - listitem:
+          - text: Qwen3 4B Instruct 2507 2.5 GB · unsloth/Qwen3-4B-Instruct-2507-GGUF
+          - button "Download"
+        - listitem:
+          - text: Llama 3.2 3B Instruct 2.0 GB · bartowski/Llama-3.2-3B-Instruct-GGUF
+          - button "Download"
+        - listitem:
+          - text: Qwen3 8B 5.0 GB · unsloth/Qwen3-8B-GGUF
+          - button "Download"
+        - listitem:
+          - text: Qwen3 0.6B 429 MB · ggml-org/Qwen3-0.6B-GGUF
+          - button "Download"
+        - listitem:
+          - text: Qwen3 VL 2B Instruct Vision 1.9 GB · unsloth/Qwen3-VL-2B-Instruct-GGUF
+          - button "Download"
+    - region "Import a .gguf file":
+      - heading "Import a .gguf file" [level=4]
+      - textbox "Full path of a .gguf file on this computer":
+        - /placeholder: /home/you/models/model.gguf
+      - 'textbox "Vision projector (optional): full path of the model''s mmproj .gguf file"':
+        - /placeholder: Vision projector (optional), e.g. /home/you/models/mmproj.gguf
+      - button "Import" [disabled]

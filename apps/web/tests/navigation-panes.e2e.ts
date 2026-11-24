@@ -365,10 +365,10 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     const details = page.getByRole('complementary', { name: 'Event details' })
     await details.getByRole('tab', { name: 'Timing', exact: true }).click()
     const panel = details.getByRole('tabpanel', { name: 'Timing' })
-    for (const metric of ['TTFT', 'Generation', 'Throughput']) {
-      const value = panel.getByText(metric, { exact: true }).locator('..').locator('dd')
-      await expect.poll(() => value.textContent()).toMatch(/^\d/)
-    }
+    const value = (metric: string) => panel.getByText(metric, { exact: true }).locator('..').locator('dd')
+    for (const metric of ['TTFT', 'Generation']) await expect.poll(() => value(metric).textContent()).toMatch(/^\d/)
+    // The recorded decode span is under the one-second floor for a throughput reading.
+    expect(await value('Throughput').textContent()).toBe('Duration too short')
     expect(await panel.getByText('First token unavailable', { exact: true }).count()).toBe(0)
     const snapshot = await captureStableAria(page, '#trajectory-detail-panel', scaffold.workspaceCwd)
     await compareOrRefreshGolden(TIMING_EXPECTED, snapshot, MODE)
@@ -379,9 +379,9 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     await ensureSeedOpen(page)
     const exportButton = page.getByRole('button', { name: 'More actions' })
     expect(await exportButton.isDisabled()).toBe(false)
-    const header = exportButton.locator('xpath=ancestor::header[1]')
-    // The right Sidebar's expand button holds the header's corner; the export
-    // control sits immediately to its left.
+    const header = exportButton.locator('xpath=ancestor::*[@data-dockkit-strip][1]')
+    // The right Sidebar's expand button holds the chat tab strip's corner; the
+    // export control sits immediately to its left.
     const sidebarButton = page.getByRole('button', { name: 'Open right sidebar' })
     const [buttonBox, sidebarBox, headerBox] = await Promise.all([
       exportButton.boundingBox(), sidebarButton.boundingBox(), header.boundingBox(),

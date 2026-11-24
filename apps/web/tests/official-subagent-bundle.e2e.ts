@@ -171,6 +171,8 @@ describe.skipIf(MODE === 'record')('web snapshot: Official native subagent bundl
     if (cwd === undefined) throw new Error('Native delegation Session has no working directory')
     await assertFinalWorkspaceSnapshot(DIR, cwd)
     await expect.poll(() => page.getByText('DONE', { exact: true }).count()).toBeGreaterThanOrEqual(1)
+    // The turn's subagent summary can render after the final reply.
+    await page.getByRole('button', { name: '1 subagent ·1 external', exact: true }).waitFor()
     await compareOrRefreshGolden(join(DIR, 'ui.expected.md'),
       await captureExpandedTurnProcessAria(page, '[data-chat-flow]', scaffold.workspaceCwd), MODE)
     expect(tripwire.pageErrors).toEqual([])

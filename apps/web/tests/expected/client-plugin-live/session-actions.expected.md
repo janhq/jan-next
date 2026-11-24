@@ -2,6 +2,7 @@
   - menuitem "Pin session"
   - menuitem "Rename"
   - menuitem "Fork session"
+  - menuitem "Open in new tab"
   - separator
   - menuitem "Copy Session ID"
   - separator

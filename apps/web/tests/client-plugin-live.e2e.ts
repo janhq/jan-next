@@ -1,6 +1,6 @@
 /** Real profile, Remote, bundle scripts and Cordis slots: page-local client lifecycle without navigation. */
 import { fileURLToPath } from 'node:url'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { cp, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { chromium, type Page } from 'playwright'
@@ -9,7 +9,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, launchWebScaffold,
   seedSession, watchConsole, webSnapshotMode,
 } from './scaffold.ts'
-import { openSettings, newEnglishPage, saveFailureShot } from './support.ts'
+import { expandProject, openSettings, newEnglishPage, saveFailureShot } from './support.ts'
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/plugins/fixture-live-client', import.meta.url))
 const EXPECTED = fileURLToPath(new URL('./expected/client-plugin-live', import.meta.url))
@@ -40,6 +40,7 @@ it('keeps ordered legacy Session menu rows before Archive and removes them with 
     const console = watchConsole(page)
     onTestFailed(() => saveFailureShot(page, 'web-e2e-session-menu-actions'))
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+    await expandProject(page, basename(scaffold.workspaceCwd))
     const row = page.getByRole('treeitem').filter({ has: page.getByText(SESSION_TITLE, { exact: true }) })
     await row.waitFor({ timeout: 20_000 })
     const trigger = row.getByRole('button', { name: `Session actions for ${SESSION_TITLE}` })
@@ -85,8 +86,8 @@ it('keeps ordered legacy Session menu rows before Archive and removes them with 
     expect(await row.evaluate(element => element === document.activeElement)).toBe(true)
     await observe('clicked-current-row', true, false)
     expect(await row.locator('[data-slot="sidebar.session.row.leading"]').evaluate(element => element.tagName)).toBe('SPAN')
-    await page.keyboard.press('Shift+Tab')
     await page.keyboard.press('Tab')
+    await page.keyboard.press('Shift+Tab')
     expect(await row.evaluate(element => element === document.activeElement)).toBe(true)
     await observe('focus', false, true)
     await page.keyboard.press('Tab')
@@ -137,6 +138,7 @@ it('keeps ordered legacy Session menu rows before Archive and removes them with 
       const touchConsole = watchConsole(touchPage)
       await touchPage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
       await touchPage.locator('[data-shell-leading]').getByRole('button', { name: 'Open sidebar', exact: true }).click()
+      await expandProject(touchPage, basename(scaffold.workspaceCwd))
       const touchRow = touchPage.getByRole('treeitem').filter({ has: touchPage.getByText(SESSION_TITLE, { exact: true }) })
       const touchTrigger = touchRow.getByRole('button', { name: `Session actions for ${SESSION_TITLE}` })
       await touchTrigger.waitFor()
@@ -196,7 +198,9 @@ it('keeps ordered legacy Session menu rows before Archive and removes them with 
     await row.hover()
     await trigger.click()
     await menu.waitFor()
-    const remainingNames = ['Pin session', 'Rename', 'Fork session', 'Copy Session ID', 'Archive session']
+    const remainingNames = [
+      'Pin session', 'Rename', 'Fork session', 'Open in new tab', 'Open beside', 'Copy Session ID', 'Archive session',
+    ]
     const remainingItems = menu.getByRole('menuitem')
     expect(await remainingItems.count()).toBe(remainingNames.length)
     for (const [index, name] of remainingNames.entries()) {

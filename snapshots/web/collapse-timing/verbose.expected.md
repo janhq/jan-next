@@ -2,7 +2,6 @@
 - button "Copy"
 - status: Completed
 - button "Completed in {{duration}}" [disabled] [expanded]
-- button "Read files"
 - button "Think The user wants me to read a.txt and b.txt, then reply with \"DONE\". Let me do both reads in parallel."
 - button "Read a.txt":
   - text: Read
@@ -18,7 +17,6 @@
 - button "Copy"
 - status: Completed
 - button "Completed in {{duration}}" [disabled] [expanded]
-- button "Analysis completed"
 - button "Inject context runtime-context"
 - button "Inject context time-context"
 - button "Tools updated 39 added"

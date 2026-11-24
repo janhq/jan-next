@@ -218,7 +218,7 @@ it.each([
     methods: '选择创建方式', manual: '手动创建', title: '自动化任务名称', discard: '放弃',
     instruction: '自动化任务内容', create: '创建',
     repeat: /^重复 /, frequencies: ['每月', '每周', '仅一次'] },
-  { locale: 'fr-FR', tasks: "Tâches d'automatisation", sidebar: 'Réduire la barre latérale', openSidebar: 'Ouvrir la barre latérale', close: 'Fermer les détails',
+  { locale: 'fr-FR', tasks: 'Planifiées', sidebar: 'Réduire la barre latérale', openSidebar: 'Ouvrir la barre latérale', close: 'Fermer les détails',
     methods: 'Choisir le mode de création', manual: 'Créer manuellement', title: "Nom de la tâche d'automatisation", discard: 'Abandonner',
     instruction: "Instruction de tâche d'automatisation", create: 'Créer',
     repeat: /^Répéter /, frequencies: ['Tous les mois', 'Hebdomadaire', 'Une fois'] },
@@ -273,6 +273,8 @@ it.each([
           await expectEditorAlignment(title)
           await expect.poll(() => editor.locator('[class*="_detailScroll"]').evaluate(node => node.scrollWidth - node.clientWidth)).toBe(0)
           expect(await editor.locator('input, textarea, button').evaluateAll(nodes => nodes.every((node) => {
+            // A narrow pane leaves Run now to the More menu; an unrendered control has no box to place.
+            if (!node.checkVisibility()) return true
             const box = node.getBoundingClientRect()
             const pane = node.closest('aside')!.getBoundingClientRect()
             return box.left >= pane.left && box.right <= pane.right

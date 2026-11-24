@@ -36,16 +36,48 @@ const authenticatedCookies = new Map<string, Promise<{ origin: string; cookie: s
 
 /** Frame a complete text turn or an open block before a transport failure. */
 function messagesResponse(text: string, complete = true): string {
-  const events: object[] = [
+  const events: Array<{ type: string } & Record<string, unknown>> = [
     { type: 'message_start', message: { id: 'web-smoke-response', model: 'mock-model', usage: { input_tokens: 3, output_tokens: 0 } } },
-    { type: 'content_block_start', index: 0, content_block: { type: 'text', text } },
+    { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+    { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } },
   ]
   if (complete) events.push(
     { type: 'content_block_stop', index: 0 },
     { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 1 } },
     { type: 'message_stop' },
   )
-  return events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('')
+  return events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('')
+}
+
+/**
+ * Route the default model to a mock Anthropic Messages server; the shipped
+ * `tokamak` route always targets the public Tokamak API.
+ * @param dir - directory the patch file is written into.
+ * @param route - provider route id registered for the mock.
+ * @param port - mock server port on 127.0.0.1.
+ * @returns the patch path for `jan web --patch`.
+ */
+function writeMockModelPatch(dir: string, route: string, port: number): string {
+  const modelPatch = join(dir, `${route}-model.patch.yml`)
+  writeFileSync(modelPatch, JSON.stringify([
+    { id: 'agent-default-model', config: { provider: route, model: 'mock-model' } },
+    { id: 'llm-pi-ai', config: { providers: {
+      [route]: {
+        api: 'anthropic-messages', baseURL: `http://127.0.0.1:${String(port)}/v1`,
+        apiKeyEnv: 'TOKAMAK_API_KEY', models: [{ id: 'mock-model', contextWindow: 32_768, maxTokens: 4096 }],
+      },
+    } } },
+  ]))
+  return modelPatch
+}
+
+/**
+ * Join an Anthropic Messages request's system prompt into one string.
+ * @param system - the request's `system` field.
+ * @returns the prompt text, or undefined when the request carries none.
+ */
+function requestSystemText(system: string | { text?: string }[] | undefined): string | undefined {
+  return Array.isArray(system) ? system.map(block => block.text).join('\n') : system
 }
 
 /** Exchange a printed process token once for Node-side HTTP/WebSocket probes. */
@@ -436,16 +468,7 @@ describe('jan web keyless CLI smoke', () => {
     await new Promise<void>(resolve => provider.listen(0, '127.0.0.1', resolve))
     const address = provider.address()
     if (address === null || typeof address === 'string') throw new Error('mock provider did not bind a TCP port')
-    const modelPatch = join(workspace, 'workspace-model.patch.yml')
-    writeFileSync(modelPatch, JSON.stringify([
-      { id: 'agent-default-model', config: { provider: 'workspace-smoke', model: 'mock-model' } },
-      { id: 'llm-pi-ai', config: { providers: {
-        'workspace-smoke': {
-          api: 'anthropic-messages', baseURL: `http://127.0.0.1:${address.port}/v1`,
-          apiKeyEnv: 'TOKAMAK_API_KEY', models: [{ id: 'mock-model', contextWindow: 32_768, maxTokens: 4096 }],
-        },
-      } } },
-    ]))
+    const modelPatch = writeMockModelPatch(workspace, 'workspace-smoke', address.port)
     const tsxLoader = pathToFileURL(createRequire(join(REPO_ROOT, 'package.json')).resolve('tsx')).href
     const child = spawn(
       process.execPath,
@@ -485,7 +508,7 @@ describe('jan web keyless CLI smoke', () => {
         .flatMap(({ content }) => typeof content === 'string' ? [{ type: 'text', text: content }] : content ?? []) ?? []
       const workspaceMessage = userBlocks.find(block => block.type === 'text' && block.text?.includes('web-workspace-context-probe'))
       const expectedWebSection = readFileSync(WEB_SURFACE_PROMPT, 'utf8').trimEnd()
-      const systemText = Array.isArray(captured.system) ? captured.system.map(block => block.text).join('\n') : captured.system
+      const systemText = requestSystemText(captured.system)
       expect(systemText).toContain(expectedWebSection)
       expect(systemText).not.toContain(new URL(baseUrl).origin)
       expect(userBlocks.map(block => block.text).join('\n')).toContain(`Current Jan Web GUI URL: ${JSON.stringify(new URL(baseUrl).origin)}.`)
@@ -558,13 +581,13 @@ describe('jan web keyless CLI smoke', () => {
     const tsxLoader = pathToFileURL(createRequire(join(REPO_ROOT, 'package.json')).resolve('tsx')).href
     const child = spawn(
       process.execPath,
-      ['--import', tsxLoader, join(REPO_ROOT, 'apps/cli/src/bin.ts'), 'web', '--no-open', '--port', '0'],
+      ['--import', tsxLoader, join(REPO_ROOT, 'apps/cli/src/bin.ts'), 'web',
+        '--patch', writeMockModelPatch(workspace, 'retry-smoke', address.port), '--no-open', '--port', '0'],
       {
         cwd: workspace,
         env: {
           ...process.env,
           TOKAMAK_API_KEY: 'keyless-web-retry',
-          TOKAMAK_BASE_URL: `http://127.0.0.1:${address.port}`,
           JAN_HOME: join(workspace, '.jan'),
           TSX_TSCONFIG_PATH: join(REPO_ROOT, 'tsconfig.json'),
         },
@@ -615,7 +638,7 @@ describe('jan web keyless CLI smoke', () => {
     const promptMarker = `WEB_EXECUTOR_${mode}_${randomUUID()}`
 
     interface PtcModeProviderRequest {
-      system?: string
+      system?: string | { text?: string }[]
       messages?: { role?: string; content?: { type?: string; text?: string }[] }[]
       tools?: { name?: string }[]
     }
@@ -644,6 +667,7 @@ describe('jan web keyless CLI smoke', () => {
     const child = spawn(
       process.execPath,
       ['--import', tsxLoader, join(REPO_ROOT, 'apps/cli/src/bin.ts'), 'web',
+        '--patch', writeMockModelPatch(workspace, 'executor-smoke', address.port),
         ...mode === 'ptc' ? ['--patch', join(REPO_ROOT, 'apps/cli/config/examples/ptc.yml')] : [],
         '--no-open', '--port', '0',
       ],
@@ -652,7 +676,6 @@ describe('jan web keyless CLI smoke', () => {
         env: {
           ...process.env,
           TOKAMAK_API_KEY: 'keyless-web-ptc',
-          TOKAMAK_BASE_URL: `http://127.0.0.1:${address.port}`,
           JAN_TOOLS_MODE: mode === 'native' ? 'ptc' : 'native',
           JAN_HOME: join(workspace, '.jan'),
           JAN_AGENTS_HOME: join(workspace, '.agents'),
@@ -686,12 +709,12 @@ describe('jan web keyless CLI smoke', () => {
       ])
       if (mode === 'ptc') {
         expect(captured.tools?.map(tool => tool.name)).toEqual(['run_code'])
-        expect(captured.system).toContain('## Writing code for run_code')
-        expect(captured.system).toContain('declare const tools')
+        expect(requestSystemText(captured.system)).toContain('## Writing code for run_code')
+        expect(requestSystemText(captured.system)).toContain('declare const tools')
       } else {
         expect(captured.tools?.map(tool => tool.name)).not.toContain('run_code')
         expect(captured.tools?.length).toBeGreaterThan(0)
-        expect(captured.system).not.toContain('## Writing code for run_code')
+        expect(requestSystemText(captured.system)).not.toContain('## Writing code for run_code')
       }
     } finally {
       const closed = child.exitCode === null

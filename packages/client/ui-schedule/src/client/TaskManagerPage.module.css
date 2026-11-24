@@ -592,6 +592,7 @@
 .detail {
   --detail-gutter: 24px;
   position: relative;
+  container-type: inline-size;
   display: flex;
   flex: 0 0 var(--task-detail-width, 47%);
   flex-direction: column;
@@ -750,6 +751,13 @@
   flex: none;
   align-items: center;
   margin-right: -8px;
+}
+
+/* A narrow pane keeps its view tabs; Run now stays in the More menu. */
+@container (max-width: 400px) {
+  .detailRunAction {
+    display: none;
+  }
 }
 
 /* The strip's icon controls are the 28px square targets other header icon

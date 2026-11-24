@@ -1474,6 +1474,8 @@ export async function seedSession(
       }
     }
     nextTime = time + 1
+    // The recorded child creation time belongs to the recording's clock; the seed timeline creates the child here.
+    if (event.type === 'subagent/catalog') return { ...event, time, data: { ...event.data, childCreatedAt: time } }
     return { ...event, time }
   })
   await persistSeedSession(scaffold, meta, materializedEvents)

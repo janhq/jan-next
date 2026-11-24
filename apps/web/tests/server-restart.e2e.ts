@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { expect, it, onTestFailed, onTestFinished } from 'vitest'
-import { REPO_ROOT, newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
+import { REPO_ROOT, expandProject, newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
 
 class RestartableServer {
   private child: ChildProcess | undefined
@@ -26,14 +26,15 @@ class RestartableServer {
       join(REPO_ROOT, 'apps/cli/lib/bin.js'), '--profile', 'web',
       '--patch', fileURLToPath(new URL('./pin-browse-picker.overlay.yml', import.meta.url)),
       '--patch', fileURLToPath(new URL('./fixtures/restart-startup.overlay.yml', import.meta.url)),
+      '--patch', fileURLToPath(new URL('./fixtures/restart-model.overlay.yml', import.meta.url)),
       '--no-open', '--port', String(port),
     ], {
       cwd: this.world,
       env: {
         ...process.env, NODE_OPTIONS: '',
         JAN_HOME: join(this.world, 'home'), JAN_AGENTS_HOME: join(this.world, 'agents'),
-        JAN_TELEMETRY_DISABLED: '1', TOKAMAK_API_KEY: 'keyless-server-restart-fixture',
-        TOKAMAK_BASE_URL: this.modelUrl,
+        JAN_TELEMETRY_DISABLED: '1', JAN_WEB_RESTART_MODEL_KEY: 'keyless-server-restart-fixture',
+        JAN_WEB_RESTART_MODEL_URL: this.modelUrl,
         JAN_WEB_RESTART_HOLD_STARTUP: holdStartup ? '1' : '0',
       },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
@@ -116,7 +117,7 @@ it.each([false, true])('keeps the same revision, Session and page across a serve
         { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 1 } },
         { type: 'message_stop' },
       ]
-      response.end(events.map(event => 'data: ' + JSON.stringify(event) + '\n\n').join(''))
+      response.end(events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(''))
     })
   })
   onTestFinished(() => new Promise<void>((resolve, reject) => {
@@ -180,6 +181,8 @@ it.each([false, true])('keeps the same revision, Session and page across a serve
   await page.locator('[data-slot="root"]').waitFor({ state: 'attached', timeout: 20_000 })
   const notice = page.getByRole('button', { name: 'Continue', exact: true })
   await notice.click({ timeout: 15_000 })
+  await expandProject(page, 'workspace')
+  await page.getByRole('button', { name: 'New session in workspace', exact: true }).click()
   const composer = page.locator('[data-composer-input][contenteditable="true"]')
   await writeComposerDraft(page, composer, 'Create a completed turn for the server restart test.')
   await composer.press('Enter')

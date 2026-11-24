@@ -7,8 +7,12 @@ import { expect, it, onTestFinished } from 'vitest'
 import { launchWebScaffold, watchConsole } from './scaffold.ts'
 import { connectFreshWorkspace, openSettings, newEnglishPage } from './support.ts'
 
+/** Delegation roles every base profile ships as custom presets, independent of Coding Tools. */
+const DELEGATION_ROLES = ['reviewer', 'scout', 'worker']
+
 it('persists Coding Tools and limits the built-in PTC and Minimal choices in sessions and Settings', async () => {
   const scaffold = await launchWebScaffold({
+    developerTools: false,
     agentPresets: { default: 'standard', definitions: [{ id: 'custom', name: 'Custom mode', plugins: [] }] },
   })
   onTestFinished(() => scaffold.close())
@@ -21,30 +25,35 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   await page.goto(scaffold.authenticatedUrl)
   await openSettings(page, 'en')
   const toggle = page.getByRole('switch', { name: 'Show coding view' })
-  expect(await toggle.getAttribute('aria-checked')).toBe('true')
-  expect(await readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8')).not.toMatch(/id: ui-settings(?:\r?\n|$)/)
+  const profilePatch = () => readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8')
+  const settingsRow = /id: ui-settings(?:\r?\n|$)/
+  expect(await toggle.getAttribute('aria-checked')).toBe('false')
+  expect(await profilePatch()).not.toMatch(settingsRow)
   await toggle.click()
-  await expect.poll(() => toggle.getAttribute('aria-checked')).toBe('false')
-  expect(await readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8')).toContain('enabled: false')
+  await expect.poll(() => toggle.getAttribute('aria-checked')).toBe('true')
+  expect(await profilePatch()).toContain('enabled: true')
   await page.reload()
   await openSettings(page, 'en')
+  await expect.poll(() => toggle.getAttribute('aria-checked')).toBe('true')
+  await toggle.click()
   await expect.poll(() => toggle.getAttribute('aria-checked')).toBe('false')
+  expect(await profilePatch()).not.toMatch(settingsRow)
 
   await page.getByRole('button', { name: 'Agent presets', exact: true }).click()
-  await expect.poll(() => page.getByRole('heading', { name: 'Agent presets', exact: true }).count()).toBe(1)
   const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
+  await settings.getByRole('heading', { name: 'Built-in', exact: true }).waitFor()
   expect(await settings.getByRole('switch').count()).toBe(0)
   const visiblePresets = () => settings.locator('[data-agent-preset-id]').evaluateAll(cards => cards.map(card => card.getAttribute('data-agent-preset-id')))
-  await expect.poll(visiblePresets).toEqual(['standard', 'cordis', 'custom'])
+  await expect.poll(visiblePresets).toEqual(['standard', 'cordis', 'custom', ...DELEGATION_ROLES])
   await settings.getByRole('button', { name: 'Set as new task default: Custom mode', exact: true }).click()
   await settings.getByRole('button', { name: 'New task default: Custom mode', exact: true }).waitFor()
   await scaffold.ctx.settings.update('ui-settings', { enabled: true })
-  await expect.poll(visiblePresets).toEqual(['standard', 'ptc', 'minimal', 'cordis', 'custom'])
+  await expect.poll(visiblePresets).toEqual(['standard', 'ptc', 'minimal', 'cordis', 'custom', ...DELEGATION_ROLES])
   expect((await scaffold.ctx.agentPresets.remoteExportList()).presets.find(preset => preset.isDefault)?.id).toBe('custom')
   await settings.getByRole('button', { name: 'Set as new task default: Minimal mode', exact: true }).click()
   await settings.getByRole('button', { name: 'New task default: Minimal mode', exact: true }).waitFor()
   await scaffold.ctx.settings.update('ui-settings', { enabled: false })
-  await expect.poll(visiblePresets).toEqual(['standard', 'cordis', 'custom'])
+  await expect.poll(visiblePresets).toEqual(['standard', 'cordis', 'custom', ...DELEGATION_ROLES])
   await settings.getByRole('button', { name: 'New task default: Standard mode', exact: true }).waitFor()
   await expect.poll(async () => (await scaffold.ctx.agentPresets.remoteExportList()).presets.find(preset => preset.isDefault)?.id).toBe('standard')
   await expect.poll(() => settings.getByRole('button', { name: 'Let the agent help me create a preset', exact: true }).isEnabled()).toBe(true)
@@ -54,7 +63,7 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
 
   const menu = page.getByRole('menu')
   await page.getByRole('button', { name: 'Standard mode', exact: true }).click()
-  await expect.poll(() => menu.getByRole('menuitem').count()).toBe(3)
+  await expect.poll(() => menu.getByRole('menuitem').count()).toBe(3 + DELEGATION_ROLES.length)
   expect(await menu.getByRole('menuitem', { name: /^PTC mode|^Minimal mode/ }).count()).toBe(0)
   expect(await menu.getByRole('menuitem', { name: /^Custom mode/ }).count()).toBe(1)
   await menu.getByRole('menuitem', { name: /^Creator mode/ }).click()
@@ -65,7 +74,7 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   await scaffold.ctx.settings.update('ui-settings', { enabled: true })
   await menu.waitFor({ state: 'detached' })
   await page.getByRole('button', { name: 'Creator mode', exact: true }).click()
-  await expect.poll(() => menu.getByRole('menuitem').count()).toBe(5)
+  await expect.poll(() => menu.getByRole('menuitem').count()).toBe(5 + DELEGATION_ROLES.length)
   expect(await menu.getByRole('menuitem', { name: /^PTC mode/ }).count()).toBe(1)
   expect(await menu.getByRole('menuitem', { name: /^Minimal mode/ }).count()).toBe(1)
   expect(await livePresets()).toEqual(['cordis'])
@@ -84,7 +93,7 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   await menu.waitFor({ state: 'detached' })
   expect(await livePresets()).toEqual(['ptc'])
   await page.getByRole('button', { name: 'PTC mode', exact: true }).click()
-  await expect.poll(() => menu.getByRole('menuitem').count()).toBe(3)
+  await expect.poll(() => menu.getByRole('menuitem').count()).toBe(3 + DELEGATION_ROLES.length)
   expect(await menu.getByRole('menuitem', { name: /^PTC mode|^Minimal mode/ }).count()).toBe(0)
   await menu.getByRole('menuitem', { name: /^Standard mode/ }).click()
   await expect.poll(livePresets, { timeout: 15_000 }).toEqual(['standard'])
@@ -93,13 +102,13 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   // The sessionless preset chip is replaced when the saved Session is restored.
   await page.locator('[data-composer-input][contenteditable="true"]').waitFor()
   await page.getByRole('button', { name: 'Standard mode', exact: true }).click()
-  await expect.poll(() => menu.getByRole('menuitem').count()).toBe(3)
+  await expect.poll(() => menu.getByRole('menuitem').count()).toBe(3 + DELEGATION_ROLES.length)
   await page.keyboard.press('Escape')
   await openSettings(page, 'en')
   await settings.getByRole('button', { name: 'General', exact: true }).click()
   await expect.poll(() => toggle.getAttribute('aria-checked')).toBe('false')
   await settings.getByRole('button', { name: 'Agent presets', exact: true }).click()
-  await expect.poll(visiblePresets).toEqual(['standard', 'cordis', 'custom'])
+  await expect.poll(visiblePresets).toEqual(['standard', 'cordis', 'custom', ...DELEGATION_ROLES])
   await settings.getByRole('button', { name: 'New task default: Standard mode', exact: true }).waitFor()
   await settings.getByRole('button', { name: 'Let the agent help me create a preset', exact: true }).click()
   await settings.waitFor({ state: 'detached' })

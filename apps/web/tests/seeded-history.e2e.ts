@@ -378,7 +378,9 @@ describe('web e2e: seeded history renders through cold resume', () => {
     const process = page.locator('[data-turn-process="1"]')
     await process.waitFor({ state: 'visible', timeout: 10_000 })
     expect(await process.getAttribute('aria-expanded')).toBe('false')
-    const processBottom = await process.evaluate(element => element.getBoundingClientRect().bottom)
+    // The duration row, not its disclosure button, carries the hairline that ends the folded control.
+    const processBottom = await page.locator('[data-chat-flow-kind="turn-process"][data-chat-turn="1"]')
+      .evaluate(element => element.getBoundingClientRect().bottom)
     const answerTop = await page.getByText('DONE', { exact: true }).evaluate(element =>
       element.getBoundingClientRect().top)
     // Hidden process rows separate the folded control from the answer, so it keeps the 12px reply gap.
@@ -856,7 +858,7 @@ describe('web e2e: seeded history renders through cold resume', () => {
 
   it.skipIf(MODE === 'record' || process.platform === 'win32')('offers explicit terminal replacement after restoring the recorded Session', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-seeded-terminal-unavailable'))
-    await page.locator('[data-dockkit-add-tab]').click()
+    await page.locator('[data-rightbar-col] [data-dockkit-add-tab]').click()
     await page.locator('[data-sidebar-right-guide-entry="terminal"]').getByRole('button', { name: /^New terminal/u }).click()
     const sessionId = SessionId(SEED_ID)
     const terminals = () => scaffold.ctx.terminalController.list(sessionId)

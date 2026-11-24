@@ -19,6 +19,8 @@ it.each([
     await page.addInitScript((locale) => { localStorage.setItem('jan.locale', locale) }, copy.locale)
     const tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+    // Focusing the first-use composer opens the Default project's blank Session.
+    await page.locator('[data-composer-input][contenteditable="plaintext-only"]').click()
     const input = page.locator('[data-composer-input][contenteditable="true"]').first()
     for (const { entry, draft } of [
       { entry: 'primary', draft: '' },
@@ -148,7 +150,7 @@ it.each(['2026-03-07T16:00:00.000Z', '2026-03-08T16:00:00.000Z'])(
 )
 
 it('creates from a paused empty state, selects the task, and saves an inline edit without starting an Agent', async () => {
-  // First use registers the default Workspace, which a new task's directory starts with.
+  // Focusing the first-use composer registers the default Workspace, which a new task's directory starts with.
   const scaffold = await launchWebScaffold({ firstUse: true })
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined
   try {
@@ -157,6 +159,8 @@ it('creates from a paused empty state, selects the task, and saves an inline edi
     await page.addInitScript(() => { localStorage.setItem('jan.locale', 'zh') })
     const tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+    await page.locator('[data-composer-input][contenteditable="plaintext-only"]').click()
+    await page.locator('[data-composer-input][contenteditable="true"]').waitFor()
     await page.getByRole('button', { name: '定时任务', exact: true }).click()
     const manager = page.getByTestId('task-manager-page')
     const createStyles = await manager.getByRole('group', { name: '创建', exact: true }).getByRole('button').evaluateAll(buttons => buttons.map((button) => {

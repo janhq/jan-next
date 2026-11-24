@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { SessionId } from '@janhq/jan-session'
 import type { SessionEvent } from '@janhq/jan-session'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
-import { newEnglishPage } from './support.ts'
+import { expandProject, newEnglishPage } from './support.ts'
 
 /** A preset these blank Sessions recorded that the deployment no longer declares. */
 const UNDECLARED = 'liangshen'
@@ -90,16 +90,18 @@ describe('web e2e: blank Session reuse under the requested preset', () => {
     }
   }
 
-  it('reuses a blank recorded under an undeclared preset under the default when startup connects its Workspace', async () => {
+  it('reuses a blank recorded under an undeclared preset under the default for a New Session in its Workspace', async () => {
     const stale = SessionId('blank-undeclared')
     await storeBlank(stale, 'undeclared', UNDECLARED)
 
     const page = await openPage()
+    await expandProject(page, 'undeclared')
+    await page.getByRole('button', { name: 'New session in undeclared', exact: true }).click()
     await expect.poll(() => selected(page)).toBe(stale)
     await expect.poll(() => liveComposition(stale)).toMatchObject({
       mounted: 'standard', projected: 'standard', plan: { active: true },
     })
-    expect(await storedSelections(stale)).toEqual([{ agentPreset: 'standard' }])
+    expect(await storedSelections(stale)).toEqual([{ agentPreset: 'standard', source: 'route-default' }])
     expect(scaffold.ctx.workspaceRegistry.list().find(item => item.sessionIds.includes(stale))?.sessionIds).toEqual([stale])
     expect(await page.getByRole('alert').count()).toBe(0)
   })
@@ -123,7 +125,7 @@ describe('web e2e: blank Session reuse under the requested preset', () => {
     await expect.poll(() => liveComposition(saved)).toMatchObject({
       mounted: 'standard', projected: 'standard', plan: { active: true },
     })
-    expect(await storedSelections(saved)).toEqual([{ agentPreset: 'standard' }])
+    expect(await storedSelections(saved)).toEqual([{ agentPreset: 'standard', source: 'route-default' }])
     expect(await page.getByRole('alert').count()).toBe(0)
     for (const tripwire of tripwires) {
       expect(tripwire.pageErrors).toEqual([])

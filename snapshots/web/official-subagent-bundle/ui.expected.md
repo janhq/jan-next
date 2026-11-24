@@ -2,6 +2,7 @@
 - button "Copy"
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
+- button "1 subagent ·1 external"
 - button "Ran code and coordinated subagents" [expanded]
 - button "Inject context runtime-context"
 - button "Inject context time-context"
