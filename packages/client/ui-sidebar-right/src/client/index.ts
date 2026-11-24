@@ -198,6 +198,15 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-sidebar-right: dictionaries')
   ctx.effect(() => registerSidebarShortcuts(ctx.shortcuts, controller, t, () => {
     void ctx.shortcuts.closeWindow().catch((error: unknown) => { console.error('Window close failed', error) })
+  }, (kind, target) => {
+    const desk = ctx.get('uiConversation')?.desk
+    const tab = desk?.tabForTarget(target)
+    if (desk === undefined || tab === undefined) return undefined
+    if (kind === 'split') {
+      return desk.canSplitTab(tab, 'row') ? { status: 'handled', run: () => { desk.splitTab(tab, 'row') } }
+        : { status: 'blocked', reason: t('command.width') }
+    }
+    return desk.canCloseTab() ? { status: 'handled', run: () => { if (desk.canCloseTab()) desk.closeTab(tab) } } : undefined
   }), 'ui-sidebar-right: shortcuts')
   if (typeof document !== 'undefined') ctx.effect(() => observeSidebarFocus(document), 'ui-sidebar-right: focus')
 

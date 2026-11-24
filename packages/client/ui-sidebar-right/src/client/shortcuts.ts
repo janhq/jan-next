@@ -1,5 +1,5 @@
 /** Sidebar-owned commands resolved against the currently mounted page. */
-import type { Shortcuts, ShortcutBinding, ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
+import type { Shortcuts, ShortcutBinding, ShortcutCommand, ShortcutCommandId, ShortcutContext } from '@janhq/jan-client-shortcuts/client'
 import type { TranslateNS } from '@janhq/jan-client-locale/client'
 import { closeTopModal } from '@janhq/jan-client-ui-primitives'
 import type { SidebarRightController } from './service.ts'
@@ -12,10 +12,12 @@ import type {} from './locales.ts'
  * @param sidebar - current Session and page owner.
  * @param t - current localized command and unavailable labels.
  * @param closeWindow - private native close operation using the current configuration revision.
+ * @param resolveChat - fallback for a shortcut whose focus belongs to the main chat desk.
  * @returns release callback for the commands.
  */
 export function registerSidebarShortcuts(shortcuts: Pick<Shortcuts, 'register' | 'runtime'>, sidebar: SidebarRightController,
-  t: TranslateNS<'sidebarRight'>, closeWindow: () => void): () => void {
+  t: TranslateNS<'sidebarRight'>, closeWindow: () => void,
+  resolveChat?: (kind: 'split' | 'close', target: ShortcutContext['target']) => ReturnType<ShortcutCommand['resolve']> | undefined): () => void {
   const reason = (kind: 'split' | 'fullscreen', target: SidebarRightTarget): string | null => {
     if (kind === 'split') {
       const block = sidebar.splitBlock(target)
@@ -51,7 +53,8 @@ export function registerSidebarShortcuts(shortcuts: Pick<Shortcuts, 'register' |
       regions: ['page', 'editable', 'terminal'], modals: [],
       resolve: ({ target: element }) => {
         const target = sidebar.focusedTarget(element)
-        if (target === undefined) return { status: 'blocked', reason: t('command.noFocus') }
+        if (target === undefined) return (kind === 'split' ? resolveChat?.('split', element) : undefined)
+          ?? { status: 'blocked', reason: t('command.noFocus') }
         const unavailable = reason(kind, target)
         if (unavailable !== null) return { status: 'blocked', reason: unavailable }
         return { status: 'handled', run: () => {
@@ -88,6 +91,8 @@ export function registerSidebarShortcuts(shortcuts: Pick<Shortcuts, 'register' |
         if (target !== undefined && sidebar.canCloseTarget(target)) {
           return { status: 'handled', run: () => { sidebar.closeTarget(target) } }
         }
+        const chat = target === undefined ? resolveChat?.('close', element) : undefined
+        if (chat !== undefined) return chat
         if (shortcuts.runtime !== 'desktop') return { status: 'blocked', reason: t('command.noFocus') }
         return { status: 'handled', run: () => {
           if (target === undefined || sidebar.isTargetCurrent(target)) closeWindow()
