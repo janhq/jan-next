@@ -23,7 +23,9 @@ Plan mode asks an agent to explore and design before execution, then presents th
 <a id="use-this-package"></a>
 ## Use this package
 
-When plan mode is active, the agent works under your instructions and presents its plan for review instead of executing right away. The common path: configure the guidance text, enter plan mode with `/plan`, and review the finished plan when the agent calls `exit_plan_mode`.
+Enter plan mode with `/plan` to investigate a task without implementing it. The shipped guidance requires the agent to inspect the relevant code and tests before drafting. For work spanning independent areas, it starts read-only scouts in parallel when the `scout` preset is available, collects their findings, and checks key claims against the source. If scouting is unavailable, it investigates directly.
+
+The agent asks only for decisions or material ambiguities it cannot resolve by inspection. An answer informs the plan; it does not approve implementation. The plan states the goal and current behavior, orders concrete changes by dependency, names the affected files and symbols, and gives verification steps with expected results and any assumptions or contingencies. The agent checks the plan against the request and evidence before submitting it for review. `todo_write` is for implementation, not planning.
 
 ### When to choose it
 
@@ -56,7 +58,7 @@ You can attach images and generic files to a `/plan` message, and they are inclu
 
 ### The reviewed exit
 
-When the agent has a finished plan, it calls `exit_plan_mode` with the plan written as markdown and starting with a heading. You review that exact plan and choose `Approve` to leave plan mode, or `Keep planning` to send the agent back with feedback.
+When the plan is ready, the agent submits the complete Markdown to `exit_plan_mode` without writing a plan file. You review that exact plan and choose `Approve` to leave plan mode, or `Keep planning` to send the agent back with feedback. Implementation starts on the next step after approval.
 
 Choosing `Keep planning` (optionally with free-text feedback) sends the agent back to revise the plan; closing the review to type a message instead ends the agent's turn, and your next message starts the next request. If no interactive review is available, `exit_plan_mode` cannot run and you can still leave plan mode with `/plan off`.
 
@@ -134,7 +136,7 @@ While plan mode is active, the model sees the deployment's exact `section` text 
 ##### Configuration example
 
 ```markdown
-You are in plan mode. Explore and design before presenting the complete plan through exit_plan_mode.
+You are in plan mode. Inspect the relevant evidence and resolve material decisions before drafting. Submit a self-contained, verified plan through exit_plan_mode; do not implement it or call todo_write while planning.
 ```
 
 #### Token effect
