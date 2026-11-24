@@ -18,7 +18,9 @@
 import { MenuSurface } from '@janhq/jan-client-ui-primitives'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import clsx from 'clsx'
-import { IconChevronRightOutlineRegular, ReferenceIconRegular, useAnchoredMaxHeight } from '@janhq/jan-client-ui-primitives'
+import {
+  IconChevronRightOutlineRegular, IconStarFillRegular, IconStarOutlineRegular, ReferenceIconRegular, useAnchoredMaxHeight,
+} from '@janhq/jan-client-ui-primitives'
 import type { PropsLocale } from '@janhq/jan-client-ui-slots'
 import css from './MenuView.module.css'
 import type { MenuViewInjected } from './slots.ts'
@@ -65,7 +67,7 @@ interface TipPlace {
  * @param props - injected face (the menu store and the pick route); `t` rides the standard locale seat.
  * @returns the dropdown while open; null while closed.
  */
-export function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t }: MenuViewProps) {
+export function MenuView({ menu, headers, onPick, onStar, onCrumb, onHover, onDismiss, t }: MenuViewProps) {
   const state = useSyncExternalStore(
     fn => menu.subscribe(fn),
     () => menu.getSnapshot(),
@@ -237,6 +239,23 @@ export function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t
                               {typeof item.icon === 'string'
                                 ? <ReferenceIconRegular kind={item.icon} size={14} />
                                 : <item.icon size={14} />}
+                            </span>
+                          )}
+                          {item.star !== undefined && (
+                            <span
+                              role="button"
+                              aria-label={t(item.star.on ? 'star.remove' : 'star.add')}
+                              aria-pressed={item.star.on}
+                              className={clsx(css.star, item.star.on && css.starOn)}
+                              // mousedown so the composer keeps focus, same as the row;
+                              // stopPropagation keeps the row's settling pick out of it.
+                              onMouseDown={(ev) => {
+                                ev.preventDefault()
+                                ev.stopPropagation()
+                                onStar(group.source, index)
+                              }}
+                            >
+                              {item.star.on ? <IconStarFillRegular size={14} /> : <IconStarOutlineRegular size={14} />}
                             </span>
                           )}
                           <span className={css.itemName}>{item.label ?? item.name}</span>

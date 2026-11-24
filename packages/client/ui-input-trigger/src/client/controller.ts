@@ -101,6 +101,8 @@ export class InputTriggerController {
   private drilled = false
   private fetch: AbortController | null = null
   private disposed = false
+  /** Row whose star was just toggled; the next settlement of its source re-highlights it. */
+  private follow: { readonly source: string; readonly name: string } | null = null
   /** Per-source lexicon unsubscribers (sources without the hook never enter). */
   private readonly lexiconOffs = new Map<InputTriggerSource, () => void>()
 
@@ -255,6 +257,28 @@ export class InputTriggerController {
   hover(source: string, index: number): void {
     if (this.disposed) return
     this.reduce({ type: 'hover', source, index })
+  }
+
+  /**
+   * Pointer star toggle on one candidate: the source flips it, then the open
+   * menu fetches the same query again and the highlight follows the row,
+   * which may have moved to another section.
+   * @param source - source (group) name.
+   * @param index - candidate index within the group.
+   */
+  star(source: string, index: number): void {
+    const state = this.menu.getSnapshot()
+    const hit = this.hit
+    if (this.disposed || !state.open || hit === null) return
+    const group = state.groups.find(g => g.source === source)
+    const candidate = group !== undefined && group.status === 'ready' ? group.items[index] : undefined
+    const src = this.sourcesFor(hit).find(s => s.name === source)
+    if (candidate?.star === undefined || src?.onStar === undefined) return
+    this.follow = { source, name: candidate.name }
+    void Promise.resolve(src.onStar(this.project(), candidate)).then(
+      () => { this.refreshOpenMenu() },
+      (error: unknown) => { console.error(`[ui-input-trigger] source "${source}" star failed:`, error) },
+    )
   }
 
   /**
@@ -570,6 +594,7 @@ export class InputTriggerController {
           (items) => {
             if (controller.signal.aborted) return
             this.reduce({ type: 'source-settled', generation, source: source.name, items })
+            this.followStarred(source.name, items)
           },
           (error: unknown) => {
             if (controller.signal.aborted) return
@@ -583,6 +608,14 @@ export class InputTriggerController {
   private stopFetch(): void {
     this.fetch?.abort()
     this.fetch = null
+  }
+
+  /** Park the highlight on the row whose star was toggled, wherever its source now lists it. */
+  private followStarred(source: string, items: readonly InputTriggerCandidate[]): void {
+    if (this.follow?.source !== source) return
+    const index = items.findIndex(item => item.name === this.follow?.name)
+    this.follow = null
+    if (index >= 0) this.reduce({ type: 'hover', source, index })
   }
 
   /**

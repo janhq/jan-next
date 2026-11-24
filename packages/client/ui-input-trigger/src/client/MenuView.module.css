@@ -140,6 +140,35 @@
   height: 14px;
 }
 
+/* Star slot of a starrable row (the model picker's look): hidden until the row
+   is highlighted, always shown once on. The slot keeps its width so labels align. */
+.star {
+  display: inline-grid;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: var(--dsw-alias-radius-sm, 4px);
+  color: var(--dsw-alias-label-tertiary);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.item.active .star,
+.starOn {
+  opacity: 1;
+}
+
+.starOn {
+  color: var(--dsw-alias-state-warn-label, #d99a00);
+}
+
+@media (hover: hover) {
+  .star:not(.starOn):hover {
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
 .itemName {
   flex: none;
   max-width: 40%;

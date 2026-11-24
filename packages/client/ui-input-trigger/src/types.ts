@@ -72,6 +72,11 @@ export interface InputTriggerCandidate {
   readonly drill?: boolean
   /** Tab only fills this row; Enter and pointer picks activate it. */
   readonly complete?: true
+  /**
+   * The row can be starred: the menu shows a star before the label, filled
+   * when `on`, and a press routes to {@link InputTriggerSource.onStar}.
+   */
+  readonly star?: { readonly on: boolean }
 }
 
 /**
@@ -184,6 +189,14 @@ export interface InputTriggerSource {
   header?(session: ClientSessionContext, req: HeaderRequest): readonly InputTriggerCrumb[] | undefined
   /** Every pick lands here; claim/insert outcomes are executed by the pipeline via the scoped input events. */
   onPick(pick: InputTriggerPick): PickOutcome
+  /**
+   * Toggle the star of a candidate that carries {@link InputTriggerCandidate.star}.
+   * The menu stays open, fetches candidates again for the same query once this
+   * settles, and keeps the highlight on the toggled row.
+   * @param session - session owning the draft.
+   * @param candidate - the toggled row.
+   */
+  onStar?(session: ClientSessionContext, candidate: InputTriggerCandidate): void | Promise<void>
   /**
    * Claim leading slash argument suggestions after a command name and a space.
    * @param session - session owning the draft.

@@ -31,6 +31,8 @@ The composer surface keeps focus while the menu is open: rows pick on mousedown,
 
 A slash source can opt into leading command-argument detection with `matchesArguments(session, name)`. The same listbox renders argument choices. A row marked `complete` receives a completion-only pick on Tab; Enter or clicking settles it normally. A text pick with `submit: true` runs only after the replacement commits.
 
+A candidate with `star: { on }` shows a star before its label: hidden until the row is highlighted, always shown once on. Pressing it calls the source's `onStar(session, candidate)` without picking the row or moving focus from the composer; once that settles, the open menu fetches the same query again and the highlight follows the toggled row to its new position.
+
 A source may implement `openReference(session, reference)` to open a draft reference without submitting it. Acceptance may precede asynchronous catalog loading. Chips route by source name; editable tokens route through the current source lexicon. Returning `false`, a missing source, or a disposed controller leaves the editor gesture unchanged.
 
 -----

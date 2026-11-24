@@ -15,6 +15,8 @@ export const zh = {
   'drill.key': 'Tab',
   'crumbs.aria': '目录导航',
   'suggestions.aria': '触发候选建议',
+  'star.add': '添加到收藏',
+  'star.remove': '从收藏中移除',
 } satisfies Record<string, string>
 
 /** The slash.menu namespace key union. */
@@ -31,6 +33,8 @@ export const en = {
   'drill.key': 'Tab',
   'crumbs.aria': 'Folder navigation',
   'suggestions.aria': 'Trigger suggestions',
+  'star.add': 'Add to favorites',
+  'star.remove': 'Remove from favorites',
 } satisfies Record<MenuKey, string>
 
 /** Japanese copy, checked against the English keys. */
@@ -44,6 +48,8 @@ export const ja = {
   'drill.key': 'Tab',
   'crumbs.aria': 'フォルダナビゲーション',
   'suggestions.aria': '候補を表示',
+  'star.add': 'お気に入りに追加',
+  'star.remove': 'お気に入りから削除',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -57,6 +63,8 @@ export const es = {
   'drill.key': 'Pestaña',
   'crumbs.aria': 'Navegación de carpetas',
   'suggestions.aria': 'Sugerencias de activación',
+  'star.add': 'Añadir a favoritos',
+  'star.remove': 'Quitar de favoritos',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
@@ -70,6 +78,8 @@ export const fr = {
   'drill.key': 'Onglet',
   'crumbs.aria': 'Navigation dans les dossiers',
   'suggestions.aria': 'Suggestions de déclenchement',
+  'star.add': 'Ajouter aux favoris',
+  'star.remove': 'Retirer des favoris',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
@@ -83,6 +93,8 @@ export const de = {
   'drill.key': 'Tab',
   'crumbs.aria': 'Ordnernavigation',
   'suggestions.aria': 'Trigger-Vorschläge',
+  'star.add': 'Zu Favoriten hinzufügen',
+  'star.remove': 'Aus Favoriten entfernen',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -96,6 +108,8 @@ export const ru = {
   'drill.key': 'Вкладка',
   'crumbs.aria': 'Навигация по папкам',
   'suggestions.aria': 'Триггерные предложения',
+  'star.add': 'Добавить в избранное',
+  'star.remove': 'Удалить из избранного',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -109,4 +123,6 @@ export const pt = {
   'drill.key': 'Guia',
   'crumbs.aria': 'Navegação de pastas',
   'suggestions.aria': 'Sugestões de gatilho',
+  'star.add': 'Adicionar aos favoritos',
+  'star.remove': 'Remover dos favoritos',
 } satisfies Record<keyof typeof en, string>

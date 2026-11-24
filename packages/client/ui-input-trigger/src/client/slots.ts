@@ -18,6 +18,12 @@ export interface MenuViewInjected {
    */
   onPick: (source: string, index: number, action?: PickAction) => void
   /**
+   * Pointer press on a row's star, routed to the owning source's star toggle.
+   * @param source - source (group) name.
+   * @param index - candidate index within the group.
+   */
+  onStar: (source: string, index: number) => void
+  /**
    * Pointer hover routed to the shared highlight (pointer and keyboard drive
    * one highlight — last input wins).
    * @param source - source (group) name.
