@@ -488,6 +488,7 @@ export class SkillRegistry extends Service {
    */
   registerFilter(filter: SkillFilter): () => void {
     let undo: (() => void) | undefined
+    // oxlint-disable-next-line typescript/no-misused-promises -- exact synchronous disposer keeps Cordis effect identity
     return this.ctx.effect(() => {
       undo = this.filters.insert(filter.name, filter)
       this.invalidateCache()

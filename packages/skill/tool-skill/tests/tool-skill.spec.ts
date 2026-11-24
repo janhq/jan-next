@@ -1257,9 +1257,9 @@ describe('user-explicit invocation injection', () => {
 })
 
 describe('jan-tool-skill search catalog mode', () => {
-  async function searchSetup(config: toolSkill.Config = {}): Promise<Context> {
+  async function searchSetup(listSkillNames?: boolean): Promise<Context> {
     const home = await tempDir('tool-search')
-    const ctx = await setup(home, { catalogMode: 'search', pinnedSkills: ['pinned-skill'], ...config })
+    const ctx = await setup(home, { catalogMode: 'search', pinnedSkills: ['pinned-skill'], ...listSkillNames === undefined ? {} : { listSkillNames } })
     ctx.skills.register({ name: 'pinned-skill', description: 'Always listed with its description.', source: 'runtime', content: 'Pinned body.' })
     ctx.skills.register({ name: 'video-editing', description: 'Cut, trim and pace a video edit.', source: 'runtime', content: 'Video body.' })
     ctx.skills.register({ name: 'code-review', description: 'Review a pull request diff for bugs.', source: 'runtime', content: 'Review body.' })
@@ -1280,7 +1280,7 @@ describe('jan-tool-skill search catalog mode', () => {
   })
 
   it('omits unpinned names when listSkillNames is false', async () => {
-    const ctx = await searchSetup({ listSkillNames: false })
+    const ctx = await searchSetup(false)
     const text = JSON.stringify(await composePrefix(ctx, '/workspace'))
     expect(text).not.toContain('video-editing')
     expect(text).toContain('pinned-skill')
