@@ -9,6 +9,7 @@
 import type {} from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-api-remote-access/remote'
 import type { RemoteEndpoint } from '@janhq/jan-api-remote-access/client'
+import type {} from '@janhq/jan-btw/remote'
 import type {} from '@janhq/jan-cua/remote'
 import type {} from '@janhq/jan-experimental-api-speech-to-text/remote'
 import type {} from '@janhq/jan-experimental-claude-code-mods/remote'
