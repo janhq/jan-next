@@ -34,6 +34,8 @@ The adapter passes each `SessionEventLikeEntry` directly to the assembler. Its o
 
 Definitions may share the same read-only Match and Location for one input and lifecycle role. Each Definition keeps its own Context, State, and ordered Match list; Match objects are not reused across assembler instances.
 
+The ordered start index supplies the Context directly when the latest start of that kind matches the event identity. Other events look up the complete Context key.
+
 Registration accepts the existing callable `match` or a read-only event-type-to-handler table. The Registry copies table entries and precomputes ordered candidate Sets on registration changes. Function-form Definitions keep their callable API and receive every event; table handlers receive only their declared types. Changing a table requires unregistering and registering again. Legacy assembler adapters with only `entries()` and `fallbackEntry()` retain their original dispatch path.
 
 All accepted Matches update State in order. Repeated updates to one Context are coalesced between flushes. A Context retains its key while kind and id match; Definition-facing Context snapshots remain distinct objects. The fallback handles only inputs that no ordinary Definition of its target matched. A Definition can return `exclusive: true` from `match()` to claim an event on its target: other Definitions of that target do not receive the event and the target's fallback does not run ([semantics](../../../docs/subsystems/conversation.md#definition-and-typed-chat-payload)).
