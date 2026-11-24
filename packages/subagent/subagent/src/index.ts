@@ -267,6 +267,7 @@ export class SubagentRuntime extends TypertRemoteService {
    * @returns identities, execution result, and exact-activation disposal. A reserved
    * childId requires a local backend and guarantees an accepted messageId.
    * @throws PROVIDER_CHANGED if the selected provider is removed or replaced before dispatch.
+   * @throws PROFILE_UNSUPPORTED if the provider cannot apply the requested persona or tool filter.
    */
   async startActivation(spec: SubagentActivationSpec): Promise<SubagentActivation> {
     const provider = this.expectProvider(spec.provider)
@@ -587,6 +588,10 @@ export class SubagentRuntime extends TypertRemoteService {
         `subagent provider "${provider.name}" does not support independent agent preset selection`,
         'UNSUPPORTED_CAPABILITY',
       )
+    }
+    if ((request.persona !== undefined || request.toolFilter !== undefined)
+      && (!provider.capabilities.agentPreset || provider.inheritsParentContext)) {
+      throw new SubagentError(`subagent provider "${provider.name}" does not support agent profiles`, 'PROFILE_UNSUPPORTED')
     }
     const needs: { when: boolean; cap: keyof SubagentCapabilities }[] = [
       { when: request.agentOptions !== undefined, cap: 'agentOptions' },

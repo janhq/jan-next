@@ -38,6 +38,7 @@
   "peerDependencies": {
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-agent-preset-registry": "workspace:*",
+    "@janhq/jan-agent-profiles": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-session-projection": "workspace:*",
@@ -49,6 +50,9 @@
   "peerDependenciesMeta": {
     "@janhq/jan-agent-preset-registry": {
       "optional": true
+    },
+    "@janhq/jan-agent-profiles": {
+      "optional": true
     }
   },
   "dependencies": {
@@ -59,6 +63,7 @@
     "@janhq/cordis-plugin-loader": "workspace:~",
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-agent-preset-registry": "workspace:*",
+    "@janhq/jan-agent-profiles": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-session-persistence": "workspace:*",

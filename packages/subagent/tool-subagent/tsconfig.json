@@ -24,6 +24,9 @@
       "path": "../../preset/agent-preset-registry"
     },
     {
+      "path": "../../preset/agent-profiles/tsconfig.host.json"
+    },
+    {
       "path": "../../core/session"
     },
     {

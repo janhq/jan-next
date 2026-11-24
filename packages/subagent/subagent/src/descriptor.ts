@@ -79,9 +79,9 @@ export interface ContinuableSubagentDescriptorData extends SubagentDescriptorBas
   readonly agentModel?: string
   /** Resolved child `agentOptions.reasoningEffort`, when one was declared. */
   readonly agentReasoningEffort?: ReasoningEffortId
-  /** Per-child persona that shadows the deployment persona on resume. */
+  /** Literal per-child persona applied at start and on cold resume. */
   readonly persona?: string
-  /** Child tool scoping reapplied on resume. */
+  /** Child tool restriction applied at start and on cold resume. */
   readonly toolFilter?: ToolRestriction
 }
 

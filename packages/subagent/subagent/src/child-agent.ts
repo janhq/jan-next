@@ -157,9 +157,9 @@ export function childSessionMeta(
 export interface ChildComposition {
   /** Preset to mount; omission shares a supplied creator or uses host composition. */
   readonly agentPreset?: string | undefined
-  /** Historical descriptor persona reapplied only during cold resume. */
+  /** Literal persona applied on creation and restored from the descriptor on cold resume. */
   readonly persona?: string | undefined
-  /** Historical descriptor tool restriction reapplied only during cold resume. */
+  /** Tool restriction applied on creation and restored from the descriptor on cold resume. */
   readonly toolFilter?: ToolRestriction | undefined
 }
 
@@ -175,13 +175,13 @@ export const SUBAGENT_DELEGATION_CONTEXT
     + 'limitation in your reply so the delegating agent can handle it.'
 
 /**
- * Compose a child before publication and restore historical descriptor overrides.
+ * Compose a fresh or restored child before publication and apply its overrides.
  * Explicit selection mounts the named preset. Omission joins a supplied creator's
  * current generation; a restored child without a saved preset uses host composition.
  * Registrations belong to the child's scope.
  * @param childCtx - the child agent's scoped creation context.
  * @param parent - creator for fresh delegation; absent during target-only restoration.
- * @param composition - independent preset and any overrides read from a historical descriptor.
+ * @param composition - independent preset and the child's persona and tool restriction overrides.
  * @returns A promise when mounting an independent preset; otherwise completes synchronously.
  */
 export function applyChildComposition(
@@ -213,9 +213,10 @@ function applyChildOverrides(childCtx: Context, composition: ChildComposition): 
       name: 'deployment:persona-prefix',
       order: childCtx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX'),
       text: composition.persona,
+      interpolate: false,
     })
   }
-  if (composition.toolFilter !== undefined) childCtx.tools.restrict(composition.toolFilter)
+  if (composition.toolFilter !== undefined) childCtx.tools.restrict(composition.toolFilter, { allowUnregistered: true })
 }
 
 /** Policy seeded onto a child session's log at the delegation boundary. */

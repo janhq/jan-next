@@ -16,6 +16,7 @@ import AgentPresets from '@janhq/jan-agent-preset-registry'
 import { createUserMessage } from '@janhq/jan-llm'
 import { SessionId } from '@janhq/jan-session'
 import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
+import { defineTool } from '@janhq/jan-tools'
 import { managerState, subagentManager } from './manager-internals.ts'
 import * as SubagentFork from '@janhq/jan-subagent-fork-in-process'
 import * as SubagentSpawn from '@janhq/jan-subagent-spawn-in-process'
@@ -124,6 +125,27 @@ describe('child preset start validation', () => {
     expect(adapter.requests).toEqual([])
   })
 
+  it('rejects child profiles before starting a fork or external backend', async () => {
+    const { ctx, parent, adapter } = await setup()
+    ctx.subagents.registerProvider({
+      name: 'external',
+      capabilities: { agentOptions: false, agentPreset: false, outputSchema: false, depthLimit: false },
+      inheritsParentContext: false,
+      start: () => { throw new Error('external startup should not be reached') },
+    })
+    const initialEvents = parent.session.snapshotEvents()
+
+    for (const profile of [{ persona: 'Review only.' }, { toolFilter: { allow: [] } }]) {
+      for (const provider of ['fork', 'external']) {
+        await expect(ctx.subagents.startActivation({ ...startSpec(parent, undefined, provider), ...profile }))
+          .rejects.toMatchObject({ code: 'PROFILE_UNSUPPORTED' })
+      }
+    }
+    expect(parent.session.snapshotEvents()).toEqual(initialEvents)
+    expect(ctx.agents.list().map(agent => agent.id)).toEqual([parent.id])
+    expect(adapter.requests).toEqual([])
+  })
+
   it('rolls back an independent spawn when the preset service has unloaded', async () => {
     const { ctx, parent, adapter, presets } = await setup()
     await presets.dispose()
@@ -173,6 +195,40 @@ describe('continuable child presets', () => {
     })
     expect(adapter.requests[0]?.tools?.map(tool => tool.name)).toEqual(['reviewing_only'])
     expect(ctx.tools.schemas(parent).map(tool => tool.name)).toEqual(['preset_only'])
+  })
+
+  it('applies the child persona and tool filter both on start and after cold resume', async () => {
+    const { ctx, parent, adapter, spawn } = await setup()
+    parkParent(ctx, parent)
+    const persona = 'Review the evidence; quote {{examples}} literally.'
+    for (const name of ['evidence_read', 'evidence_write']) {
+      ctx.tools.register(defineTool({
+        name,
+        description: name,
+        parameters: {},
+        output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
+        execute: () => Promise.resolve(name),
+      }))
+    }
+    const parentTools = ctx.tools.schemas(parent).map(tool => tool.name)
+    const toolFilter = { allow: ['evidence_read', 'evidence_write', 'retired_tool'], deny: ['evidence_write'] }
+    const started = await ctx.subagents.startActivation({ ...startSpec(parent, 'reviewing'), persona, toolFilter })
+    const initial = await settled(ctx, started.childId)
+    expect(initial.events.find(event => event.type === 'subagent/descriptor')?.data)
+      .toMatchObject({ persona, toolFilter })
+    expect(ctx.agents.get(started.childId)).toBeUndefined()
+    await spawn.dispose()
+
+    await continueChild(ctx, started.childId)
+    await settled(ctx, started.childId)
+
+    const requests = adapter.requests.filter(request => request.sessionId === started.childId)
+    expect(requests).toHaveLength(2)
+    for (const request of requests) {
+      expect(JSON.stringify(request.messages.filter(message => message.role === 'system'))).toContain(persona)
+      expect(request.tools?.map(tool => tool.name)).toEqual(['evidence_read'])
+    }
+    expect(ctx.tools.schemas(parent).map(tool => tool.name)).toEqual(parentTools)
   })
 
   it('restores an explicit same-as-parent selection after the parent switches and the provider unloads', async () => {

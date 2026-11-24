@@ -71,6 +71,10 @@ Duplicate or empty preset ids fail at load. The selected preset is resolved when
 
 Compose persona and tools in the [preset plugin list](../../preset/agent-preset-registry/README.md). Tool configuration containing `persona` or `toolFilter` fails at load with a migration error. Local children use the shared [preset restoration rules](../subagent/README.md#restoring-child-composition).
 
+### Selecting a named agent
+
+On spawn, `agent` selects a Jan agent profile usable for delegation in the caller's project or globally. The profile supplies the child's instructions, tool restrictions, and an optional model default without changing its preset. Explicit authorized `provider` and `model` arguments win; an unavailable profile model leaves the configured route defaults in place. The child's label includes the profile id. Missing or primary-only profiles return an error listing the eligible ids, without starting work.
+
 ### Selecting a child LLM
 
 Set `modelSelection: true` to expose optional `provider`, `model`, and `reasoning_effort` fields; instances without it reject selection fields. Set `modelDiscovery: true` on one instance per tool scope to register `list_subagent_models`; it defaults off independently of `modelSelection`. A second discovery owner in the same scope fails to register. Discovery follows its owning plugin instance, remains available when its delegation provider is absent, and is removed when that instance unloads. Web and Desktop presets enable discovery and route fields on spawn and leave both disabled on fork. The Host’s `/model-selection-settings` service samples the user preference during Agent creation, independently of tool installation. Its creation listener subscribes before projection registration completes and awaits the handle; registration failure or owner disposal rejects Agent publication. When enabled, its exact route list is recorded in each fresh top-level Session, inherited by child Sessions, and preserved on restore; later settings edits affect only new Sessions. Without a recorded Session policy, discovery and explicit selection permit only the parent Agent’s current effective provider/model and its supported efforts. Route fields require a backend that advertises `agentOptions`; in-process Spawn and Fork and Jan SDK qualify, while ACP, Codex, and Claude Code fail the mount.
@@ -137,11 +141,11 @@ Read these pages when the package-level contract is not enough; they move from t
 
 #### What the model sees
 
-The generated default [`subagent` schema](../../../docs/tool-catalog.md#janhqjan-tool-subagent) appears under the configured tool name while its provider exists. An instance with `modelSelection` adds `provider`, `model`, and `reasoning_effort` plus route guidance in every Session. `allowedAgentPresets` adds the `agent_preset` enum and guidance for the default or inherited selection. Context inheritance and continuation support determine task and follow-up descriptions. Agent restrictions apply to inherited preset delegation tools in schemas, execution, and guidance, including when historical `toolFilter` overrides are restored; sibling Agents remain unaffected. Preset-selection guidance depends only on the tool configuration, so it does not depend on other presets’ declaration order.
+The generated default [`subagent` schema](../../../docs/tool-catalog.md#janhqjan-tool-subagent) appears under the configured tool name while its provider exists. An instance with `modelSelection` adds `provider`, `model`, and `reasoning_effort` plus route guidance in every Session. `allowedAgentPresets` adds the `agent_preset` enum and guidance for the default or inherited selection. Context inheritance and continuation support determine task and follow-up descriptions. Child tool restrictions apply to inherited preset delegation tools in schemas, execution, and guidance; sibling Agents remain unaffected. Preset-selection guidance depends only on the tool configuration, not the declaration order of other presets.
 
 #### Token effect
 
-Fixed schema cost per parent request, including the optional `name` field; `modelSelection` adds three optional route fields, while preset selection adds one enum parameter and default guidance. Each tool instance adds one schema; visible delegation tools share one short system-prompt section.
+Fixed schema cost per parent request, including the optional `name` field; spawn adds `agent`, `modelSelection` adds three optional route fields, and preset selection adds one enum parameter and default guidance. Each tool instance adds one schema; visible delegation tools share one short system-prompt section.
 
 #### KV Cache effect
 
@@ -203,6 +207,20 @@ One short contribution per capped tool joins the user-role runtime-context snaps
 
 Depth changes do not alter the system prompt or tool schemas. Updated runtime context appends after existing history; the provider still enforces the cap if the model attempts delegation.
 
+### Available agents context
+
+#### What the model sees
+
+With a visible spawn tool and the agent profiles service, ``Available agents (pass as `agent`):`` lists up to 40 eligible profile ids and descriptions. Project profiles take precedence over global profiles with the same id; primary-only profiles are omitted.
+
+#### Token effect
+
+The complete listing is at most 4 KiB of UTF-8 text. Without eligible profiles, there is no contribution.
+
+#### KV Cache effect
+
+Profile changes update the runtime context rather than the system prompt or tool schema. The updated context appends after existing history.
+
 ### Start result
 
 #### What the model sees
@@ -242,7 +260,7 @@ These limits define what this tool does not return or enforce; they are current 
 - **Preset choices omit descriptions** — `agent_preset` exposes ids and default or inheritance guidance only. The schema does not read candidate preset documents, so registration is independent of their declaration order. Use ids that convey each candidate's purpose.
 - **Preset references are checked on delegation** — Host-mounted and preset-mounted tools both resolve the target when starting a child. A target can be declared or replaced after tool registration, so loading the tool cannot establish its availability for a later call. Misspelled or unavailable ids remain undetected until selected; that call returns an error.
 - **Shipped fork tools omit model selection** — their configuration leaves `modelSelection` disabled to preserve inherited-prefix reuse. Custom fork tools may enable it under the same Session authorization and adapter validation as other delegation tools.
-- **Depth caps are fixed per instance** — another cap requires another distinctly named tool. Child personas and tools belong to the selected Agent Preset. Explicit LLM selection requires `modelSelection` and is restricted to the Session’s authorized routes, or the current parent route without an enabled policy.
+- **Depth caps are fixed per instance** - another cap requires another distinctly named tool. Explicit LLM selection requires `modelSelection` and is restricted to the Session’s authorized routes, or the current parent route without an enabled policy.
 
 <a id="dev-note"></a>
 ### Dev Note
