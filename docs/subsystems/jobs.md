@@ -307,6 +307,11 @@ interface JobView {
    * chunk, so a reader below `earliest` can still name where the bytes went.
    */
   readonly output: { readonly total: number; readonly earliest: number; readonly spillPaths?: readonly string[] }
+  /**
+   * The tool call that started the job, when a tool did. A transcript row
+   * uses it to find the live job behind its own call.
+   */
+  readonly toolCall?: JobToolCall
 }
 ```
 

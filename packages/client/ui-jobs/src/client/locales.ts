@@ -43,6 +43,8 @@ export const zh = {
   'terminal.collapseAria': '收起输出',
   'terminal.expand': '展开其余 {n} 行',
   'terminal.expandAria': '展开被折叠的 {n} 行输出',
+  'call.background': '后台运行',
+  'call.lastLine': '最新输出',
 } as const
 
 /** English dictionary, key-identical to the Chinese source of truth. */
@@ -85,6 +87,8 @@ export const en: Record<JobKey, string> = {
   'terminal.collapseAria': 'Collapse output',
   'terminal.expand': 'Show {n} more lines',
   'terminal.expandAria': 'Expand {n} collapsed output lines',
+  'call.background': 'In background',
+  'call.lastLine': 'Latest output',
 }
 
 /** Key domain of the `job` namespace (zh is the source of truth). */
@@ -130,6 +134,8 @@ export const ja = {
   'terminal.collapseAria': '出力を折りたたむ',
   'terminal.expand': '残り {n} 行を表示',
   'terminal.expandAria': '折りたたまれた出力 {n} 行を展開',
+  'call.background': 'バックグラウンド',
+  'call.lastLine': '最新の出力',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -172,6 +178,8 @@ export const es = {
   'terminal.collapseAria': 'Contraer salida',
   'terminal.expand': 'Mostrar {n} más líneas',
   'terminal.expandAria': 'Expandir líneas de salida colapsadas {n}',
+  'call.background': 'En segundo plano',
+  'call.lastLine': 'Última salida',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
@@ -214,6 +222,8 @@ export const fr = {
   'terminal.collapseAria': 'Réduire la sortie',
   'terminal.expand': 'Afficher {n} plus de lignes',
   'terminal.expandAria': 'Développer les lignes de sortie réduites {n}',
+  'call.background': 'En arrière-plan',
+  'call.lastLine': 'Dernière sortie',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
@@ -256,6 +266,8 @@ export const de = {
   'terminal.collapseAria': 'Ausgabe reduzieren',
   'terminal.expand': 'Zeige {n} weitere Zeilen',
   'terminal.expandAria': 'Erweitern Sie die minimierten Ausgabezeilen {n}',
+  'call.background': 'Im Hintergrund',
+  'call.lastLine': 'Letzte Ausgabe',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -298,6 +310,8 @@ export const ru = {
   'terminal.collapseAria': 'Свернуть вывод',
   'terminal.expand': 'Показать {n} больше строк',
   'terminal.expandAria': 'Развернуть свернутые выходные строки {n}',
+  'call.background': 'В фоне',
+  'call.lastLine': 'Последний вывод',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -340,4 +354,6 @@ export const pt = {
   'terminal.collapseAria': 'Recolher saída',
   'terminal.expand': 'Mostrar mais {n} linhas',
   'terminal.expandAria': 'Expanda {n} linhas de saída recolhidas',
+  'call.background': 'Em segundo plano',
+  'call.lastLine': 'Última saída',
 } satisfies Record<keyof typeof en, string>

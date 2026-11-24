@@ -1,0 +1,34 @@
+/* One line between the call title and its duration; it yields space to the title. */
+.status {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 45%;
+  margin-top: 4px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: var(--jan-content-font-size-secondary, 13px);
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.line {
+  overflow: hidden;
+  min-width: 0;
+  font-family: var(--dsw-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  text-overflow: ellipsis;
+}
+
+.background {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.elapsed {
+  font-variant-numeric: tabular-nums;
+}

@@ -1,13 +1,16 @@
 /**
  * Background-job plugin, browser half: contributes one session-header action
- * that renders this session's jobs. Job rows, per-row observation streams,
- * and the human kill all go through the `jobs` client service; this plugin
- * holds no transport state of its own.
+ * that renders this session's jobs, and the live status beside each tool call
+ * that started a job. Job rows, per-row observation streams, and the human
+ * kill all go through the `jobs` client service; this plugin holds no
+ * transport state of its own.
  */
 import type { Context as ClientContext } from '@janhq/cordis'
 import type { JobId } from '@janhq/jan-jobs/brand'
+import { JobCallStatus, type JobCallStatusInjected } from './JobCallStatus.tsx'
 import { JobListAction } from './JobListAction.tsx'
 import type { JobListInjected } from './JobListAction.tsx'
+import type {} from '@janhq/jan-client-ui-tool/client'
 import type {} from '@janhq/jan-api-job-controller/client'
 import type {} from '@janhq/jan-client-locale/client'
 import type {} from '@janhq/jan-client-ui-renderer/client'
@@ -22,6 +25,7 @@ declare module '@janhq/jan-client-ui-slots' {
 }
 
 export type { JobListActionProps, JobListInjected } from './JobListAction.tsx'
+export type { JobCallStatusInjected, JobCallStatusProps } from './JobCallStatus.tsx'
 
 /** Required services: the jobs rosters, observations, and kill, the slot registry, and dictionaries. */
 export const inject = ['jobs', 'slots', 'locale']
@@ -50,4 +54,14 @@ export function apply(ctx: ClientContext): void {
       }),
     }, JobListAction),
   )
+  ctx.slots.inject('tool.call.status', () => ctx.slots.register({
+    name: 'tool.call.status',
+    priority: 100,
+    locale: NS,
+    inject: (): JobCallStatusInjected => ({
+      hooks: { jobs: ctx.jobs.state },
+      watchRows: sessionId => ctx.jobs.watchRows(sessionId),
+      observe: (sessionId, id) => ctx.jobs.observe(sessionId, id),
+    }),
+  }, JobCallStatus))
 }

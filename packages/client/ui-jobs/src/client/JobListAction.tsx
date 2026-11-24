@@ -85,7 +85,7 @@ function assertNever(value: never): never {
  * Status marker semantics. `stopping` and `killed` share the attention color:
  * both mean the work ended (or is ending) on request rather than on its own.
  */
-function dotState(status: JobView['status']): StateDotState {
+export function dotState(status: JobView['status']): StateDotState {
   switch (status) {
     case 'running': return 'ongoing'
     case 'stopping': return 'warning'
@@ -97,7 +97,7 @@ function dotState(status: JobView['status']): StateDotState {
   }
 }
 
-function statusLabel(status: JobView['status'], t: TranslateNS<typeof NS>): string {
+export function statusLabel(status: JobView['status'], t: TranslateNS<typeof NS>): string {
   switch (status) {
     case 'running': return t('status.running')
     case 'stopping': return t('status.stopping')
@@ -115,7 +115,7 @@ function statusLabel(status: JobView['status'], t: TranslateNS<typeof NS>): stri
  * stays in hours rather than growing a day/month vocabulary no producer
  * currently reaches.
  */
-function formatDuration(elapsedMs: number, t: TranslateNS<typeof NS>): string {
+export function formatDuration(elapsedMs: number, t: TranslateNS<typeof NS>): string {
   const total = Math.max(0, Math.floor(elapsedMs / 1_000))
   const seconds = total % 60
   const minutes = Math.floor(total / 60) % 60
