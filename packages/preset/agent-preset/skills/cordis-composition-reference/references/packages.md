@@ -354,6 +354,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 |---|---|---|
 | `@janhq/jan-agent-preset` | yes | Declare an Agent capability composition in Cordis YAML |
 | `@janhq/jan-agent-preset-registry` | yes | Declarative Agent preset registry and profile-backed editing |
+| `@janhq/jan-agent-profiles` | yes | Named agent profiles read from Jan, Claude Code, opencode and Codex agent folders |
 | `@janhq/jan-persona` | yes | Composition-authored deployment persona section for Jan |
 
 ## ptc-runtime
@@ -410,7 +411,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@janhq/jan-scoped-settings` | yes | Model, mode and tool switches that resolve per chat, then per project, then globally |
+| `@janhq/jan-scoped-settings` | yes | Project defaults for model, mode and agent profile, plus scoped tool and skill switches |
 | `@janhq/jan-settings` | no | Abstract user-settings seam (ctx.settings) for Jan |
 
 ## shell

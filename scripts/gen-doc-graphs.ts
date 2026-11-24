@@ -679,6 +679,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Eagerly mounts YAML-declared preset revisions, binds Agents and cold readers to scoped contributions, and retains retired revisions until their last user releases them.',
   },
   {
+    key: 'agentProfiles',
+    pkg: 'agent-profiles',
+    title: 'Named agent profiles',
+    mode: 'service',
+    consumers: ['api-session-controller', 'scoped-settings', 'tool-subagent'],
+    note: 'Discovers project and global agent files and records chat selections in the Session projection. Preset composition remains independent.',
+  },
+  {
     key: 'commands',
     pkg: 'commands',
     title: 'Human command registry',

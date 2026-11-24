@@ -199,6 +199,8 @@ flowchart LR
   svc_planMode["ctx.planMode<br/>Plan collaboration state"]
   pkg_agent_preset_registry["agent-preset-registry"]
   svc_agentPresets["ctx.agentPresets<br/>Per-session agent composition"]
+  pkg_agent_profiles["agent-profiles"]
+  svc_agentProfiles["ctx.agentProfiles<br/>Named agent profiles"]
   pkg_commands["commands"]
   svc_commands["ctx.commands<br/>Human command registry"]
   pkg_session_projection["session-projection"]
@@ -326,6 +328,7 @@ flowchart LR
   pkg_agent_default_model --> svc_agentDefaultModel
   pkg_agent_loop --> svc_agentLoop
   pkg_agent_preset_registry --> svc_agentPresets
+  pkg_agent_profiles --> svc_agentProfiles
   pkg_agent_team --> svc_agentTeams
   pkg_api_gateway --> svc_typertGateway
   pkg_api_job_controller --> svc_jobController
@@ -493,6 +496,9 @@ flowchart LR
   svc_agentDefaultModel --> pkg_headless
   svc_agentLoop --> pkg_base
   svc_agentLoop --> pkg_sdk_minimal
+  svc_agentProfiles --> pkg_api_session_controller
+  svc_agentProfiles --> pkg_scoped_settings
+  svc_agentProfiles --> pkg_tool_subagent
   svc_agentTeams --> pkg_tool_agent_team
   svc_agents --> pkg_acp
   svc_agents --> pkg_agent_loop
@@ -731,6 +737,7 @@ flowchart LR
 | `ctx.mediaCapture` | `core` | [`tool-capture-media`](../packages/interaction/tool-capture-media) | - | [`tool-capture-media`](../packages/interaction/tool-capture-media) | - | The Host startup half waits for the owner to allow, capture and send in the chat, stores the bytes as an attachment, then settles the tool call; a decline settles it as declined. |
 | `ctx.planMode` | `core` | [`plan-mode`](../packages/plan/plan-mode) | - | - | - | Folds logged plan/mode state, flushes user selections at turn boundaries, renders deployment-owned guidance, registers /plan, and keeps the plan-exit schema stable across transitions. |
 | `ctx.agentPresets` | `core` | [`agent-preset-registry`](../packages/preset/agent-preset-registry) | - | - | - | Eagerly mounts YAML-declared preset revisions, binds Agents and cold readers to scoped contributions, and retains retired revisions until their last user releases them. |
+| `ctx.agentProfiles` | `service` | [`agent-profiles`](../packages/preset/agent-profiles) | - | [`api-session-controller`](../packages/api/session-controller), [`scoped-settings`](../packages/settings/scoped-settings), [`tool-subagent`](../packages/subagent/tool-subagent) | - | Discovers project and global agent files and records chat selections in the Session projection. Preset composition remains independent. |
 | `ctx.commands` | `core` | [`commands`](../packages/interaction/commands) | - | - | - | Plugins register direct human commands without sending invocations to the model. |
 | `ctx.sessionProjections` | `core` | [`session-projection`](../packages/session/session-projection) | - | [`api-session-controller`](../packages/api/session-controller), [`tool-todo`](../packages/todo/tool-todo), [`session-title`](../packages/session/session-title) | - | Domains register state-driven fold units; the eager drive keeps per-session watermark states and the Session controller serves baselines and pushes changed values. |
 | `ctx.sessionProjectionCache` | `core` | [`session-projection-cache`](../packages/session/session-projection-cache) | - | [`api-session-controller`](../packages/api/session-controller), [`session-query`](../packages/session-query/session-query), [`session-reference`](../packages/context/session-reference) | - | Durably checkpoints projection unit states per session (throttled + turn/end/detach mandatory points), serves cached projection views, and accelerates prepared-Session projection hydration. |

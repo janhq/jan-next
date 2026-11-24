@@ -296,6 +296,83 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'agentProfiles',
+    summary: 'Reads, watches and writes agent profile files, records which profile each chat selected, and adds the selected profile\'s instructions to the chat\'s system prompt.',
+    description: 'Reads, watches and writes agent profile files, records which profile each chat selected, and adds the selected profile\'s instructions to the chat\'s system prompt. Tool limits are applied by scoped settings through AgentProfiles.toolLimitsFor.',
+    methods: [
+      {
+        signature: '@Remote async list(request: AgentProfileListRequest): Promise<AgentProfileList>',
+        description: 'List the profiles one project sees: its own folders first, then the global ones.',
+        parameters: [{ name: 'request', description: 'the project, or none for global profiles only.' }],
+        returns: 'profiles in precedence order, shadowed ones marked, and files that could not be read.',
+      },
+      {
+        signature: '@Remote async get(request: AgentProfileGetRequest): Promise<AgentProfile>',
+        description: 'Read one profile with its instructions.',
+        parameters: [{ name: 'request', description: 'the id, the project it is resolved in, and optionally the exact listed file.' }],
+        returns: 'the precedence winner, or the named file.',
+      },
+      {
+        signature: '@Remote async save(request: AgentProfileSaveRequest): Promise<AgentProfileSummary>',
+        description: 'Write a Jan profile file, replacing a Jan file with the same id in that folder.',
+        parameters: [{ name: 'request', description: 'the scope, its project, and the fields.' }],
+        returns: 'the profile as listed after the write.',
+      },
+      {
+        signature: '@Remote async remove(request: AgentProfileRemoveRequest): Promise<void>',
+        description: 'Delete a Jan profile file.',
+        parameters: [{ name: 'request', description: 'the scope, its project, and the id.' }],
+      },
+      {
+        signature: '@Remote async select(request: AgentProfileSelectRequest): Promise<void>',
+        description: 'Select a profile for a chat at a turn boundary and switch the chat to the profile\'s model. The selection is logged; the model is applied on every call, the event only when the id changes.',
+        parameters: [{ name: 'request', description: 'the chat and the profile id, or null for plain Jan.' }],
+      },
+      {
+        signature: 'snapshot(workspaceId?: WorkspaceId): AgentProfileList',
+        description: 'Profiles one project sees, from memory; empty for folders not read yet.',
+        parameters: [{ name: 'workspaceId', description: 'the project, or none for global profiles only.' }],
+        returns: 'the same result {@link list} returns once every folder is read.',
+      },
+      {
+        signature: 'profileForSession(session: Session): string | null',
+        description: 'Profile id a chat selected.',
+        parameters: [{ name: 'session', description: 'the chat\'s session.' }],
+        returns: 'the id, or null when the chat runs as plain Jan.',
+      },
+      {
+        signature: 'projectOf(agent: Agent): WorkspaceId | undefined',
+        description: 'Project a chat belongs to.',
+        parameters: [{ name: 'agent', description: 'the chat.' }],
+        returns: 'the project listing the chat, else the innermost project folder holding its folder.',
+      },
+      {
+        signature: 'selectedProfile(agent: Agent): AgentProfile | undefined',
+        description: 'Profile a live chat selected, as currently on disk.',
+        parameters: [{ name: 'agent', description: 'the chat.' }],
+        returns: 'the profile, or undefined for plain Jan or a selection no visible profile matches.',
+      },
+      {
+        signature: 'toolLimitsFor(agent: Agent): AgentToolLimits',
+        description: 'Tool limits of a chat\'s selected profile.',
+        parameters: [{ name: 'agent', description: 'the chat.' }],
+        returns: 'Jan tool names and `mcp:<server>` entries; an empty deny list without a profile.',
+      },
+      {
+        signature: 'toolRestrictionOf(profile: AgentProfileSummary): ToolRestriction | undefined',
+        description: 'Tool restriction for a delegated agent running one profile, with `mcp:<server>` expanded to tool names.',
+        parameters: [{ name: 'profile', description: 'the profile.' }],
+        returns: 'the restriction, or undefined when the profile limits no tool.',
+      },
+      {
+        signature: 'async resolveModel(model: AgentProfileModel): Promise<ResolvedProfileModel | undefined>',
+        description: 'Resolve a profile\'s model against the current model catalog. A `provider/model` route must list the model; a bare id takes the first provider listing it; a Claude alias takes the highest `claude-<alias>-<version>` match, comparing from `claude-` on so route prefixes do not decide, with the earlier provider winning a tie.',
+        parameters: [{ name: 'model', description: 'the profile\'s model.' }],
+        returns: 'the route, or undefined when no available model matches.',
+      },
+    ],
+  },
+  {
     key: 'agents',
     summary: 'Agent service (`ctx.agents`): tracks live agents and carries the initiating Agent through one process-local asynchronous driver chain.',
     description: 'Agent service (`ctx.agents`): tracks live agents and carries the initiating Agent through one process-local asynchronous driver chain. Agent *creation* is provided by whichever plugin implements the AgentFactory (`@janhq/jan-agent-loop`), registered via setFactory.\n\nInitiator methods provide same-process causal attribution only. Ambient presence is neither liveness proof nor authorization; subjects and owners remain explicit, as does identity at worker, process, persistence, and wire boundaries. Returned Promise boundaries drain during teardown, except a nested lineage that starts an owning-fiber unload is excluded from its own drain.',
@@ -3082,8 +3159,8 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'scopedSettings',
-    summary: 'Stores per-scope values in one document, applies the tool switches to every live agent and hides switched-off skills from every lookup.',
-    description: 'Stores per-scope values in one document, applies the tool switches to every live agent and hides switched-off skills from every lookup. Chat model and mode already live in each chat\'s own log; this service adds the project layer for new chats and the switches for every scope.',
+    summary: 'Stores project defaults for new chats and scoped tool and skill switches.',
+    description: 'Stores project defaults for new chats and scoped tool and skill switches. Merges each live agent\'s profile limits with the tool switches and hides switched-off skills from every lookup.',
     methods: [
       {
         signature: 'projectOf(sessionId: SessionId, cwd?: string): WorkspaceId | undefined',
@@ -3108,6 +3185,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Mode (agent preset) a new chat in a project starts in.',
         parameters: [{ name: 'workspaceId', description: 'the project, or undefined outside any project.' }],
         returns: 'the project\'s mode while that preset exists, else undefined.',
+      },
+      {
+        signature: 'resolveAgent(workspaceId: WorkspaceId | undefined): string | undefined',
+        description: 'Default agent profile stored for a project\'s new chats.',
+        parameters: [{ name: 'workspaceId', description: 'the project, or undefined outside any project.' }],
+        returns: 'the stored profile id, without checking whether the profile is still available.',
       },
       {
         signature: 'resolveToolsDisabled(sessionId: SessionId, cwd?: string): string[]',
@@ -3173,7 +3256,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       {
         signature: '@Remote(\'create\') create(request: SessionCreateRequest): Promise<SessionCreateValue>',
         description: 'Create one ordinary Session for a new conversation, reusing the named blank Session while it is reusable.',
-        parameters: [{ name: 'request', description: 'optional blank Session to reuse, location, and Agent preset.' }],
+        parameters: [{ name: 'request', description: 'optional blank Session to reuse, location, preset and agent profile.' }],
         returns: 'the created or reused Session identity and its preset when configured.',
       },
       {
@@ -5342,6 +5425,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'sessionId', description: 'the session whose composition changed.' }, { name: 'agentPreset', description: 'the preset recorded by the committed selection.' }],
   },
   {
+    name: 'agent-profiles/changed',
+    mode: 'emit',
+    signature: '\'agent-profiles/changed\'(): void',
+    summary: 'A profile file was added, changed or removed, or a chat\'s selected profile changed.',
+    description: 'A profile file was added, changed or removed, or a chat\'s selected profile changed. Readers re-list profiles and re-apply tool limits.',
+    parameters: [],
+  },
+  {
     name: 'agent/assistant-stream',
     mode: 'emit',
     signature: '\'agent/assistant-stream\'(this: Scoped<Agent>, payload: { agent: Agent; frame: AssistantStreamFrame }): void',
@@ -6234,6 +6325,62 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface AgentPresetRow {\n    readonly id: string;\n    readonly isDefault: boolean;\n    readonly name?: string;\n    readonly description?: string;\n    readonly icon?: string;\n    readonly order?: number;\n    readonly showInModePicker?: boolean;\n    readonly broken?: string;\n}',
   },
   {
+    name: 'AgentProfile',
+    declaration: 'export interface AgentProfile extends AgentProfileSummary {\n    readonly instructions: string;\n}',
+  },
+  {
+    name: 'AgentProfileDraft',
+    declaration: 'export interface AgentProfileDraft {\n    readonly id: string;\n    readonly description: string;\n    readonly use: AgentProfileUse;\n    readonly model?: AgentProfileModel;\n    readonly tools?: readonly string[];\n    readonly disallowedTools?: readonly string[];\n    readonly instructions: string;\n}',
+  },
+  {
+    name: 'AgentProfileGetRequest',
+    declaration: 'export interface AgentProfileGetRequest {\n    readonly id: string;\n    readonly workspaceId?: WorkspaceId;\n    readonly path?: string;\n}',
+  },
+  {
+    name: 'AgentProfileList',
+    declaration: 'export interface AgentProfileList {\n    readonly profiles: readonly AgentProfileSummary[];\n    readonly problems: readonly AgentProfileProblem[];\n}',
+  },
+  {
+    name: 'AgentProfileListRequest',
+    declaration: 'export interface AgentProfileListRequest {\n    readonly workspaceId?: WorkspaceId;\n}',
+  },
+  {
+    name: 'AgentProfileModel',
+    declaration: 'export interface AgentProfileModel {\n    readonly provider?: string;\n    readonly model: string;\n    readonly reasoningEffort?: string;\n}',
+  },
+  {
+    name: 'AgentProfileProblem',
+    declaration: 'export interface AgentProfileProblem {\n    readonly scope: AgentProfileScope;\n    readonly path: string;\n    readonly reason: string;\n}',
+  },
+  {
+    name: 'AgentProfileRemoveRequest',
+    declaration: 'export interface AgentProfileRemoveRequest {\n    readonly scope: AgentProfileScope;\n    readonly workspaceId?: WorkspaceId;\n    readonly id: string;\n    readonly path?: string;\n}',
+  },
+  {
+    name: 'AgentProfileSaveRequest',
+    declaration: 'export interface AgentProfileSaveRequest {\n    readonly scope: AgentProfileScope;\n    readonly workspaceId?: WorkspaceId;\n    readonly profile: AgentProfileDraft;\n    readonly path?: string;\n}',
+  },
+  {
+    name: 'AgentProfileScope',
+    declaration: 'export type AgentProfileScope = \'project\' | \'global\';',
+  },
+  {
+    name: 'AgentProfileSelectRequest',
+    declaration: 'export interface AgentProfileSelectRequest {\n    readonly sessionId: SessionId;\n    readonly id: string | null;\n    readonly keepModel?: boolean;\n}',
+  },
+  {
+    name: 'AgentProfileSource',
+    declaration: 'export type AgentProfileSource = \'jan\' | \'agents\' | \'claude\' | \'opencode\' | \'codex\';',
+  },
+  {
+    name: 'AgentProfileSummary',
+    declaration: 'export interface AgentProfileSummary {\n    readonly id: string;\n    readonly description: string;\n    readonly use: AgentProfileUse;\n    readonly scope: AgentProfileScope;\n    readonly source: AgentProfileSource;\n    readonly path: string;\n    readonly writable: boolean;\n    readonly model?: AgentProfileModel;\n    readonly tools?: readonly string[];\n    readonly disallowedTools: readonly string[];\n    readonly warnings: readonly string[];\n    readonly shadowedBy?: string;\n}',
+  },
+  {
+    name: 'AgentProfileUse',
+    declaration: 'export type AgentProfileUse = \'primary\' | \'subagent\' | \'all\';',
+  },
+  {
     name: 'AgentResolver',
     declaration: 'export type AgentResolver = (sessionId: SessionId) => Promise<Agent>;',
   },
@@ -6248,6 +6395,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AgentStatus',
     declaration: 'export type AgentStatus = \'idle\' | \'running\';',
+  },
+  {
+    name: 'AgentToolLimits',
+    declaration: 'export interface AgentToolLimits {\n    readonly allow?: readonly string[];\n    readonly deny: readonly string[];\n}',
   },
   {
     name: 'AnalyticsPreset',
@@ -8842,6 +8993,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ResolvedNormalRetryPolicy extends ResolvedRetryBackoff {\n    readonly mode: \'normal\';\n    readonly maxRetries: number;\n    readonly retryableCodes: readonly string[];\n}',
   },
   {
+    name: 'ResolvedProfileModel',
+    declaration: 'export interface ResolvedProfileModel {\n    readonly provider: string;\n    readonly model: string;\n    readonly reasoningEffort?: string;\n}',
+  },
+  {
     name: 'ResolvedRetryBackoff',
     declaration: 'export interface ResolvedRetryBackoff {\n    readonly initialDelayMs: number;\n    readonly maxDelayMs: number;\n    readonly jitterRatio: number;\n}',
   },
@@ -9091,11 +9246,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ScopedValues',
-    declaration: 'export interface ScopedValues {\n    readonly model?: ScopedModel;\n    readonly mode?: string;\n    readonly toolsDisabled?: string[];\n    readonly skillsDisabled?: string[];\n    readonly skillFoldersDisabled?: string[];\n}',
+    declaration: 'export interface ScopedValues {\n    readonly model?: ScopedModel | undefined;\n    readonly mode?: string;\n    readonly agent?: string | undefined;\n    readonly toolsDisabled?: string[];\n    readonly skillsDisabled?: string[];\n    readonly skillFoldersDisabled?: string[];\n}',
   },
   {
     name: 'ScopedValuesPatch',
-    declaration: 'export interface ScopedValuesPatch {\n    readonly model?: ScopedModel | null;\n    readonly mode?: string | null;\n    readonly toolsDisabled?: string[] | null;\n    readonly skillsDisabled?: string[] | null;\n    readonly skillFoldersDisabled?: string[] | null;\n}',
+    declaration: 'export interface ScopedValuesPatch {\n    readonly model?: ScopedModel | null;\n    readonly mode?: string | null;\n    readonly agent?: string | null;\n    readonly toolsDisabled?: string[] | null;\n    readonly skillsDisabled?: string[] | null;\n    readonly skillFoldersDisabled?: string[] | null;\n}',
   },
   {
     name: 'ScopedWriteRequest',
@@ -9231,7 +9386,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionCreateRequest',
-    declaration: 'export interface SessionCreateRequest {\n    readonly workspaceId?: WorkspaceId;\n    readonly cwd?: string;\n    readonly sessionId?: SessionId;\n    readonly agentPreset?: string;\n}',
+    declaration: 'export interface SessionCreateRequest {\n    readonly workspaceId?: WorkspaceId;\n    readonly cwd?: string;\n    readonly sessionId?: SessionId;\n    readonly agentPreset?: string;\n    readonly agentProfile?: string | null;\n}',
   },
   {
     name: 'SessionCreateValue',
@@ -10199,7 +10354,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SubagentStartRequest',
-    declaration: 'export interface SubagentStartRequest {\n    readonly cwd?: string;\n    readonly agentPreset?: string;\n    readonly label?: string;\n    readonly prompt: ContentBlock[];\n    readonly parent: Agent;\n    readonly signal: AbortSignal;\n    readonly agentOptions?: AgentOptions;\n    readonly outputSchema?: ObjectJsonSchema;\n    readonly maxDepth?: number;\n}',
+    declaration: 'export interface SubagentStartRequest {\n    readonly cwd?: string;\n    readonly agentPreset?: string;\n    readonly persona?: string;\n    readonly toolFilter?: ToolRestriction;\n    readonly label?: string;\n    readonly prompt: ContentBlock[];\n    readonly parent: Agent;\n    readonly signal: AbortSignal;\n    readonly agentOptions?: AgentOptions;\n    readonly outputSchema?: ObjectJsonSchema;\n    readonly maxDepth?: number;\n}',
   },
   {
     name: 'SubagentStopReason',

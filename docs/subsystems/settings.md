@@ -44,7 +44,7 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
 
 ### `ctx.scopedSettings` — `ScopedSettings`
 
-Stores per-scope values in one document, applies the tool switches to every live agent and hides switched-off skills from every lookup. Chat model and mode already live in each chat's own log; this service adds the project layer for new chats and the switches for every scope.
+Stores project defaults for new chats and scoped tool and skill switches. Merges each live agent's profile limits with the tool switches and hides switched-off skills from every lookup.
 
 ```ts cordis-catalog
 /**
@@ -76,6 +76,13 @@ resolveModel(sessionId: SessionId, workspaceHint?: WorkspaceId): ScopedModel | u
  * @returns the project's mode while that preset exists, else undefined.
  */
 async resolveMode(workspaceId: WorkspaceId | undefined): Promise<string | undefined>
+
+/**
+ * Default agent profile stored for a project's new chats.
+ * @param workspaceId - the project, or undefined outside any project.
+ * @returns the stored profile id, without checking whether the profile is still available.
+ */
+resolveAgent(workspaceId: WorkspaceId | undefined): string | undefined
 
 /**
  * Tool switches in effect for a chat: any scope that switches a tool off switches it off for every narrower one.

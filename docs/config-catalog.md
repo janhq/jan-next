@@ -159,6 +159,29 @@ export interface Config {
 }
 ```
 
+<a id="janhqjan-agent-profiles"></a>
+
+## `@janhq/jan-agent-profiles`
+
+- `inject`: `workspaceRegistry` · `sessionProjections` · `agents` · `systemPrompt`
+- `source`: [`packages/preset/agent-profiles/src/index.ts:37`](../packages/preset/agent-profiles/src/index.ts)
+
+```ts config-catalog
+/** Where the agent folders are and how they are read. */
+export interface Config {
+  /** Jan home; its `agents` folder holds global Jan profiles. Defaults to the resolved Jan home. */
+  janHome?: string
+  /** Shared agents home; its `agents` folder is read. Defaults to the resolved agents home. */
+  agentsHome?: string
+  /** User home holding `.claude`, `.config/opencode` and `.codex`. Defaults to the OS home. */
+  userHome?: string
+  /** Quiet period after the last file event before profiles are re-read. */
+  debounceMs: number
+  /** Files larger than this are listed as problems and not read. */
+  maxFileBytes: number
+}
+```
+
 <a id="janhqjan-agent-team"></a>
 
 ## `@janhq/jan-agent-team`
@@ -3099,7 +3122,7 @@ export interface Config {
 ## `@janhq/jan-scoped-settings`
 
 - `inject`: `agents` · `workspaceRegistry` · `tools`
-- `source`: [`packages/settings/scoped-settings/src/index.ts:24`](../packages/settings/scoped-settings/src/index.ts)
+- `source`: [`packages/settings/scoped-settings/src/index.ts:25`](../packages/settings/scoped-settings/src/index.ts)
 
 ```ts config-catalog
 /** Where the document lives. */
@@ -4400,7 +4423,7 @@ export interface Config {
 
 - `inject`: `tools` · `subagents` · `systemPrompt` · `sessionProjections`
 - `refs`: [`AgentOptions`](subsystems/core.md)
-- `source`: [`packages/subagent/tool-subagent/src/index.ts:45`](../packages/subagent/tool-subagent/src/index.ts)
+- `source`: [`packages/subagent/tool-subagent/src/index.ts:48`](../packages/subagent/tool-subagent/src/index.ts)
 
 ```ts config-catalog
 /** Config: which registered provider this tool delegates to, plus child defaults. */
