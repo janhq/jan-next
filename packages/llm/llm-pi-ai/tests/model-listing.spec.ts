@@ -454,8 +454,8 @@ describe('runtime model listing', () => {
     const scheduled = vi.getTimerCount()
     // vi.waitFor advances fake timers while polling, which would fire extra refresh ticks.
     const listed = async (count: number) => {
-      for (let attempt = 0; server.listings.length < count; attempt++) {
-        if (attempt === 1000) throw new Error(`expected ${count} listing requests, saw ${server.listings.length}`)
+      for (const start = performance.now(); server.listings.length < count;) {
+        if (performance.now() - start > 2000) throw new Error(`expected ${count} listing requests, saw ${server.listings.length}`)
         await new Promise(resolve => setTimeout(resolve, 5))
       }
       expect(server.listings).toHaveLength(count)
