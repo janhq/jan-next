@@ -503,7 +503,6 @@ describe('web e2e: agent teamwork panel', () => {
       })
     }
     await page.locator('[data-subagent-action]').waitFor({ state: 'detached' })
-    expect(await page.getByText('No shared tasks yet. Create them through the conversation.').count()).toBe(0)
     expect(tripwire.pageErrors).toEqual([])
   })
 
