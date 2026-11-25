@@ -52,7 +52,7 @@ beforeAll(async () => {
   // This hand-written asset registers through Jan's runtime loader instead of exporting ESM.
   const file = resolve(import.meta.dirname, '../../../plugins/jan-theme/client.js')
   const browser = { __ModuleLoader__: loader, setTimeout: window.setTimeout.bind(window) }
-  runInNewContext(await readFile(file, 'utf8'), { window: browser, document, localStorage, get fetch() { return globalThis.fetch }, URLSearchParams, AbortController, console }, { filename: file })
+  runInNewContext(await readFile(file, 'utf8'), { window: browser, document, localStorage, get fetch() { return globalThis.fetch }, URL, URLSearchParams, AbortController, console }, { filename: file })
 })
 
 afterAll(() => {
@@ -108,7 +108,9 @@ function theme(tasks: readonly unknown[] = [], shared?: { catalog: Source<{ reco
     const entry = registrations.get(id)
     if (entry === undefined) throw new Error(`Missing slot entry ${id}`)
     const { hooks, ...actions } = entry.options.inject?.() ?? {}
-    const boundHooks = Object.fromEntries(Object.entries(hooks as Record<string, Source<unknown>>).map(([key, wire]) => [
+    // ui-session provides `sessionStatus` to every slot entry as a root hook.
+    const rootHooks: Record<string, Source<unknown>> = { sessionStatus: source(new Map()) }
+    const boundHooks = Object.fromEntries(Object.entries({ ...rootHooks, ...hooks as typeof rootHooks }).map(([key, wire]) => [
       `use${key[0]!.toUpperCase()}${key.slice(1)}`, (select: (value: unknown) => unknown) =>
         select(React.useSyncExternalStore(wire.subscribe, wire.getSnapshot)),
     ]))
@@ -141,8 +143,11 @@ it('never displays a late read from the previously selected project', async () =
 })
 
 it('closes the previous project editor instead of letting its draft save to another project', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (_url: string, { body }: RequestInit) =>
-    reply(text(workspaceOf(body) === 'alpha' ? 'Alpha instructions' : 'Beta instructions'))))
+  vi.stubGlobal('fetch', vi.fn(async (_url: string, { body }: RequestInit) => {
+    const instructions = workspaceOf(body) === 'alpha' ? 'Alpha instructions' : 'Beta instructions'
+    const { method } = JSON.parse(body as string) as { method: string }
+    return reply(method === 'readText' ? { text: instructions, modified: 1 } : text(instructions))
+  }))
   const app = theme()
   try {
     app.openProject('alpha')
@@ -151,14 +156,14 @@ it('closes the previous project editor instead of letting its draft save to anot
     const instructions = screen.getByRole('region', { name: 'project.instructions' })
     fireEvent.click(within(instructions).getByRole('button', { name: 'project.edit' }))
     const editor = screen.getByRole('dialog', { name: 'project.instructions' })
-    fireEvent.change(within(editor).getByRole('textbox'), { target: { value: 'Unsaved Alpha draft' } })
+    fireEvent.change(await within(editor).findByDisplayValue('Alpha instructions'), { target: { value: 'Unsaved Alpha draft' } })
     act(() => { app.openProject('beta') })
     await screen.findByText('Beta instructions')
     expect(screen.queryByRole('dialog')).toBeNull()
     act(() => { app.openProject('alpha') })
     await screen.findByText('Alpha instructions')
     fireEvent.click(within(screen.getByRole('region', { name: 'project.instructions' })).getByRole('button', { name: 'project.edit' }))
-    expect(within(screen.getByRole('dialog', { name: 'project.instructions' })).getByRole<HTMLTextAreaElement>('textbox').value).toBe('Unsaved Alpha draft')
+    expect(await within(screen.getByRole('dialog', { name: 'project.instructions' })).findByDisplayValue('Unsaved Alpha draft')).toBeTruthy()
   } finally { app.unmount() }
 })
 

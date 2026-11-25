@@ -42,6 +42,7 @@ const servers: Server[] = []
 const cleanups: Array<() => Promise<void>> = []
 
 afterEach(async () => {
+  vi.useRealTimers()
   while (cleanups.length > 0) await cleanups.pop()!()
   await Promise.all(servers.splice(0).map(server => new Promise<void>((resolve) => {
     server.close(() => { resolve() })
@@ -126,7 +127,7 @@ function route(url: string, listing: LlmPiAi.PiAiModelListing = {}): LlmPiAi.Opt
 async function boot(
   config: LlmPiAi.Options,
   options: { key?: string; defaults?: boolean; storage?: string } = {},
-): Promise<{ ctx: Context; defaults: FakeDefaults | undefined; updates: () => number }> {
+): Promise<{ ctx: Context; defaults: FakeDefaults | undefined; updates: () => number; saved: Promise<void> }> {
   vi.stubEnv('TOKAMAK_LISTING_KEY', '')
   const dir = await mkdtemp(join(tmpdir(), 'jan-pi-listing-'))
   cleanups.push(() => rm(dir, { recursive: true, force: true }))
@@ -141,8 +142,14 @@ async function boot(
   if (options.storage !== undefined) await mountStorage(ctx, options.storage)
   let updates = 0
   ctx.on('llm/adapters-updated', () => { updates += 1 })
+  // A listing fetched before its storage opened is never written if the plugin unloads first.
+  const saved = new Promise<void>((resolve) => {
+    ctx.on('domain/changed', (change) => {
+      if (change.domain === 'llm_pi_ai_model_listings' && change.operation === 'put') resolve()
+    })
+  })
   await ctx.plugin(LlmPiAi, config)
-  return { ctx, defaults: ctx.get('agentDefaultModel') as FakeDefaults | undefined, updates: () => updates }
+  return { ctx, defaults: ctx.get('agentDefaultModel') as FakeDefaults | undefined, updates: () => updates, saved }
 }
 
 async function mountStorage(ctx: Context, root: string): Promise<void> {
@@ -285,9 +292,10 @@ describe('runtime model listing', () => {
   })
 
   it('fails a read with no listing to fall back on, and keeps the last listing through a failed refresh', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
     const server = await router()
     server.fail = 503
-    const { ctx } = await boot(route(server.url, { refreshIntervalMs: 1 }), { key: 'tk-one' })
+    const { ctx } = await boot(route(server.url), { key: 'tk-one' })
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
 
     await expect(ctx.llm.listModels('tokamak')).rejects.toMatchObject({ code: 'DISCOVERY_FAILED', message: `${server.url}/models answered 503` })
@@ -297,7 +305,8 @@ describe('runtime model listing', () => {
     server.fail = undefined
     expect((await ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
     server.fail = 500
-    await new Promise(resolve => setTimeout(resolve, 5))
+    // A listing past its refresh interval makes the read wait for its refresh.
+    vi.setSystemTime(Date.now() + 600000)
     expect((await ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
     expect(warn).toHaveBeenCalledWith('llm-pi-ai: could not refresh the model listing of provider route "tokamak"; keeping the last listing')
   })
@@ -430,6 +439,8 @@ describe('runtime model listing', () => {
   })
 
   it('stops the background refresh when settings remove the last listing route', async () => {
+    // A frozen Date keeps the launch listing fresh however long the worker stalls.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
     const server = await router()
     vi.stubEnv('TOKAMAK_LISTING_KEY', '')
     const dir = await mkdtemp(join(tmpdir(), 'jan-pi-listing-'))
@@ -440,13 +451,26 @@ describe('runtime model listing', () => {
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LocalCredentialProvider, { path: join(dir, '.credentials.yaml'), watch: false })
     const live = await liveConfig(ctx, LlmPiAi, route(server.url, { refreshIntervalMs: 20 }))
-    await vi.waitFor(() => { expect(server.listings.length).toBeGreaterThan(1) })
+    const scheduled = vi.getTimerCount()
+    // vi.waitFor advances fake timers while polling, which would fire extra refresh ticks.
+    const listed = async (count: number) => {
+      for (const start = performance.now(); server.listings.length < count;) {
+        if (performance.now() - start > 2000) throw new Error(`expected ${count} listing requests, saw ${server.listings.length}`)
+        await new Promise(resolve => setTimeout(resolve, 5))
+      }
+      expect(server.listings).toHaveLength(count)
+    }
+    await listed(1)
+    // The server counts a request on arrival; a tick during the launch request would join it.
+    await ctx.llm.listModels('tokamak')
+    vi.advanceTimersByTime(20)
+    await listed(2)
 
     await live.replace({ providers: { tokamak: { api: 'openai-completions', baseURL: server.url, models: [{ id: 'fixed' }] } } })
-    const settled = server.listings.length
-    await new Promise(resolve => setTimeout(resolve, 80))
-    expect(server.listings.length).toBe(settled)
+    expect(vi.getTimerCount()).toBe(scheduled - 1)
+    vi.advanceTimersByTime(100)
     expect((await ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['fixed'])
+    expect(server.listings).toHaveLength(2)
   })
 
   it('bounds a listing request by its timeout', async () => {
@@ -562,6 +586,7 @@ describe('runtime model listing', () => {
     const root = await storageRoot()
     const first = await boot(route(server.url), { key: 'tk-one', storage: root })
     expect((await first.ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
+    await first.saved
     await first.ctx.fiber.dispose()
 
     // Offline restart: the stored listing answers.
@@ -588,12 +613,14 @@ describe('runtime model listing', () => {
     const root = await storageRoot()
     const first = await boot(route(server.url, { refreshIntervalMs: 1 }), { key: 'tk-one', storage: root })
     await first.ctx.llm.listModels('tokamak')
+    await first.saved
     await first.ctx.fiber.dispose()
 
     server.hang = true
-    const restarted = await boot(route(server.url, { refreshIntervalMs: 60000, timeoutMs: 60000 }), { key: 'tk-one', storage: root, defaults: true })
+    const restarted = await boot(route(server.url, { refreshIntervalMs: 60000, timeoutMs: 60000 }), { key: 'tk-one', defaults: true })
     // Storage opening announces the stored listing.
     const booted = restarted.updates()
+    await mountStorage(restarted.ctx, root)
     await vi.waitFor(() => { expect(restarted.updates()).toBeGreaterThan(booted) })
     expect((await restarted.ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
     // The default names an unlisted model, but only a fetched listing may move it.
@@ -605,6 +632,7 @@ describe('runtime model listing', () => {
     const root = await storageRoot()
     const first = await boot(route(server.url), { key: 'tk-one', storage: root })
     await first.ctx.llm.listModels('tokamak')
+    await first.saved
     await first.ctx.fiber.dispose()
 
     // The launch fetch returns the stored models unchanged, yet still re-checks the default.
@@ -618,11 +646,13 @@ describe('runtime model listing', () => {
     const root = await storageRoot()
     const first = await boot(route(server.url), { key: 'tk-one', storage: root })
     await first.ctx.llm.listModels('tokamak')
+    await first.saved
     await first.ctx.fiber.dispose()
 
     server.models = [{ id: 'anthropic/opus' }]
     const other = await boot(route(server.url), { key: 'tk-two', storage: root })
     expect((await other.ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['anthropic/opus'])
+    await other.saved
     await other.ctx.credentials.unset(credentialRef('TOKAMAK_LISTING_KEY'))
     await expect(other.ctx.llm.listModels('tokamak')).rejects.toMatchObject({ code: 'MISSING_CREDENTIAL' })
     await other.ctx.fiber.dispose()

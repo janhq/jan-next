@@ -120,7 +120,7 @@ describe('API credentials', () => {
     auth.authorizeConnect(request(auth.authenticatedUrl(`http://${authority}/connect`)), {
       ...res.value,
       writeHead(status, headers) {
-        expect(publish).toHaveBeenCalledExactlyOnceWith('none')
+        expect(publish).toHaveBeenCalledExactlyOnceWith('none', 'all')
         return res.value.writeHead(status, headers)
       },
     }, false, publish)

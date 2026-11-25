@@ -42,7 +42,7 @@ it('synchronizes live language and palette changes and stops observing a closed 
   expect(send).not.toHaveBeenCalled()
   expect(document.documentElement.hasAttribute('data-windows-titlebar')).toBe(true)
   window.dispatchEvent(new Event('DOMContentLoaded'))
-  expect(document.documentElement.style.getPropertyValue('--jan-windows-titlebar-height')).toBe('40px')
+  expect(document.documentElement.style.getPropertyValue('--jan-windows-titlebar-height')).toBe('32px')
   expect(send).toHaveBeenLastCalledWith(DESKTOP_IPC.windowsAppearance, 'en', 'rgba(255, 255, 255, 1)', 'rgba(0, 0, 0, 1)')
   document.documentElement.lang = 'zh-CN'
   document.body.setAttribute('data-ds-dark-theme', '')
