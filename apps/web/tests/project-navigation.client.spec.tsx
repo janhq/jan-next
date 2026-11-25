@@ -22,6 +22,16 @@ const text = (instructions: string) => ({ instructions, memory: '', files: [], t
 const reply = (result: unknown) => Response.json({ result })
 // The Workspace id a project read names, from its JSON-RPC body.
 const workspaceOf = (body: RequestInit['body']) => (JSON.parse(body as string) as { params: { workspaceId: string } }).params.workspaceId
+// The project rail also reads skills and tools; these answer them empty, and `read` answers the rest.
+const projectFetch = (read: (body: RequestInit['body']) => Response | Promise<Response>) =>
+  vi.fn(async (_url: string, { body }: RequestInit) => {
+    const { method } = JSON.parse(body as string) as { method: string }
+    if (method === 'skills') return reply({ folders: [], active: 0, total: 0, estimatedTokens: 0 })
+    if (method === 'tools') return reply({})
+    return read(body)
+  })
+// Plugin copy is keyed, except the language tag that Intl formatters need.
+const translate = (key: string) => key === 'project.locale' ? 'en' : key
 let loadPlugin: () => Plugin
 const scroll = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView')
 
@@ -51,8 +61,11 @@ beforeAll(async () => {
   }
   // This hand-written asset registers through Jan's runtime loader instead of exporting ESM.
   const file = resolve(import.meta.dirname, '../../../plugins/jan-theme/client.js')
-  const browser = { __ModuleLoader__: loader, setTimeout: window.setTimeout.bind(window) }
-  runInNewContext(await readFile(file, 'utf8'), { window: browser, document, localStorage, get fetch() { return globalThis.fetch }, URL, URLSearchParams, AbortController, console }, { filename: file })
+  const browser = {
+    __ModuleLoader__: loader, setTimeout: window.setTimeout.bind(window),
+    addEventListener: window.addEventListener.bind(window), removeEventListener: window.removeEventListener.bind(window),
+  }
+  runInNewContext(await readFile(file, 'utf8'), { window: browser, document, localStorage, get fetch() { return globalThis.fetch }, URL, URLSearchParams, AbortController, console, setTimeout, clearTimeout }, { filename: file })
 })
 
 afterAll(() => {
@@ -90,7 +103,7 @@ function theme(tasks: readonly unknown[] = [], shared?: { catalog: Source<{ reco
     workspaces: { list: source(workspaces) },
     sessions: { list: source({ ids: [], byId: {} }) },
     shortcuts: { catalog: source([]), register: () => () => {} },
-    locale: { bind: () => (key: string) => key, register: () => () => {}, subscribe: () => () => {} },
+    locale: { bind: () => translate, register: () => () => {}, subscribe: () => () => {} },
     remote: { schedule: { catalog, create: createSchedule }, $on: () => () => {} },
     on: () => () => {},
     provide: () => {},
@@ -114,7 +127,7 @@ function theme(tasks: readonly unknown[] = [], shared?: { catalog: Source<{ reco
       `use${key[0]!.toUpperCase()}${key.slice(1)}`, (select: (value: unknown) => unknown) =>
         select(React.useSyncExternalStore(wire.subscribe, wire.getSnapshot)),
     ]))
-    return render(<entry.Component {...actions} {...boundHooks} t={(key: string) => key} />)
+    return render(<entry.Component {...actions} {...boundHooks} t={translate} />)
   }
   return {
     renderEntry, selectPanel, startSession, catalog, createSchedule,
@@ -127,8 +140,7 @@ function theme(tasks: readonly unknown[] = [], shared?: { catalog: Source<{ reco
 it('never displays a late read from the previously selected project', async () => {
   const alpha = Promise.withResolvers<Response>()
   const beta = Promise.withResolvers<Response>()
-  vi.stubGlobal('fetch', vi.fn((_url: string, { body }: RequestInit) =>
-    workspaceOf(body) === 'alpha' ? alpha.promise : beta.promise))
+  vi.stubGlobal('fetch', projectFetch(body => workspaceOf(body) === 'alpha' ? alpha.promise : beta.promise))
   const app = theme()
   try {
     app.openProject('alpha')
@@ -143,7 +155,7 @@ it('never displays a late read from the previously selected project', async () =
 })
 
 it('closes the previous project editor instead of letting its draft save to another project', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (_url: string, { body }: RequestInit) => {
+  vi.stubGlobal('fetch', projectFetch((body) => {
     const instructions = workspaceOf(body) === 'alpha' ? 'Alpha instructions' : 'Beta instructions'
     const { method } = JSON.parse(body as string) as { method: string }
     return reply(method === 'readText' ? { text: instructions, modified: 1 } : text(instructions))
@@ -168,7 +180,7 @@ it('closes the previous project editor instead of letting its draft save to anot
 })
 
 it('shows only tasks in the selected case-sensitive project or linked to one of its chats', async () => {
-  vi.stubGlobal('fetch', vi.fn(async () => reply(text(''))))
+  vi.stubGlobal('fetch', projectFetch(() => reply(text(''))))
   const app = theme([
     { id: 'alpha', title: 'Alpha task', status: 'paused', target: { kind: 'new', create: { cwd: '/work/Foo' } } },
     { id: 'beta', title: 'Beta task', status: 'paused', target: { kind: 'new_once', create: { cwd: '/work/foo' } } },
@@ -188,7 +200,7 @@ it('shows only tasks in the selected case-sensitive project or linked to one of 
 })
 
 it('creates a scheduled task by the open project ID, not its path', async () => {
-  vi.stubGlobal('fetch', vi.fn(async () => reply(text(''))))
+  vi.stubGlobal('fetch', projectFetch(() => reply(text(''))))
   const app = theme()
   try {
     app.openProject('alpha')
@@ -206,7 +218,7 @@ it('creates a scheduled task by the open project ID, not its path', async () => 
 })
 
 it('labels the automatic default project by its feed identity on the project page', () => {
-  vi.stubGlobal('fetch', vi.fn(async () => reply(text(''))))
+  vi.stubGlobal('fetch', projectFetch(() => reply(text(''))))
   const app = theme()
   try {
     app.openProject('default')
@@ -230,7 +242,7 @@ it('opens the project page, not a new chat, from a search result', async () => {
 })
 
 it.each([false, true])('shares one task catalog between Project Home and open search (manager available: %s)', async (hasManager) => {
-  vi.stubGlobal('fetch', vi.fn(async () => reply(text(''))))
+  vi.stubGlobal('fetch', projectFetch(() => reply(text(''))))
   const tasks = [{ id: 'task', title: 'Shared task', status: 'paused', target: { kind: 'new', create: { cwd: '/work/Foo' } } }]
   const app = theme(tasks, hasManager ? { catalog: source({ records: tasks, status: 'ready' }) } : undefined)
   try {
