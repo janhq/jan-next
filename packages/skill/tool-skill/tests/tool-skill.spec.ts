@@ -1287,6 +1287,25 @@ describe('jan-tool-skill search catalog mode', () => {
     expect(entries.get('pinned-skill')).toBe('Always listed with its description.')
   })
 
+  it('falls back to the full catalog when the calling agent cannot call skill_search', async () => {
+    const ctx = await searchSetup(false)
+    const session = Session.create(SessionId('search-restricted'))
+    const agent = sessionAgent(session)
+    openMessageTurn(session)
+    const { scope } = await mintAgentScope(ctx, agent)
+    scope.ctx.tools.restrict({ deny: ['skill_search'] })
+
+    expect(ctx.tools.get('skill_search', agent)).toBeUndefined()
+    await fireStep(ctx, agent, 1, 1)
+    const [catalog] = catalogMessages(session)
+    expect(catalog?.data.source).toMatchObject({ kind: 'skill-catalog' })
+    expect(catalog?.data.source).not.toHaveProperty('search')
+    expect((catalog?.data.source as toolSkill.SkillCatalogSource).entries.map(entry => entry.name).sort())
+      .toEqual(['code-review', 'pinned-skill', 'video-editing'])
+    expect(JSON.stringify(catalog)).not.toContain('skill_search')
+    await scope.dispose()
+  })
+
   it('lists unpinned skills by name alone when listedDescriptionMaxLength is 0', async () => {
     const home = await tempDir('tool-search-names')
     const ctx = await setup(home, { catalogMode: 'search', listedDescriptionMaxLength: 0 })

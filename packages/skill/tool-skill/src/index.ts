@@ -227,8 +227,8 @@ export function apply(ctx: Context, config: Config = {}): void {
   })
   ctx.tools.register(skillTool)
 
-  if (searchMode) {
-    ctx.tools.register(defineTool({
+  const searchTool = searchMode
+    ? defineTool({
       name: 'skill_search',
       description: 'Find skills by what they do when the session skill catalog does not list a matching one. Returns names and descriptions; load one with the `skill` tool.',
       parameters: {
@@ -268,8 +268,9 @@ export function apply(ctx: Context, config: Config = {}): void {
       presentCall(args) {
         return { card: 'generic', title: `Search skills for ${args.query}`, kind: 'search', rawInput: args.query }
       },
-    }))
-  }
+    })
+    : undefined
+  if (searchTool !== undefined) ctx.tools.register(searchTool)
 
   // User-explicit skill invocation: a claimed user message whose first line
   // starts with `/<name>` naming a user-invocable skill is a deterministic
@@ -359,7 +360,9 @@ export function apply(ctx: Context, config: Config = {}): void {
       : { skills: [], complete: true }
     signal.throwIfAborted()
     const skills = snapshot.skills.filter(isModelInvocable)
-    const entries = searchMode
+    // The search wording names `skill_search`, so it only appears when this agent can call it.
+    const searching = searchTool !== undefined && ctx.tools.get(searchTool.name, agent) === searchTool
+    const entries = searching
       ? searchCatalogEntries(skills, pinnedSkills, listSkillNames, catalogDescriptionMaxLength, listedDescriptionMaxLength)
       : catalogSourceEntries(skills, catalogDescriptionMaxLength)
     const incomplete = !snapshot.complete
@@ -378,8 +381,8 @@ export function apply(ctx: Context, config: Config = {}): void {
         : { ...decision, messages: decision.messages.filter(message => message.id !== existing.message.id) }
     }
     const catalog = history.published
-      ? renderCatalogUpdate(entries, incomplete, searchMode)
-      : renderCatalogMessage(entries, incomplete, searchMode)
+      ? renderCatalogUpdate(entries, incomplete, searching)
+      : renderCatalogMessage(entries, incomplete, searching)
     return {
       ...decision,
       messages: existing === undefined
