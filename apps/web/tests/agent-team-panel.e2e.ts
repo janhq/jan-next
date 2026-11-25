@@ -489,7 +489,6 @@ describe('web e2e: agent teamwork panel', () => {
     expect(tripwire.pageErrors).toEqual([])
   })
 
-
   it('leaves the composer when the last shared task is deleted and no member runs', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-team-last-task'))
     const agent = scaffold.ctx.agents.list()[0]!
