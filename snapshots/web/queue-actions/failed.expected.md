@@ -1,7 +1,9 @@
-- alert: Queue submission failed (session/agent-busy)
+- alert:
+  - text: Queue submission failed (session/agent-busy)
+  - button "Dismiss"
 - textbox "Message or run a task, / commands, @ files or sessions":
   - paragraph: Queue submission to retry
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Queue message"

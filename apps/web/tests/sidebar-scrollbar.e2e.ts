@@ -94,7 +94,9 @@ function measureList(page: Page): Promise<ListMetrics> {
     const pseudoWidth = getComputedStyle(list, '::-webkit-scrollbar').width
     const barWidth = pseudoWidth === 'auto' ? 15 : Number.parseFloat(pseudoWidth)
     const listRect = list.getBoundingClientRect()
-    const sidebarEdge = list.closest('[class*="sidebarCol"]')?.getBoundingClientRect().right
+    const column = list.closest<HTMLElement>('[class*="sidebarCol"]')
+    // Insets start at the inner edge of the column's divider border.
+    const sidebarEdge = column === null ? undefined : column.getBoundingClientRect().left + column.clientLeft + column.clientWidth
     if (sidebarEdge === undefined) throw new Error('sidebar session list has no layout parent')
     return {
       gutter: style.scrollbarGutter,
@@ -137,7 +139,9 @@ function measureRowInset(page: Page): Promise<Pick<ListMetrics, 'overflows' | 'r
     if (list === null) throw new Error('sidebar session list not in the DOM')
     const row = list.querySelector<HTMLElement>('[role="treeitem"]')
     if (row === null) throw new Error('no row in the sidebar list')
-    const sidebarEdge = list.closest('[class*="sidebarCol"]')?.getBoundingClientRect().right
+    const column = list.closest<HTMLElement>('[class*="sidebarCol"]')
+    // Insets start at the inner edge of the column's divider border.
+    const sidebarEdge = column === null ? undefined : column.getBoundingClientRect().left + column.clientLeft + column.clientWidth
     if (sidebarEdge === undefined) throw new Error('sidebar session list has no layout parent')
     return {
       overflows: list.scrollHeight > list.clientHeight,

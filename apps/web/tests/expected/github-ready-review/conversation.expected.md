@@ -1,5 +1,5 @@
 - tree "Sessions":
-  - treeitem "{{workspace}}" [expanded]
+  - treeitem "{{workspace}} This computer" [expanded]
   - treeitem "Review janhq/jan-next#314 Session actions for Review janhq/jan-next#314 Archive session Pin session" [selected]:
     - text: Review janhq/jan-next#314
     - button "Session actions for Review janhq/jan-next#314"
@@ -8,15 +8,17 @@
 
 ---
 
-- banner:
-  - navigation "Session hierarchy": Review janhq/jan-next#314
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Review janhq/jan-next#314 Close chat tab" [selected]:
+    - text: Review janhq/jan-next#314
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - button "GitHub event received {{clock}}":
   - text: GitHub event received
   - time: {{clock}}
@@ -29,6 +31,8 @@
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
 - 'button "Access mode, current: Read Only"': Read Only
-- button "Select model, current github-webhook-review-test/reply": github-webhook-review-test/reply
+- button "Select model, current reply": reply
 - button "Send message" [disabled]
+- button "Choose project" [disabled]: {{workspace}}
+- 'button "Switch the agent preset for this task: Standard mode"': Standard mode
 - button "1 turns 1 steps"

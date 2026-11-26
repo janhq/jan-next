@@ -43,3 +43,28 @@ export function compareModelNames(a: string, b: string): number {
   if (left.numbers.length !== right.numbers.length) return left.numbers.length - right.numbers.length
   return collator.compare(a, b)
 }
+
+/**
+ * Display names for one provider's models: a router name such as
+ * `anthropic/claude-opus-5-5` drops its vendor prefix unless that would make
+ * two rows read the same.
+ * @param models - one provider's catalog models.
+ * @returns each model id's display name.
+ */
+export function displayNames(models: readonly { id: string; name: string }[]): Map<string, string> {
+  const short = (name: string): string => name.slice(name.lastIndexOf('/') + 1) || name
+  const counts = new Map<string, number>()
+  for (const model of models) counts.set(short(model.name), (counts.get(short(model.name)) ?? 0) + 1)
+  return new Map(models.map(model => [model.id, counts.get(short(model.name)) === 1 ? short(model.name) : model.name]))
+}
+
+/**
+ * One provider's models in the order every model picker lists them.
+ * @param models - one provider's catalog models.
+ * @returns a sorted copy, ordered by {@link compareModelNames} over display names.
+ */
+export function pickerOrder<M extends { id: string; name: string }>(models: readonly M[]): M[] {
+  const names = displayNames(models)
+  const label = (model: M): string => names.get(model.id) ?? model.name
+  return [...models].sort((a, b) => compareModelNames(label(a), label(b)))
+}

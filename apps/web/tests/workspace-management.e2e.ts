@@ -1,6 +1,5 @@
 // Web e2e scenarios: workspace management — adding a workspace through the
-// composed directory dialog (its own New folder affordance is the product's
-// one creation route), the dialog's path editor walking the panes with the
+// composed directory dialog and its own New folder affordance, the dialog's path editor walking the panes with the
 // typed draft, same-basename directory adoption, the rename round
 // trip over the real wire (workspace.rename RPC + durable registry), the
 // duplicate-name pre-check, the
@@ -46,12 +45,12 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
   let releaseAttachment: (() => void) | undefined
 
   /**
-   * Raise the region header's directory dialog and drive it to a directory via
-   * the path-edit affordance. Adding is the header button's only action, so
-   * the click lands in the dialog with no menu in between.
+   * Raise the region header's directory dialog through its "Use existing folder…"
+   * entry and drive it to a directory via the path-edit affordance.
    */
   async function browseTo(path: string): Promise<Locator> {
     await page.getByRole('button', { name: 'Add project' }).click()
+    await page.getByRole('menuitem', { name: 'Use existing folder…', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Select Workspace Directory' })
     await dialog.waitFor({ timeout: 10_000 })
     await dialog.getByRole('button', { name: 'Edit path' }).click()
@@ -65,8 +64,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
   }
 
   /**
-   * Create a folder inside `parent` through the dialog and adopt it — the
-   * product's only route to a brand-new workspace directory.
+   * Create a folder inside `parent` through the directory dialog and adopt it.
    */
   async function addNewFolderWorkspace(parent: string, name: string): Promise<void> {
     const dialog = await browseTo(parent)
@@ -872,13 +870,8 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     acknowledgeReloadConnectionLoss(tripwire, warningStart)
     await expect.poll(() => page.getByText('Projects', { exact: true }).count(), { timeout: 15_000 }).toBe(1)
-    // The last Session can leave the new-session page with no selected row.
-    // Wait for composer focus so reconnection cannot steal the next editor's focus.
-    await expect.poll(
-      () => page.locator('[data-composer-input][contenteditable="true"]')
-        .evaluate(element => element === document.activeElement),
-      { timeout: 15_000 },
-    ).toBe(true)
+    // With the selection archived, startup restores nothing and leaves the Hero choosing a project.
+    await page.getByRole('button', { name: 'Choose project', exact: true }).waitFor({ timeout: 15_000 })
     // The archived row must not resurface (the Ungrouped bucket itself may
     // reappear if selection restore lands on another stray — not this test's
     // concern).
@@ -933,7 +926,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     await page.getByRole('menuitem', { name: 'Project tree', exact: true }).click()
     await section.getByText('project-one', { exact: true }).waitFor()
     await addNewFolderWorkspace(parentPath, 'project-two')
-    const project = section.getByRole('treeitem', { name: 'project-two', exact: true })
+    const project = section.getByRole('treeitem').filter({ has: page.getByText('project-two', { exact: true }) })
     const session = section.locator('[aria-selected="true"]')
     await session.waitFor()
     const parentBounds = (await parent.boundingBox())!
@@ -960,7 +953,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
       return ordered.findIndex(workspace => workspace.id === sourceWorkspace.id)
         < ordered.findIndex(workspace => workspace.id === parentWorkspace.id)
     }, { timeout: 10_000 }).toBe(true)
-    const lastChild = section.getByRole('treeitem', { name: 'project-one', exact: true })
+    const lastChild = section.getByRole('treeitem').filter({ has: page.getByText('project-one', { exact: true }) })
     const targetBounds = (await lastChild.boundingBox())!
     const sectionBounds = (await section.boundingBox())!
     expect(targetBounds.y + targetBounds.height / 2).toBeGreaterThan(sectionBounds.y + sectionBounds.height / 2)
@@ -1000,7 +993,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     expect(createdResponse.request().postDataJSON()).toHaveProperty('payload.args.request.sessionId', createdSessionId)
     await page.locator(`[data-conversation-session="${createdSessionId}"]`).waitFor()
     await expect.poll(() => section.locator('[aria-selected="true"]').evaluate(row =>
-      row.closest('[class*="groupSection"]')?.querySelector('[role="treeitem"]')?.textContent,
+      row.closest('[class*="groupSection"]')?.querySelector('[role="treeitem"] [class*="title"]')?.textContent,
     ), { timeout: 10_000 }).toBe('folder-group')
     expect([...parentWorkspace.sessionIds]).toEqual(previousParentSessionIds)
     expect([...childWorkspace.sessionIds]).toEqual(childSessionIds)
@@ -1016,7 +1009,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
 })
 
 describe('web e2e: New Session after an outdated blank cache', () => {
-  it('returns to the startup blank instead of reusing the recorded conversation', async () => {
+  it('returns to the created blank instead of reusing the recorded conversation', async () => {
     const scaffold = await launchWebScaffold({})
     let browser: Browser | undefined
     try {
@@ -1040,12 +1033,19 @@ describe('web e2e: New Session after an outdated blank cache', () => {
 
       await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
       const selected = page.locator('[role="treeitem"][aria-selected="true"]')
-      // Startup asks for a new conversation with the stale blank as its reuse
-      // candidate; the Host declines the started Session and creates a blank one.
+      // The first New Session names the stale blank as its reuse candidate;
+      // the Host declines the started Session and creates a blank one.
+      const workspaceRow = page.getByRole('treeitem').filter({ has: page.getByText('New session regression', { exact: true }) })
+      // An unscoped New Session targets the default project, so both requests name this Workspace.
+      const newSessionInWorkspace = async () => {
+        await workspaceRow.hover()
+        await workspaceRow.getByRole('button', { name: 'New session in New session regression', exact: true }).click()
+      }
+      await newSessionInWorkspace()
       await expect.poll(() => selected.innerText()).toBe('New Session')
       await expect.poll(() => workspace.sessionIds.length).toBe(2)
-      const startupBlank = workspace.sessionIds.find(member => member !== id)
-      expect(startupBlank).toBeDefined()
+      const createdBlank = workspace.sessionIds.find(member => member !== id)
+      expect(createdBlank).toBeDefined()
       // The declined Session's projections are reloaded, so its stale blank row reappears.
       await page.getByRole('treeitem', { name: /^Use the read tool twice/ }).click()
       await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor()
@@ -1054,16 +1054,18 @@ describe('web e2e: New Session after an outdated blank cache', () => {
       const before = await captureStableAria(page, '[role="tree"]', scaffold.workspaceCwd)
 
       const creation = page.waitForResponse('**/api/session/create')
-      await page.getByRole('button', { name: 'New session', exact: true }).last().click()
+      await newSessionInWorkspace()
       const created = await creation
-      // New Session names the blank startup created, not the recorded conversation, and the Host reuses it.
-      expect(created.request().postDataJSON()).toHaveProperty('payload.args.request.sessionId', startupBlank)
-      expect(await created.json()).toMatchObject({ result: { ok: true, value: { sessionId: startupBlank } } })
+      // New Session names the blank the first request created, not the recorded conversation, and the Host reuses it.
+      expect(created.request().postDataJSON()).toHaveProperty('payload.args.request.sessionId', createdBlank)
+      expect(await created.json()).toMatchObject({ result: { ok: true, value: { sessionId: createdBlank } } })
       await expect.poll(() => selected.innerText()).toBe('New Session')
       await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor({ state: 'hidden' })
       expect(workspace.sessionIds).toHaveLength(2)
       expect(workspace.sessionIds).toContain(id)
       await page.getByRole('treeitem').filter({ hasText: previous }).waitFor()
+      await page.mouse.move(1000, 500)
+      await workspaceRow.getByRole('button', { name: 'New session in New session regression', exact: true }).waitFor({ state: 'hidden' })
       const after = await captureStableAria(page, '[role="tree"]', scaffold.workspaceCwd)
       await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'new-session.expected.md'),
         `Before New Session\n${before}\nAfter New Session\n${after}`, MODE)

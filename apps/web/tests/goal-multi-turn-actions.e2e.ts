@@ -172,8 +172,9 @@ describe('web e2e: Goal keeps one assistant action row per completed turn', () =
           .evaluate(element => getComputedStyle(element).fontSize)).toBe(groupFontSize)
         expect(await process.evaluate(element => element.getBoundingClientRect().top))
           .toBe(await trigger.evaluate(element => element.getBoundingClientRect().bottom) + 16)
+        // The duration line, not its disclosure button, carries the hairline above the process groups.
         expect(await group.evaluate(element => element.getBoundingClientRect().top))
-          .toBe(await process.evaluate(element => element.getBoundingClientRect().bottom) + 16)
+          .toBe(await process.evaluate(element => element.parentElement!.getBoundingClientRect().bottom) + 16)
       }
     } finally {
       await scaffold!.ctx.settings.update('ui-theme', { fontSize: Number.parseFloat(originalFontSize) })

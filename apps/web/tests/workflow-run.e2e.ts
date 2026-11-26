@@ -218,9 +218,10 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
     await page.getByText(CHILD_PROMPT, { exact: false }).waitFor()
     expect(await page.getByRole('button', { name: /^Open Reply with exactly the word/ }).count()).toBe(0)
 
-    await page.getByRole('button', { name: '1 subagent', exact: true }).hover()
-    const catalog = page.getByRole('tree', { name: 'Subagent sessions' })
-    await catalog.getByRole('treeitem', { name: /snapshot-flow child 1/ }).press('Enter')
+    await page.locator('[data-turn-subagents="1"]').click()
+    const roster = page.locator('[data-subagent-panel]')
+    await roster.getByRole('button', { name: /snapshot-flow child 1/u, expanded: false }).click()
+    await roster.getByRole('button', { name: 'Open chat', exact: true }).click()
     await page.getByText(CHILD_PROMPT, { exact: true }).waitFor({ timeout: 15_000 })
     expect(await page.locator('[data-composer-input][contenteditable="true"]').count()).toBe(1)
   }, 60_000)

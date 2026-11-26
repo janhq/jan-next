@@ -280,6 +280,12 @@ async function withScrollWorld(
   if (cleanupFailure !== undefined) throw cleanupFailure
 }
 
+/** Wait for Chat fold and reveal transitions to finish, then for a painted frame. */
+async function settleChatMotion(page: Page): Promise<void> {
+  await expect.poll(() => page.locator('[data-chat-motion="collapse"], [data-chat-motion="reveal"]').count()).toBe(0)
+  await nextPaint(page)
+}
+
 async function nextPaint(page: Page): Promise<void> {
   await page.evaluate(async () => {
     await document.fonts.ready
@@ -939,8 +945,7 @@ describe('web e2e: long Chat scroll contract', () => {
             .toMatchObject({ transcriptView: choice.toLowerCase() })
         }
         await dialog.getByRole('button', { name: 'Close', exact: true }).click()
-        await expect.poll(() => page.locator('[data-chat-motion="collapse"], [data-chat-motion="reveal"]').count()).toBe(0)
-        await nextPaint(page)
+        await settleChatMotion(page)
       }
       const returnToBottom = async (): Promise<void> => {
         await wheelTranscript(page, -600)
@@ -1638,8 +1643,8 @@ describe('web e2e: long Chat scroll contract', () => {
           () => world.assistantFrames.filter(frame => frame.type === 'chunk').length,
           { timeout: 15_000 },
         ).toBeGreaterThan(chunksAtRepin + 5)
-        await nextPaint(world.page)
-        expect(Math.abs((await scrollGeometry(world.page)).distanceFromBottom)).toBeLessThanOrEqual(1)
+        // Bottom-follow runs in a ResizeObserver callback, so one sample can land between a chunk commit and it.
+        await expectBottom(world.page)
       } finally {
         if (!released) await writeFile(releasePath, 'release\n').catch(() => {})
       }
@@ -1654,6 +1659,8 @@ describe('web e2e: long Chat scroll contract', () => {
       const liveRowSelector = `[data-chat-call-id="${LIVE_TOOL_CALL_ID}"] [data-sample="bash"]`
       const liveRow = world.page.locator(liveRowSelector)
       await expandOwningTurnProcess(world.page, liveRow)
+      // The anchor below is meaningful only after the opened process body finishes growing.
+      await settleChatMotion(world.page)
       await wheelUntilVisible(world.page, liveRowSelector, -300)
       const toolAnchor = await liveRow.evaluate((row) => {
         const flow = row.closest<HTMLElement>('[data-chat-anchor-key]')
@@ -1799,6 +1806,7 @@ describe('web e2e: long Chat scroll contract', () => {
         `[data-chat-call-id="chat-scroll-${String(INPUTS_FIXTURE.turns).padStart(3, '0')}-1"] [data-sample="bash"]`,
       )
       await expandOwningTurnProcess(world.page, lastToolRow)
+      await settleChatMotion(world.page)
       await lastToolRow.focus()
       await world.page.keyboard.press('End')
       await expectBottom(world.page)

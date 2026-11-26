@@ -23,14 +23,16 @@ describe('web e2e: preset roster guidance', () => {
     tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await openSettings(page, 'en')
-    await page.getByRole('dialog', { name: 'Settings' }).getByRole('button', { name: 'Agent presets' }).click()
-    await page.getByRole('heading', { name: 'Agent presets' }).waitFor()
+    const section = page.getByRole('dialog', { name: 'Settings' }).getByRole('button', { name: 'Agent presets' })
+    await section.click()
+    await section.and(page.locator('[aria-current="true"]')).waitFor()
   }, 120_000)
   afterAll(async () => { await browser?.close(); await scaffold?.close() })
 
   it('shows the shipped roster with mode help and a read-only view, and no editing actions', async () => {
     onTestFailed(() => saveFailureShot(page, 'preset-roster-section'))
-    await expect.poll(() => page.locator('[data-agent-preset-id]').count()).toBe(4)
+    // Four built-in modes plus the base bundle's scout, worker, and reviewer delegation roles.
+    await expect.poll(() => page.locator('[data-agent-preset-id]').count()).toBe(7)
     const snapshot = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(join(EXPECTED, 'section.expected.md'), snapshot, mode)
     expect(snapshot).toContain('Let the agent help me create a preset')

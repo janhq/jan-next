@@ -1,8 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": Reply with the single word
-  - 'button "Switch the agent preset for this task: Standard mode"': Standard mode
+- tablist "Chat tabs":
+  - tab "Reply with the single word Close chat tab" [selected]:
+    - text: Reply with the single word
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Reply with the single word LIGHTHOUSE and stop. {{clock}}
 - button "Copy"
 - status: Completed
@@ -13,9 +19,11 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]: workspace
+- 'button "Switch the agent preset for this task: Standard mode"': Standard mode
 - button "1 turns 1 steps · {{throughput}} tok/s": 1 turns 1 steps{{throughput}} tok/s
 - button "10K tok · Cache hit 99.5%": 10K tokCache hit 99.5%
 - button "8% of context used": 8%

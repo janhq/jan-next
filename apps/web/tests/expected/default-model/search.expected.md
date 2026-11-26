@@ -1,9 +1,12 @@
 - group "Model and reasoning effort":
   - searchbox "Search models…": acme LARGE
   - button "Clear search"
-  - text: Sign in to Tokamak or add an API key to load its models
-  - button "Retry"
   - menu "Model":
     - group "Acme Gateway":
-      - text: Acme Gateway
       - menuitemradio "Acme Large"
+  - menu "Model options":
+    - text: Enable agent teamwork
+    - button "About agent teamwork"
+    - switch "Enable agent teamwork"
+    - menuitem "Sign in for free usage"
+    - menuitem "Manage models…"

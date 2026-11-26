@@ -475,6 +475,8 @@ function assertLeanChildRecord(agent: Agent): void {
 const EXPECTED_TOOLS = [
   'ask_user_question',
   'bash',
+  'capture_audio',
+  'capture_camera',
   'create_goal',
   'edit',
   'exit_plan_mode',
@@ -483,11 +485,13 @@ const EXPECTED_TOOLS = [
   'job_kill',
   'job_list',
   'job_output',
+  'job_watch',
   'list_agents',
   'list_subagent_models',
   'plugin_manager',
   'present',
   'read',
+  'read_chat',
   'read_image',
   'schedule_create',
   'schedule_edit',
@@ -504,6 +508,7 @@ const EXPECTED_TOOLS = [
   'todo_write',
   'update_goal',
   'wait_agent',
+  'wake_after',
   'web_fetch',
   'web_search',
   'workflow',
@@ -532,7 +537,7 @@ afterEach(async () => {
 it('assembles the shipped Web transport, catalog, guidance, and defaults', async () => {
   scaffold = await launchWebScaffold({ missingModelCredential: true })
   const ctx = scaffold.ctx
-  expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'tokamak', model: 'tokamak-1-preview' })
+  expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'tokamak', model: 'tokamak/auto' })
   const index = await fetch(`http://127.0.0.1:${String(ctx.webServer.port)}`, {
     headers: { 'accept-encoding': 'gzip' },
   })
@@ -585,9 +590,9 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
       "mode": "always",
     }
   `)
-  // Directory and conditional Team tools are global; presets supply the remaining registrations.
+  // Chat-reference, directory, and conditional Team tools are global; presets supply the remaining registrations.
   expect(ctx.tools.schemas().map(schema => schema.name)).toEqual([
-    'working_directory', 'team_task_create', 'team_task_list', 'team_task_get', 'team_task_update',
+    'read_chat', 'working_directory', 'team_task_create', 'team_task_list', 'team_task_get', 'team_task_update',
   ])
   const handle = await ctx.agents.create({
     sessionId: SessionId('shipped-composition'),

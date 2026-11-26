@@ -447,15 +447,17 @@ describe('web e2e: input card position across view tabs', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-composer-seat-stats-row'))
     await setMeasuredViewport(page, WIDE_VIEWPORT, false)
     const dock = page.locator('[data-conversation-scroll] > [data-composer-seat] [data-composer-dock]')
+    const readings = '[data-composer-stat], button[aria-haspopup="dialog"]'
     // Vacuity guard: the seeded usage must produce at least one reading.
-    await expect.poll(() => dock.locator('[data-composer-stat], button[aria-haspopup="dialog"]').count(), { timeout: 10_000 })
+    await expect.poll(() => dock.locator(readings).count(), { timeout: 10_000 })
       .toBeGreaterThan(0)
     const height = (): Promise<number> => dock.evaluate(element => element.getBoundingClientRect().height)
     const withReadings = await height()
     const withoutReadings = await withPageStyle(
       page,
       'composer-seat-stats-row-probe',
-      '[data-composer-dock] > * { display: none !important; }',
+      // The project chip at the row start is not a reading; it stays laid out.
+      `[data-composer-dock] :is(${readings}) { display: none !important; }`,
       height,
     )
     expect(Math.abs(withReadings - withoutReadings)).toBeLessThanOrEqual(0.5)

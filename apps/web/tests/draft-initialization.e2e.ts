@@ -237,6 +237,9 @@ async function launchDraftFixture(beforeBrowserOpen?: (page: Page, scaffold: Web
     const observation = Reflect.get(globalThis, '__janDraftApiObservation') as DraftApiObservation | undefined
     return typeof observation?.startSession
   }), SETTLE).toBe('function')
+  // Startup restores only a saved selection, so the listed first Workspace opens through the same API.
+  await page.getByText(first.title, { exact: true }).first().waitFor()
+  await startSession(page, first.id, {})
   await composer(page).waitFor()
   await expect.poll(() => first.sessionIds.length, SETTLE).toBe(1)
   const firstId = first.sessionIds[0]!
@@ -292,17 +295,17 @@ it('preserves drafts through explicit Workspace draft navigation and treats empt
   await reopenWorkspaceDraft(page, first, firstId)
   await initialize(page, '', second.id, false)
   await assertDraft(page, secondId, initial)
-  await initialize(page, '', undefined, true)
+  await initialize(page, '', second.id, true)
   await assertDraft(page, secondId, EMPTY)
   await reopenWorkspaceDraft(page, first, firstId)
   await initialize(page, '', second.id, false)
   await assertDraft(page, secondId, EMPTY)
   const replacement = { text: '显式替换 🧪', references: [] }
-  await initialize(page, replacement.text, undefined, true)
+  await initialize(page, replacement.text, second.id, true)
   await assertDraft(page, secondId, replacement)
   expect(second.sessionIds).toEqual([secondId])
 
-  await startSession(page, undefined, { clearPreviousDraft: true })
+  await startSession(page, second.id, { clearPreviousDraft: true })
   await assertDraft(page, secondId, EMPTY)
   for (let round = 0; round < 2; round++) {
     await reopenWorkspaceDraft(page, first, firstId)
@@ -432,7 +435,7 @@ it('restores repeated file, folder and Session capsules across edits, Workspace 
   await expect.poll(() => page.locator('[data-document-markdown]').textContent(), SETTLE)
     .toContain('Unsubmitted file reference: 雪 🧭.')
   await assertDraft(page, secondId, drafts[1]!.draft)
-  await startSession(page, undefined, { clearPreviousDraft: true })
+  await startSession(page, second.id, { clearPreviousDraft: true })
   await assertDraft(page, secondId, EMPTY)
   for (let round = 0; round < 2; round++) {
     await reopenWorkspaceDraft(page, first, firstId)
@@ -577,6 +580,8 @@ it('carries all reference capsules through the real Workspace picker and leaves 
   await restoreStoredDrafts(page, [{ sessionId: firstId, draft }])
   await assertDraft(page, firstId, draft)
   await page.getByRole('button', { name: 'Choose project', exact: true }).click()
+  // Searching lists matching projects without the computer submenu, whose label depends on the host.
+  await page.getByPlaceholder('Search projects and computers…', { exact: true }).fill(second.title)
   await page.getByRole('menuitem', { name: second.title, exact: true }).click()
   await expect.poll(() => second.sessionIds.length, SETTLE).toBe(1)
   const secondId = second.sessionIds[0]!
@@ -642,7 +647,7 @@ it('applies a parameter transition matrix to one reusable target without changin
       await reopenWorkspaceDraft(page, first, firstId)
       await assertDraft(page, firstId, source)
     }
-    await startSession(page, transition.target === 'explicit' ? second.id : undefined, transition.options)
+    await startSession(page, second.id, transition.options)
     await assertDraft(page, secondId, transition.expected, transition.name)
     expect(await storedDraft(page, firstId), transition.name).toEqual(source)
     expect(second.sessionIds, transition.name).toEqual([secondId])

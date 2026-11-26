@@ -3,8 +3,8 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Analysis completed" [expanded]
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - button "Think The user wants a simple SVG diagram of the von Neumann architecture, saved as von-neumann.svg. Let me create a clean SVG showing CPU (control unit, ALU), memory, input, and output with bidirectional data/control buses."
 - paragraph: 我来创建一个冯诺依曼架构的 SVG 示意图。
 - button "Wrote files and called tools" [expanded]
@@ -35,9 +35,11 @@
 - paragraph: 下方附一行核心思想说明：指令与数据以二进制统一存储在存储器中。用浏览器打开该 SVG 文件即可查看。
 - button "View changes to von-neumann.svg": Edited von-neumann.svg +83 -0
 - text: This Host has no desktop available to open files or folders in external apps. Files can still be previewed in the sidebar.
+- button "Preview {{cwd}}/workspace/von-neumann.svg in sidebar":
+  - img "Preview of von-neumann.svg"
 - button "Preview {{cwd}}/workspace/von-neumann.svg in sidebar"
 - text: von-neumann.svg 冯诺依曼架构示意图 SVG
 - button "Copy"
 - button "Branch into a new conversation"
-- button "Usage 32K tok"
+- button "Turn usage"
 - text: {{clock}}

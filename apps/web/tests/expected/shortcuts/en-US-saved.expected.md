@@ -1,1 +1,3 @@
-- alert: Modified
+- alert:
+  - text: Modified
+  - button "Dismiss"

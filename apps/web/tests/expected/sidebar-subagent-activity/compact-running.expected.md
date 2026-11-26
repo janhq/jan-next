@@ -1,10 +1,8 @@
-- banner:
-  - navigation "Session hierarchy": Delegate a background job.
-  - button "1 subagent"
+- tablist "Chat tabs":
+  - tab "Delegate a background job. Close chat tab" [selected]:
+    - text: Delegate a background job.
+    - button "Close chat tab"
+  - button "New tab"
   - button "1 background job"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"

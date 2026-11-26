@@ -4,9 +4,8 @@
   - text: Recognition language
   - combobox "Recognition language":
     - option "Detect automatically" [selected]
-  - paragraph: Local models will be downloaded to the machine running Jan. No Python or compiler is required.
   - strong: Recorded recognizer
   - text: Checking local resources…
-  - status: Waiting 1795269555 seconds
+  - status: Waiting {{seconds}} seconds
   - button "Cancel preparation"
   - button "Cancel"

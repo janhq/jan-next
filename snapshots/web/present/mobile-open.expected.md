@@ -1,11 +1,17 @@
 ## Open
 
-- alert: Opened on another device
+- alert:
+  - text: Opened on another device
+  - button "Dismiss"
 
 ## Show file location
 
-- alert: File location shown on another device
+- alert:
+  - text: File location shown on another device
+  - button "Dismiss"
 
 ## Missing file
 
-- alert: Could not open. Try again.
+- alert:
+  - text: Could not open. Try again.
+  - button "Dismiss"

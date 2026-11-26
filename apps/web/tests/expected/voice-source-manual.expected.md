@@ -6,11 +6,7 @@
 - definition: About 1 GB with the model loaded; recognition may use more
 - term: First setup
 - definition: Allow roughly 1–10 minutes, depending on the network and machine
-- text: These are estimates; slow networks may take longer. Downloads are reused; idle models release memory by default.
-- button "First use downloads the local recognition models.":
-  - text: First use downloads the local recognition models.
-  - status
-- text: Model download source
+- text: These are estimates; slow networks may take longer. Downloads are reused; idle models release memory by default. Model download source
 - combobox "Model download source":
   - option "Automatic (recommended)"
   - option "Hugging Face"

@@ -1,7 +1,8 @@
 // Web e2e scenarios for both steering entry points: QueueDock strictly
 // transfers one queued occurrence, while the complementary composer gestures
-// choose Queue or Steer. The question tool supplies a deterministic pending-
-// steering snapshot before the step can drain.
+// choose Queue or Steer. Steering during a model stream ends that request, so
+// the scenarios steer while the dispatched question tool is held; the question
+// then supplies a deterministic pending-steering snapshot before the step drains.
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -32,10 +33,7 @@ const SETTLED_EXPANDED_EXPECTED = join(SNAPSHOT_DIR, 'settled-expanded.expected.
 const TRAJECTORY_EXPECTED = join(SNAPSHOT_DIR, 'trajectory.expected.md')
 const RETAINED_TRAJECTORY_EXPECTED = fileURLToPath(new URL('./expected/retained-steering/trajectory.expected.md', import.meta.url))
 const MODE = webSnapshotMode()
-// The question composer replaces the textarea, so fill → Queue row → Steer
-// starts only after request/context and must finish before the first replay
-// chunk. The compact canonical call plus 500 ms pacing gives loaded CI enough
-// time without stretching a long provider-authored chunk sequence.
+// Paced replay keeps the first call streaming while the composer queues input.
 const REPLAY_PACE_MS = 500
 
 const PROMPT = 'Use the ask_user_question tool to ask me exactly one question with id "checkpoint", question "Ready to continue?", header "Checkpoint", and options labeled "Yes" and "No". After I answer, reply with one short sentence acknowledging my answer and stop.'
@@ -62,6 +60,26 @@ function assistantText(events: SessionEvent[]): string {
       : [])
     .map(({ chunk }) => chunk.type === 'text-delta' ? chunk.text : '')
     .join('')
+}
+
+/**
+ * Hold the dispatched question tool before it opens its composer, keeping the turn
+ * running after its model stream so the textarea can still steer. Steering before
+ * dispatch would cancel the call instead.
+ * @param scaffold - the scenario whose tool pipeline is held.
+ * @returns the hold point, its release, and the listener disposer.
+ */
+function holdQuestionDispatch(scaffold: WebScaffold): { reached: Promise<undefined>; release: () => void; dispose: () => void } {
+  const reached = Promise.withResolvers<undefined>()
+  const released = Promise.withResolvers<undefined>()
+  const dispose = scaffold.ctx.on('tools/execute', async (exec, next) => {
+    if (exec.name === 'ask_user_question') {
+      reached.resolve(undefined)
+      await released.promise
+    }
+    return next()
+  }, { prepend: true })
+  return { reached: reached.promise, release: () => { released.resolve(undefined) }, dispose }
 }
 
 /** Claimed user messages whose payload contains the exact scenario text. */
@@ -120,6 +138,8 @@ describe('web e2e: mid-turn steering lands durably and visibly', () => {
     const input = page.locator('[data-composer-input]').first()
     await input.waitFor({ timeout: 10_000 })
     const settled = scaffold.whenTurnSettled(MODE === 'record' ? 180_000 : 30_000)
+    const question = holdQuestionDispatch(scaffold)
+    onTestFinished(() => { question.release(); question.dispose() })
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
     await input.fill(PROMPT)
     await input.press('Enter')
@@ -128,13 +148,14 @@ describe('web e2e: mid-turn steering lands durably and visibly', () => {
       { timeout: 10_000 },
     ).toBe(true)
 
-    // Enter remains the Queue gesture. In this live window the row action
+    // Enter remains the Queue gesture. Once the stream has ended, the row action
     // atomically moves this exact occurrence into the current turn's steering outbox.
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
     await input.fill(STEER)
     await input.press('Enter')
     const queuedRow = page.getByRole('listitem').filter({ hasText: STEER })
     await queuedRow.waitFor({ timeout: 10_000 })
+    await question.reached
     const steerButton = queuedRow.getByRole('button', { name: 'Steer queued message' })
     await expect.poll(() => steerButton.isEnabled(), { timeout: 10_000 }).toBe(true)
     await steerButton.click({ timeout: 10_000 })
@@ -142,6 +163,7 @@ describe('web e2e: mid-turn steering lands durably and visibly', () => {
     // A timeout while the Queue row remains means the command observed a
     // stopped Agent (`steer-unavailable`); inspect replay pacing first.
     await pendingSteering.waitFor({ timeout: 10_000 })
+    question.release()
 
     // The blocked composer keeps steering pending long enough to observe the
     // Host-authoritative mirror before the loop admits it durably.
@@ -248,8 +270,7 @@ describe.skipIf(MODE === 'record')('web e2e: retained steering and a post-stop m
   const sessionEvents: SessionEvent[] = []
   const requestInputs: string[][] = []
   let firstRequestSignal: AbortSignal | undefined
-  const questionStarted = Promise.withResolvers<undefined>()
-  const releaseQuestion = Promise.withResolvers<undefined>()
+  let question: ReturnType<typeof holdQuestionDispatch> | undefined
   const FOLLOWUP = 'Also acknowledge this second message.'
   const RESPONSE = "Great, let's move forward. BANANA!"
 
@@ -265,14 +286,9 @@ describe.skipIf(MODE === 'record')('web e2e: retained steering and a post-stop m
           ? message.content.flatMap(block => block.type === 'text' ? [block.text] : [])
           : []))
       if (requestInputs.length === 1) firstRequestSignal = options.signal
-      for await (const chunk of next()) {
-        yield chunk
-        if (requestInputs.length === 1 && chunk.type === 'block-start') {
-          questionStarted.resolve(undefined)
-          await releaseQuestion.promise
-        }
-      }
+      yield* next()
     }, { prepend: true })
+    question = holdQuestionDispatch(scaffold)
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     await pinBrowserClock(page)
@@ -283,7 +299,8 @@ describe.skipIf(MODE === 'record')('web e2e: retained steering and a post-stop m
   })
 
   afterAll(async () => {
-    releaseQuestion.resolve(undefined)
+    question?.release()
+    question?.dispose()
     try {
       try {
         await browser?.close()
@@ -300,14 +317,14 @@ describe.skipIf(MODE === 'record')('web e2e: retained steering and a post-stop m
     const input = page.locator('[data-composer-input][contenteditable="true"]').first()
     await input.fill(PROMPT)
     await input.press('Enter')
-    await questionStarted.promise
-    await expect.poll(() => requestInputs.length, { timeout: 10_000 }).toBe(1)
+    await question!.reached
+    expect(requestInputs).toHaveLength(1)
     await input.fill(STEER)
     await input.press('Meta+Enter')
     await page.locator('[data-pending-steering]').filter({ hasText: STEER }).waitFor({ timeout: 10_000 })
     await page.getByRole('button', { name: 'Stop generating', exact: true }).click()
     await expect.poll(() => firstRequestSignal?.aborted).toBe(true)
-    releaseQuestion.resolve(undefined)
+    question!.release()
     await expect.poll(() => sessionEvents.filter(event => event.type === 'turn/end').length, { timeout: 10_000 }).toBe(1)
     expect(claimedMessages(sessionEvents, STEER)).toHaveLength(0)
 
@@ -419,6 +436,8 @@ describe.each(['reconnect', 'delayed-inbox'] as const)('web e2e: composer shortc
     const input = page.locator('[data-composer-input]').first()
     await input.waitFor({ timeout: 10_000 })
     const settled = scaffold.whenTurnSettled(30_000)
+    const question = holdQuestionDispatch(scaffold)
+    onTestFinished(() => { question.release(); question.dispose() })
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
     await input.fill(PROMPT)
     await input.press('Enter')
@@ -426,10 +445,13 @@ describe.each(['reconnect', 'delayed-inbox'] as const)('web e2e: composer shortc
     await expect.poll(() => sessionEvents.some(event => event.type === 'request/context'), { timeout: 10_000 }).toBe(true)
 
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
+    await question.reached
     await input.fill(STEER)
     await input.press('Meta+Enter')
     await expect.poll(() => input.textContent(), { timeout: 5_000 }).toBe('')
     expect(await page.locator('[data-queue-dock]').count()).toBe(0)
+    await page.locator('[data-pending-steering]').filter({ hasText: STEER }).waitFor({ timeout: 10_000 })
+    question.release()
 
     const composer = page.locator('[data-question-key]')
     await composer.waitFor({ timeout: 30_000 })
@@ -515,6 +537,7 @@ describe('web e2e: composer shortcut follows the swapped busy behavior', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-composer-swapped-shortcut'))
     await openSettings(page, 'en')
     const dialog = page.getByRole('dialog', { name: 'Settings' })
+    await dialog.getByRole('button', { name: 'Agent loop', exact: true }).click()
     await dialog.getByRole('button', { name: 'Queue' }).click()
     await page.getByRole('menuitem', { name: 'Steer' }).click()
     await dialog.getByRole('button', { name: 'Steer' }).waitFor({ timeout: 10_000 })
@@ -550,9 +573,7 @@ describe('web e2e: composer shortcut follows the swapped busy behavior', () => {
 })
 
 describe('web e2e: empty-draft Cmd+Enter steers the whole queue', () => {
-  const releaseReplay = Promise.withResolvers<undefined>()
-  const releaseQuestion = Promise.withResolvers<undefined>()
-  let disposeReplayBarrier: (() => void) | undefined
+  let question: ReturnType<typeof holdQuestionDispatch> | undefined
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -570,13 +591,7 @@ describe('web e2e: empty-draft Cmd+Enter steers the whole queue', () => {
       replayOverride: STEER_ALL_OVERRIDE,
       paceMs: REPLAY_PACE_MS,
     })
-    disposeReplayBarrier = scaffold.ctx.on('llm/stream', async function* (_options, next) {
-      await releaseReplay.promise
-      for await (const chunk of next()) {
-        yield chunk
-        if (chunk.type === 'block-start' && chunk.blockType === 'tool-call') await releaseQuestion.promise
-      }
-    }, { prepend: true })
+    question = holdQuestionDispatch(scaffold)
     scaffold.ctx.on('session/event', (_session, event) => { sessionEvents.push(event) })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
@@ -589,9 +604,8 @@ describe('web e2e: empty-draft Cmd+Enter steers the whole queue', () => {
   }, 120_000)
 
   afterAll(async () => {
-    releaseReplay.resolve(undefined)
-    releaseQuestion.resolve(undefined)
-    disposeReplayBarrier?.()
+    question?.release()
+    question?.dispose()
     try {
       await browser?.close()
       await scaffold?.close()
@@ -605,7 +619,7 @@ describe('web e2e: empty-draft Cmd+Enter steers the whole queue', () => {
     const input = page.locator('[data-composer-input]').first()
     await input.waitFor({ timeout: 10_000 })
 
-    // Hold the question-tool stream until both rows have been steered, so
+    // Hold the question tool until both rows have been steered, so
     // question-composer takeover cannot race queue publication or the shortcut.
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
     await input.fill(PROMPT)
@@ -615,6 +629,7 @@ describe('web e2e: empty-draft Cmd+Enter steers the whole queue', () => {
     // instead of publishing a Queue row.
     await page.getByRole('button', { name: 'Stop generating' }).waitFor({ timeout: 10_000 })
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
+    await question!.reached
     await input.fill(STEER_ONE)
     await input.press('Enter')
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
@@ -649,10 +664,7 @@ describe('web e2e: empty-draft Cmd+Enter steers the whole queue', () => {
       () => page.locator('[data-pending-steering]').filter({ hasText: /BANANA|ORANGE/ }).count(),
       { timeout: 10_000 },
     ).toBe(2)
-    releaseReplay.resolve(undefined)
     expect(await page.locator('[data-queue-dock]').count()).toBe(0)
-    // The unnamed tool block makes the reasoning row non-running. Its name and
-    // arguments stay gated so the mid snapshot cannot acquire a preparation row.
     await page.locator('[data-variant="think"][data-state="ok"]').first().waitFor({ state: 'attached', timeout: 10_000 })
     expect(await page.locator('[data-tool="ask_user_question"][data-state="preparing"]').count()).toBe(0)
     const mid = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
@@ -661,7 +673,7 @@ describe('web e2e: empty-draft Cmd+Enter steers the whole queue', () => {
     // Answer the question; the step closes, the loop drains both steerings
     // into one next-step request, and the final reply obeys both markers.
     const settled = scaffold.whenTurnSettled(30_000)
-    releaseQuestion.resolve(undefined)
+    question!.release()
     const composer = page.locator('[data-question-key]')
     await composer.waitFor({ timeout: 30_000 })
     await composer.getByRole('radio', { name: 'Yes' }).click()

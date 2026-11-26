@@ -31,7 +31,7 @@ import { pathToFileURL } from 'node:url'
 import type { Page } from 'playwright'
 import { expect } from 'vitest'
 import { Context } from '@janhq/cordis'
-import { JAN_LAUNCH_ENVIRONMENT_KEY, type LaunchEnvironmentSnapshot } from '@janhq/jan-launch-environment'
+import { createLaunchEnvironmentSnapshot, JAN_LAUNCH_ENVIRONMENT_KEY, type LaunchEnvironmentSnapshot } from '@janhq/jan-launch-environment'
 import Loader from '@janhq/cordis-plugin-loader'
 import { entryListSchema, type PatchOptions } from '@janhq/cordis-plugin-include'
 import yaml from 'js-yaml'
@@ -304,9 +304,19 @@ export interface WebScaffold {
   close(): Promise<void>
 }
 
+/**
+ * The test process environment without SSH markers, so a run started over SSH presents the Host
+ * as this computer, as Linux CI does.
+ * @returns a single process-layer snapshot.
+ */
+function localLaunchEnvironment(): LaunchEnvironmentSnapshot {
+  const { SSH_CONNECTION: _connection, SSH_TTY: _tty, ...values } = process.env
+  return createLaunchEnvironmentSnapshot([{ source: 'process', values: values as Record<string, string> }])
+}
+
 /** Options for {@link launchWebScaffold}. */
 export interface LaunchOptions {
-  /** Override the developer-tools preference; omitted uses the shipped default. */
+  /** Developer-tools preference; omitted enables it, as the scenarios assume Coding Tools. */
   developerTools?: boolean
   /** Enable the real Open In rows with deterministic launch-environment facts. */
   openInAppEnvironment?: LaunchEnvironmentSnapshot
@@ -691,7 +701,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   // the temp workspace so tool cwd, session cwd, and fixtures agree.
   const originalCwd = process.cwd()
   const ctx = new Context()
-  if (options.openInAppEnvironment !== undefined) ctx.provide(JAN_LAUNCH_ENVIRONMENT_KEY, options.openInAppEnvironment)
+  ctx.provide(JAN_LAUNCH_ENVIRONMENT_KEY, options.openInAppEnvironment ?? localLaunchEnvironment())
   const observedSessions = new Map<SessionId, Session>()
   const stopObservingSessions = ctx.on('session/created', (session) => {
     observedSessions.set(session.id, session)
@@ -797,9 +807,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     await mountRootInclude(ctx, rootConfig, readProfilePatches('jan', profileContext))
     await ctx.loader.await()
     await auditStartupEntries(ctx, 'web e2e scaffold')
-    if (options.developerTools !== undefined) {
-      await ctx.settings.update('ui-settings', { enabled: options.developerTools })
-    }
+    await ctx.settings.update('ui-settings', { enabled: options.developerTools ?? true })
     if (options.welcomeNoticePending !== true) {
       await ctx.settings.mutate(WELCOME_NOTICE_SETTINGS_NAMESPACE, [{
         op: 'set', path: [WELCOME_NOTICE_ACK_FIELD], value: WELCOME_NOTICE_VERSION,
@@ -1466,6 +1474,8 @@ export async function seedSession(
       }
     }
     nextTime = time + 1
+    // The recorded child creation time belongs to the recording's clock; the seed timeline creates the child here.
+    if (event.type === 'subagent/catalog') return { ...event, time, data: { ...event.data, childCreatedAt: time } }
     return { ...event, time }
   })
   await persistSeedSession(scaffold, meta, materializedEvents)
@@ -1640,6 +1650,9 @@ export async function captureExpandedTurnProcessAria(
     opened.push(index)
   }
   try {
+    // A half-open group overflows its capped body and briefly shows "Show full trace" (#172).
+    await page.waitForFunction(() => document.getAnimations().every(animation =>
+      animation.playState !== 'running' || animation.effect?.getTiming().iterations === Infinity))
     if (options.scrollToBottom === true) {
       const backToBottom = page.getByRole('button', { name: 'Back to bottom', exact: true })
       const scroll = page.locator('[data-conversation-scroll]')

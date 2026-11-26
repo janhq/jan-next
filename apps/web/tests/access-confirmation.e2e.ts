@@ -55,7 +55,12 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-auto-review-entry'))
     const access = page.locator('button[aria-label^="Access mode"]').first()
     await access.waitFor({ timeout: 10_000 })
-    expect(await access.getAttribute('aria-label')).toBe('Access mode, current: Project Write')
+    expect(await access.getAttribute('aria-label')).toBe('Access mode, current: Full access')
+    const input = page.locator('[data-composer-input]').first()
+    await writeComposerDraft(page, input, '/permission workspace-write')
+    await input.press('Enter')
+    await expect.poll(() => access.getAttribute('aria-label'), { timeout: 10_000 })
+      .toBe('Access mode, current: Project Write')
 
     await access.click()
     const currentMenu = page.getByRole('menu')
@@ -91,7 +96,6 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
     await expect.poll(() => autoDialog.count()).toBe(0)
     expect(await access.getAttribute('aria-label')).toBe('Access mode, current: Project Write')
 
-    const input = page.locator('[data-composer-input]').first()
     await writeComposerDraft(page, input, '/permission')
     const suggestions = page.getByRole('listbox', { name: 'Trigger suggestions' })
     await suggestions.waitFor({ timeout: 10_000 })

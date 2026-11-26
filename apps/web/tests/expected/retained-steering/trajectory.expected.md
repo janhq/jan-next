@@ -3,19 +3,23 @@
     - row "SYSTEM, Initial System Prompt":
       - cell "SYSTEM"
       - cell "Initial System Prompt"
+    - 'row "CONTEXT, Current runtime context. This snapshot supersedes earlier runtime-context snapshots. Current working directory: \"{{cwd}}/workspace\". Current Jan file policy: danger-full-access. The Jan file sandbox does not restrict file modifications by available operations. Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not…"':
+      - cell "Turn 1 CONTEXT": CONTEXT
+      - 'cell "Current runtime context. This snapshot supersedes earlier runtime-context snapshots. Current working directory: \"{{cwd}}/workspace\". Current Jan file policy: danger-full-access. The Jan file sandbox does not restrict file modifications by available operations. Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not…"'
     - row "USER, Use the ask_user_question tool to ask me exactly one question with id \"checkpoint\", question \"Ready to continue?\", header \"Checkpoint\", and options labeled \"Yes\" and \"No\". After I answer, reply with one short sentence acknowledging my answer and stop.":
-      - cell "Turn 1 USER": USER
+      - cell "USER"
       - cell "Use the ask_user_question tool to ask me exactly one question with id \"checkpoint\", question \"Ready to continue?\", header \"Checkpoint\", and options labeled \"Yes\" and \"No\". After I answer, reply with one short sentence acknowledging my answer and stop."
-    - 'row "CONTEXT, Current runtime context. This snapshot supersedes earlier runtime-context snapshots. Current working directory: \"{{cwd}}/workspace\". Current Jan file policy: workspace-write. Any available operation enforced by the Jan file sandbox may modify files under the session workspace: \"{{cwd}}/workspace\". Some pl…"':
-      - cell "CONTEXT"
-      - 'cell "Current runtime context. This snapshot supersedes earlier runtime-context snapshots. Current working directory: \"{{cwd}}/workspace\". Current Jan file policy: workspace-write. Any available operation enforced by the Jan file sandbox may modify files under the session workspace: \"{{cwd}}/workspace\". Some pl…"'
     - 'row "CONTEXT, Time sampled while preparing turn 1, step 1: 2026-01-15T{{clock}}+{{clock}}[Asia/Shanghai] Browser time zone for this request: Asia/Shanghai. Interpret otherwise-unqualified dates and times in this zone. Elapsed since the preceding model-visible message: unavailable."':
       - cell "CONTEXT"
       - 'cell "Time sampled while preparing turn 1, step 1: 2026-01-15T{{clock}}+{{clock}}[Asia/Shanghai] Browser time zone for this request: Asia/Shanghai. Interpret otherwise-unqualified dates and times in this zone. Elapsed since the preceding model-visible message: unavailable."'
-    - row "Request 1, compaction":
-      - 'cell "Request #1"':
+    - row "Request 1, ASSISTANT, (tool call only)":
+      - 'cell "Request #1 ASSISTANT"':
         - 'button "Request #1"'
-      - cell
+        - text: ASSISTANT
+      - cell "(tool call only)"
+    - 'row "TOOL, ask_user_question {\"questions\":[{\"id\":\"checkpoint\",\"question\":\"Ready to continue?\",\"header\":\"Checkpoint\",\"options\":[{\"label\":\"Yes\"},{\"label\":\"No\"}]}]}"':
+      - cell "TOOL"
+      - 'cell "ask_user_question{\"questions\":[{\"id\":\"checkpoint\",\"question\":\"Ready to continue?\",\"header\":\"Checkpoint\",\"options\":[{\"label\":\"Yes\"},{\"label\":\"No\"}]}]} → Error: tool call aborted before dispatch"'
     - 'row "USER, Interjection: include the word BANANA in your final reply."':
       - cell "Turn 2 USER": USER
       - 'cell "Interjection: include the word BANANA in your final reply."'

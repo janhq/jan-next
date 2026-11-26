@@ -3,8 +3,8 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Ran commands, wrote files, read files, etc." [expanded]
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - button "Think The user wants four things done directly. But I need to read intro.md before editing (fs-observation-policy requires reading existing file first). The user says don't look at the directory first, but reading intro.md is needed for the edit tool. Let me just do it."
 - button "Read intro.md":
   - text: Read
@@ -91,5 +91,5 @@
 - text: notes.txt 末尾追加了 done 一行
 - button "Copy"
 - button "Branch into a new conversation"
-- button "Usage 36.2K tok"
+- button "Turn usage"
 - text: {{clock}}

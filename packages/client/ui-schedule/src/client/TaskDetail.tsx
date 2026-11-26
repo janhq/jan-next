@@ -336,7 +336,7 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
           {task !== undefined && <><Tooltip label={deliveryFloor && !runHeld
             ? t('host.runAfterInterval', { time: formatAvailableAt(floorEndsAt, t('time.locale'), now) }) : t('host.run')}
           side="bottom" delayMs={500} portal>
-            <span><Button size="sm" variant="ghost" disabled={runHeld || deliveryFloor}
+            <span className={css.detailRunAction}><Button size="sm" variant="ghost" disabled={runHeld || deliveryFloor}
               onClick={() => { void run(task.id) }}>{t('host.run')}</Button></span>
           </Tooltip>
           <Tooltip label={t(task.status === 'active' ? 'host.pause' : 'host.resume')} side="bottom" delayMs={500} portal>

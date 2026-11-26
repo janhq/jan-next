@@ -54,6 +54,12 @@
       - listitem:
         - button "修改关闭当前页面／窗口快捷键"
         - text: 关闭当前页面／窗口 ⌥ ⌘ W
+      - listitem:
+        - button "修改后退快捷键"
+        - text: 后退 ⌥ ⌘ [
+      - listitem:
+        - button "修改前进快捷键"
+        - text: 前进 ⌥ ⌘ ]
   - region "消息输入":
     - heading "消息输入" [level=3]
     - list:

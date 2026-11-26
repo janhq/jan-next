@@ -1001,7 +1001,7 @@ describe.skipIf(MODE === 'record')('web e2e: active Schedule catalog', () => {
     await manager.getByRole('button', { name: 'Check exact cadence', exact: true }).click()
     await manager.getByRole('button', { name: /^Linked session.*: open linked session$/ }).click()
     await liveAgent(scaffold, CATALOG_SESSION_ID)
-    await page.getByRole('navigation', { name: 'Session hierarchy' })
+    await page.getByRole('tablist', { name: 'Chat tabs', exact: true }).getByRole('tab', { selected: true })
       .getByText(CATALOG_TITLE, { exact: true }).waitFor({ timeout: 15_000 })
 
     const trigger = page.getByRole('button', { name: '3 automation tasks' })

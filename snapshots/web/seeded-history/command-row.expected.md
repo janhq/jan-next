@@ -1,11 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": Use the read tool twice
+- tablist "Chat tabs":
+  - tab "Use the read tool twice Close chat tab" [selected]:
+    - text: Use the read tool twice
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - navigation "Turn navigation":
   - button "Jump to turn 1"
   - button "Jump to turn 2"
@@ -29,11 +32,12 @@
 - button "compact Compacted 5 history items (~{{tokens}} tokens)"
 - status: Completed
 - button "Completed in {{duration}}" [disabled]
-- button "Context injection AGENTS.md"
+- button "Inject context AGENTS.md"
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
 - 'button "Access mode, current: Read Only"': Read Only
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
-- button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
+- button "Choose project" [disabled]
+- button "1 turns 2 steps"
 - button "16K tok · Cache hit 98%": 16K tokCache hit 98%

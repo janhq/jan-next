@@ -1,12 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": workspace
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "New chat Close chat tab" [selected]:
+    - text: New chat
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - navigation "Turn navigation":
   - button "Jump to turn 1"
   - button "Jump to turn 2"
@@ -18,8 +20,8 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Ran commands and updated the plan" [expanded]
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - 'button "Think The user''s goal is: \"做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的\" — which translates to: \"Do two turns, each turn output the file structure of a random package. Note that after you finish one turn, directly output the content and stop; our system will help you open another turn, and you just do something similar.\""'
 - button "Bash List package directories deterministically"
 - button "View goal 做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的"
@@ -85,7 +87,7 @@
 - paragraph: 两个 turn 均已完成，目标达成，标记 goal 为完成。
 - button "Updated the plan" [expanded]
 - button "Update goal 做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的"
-- 'button "Context injection tool-goal complete: 做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的"'
+- 'button "Inject context tool-goal complete: 做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的"'
 - paragraph: 两个 turn 都完成了 ✅
 - paragraph:
   - strong: 总结：
@@ -142,9 +144,11 @@
 - button "Back to bottom"
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
-- button "2 turns 12 steps · {{throughput}} tok/s": 2 turns 12 steps{{throughput}} tok/s
+- button "Choose project" [disabled]: workspace
+- 'button "Switch the agent preset for this task: Standard mode"': Standard mode
+- button "2 turns 12 steps"
 - button "115K tok · Cache hit 91%": 115K tokCache hit 91%
 - button "9% of context used": 9%

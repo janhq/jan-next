@@ -28,6 +28,7 @@ export default defineConfig({
       'apps/web/tests/**/*.snapshot.ts',
       'packages/experimental/inspector/tests/client-browser.e2e.ts',
     ],
+    setupFiles: ['apps/web/tests/setup-browser-notices.ts'],
     // Local and record runs stay serial. CI runs workspace-mutating HMR and
     // dynamic Cordis lifecycle coverage before parallelizing the remaining files.
     testTimeout: 180_000,

@@ -1,16 +1,20 @@
-- banner:
-  - navigation "Session hierarchy": Clickable links gallery
+- tablist "Chat tabs":
+  - tab "Clickable links gallery Close chat tab" [selected]:
+    - text: Clickable links gallery
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: "Assemble the link gallery: write the report and styles, inspect the sources, and summarize. {{clock}}"
 - button "Copy"
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Wrote files, ran commands, called tools, etc." [expanded]
+- button "Show full trace"
 - button "Write site/report.html 1KB +1 -0":
   - text: Write
   - button "site/report.html"
@@ -167,4 +171,5 @@
 - 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]
 - button "1 turns 2 steps"

@@ -1,20 +1,65 @@
-- dialog "设置":
-  - text: 设置
+- dialog "Settings":
+  - text: Settings
   - navigation:
-    - button "通用设置"
-    - button "模型"
-    - button "智能体循环"
-    - button "内置插件"
-    - button "Agent 预设"
-  - button "打开配置文件"
-  - button "关闭"
-  - heading "模型" [level=2]
-  - paragraph: 填入各提供商的 API 密钥即可使用其模型。
-  - status: 已保存 minimax-cn。
+    - button "General"
+    - button "Models"
+    - button "Agent loop"
+    - button "Built-in plugins"
+    - button "Agent presets"
+  - button "Open configuration file"
+  - button "Close"
+  - paragraph: Enter your API keys to use models from the following providers.
+  - status: Saved minimax-cn.
   - list:
     - listitem:
       - text: minimax-cn
-      - img "API 密钥已配置"
-      - button "编辑 minimax-cn": 编辑
-      - button "删除 minimax-cn": 删除
-  - button "添加模型提供商"
+      - img "API key configured"
+      - button "Edit minimax-cn": Edit
+      - button "Delete minimax-cn": Delete
+    - listitem:
+      - text: Tokamak Custom
+      - img "API key missing"
+      - button "Edit Tokamak (tokamak)": Edit
+    - listitem:
+      - text: Local (llama.cpp) Custom
+      - img "API key missing"
+      - button "Edit Local (llama.cpp) (local)": Edit
+  - button "Add model provider"
+  - region "Local model":
+    - heading "Local model" [level=3]
+    - paragraph: Runs on this computer with llama.cpp. Works offline; nothing leaves your machine.
+    - text: Something went wrong
+    - alert:
+      - paragraph: "No local model worker is configured; set workerPath on the llama-cpp plugin (the desktop app and `pnpm run dev:web` set it from JAN_LLAMA_WORKER)"
+    - button "Try again"
+    - button "Remove all"
+    - region "Add a model":
+      - heading "Add a model" [level=4]
+      - textbox "Search the recommended models, or paste a Hugging Face repository":
+        - /placeholder: Search, or paste e.g. unsloth/Qwen3-8B-GGUF
+      - list:
+        - listitem:
+          - text: Jan v3.5 4B Recommended 2.7 GB · janhq/Jan-v3.5-4B-gguf
+          - button "Download"
+        - listitem:
+          - text: Qwen3 4B Instruct 2507 2.5 GB · unsloth/Qwen3-4B-Instruct-2507-GGUF
+          - button "Download"
+        - listitem:
+          - text: Llama 3.2 3B Instruct 2.0 GB · bartowski/Llama-3.2-3B-Instruct-GGUF
+          - button "Download"
+        - listitem:
+          - text: Qwen3 8B 5.0 GB · unsloth/Qwen3-8B-GGUF
+          - button "Download"
+        - listitem:
+          - text: Qwen3 0.6B 429 MB · ggml-org/Qwen3-0.6B-GGUF
+          - button "Download"
+        - listitem:
+          - text: Qwen3 VL 2B Instruct Vision 1.9 GB · unsloth/Qwen3-VL-2B-Instruct-GGUF
+          - button "Download"
+    - region "Import a .gguf file":
+      - heading "Import a .gguf file" [level=4]
+      - textbox "Full path of a .gguf file on this computer":
+        - /placeholder: /home/you/models/model.gguf
+      - 'textbox "Vision projector (optional): full path of the model''s mmproj .gguf file"':
+        - /placeholder: Vision projector (optional), e.g. /home/you/models/mmproj.gguf
+      - button "Import" [disabled]

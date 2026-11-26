@@ -1,1 +1,2 @@
-- text: {{throughput}} tok/s Cache hit 98%
+- button "Choose project" [disabled]
+- text: Cache hit 98%

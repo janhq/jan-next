@@ -171,6 +171,7 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
         },
       },
       'session/cancel': ok({ accepted: true }),
+      'session/contextPreview': ok(null),
     },
   })
 

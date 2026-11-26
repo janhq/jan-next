@@ -1,12 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": Reply with a one-sentence description
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Reply with a one-sentence description Close chat tab" [selected]:
+    - text: Reply with a one-sentence description
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Reply with a one-sentence description of event sourcing, then stop. {{clock}}
 - button "Copy"
 - status: Failed
@@ -15,11 +17,15 @@
 - group:
   - status: Retried model request (2/2) · {{duration}}
 - status:
-  - text: This turn failedupstream 503
+  - text: This turn failedThe model service had a problem and did not answer. Try again in a moment.
+  - button "Try again"
   - code: SERVER
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Continue generating"
+- button "Choose project" [disabled]: workspace
+- 'button "Switch the agent preset for this task: Standard mode"': Standard mode
 - text: 1 turns 1 steps
+- button "9% of context used": 9%

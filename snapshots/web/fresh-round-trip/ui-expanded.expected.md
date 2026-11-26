@@ -1,19 +1,21 @@
-- banner:
-  - navigation "Session hierarchy": Use the bash tool to
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Use the bash tool to Close chat tab" [selected]:
+    - text: Use the bash tool to
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: "Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop. {{clock}}"
 - button "Copy"
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Ran commands" [expanded]
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - button "Think The user wants me to run a simple bash command and reply with \"DONE\"."
 - button "Bash Echo the test string"
 - button "Think The command executed successfully and output \"WEB_E2E_OK\". I just need to reply with \"DONE\"."
@@ -23,9 +25,11 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
-- button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
+- button "Choose project" [disabled]: workspace
+- 'button "Switch the agent preset for this task: Standard mode"': Standard mode
+- button "1 turns 2 steps"
 - button "15.8K tok · Cache hit 99%": 15.8K tokCache hit 99%
 - button "6% of context used": 6%

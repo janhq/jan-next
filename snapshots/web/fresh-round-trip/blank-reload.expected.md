@@ -1,10 +1,15 @@
-- banner:
+- tablist "Chat tabs":
+  - tab "New chat Close chat tab" [selected]:
+    - text: New chat
+    - button "Close chat tab"
+  - button "New tab"
   - button "Open right sidebar"
 - text: Into the Unknown Preview
-- button "Choose project": workspace
-- button "Standard mode"
 - textbox "Describe what you want to build, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project": workspace
+- button "Standard mode"
+- button "9% of context used": 9%

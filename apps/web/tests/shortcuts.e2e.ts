@@ -40,6 +40,8 @@ describe('web e2e: shortcut reference', () => {
       await page.getByRole('button', { name: view, exact: true }).click()
       const dialog = page.getByRole('dialog', { name: title, exact: true })
       await dialog.waitFor()
+      // Geometry is measured after the modal's scale-in entry.
+      await dialog.evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)))
       const referenceNode = await dialog.elementHandle()
       expect(await page.getByRole('dialog').count()).toBe(2)
       expect(await dialog.locator('footer').count()).toBe(1)

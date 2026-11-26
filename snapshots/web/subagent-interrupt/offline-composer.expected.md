@@ -1,22 +1,21 @@
-- banner:
-  - navigation "Session hierarchy":
-    - button "Ask a research subagent to"
-    - text: /
-    - 'button "Switch subagent: event-sourcing researcher"': event-sourcing researcher
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Explain event sourcing in one Close chat tab" [selected]:
+    - text: Explain event sourcing in one
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
-- text: Explain event sourcing in one sentence.Your final answer is delivered automatically if your parent is still online. Include the result and relevant evidence in that answer; the parent does not receive your full transcript, tool output, or reasoning. If your last action is a message to your parent, the completion notice omits your final answer; include the result and relevant evidence in that message. {{clock}}
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
+- text: "Explain event sourcing in one sentence.Your final answer is delivered automatically if your parent is still online. Follow the requested format. Otherwise use Summary:, Evidence:, Blockers:, and Changed files: in your final answer. Report only checks you ran and files you changed; omit unknown details. Your parent does not receive your transcript. Use messages for interim updates, not as a substitute for your final answer. {{clock}}"
 - button "Copy"
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - paragraph: partial
-- status: Deep diving
-- text: Deep diving for {{duration}} ···
+- status: Writing
+- text: Writing - {{duration}}
 - list:
   - listitem:
     - text: Keep working until I stop you again.
@@ -25,6 +24,7 @@
     - button "Steer queued message"
 - textbox "Cmd/Ctrl+Enter steers all queued messages"
 - button "Add files or run commands"
-- 'button "Access mode, current: Custom"': Custom
+- 'button "Access mode, current: Full access"': Full access
 - button "Stop generating"
 - button "Send message" [disabled]
+- button "9% of context used": 9%

@@ -1,6 +1,6 @@
 - tree "Sessions":
-  - treeitem "{{workspace}} Project actions for {{workspace}} New session in {{workspace}}" [expanded]:
-    - text: {{workspace}}
+  - treeitem "{{workspace}} This computer Project actions for {{workspace}} New session in {{workspace}}" [expanded]:
+    - text: {{workspace}} This computer
     - button "Project actions for {{workspace}}"
     - button "New session in {{workspace}}"
   - treeitem "New Session" [selected]

@@ -1,8 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": Use the bash tool to
-  - 'button "Switch the agent preset for this task: Standard mode"': Standard mode
+- tablist "Chat tabs":
+  - tab "Use the bash tool to Close chat tab" [selected]:
+    - text: Use the bash tool to
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: "Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop. {{clock}}"
 - button "Copy"
 - status: Completed
@@ -13,9 +19,11 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]: Default project
+- 'button "Switch the agent preset for this task: Standard mode"': Standard mode
 - button "1 turns 2 steps"
 - button "15.8K tok · Cache hit 99%": 15.8K tokCache hit 99%
 - button "6% of context used": 6%

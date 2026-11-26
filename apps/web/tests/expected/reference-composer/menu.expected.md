@@ -7,3 +7,5 @@
   - text: Sessions
   - option "reference-order-target-session {{cwd}} · {{age}}"
   - option "reference-source-session {{cwd}} · {{age}}"
+  - text: Projects
+  - option "workspace {{cwd}}/workspace"

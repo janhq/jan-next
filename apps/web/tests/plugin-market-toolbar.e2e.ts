@@ -33,7 +33,10 @@ async function measure(toolbar: Locator) {
     })
     const separated = rects.every((rect, index) => rects.slice(index + 1).every(other =>
       rect.right <= other.left || other.right <= rect.left || rect.bottom <= other.top || other.bottom <= rect.top))
-    const centers = rects.map(rect => rect.top + rect.height / 2)
+    const search = controls.findIndex(control => control.matches('input'))
+    const searchRect = rects[search]!
+    const others = rects.filter((_, index) => index !== search)
+    const centers = others.map(rect => rect.top + rect.height / 2)
     return {
       controls: controls.length,
       contained,
@@ -41,7 +44,8 @@ async function measure(toolbar: Locator) {
       separated,
       overflow: element.scrollWidth > element.clientWidth,
       pageOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
-      singleLine: Math.max(...centers) - Math.min(...centers) < 1,
+      searchLeads: others.every(rect => rect.top >= searchRect.bottom),
+      actionsOneRow: Math.max(...centers) - Math.min(...centers) < 1,
       focused: document.activeElement === element.querySelector('input'),
     }
   })
@@ -50,7 +54,7 @@ async function measure(toolbar: Locator) {
 /** Every toolbar action remains visible, reachable, and separate without losing the search focus. */
 function validLayout(layout: Awaited<ReturnType<typeof measure>>): boolean {
   return layout.controls === 5 && layout.contained && layout.reachable && layout.separated
-    && !layout.overflow && !layout.pageOverflow && layout.focused
+    && layout.searchLeads && !layout.overflow && !layout.pageOverflow && layout.focused
 }
 
 it('keeps Discover controls reachable when the toolbar wraps and retains search focus across widths', async () => {
@@ -91,9 +95,9 @@ it('keeps Discover controls reachable when the toolbar wraps and retains search 
           await page.setViewportSize({ width, height: 844 })
           await expect.poll(async () => {
             const layout = await measure(toolbar)
-            return validLayout(layout) && layout.singleLine === (width >= 768) ? true : layout
+            return validLayout(layout) && layout.actionsOneRow === (width >= 768) ? true : layout
           }, { message: `Discover toolbar at ${width}px` }).toBe(true)
-          facts.push(`- ${width}px: ${width >= 768 ? 'single row' : 'wrapped rows'}; index, search, labels, sort, and refresh are contained, reachable, and separate; no horizontal overflow; search focus retained.`)
+          facts.push(`- ${width}px: search on its own first row; index, labels, sort, and refresh ${width >= 768 ? 'share one row' : 'wrap'} below it; all are contained, reachable, and separate; no horizontal overflow; search focus retained.`)
         }
         await page.setViewportSize({ width: 390, height: 844 })
         await expect.poll(async () => validLayout(await measure(toolbar))).toBe(true)

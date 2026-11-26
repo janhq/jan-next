@@ -1,11 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": Use the read tool twice
+- tablist "Chat tabs":
+  - tab "Use the read tool twice Close chat tab" [selected]:
+    - text: Use the read tool twice
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - navigation "Turn navigation":
   - button "Jump to turn 1"
   - button "Jump to turn 2"
@@ -40,5 +43,6 @@
 - 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
-- button "3 turns 4 steps · {{throughput}} tok/s": 3 turns 4 steps{{throughput}} tok/s
+- button "Choose project" [disabled]
+- button "3 turns 4 steps"
 - button "7.9K tok · Cache hit 98%": 7.9K tokCache hit 98%

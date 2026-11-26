@@ -1,12 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": Queue item to remove
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Queue item to remove Close chat tab" [selected]:
+    - text: Queue item to remove
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - navigation "Turn navigation":
   - button "Jump to turn 1"
   - button "Jump to turn 2"
@@ -44,9 +46,11 @@
 - button "Clear goal"
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
-- button "3 turns 3 steps · {{throughput}} tok/s": 3 turns 3 steps{{throughput}} tok/s
+- button "Choose project" [disabled]: workspace
+- 'button "Switch the agent preset for this task: Standard mode"': Standard mode
+- button "3 turns 3 steps"
 - button "7.9K tok · Cache hit 99%": 7.9K tokCache hit 99%
 - button "6% of context used": 6%

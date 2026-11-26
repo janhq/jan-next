@@ -1,4 +1,11 @@
 - menu:
   - menuitem "设置"
-  - menuitem "意见反馈"
+  - menuitem "语言"
+  - menuitem "推理配置"
+  - separator
+  - menuitem "查看更新日志"
+  - menuitem "了解更多"
+  - separator
   - menuitem "登录"
+  - separator
+  - text: 版本 {{version}}

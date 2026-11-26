@@ -26,7 +26,7 @@ import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { createMessage, createUserMessage } from '@janhq/jan-llm'
 import { acknowledgeReloadConnectionLoss, launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import {
-  connectFreshWorkspace, newEnglishPage, saveFailureShot, ZH_BROWSER_LOCALE,
+  connectFreshWorkspace, expandProject, newEnglishPage, saveFailureShot, ZH_BROWSER_LOCALE,
 } from './support.ts'
 
 /** The produced file the seeded turn writes, and what the preview should show. */
@@ -657,7 +657,7 @@ describe('web e2e: shipped right Sidebar', () => {
         await mobilePage.goto(page.url(), { waitUntil: 'load' })
         const column = await resetSidebar(mobilePage)
         const panel = column.locator('[data-sidebar-right-panel]')
-        const title = mobilePage.locator('[class*="titleCluster"]').first()
+        const title = mobilePage.getByRole('tablist', { name: 'Chat tabs', exact: true }).getByRole('tab', { selected: true })
         const utilities = mobilePage.locator('[class*="headerUtilities"]').first()
         await expect.poll(() => panel.getAttribute('data-sidebar-right-panel')).toBe('fullscreen')
         await column.locator('[data-sidebar-right-toggle]').tap()
@@ -665,7 +665,7 @@ describe('web e2e: shipped right Sidebar', () => {
           await Promise.allSettled(node.getAnimations({ subtree: true }).map(animation => animation.finished))
         })
         await expandOf(mobilePage).waitFor()
-        const titleNode = await title.locator('[class*="crumbCurrent"]').elementHandle()
+        const titleNode = await title.locator('[data-dockkit-tab-title]').elementHandle()
         if (titleNode === null) throw new Error('conversation title is not rendered')
         const titleBefore = await title.boundingBox()
         const utilitiesBefore = await utilities.boundingBox()
@@ -966,6 +966,7 @@ describe('web e2e: shipped right Sidebar', () => {
       onTestFailed(() => saveFailureShot(fx, 'web-e2e-sidebar-right-sessions'))
       try {
         await fx.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+        await expandProject(fx, 'workspace')
         const settled = fx.getByRole('treeitem', { name: /Show the right sidebar\./u }).first()
         await settled.click()
         await expect.poll(async () => await settled.getAttribute('aria-selected')).toBe('true')
@@ -1001,7 +1002,8 @@ describe('web e2e: shipped right Sidebar', () => {
         await expect.poll(async () => await settled.getAttribute('aria-selected')).toBe('true')
         await expect.poll(records, { timeout: 15_000 }).toEqual(before)
         expect(await column.locator('[data-sidebar-right-open]').count()).toBe(1)
-        expect(await wrap.getAttribute('aria-pressed')).toBe('true')
+        // The settled Session's tab stays open beside the new one, so its preview keeps its view state.
+        expect(await wrap.getAttribute('aria-pressed')).toBe('false')
         expect(await column.locator('pre').first().innerText()).toContain('produced by the seeded turn')
         let warningStart = fxTripwire.warnings.length
         await fx.reload({ waitUntil: 'load' })
@@ -1389,9 +1391,9 @@ describe('web e2e: shipped right Sidebar', () => {
       try {
         await zhPage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
         await zhPage.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-        // A fresh page opens the workspace on a blank session's hero, which has
-        // no session header and so no expand button. The settled session is the
-        // second row of the tree; pick it the way a user would.
+        // A fresh page opens a blank hero, which has no session header and so no
+        // expand button, with the project folded; pick the settled session the way a user would.
+        await expandProject(zhPage, 'workspace', 'zh')
         await zhPage.getByRole('treeitem', { name: /Show the right sidebar\./u }).first().click()
         const column = zhPage.locator('[data-rightbar-col]')
         await expandOf(zhPage).waitFor({ timeout: 20_000 })

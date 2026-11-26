@@ -1,12 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": Read the attached file with
-  - text: Standard mode
+- tablist "Chat tabs":
+  - tab "Read the attached file with Close chat tab" [selected]:
+    - text: Read the attached file with
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: poem.txt TXT 16B
 - button "reference-1.png, click to view original":
   - img "reference-1.png"
@@ -21,9 +23,11 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Vision Experimental, reasoning effort high": Tokamak 1 Vision Experimental high
 - button "Send message" [disabled]
-- button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
+- button "Choose project" [disabled]: workspace
+- 'button "Switch the agent preset for this task: Standard mode"': Standard mode
+- button "1 turns 2 steps"
 - button "17.3K tok · Cache hit 51%": 17.3K tokCache hit 51%
 - button "1% of context used": 1%

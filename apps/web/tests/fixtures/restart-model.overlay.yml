@@ -1,0 +1,12 @@
+# Routes the default Agent to the scenario's loopback Messages fixture.
+- id: agent-default-model
+  config: { provider: restart-fixture, model: mock-model }
+- id: llm-pi-ai
+  config:
+    providers:
+      restart-fixture:
+        api: anthropic-messages
+        baseURL: !!js process.env.JAN_WEB_RESTART_MODEL_URL
+        apiKeyEnv: JAN_WEB_RESTART_MODEL_KEY
+        models:
+          - id: mock-model

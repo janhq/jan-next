@@ -2,9 +2,10 @@
 - button "Copy"
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
+- button "1 subagent ·1 external"
 - button "Ran code and coordinated subagents" [expanded]
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - button "Code Delegate through the official Claude bundle"
 - button "Tool call subagent_claude_code · Read the fixture response"
 - paragraph: Waiting for the child result.

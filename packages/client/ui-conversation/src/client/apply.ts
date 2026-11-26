@@ -4,7 +4,7 @@ import type { } from '@janhq/jan-client-product-analytics/client'
 import type { Context } from '@janhq/cordis'
 import z from '@janhq/schemastery'
 import type { ISessions, SessionBinding } from '@janhq/jan-api-session-controller/client'
-import { IconPaperclipOutlineRegular } from '@janhq/jan-client-ui-primitives'
+import { IconCompareSplitOutlineRegular, IconPaperclipOutlineRegular, IconPlusOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import { createSnapshotStore, type BoundActions } from '@janhq/jan-client-store'
 import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
 import type { SessionId } from '@janhq/jan-session/types'
@@ -225,6 +225,10 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     }
   }, 'ui-conversation: synchronize multitask layout')
   ctx.inject(['contextMenus', 'layout'], (scope) => {
+    scope.slots.inject('contextMenu.icon', function* () {
+      yield scope.slots.register({ name: 'contextMenu.icon', key: 'conversation.newTab' }, IconPlusOutlineRegular)
+      yield scope.slots.register({ name: 'contextMenu.icon', key: 'conversation.openBeside' }, IconCompareSplitOutlineRegular)
+    })
     scope.effect(() => scope.contextMenus.register({
       id: 'session.tabs', target: 'session', order: 350,
       observe: () => [layout, sessions.list, workspaces, ctx.locale],
@@ -232,12 +236,12 @@ export function apply(ctx: Context, config: Config = Config({})): void {
         const row = sessions.list.getSnapshot().byId[sessionId]
         if (row === undefined || row.blank || row.origin === 'subagent'
           || workspaces.getSnapshot().archivedSessionIds.includes(sessionId)) return []
-        const openTab = { id: 'new-tab', label: t('desk.openInNewTab'), run: () => {
+        const openTab = { id: 'new-tab', label: t('desk.openInNewTab'), icon: { key: 'conversation.newTab' }, run: () => {
           scope.layout.selectPanel(null)
           layout.openInNewTab(sessionId)
         } }
         return !layout.canOpenBeside(sessionId) ? [openTab] : [openTab, {
-          id: 'split', label: t('desk.openBeside'), run: () => {
+          id: 'split', label: t('desk.openBeside'), icon: { key: 'conversation.openBeside' }, run: () => {
             scope.layout.selectPanel(null)
             layout.openBeside(sessionId)
           },

@@ -130,6 +130,11 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
 
     await bind('Add project')
     await page.keyboard.press('Meta+Shift+Comma')
+    const useExisting = page.getByRole('menuitem', { name: 'Use existing folder…', exact: true })
+    await useExisting.waitFor()
+    await page.keyboard.press('Meta+Shift+Comma')
+    expect(await useExisting.count()).toBe(1)
+    await useExisting.click()
     const picker = page.getByRole('dialog', { name: 'Select Workspace Directory', exact: true })
     await picker.waitFor()
     await page.keyboard.press('Meta+Shift+Comma')
@@ -166,16 +171,17 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     const newSessionBody = await newSessionResponse.json() as { result: { ok: boolean; value: { sessionId: string } } }
     expect(newSessionBody.result.ok).toBe(true)
     const newSessionId = newSessionBody.result.value.sessionId
-    // The added Workspace's only member is still blank, so New Session returns to it.
-    expect(previousSessionIds).toEqual([newSessionId])
-    expect(newSessionResponse.request().postDataJSON()).toHaveProperty('payload.args.request.sessionId', newSessionId)
+    // New Session is unscoped, so it opens in the default project rather than the added one.
+    const project = (await scaffold.ctx.workspaceRegistry.resolveByPath(join(scaffold.workspaceCwd, 'Documents', 'jan', 'default-workspace')))!
+    expect(newSessionResponse.request().postDataJSON()).toHaveProperty('payload.args.request.workspaceId', project.id)
+    expect(project.sessionIds).toEqual([newSessionId])
     await page.locator(`[data-conversation-session="${newSessionId}"]`).waitFor()
     await expect.poll(() => page.getByRole('treeitem', { selected: true }).textContent()).toContain('New Session')
     expect(workspace.sessionIds).toEqual(previousSessionIds)
 
     await bind('Open locally')
     await page.keyboard.press('Meta+Shift+Comma')
-    await expect.poll(() => launched).toEqual([{ app: 'vscode', path: workspace.path }])
+    await expect.poll(() => launched).toEqual([{ app: 'vscode', path: project.path }])
 
     await page.keyboard.press('Meta+Alt+P')
     const files = page.locator('[data-files-page]')
@@ -184,16 +190,16 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     const opener = files.locator('[data-open-target="directory"]')
     await opener.getByRole('button', { name: 'Open in VS Code', exact: true }).click()
     await expect.poll(() => launched).toEqual([
-      { app: 'vscode', path: workspace.path }, { app: 'vscode', path: workspace.path },
+      { app: 'vscode', path: project.path }, { app: 'vscode', path: project.path },
     ])
     await opener.getByRole('button', { name: 'More ways to open', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Finder', exact: true }).click()
-    await expect.poll(() => launched.at(-1)).toEqual({ app: 'finder', path: workspace.path })
+    await expect.poll(() => launched.at(-1)).toEqual({ app: 'finder', path: project.path })
     await opener.getByRole('button', { name: 'Open in Finder', exact: true }).waitFor()
     await page.keyboard.press('Meta+Shift+Comma')
     await expect.poll(() => launched).toEqual([
-      { app: 'vscode', path: workspace.path }, { app: 'vscode', path: workspace.path },
-      { app: 'finder', path: workspace.path }, { app: 'finder', path: workspace.path },
+      { app: 'vscode', path: project.path }, { app: 'vscode', path: project.path },
+      { app: 'finder', path: project.path }, { app: 'finder', path: project.path },
     ])
     await expect.poll(() => opener.getAttribute('data-state')).toBe('idle')
     await compareOrRefreshGolden(join(root, 'files-open.expected.md'),
@@ -377,7 +383,7 @@ it.skipIf(mode === 'record').each([
       await page.keyboard.press(`${primary}+Alt+N`)
     }
     await page.getByText('DONE', { exact: true }).waitFor({ state: 'hidden' })
-    await expect.poll(() => page.getByRole('treeitem', { selected: true }).count()).toBe(0)
+    await expect.poll(() => page.getByRole('treeitem', { selected: true }).textContent()).toContain('New Session')
     await page.locator('[data-composer-input]').first().waitFor()
     await page.keyboard.press(`${primary}+Alt+G`)
     expect(await rename.count()).toBe(0)

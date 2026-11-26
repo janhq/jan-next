@@ -52,12 +52,17 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
   let page: Page
   let tripwire: ReturnType<typeof watchConsole>
   const sessionEvents: SessionEvent[] = []
+  // A Session without a cwd records undefined, which the Workspace path assertion rejects.
+  const turnEndCwds: (string | undefined)[] = []
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold(MODE === 'record'
       ? {}
       : { replayFixture: FIXTURE, replayOverride: REPLAY_OVERRIDE, paceMs: REPLAY_PACE_MS })
-    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
+    scaffold.ctx.on('session/event', (session, event: SessionEvent) => {
+      sessionEvents.push(event)
+      if (event.type === 'turn/end') turnEndCwds.push(session.header.cwd)
+    })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
@@ -82,6 +87,7 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
     })
     const launcher = page.getByRole('button', { name: 'Add files or run commands' })
     await launcher.click()
+    await page.getByRole('menuitem', { name: 'Browse commands', exact: true }).click()
     const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
     await menu.getByRole('option').first().waitFor({ timeout: 10_000 })
     await menu.getByRole('status').waitFor({ state: 'hidden', timeout: 10_000 })
@@ -123,6 +129,7 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
       await zhPage.waitForSelector('[class*="frame"]', { timeout: 30_000 })
       const launcher = zhPage.getByRole('button', { name: '添加文件或调用指令' })
       await launcher.click()
+      await zhPage.getByRole('menuitem', { name: '浏览指令', exact: true }).click()
       const menu = zhPage.getByRole('listbox', { name: '触发候选建议' })
       await menu.getByRole('option').first().waitFor({ timeout: 10_000 })
       await menu.getByRole('status').waitFor({ state: 'hidden', timeout: 10_000 })
@@ -138,8 +145,8 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
   it.skipIf(MODE === 'record').each([
     { locale: 'en-US', token: '/goal', row: 'Goal Set or view the goal for a long-running task', hint: 'describe the objective for a long-running task' },
     { locale: 'en-US', token: '/plan', row: 'Plan Enter or leave plan mode', hint: 'describe your task to generate plan' },
-    { locale: ZH_BROWSER_LOCALE, token: '/目标', row: '目标 goal 设置或查看长期任务目标', hint: '输入目标，智能体将持续执行' },
-    { locale: ZH_BROWSER_LOCALE, token: '/计划', row: '计划 plan 进入或退出计划模式', hint: '描述你的任务以生成计划' },
+    { locale: ZH_BROWSER_LOCALE, token: '/目标', row: '目标 设置或查看长期任务目标', hint: '输入目标，智能体将持续执行' },
+    { locale: ZH_BROWSER_LOCALE, token: '/计划', row: '计划 进入或退出计划模式', hint: '描述你的任务以生成计划' },
   ])('keeps $token claimed across separator edits and hides hints during IME composition', async ({ locale, token, row, hint }) => {
     const inputPage = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale })
     const inputTripwire = watchConsole(inputPage)
@@ -147,6 +154,10 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
     try {
       await inputPage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
       await inputPage.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+      // A fresh browser context has no saved selection to restore, so the page opens the Workspace itself.
+      const workspaceRow = inputPage.getByRole('treeitem').filter({ has: inputPage.getByText('workspace', { exact: true }) })
+      await workspaceRow.hover()
+      await workspaceRow.getByRole('button', { name: locale === ZH_BROWSER_LOCALE ? '在“workspace”中新建会话' : 'New session in workspace', exact: true }).click()
       const input = inputPage.locator('[data-composer-input]').first()
       await writeComposerDraft(inputPage, input, '/')
       await inputPage.getByRole('listbox').getByRole('option', { name: row, exact: true }).click()
@@ -216,6 +227,7 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
       await connectFreshWorkspace(activePage, activeScaffold.workspaceCwd)
       const input = activePage.locator('[data-composer-input]').first()
       await activePage.getByRole('button', { name: 'Add files or run commands' }).click()
+      await activePage.getByRole('menuitem', { name: 'Browse commands', exact: true }).click()
       const menu = activePage.getByRole('listbox', { name: 'Trigger suggestions' })
       await menu.waitFor({ timeout: 10_000 })
       await menu.getByRole('option', { name: 'Plan Enter or leave plan mode' }).click()
@@ -285,9 +297,10 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
       await connectFreshWorkspaceZh(zhPage, zhScaffold.workspaceCwd)
       const input = zhPage.locator('[data-composer-input]').first()
       await zhPage.getByRole('button', { name: '添加文件或调用指令' }).click()
+      await zhPage.getByRole('menuitem', { name: '浏览指令', exact: true }).click()
       const menu = zhPage.getByRole('listbox', { name: '触发候选建议' })
       await menu.waitFor({ timeout: 10_000 })
-      await menu.getByRole('option', { name: '计划 plan 进入或退出计划模式', exact: true }).click()
+      await menu.getByRole('option', { name: '计划 进入或退出计划模式', exact: true }).click()
       await expect.poll(() => input.textContent()).toBe('/计划 ')
       await input.press('Enter')
       const planButton = zhPage.getByRole('button', { name: '计划模式已开启，按下关闭' })
@@ -351,9 +364,9 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
           await expandOwningTurnProcess(page, thinking)
           await expect.poll(() => thinking.getByRole('button').getAttribute('aria-expanded')).toBe('false')
           await reasoningComplete.promise
-          expect(await thinking.getAttribute('data-preview')).toBeNull()
+          expect(await thinking.getAttribute('data-preview')).toBe('true')
           expect(await thinking.getByRole('button').getAttribute('aria-expanded')).toBe('false')
-          expect(await thinking.locator('[data-streaming]:not([inert] *)').isVisible()).toBe(false)
+          expect(await thinking.locator('[data-streaming]:not([inert] *)').isVisible()).toBe(true)
         }
         observedReasoning.resolve(undefined)
         return await settled
@@ -383,12 +396,15 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
     await expect.poll(() => page.getByText('LIGHTHOUSE', { exact: true }).count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(1)
     // The usage pill's one label span concatenates the billed total and the cache-hit share.
     await expect.poll(() => page.getByRole('button', { name: /Cache hit 99\.5%/ }).count(), { timeout: 15_000 }).toBe(1)
-    // Host: the session's durable header cwd is the folder the workspace
-    // flow created and adopted (<workspaceCwd>/workspace) — the proof the
-    // send went through workspace materialization rather than a bare
-    // default-cwd session.
+    // Host: the turn's durable header cwd is the folder the workspace flow
+    // created and adopted (<workspaceCwd>/workspace), not the first-use
+    // default project's blank Session.
     const cwds = scaffold.ctx.sessions.list().map(session => session.header.cwd)
-    expect(cwds).toEqual([join(scaffold.workspaceCwd, 'workspace')])
+    expect(cwds.toSorted()).toEqual([
+      join(scaffold.workspaceCwd, 'Documents', 'jan', 'default-workspace'),
+      join(scaffold.workspaceCwd, 'workspace'),
+    ])
+    expect(turnEndCwds).toEqual([join(scaffold.workspaceCwd, 'workspace')])
     const turnEnds = sessionEvents.filter(e => e.type === 'turn/end')
     expect(turnEnds).toHaveLength(1)
     expect((turnEnds[0] as SessionEvent & { data: { reason: { kind: string } } }).data.reason.kind).toBe('completed')
@@ -570,7 +586,7 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
       rejectConnections = false
       await recoveryPage.clock.fastForward(10_000)
       await expect.poll(() => sockets.length).toBe(10)
-      const automaticRecovery = recoveryPage.getByRole('status')
+      const automaticRecovery = recoveryPage.getByRole('status', { name: 'Connected', exact: true })
       await automaticRecovery.waitFor({ timeout: 10_000 })
       expect(await automaticRecovery.innerText()).toBe('Connected')
       await recoveryPage.clock.fastForward(2_000)
@@ -591,8 +607,14 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
       await recoveryPage.mouse.up()
 
       await expect.poll(() => sockets.length).toBe(12)
-      const recovered = recoveryPage.getByRole('status')
-      await recovered.waitFor({ timeout: 10_000 })
+      // Hold page time so the 2s confirmation cannot lapse before the geometry read on a loaded host.
+      await recoveryPage.clock.pauseAt(await recoveryPage.evaluate(() => Date.now() + 100))
+      const recovered = recoveryPage.getByRole('status', { name: 'Connected', exact: true })
+      await expect.poll(async () => {
+        if (await recovered.isVisible()) return true
+        await recoveryPage.clock.runFor(100)
+        return false
+      }, { timeout: 10_000 }).toBe(true)
       expect(await recovered.innerText()).toBe('Connected')
       // The pill sizes to its current label; chrome height and icon box stay fixed.
       const recoveredGeometry = await connectionIndicatorGeometry(recovered)
@@ -600,6 +622,7 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
       expect(recoveredGeometry.icon).toEqual(connectingGeometry.icon)
       expect(await connectionIndicatorTextAlignment(recovered)).toBe('left')
       await recoveryPage.clock.fastForward(2_000)
+      await recoveryPage.clock.resume()
       await recovered.waitFor({ state: 'detached', timeout: 5_000 })
       expect(recoveryTripwire.pageErrors).toEqual([])
       expect(recoveryTripwire.warnings.filter(warning => /connection lost, retry #/i.test(warning)))

@@ -101,8 +101,8 @@ describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
     }
     scaffold = await launchWebScaffold({
       replayFixture: FIXTURE,
-      // Throughput snapshots need a nonzero interval between replayed chunks.
-      paceMs: 1,
+      // Throughput readings need a decode span of at least 1s; the recorded stream has 84 chunks.
+      paceMs: 15,
       ...(overridePath === undefined ? {} : { replayOverride: overridePath }),
       ...(overridePath === undefined ? {} : { compareReplaySession: false }),
       ...(retryPolicy === undefined ? {} : { replayRetryPolicy: retryPolicy }),
@@ -159,7 +159,7 @@ describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
     // hang (prefix chunks delivered to the loop) before the stop click.
     await expect.poll(() => existsSync(marker), { timeout: 15_000 }).toBe(true)
     await expect.poll(
-      () => page.getByRole('status').filter({ hasText: 'Deep diving' }).isVisible(),
+      () => page.getByRole('status').filter({ hasText: 'Writing' }).isVisible(),
       { timeout: 10_000 },
     ).toBe(true)
     await page.locator('[data-streaming="true"]:not([inert] *)')
@@ -188,7 +188,7 @@ describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
 
     const stopButton = page.getByRole('button', { name: 'Stop generating' })
     await stopButton.hover()
-    await page.getByRole('tooltip', { name: 'Stop generating Esc Esc', exact: true }).waitFor()
+    await page.getByRole('tooltip', { name: 'Stop generating Esc ×2', exact: true }).waitFor()
     await stopButton.click()
     await settled
     expect(turnEndReasons(sessionEvents).at(-1)).toBe('aborted')
@@ -438,7 +438,8 @@ describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
     // row by retry history would leave the failure invisible.
     const errorStatus = page.getByRole('status').filter({ hasText: 'This turn failed' })
     await errorStatus.waitFor({ timeout: 10_000 })
-    expect(await errorStatus.textContent()).toContain('upstream 503')
+    const transientCopy = errorStatus.getByText('The model service had a problem and did not answer. Try again in a moment.', { exact: true })
+    expect(await transientCopy.getAttribute('title')).toBe('upstream 503')
     expect(await errorStatus.textContent()).toContain('SERVER')
     // The settled retry chain stays alongside the terminal row as recovery
     // context; the golden pins both.

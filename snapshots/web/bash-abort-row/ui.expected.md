@@ -1,17 +1,20 @@
-- banner:
-  - navigation "Session hierarchy": "Run two shell commands: wait"
+- tablist "Chat tabs":
+  - 'tab "Run two shell commands: wait Close chat tab" [selected]':
+    - text: "Run two shell commands: wait"
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: "Run two shell commands: wait for cancellation, then write skipped.txt. {{clock}}"
 - button "Copy"
 - status: Stopped
 - button "Stopped" [disabled] [expanded]
 - button "Ran commands" [expanded]
-- button "Context injection runtime-context"
+- button "Inject context runtime-context"
 - 'button "Failed Bash Error: tool call aborted" [expanded]'
 - text: "IN { \"command\": \"node -e \\\"const fs=require('node:fs'); fs.writeFileSync('started.tmp', 'started'); fs.renameSync('started.tmp', 'started.txt'); setInterval(() => {}, 1000)\\\"\", \"description\": \"Wait until cancellation\" } OUT Error: tool call aborted"
 - button "Inspect"
@@ -21,5 +24,6 @@
 - 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]
 - button "1 turns 1 steps"
 - button "20 tok · Cache hit 0%": 20 tokCache hit 0%

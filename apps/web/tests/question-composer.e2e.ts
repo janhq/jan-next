@@ -495,13 +495,9 @@ describe('web e2e: resident question composer round trip', () => {
     expect(await custom.inputValue()).toBe('Include accessibility notes')
     if (MODE !== 'record') {
       // Replay only, like the measurements above: record mode must reach the
-      // recording write. This fixture composes the shipped legacy tool, whose
-      // request carries no call id and whose row offers no pill: the projection
-      // never lists a legacy call, so the transcript reads exactly as it did
-      // before timed questions existed. Reopening a hidden panel belongs to the
-      // timed tool; the late-answered scenario below and the ui-user-questions
-      // unit specs cover it.
-      expect(await page.getByRole('button', { name: 'Answer', exact: true }).count()).toBe(0)
+      // recording write. The shipped preset composes the `auto` tool, whose
+      // schema the projection tracks, so the waiting row offers the Answer pill.
+      expect(await page.getByRole('button', { name: 'Answer', exact: true }).count()).toBe(1)
 
       // A strict Session-slot switch remounts the composer. Open a fresh blank
       // Session, then return to the still-waiting request and require its
@@ -580,17 +576,14 @@ describe('web e2e: resident question composer round trip', () => {
     // Keep the ask_user_question card's readable answer in the expanded golden
     // even though Compact mode hides the process by default.
     await expandTurnProcesses(page)
-    // A legacy call's answered row carries no pill and no read-only panel; its
-    // accessible name is the bare summary, as before timed questions existed.
-    const answeredRow = page.getByRole('button', { name: 'Ask question 1/1 answered', exact: true })
-    await answeredRow.click()
-    await page.locator('[data-tool="ask_user_question"]')
-      .getByText('Which color do you prefer?', { exact: true }).waitFor({ timeout: 10_000 })
+    // A tracked call's answered row keeps its summary beside the View answers pill.
+    const answeredRow = page.locator('[data-tool="ask_user_question"]')
+    await answeredRow.getByRole('button', { name: 'Ask question', exact: true }).click()
+    await answeredRow.getByText('Which color do you prefer?', { exact: true }).waitFor({ timeout: 10_000 })
     expect(await page.getByText('Blue', { exact: true }).count()).toBeGreaterThanOrEqual(1)
-    expect(await page.locator('[data-tool="ask_user_question"]')
-      .getByText('Include accessibility notes', { exact: true }).count()).toBe(1)
+    expect(await answeredRow.getByText('Include accessibility notes', { exact: true }).count()).toBe(1)
     expect(await page.getByText(/"answers"/).count()).toBe(0)
-    expect(await page.getByRole('button', { name: 'View answers', exact: true }).count()).toBe(0)
+    expect(await page.getByRole('button', { name: 'View answers', exact: true }).count()).toBe(1)
     const expanded = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(ANSWERED_EXPANDED_EXPECTED, expanded, MODE)
     expect(tripwire.pageErrors).toEqual([])

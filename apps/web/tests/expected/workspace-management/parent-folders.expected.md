@@ -1,5 +1,5 @@
-- treeitem "folder-group" [expanded]
+- treeitem "folder-group This computer" [expanded]
 - group:
-  - treeitem "project-two" [expanded]
+  - treeitem "project-two This computer" [expanded]
   - treeitem "New Session" [selected]
-  - treeitem "project-one" [expanded]
+  - treeitem "project-one This computer" [expanded]

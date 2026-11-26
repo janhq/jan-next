@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { chromium, type WebSocketRoute } from 'playwright'
 import { expect, it, onTestFailed, onTestFinished } from 'vitest'
 import { launchWebScaffold, seedSession, watchConsole } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
+import { expandProject, newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
 
 it.each([false, true])('retains the mounted application across WebSocket recovery with an active Session: %s', async (activeSession) => {
   const scaffold = await launchWebScaffold({
@@ -13,12 +13,14 @@ it.each([false, true])('retains the mounted application across WebSocket recover
   onTestFinished(() => scaffold.close())
   const title = 'Connection recovery session'
   const draft = 'Unsent draft retained across connection recovery'
+  let projectTitle = ''
   if (activeSession) {
     const workspace = await scaffold.ctx.workspaceRegistry.create(scaffold.workspaceCwd)
     const seed = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url))
     const sessionId = await seedSession(scaffold, await readFile(seed, 'utf8'), 'connection-recovery-session')
     await workspace.attachSession(sessionId)
     await scaffold.ctx.sessionController.rename({ sessionId, title })
+    projectTitle = workspace.title
   }
   const browser = await chromium.launch()
   onTestFinished(() => browser.close())
@@ -52,6 +54,7 @@ it.each([false, true])('retains the mounted application across WebSocket recover
   await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
   const composer = page.locator('[data-composer-input][contenteditable="true"]')
   if (activeSession) {
+    await expandProject(page, projectTitle)
     await page.getByRole('treeitem').filter({ has: page.getByText(title, { exact: true }) }).click({ timeout: 20_000 })
     await writeComposerDraft(page, composer, draft)
     await expect.poll(() => sessionBaselines).toBeGreaterThan(0)

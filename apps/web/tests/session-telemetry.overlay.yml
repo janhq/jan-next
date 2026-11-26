@@ -1,0 +1,6 @@
+# The shipped bundle leaves OTel and session-log upload unmounted; the
+# feedback-release scenario mounts both against its own loopback collector.
+- id: otel
+  disabled: false
+- id: session-telemetry-otel
+  disabled: false

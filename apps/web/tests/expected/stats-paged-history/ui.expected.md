@@ -1,11 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": {{workspace}}
+- tablist "Chat tabs":
+  - tab "New chat Close chat tab" [selected]:
+    - text: New chat
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - navigation "Turn navigation":
   - button "Jump to turn 1"
   - button "Jump to turn 2"
@@ -238,4 +241,5 @@
 - 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]
 - button "28 turns 28 steps"

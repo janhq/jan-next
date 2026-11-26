@@ -21,6 +21,7 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/feedback-rele
 // Both routes borrow the same settled turn; this manifest references its owner.
 const FIXTURE = fileURLToPath(new URL('../../../snapshots/web/feedback-command/session.v3.jsonl', import.meta.url))
 const FEEDBACK_OVERLAY = fileURLToPath(new URL('./message-feedback.overlay.yml', import.meta.url))
+const TELEMETRY_OVERLAY = fileURLToPath(new URL('./session-telemetry.overlay.yml', import.meta.url))
 const ACK_EXPECTED = join(SNAPSHOT_DIR, 'ack.expected.md')
 const ACK_EXPANDED_EXPECTED = join(SNAPSHOT_DIR, 'ack-expanded.expected.md')
 const RELEASE_EXPECTED = join(SNAPSHOT_DIR, 'feedback-release.expected.json')
@@ -88,7 +89,6 @@ describe.each(MODE === 'record' ? ['tokamak-official'] : ['tokamak-official', 'f
   async function selectModel(name: string): Promise<void> {
     const trigger = page.getByRole('button', { name: /^Select model, current/ })
     await trigger.click()
-    await page.getByRole('menuitem', { name: /^Model\b/ }).click()
     await page.getByRole('menuitemradio', { name, exact: true }).click()
     await expect.poll(() => trigger.getAttribute('aria-label')).toContain(name)
     // The durable projection can update the label before the selection reply closes the menu.
@@ -110,7 +110,7 @@ describe.each(MODE === 'record' ? ['tokamak-official'] : ['tokamak-official', 'f
     const address = collector.address()
     if (address === null || typeof address === 'string') throw new Error('collector has no port')
     scaffold = await launchWebScaffold({
-      extraOverlayPath: FEEDBACK_OVERLAY,
+      extraOverlayPath: [FEEDBACK_OVERLAY, TELEMETRY_OVERLAY],
       telemetryUrl: `http://127.0.0.1:${address.port}/v1/logs`,
       telemetryMode: 'FEEDBACK_ONLY',
       telemetryScheduledDelayMillis: 10,

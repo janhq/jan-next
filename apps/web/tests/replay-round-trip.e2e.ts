@@ -225,7 +225,9 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     const system = systemPromptText(agent.session)
     if (system === undefined) throw new Error('the settled Web request has no system prompt')
     const paragraphs = system.split('\n\n')
-    expect(paragraphs[0]).toBe('You are Jan, an AI agent. You are a coding agent powered by the tokamak-1-preview model.')
+    expect(paragraphs[0]).toBe('You are Jan, an AI agent. You are a coding agent powered by the tokamak-1-preview model. '
+      + 'When you make something the user should see, such as an HTML page, game, chart, diagram, SVG, or image, '
+      + 'save it as one file and call present with only that file, so the chat shows it inline under your reply.')
     const cwd = agent.session.header.cwd
     if (cwd === undefined) throw new Error('the Web session has no working directory')
     expect(system).not.toContain(cwd)

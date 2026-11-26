@@ -35,8 +35,9 @@ it.each(['network', 'timeout'] as const)('offers a mirror after a GitHub %s, the
   if (address === null || typeof address === 'string') throw new Error('proxy did not bind a TCP port')
   const gitConfig = join(scratch, 'git.config')
   await writeFile(gitConfig, `[http "https://github.com/"]\n proxy = http://127.0.0.1:${String(address.port)}\n`)
+  // The mirror is offered only when a fallback registry is configured; the shipped profiles configure none.
   const overlay = join(scratch, 'cordis.patch.yml')
-  await writeFile(overlay, '- id: ui-plugin-manager\n  config: { registryProbeEnabled: false }\n')
+  await writeFile(overlay, '- id: ui-plugin-manager\n  config: { registryProbeEnabled: false }\n- id: plugin-manager\n  config: { fallbackRegistries: [\'https://registry.npmmirror.com/\'] }\n')
   const scaffold = await launchWebScaffold({
     profile: { packages: [], packageManager: { command: process.execPath, args: [], env: { GIT_CONFIG_GLOBAL: gitConfig, GIT_CONFIG_NOSYSTEM: '1' } } },
     extraOverlayPath: overlay,

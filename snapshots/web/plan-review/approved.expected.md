@@ -1,11 +1,13 @@
-- banner:
-  - navigation "Session hierarchy": "Plan a small change: add"
-  - text: Standard mode
+- tablist "Chat tabs":
+  - 'tab "Plan a small change: add Close chat tab" [selected]':
+    - text: "Plan a small change: add"
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: "plan Plan mode on. Use /plan off to leave. Plan a small change: add a --greeting flag to a CLI. Do not read or write any files. Call exit_plan_mode with a short plan of at most five bullet points. Once the plan is approved, reply with the single word DONE and stop. {{clock}}"
 - button "Copy"
 - status: Completed
@@ -21,9 +23,11 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]: workspace
+- 'button "Switch the agent preset for this task: Standard mode"': Standard mode
 - button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
 - button "10.6K tok · Cache hit 51%": 10.6K tokCache hit 51%
 - button "4% of context used": 4%

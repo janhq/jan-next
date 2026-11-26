@@ -9,7 +9,7 @@ import { SessionId } from '@janhq/jan-session'
 import { initialShortcutConfig, parseShortcutDefinitions, parseShortcutEdit } from '@janhq/jan-client-shortcuts/protocol'
 import type { DesktopShortcutInput, DesktopShortcutsApi, ShortcutCommandId, ShortcutRevision } from '@janhq/jan-client-shortcuts/protocol'
 import { desktopKeybindings } from '../../desktop/src/keybindings.ts'
-import { acknowledgeReloadConnectionLoss, compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole, webSnapshotMode } from './scaffold.ts'
+import { compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole, webSnapshotMode } from './scaffold.ts'
 import { writeComposerDraft } from './support.ts'
 
 declare global {
@@ -34,7 +34,8 @@ it.each([
   try {
     const scaffold = await launchWebScaffold({ developerTools: false })
     try {
-      await seedSession(scaffold, await readFile(seed, 'utf8'), SessionId('desktop-shortcuts-source'))
+      const source = SessionId('desktop-shortcuts-source')
+      await seedSession(scaffold, await readFile(seed, 'utf8'), source)
       const browser = await chromium.launch()
       try {
         const page = await browser.newPage({ locale: 'en-US', viewport: { width: 1440, height: 1000 } })
@@ -80,8 +81,11 @@ it.each([
         const group = page.getByRole('treeitem').first()
         await group.waitFor()
         if (await group.getAttribute('aria-expanded') !== 'true') await group.click()
-        await page.getByRole('treeitem').nth(1).click()
+        // New Session lands in the default project, which then precedes the recorded row.
+        const recordedRow = page.locator(`[role="treeitem"][data-row-key="session:${source}"]`)
+        await recordedRow.click()
         await page.getByText('DONE', { exact: true }).waitFor()
+        const newSessionSelected = () => page.getByRole('treeitem', { selected: true }).textContent()
         const renameDialog = page.getByRole('dialog', { name: 'Rename session', exact: true })
         await deliverPrimary('KeyG', true)
         await renameDialog.getByLabel('Session name').waitFor()
@@ -92,7 +96,7 @@ it.each([
         await page.keyboard.insertText('Desktop focus draft')
         const panel = page.locator('[data-sidebar-right-panel][data-sidebar-right-open]')
         const files = panel.locator('[data-dockkit-tab]').filter({ hasText: 'Files' })
-        for (const opening of [{ code: 'KeyP', alt: false }, { code: 'KeyB', alt: true }]) {
+        for (const opening of [{ code: 'KeyP', alt: true }, { code: 'KeyB', alt: true }]) {
           await composer.focus()
           await deliverPrimary(opening.code, opening.alt)
           await panel.waitFor()
@@ -112,13 +116,13 @@ it.each([
           document.getSelection()!.setBaseAndExtent(text, 0, text, 7)
         })
         await selectDraft()
-        await deliverPrimary('KeyP')
+        await deliverPrimary('KeyP', true)
         await files.waitFor()
         expect(await panel.locator('[data-dockkit-pane]').evaluate(pane => document.activeElement === pane)).toBe(true)
         expect(await page.evaluate(() => document.getSelection()?.toString())).toBe('Desktop')
         await composer.focus()
         await selectDraft()
-        await deliverPrimary('KeyP')
+        await deliverPrimary('KeyP', true)
         expect(await files.count()).toBe(1)
         expect(await panel.locator('[data-dockkit-pane]').evaluate(pane => document.activeElement === pane)).toBe(true)
         expect(await page.evaluate(() => document.getSelection()?.toString())).toBe('Desktop')
@@ -146,44 +150,6 @@ it.each([
           }
         })
         const defaults = { text: 14, code: 11, terminal: 13 }
-        const patchPath = join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml')
-        const stepFontSizes = async (key: string, sizes: Awaited<ReturnType<typeof readFontSizes>>): Promise<void> => {
-          const before = fontMutations.length
-          const [response] = await Promise.all([
-            page.waitForResponse((reply) => {
-              if (new URL(reply.url()).pathname !== '/api/settings/mutate' || reply.request().method() !== 'POST') return false
-              const input = reply.request().postDataJSON() as { payload: { args: { ns: string } } }
-              return input.payload.args.ns === 'ui-theme'
-            }),
-            page.keyboard.press(key),
-          ])
-          expect(await response.finished()).toBeNull()
-          const envelope = await response.json() as { result: { ok: boolean } }
-          expect(envelope.result.ok).toBe(true)
-          const fields = [['fontSize', sizes.text], ['codeFontSize', sizes.code], ['terminalFontSize', sizes.terminal]] as const
-          expect(fontMutations.slice(before)).toEqual([fields.map(([field, value]) => ({ op: 'set', path: [field], value }))])
-          await expect.poll(readFontSizes).toEqual(sizes)
-          for (const [field, value] of fields) {
-            await expect.poll(() => readFile(patchPath, 'utf8')).toContain(`${field}: ${value}`)
-          }
-        }
-        const initial = await readFontSizes()
-        expect(initial).toEqual(defaults)
-        await stepFontSizes(`${primary}+Equal`, { text: 15, code: 12, terminal: 14 })
-        const afterEqual = await readFontSizes()
-        await stepFontSizes(`${primary}+Shift+Equal`, { text: 16, code: 13, terminal: 15 })
-        const afterPlus = await readFontSizes()
-        await stepFontSizes(`${primary}+Minus`, { text: 15, code: 12, terminal: 14 })
-        const afterMinus = await readFontSizes()
-        const warningStart = console.warnings.length
-        await page.reload({ waitUntil: 'load' })
-        acknowledgeReloadConnectionLoss(console, warningStart)
-        await page.getByText('DONE', { exact: true }).waitFor()
-        await expect.poll(readFontSizes).toEqual(afterMinus)
-        const afterReload = await readFontSizes()
-        await composer.focus()
-        await stepFontSizes(`${primary}+Minus`, defaults)
-        const restored = await readFontSizes()
         const dialog = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true })
         const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
         const automaticFocusStyle = () => page.evaluate(() => {
@@ -240,12 +206,11 @@ it.each([
         expect(await dialog.isVisible()).toBe(false)
         await openReference()
         await dialog.waitFor()
-        const referenceOrder = await dialog.getByRole('listitem').evaluateAll(rows => rows
+        // The native View menu owns zoom; the reference lists its keys as fixed rows.
+        const zoomRows = ['Zoom in', 'Zoom out', 'Actual size']
+        expect(await dialog.getByRole('listitem').evaluateAll((rows, labels) => rows
           .map(row => row.querySelector(':scope > span')?.textContent)
-          .filter(label => label === 'Increase font size' || label === 'Decrease font size'))
-        expect(referenceOrder).toEqual(['Increase font size', 'Decrease font size'])
-        await compareOrRefreshGolden(join(expected, 'font-sizes.expected.md'),
-          `# Font sizes\n\n${JSON.stringify({ initial, afterEqual, afterPlus, afterMinus, afterReload, restored, referenceOrder }, null, 2)}`, mode)
+          .filter(label => label !== undefined && label !== null && labels.includes(label)), zoomRows)).toEqual(zoomRows)
         expect(await dialog.getByRole('searchbox').evaluate(node => node === document.activeElement)).toBe(true)
         expect(await automaticFocusStyle()).toEqual(noFocusRing)
         const referenceShadow = await dialog.evaluate(node => getComputedStyle(node).boxShadow)
@@ -301,6 +266,8 @@ it.each([
           `# Modal layers\n\n${JSON.stringify({ settingsInitialFocus, settingsAfterEnter, dialogsAfterSettingsToggle, dialogsAfterReferenceToggle, referenceBlocksSettings, referenceOnTop, settingsAfterReferenceToggle, settingsAfterClose, closedWindows }, null, 2)}`, mode)
         await openReference()
         await dialog.waitFor()
+        // Row geometry is measured after the modal's scale-in entry.
+        await dialog.evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)))
         const rowHeights = () => dialog.getByRole('listitem').evaluateAll(rows => rows.map(row => row.getBoundingClientRect().height))
         const heights = await rowHeights()
         expect(new Set(heights)).toEqual(new Set([42]))
@@ -335,10 +302,10 @@ it.each([
           control: platform === 'windows', meta: platform === 'macos', alt: false, shift: false, repeat: false,
         } satisfies DesktopShortcutInput)
         await page.getByText('DONE', { exact: true }).waitFor({ state: 'hidden' })
-        await expect.poll(() => page.getByRole('treeitem', { selected: true }).count()).toBe(0)
+        await expect.poll(newSessionSelected).toContain('New Session')
         await deliverPrimary('KeyG', true)
         expect(await renameDialog.count()).toBe(0)
-        await page.getByRole('treeitem').nth(1).click()
+        await recordedRow.click()
         await page.getByText('DONE', { exact: true }).waitFor()
         await openReference()
         await dialog.getByRole('searchbox').fill('New Session')
@@ -371,7 +338,7 @@ it.each([
             await dialog.getByText('Already used by “Open keyboard shortcuts”', { exact: true }).waitFor()
           }
           if (key.endsWith('Equal') || key.endsWith('Minus')) {
-            const command = key.endsWith('Minus') ? 'Decrease font size' : 'Increase font size'
+            const command = key.endsWith('Minus') ? 'Zoom out' : 'Zoom in'
             await dialog.getByText(`Already used by “${command}”`, { exact: true }).waitFor()
           }
           expect(await readFontSizes()).toEqual(defaults)
@@ -421,8 +388,8 @@ it.each([
         } satisfies DesktopShortcutInput)
         await page.keyboard.up('a')
         await page.getByText('DONE', { exact: true }).waitFor({ state: 'hidden' })
-        await expect.poll(() => page.getByRole('treeitem', { selected: true }).count()).toBe(0)
-        await page.getByRole('treeitem').nth(1).click()
+        await expect.poll(newSessionSelected).toContain('New Session')
+        await recordedRow.click()
         await page.getByText('DONE', { exact: true }).waitFor()
         await openReference()
         await dialog.waitFor()

@@ -9,12 +9,13 @@
 // Zero model calls: seeding one renamed session and hovering its row touches no
 // provider.
 import { readFile } from 'node:fs/promises'
+import { basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import type { Browser, Page } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { launchWebScaffold, seedSession, watchConsole, type WebScaffold } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { expandProject, newEnglishPage, saveFailureShot } from './support.ts'
 
 const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url))
 /** Wider than the sidebar cell, under the 80-byte title limit, with a far-edge suffix the marquee must reach. */
@@ -37,6 +38,7 @@ describe('web e2e: hovering a clipped session title marquees it to its far edge'
     tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+    await expandProject(page, basename(scaffold.workspaceCwd))
   }, 120_000)
 
   afterAll(async () => {

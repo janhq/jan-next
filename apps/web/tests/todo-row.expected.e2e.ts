@@ -12,9 +12,9 @@
 // jsdom package suites bench over src and cannot see the bundled registration.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { hasClass, installAssembledBootEnv, mountAssembledApp, REFRESHING_GOLDEN } from './assembled-boot.ts'
+import { hasClass, installAssembledBootEnv, mountAssembledApp, openAssembledFixtureSession, REFRESHING_GOLDEN } from './assembled-boot.ts'
 
 const EXPECTED = join(process.cwd(), 'apps/web/tests/expected/todo-row/parallel-plan.expected.txt')
 
@@ -44,8 +44,7 @@ describe('assembled todo surfaces', () => {
   it('renders the parallel plan as a row summary, a separate active count, and the dock plan strip', async () => {
     mountAssembledApp()
 
-    const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
-    fireEvent.click(await within(tree).findByText('Fixture 历史会话'))
+    await openAssembledFixtureSession()
     // The todo turn is the fixture's last, so wait for its keyed row rather
     // than for chat content in general.
     const row = await waitFor(() => {

@@ -248,6 +248,23 @@ export async function revealNavigationDrawer(page: Page, locale: 'en' | 'zh' | '
 }
 
 /**
+ * Expand a folded project row. Startup opens no Workspace, so a project whose
+ * Sessions were attached outside the page starts folded.
+ * @param page - the page under test.
+ * @param name - the project row title.
+ * @param locale - current UI language.
+ */
+export async function expandProject(page: Page, name: string, locale: 'en' | 'zh' = 'en'): Promise<void> {
+  const row = page.locator('[data-row-key^="workspace:"]').filter({ has: page.getByText(name, { exact: true }) })
+  await row.waitFor()
+  if (await row.getAttribute('aria-expanded') === 'true') return
+  const label = { en: `Expand ${name}`, zh: `展开“${name}”` }[locale]
+  const disclosure = row.getByRole('button', { name: label, exact: true })
+  await (await disclosure.count() > 0 ? disclosure : row).click()
+  await row.and(page.locator('[aria-expanded="true"]')).waitFor()
+}
+
+/**
  * Adopt an existing folder through the Add project menu and the composed
  * directory dialog. A fresh world has no Workspace, so scenarios that type
  * into the composer must connect one first. The directory is staged here

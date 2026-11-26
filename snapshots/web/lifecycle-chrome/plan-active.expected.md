@@ -16,17 +16,22 @@
 - button "View options"
 - button "Add project"
 - tree "Sessions":
-  - treeitem "workspace" [expanded]
+  - treeitem "workspace This computer" [expanded]
   - treeitem "New Session" [selected]
-- button "Account menu": Jan ·Local
-- banner:
+- button "Log in"
+- button "Account menu"
+- tablist "Chat tabs":
+  - tab "New chat Close chat tab" [selected]:
+    - text: New chat
+    - button "Close chat tab"
+  - button "New tab"
   - button "Open right sidebar"
 - text: Into the Unknown Preview
-- button "Choose project": workspace
-- button "Standard mode"
 - textbox "Describe what you want to build, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Plan mode on, press to turn off": Plan
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project": workspace
+- button "Standard mode"

@@ -1,11 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": Math rendering
+- tablist "Chat tabs":
+  - tab "Math rendering Close chat tab" [selected]:
+    - text: Math rendering
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Render this mathematical proof. {{clock}}
 - button "Copy"
 - status: Completed
@@ -39,4 +42,5 @@
 - 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]
 - button "1 turns 1 steps"

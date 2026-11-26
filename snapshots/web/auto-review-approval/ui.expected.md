@@ -1,18 +1,22 @@
 ## Collapsed
 
-- banner:
-  - navigation "Session hierarchy": {{workspace}}
+- tablist "Chat tabs":
+  - tab "New chat Close chat tab" [selected]:
+    - text: New chat
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Clean up the stale build log. {{clock}}
 - button "Copy"
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Called tools" [expanded]
+- button "Show full trace"
 - text: Failed
 - 'button "Tool call Error: the user rejected tool \"mystery\""'
 - text: Failed
@@ -22,18 +26,22 @@
 - 'button "Access mode, current: Auto review"': Auto review
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]
 - button "1 turns 2 steps"
 
 ## Expanded
 
-- banner:
-  - navigation "Session hierarchy": {{workspace}}
+- tablist "Chat tabs":
+  - tab "New chat Close chat tab" [selected]:
+    - text: New chat
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Clean up the stale build log. {{clock}}
 - button "Copy"
 - status: Completed
@@ -52,4 +60,5 @@
 - 'button "Access mode, current: Auto review"': Auto review
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]
 - button "1 turns 2 steps"

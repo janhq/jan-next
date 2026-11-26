@@ -1,11 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": Use only Cordis tools. First
+- tablist "Chat tabs":
+  - tab "Use only Cordis tools. First Close chat tab" [selected]:
+    - text: Use only Cordis tools. First
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - navigation "Turn navigation":
   - button "Jump to turn 1"
   - button "Jump to turn 2"
@@ -15,6 +18,7 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Called tools" [expanded]
+- button "Show full trace"
 - button "Inject context runtime-context"
 - button "Think I will inspect the current Session's dynamic Cordis Plugins before defining the snapshot Package."
 - button "Inspect plugins 0 dynamic plugins"
@@ -65,6 +69,7 @@
 - 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]
 - button "3 turns 7 steps"
 - button "66.8K tok · Cache hit 77%": 66.8K tokCache hit 77%
 - button "0% of context used": 0%

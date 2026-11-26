@@ -1,5 +1,5 @@
 - textbox "Describe what you want to build, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Acme Large": Acme Large
 - button "Send message" [disabled]

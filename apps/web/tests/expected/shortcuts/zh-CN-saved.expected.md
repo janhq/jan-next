@@ -1,1 +1,3 @@
-- alert: 已修改
+- alert:
+  - text: 已修改
+  - button "关闭"

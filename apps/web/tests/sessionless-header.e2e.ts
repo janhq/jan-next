@@ -19,9 +19,9 @@ afterAll(async () => {
 })
 
 describe('navigation without a selected Session', () => {
-  // The resident header keeps the blank-Session row height on every platform,
-  // so the Hero centers below the same header before and after a Workspace is bound.
-  it.each(['web', 'win32', 'linux', 'darwin'] as const)('%s keeps the blank-Session header height and sidebar access', async (platform) => {
+  // The chat tab strip keeps its row height on every platform, so the Hero
+  // centers below the same strip whether or not the sidebar is open.
+  it.each(['web', 'win32', 'linux', 'darwin'] as const)('%s keeps the chat tab strip height and sidebar access', async (platform) => {
     const page = await newEnglishPage(browser)
     try {
       if (platform !== 'web') {
@@ -39,18 +39,19 @@ describe('navigation without a selected Session', () => {
       }
       const tripwire = watchConsole(page)
       await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-      await page.getByRole('textbox', { name: 'Choose project', exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Choose project', exact: true }).waitFor()
       const sessionHeader = page.locator('[data-slot="conversation.session.header"]')
       expect(await sessionHeader.count()).toBe(0)
-      const header = page.locator('[data-slot="conversation.header"] > header')
-      expect(await header.evaluate(element => element.getBoundingClientRect().height)).toBe(40)
+      const strip = page.locator('[data-chat-tabs] [data-dockkit-strip]')
+      const stripHeight = platform === 'darwin' ? 53 : 42
+      expect(await strip.evaluate(element => element.getBoundingClientRect().height)).toBe(stripHeight)
       await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click()
       const reopen = platform === 'darwin'
         ? page.locator('[data-shell-leading]').getByRole('button', { name: 'Open sidebar', exact: true })
         : page.getByRole('button', { name: 'Open sidebar', exact: true })
       await reopen.waitFor({ state: 'visible' })
       expect(await sessionHeader.count()).toBe(0)
-      expect(await header.evaluate(element => element.getBoundingClientRect().height)).toBe(40)
+      expect(await strip.evaluate(element => element.getBoundingClientRect().height)).toBe(stripHeight)
       if (platform === 'darwin') {
         expect(await page.locator('[data-shell-leading]').getByRole('button', { name: 'New session', exact: true }).isVisible()).toBe(true)
       }

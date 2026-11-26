@@ -235,7 +235,7 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
           color: style.color, iconWidth: icon.width, iconHeight: icon.height }
       })))
       expect(compactStyles[0]).toEqual(compactStyles[1])
-      expect(compactStyles[0]).toMatchObject({ width: 28, height: 28, padding: '0px', iconWidth: 15, iconHeight: 15 })
+      expect(compactStyles[0]).toMatchObject({ width: 28, height: 28, padding: '0px', iconWidth: 16, iconHeight: 16 })
       expect(await trigger.evaluate(element => getComputedStyle(element.closest('[data-slot="conversation.session.header.actions"]')!.parentElement!).gap)).toBe('8px')
       await expandSidebar.hover()
       const expandHover = await expandSidebar.evaluate((element) => {

@@ -1,10 +1,12 @@
 /** Narrow sidebar geometry, navigation, focus and retained content in the shipped profile. */
 import { readFile } from 'node:fs/promises'
+import { basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Locator } from 'playwright'
 import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
 import { compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole, webSnapshotMode } from './scaffold.ts'
+import { expandProject } from './support.ts'
 
 /** A returning rail uses its compact layout without wide-content or icon-entry animations. */
 async function assertCompactRail(sidebar: Locator): Promise<void> {
@@ -209,7 +211,7 @@ async function assertFoldResize(toggle: Locator, from: number, to: number): Prom
     const middle = at(0.5)
     const end = at(1)
     for (const transition of transitions) transition.finish()
-    frame.style.removeProperty('--ds-transition-duration-slow')
+    frame.style.removeProperty('--ds-transition-duration')
     return { endpoints: [start.width, end.width], start, middle }
   })
   expect(sample.endpoints).toEqual([from, to])
@@ -236,9 +238,9 @@ it('overlays the conversation and closes after navigation without losing its sid
       const opener = page.getByRole('button', { name: 'Open sidebar', exact: true })
       await opener.waitFor()
       const frame = page.locator('[data-sidebar-drawer]')
-      expect(await page.locator('[data-shell-leading]').getByRole('button').count()).toBe(1)
+      expect(await page.locator('[data-shell-leading]').getByRole('button').count()).toBe(3)
       expect(await frame.evaluate(el => getComputedStyle(el).getPropertyValue('--jan-frame-leading-clearance').trim()))
-        .toBe('48px')
+        .toBe('120px')
       await expect.poll(() => frame.getAttribute('data-sidebar-collapsed')).toBe('true')
       const sidebar = page.locator('[data-slot="sidebar"]')
       const original = await sidebar.elementHandle()
@@ -255,7 +257,9 @@ it('overlays the conversation and closes after navigation without losing its sid
       expect(closed?.width).toBe(390)
       expect(await main.evaluate(el => el.closest('[inert]') !== null)).toBe(true)
       expect(await page.locator('[data-side="sidebar"]').count()).toBe(0)
-      const workspaceRow = drawer.locator('[data-row-key^="workspace:"]').first()
+      await expandProject(page, basename(scaffold.workspaceCwd))
+      const workspaceRow = drawer.locator('[data-row-key^="workspace:"]')
+        .filter({ has: page.getByText(basename(scaffold.workspaceCwd), { exact: true }) })
       const workspaceButtons = workspaceRow.getByRole('button', { includeHidden: true })
       expect(await workspaceRow.getAttribute('aria-expanded')).toBe('true')
       expect(await workspaceButtons.count()).toBe(2)
@@ -273,32 +277,33 @@ it('overlays the conversation and closes after navigation without losing its sid
       await page.getByRole('treeitem').filter({ has: page.getByText('Drawer navigation', { exact: true }) }).tap()
       await assertMaskFade(frame, 1, 0)
       await drawer.waitFor({ state: 'hidden' })
-      await page.getByRole('navigation', { name: 'Session hierarchy' }).getByText('Drawer navigation', { exact: true }).waitFor()
+      const chatChip = page.getByRole('tablist', { name: 'Chat tabs', exact: true }).getByRole('tab', { selected: true })
+      await chatChip.getByText('Drawer navigation', { exact: true }).waitFor()
+      const chip = await chatChip.locator('[data-dockkit-tab-title]').elementHandle()
       const chatTab = page.getByRole('tab', { name: 'Chat', exact: true })
-      const tabInset = () => chatTab.evaluate((tab) => {
-        const label = document.createRange()
-        label.selectNodeContents(tab)
-        return label.getBoundingClientRect().left - tab.closest('header')!.getBoundingClientRect().left
-      })
-      expect(await tabInset()).toBeCloseTo(20, 1)
-      // Restore CSS-probe markers in the same synchronous task, before rendering.
-      const desktopInsets = await chatTab.evaluate((tab) => {
+      // Returns the view tab's text offset from the chat tab title text under each probed platform marker.
+      const tabInsets = (platforms: readonly (string | undefined)[]) => chatTab.evaluate((tab, { title, platforms }) => {
+        const textLeft = (element: Element) => {
+          const label = document.createRange()
+          label.selectNodeContents(element)
+          return label.getBoundingClientRect().left
+        }
         const root = document.documentElement
         try {
-          return ['darwin', 'win32'].map((platform) => {
-            root.dataset.platform = platform
-            const label = document.createRange()
-            label.selectNodeContents(tab)
-            return label.getBoundingClientRect().left - tab.closest('header')!.getBoundingClientRect().left
+          return platforms.map((platform) => {
+            if (platform === undefined) delete root.dataset.platform
+            else root.dataset.platform = platform
+            return textLeft(tab) - textLeft(title!)
           })
         } finally {
           delete root.dataset.platform
         }
-      })
-      for (const inset of desktopInsets) expect(inset).toBeCloseTo(28, 1)
+      }, { title: chip, platforms })
+      for (const inset of await tabInsets([undefined, 'darwin', 'win32'])) expect(inset).toBeCloseTo(0, 1)
       await page.setViewportSize({ width: 768, height: 844 })
       await frame.waitFor({ state: 'detached' })
-      expect(await tabInset()).toBeCloseTo(28, 1)
+      expect((await tabInsets([undefined]))[0]).toBeCloseTo(0, 1)
+      await chip?.dispose()
       await page.setViewportSize({ width: 390, height: 844 })
       await frame.waitFor()
       await opener.click()
@@ -488,14 +493,14 @@ it('overlays the conversation and closes after navigation without losing its sid
         await foldSearch.fill('fold search')
         const wideFrame = page.locator('[data-rightbar-collapsed]')
         const collapseSidebar = page.getByRole('button', { name: 'Collapse sidebar', exact: true })
-        await wideFrame.evaluate((el) => { el.style.setProperty('--ds-transition-duration-slow', '100s') })
+        await wideFrame.evaluate((el) => { el.style.setProperty('--ds-transition-duration', '100s') })
         await posture.send('Emulation.clearDevicePostureOverride')
         await assertFoldResize(collapseSidebar, 475.5, 280)
         await expect.poll(() => main.boundingBox()).toEqual({ x: 280, y: 0, width: 671, height: 669 })
         expect(await page.locator('[data-side="sidebar"]').count()).toBe(1)
         expect(await foldSearch.evaluate(el => el === document.activeElement)).toBe(true)
         expect(await foldSearch.inputValue()).toBe('fold search')
-        await wideFrame.evaluate((el) => { el.style.setProperty('--ds-transition-duration-slow', '100s') })
+        await wideFrame.evaluate((el) => { el.style.setProperty('--ds-transition-duration', '100s') })
         await posture.send('Emulation.setDevicePostureOverride', { posture: { type: 'folded' } })
         await assertFoldResize(collapseSidebar, 280, 475.5)
         await expect.poll(async () => (await main.boundingBox())?.x).toBe(475.5)
@@ -524,7 +529,9 @@ it('overlays the conversation and closes after navigation without losing its sid
         await pointerPage.goto(scaffold.authenticatedUrl)
         await pointerPage.getByRole('button', { name: 'Open sidebar', exact: true }).click()
         expect(await pointerPage.getByPlaceholder('Search session names').evaluate(el => getComputedStyle(el).fontSize)).toBe('13px')
-        const pointerWorkspace = pointerPage.locator('[data-row-key^="workspace:"]').first()
+        await expandProject(pointerPage, basename(scaffold.workspaceCwd))
+        const pointerWorkspace = pointerPage.locator('[data-row-key^="workspace:"]')
+          .filter({ has: pointerPage.getByText(basename(scaffold.workspaceCwd), { exact: true }) })
         const pointerWorkspaceButtons = pointerWorkspace.getByRole('button', { includeHidden: true })
         await pointerWorkspace.click()
         expect(await pointerWorkspace.getAttribute('aria-expanded')).toBe('false')
@@ -594,8 +601,8 @@ it('overlays the conversation and closes after navigation without losing its sid
         'fold transitions: sidebar controls follow the divider in both directions; reduced motion changes width without animation',
         'drawer mask: opacity transitions from 0 to 1 on open and 1 to 0 on close',
         'reduced motion: drawer and mask settle without transitions',
-        'Web header: only the sidebar opener remains, with 48px leading clearance',
-        'below 768px: plugin and automation pages use 20px insets; Web view tabs align at 20px, while Desktop and wider Web tabs retain 28px',
+        'Web header: the sidebar opener, Back and Forward remain, with 120px leading clearance',
+        'below 768px: plugin and automation pages use 20px insets; view tabs align with the active chat tab title on Web and Desktop at every width',
         'touch selected Session: More remains visible; update time is hidden; pinned rows offer Unpin before More with Workspace action spacing',
         'touch Workspace: actions appear only while expanded, including after folding the focused row',
         'fine pointer: folded Workspace actions remain available on hover',
@@ -624,6 +631,7 @@ it('dismisses retained sidebar menus at the drawer breakpoint and preserves thei
     try {
       const page = await browser.newPage({ viewport: { width: 1024, height: 844 }, locale: 'en-US' })
       await page.goto(scaffold.authenticatedUrl)
+      await expandProject(page, basename(scaffold.workspaceCwd))
       const row = page.locator(`[data-row-key="session:${sessionId}"]`)
       await row.waitFor()
       const original = await row.elementHandle()
@@ -665,6 +673,7 @@ it('keeps drawer shortcuts and hit targets above fullscreen and floating right p
       const page = await browser.newPage({ viewport: { width: 1280, height: 844 }, locale: 'en-US' })
       await page.addInitScript(() => { Object.defineProperty(navigator, 'platform', { value: 'MacIntel' }) })
       await page.goto(scaffold.authenticatedUrl)
+      await expandProject(page, basename(scaffold.workspaceCwd))
       const row = page.getByRole('treeitem').filter({ has: page.getByText('Drawer overlay checks', { exact: true }) })
       await row.click()
       await page.locator('[data-sidebar-right-expand]').click()

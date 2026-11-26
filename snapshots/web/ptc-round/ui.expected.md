@@ -1,19 +1,21 @@
-- banner:
-  - navigation "Session hierarchy": "Using ONE run_code program: run"
-  - text: PTC mode
+- tablist "Chat tabs":
+  - 'tab "Using ONE run_code program: run Close chat tab" [selected]':
+    - text: "Using ONE run_code program: run"
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: "Using ONE run_code program: run bash `echo CODE_ROUND_OK`, then read the file missing.txt catching its error in the program. Return an object with both outcomes. Then reply DONE and stop. {{clock}}"
 - button "Copy"
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Ran code, ran commands, read files" [expanded]
-- button "Context injection runtime-context"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context time-context"
 - 'button "Think The user wants me to write a single `run_code` program that:"'
 - button "Code Run bash echo and catch missing file read"
 - button "Bash Echo CODE_ROUND_OK" [expanded]
@@ -30,9 +32,11 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Project Write"': Project Write
+- 'button "Access mode, current: Full access"': Full access
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]: workspace
+- 'button "Switch the agent preset for this task: PTC mode"': PTC mode
 - button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
 - button "17.5K tok · Cache hit 52%": 17.5K tokCache hit 52%
 - button "7% of context used": 7%

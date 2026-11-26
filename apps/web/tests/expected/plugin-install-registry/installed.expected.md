@@ -3,6 +3,11 @@
   - status: 已安装
   - paragraph: mirrored-package
   - paragraph: 版本 2.0.0
+  - group "要翻译成中文吗？":
+    - heading "要翻译成中文吗？" [level=3]
+    - paragraph: 这个插件的部分文字不是中文。Jan 可以用tokamak-official/tokamak-1-preview翻译它的界面文案和工具标题：这些文字只会发送一次，结果只保存在这台电脑上。
+    - button "暂不翻译"
+    - button "翻译成中文"
   - button "收起安装详情" [expanded]
   - paragraph: 安装位置：{{cwd}}/.jan-home/profiles/scaffold
   - paragraph: 第 1 次 · 中国大陆镜像源

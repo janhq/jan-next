@@ -36,6 +36,7 @@ import { ImageNotice, type ImageNoticeInjected } from './ImageNotice.tsx'
 import { ToolNotice, type ToolNoticeInjected } from './ToolNotice.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type ModelKey } from './locales.ts'
 import { overflowOf } from './send-check.ts'
+import { pickerOrder } from './model-order.ts'
 import type { ContextPressureProjection } from '@janhq/jan-token-meter/client'
 
 export { ModelDirectory } from './directory.ts'
@@ -130,11 +131,11 @@ function rowId(providerId: string, modelId: string): string {
 /** Window store for a Session that has no model directory. */
 const NO_WINDOW = { getSnapshot: (): number | undefined => undefined, subscribe: () => () => { } }
 
-/** Flatten the directory into popup rows; failure rows are listed for visibility but never selectable. */
+/** Flatten the directory into popup rows in picker order; failure rows are listed for visibility but never selectable. */
 function optionsOf(directory: ModelDirectoryState, t: TranslateNS<'model'>): SelectOption[] {
   const rows: SelectOption[] = []
   for (const group of directory.groups) {
-    for (const model of group.models) {
+    for (const model of pickerOrder(group.models)) {
       rows.push({
         id: rowId(group.id, model.id),
         label: model.name,

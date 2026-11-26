@@ -1,11 +1,14 @@
-- banner:
-  - navigation "Session hierarchy": Reference order target
+- tablist "Chat tabs":
+  - tab "Reference order target Close chat tab" [selected]:
+    - text: Reference order target
+    - button "Close chat tab"
+  - button "New tab"
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
+- tablist:
+  - tab "Chat" [selected]
+  - tab "Trajectory"
+- button "More conversation views"
 - text: Research notes what changed? Referenced session · Research notes {{clock}}
 - button "Copy"
 - status: Completed
@@ -15,3 +18,4 @@
 - 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
+- button "Choose project" [disabled]

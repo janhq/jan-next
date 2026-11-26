@@ -163,7 +163,7 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
     const runningProcess = page.locator('[data-turn-process]')
     expect(await runningProcess.count()).toBe(0)
     await expect.poll(
-      () => page.getByRole('status').filter({ hasText: 'Deep diving' }).isVisible(),
+      () => page.getByRole('status').filter({ hasText: 'Writing' }).isVisible(),
       { timeout: 10_000 },
     ).toBe(true)
     await page.locator('[data-streaming="true"]')
@@ -197,7 +197,8 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
   }, 120_000)
 
   it.skipIf(MODE === 'record')('shows exact completed-Turn usage and expands its available facts', async () => {
-    await launch(undefined, 5)
+    // Output speed needs the first step to span at least MIN_DECODE_SPAN_MS (1s).
+    await launch(undefined, 25)
     onTestFailed(() => saveFailureShot(page, 'web-e2e-turn-usage-expanded'))
     const { settled } = await sendPrompt(120_000)
     await settled
@@ -218,8 +219,8 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
     }
     await page.mouse.move(0, 0)
     expect(figures.slice(0, 3)).toEqual([
-      ['↓7.9K', 'Uncached input · 7,891 tok'],
-      ['↑112', 'Output · 112 tok'],
+      ['7.9K', 'Uncached input · 7,891 tok'],
+      ['112', 'Output · 112 tok'],
       ['7.8K', 'Cached input · 7,808 tok'],
     ])
     expect(figures.slice(3).map(([, hint]) => hint.split(' · ')[0])).toEqual(['Time to first token', 'Output speed'])
@@ -263,7 +264,7 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
     const process = page.locator('[data-turn-process]')
     await expect.poll(() => process.count(), { timeout: 10_000 }).toBe(1)
     expect(await process.getAttribute('aria-expanded')).toBe('false')
-    expect(await process.evaluate(element => getComputedStyle(element).borderBottomWidth)).toBe('1px')
+    expect(await process.evaluate(element => getComputedStyle(element.parentElement!).borderBottomWidth)).toBe('1px')
     const processBottom = await process.evaluate(element =>
       element.closest<HTMLElement>('[data-chat-flow-kind="turn-process"]')?.getBoundingClientRect().bottom)
     // The hidden reasoning row separates the folded control from the intermediate reply, so it keeps the 12px reply gap.

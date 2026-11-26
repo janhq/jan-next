@@ -1,5 +1,6 @@
 - listitem:
   - button "查看 slow-package": slow-package
+  - button "翻译成中文"
   - status
   - switch "启用 slow-package" [checked]
 
