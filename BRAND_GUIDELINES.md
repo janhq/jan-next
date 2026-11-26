@@ -1,10 +1,13 @@
-# Jan Brand Asset Usage Guidelines
+# Jan brand asset usage guidelines
 
-To maintain the long\-term healthy development of the Jan ecosystem, avoid user confusion, and facilitate the retrieval and identification of related resources, we have established these specifications and hope that everyone will adhere to them:
+"Jan" and the Jan logo are trademarks of Menlo Research. These guidelines show how to refer to Jan when you build on this project, so that readers can tell an official Jan project from a community project that uses one.
 
-- In your project's descriptive text, you may use "Jan" to truthfully and accurately describe your project's relationship with Jan, for example, "built on Jan" or "compatible with Jan\." Such descriptions comply with license requirements and help users understand your project's positioning\.
-- If you wish your project name to reflect its association with the Jan ecosystem, we recommend using the abbreviated "Jan" designation for naming, which is both clear and facilitates communication within the community\.
-- When naming your project, please avoid using the full "Jan" trademark directly\. "Jan" is a registered trademark of DeepSeek\. Unauthorized use in project names can easily lead to user misunderstanding and confusion, thereby affecting the clarity of the entire ecosystem\. It may also involve trademark infringement\.
-- Additionally, please avoid using official brand materials in your promotions or presentations in a way that could cause misunderstanding, so as not to give users the false impression of official endorsement, cooperation, or authorization\.
+- **Describe your project's relationship to Jan accurately.** You may use "Jan" and "Jan Next" to state that relationship, for example "built on Jan Next" or "compatible with Jan Next".
+- **Give your project its own name.** Do not name a project "Jan" or "Jan Next", and do not use either name as part of a project name. Such a name suggests an official release.
+- **Do not use the Jan logo or wordmark as your project's icon.** Use your own artwork, so that users do not take your project for an official one.
+- **Do not imply endorsement.** Do not use Jan brand assets in a way that suggests that Menlo Research sponsors, supports, or has approved your project.
+- **Mark plugins for discovery.** Add the [`jan-plugin`](https://github.com/topics/jan-plugin) topic to a plugin repository. The topic grants no rights to the marks.
 
-We believe that a clear and orderly community environment will make every developer's efforts more visible and more readily recognized\. For the few cases that do not comply with the above specifications, we may contact the relevant parties to make appropriate adjustments in order to maintain the overall order of the ecosystem\. Thank you for your understanding and support—let us work together to build a more friendly and sustainable open\-source community\.
+Menlo Research may contact projects that do not follow these guidelines and request an adjustment.
+
+Jan Next is forked from [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). "DeepSeek" and "DeepSeek Harness" are not Jan brand assets, and these guidelines do not cover them.

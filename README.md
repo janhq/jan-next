@@ -1,75 +1,82 @@
-# Jan
+# Jan Next
 
-Jan (`jan`) is an open-source agent harness, forked from DeepSeek Harness by [DeepSeek AI](https://deepseek.com).
+Jan Next is an experimental rebuild of [Jan](https://jan.ai) as an agent harness, forked from [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) by [DeepSeek AI](https://deepseek.com). It is local-first and privacy-focused, and it runs cloud models through [Tokamak](https://tokamak.sh), Jan's AI gateway.
 
 It is built on an **everything-is-a-plugin** architecture and powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512).
 
-Documentation: [https://jan.github.io/jan/](https://jan.github.io/jan/)
+## Local-first and privacy-focused
 
-## Developer preview
+- **Local models.** Download an open-weight model such as Jan v3.5 4B and run it on your machine through the bundled llama.cpp worker. Sessions, settings, credentials, and models stay under the local Jan home directory (`~/.config/jan-alpha` unless `JAN_HOME` is set).
+- **No telemetry.** Telemetry, product analytics, and usage reporting are not mounted in any profile.
+- **Tokamak for cloud models.** Sign in to Tokamak from the app, or set `TOKAMAK_API_KEY`, to use frontier models.
 
-Jan is in _developer preview_ and iterating rapidly. **THERE WILL BE COMPATIBILITY-BREAKING CHANGES.**
+Jan Next still contacts the network in these cases:
 
-Review the [safety notice](SAFETY.md) before running the project.
+- Prompts go to `api.tokamak.sh` while a session uses a Tokamak model. Select a local model to keep a session on your machine.
+- `web_search` sends the query to Tokamak when you are signed in, and to Exa's hosted endpoint when you are not.
+- Model downloads come from Hugging Face and plugin installs from the npm registry, each only when you ask for them.
+
+## Status
 
 ## Run
 
-### Run from `npm`
-
-Install `Node.js`, then run:
-
-```sh
-npx @janhq/jan web
-```
-
-The command starts the Web UI at `http://127.0.0.1:3080` by default and opens it in the default browser for a local launch. An SSH launch only prints the host URL because the SSH client or editor owns the local forwarded address. Pass `--no-open` to run the server without opening a browser. See [Web UI guide](docs/user/guide/index.md).
-
 ### Run from source
 
-To run from a repository checkout:
+
+Requirements: Node.js 24.9 or later, pnpm, and a Git checkout. Run:
 
 ```sh
 git clone https://github.com/janhq/jan-next.git
-cd jan
+cd jan-next
 pnpm install
 pnpm run build
 pnpm jan web
 ```
 
-`pnpm run build` prepares the repository artifacts. `pnpm jan web` uses those built artifacts without rebuilding.
+`pnpm jan web` starts the Web UI at `http://127.0.0.1:3080`, prints its URL, and opens it in the default browser for a local launch. Pass `--no-open` to run the server without opening a browser. It serves the artifacts from `pnpm run build` without rebuilding. See the [Web UI guide](docs/user/guide/index.md).
+
+### Local models
+
+The Web app needs the local model worker before it can offer local models. `make dev-web` builds the worker, then builds, serves, and rebuilds the Web app on source edits. The worker build needs a stable Rust toolchain, CMake 3.14 or later, and a C++17 compiler; see [native/llama-worker](native/llama-worker/README.md). Without the worker, the Web app still runs with Tokamak models.
+
+## Documentation
+
+Start with the [Web UI guide](docs/user/guide/index.md). Developers start with the [development guide](docs/development.md) and the [architecture documentation](docs/architecture.md); `make help` lists the Web and Desktop application commands.
+
+For agents, follow [AGENTS.md](AGENTS.md).
 
 ## Community and support
 
-- Submit feedback or bug reports through [GitHub Discussions](https://github.com/janhq/jan-next/discussions).
+- Report bugs through [GitHub Issues](https://github.com/janhq/jan-next/issues).
+- Ask questions in the [Jan Discord](https://discord.gg/FTk2MvZwJH) or in the [Jan Q&A discussions](https://github.com/orgs/janhq/discussions/categories/q-a).
 - Add the [`jan-plugin`](https://github.com/topics/jan-plugin) topic to your plugin repository for discoverability.
-- Join <a href="https://discord.gg/4MrtZUhpxg">Jan Discord community</a>.
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Development
-
-Start with the [development guide](docs/development.md) and [architecture documentation](docs/architecture.md).
-
-`pnpm run dev:web` builds, serves, and rebuilds client bundles on source edits in one terminal, and `make help` lists the matching Make targets for Web and Desktop; the guide's application commands section owns the full table.
-
-For agents, follow [AGENTS.md](AGENTS.md).
-
 ## Citation
 
 ```bibtex
-@misc{jan2026,
-  title={Jan: Everything is a Plugin},
-  author={DeepSeek-AI},
+@misc{jan-next2026,
+  title={Jan Next},
+  author={Menlo Research},
   year={2026},
   publisher={GitHub},
   howpublished={\url{https://github.com/janhq/jan-next}},
+}
+
+@misc{deepseek-harness2026,
+  title={DeepSeek Harness: Everything is a Plugin},
+  author={DeepSeek-AI},
+  year={2026},
+  publisher={GitHub},
+  howpublished={\url{https://github.com/deepseek-ai/deepseek-harness}},
 }
 ```
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Copyright (c) 2026 DeepSeek covers the original DeepSeek Harness; Copyright (c) 2026 Menlo Research covers the changes made in Jan Next.
 
 Third-party dependencies and their licenses are disclosed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
